@@ -83,6 +83,30 @@ Entre em contato: **comercial@librecodecoop.org.br**
 
 ---
 
+## Testes E2E (Playwright)
+
+O módulo inclui uma suíte E2E opcional com Playwright para validar o fluxo visível no frontend (login + tela de configurações NFS-e).
+
+1. Defina variáveis de ambiente (veja `.env.e2e.example`):
+
+```bash
+export NFSE_E2E_BASE_URL="http://localhost:8080"
+export NFSE_E2E_EMAIL="admin@local"
+export NFSE_E2E_PASSWORD="sua-senha"
+```
+
+2. Instale dependências e rode os testes:
+
+```bash
+npm install
+npx playwright install chromium
+npm run test:e2e
+```
+
+No GitHub Actions, há workflow manual em `.github/workflows/playwright-e2e.yml` com `workflow_dispatch`, usando os secrets `NFSE_E2E_EMAIL` e `NFSE_E2E_PASSWORD`.
+
+---
+
 ## Contribuindo
 
 PRs são bem-vindos. Leia o [guia de contribuição](CONTRIBUTING.md) antes de abrir um PR.
