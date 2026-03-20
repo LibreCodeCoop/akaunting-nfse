@@ -19,16 +19,67 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('nfse.settings.update') }}" class="space-y-8">
+            {{-- ─────────────────────────────────────────────────────── --}}
+            {{-- Step 1 · Digital certificate (file picker + two actions) --}}
+            {{-- ─────────────────────────────────────────────────────── --}}
+            <div class="bg-white rounded-lg shadow p-6 space-y-4">
+                <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_certificate') }}</h3>
+
+                <form id="cert-form" method="POST" action="{{ route('nfse.certificate.upload') }}" enctype="multipart/form-data" class="space-y-4">
+                    @csrf
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="pfx_file">{{ trans('nfse::general.settings.certificate') }}</label>
+                        <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
+                        <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password" required>
+                    </div>
+
+                    {{-- CNPJ badge shown after a successful parse --}}
+                    <div id="cert-cnpj-display" class="hidden flex items-center gap-2 p-3 bg-green-50 border border-green-300 rounded">
+                        <span class="text-sm text-green-700">{{ trans('nfse::general.cnpj_from_certificate') }}</span>
+                        <span id="cert-cnpj-value" class="font-mono font-bold text-green-900"></span>
+                    </div>
+
+                    <div id="cert-error-display" class="hidden text-red-600 text-sm"></div>
+
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" id="btn-read-cert" class="inline-flex items-center px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">
+                            {{ trans('nfse::general.read_certificate') }}
+                        </button>
+                        <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                            {{ trans('nfse::general.upload') }}
+                        </button>
+                    </div>
+                </form>
+
+                <form method="POST" action="{{ route('nfse.certificate.destroy') }}">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700">
+                        {{ trans('general.delete') }}
+                    </button>
+                </form>
+            </div>
+
+            {{-- ─────────────────────────────────────────────────────── --}}
+            {{-- Step 2 · NFS-e settings (CNPJ read-only; from cert)    --}}
+            {{-- ─────────────────────────────────────────────────────── --}}
+            <form method="POST" action="{{ route('nfse.settings.update') }}" class="space-y-8 mt-8">
                 @csrf
                 @method('PATCH')
 
                 <div class="bg-white rounded-lg shadow p-6 space-y-4">
-                    <h3 class="text-xl font-semibold">{{ trans('nfse::general.settings.title') }}</h3>
+                    <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_settings') }}</h3>
 
+                    {{-- CNPJ: populated by "Ler certificado" or falls back to saved value --}}
                     <div>
-                        <label class="block text-sm font-medium mb-1" for="cnpj_prestador">{{ trans('nfse::general.settings.cnpj_prestador') }}</label>
-                        <input id="cnpj_prestador" name="nfse[cnpj_prestador]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.cnpj_prestador', setting('nfse.cnpj_prestador')) }}" required>
+                        <label class="block text-sm font-medium mb-1" for="cnpj_prestador">{{ trans('nfse::general.settings.cnpj_from_certificate') }}</label>
+                        <input id="cnpj_prestador" name="nfse[cnpj_prestador]" type="text" class="w-full border rounded px-3 py-2 bg-gray-50 text-gray-500" value="{{ old('nfse.cnpj_prestador', setting('nfse.cnpj_prestador')) }}" readonly>
+                        <p class="text-xs text-gray-400 mt-1">{{ trans('nfse::general.cnpj_from_certificate') }}</p>
                     </div>
 
                     <div>
@@ -103,35 +154,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </button>
             </form>
 
-            <div class="bg-white rounded-lg shadow p-6 mt-8 space-y-4">
-                <h3 class="text-xl font-semibold">{{ trans('nfse::general.settings.certificate') }}</h3>
-
-                <form method="POST" action="{{ route('nfse.certificate.upload') }}" enctype="multipart/form-data" class="space-y-4">
-                    @csrf
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="pfx_file">{{ trans('nfse::general.settings.certificate') }}</label>
-                        <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2" required>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
-                        <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password" required>
-                    </div>
-
-                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
-                        {{ trans('nfse::general.upload') }}
-                    </button>
-                </form>
-
-                <form method="POST" action="{{ route('nfse.certificate.destroy') }}">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700">
-                        {{ trans('general.delete') }}
-                    </button>
-                </form>
-            </div>
         </div>
 
         <script>
@@ -140,6 +162,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const municipalitySelect = document.getElementById('municipio_nome');
                 const ibgeHidden = document.getElementById('municipio_ibge');
                 const ibgeDisplay = document.getElementById('municipio_ibge_display');
+                const cnpjInput = document.getElementById('cnpj_prestador');
 
                 const selectedUf = @json(old('nfse.uf', setting('nfse.uf', '')));
                 const selectedMunicipalityName = @json(old('nfse.municipio_nome', setting('nfse.municipio_nome', '')));
@@ -149,6 +172,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const ufsUrl = @json(route('nfse.ibge.ufs'));
                 const municipalitiesUrlTemplate = @json(route('nfse.ibge.municipalities', ['uf' => '__UF__']));
                 const lc116ServicesUrl = @json(route('nfse.lc116.services'));
+                const parsePfxUrl = @json(route('nfse.certificate.parse'));
 
                 const lc116DisplayInput = document.getElementById('item_lista_servico_display');
                 const lc116CodeInput = document.getElementById('item_lista_servico');
@@ -268,6 +292,67 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 lc116DisplayInput.addEventListener('input', () => {
                     const normalizedCode = lc116ByLabel.get(lc116DisplayInput.value) ?? '';
                     lc116CodeInput.value = normalizedCode;
+                });
+
+                // ── Certificate wizard ──────────────────────────────────────
+                const btnReadCert = document.getElementById('btn-read-cert');
+                const pfxFileInput = document.getElementById('pfx_file');
+                const pfxPasswordInput = document.getElementById('pfx_password');
+                const certCnpjDisplay = document.getElementById('cert-cnpj-display');
+                const certCnpjValue = document.getElementById('cert-cnpj-value');
+                const certErrorDisplay = document.getElementById('cert-error-display');
+
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+                btnReadCert.addEventListener('click', async () => {
+                    certErrorDisplay.classList.add('hidden');
+                    certCnpjDisplay.classList.add('hidden');
+
+                    if (!pfxFileInput.files.length) {
+                        certErrorDisplay.textContent = @json(trans('nfse::general.settings.certificate')) + ': selecione um arquivo PFX.';
+                        certErrorDisplay.classList.remove('hidden');
+                        return;
+                    }
+
+                    btnReadCert.disabled = true;
+
+                    const formData = new FormData();
+                    formData.append('pfx_file', pfxFileInput.files[0]);
+                    formData.append('pfx_password', pfxPasswordInput.value);
+                    formData.append('_token', csrfToken);
+
+                    try {
+                        const response = await fetch(parsePfxUrl, {
+                            method: 'POST',
+                            headers: { Accept: 'application/json' },
+                            body: formData,
+                        });
+
+                        const payload = await response.json().catch(() => ({}));
+
+                        if (!response.ok) {
+                            certErrorDisplay.textContent = payload.error ?? @json(trans('nfse::general.invalid_pfx'));
+                            certErrorDisplay.classList.remove('hidden');
+                            return;
+                        }
+
+                        const cnpj = payload.data?.cnpj ?? null;
+
+                        if (!cnpj) {
+                            certErrorDisplay.textContent = @json(trans('nfse::general.cnpj_not_found'));
+                            certErrorDisplay.classList.remove('hidden');
+                            return;
+                        }
+
+                        certCnpjValue.textContent = cnpj;
+                        certCnpjDisplay.classList.remove('hidden');
+                        cnpjInput.value = cnpj;
+                    } catch {
+                        certErrorDisplay.textContent = @json(trans('nfse::general.invalid_pfx'));
+                        certErrorDisplay.classList.remove('hidden');
+                    } finally {
+                        btnReadCert.disabled = false;
+                    }
                 });
             });
         </script>
