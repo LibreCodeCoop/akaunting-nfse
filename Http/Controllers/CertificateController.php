@@ -72,7 +72,7 @@ class CertificateController extends Controller
         $mount   = setting('nfse.bao_mount', 'nfse');
         $roleId  = setting('nfse.bao_role_id');
         $secret  = setting('nfse.bao_secret_id');
-        $token   = env('BAO_TOKEN');
+        $token   = setting('nfse.bao_token') ?: env('BAO_TOKEN');
 
         return new \LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore(
             addr:     $addr,
