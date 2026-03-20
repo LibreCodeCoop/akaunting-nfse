@@ -17,12 +17,6 @@
         "issues": "https://github.com/LibreCodeCoop/akaunting-nfse/issues",
         "source": "https://github.com/LibreCodeCoop/akaunting-nfse"
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/LibreCodeCoop/nfse-php.git"
-        }
-    ],
     "require": {
         "php": "^8.2",
         "librecodeoop/nfse-php": "dev-main"
