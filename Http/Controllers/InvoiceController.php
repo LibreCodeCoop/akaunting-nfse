@@ -9,9 +9,7 @@ namespace Modules\Nfse\Http\Controllers;
 
 use App\Abstracts\Http\Controller;
 use App\Models\Sale\Invoice;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use LibreCodeCoop\NfsePHP\Dto\DpsData;
 use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
