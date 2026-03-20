@@ -107,6 +107,35 @@ No GitHub Actions, há workflow manual em `.github/workflows/playwright-e2e.yml`
 
 ---
 
+## Testes de API/Fluxo com Behat
+
+Além dos E2E com browser, o módulo agora possui uma suíte Behat para validar contratos HTTP dos endpoints do NFS-e com menor custo de execução.
+
+1. Defina variáveis de ambiente para o ambiente Akaunting alvo (veja `.env.behat.example`):
+
+```bash
+export NFSE_BEHAT_BASE_URL="http://localhost:8082"
+export NFSE_BEHAT_EMAIL="admin@akaunting.test"
+export NFSE_BEHAT_PASSWORD="sua-senha"
+export NFSE_BEHAT_COMPANY_ID="1"
+```
+
+2. Rode os cenários:
+
+```bash
+composer test:behat:guest   # sem credenciais, cobre guardas de autenticação
+composer test:behat:auth    # requer credenciais, cobre endpoints autenticados
+```
+
+### Estratégia de segurança (CI sem PFX/CNPJ reais)
+
+- Use CNPJ de fixture em sandbox (`12345678901234`) apenas para validar fluxo técnico.
+- Use fixture `.p12` inválida/sintética para validar endpoint de upload sem credenciais fiscais reais.
+- Não execute emissão real em CI: os cenários cobrem roteamento/autorização/validação e contratos de resposta.
+- Para ambiente controlado de homologação com credenciais reais, use workflow manual e segredos do repositório (nunca em código/versionamento).
+
+---
+
 ## Contribuindo
 
 PRs são bem-vindos. Leia o [guia de contribuição](CONTRIBUTING.md) antes de abrir um PR.

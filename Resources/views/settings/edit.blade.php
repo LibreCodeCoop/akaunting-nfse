@@ -6,142 +6,233 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     <x-slot name="title">{{ trans('nfse::general.settings.title') }}</x-slot>
 
     <x-slot name="content">
-        <div class="flex flex-col lg:flex-row gap-x-10 gap-y-12">
-            <div class="w-full lg:w-2/3">
+        <div class="max-w-4xl">
+            @if(session('success'))
+                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                    {{ session('success') }}
+                </div>
+            @endif
 
-                {{-- Success / Error flashes --}}
-                @if(session('success'))
-                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                        {{ session('success') }}
+            @if(session('error'))
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    {{ session('error') }}
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('nfse.settings.update') }}" class="space-y-8">
+                @csrf
+                @method('PATCH')
+
+                <div class="bg-white rounded-lg shadow p-6 space-y-4">
+                    <h3 class="text-xl font-semibold">{{ trans('nfse::general.settings.title') }}</h3>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="cnpj_prestador">{{ trans('nfse::general.settings.cnpj_prestador') }}</label>
+                        <input id="cnpj_prestador" name="nfse[cnpj_prestador]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.cnpj_prestador', setting('nfse.cnpj_prestador')) }}" required>
                     </div>
-                @endif
-                @if(session('error'))
-                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                        {{ session('error') }}
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="uf">{{ trans('nfse::general.settings.uf') }}</label>
+                        <select id="uf" name="nfse[uf]" class="w-full border rounded px-3 py-2" required>
+                            <option value="">Selecione...</option>
+                        </select>
                     </div>
-                @endif
 
-                <form method="POST" action="{{ route('nfse.settings.update') }}">
-                    @csrf
-                    @method('PATCH')
-
-                    <x-form.section>
-                        <x-slot name="title">{{ trans('nfse::general.settings.title') }}</x-slot>
-
-                        <x-form.group.text
-                            name="nfse[cnpj_prestador]"
-                            label="{{ trans('nfse::general.settings.cnpj_prestador') }}"
-                            value="{{ old('nfse.cnpj_prestador', setting('nfse.cnpj_prestador')) }}"
-                            required
-                        />
-
-                        <x-form.group.text
-                            name="nfse[municipio_ibge]"
-                            label="{{ trans('nfse::general.settings.municipio_ibge') }}"
-                            value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '3303302')) }}"
-                            required
-                        />
-
-                        <x-form.group.text
-                            name="nfse[item_lista_servico]"
-                            label="{{ trans('nfse::general.settings.item_lista') }}"
-                            value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}"
-                        />
-
-                        <x-form.group.text
-                            name="nfse[aliquota]"
-                            label="{{ trans('nfse::general.settings.aliquota') }}"
-                            value="{{ old('nfse.aliquota', setting('nfse.aliquota', '5.00')) }}"
-                        />
-
-                        <x-form.group.checkbox
-                            name="nfse[sandbox_mode]"
-                            label="{{ trans('nfse::general.settings.sandbox_mode') }}"
-                            :checked="(bool) setting('nfse.sandbox_mode', true)"
-                        />
-                    </x-form.section>
-
-                    <x-form.section>
-                        <x-slot name="title">OpenBao / Vault</x-slot>
-
-                        <x-form.group.text
-                            name="nfse[bao_addr]"
-                            label="{{ trans('nfse::general.settings.bao_addr') }}"
-                            value="{{ old('nfse.bao_addr', setting('nfse.bao_addr', 'http://openbao:8200')) }}"
-                            required
-                        />
-
-                        <x-form.group.text
-                            name="nfse[bao_mount]"
-                            label="{{ trans('nfse::general.settings.bao_mount') }}"
-                            value="{{ old('nfse.bao_mount', setting('nfse.bao_mount', 'nfse')) }}"
-                        />
-
-                        <x-form.group.text
-                            type="password"
-                            name="nfse[bao_token]"
-                            label="{{ trans('nfse::general.settings.bao_token') }}"
-                            value=""
-                            autocomplete="new-password"
-                        />
-
-                        <x-form.group.text
-                            name="nfse[bao_role_id]"
-                            label="{{ trans('nfse::general.settings.bao_role_id') }}"
-                            value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}"
-                        />
-
-                        <x-form.group.text
-                            type="password"
-                            name="nfse[bao_secret_id]"
-                            label="{{ trans('nfse::general.settings.bao_secret_id') }}"
-                            value=""
-                            autocomplete="new-password"
-                        />
-                    </x-form.section>
-
-                    <div class="mt-6">
-                        <x-button type="submit">{{ trans('general.save') }}</x-button>
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="municipio_nome">{{ trans('nfse::general.settings.municipio_nome') }}</label>
+                        <select id="municipio_nome" name="nfse[municipio_nome]" class="w-full border rounded px-3 py-2" required disabled>
+                            <option value="">Selecione o estado primeiro...</option>
+                        </select>
                     </div>
-                </form>
 
-                {{-- Certificate upload --}}
-                <div class="mt-10">
-                    <x-form.section>
-                        <x-slot name="title">{{ trans('nfse::general.settings.certificate') }}</x-slot>
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="municipio_ibge_display">{{ trans('nfse::general.settings.municipio_ibge') }}</label>
+                        <input id="municipio_ibge_display" type="text" class="w-full border rounded px-3 py-2 bg-gray-50" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" readonly>
+                        <input id="municipio_ibge" name="nfse[municipio_ibge]" type="hidden" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" required>
+                    </div>
 
-                        <form method="POST" action="{{ route('nfse.certificate.upload') }}" enctype="multipart/form-data">
-                            @csrf
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="item_lista_servico">{{ trans('nfse::general.settings.item_lista') }}</label>
+                        <input id="item_lista_servico" name="nfse[item_lista_servico]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}">
+                    </div>
 
-                            <x-form.group.file
-                                name="pfx_file"
-                                label="{{ trans('nfse::general.settings.certificate') }}"
-                                accept=".pfx,.p12"
-                                required
-                            />
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="aliquota">{{ trans('nfse::general.settings.aliquota') }}</label>
+                        <input id="aliquota" name="nfse[aliquota]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.aliquota', setting('nfse.aliquota', '5.00')) }}">
+                    </div>
 
-                            <x-form.group.text
-                                type="password"
-                                name="pfx_password"
-                                label="{{ trans('nfse::general.settings.pfx_password') }}"
-                                autocomplete="new-password"
-                                required
-                            />
-
-                            <div class="mt-4 flex gap-4">
-                                <x-button type="submit">{{ trans('general.upload') }}</x-button>
-
-                                <form method="POST" action="{{ route('nfse.certificate.destroy') }}">
-                                    @csrf
-                                    @method('DELETE')
-                                    <x-button type="submit" kind="danger">{{ trans('general.delete') }}</x-button>
-                                </form>
-                            </div>
-                        </form>
-                    </x-form.section>
+                    <label class="inline-flex items-center gap-2">
+                        <input name="nfse[sandbox_mode]" type="checkbox" value="1" @checked((bool) old('nfse.sandbox_mode', setting('nfse.sandbox_mode', true)))>
+                        <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
+                    </label>
                 </div>
 
+                <div class="bg-white rounded-lg shadow p-6 space-y-4">
+                    <h3 class="text-xl font-semibold">OpenBao / Vault</h3>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="bao_addr">{{ trans('nfse::general.settings.bao_addr') }}</label>
+                        <input id="bao_addr" name="nfse[bao_addr]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_addr', setting('nfse.bao_addr', 'http://openbao:8200')) }}" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="bao_mount">{{ trans('nfse::general.settings.bao_mount') }}</label>
+                        <input id="bao_mount" name="nfse[bao_mount]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_mount', setting('nfse.bao_mount', 'nfse')) }}">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
+                        <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
+                        <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
+                        <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
+                    </div>
+                </div>
+
+                <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                    {{ trans('general.save') }}
+                </button>
+            </form>
+
+            <div class="bg-white rounded-lg shadow p-6 mt-8 space-y-4">
+                <h3 class="text-xl font-semibold">{{ trans('nfse::general.settings.certificate') }}</h3>
+
+                <form method="POST" action="{{ route('nfse.certificate.upload') }}" enctype="multipart/form-data" class="space-y-4">
+                    @csrf
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="pfx_file">{{ trans('nfse::general.settings.certificate') }}</label>
+                        <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
+                        <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password" required>
+                    </div>
+
+                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                        {{ trans('general.upload') }}
+                    </button>
+                </form>
+
+                <form method="POST" action="{{ route('nfse.certificate.destroy') }}">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700">
+                        {{ trans('general.delete') }}
+                    </button>
+                </form>
             </div>
         </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', async () => {
+                const ufSelect = document.getElementById('uf');
+                const municipalitySelect = document.getElementById('municipio_nome');
+                const ibgeHidden = document.getElementById('municipio_ibge');
+                const ibgeDisplay = document.getElementById('municipio_ibge_display');
+
+                const selectedUf = @json(old('nfse.uf', setting('nfse.uf', '')));
+                const selectedMunicipalityName = @json(old('nfse.municipio_nome', setting('nfse.municipio_nome', '')));
+                const selectedIbge = @json(old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')));
+
+                const ufsUrl = @json(route('nfse.ibge.ufs'));
+                const municipalitiesUrlTemplate = @json(route('nfse.ibge.municipalities', ['uf' => '__UF__']));
+
+                const fetchJson = async (url) => {
+                    const response = await fetch(url, { headers: { Accept: 'application/json' } });
+                    const payload = await response.json().catch(() => ({ data: [] }));
+
+                    if (!response.ok) {
+                        return [];
+                    }
+
+                    return Array.isArray(payload.data) ? payload.data : [];
+                };
+
+                const renderMunicipalities = (municipalities, selectedName, selectedCode) => {
+                    municipalitySelect.innerHTML = '';
+
+                    const placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = 'Selecione...';
+                    municipalitySelect.appendChild(placeholder);
+
+                    municipalities.forEach((city) => {
+                        const option = document.createElement('option');
+                        option.value = city.name;
+                        option.textContent = city.name;
+                        option.dataset.ibge = city.ibge_code;
+
+                        if ((selectedCode && city.ibge_code === selectedCode) || (!selectedCode && selectedName && city.name === selectedName)) {
+                            option.selected = true;
+                            ibgeHidden.value = city.ibge_code;
+                            ibgeDisplay.value = city.ibge_code;
+                        }
+
+                        municipalitySelect.appendChild(option);
+                    });
+
+                    municipalitySelect.disabled = false;
+                };
+
+                const loadMunicipalities = async (uf, preferredName = '', preferredCode = '') => {
+                    if (!uf) {
+                        municipalitySelect.disabled = true;
+                        municipalitySelect.innerHTML = '<option value="">Selecione o estado primeiro...</option>';
+                        ibgeHidden.value = '';
+                        ibgeDisplay.value = '';
+                        return;
+                    }
+
+                    municipalitySelect.disabled = true;
+                    municipalitySelect.innerHTML = '<option value="">Carregando municípios...</option>';
+
+                    const url = municipalitiesUrlTemplate.replace('__UF__', encodeURIComponent(uf));
+                    const municipalities = await fetchJson(url);
+                    renderMunicipalities(municipalities, preferredName, preferredCode);
+                };
+
+                const ufs = await fetchJson(ufsUrl);
+                ufSelect.innerHTML = '';
+
+                const ufPlaceholder = document.createElement('option');
+                ufPlaceholder.value = '';
+                ufPlaceholder.textContent = 'Selecione...';
+                ufSelect.appendChild(ufPlaceholder);
+
+                ufs.forEach((entry) => {
+                    const option = document.createElement('option');
+                    option.value = entry.uf;
+                    option.textContent = `${entry.uf} - ${entry.name}`;
+                    if (entry.uf === selectedUf) {
+                        option.selected = true;
+                    }
+                    ufSelect.appendChild(option);
+                });
+
+                if (selectedUf) {
+                    await loadMunicipalities(selectedUf, selectedMunicipalityName, selectedIbge);
+                }
+
+                ufSelect.addEventListener('change', async () => {
+                    await loadMunicipalities(ufSelect.value);
+                });
+
+                municipalitySelect.addEventListener('change', () => {
+                    const selectedOption = municipalitySelect.options[municipalitySelect.selectedIndex];
+                    const ibgeCode = selectedOption?.dataset?.ibge ?? '';
+                    ibgeHidden.value = ibgeCode;
+                    ibgeDisplay.value = ibgeCode;
+                });
+            });
+        </script>
     </x-slot>
 </x-layouts.admin>

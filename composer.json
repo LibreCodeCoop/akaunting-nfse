@@ -31,7 +31,9 @@
         }
     ],
     "require-dev": {
+        "behat/behat": "^3.16",
         "phpunit/phpunit": "^11.0",
+        "guzzlehttp/guzzle": "^7.9",
         "friendsofphp/php-cs-fixer": "^3.0",
         "vimeo/psalm": "^6.0"
     },
@@ -48,6 +50,9 @@
     "scripts": {
         "test": "phpunit",
         "test:unit": "phpunit --testsuite=Unit",
+        "test:behat": "behat --config=behat.yml.dist --strict --colors",
+        "test:behat:auth": "behat --config=behat.yml.dist --strict --colors --tags='@auth'",
+        "test:behat:guest": "behat --config=behat.yml.dist --strict --colors --tags='~@auth'",
         "test:coverage": "XDEBUG_MODE=coverage phpunit --coverage-clover=build/logs/clover.xml",
         "cs:check": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
@@ -56,6 +61,7 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "config": {
+        "prepend-autoloader": false,
         "sort-packages": true
     }
 }

@@ -69,6 +69,8 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
             };
 
             $listener = new class () extends ShowInSettingsMenu {
+                public string $permission = '';
+
                 public function moduleIsEnabled(string $alias): bool
                 {
                     return true;
@@ -76,6 +78,8 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
 
                 public function canAccessMenuItem(string $title, string $permission): bool
                 {
+                    $this->permission = $permission;
+
                     return true;
                 }
             };
@@ -86,6 +90,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
             self::assertSame('nfse.settings.edit', $menu->calls[0]['route']);
             self::assertSame(260, $menu->calls[0]['order']);
             self::assertSame('receipt_long', $menu->calls[0]['options']['icon']);
+            self::assertSame('read-settings-company', $listener->permission);
         }
 
         public function testHandleSkipsWhenModuleDisabled(): void

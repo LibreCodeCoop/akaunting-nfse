@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
-use App\Abstracts\Http\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Modules\Nfse\Support\VaultConfig;

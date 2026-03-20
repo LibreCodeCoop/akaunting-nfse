@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+default:
+  autoload:
+    "": "%paths.base%/tests/integration/features/bootstrap"
+
+  suites:
+    default:
+      paths:
+        - "%paths.base%/tests/integration/features"
+      contexts:
+        - FeatureContext
+
+  formatters:
+    progress: ~
+
+  gherkin:
+    filters:
+      tags: "~@wip"

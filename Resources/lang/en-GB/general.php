@@ -18,6 +18,8 @@ return [
     'settings' => [
         'title'            => 'NFS-e Settings',
         'cnpj_prestador'   => 'Service Provider CNPJ',
+        'uf'               => 'State (UF)',
+        'municipio_nome'   => 'Municipality',
         'municipio_ibge'   => 'Municipality IBGE Code',
         'sandbox_mode'     => 'Sandbox Mode (Staging)',
         'bao_addr'         => 'OpenBao / Vault Address',
