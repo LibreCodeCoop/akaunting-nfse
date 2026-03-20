@@ -1,0 +1,20 @@
+{
+    "alias": "nfse",
+    "icon": "receipt_long",
+    "version": "1.0.0",
+    "active": 1,
+    "providers": [
+        "Modules\\Nfse\\Providers\\Main",
+        "Modules\\Nfse\\Providers\\Event"
+    ],
+    "aliases": {},
+    "files": [],
+    "requires": [],
+    "reports": [],
+    "widgets": [],
+    "settings": [],
+    "extra-modules": {},
+    "routes": {
+        "redirect_after_install": "nfse.settings.edit"
+    }
+}
