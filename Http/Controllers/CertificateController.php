@@ -1,0 +1,85 @@
+<?php
+
+// SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+declare(strict_types=1);
+
+namespace Modules\Nfse\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use LibreCodeCoop\NfsePHP\Exception\PfxImportException;
+
+class CertificateController extends Controller
+{
+    public function upload(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'pfx_file'    => 'required|file|mimes:pfx,p12|max:1024',
+            'pfx_password' => 'required|string|max:255',
+        ]);
+
+        $file     = $request->file('pfx_file');
+        $password = $request->input('pfx_password');
+        $cnpj     = setting('nfse.cnpj_prestador');
+
+        // Verify PFX is readable before storing
+        $pfxContent = file_get_contents($file->getRealPath());
+        $certs      = [];
+        if (!openssl_pkcs12_read($pfxContent, $certs, $password)) {
+            return back()->with('error', trans('nfse::general.invalid_pfx'));
+        }
+
+        // Store PFX file in private storage
+        $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
+        if (!is_dir(dirname($storagePath))) {
+            mkdir(dirname($storagePath), 0700, true);
+        }
+        file_put_contents($storagePath, $pfxContent);
+        chmod($storagePath, 0600);
+
+        // Store password in OpenBao — never in the application database
+        $store = $this->makeSecretStore();
+        $store->put('pfx/' . $cnpj, [
+            'pfx_path' => $storagePath,
+            'password' => $password,
+        ]);
+
+        return redirect()->route('nfse.settings.edit')
+            ->with('success', trans('nfse::general.certificate_uploaded'));
+    }
+
+    public function destroy(): RedirectResponse
+    {
+        $cnpj        = setting('nfse.cnpj_prestador');
+        $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
+
+        if (is_file($storagePath)) {
+            unlink($storagePath);
+        }
+
+        $this->makeSecretStore()->delete('pfx/' . $cnpj);
+
+        return redirect()->route('nfse.settings.edit')
+            ->with('success', trans('nfse::general.certificate_deleted'));
+    }
+
+    private function makeSecretStore(): \LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
+    {
+        $addr    = setting('nfse.bao_addr');
+        $mount   = setting('nfse.bao_mount', 'nfse');
+        $roleId  = setting('nfse.bao_role_id');
+        $secret  = setting('nfse.bao_secret_id');
+        $token   = env('BAO_TOKEN');
+
+        return new \LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore(
+            addr:     $addr,
+            mount:    $mount,
+            token:    $token ?: null,
+            roleId:   $roleId ?: null,
+            secretId: $secret ?: null,
+        );
+    }
+}
