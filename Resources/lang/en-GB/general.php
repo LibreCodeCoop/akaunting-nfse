@@ -5,6 +5,7 @@
 
 return [
     'name'                  => 'NFS-e',
+    'description'           => 'NFS-e issuance and settings',
     'saved'                 => 'Settings saved successfully.',
     'certificate_uploaded'  => 'Certificate uploaded and password stored securely.',
     'certificate_deleted'   => 'Certificate removed successfully.',

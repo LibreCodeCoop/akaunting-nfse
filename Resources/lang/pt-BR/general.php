@@ -5,6 +5,7 @@
 
 return [
     'name'                  => 'NFS-e',
+    'description'           => 'Emissao e configuracoes de NFS-e',
     'saved'                 => 'Configurações salvas com sucesso.',
     'certificate_uploaded'  => 'Certificado enviado e senha armazenada com segurança.',
     'certificate_deleted'   => 'Certificado removido com sucesso.',
