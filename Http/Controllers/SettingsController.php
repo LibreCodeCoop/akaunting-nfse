@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Modules\Nfse\Support\IbgeLocalities;
+use Modules\Nfse\Support\Lc116Catalog;
 use Throwable;
 
 class SettingsController extends Controller
@@ -73,6 +74,16 @@ class SettingsController extends Controller
         }
     }
 
+    public function lc116Services(Request $request, Lc116Catalog $lc116Catalog): JsonResponse
+    {
+        $query = $request->query('q');
+        $limit = (int) $request->query('limit', 200);
+
+        return response()->json([
+            'data' => $lc116Catalog->search(is_string($query) ? $query : null, $limit),
+        ]);
+    }
+
     public function update(Request $request): RedirectResponse
     {
         $request->validate([
@@ -80,6 +91,7 @@ class SettingsController extends Controller
             'nfse.uf'              => 'required|string|size:2',
             'nfse.municipio_nome'  => 'required|string|max:255',
             'nfse.municipio_ibge'  => 'required|string|size:7',
+            'nfse.item_lista_servico' => 'required|string|size:4',
             'nfse.sandbox_mode'    => 'nullable|boolean',
             'nfse.bao_addr'        => 'required|url',
             'nfse.bao_mount'       => 'required|string',
@@ -90,6 +102,8 @@ class SettingsController extends Controller
 
         $nfseInput = $request->input('nfse', []);
         $nfseInput['uf'] = strtoupper((string) ($nfseInput['uf'] ?? ''));
+        $nfseInput['item_lista_servico'] = preg_replace('/\D/', '', (string) ($nfseInput['item_lista_servico'] ?? ''));
+        unset($nfseInput['item_lista_servico_display']);
 
         // Keep existing sensitive secrets unless user explicitly provides a new value.
         if (($nfseInput['bao_token'] ?? '') === '') {

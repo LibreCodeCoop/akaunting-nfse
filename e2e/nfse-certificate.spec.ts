@@ -31,10 +31,13 @@ test.describe('NFS-e certificate upload', () => {
     test('certificate upload form is present with correct fields', async ({ page }) => {
         const fileInput = page.locator('input[name="pfx_file"]');
         const passwordInput = page.locator('input[name="pfx_password"]');
+        const uploadButton = page.locator('form[action*="nfse/certificate"] button[type="submit"]');
 
         await expect(fileInput).toBeAttached();
         await expect(passwordInput).toBeVisible();
         await expect(passwordInput).toHaveAttribute('type', 'password');
+        await expect(uploadButton).toBeVisible();
+        await expect(uploadButton).not.toHaveText(/general\.upload/i);
     });
 
     test('file picker accepts only .pfx and .p12 extensions', async ({ page }) => {
