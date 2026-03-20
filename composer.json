@@ -17,14 +17,23 @@
         "issues": "https://github.com/LibreCodeCoop/akaunting-nfse/issues",
         "source": "https://github.com/LibreCodeCoop/akaunting-nfse"
     },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../packages/librecodeoop/nfse-php",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "require": {
         "php": "^8.2",
-        "librecodeoop/nfse-php": "^1.0"
+        "librecodeoop/nfse-php": "^1.0@dev"
     },
     "require-dev": {
         "phpunit/phpunit": "^11.0",
         "friendsofphp/php-cs-fixer": "^3.0",
-        "vimeo/psalm": "^5.0"
+        "vimeo/psalm": "^6.0"
     },
     "autoload": {
         "psr-4": {
