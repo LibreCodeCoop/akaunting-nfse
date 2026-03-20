@@ -29,11 +29,23 @@ class SettingsController extends Controller
             'nfse.sandbox_mode'    => 'nullable|boolean',
             'nfse.bao_addr'        => 'required|url',
             'nfse.bao_mount'       => 'required|string',
+            'nfse.bao_token'       => 'nullable|string',
             'nfse.bao_role_id'     => 'nullable|string',
             'nfse.bao_secret_id'   => 'nullable|string',
         ]);
 
-        foreach ($request->input('nfse', []) as $key => $value) {
+        $nfseInput = $request->input('nfse', []);
+
+        // Keep existing sensitive secrets unless user explicitly provides a new value.
+        if (($nfseInput['bao_token'] ?? '') === '') {
+            unset($nfseInput['bao_token']);
+        }
+
+        if (($nfseInput['bao_secret_id'] ?? '') === '') {
+            unset($nfseInput['bao_secret_id']);
+        }
+
+        foreach ($nfseInput as $key => $value) {
             setting(['nfse.' . $key => $value]);
         }
 
