@@ -18,7 +18,8 @@ path = [
     "module.json",
     "package.json",
     "package-lock.json",
-    ".env.e2e.example"
+    ".env.e2e.example",
+    "e2e/fixtures/test-cert.p12"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 LibreCode coop and contributors"
