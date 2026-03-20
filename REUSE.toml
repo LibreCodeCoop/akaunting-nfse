@@ -15,7 +15,10 @@ path = [
     ".github/**",
     ".gitignore",
     "composer.json",
-    "module.json"
+    "module.json",
+    "package.json",
+    "package-lock.json",
+    ".env.e2e.example"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 LibreCode coop and contributors"
