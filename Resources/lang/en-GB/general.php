@@ -21,6 +21,7 @@ return [
         'sandbox_mode'     => 'Sandbox Mode (Staging)',
         'bao_addr'         => 'OpenBao / Vault Address',
         'bao_mount'        => 'KV v2 Mount',
+        'bao_token'        => 'OpenBao / Vault Token',
         'bao_role_id'      => 'AppRole Role ID',
         'bao_secret_id'    => 'AppRole Secret ID',
         'certificate'      => 'ICP-Brasil Certificate (PFX)',
