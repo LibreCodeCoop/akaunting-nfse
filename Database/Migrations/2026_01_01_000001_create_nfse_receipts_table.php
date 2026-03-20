@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::create('nfse_receipts', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('invoice_id')->unique()->index();
+            $table->unsignedInteger('invoice_id')->unique()->index();
             $table->string('nfse_number', 50)->nullable();
             $table->string('chave_acesso', 255)->nullable()->index();
             $table->datetime('data_emissao')->nullable();
