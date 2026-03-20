@@ -11,8 +11,6 @@ use Illuminate\Support\ServiceProvider as Provider;
 
 class Main extends Provider
 {
-    private const NFSE_PHP_AUTOLOAD = __DIR__ . '/../../../packages/librecodeoop/nfse-php/vendor/autoload.php';
-
     /**
      * Boot the application events.
      */
@@ -28,15 +26,7 @@ class Main extends Provider
      */
     public function register(): void
     {
-        $this->registerNfsePhpAutoload();
         $this->loadRoutes();
-    }
-
-    protected function registerNfsePhpAutoload(): void
-    {
-        if (is_file(self::NFSE_PHP_AUTOLOAD)) {
-            require_once self::NFSE_PHP_AUTOLOAD;
-        }
     }
 
     protected function loadViews(): void
