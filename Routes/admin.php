@@ -20,6 +20,7 @@ Route::module('nfse', function () {
     // IBGE localities lookup
     Route::get('ibge/ufs', [SettingsController::class, 'ufs'])->name('ibge.ufs');
     Route::get('ibge/municipalities/{uf}', [SettingsController::class, 'municipalities'])->name('ibge.municipalities');
+    Route::get('lc116/services', [SettingsController::class, 'lc116Services'])->name('lc116.services');
 
     // Certificate management
     Route::post('certificate', [CertificateController::class, 'upload'])->name('certificate.upload');

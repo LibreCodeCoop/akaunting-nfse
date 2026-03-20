@@ -30,6 +30,7 @@ return [
         'certificate'      => 'ICP-Brasil Certificate (PFX)',
         'pfx_password'     => 'Certificate Password',
         'item_lista'       => 'Service List Item (LC 116)',
+        'item_lista_hint'  => 'Select an official LC 116 item',
         'aliquota'         => 'ISS Rate (%)',
     ],
 ];

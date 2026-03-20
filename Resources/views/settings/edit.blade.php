@@ -53,7 +53,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     <div>
                         <label class="block text-sm font-medium mb-1" for="item_lista_servico">{{ trans('nfse::general.settings.item_lista') }}</label>
-                        <input id="item_lista_servico" name="nfse[item_lista_servico]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}">
+                        <input id="item_lista_servico_display" name="nfse[item_lista_servico_display]" type="text" list="lc116_services" class="w-full border rounded px-3 py-2" value="" placeholder="{{ trans('nfse::general.settings.item_lista_hint') }}" autocomplete="off" required>
+                        <datalist id="lc116_services"></datalist>
+                        <input id="item_lista_servico" name="nfse[item_lista_servico]" type="hidden" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}" required>
                     </div>
 
                     <div>
@@ -142,9 +144,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const selectedUf = @json(old('nfse.uf', setting('nfse.uf', '')));
                 const selectedMunicipalityName = @json(old('nfse.municipio_nome', setting('nfse.municipio_nome', '')));
                 const selectedIbge = @json(old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')));
+                const selectedLc116Code = @json(old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')));
 
                 const ufsUrl = @json(route('nfse.ibge.ufs'));
                 const municipalitiesUrlTemplate = @json(route('nfse.ibge.municipalities', ['uf' => '__UF__']));
+                const lc116ServicesUrl = @json(route('nfse.lc116.services'));
+
+                const lc116DisplayInput = document.getElementById('item_lista_servico_display');
+                const lc116CodeInput = document.getElementById('item_lista_servico');
+                const lc116Datalist = document.getElementById('lc116_services');
+                const lc116ByLabel = new Map();
+                const lc116ByCode = new Map();
 
                 const fetchJson = async (url) => {
                     const response = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -155,6 +165,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
 
                     return Array.isArray(payload.data) ? payload.data : [];
+                };
+
+                const renderLc116Options = (services) => {
+                    lc116Datalist.innerHTML = '';
+
+                    services.forEach((service) => {
+                        const option = document.createElement('option');
+                        option.value = service.label;
+                        lc116Datalist.appendChild(option);
+
+                        lc116ByLabel.set(service.label, service.code);
+                        lc116ByCode.set(service.code, service.label);
+                    });
                 };
 
                 const renderMunicipalities = (municipalities, selectedName, selectedCode) => {
@@ -201,6 +224,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 };
 
                 const ufs = await fetchJson(ufsUrl);
+                const lc116Services = await fetchJson(lc116ServicesUrl);
+                renderLc116Options(lc116Services);
+
+                const initialLc116Label = lc116ByCode.get(selectedLc116Code);
+                if (initialLc116Label) {
+                    lc116DisplayInput.value = initialLc116Label;
+                    lc116CodeInput.value = selectedLc116Code;
+                }
+
                 ufSelect.innerHTML = '';
 
                 const ufPlaceholder = document.createElement('option');
@@ -231,6 +263,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const ibgeCode = selectedOption?.dataset?.ibge ?? '';
                     ibgeHidden.value = ibgeCode;
                     ibgeDisplay.value = ibgeCode;
+                });
+
+                lc116DisplayInput.addEventListener('input', () => {
+                    const normalizedCode = lc116ByLabel.get(lc116DisplayInput.value) ?? '';
+                    lc116CodeInput.value = normalizedCode;
                 });
             });
         </script>

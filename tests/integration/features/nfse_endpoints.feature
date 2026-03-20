@@ -18,6 +18,8 @@ Feature: NFS-e endpoints contract
     And the response body should contain "nfse[uf]"
     And the response body should contain "nfse[municipio_nome]"
     And the response body should contain "nfse[municipio_ibge]"
+    And the response body should contain "nfse[item_lista_servico_display]"
+    And the response body should contain "nfse[item_lista_servico]"
 
   Scenario: Settings update endpoint accepts valid payload and redirects back
     When I send "PATCH" request to "/<company_id>/nfse/settings" with form data:
@@ -40,6 +42,12 @@ Feature: NFS-e endpoints contract
     When I send "GET" request to "/<company_id>/nfse/ibge/ufs"
     Then the response status should be one of 200,502
     And the response body should contain "data"
+
+  Scenario: LC116 lookup endpoint responds with catalog data
+    When I send "GET" request to "/<company_id>/nfse/lc116/services"
+    Then the response status should be 200
+    And the response body should contain "0107"
+    And the response body should contain "1.07"
     When I send "GET" request to "/<company_id>/nfse/ibge/municipalities/SP"
     Then the response status should be one of 200,502
     And the response body should contain "data"
