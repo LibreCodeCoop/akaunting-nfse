@@ -12,11 +12,20 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Checkout nfse-php sibling package
+        uses: actions/checkout@v6
+        with:
+          repository: LibreCodeCoop/nfse-php
+          path: packages/librecodeoop/nfse-php
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           tools: composer
+
+      - name: Configure local nfse-php path repository
+        run: composer config --global repositories.librecodeoop-nfse-php '{"type":"path","url":"'"$GITHUB_WORKSPACE"'/packages/librecodeoop/nfse-php","options":{"symlink":false}}'
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
