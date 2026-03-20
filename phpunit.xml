@@ -24,12 +24,6 @@
         </include>
     </source>
 
-    <coverage>
-        <report>
-            <clover outputFile="build/logs/clover.xml"/>
-        </report>
-    </coverage>
-
     <php>
         <env name="NFS_SANDBOX" value="true"/>
     </php>
