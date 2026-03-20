@@ -4,8 +4,12 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <psalm
+    errorBaseline="tests/psalm-baseline.xml"
     errorLevel="3"
+    findUnusedBaselineEntry="true"
+    findUnusedCode="false"
     phpVersion="8.2"
+    resolveFromConfigFile="true"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns="https://getpsalm.org/schema/config"
     xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
@@ -20,16 +24,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     </projectFiles>
 
     <stubs>
-        <file name="stubs/framework.php" />
+        <file name="tests/stubs/framework.php" />
     </stubs>
-
-    <issueHandlers>
-        <PossiblyUnusedMethod errorLevel="info" />
-        <PossiblyUnusedParam errorLevel="info" />
-        <PossiblyUnusedProperty errorLevel="info" />
-        <UndefinedClass errorLevel="info" />
-        <UndefinedFunction errorLevel="info" />
-        <UndefinedMethod errorLevel="info" />
-        <UnusedClass errorLevel="info" />
-    </issueHandlers>
 </psalm>
