@@ -101,7 +101,7 @@ class InvoiceController extends Controller
         return new OpenBaoSecretStore(
             addr:     setting('nfse.bao_addr'),
             mount:    setting('nfse.bao_mount', 'nfse'),
-            token:    env('BAO_TOKEN') ?: null,
+            token:    setting('nfse.bao_token') ?: env('BAO_TOKEN') ?: null,
             roleId:   setting('nfse.bao_role_id') ?: null,
             secretId: setting('nfse.bao_secret_id') ?: null,
         );
