@@ -1,0 +1,52 @@
+{
+    "name": "librecodeoop/akaunting-nfse",
+    "description": "Akaunting module for NFS-e issuance via SEFIN Nacional (ABRASF 2.04 / SEFIN 1.0)",
+    "type": "akaunting-module",
+    "license": "AGPL-3.0-or-later",
+    "keywords": ["akaunting", "nfse", "nota-fiscal", "brazil", "sefin", "fiscal", "module"],
+    "authors": [
+        {
+            "name": "LibreCode Coop",
+            "email": "dev@librecodecoop.org.br",
+            "homepage": "https://librecodecoop.org.br",
+            "role": "Developer"
+        }
+    ],
+    "homepage": "https://github.com/LibreCodeCoop/akaunting-nfse",
+    "support": {
+        "issues": "https://github.com/LibreCodeCoop/akaunting-nfse/issues",
+        "source": "https://github.com/LibreCodeCoop/akaunting-nfse"
+    },
+    "require": {
+        "php": "^8.2",
+        "librecodeoop/nfse-php": "^1.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0",
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "vimeo/psalm": "^5.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Nfse\\": "./"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Nfse\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:unit": "phpunit --testsuite=Unit",
+        "test:coverage": "XDEBUG_MODE=coverage phpunit --coverage-clover=build/logs/clover.xml",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix",
+        "psalm": "psalm"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    }
+}
