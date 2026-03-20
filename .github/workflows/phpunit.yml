@@ -16,6 +16,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          path: modules/Nfse
+
+      - name: Checkout nfse-php sibling package
+        uses: actions/checkout@v6
+        with:
+          repository: LibreCodeCoop/nfse-php
+          path: packages/librecodeoop/nfse-php
 
       - name: Setup PHP ${{ matrix.php }}
         uses: shivammathur/setup-php@v2
@@ -25,7 +33,9 @@ jobs:
           coverage: none
 
       - name: Install dependencies
+        working-directory: modules/Nfse
         run: composer install --prefer-dist --no-progress
 
       - name: Run PHPUnit (Unit)
+        working-directory: modules/Nfse
         run: vendor/bin/phpunit --testsuite Unit

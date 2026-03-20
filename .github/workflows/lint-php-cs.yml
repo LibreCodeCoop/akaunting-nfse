@@ -11,6 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          path: modules/Nfse
+
+      - name: Checkout nfse-php sibling package
+        uses: actions/checkout@v6
+        with:
+          repository: LibreCodeCoop/nfse-php
+          path: packages/librecodeoop/nfse-php
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -19,7 +27,9 @@ jobs:
           tools: composer
 
       - name: Install dependencies
+        working-directory: modules/Nfse
         run: composer install --prefer-dist --no-progress
 
       - name: Run PHP-CS-Fixer (check only)
+        working-directory: modules/Nfse
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
