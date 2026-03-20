@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 LibreCode coop and contributors -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <files psalm-version="6.16.1@f1f5de594dc76faf8784e02d3dc4716c91c6f6ac">
   <file src="Http/Controllers/CertificateController.php">
     <UndefinedClass>
@@ -7,13 +9,7 @@
       <code><![CDATA[Request]]></code>
     </UndefinedClass>
     <UndefinedFunction>
-      <code><![CDATA[env('BAO_TOKEN')]]></code>
       <code><![CDATA[redirect()]]></code>
-      <code><![CDATA[setting('nfse.bao_addr')]]></code>
-      <code><![CDATA[setting('nfse.bao_mount', 'nfse')]]></code>
-      <code><![CDATA[setting('nfse.bao_role_id')]]></code>
-      <code><![CDATA[setting('nfse.bao_secret_id')]]></code>
-      <code><![CDATA[setting('nfse.bao_token')]]></code>
       <code><![CDATA[setting('nfse.cnpj_prestador')]]></code>
       <code><![CDATA[storage_path('app/nfse/pfx/' . $cnpj . '.pfx')]]></code>
       <code><![CDATA[trans('nfse::general.certificate_deleted')]]></code>
@@ -31,12 +27,6 @@
       <code><![CDATA[\Illuminate\View\View]]></code>
     </UndefinedClass>
     <UndefinedFunction>
-      <code><![CDATA[env('BAO_TOKEN')]]></code>
-      <code><![CDATA[setting('nfse.bao_addr')]]></code>
-      <code><![CDATA[setting('nfse.bao_mount', 'nfse')]]></code>
-      <code><![CDATA[setting('nfse.bao_role_id')]]></code>
-      <code><![CDATA[setting('nfse.bao_secret_id')]]></code>
-      <code><![CDATA[setting('nfse.bao_token')]]></code>
       <code><![CDATA[view('nfse::invoices.index', compact('receipts'))]]></code>
     </UndefinedFunction>
     <UndefinedMethod>
