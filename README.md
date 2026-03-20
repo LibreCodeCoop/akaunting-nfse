@@ -48,6 +48,20 @@ composer require librecodeoop/akaunting-nfse
 2. Habilite o módulo em **Configurações → Módulos → NFS-e**
 3. Configure o certificado e as credenciais OpenBao em **NFS-e → Configurações**
 
+### Desenvolvimento local
+
+O módulo não versiona `repositories` no `composer.json`. Para trabalhar localmente com um checkout editável de `nfse-php`, configure o repositório apenas no Composer do seu ambiente de desenvolvimento.
+
+Exemplo neste workspace Docker:
+
+```bash
+docker compose exec akaunting.php composer --working-dir=/var/www/html/modules/Nfse \
+	config --global repositories.librecodeoop-nfse-php \
+	'{"type":"path","url":"/var/www/html/packages/librecodeoop/nfse-php","options":{"symlink":true}}'
+```
+
+Esse ajuste fica fora do repositório versionado e serve apenas para desenvolvimento local.
+
 ---
 
 ## Configuração
