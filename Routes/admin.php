@@ -24,6 +24,7 @@ Route::module('nfse', function () {
 
     // Certificate management
     Route::post('certificate', [CertificateController::class, 'upload'])->name('certificate.upload');
+    Route::post('certificate/parse', [CertificateController::class, 'parsePfx'])->name('certificate.parse');
     Route::delete('certificate', [CertificateController::class, 'destroy'])->name('certificate.destroy');
 
     // NFS-e issuance
