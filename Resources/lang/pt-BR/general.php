@@ -18,6 +18,8 @@ return [
     'settings' => [
         'title'            => 'Configurações NFS-e',
         'cnpj_prestador'   => 'CNPJ do Prestador',
+        'uf'               => 'Estado (UF)',
+        'municipio_nome'   => 'Município',
         'municipio_ibge'   => 'Código IBGE do Município',
         'sandbox_mode'     => 'Modo Sandbox (Homologação)',
         'bao_addr'         => 'Endereço OpenBao / Vault',

@@ -24,7 +24,7 @@ class ShowInSettingsMenu
 
         $title = trans('nfse::general.name');
 
-        if ($this->canAccessMenuItem($title, 'read-nfse-settings')) {
+        if ($this->canAccessMenuItem($title, 'read-settings-company')) {
             $event->menu->route(
                 'nfse.settings.edit',
                 $title,

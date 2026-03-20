@@ -14,12 +14,15 @@ default-copyright = "2026 LibreCode coop and contributors"
 path = [
     ".github/**",
     ".gitignore",
+    "behat.yml.dist",
     "composer.json",
     "module.json",
     "package.json",
     "package-lock.json",
     ".env.e2e.example",
-    "e2e/fixtures/test-cert.p12"
+    "e2e/fixtures/test-cert.p12",
+    "tests/integration/features/**/*.feature",
+    "tests/integration/features/assets/*"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 LibreCode coop and contributors"

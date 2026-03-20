@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
-use App\Abstracts\Http\Controller;
 use App\Models\Sale\Invoice;
 use Illuminate\Http\RedirectResponse;
 use LibreCodeCoop\NfsePHP\Dto\DpsData;

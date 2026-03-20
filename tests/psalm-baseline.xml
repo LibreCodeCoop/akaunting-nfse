@@ -2,48 +2,6 @@
 <!-- SPDX-FileCopyrightText: 2026 LibreCode coop and contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <files psalm-version="6.16.1@f1f5de594dc76faf8784e02d3dc4716c91c6f6ac">
-  <file src="Http/Controllers/CertificateController.php">
-    <UndefinedClass>
-      <code><![CDATA[RedirectResponse]]></code>
-      <code><![CDATA[RedirectResponse]]></code>
-      <code><![CDATA[Request]]></code>
-    </UndefinedClass>
-    <UndefinedFunction>
-      <code><![CDATA[redirect()]]></code>
-      <code><![CDATA[setting('nfse.cnpj_prestador')]]></code>
-      <code><![CDATA[storage_path('app/nfse/pfx/' . $cnpj . '.pfx')]]></code>
-      <code><![CDATA[trans('nfse::general.certificate_deleted')]]></code>
-    </UndefinedFunction>
-  </file>
-  <file src="Http/Controllers/InvoiceController.php">
-    <UndefinedClass>
-      <code><![CDATA[Invoice]]></code>
-      <code><![CDATA[Invoice]]></code>
-      <code><![CDATA[Invoice]]></code>
-      <code><![CDATA[Invoice]]></code>
-      <code><![CDATA[RedirectResponse]]></code>
-      <code><![CDATA[RedirectResponse]]></code>
-      <code><![CDATA[\Illuminate\View\View]]></code>
-      <code><![CDATA[\Illuminate\View\View]]></code>
-    </UndefinedClass>
-    <UndefinedFunction>
-      <code><![CDATA[view('nfse::invoices.index', compact('receipts'))]]></code>
-    </UndefinedFunction>
-    <UndefinedMethod>
-      <code><![CDATA[NfseReceipt::with('invoice')]]></code>
-    </UndefinedMethod>
-  </file>
-  <file src="Http/Controllers/SettingsController.php">
-    <UndefinedClass>
-      <code><![CDATA[RedirectResponse]]></code>
-      <code><![CDATA[Request]]></code>
-      <code><![CDATA[\Illuminate\View\View]]></code>
-    </UndefinedClass>
-    <UndefinedFunction>
-      <code><![CDATA[setting('nfse')]]></code>
-      <code><![CDATA[view('nfse::settings.edit', compact('settings'))]]></code>
-    </UndefinedFunction>
-  </file>
   <file src="Models/NfseReceipt.php">
     <UndefinedClass>
       <code><![CDATA[BelongsTo]]></code>

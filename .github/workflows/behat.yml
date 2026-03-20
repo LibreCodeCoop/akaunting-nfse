@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Behat API Contracts
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Akaunting base URL (e.g. https://your-akaunting.example)"
+        required: true
+        type: string
+      company_id:
+        description: "Company ID used in route prefix"
+        required: false
+        default: "1"
+        type: string
+
+env:
+  NFSE_BEHAT_BASE_URL: ${{ inputs.base_url }}
+  NFSE_BEHAT_COMPANY_ID: ${{ inputs.company_id }}
+  NFSE_BEHAT_EMAIL: ${{ secrets.NFSE_BEHAT_EMAIL }}
+  NFSE_BEHAT_PASSWORD: ${{ secrets.NFSE_BEHAT_PASSWORD }}
+
+jobs:
+  behat:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: modules/Nfse
+
+      - name: Checkout nfse-php sibling package
+        uses: actions/checkout@v6
+        with:
+          repository: LibreCodeCoop/nfse-php
+          path: packages/librecodeoop/nfse-php
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+          coverage: none
+
+      - name: Install dependencies
+        working-directory: modules/Nfse
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run Behat contracts
+        working-directory: modules/Nfse
+        run: composer test:behat:guest
+
+      - name: Run Behat authenticated contracts
+        if: env.NFSE_BEHAT_EMAIL != '' && env.NFSE_BEHAT_PASSWORD != ''
+        working-directory: modules/Nfse
+        run: composer test:behat:auth

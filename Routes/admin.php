@@ -6,23 +6,30 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Modules\Nfse\Http\Controllers\CertificateController;
+use Modules\Nfse\Http\Controllers\InvoiceController;
+use Modules\Nfse\Http\Controllers\SettingsController;
 
-Route::group([
-    'prefix'     => 'nfse',
-    'middleware' => ['web', 'auth', 'language', 'company'],
-    'namespace'  => 'Modules\Nfse\Http\Controllers',
-], function () {
+Route::module('nfse', function () {
     // Settings
-    Route::get('settings', 'SettingsController@edit')->name('nfse.settings.edit');
-    Route::patch('settings', 'SettingsController@update')->name('nfse.settings.update');
+    Route::group(['prefix' => 'settings', 'as' => 'settings.'], function () {
+        Route::get('/', [SettingsController::class, 'edit'])->name('edit');
+        Route::patch('/', [SettingsController::class, 'update'])->name('update');
+    });
+
+    // IBGE localities lookup
+    Route::get('ibge/ufs', [SettingsController::class, 'ufs'])->name('ibge.ufs');
+    Route::get('ibge/municipalities/{uf}', [SettingsController::class, 'municipalities'])->name('ibge.municipalities');
 
     // Certificate management
-    Route::post('certificate', 'CertificateController@upload')->name('nfse.certificate.upload');
-    Route::delete('certificate', 'CertificateController@destroy')->name('nfse.certificate.destroy');
+    Route::post('certificate', [CertificateController::class, 'upload'])->name('certificate.upload');
+    Route::delete('certificate', [CertificateController::class, 'destroy'])->name('certificate.destroy');
 
     // NFS-e issuance
-    Route::get('invoices', 'InvoiceController@index')->name('nfse.invoices.index');
-    Route::post('invoices/{invoice}/emit', 'InvoiceController@emit')->name('nfse.invoices.emit');
-    Route::get('invoices/{invoice}', 'InvoiceController@show')->name('nfse.invoices.show');
-    Route::delete('invoices/{invoice}', 'InvoiceController@cancel')->name('nfse.invoices.cancel');
-});
+    Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
+    Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])->name('invoices.emit');
+    Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
+}, [
+    'middleware' => ['web', 'auth', 'language', 'company.identify'],
+]);
