@@ -48,50 +48,37 @@ composer require librecodeoop/akaunting-nfse
 2. Habilite o módulo em **Configurações → Módulos → NFS-e**
 3. Configure o certificado e as credenciais OpenBao em **NFS-e → Configurações**
 
-### Desenvolvimento local
-
-O módulo não versiona `repositories` no `composer.json`. Para trabalhar localmente com um checkout editável de `nfse-php`, configure o repositório apenas no Composer do seu ambiente de desenvolvimento.
-
-Exemplo neste workspace Docker:
-
-```bash
-docker compose exec akaunting.php composer --working-dir=/var/www/html/modules/Nfse \
-	config --global repositories.librecodeoop-nfse-php \
-	'{"type":"path","url":"/var/www/html/packages/librecodeoop/nfse-php","options":{"symlink":true}}'
-```
-
-Esse ajuste fica fora do repositório versionado e serve apenas para desenvolvimento local.
-
 ---
 
 ## Configuração
 
 ### Certificado ICP-Brasil
 
-Faça upload do arquivo `.pfx` em **NFS-e → Configurações → Certificado**.  
+Faça upload do arquivo `.pfx` em **NFS-e → Configurações → Certificado**.
 A senha é enviada diretamente ao OpenBao — o servidor nunca armazena em texto claro.
 
 ### OpenBao / Vault
 
 | Variável de ambiente | Descrição |
 |---|---|
-| `BAO_ADDR` | Endereço do servidor OpenBao (ex.: `http://openbao:8200`) |
-| `BAO_ROLE_ID` | AppRole Role ID |
-| `BAO_SECRET_ID` | AppRole Secret ID |
-| `BAO_MOUNT` | Mount KV v2 (padrão: `nfse`) |
+| `VAULT_ADDR` | Endereço do servidor OpenBao/Vault (ex.: `http://openbao:8200`) |
+| `VAULT_ROLE_ID` | AppRole Role ID |
+| `VAULT_SECRET_ID` | AppRole Secret ID |
+| `VAULT_MOUNT` | Mount KV v2 (padrão: `nfse`) |
+| `VAULT_TOKEN` | Token para desenvolvimento/CI |
 
 Para desenvolvimento local, basta um token dev:
 
 ```bash
-BAO_ADDR=http://localhost:8200
-BAO_TOKEN=dev-only-root-token
+VAULT_ADDR=http://localhost:8200
+VAULT_TOKEN=dev-only-root-token
 ```
 
 ---
 
 ## Suporte Comercial
 
-Precisa de SLA, adaptações para outros municípios ou instalação gerenciada?  
+Precisa de SLA, adaptações para outros municípios ou instalação gerenciada?
 Entre em contato: **comercial@librecodecoop.org.br**
 
 ---
@@ -106,12 +93,12 @@ Commits devem seguir [Conventional Commits](https://www.conventionalcommits.org/
 
 ## Dê uma estrela!
 
-Se este módulo simplifica a sua operação fiscal, por favor ⭐ o repositório.  
+Se este módulo simplifica a sua operação fiscal, por favor ⭐ o repositório.
 Isso ajuda outros desenvolvedores a encontrar o projeto e encoraja a equipe a continuar melhorando.
 
 ---
 
 ## Licença
 
-GNU Affero General Public License v3.0 ou superior — veja [LICENSES/AGPL-3.0-or-later.txt](LICENSES/AGPL-3.0-or-later.txt).  
+GNU Affero General Public License v3.0 ou superior — veja [LICENSES/AGPL-3.0-or-later.txt](LICENSES/AGPL-3.0-or-later.txt).
 &copy; 2026 LibreCode Coop e colaboradores.
