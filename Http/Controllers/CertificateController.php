@@ -10,6 +10,7 @@ namespace Modules\Nfse\Http\Controllers;
 use App\Abstracts\Http\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Modules\Nfse\Support\VaultConfig;
 
 class CertificateController extends Controller
 {
@@ -76,18 +77,14 @@ class CertificateController extends Controller
 
     private function makeSecretStore(): \LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
     {
-        $addr    = setting('nfse.bao_addr');
-        $mount   = setting('nfse.bao_mount', 'nfse');
-        $roleId  = setting('nfse.bao_role_id');
-        $secret  = setting('nfse.bao_secret_id');
-        $token   = setting('nfse.bao_token') ?: env('BAO_TOKEN');
+        $config = VaultConfig::secretStoreConfig();
 
         return new \LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore(
-            addr:     $addr,
-            mount:    $mount,
-            token:    $token ?: null,
-            roleId:   $roleId ?: null,
-            secretId: $secret ?: null,
+            addr: $config['addr'],
+            mount: $config['mount'],
+            token: $config['token'],
+            roleId: $config['roleId'],
+            secretId: $config['secretId'],
         );
     }
 }
