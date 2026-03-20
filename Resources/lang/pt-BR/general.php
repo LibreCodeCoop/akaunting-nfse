@@ -21,6 +21,7 @@ return [
         'sandbox_mode'     => 'Modo Sandbox (Homologação)',
         'bao_addr'         => 'Endereço OpenBao / Vault',
         'bao_mount'        => 'Mount KV v2',
+        'bao_token'        => 'Token do OpenBao / Vault',
         'bao_role_id'      => 'AppRole Role ID',
         'bao_secret_id'    => 'AppRole Secret ID',
         'certificate'      => 'Certificado ICP-Brasil (PFX)',
