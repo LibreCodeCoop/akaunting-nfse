@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version = 1
+SPDX-PackageName = "akaunting-nfse"
+SPDX-PackageSupplier = "LibreCode Coop <dev@librecodecoop.org.br>"
+SPDX-PackageDownloadLocation = "https://github.com/LibreCodeCoop/akaunting-nfse"
+
+default-license = "AGPL-3.0-or-later"
+default-copyright = "2026 LibreCode coop and contributors"
+
+[[annotations]]
+path = [
+    ".github/**",
+    ".gitignore",
+    "composer.json",
+    "module.json"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 LibreCode coop and contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
