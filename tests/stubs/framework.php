@@ -7,16 +7,24 @@ declare(strict_types=1);
 
 namespace App\Abstracts\Http;
 
-abstract class Controller {}
+abstract class Controller
+{
+}
 
 namespace Illuminate\Database\Eloquent;
 
-class Model {}
+class Model
+{
+}
 
 namespace Illuminate\Support;
 
-class ServiceProvider {}
+class ServiceProvider
+{
+}
 
 namespace Illuminate\Foundation\Support\Providers;
 
-class EventServiceProvider extends \Illuminate\Support\ServiceProvider {}
+class EventServiceProvider extends \Illuminate\Support\ServiceProvider
+{
+}
