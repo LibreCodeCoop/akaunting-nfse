@@ -11,9 +11,10 @@ Feature: NFS-e endpoints contract
     Given I am authenticated in Akaunting as configured user
     And I use company id "1"
 
-  Scenario: Settings page renders the expected NFS-e form fields
+  Scenario: Settings page renders certificate-first wizard and expected form fields
     When I send "GET" request to "/<company_id>/nfse/settings"
     Then the response status should be 200
+    And the response body should contain "btn-read-cert"
     And the response body should contain "nfse[cnpj_prestador]"
     And the response body should contain "nfse[uf]"
     And the response body should contain "nfse[municipio_nome]"
@@ -56,6 +57,10 @@ Feature: NFS-e endpoints contract
     When I upload fixture "invalid-cert.p12" to "/<company_id>/nfse/certificate" using password "invalid-password"
     Then the response status should be 302
     And the response should redirect to "/<company_id>/nfse/settings"
+
+  Scenario: Certificate parse endpoint returns 422 for invalid PFX
+    When I upload fixture "invalid-cert.p12" to "/<company_id>/nfse/certificate/parse" using password "invalid-password"
+    Then the response status should be 422
 
   Scenario: Certificate delete endpoint is reachable with method override
     When I send "POST" request to "/<company_id>/nfse/certificate" with form data:
