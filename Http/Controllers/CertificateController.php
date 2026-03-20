@@ -10,7 +10,6 @@ namespace Modules\Nfse\Http\Controllers;
 use App\Abstracts\Http\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 
 class CertificateController extends Controller
 {
@@ -26,8 +25,17 @@ class CertificateController extends Controller
         $cnpj     = setting('nfse.cnpj_prestador');
 
         // Verify PFX is readable before storing
-        $pfxContent = file_get_contents($file->getRealPath());
-        $certs      = [];
+        $realPath = $file->getRealPath();
+        if ($realPath === false) {
+            return back()->with('error', trans('nfse::general.invalid_pfx'));
+        }
+
+        $pfxContent = file_get_contents($realPath);
+        if ($pfxContent === false) {
+            return back()->with('error', trans('nfse::general.invalid_pfx'));
+        }
+
+        $certs = [];
         if (!openssl_pkcs12_read($pfxContent, $certs, $password)) {
             return back()->with('error', trans('nfse::general.invalid_pfx'));
         }
@@ -35,10 +43,10 @@ class CertificateController extends Controller
         // Store PFX file in private storage
         $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
         if (!is_dir(dirname($storagePath))) {
-            mkdir(dirname($storagePath), 0700, true);
+            mkdir(dirname($storagePath), 0o700, true);
         }
         file_put_contents($storagePath, $pfxContent);
-        chmod($storagePath, 0600);
+        chmod($storagePath, 0o600);
 
         // Store password in OpenBao — never in the application database
         $store = $this->makeSecretStore();
