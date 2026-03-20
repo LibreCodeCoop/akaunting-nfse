@@ -1,0 +1,25 @@
+name: Lint PHP CS
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  php-cs-fixer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run PHP-CS-Fixer (check only)
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
