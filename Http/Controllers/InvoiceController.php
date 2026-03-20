@@ -14,6 +14,7 @@ use LibreCodeCoop\NfsePHP\Dto\DpsData;
 use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\VaultConfig;
 
 class InvoiceController extends Controller
 {
@@ -96,12 +97,14 @@ class InvoiceController extends Controller
 
     private function makeSecretStore(): OpenBaoSecretStore
     {
+        $config = VaultConfig::secretStoreConfig();
+
         return new OpenBaoSecretStore(
-            addr:     setting('nfse.bao_addr'),
-            mount:    setting('nfse.bao_mount', 'nfse'),
-            token:    setting('nfse.bao_token') ?: env('BAO_TOKEN') ?: null,
-            roleId:   setting('nfse.bao_role_id') ?: null,
-            secretId: setting('nfse.bao_secret_id') ?: null,
+            addr: $config['addr'],
+            mount: $config['mount'],
+            token: $config['token'],
+            roleId: $config['roleId'],
+            secretId: $config['secretId'],
         );
     }
 }
