@@ -7,12 +7,43 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Modules\Nfse\Support\PfxParser;
 use Modules\Nfse\Support\VaultConfig;
 
 class CertificateController extends Controller
 {
+    public function parsePfx(Request $request): JsonResponse
+    {
+        $request->validate([
+            'pfx_file'     => 'required|file|mimes:pfx,p12|max:1024',
+            'pfx_password' => 'required|string|max:255',
+        ]);
+
+        $file    = $request->file('pfx_file');
+        $password = $request->input('pfx_password');
+
+        $realPath = $file->getRealPath();
+        if ($realPath === false) {
+            return response()->json(['error' => trans('nfse::general.invalid_pfx')], 422);
+        }
+
+        $pfxContent = file_get_contents($realPath);
+        if ($pfxContent === false) {
+            return response()->json(['error' => trans('nfse::general.invalid_pfx')], 422);
+        }
+
+        try {
+            $data = PfxParser::extractFromContent($pfxContent, $password);
+        } catch (\RuntimeException) {
+            return response()->json(['error' => trans('nfse::general.invalid_pfx')], 422);
+        }
+
+        return response()->json(['data' => $data]);
+    }
+
     public function upload(Request $request): RedirectResponse
     {
         $request->validate([
