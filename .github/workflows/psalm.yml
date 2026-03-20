@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          path: modules/Nfse
 
       - name: Checkout nfse-php sibling package
         uses: actions/checkout@v6
@@ -24,11 +26,10 @@ jobs:
           php-version: '8.2'
           tools: composer
 
-      - name: Configure local nfse-php path repository
-        run: composer config --global repositories.librecodeoop-nfse-php '{"type":"path","url":"'"$GITHUB_WORKSPACE"'/packages/librecodeoop/nfse-php","options":{"symlink":false}}'
-
       - name: Install dependencies
+        working-directory: modules/Nfse
         run: composer install --prefer-dist --no-progress
 
       - name: Run Psalm
+        working-directory: modules/Nfse
         run: vendor/bin/psalm --output-format=github
