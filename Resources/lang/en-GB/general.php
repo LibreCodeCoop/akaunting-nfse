@@ -9,6 +9,7 @@ return [
     'saved'                 => 'Settings saved successfully.',
     'certificate_uploaded'  => 'Certificate uploaded and password stored securely.',
     'certificate_deleted'   => 'Certificate removed successfully.',
+    'upload'                => 'Upload certificate',
     'invalid_pfx'           => 'Invalid PFX file or incorrect password.',
     'nfse_emitted'          => 'NFS-e :number emitted successfully.',
     'nfse_cancelled'        => 'NFS-e cancelled successfully.',

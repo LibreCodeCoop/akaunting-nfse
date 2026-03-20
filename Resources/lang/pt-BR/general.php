@@ -9,6 +9,7 @@ return [
     'saved'                 => 'Configurações salvas com sucesso.',
     'certificate_uploaded'  => 'Certificado enviado e senha armazenada com segurança.',
     'certificate_deleted'   => 'Certificado removido com sucesso.',
+    'upload'                => 'Enviar certificado',
     'invalid_pfx'           => 'Arquivo PFX inválido ou senha incorreta.',
     'nfse_emitted'          => 'NFS-e :number emitida com sucesso.',
     'nfse_cancelled'        => 'NFS-e cancelada com sucesso.',
