@@ -78,6 +78,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         />
 
                         <x-form.group.text
+                            type="password"
+                            name="nfse[bao_token]"
+                            label="{{ trans('nfse::general.settings.bao_token') }}"
+                            value=""
+                            autocomplete="new-password"
+                        />
+
+                        <x-form.group.text
                             name="nfse[bao_role_id]"
                             label="{{ trans('nfse::general.settings.bao_role_id') }}"
                             value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}"
