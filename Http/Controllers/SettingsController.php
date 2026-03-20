@@ -10,7 +10,6 @@ namespace Modules\Nfse\Http\Controllers;
 use App\Abstracts\Http\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 
 class SettingsController extends Controller
 {
