@@ -64,7 +64,7 @@ A senha é enviada diretamente ao OpenBao — o servidor nunca armazena em texto
 | `VAULT_ADDR` | Endereço do servidor OpenBao/Vault (ex.: `http://openbao:8200`) |
 | `VAULT_ROLE_ID` | AppRole Role ID |
 | `VAULT_SECRET_ID` | AppRole Secret ID |
-| `VAULT_MOUNT` | Mount KV v2 (padrão: `nfse`) |
+| `VAULT_MOUNT` | Mount KV v2 (recomendado: `/nfse`) |
 | `VAULT_TOKEN` | Token para desenvolvimento/CI |
 
 Para desenvolvimento local, basta um token dev:
@@ -73,6 +73,11 @@ Para desenvolvimento local, basta um token dev:
 VAULT_ADDR=http://localhost:8200
 VAULT_TOKEN=dev-only-root-token
 ```
+
+Observações importantes:
+
+- Use o mount no formato com barra inicial, por exemplo `/nfse`.
+- Se você salvar sem a barra inicial no formulário, o módulo normaliza automaticamente para o formato correto ao persistir as configurações.
 
 ---
 
