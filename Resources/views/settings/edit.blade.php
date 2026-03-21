@@ -278,36 +278,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     renderMunicipalities(municipalities, preferredName, preferredCode);
                 };
 
-                const ufs = await fetchJson(ufsUrl);
-                const lc116Services = await fetchJson(lc116ServicesUrl);
-                renderLc116Options(lc116Services);
-
-                const initialLc116Label = lc116ByCode.get(selectedLc116Code);
-                if (initialLc116Label) {
-                    lc116DisplayInput.value = initialLc116Label;
-                    lc116CodeInput.value = selectedLc116Code;
-                }
-
-                ufSelect.innerHTML = '';
-
-                const ufPlaceholder = document.createElement('option');
-                ufPlaceholder.value = '';
-                ufPlaceholder.textContent = 'Selecione...';
-                ufSelect.appendChild(ufPlaceholder);
-
-                ufs.forEach((entry) => {
-                    const option = document.createElement('option');
-                    option.value = entry.uf;
-                    option.textContent = `${entry.uf} - ${entry.name}`;
-                    if (entry.uf === selectedUf) {
-                        option.selected = true;
-                    }
-                    ufSelect.appendChild(option);
-                });
-
-                if (selectedUf) {
-                    await loadMunicipalities(selectedUf, selectedMunicipalityName, selectedIbge);
-                }
+                const ufsPromise = fetchJson(ufsUrl);
+                const lc116ServicesPromise = fetchJson(lc116ServicesUrl);
 
                 ufSelect.addEventListener('change', async () => {
                     await loadMunicipalities(ufSelect.value);
@@ -381,6 +353,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     syncReadButtonState();
                     pfxFileInput.focus();
                 });
+
+                (async () => {
+                    const [ufs, lc116Services] = await Promise.all([ufsPromise, lc116ServicesPromise]);
+                    renderLc116Options(lc116Services);
+
+                    const initialLc116Label = lc116ByCode.get(selectedLc116Code);
+                    if (initialLc116Label) {
+                        lc116DisplayInput.value = initialLc116Label;
+                        lc116CodeInput.value = selectedLc116Code;
+                    }
+
+                    ufSelect.innerHTML = '';
+
+                    const ufPlaceholder = document.createElement('option');
+                    ufPlaceholder.value = '';
+                    ufPlaceholder.textContent = 'Selecione...';
+                    ufSelect.appendChild(ufPlaceholder);
+
+                    ufs.forEach((entry) => {
+                        const option = document.createElement('option');
+                        option.value = entry.uf;
+                        option.textContent = `${entry.uf} - ${entry.name}`;
+                        if (entry.uf === selectedUf) {
+                            option.selected = true;
+                        }
+                        ufSelect.appendChild(option);
+                    });
+
+                    if (selectedUf) {
+                        await loadMunicipalities(selectedUf, selectedMunicipalityName, selectedIbge);
+                    }
+                })();
 
                 deleteCertificateButton?.addEventListener('click', () => {
                     if (!confirm(@json(trans('nfse::general.confirm_delete_certificate_and_settings')))) {
