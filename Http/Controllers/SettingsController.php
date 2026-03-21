@@ -109,15 +109,14 @@ class SettingsController extends Controller
             'pfx_password'         => 'nullable|string|max:255|required_with:pfx_file',
         ]);
 
-        $nfseInput = $request->input('nfse', []);
-        $nfseInput['uf'] = strtoupper((string) ($nfseInput['uf'] ?? ''));
-        $nfseInput['item_lista_servico'] = preg_replace('/\D/', '', (string) ($nfseInput['item_lista_servico'] ?? ''));
-        $nfseInput['bao_mount'] = VaultConfig::normalizeMount((string) ($nfseInput['bao_mount'] ?? ''));
-        unset($nfseInput['item_lista_servico_display']);
-
         $certificatePayload = null;
         $certificateFile = $request->file('pfx_file');
         $isReplacingCertificate = $certificateFile instanceof UploadedFile;
+        $nfseInput = $this->prepareNfseInput(
+            $request->input('nfse', []),
+            $isReplacingCertificate,
+        );
+
         if ($certificateFile instanceof UploadedFile) {
             try {
                 $certificatePayload = [
@@ -132,15 +131,6 @@ class SettingsController extends Controller
             } catch (\RuntimeException) {
                 return redirect()->back()->withInput()->with('error', trans('nfse::general.invalid_pfx'));
             }
-        }
-
-        // Keep existing sensitive secrets unless user explicitly provides a new value.
-        if (($nfseInput['bao_token'] ?? '') === '' && $isReplacingCertificate === false) {
-            unset($nfseInput['bao_token']);
-        }
-
-        if (($nfseInput['bao_secret_id'] ?? '') === '' && $isReplacingCertificate === false) {
-            unset($nfseInput['bao_secret_id']);
         }
 
         if ($isReplacingCertificate && $previousCnpj !== '') {
@@ -172,6 +162,28 @@ class SettingsController extends Controller
 
         return redirect()->route('nfse.settings.edit')
             ->with('success', trans('nfse::general.saved'));
+    }
+
+    /**
+     * @param array<string, mixed> $nfseInput
+     * @return array<string, mixed>
+     */
+    protected function prepareNfseInput(array $nfseInput, bool $isReplacingCertificate): array
+    {
+        $nfseInput['uf'] = strtoupper((string) ($nfseInput['uf'] ?? ''));
+        $nfseInput['item_lista_servico'] = preg_replace('/\D/', '', (string) ($nfseInput['item_lista_servico'] ?? ''));
+        $nfseInput['bao_mount'] = VaultConfig::normalizeMount((string) ($nfseInput['bao_mount'] ?? ''));
+        unset($nfseInput['item_lista_servico_display']);
+
+        if (($nfseInput['bao_token'] ?? '') === '' && $isReplacingCertificate === false) {
+            unset($nfseInput['bao_token']);
+        }
+
+        if (($nfseInput['bao_secret_id'] ?? '') === '' && $isReplacingCertificate === false) {
+            unset($nfseInput['bao_secret_id']);
+        }
+
+        return $nfseInput;
     }
 
     private function certificateState(): array
