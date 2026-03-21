@@ -7,13 +7,11 @@ declare(strict_types=1);
 
 namespace {
     require_once __DIR__ . '/Support/ControllerIsolationState.php';
-
-    if (!class_exists(\Illuminate\Http\UploadedFile::class, false)) {
-        eval('namespace Illuminate\\Http; class UploadedFile { public function __construct(private string|false $realPath) {} public function getRealPath(): string|false { return $this->realPath; } }');
-    }
 }
 
 namespace Modules\Nfse\Tests\Unit\Http\Controllers {
+    use Illuminate\Http\RedirectResponse;
+    use Illuminate\Http\Request;
     use Illuminate\Http\UploadedFile;
     use LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
@@ -222,6 +220,96 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $this->expectExceptionMessage('Invalid uploaded PFX path.');
 
             $controller->runReadUploadedCertificate($uploadedFile);
+        }
+
+        public function testUpdateReturnsBackWithInputAndInvalidPfxMessageWhenCertificateValidationFails(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador' => '11111111000111',
+                        'uf' => 'rj',
+                        'municipio_nome' => 'Niteroi',
+                        'municipio_ibge' => '3303302',
+                        'item_lista_servico' => '0123',
+                        'bao_addr' => 'http://openbao:8200',
+                        'bao_mount' => 'nfse',
+                    ],
+                    'pfx_password' => 'invalid',
+                ],
+                files: [
+                    'pfx_file' => new UploadedFile('/tmp/cert-invalid.pfx'),
+                ],
+            );
+
+            $controller = new class () extends SettingsController {
+                protected function readUploadedCertificate(UploadedFile $file): string
+                {
+                    return 'fake-pfx-content';
+                }
+
+                protected function validateCertificatePayload(string $pfxContent, string $password): void
+                {
+                    throw new \RuntimeException('invalid cert');
+                }
+            };
+
+            $response = $controller->update($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('back', $response->target);
+            self::assertTrue($response->withInputCalled);
+            self::assertSame('nfse::general.invalid_pfx', $response->flash['error'] ?? null);
+        }
+
+        public function testUpdateReturnsStoreFailureMessageAfterSettingsSaveWhenCertificateStoreThrows(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador' => '22222222000122',
+                        'uf' => 'rj',
+                        'municipio_nome' => 'Niteroi',
+                        'municipio_ibge' => '3303302',
+                        'item_lista_servico' => '0123',
+                        'bao_addr' => 'http://openbao:8200',
+                        'bao_mount' => '/nfse',
+                    ],
+                    'pfx_password' => 'valid-password',
+                ],
+                files: [
+                    'pfx_file' => new UploadedFile('/tmp/cert-valid.pfx'),
+                ],
+            );
+
+            $controller = new class () extends SettingsController {
+                protected function readUploadedCertificate(UploadedFile $file): string
+                {
+                    return 'fake-pfx-content';
+                }
+
+                protected function validateCertificatePayload(string $pfxContent, string $password): void
+                {
+                }
+
+                protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
+                {
+                    throw new \RuntimeException('store failed');
+                }
+            };
+
+            $response = $controller->update($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame('nfse::general.certificate_store_failed', $response->flash['error'] ?? null);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+            self::assertSame('22222222000122', ControllerIsolationState::$settings['nfse.cnpj_prestador'] ?? null);
         }
     }
 }
