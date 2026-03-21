@@ -302,7 +302,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const certCnpjValue = document.getElementById('cert-cnpj-value');
                 const certErrorDisplay = document.getElementById('cert-error-display');
 
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+                const certForm = document.getElementById('cert-form');
+                const csrfToken = certForm?.querySelector('input[name="_token"]')?.value ?? '';
 
                 btnReadCert.addEventListener('click', async () => {
                     certErrorDisplay.classList.add('hidden');
