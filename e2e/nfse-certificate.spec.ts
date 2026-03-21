@@ -21,6 +21,7 @@ import { loginToAkaunting } from './support/auth';
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'test-cert.p12');
 const TEST_PASSWORD = 'test-password-only';
+const TEST_CNPJ = '12345678000195';
 
 test.describe('NFS-e certificate upload', () => {
     test.beforeEach(async ({ page }, testInfo) => {
@@ -40,9 +41,63 @@ test.describe('NFS-e certificate upload', () => {
         await expect(uploadButton).not.toHaveText(/general\.upload/i);
     });
 
+    test('read-certificate button is rendered before upload button', async ({ page }) => {
+        const readBtn = page.locator('#btn-read-cert');
+        const uploadBtn = page.locator('#cert-form button[type="submit"]');
+
+        await expect(readBtn).toBeVisible();
+        await expect(uploadBtn).toBeVisible();
+
+        const readBtnBox = await readBtn.boundingBox();
+        const uploadBtnBox = await uploadBtn.boundingBox();
+
+        // "Ler certificado" must appear above or to the left of "Enviar"
+        expect(readBtnBox).not.toBeNull();
+        expect(uploadBtnBox).not.toBeNull();
+        expect((readBtnBox!.x + readBtnBox!.width) <= uploadBtnBox!.x || readBtnBox!.y <= uploadBtnBox!.y).toBeTruthy();
+    });
+
     test('file picker accepts only .pfx and .p12 extensions', async ({ page }) => {
         const fileInput = page.locator('input[name="pfx_file"]');
         await expect(fileInput).toHaveAttribute('accept', /\.pfx|\.p12/);
+    });
+
+    test('read-certificate populates CNPJ field from mocked parse response', async ({ page }) => {
+        await page.route('**/nfse/certificate/parse', (route) => {
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ data: { cnpj: TEST_CNPJ } }),
+            });
+        });
+
+        await page.locator('input[name="pfx_file"]').setInputFiles(FIXTURE);
+        await page.locator('input[name="pfx_password"]').fill(TEST_PASSWORD);
+        await page.locator('#btn-read-cert').click();
+
+        // CNPJ badge should appear
+        await expect(page.locator('#cert-cnpj-display')).toBeVisible();
+        await expect(page.locator('#cert-cnpj-value')).toHaveText(TEST_CNPJ);
+
+        // CNPJ read-only input in settings form should be updated
+        await expect(page.locator('input[name="nfse[cnpj_prestador]"]')).toHaveValue(TEST_CNPJ);
+    });
+
+    test('read-certificate shows error for invalid PFX via mocked parse', async ({ page }) => {
+        await page.route('**/nfse/certificate/parse', (route) => {
+            route.fulfill({
+                status: 422,
+                contentType: 'application/json',
+                body: JSON.stringify({ error: 'Invalid PFX file or incorrect password.' }),
+            });
+        });
+
+        await page.locator('input[name="pfx_file"]').setInputFiles(FIXTURE);
+        await page.locator('input[name="pfx_password"]').fill('wrong-password');
+        await page.locator('#btn-read-cert').click();
+
+        await expect(page.locator('#cert-error-display')).toBeVisible();
+        await expect(page.locator('#cert-cnpj-display')).not.toBeVisible();
     });
 
     test('uploads test certificate and shows success with mocked backend', async ({ page }) => {
@@ -63,10 +118,11 @@ test.describe('NFS-e certificate upload', () => {
 
         await Promise.all([
             page.waitForResponse((res) => res.url().includes('/nfse/certificate') && res.request().method() === 'POST'),
-            page.locator('form[action*="nfse/certificate"] button[type="submit"]').click(),
+            page.locator('form#cert-form button[type="submit"]').click(),
         ]);
 
         // After the redirect the user lands back on /nfse/settings.
         await expect(page).toHaveURL(/\/nfse\/settings/);
     });
 });
+

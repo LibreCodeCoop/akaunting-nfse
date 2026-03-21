@@ -54,7 +54,16 @@ test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo
 
   await expect(page).toHaveURL(/\/nfse\/settings/);
   await expect(page.getByRole('heading', { name: /NFS-e/i })).toBeVisible();
-  await expect(page.locator('input[name="nfse[cnpj_prestador]"]')).toBeVisible();
+
+  // Certificate wizard section appears first
+  await expect(page.locator('#btn-read-cert')).toBeVisible();
+  await expect(page.locator('input[name="pfx_file"]')).toBeAttached();
+
+  // CNPJ field is read-only in the settings section
+  const cnpjInput = page.locator('input[name="nfse[cnpj_prestador]"]');
+  await expect(cnpjInput).toBeAttached();
+  await expect(cnpjInput).toHaveAttribute('readonly');
+
   await expect(page.locator('select[name="nfse[uf]"]')).toBeVisible();
   await expect(page.locator('select[name="nfse[municipio_nome]"]')).toBeVisible();
   await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toBeAttached();
@@ -68,3 +77,4 @@ test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo
   await page.locator('input[name="nfse[item_lista_servico_display]"]').fill('1.07 - Suporte tecnico em informatica, inclusive instalacao, configuracao e manutencao');
   await expect(page.locator('input[name="nfse[item_lista_servico]"]')).toHaveValue('0107');
 });
+
