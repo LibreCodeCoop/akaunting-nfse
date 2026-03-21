@@ -44,7 +44,7 @@ return [
         'sandbox_mode'     => 'Sandbox Mode (Staging)',
         'bao_addr'         => 'OpenBao / Vault Address',
         'bao_mount'        => 'KV v2 Mount',
-        'bao_mount_hint'   => 'Use the KV v2 mount path (example: /nfse). If saved without the leading slash, the system automatically normalizes it to start with /.',
+        'bao_mount_hint'   => 'Use the KV v2 mount path (example: /nfse).',
         'bao_token'        => 'OpenBao / Vault Token',
         'bao_role_id'      => 'AppRole Role ID',
         'bao_secret_id'    => 'AppRole Secret ID',
