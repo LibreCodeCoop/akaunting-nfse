@@ -73,20 +73,7 @@ class CertificateController extends Controller
             return back()->with('error', trans('nfse::general.invalid_pfx'));
         }
 
-        // Store PFX file in private storage
-        $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
-        if (!is_dir(dirname($storagePath))) {
-            mkdir(dirname($storagePath), 0o700, true);
-        }
-        file_put_contents($storagePath, $pfxContent);
-        chmod($storagePath, 0o600);
-
-        // Store password in OpenBao — never in the application database
-        $store = $this->makeSecretStore();
-        $store->put('pfx/' . $cnpj, [
-            'pfx_path' => $storagePath,
-            'password' => $password,
-        ]);
+        $this->storeCertificate((string) $cnpj, $pfxContent, $password);
 
         return redirect()->route('nfse.settings.edit')
             ->with('success', trans('nfse::general.certificate_uploaded'));
@@ -120,6 +107,23 @@ class CertificateController extends Controller
         } catch (\Throwable) {
             // Best-effort cleanup: continue clearing local settings even if remote secret is absent.
         }
+    }
+
+    protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
+    {
+        $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
+
+        if (!is_dir(dirname($storagePath))) {
+            mkdir(dirname($storagePath), 0o700, true);
+        }
+
+        file_put_contents($storagePath, $pfxContent);
+        chmod($storagePath, 0o600);
+
+        $this->makeSecretStore()->put('pfx/' . $cnpj, [
+            'pfx_path' => $storagePath,
+            'password' => $password,
+        ]);
     }
 
     protected function clearNfseSettings(): void
