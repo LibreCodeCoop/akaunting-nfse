@@ -19,7 +19,7 @@ class CertificateController extends Controller
     public function parsePfx(Request $request): JsonResponse
     {
         $request->validate([
-            'pfx_file'     => 'required|file|mimes:pfx,p12|max:1024',
+            'pfx_file'     => 'required|file|extensions:pfx,p12|max:1024',
             'pfx_password' => 'required|string|max:255',
         ]);
 
@@ -48,7 +48,7 @@ class CertificateController extends Controller
     public function upload(Request $request): RedirectResponse
     {
         $request->validate([
-            'pfx_file'    => 'required|file|mimes:pfx,p12|max:1024',
+            'pfx_file'    => 'required|file|extensions:pfx,p12|max:1024',
             'pfx_password' => 'required|string|max:255',
         ]);
 
