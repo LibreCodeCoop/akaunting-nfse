@@ -31,17 +31,9 @@ class PfxParser
      */
     public static function extractFromContent(string $pfxContent, string $password): array
     {
-        $certs = [];
+        $certificatePem = PfxReader::readCertificatePem($pfxContent, $password);
 
-        if (!openssl_pkcs12_read($pfxContent, $certs, $password)) {
-            throw new \RuntimeException('Invalid PFX content or wrong password.');
-        }
-
-        if (!isset($certs['cert'])) {
-            return ['cnpj' => null];
-        }
-
-        $x509 = openssl_x509_read($certs['cert']);
+        $x509 = openssl_x509_read($certificatePem);
 
         if ($x509 === false) {
             return ['cnpj' => null];
