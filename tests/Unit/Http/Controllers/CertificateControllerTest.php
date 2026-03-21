@@ -5,9 +5,9 @@
 
 declare(strict_types=1);
 
-namespace App\Abstracts\Http {
-    abstract class Controller
-    {
+namespace {
+    if (!class_exists(\App\Abstracts\Http\Controller::class, false)) {
+        eval('namespace App\\Abstracts\\Http; abstract class Controller {}');
     }
 }
 
@@ -78,6 +78,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
     use Modules\Nfse\Http\Controllers\CertificateController;
     use Modules\Nfse\Http\Controllers\CertificateControllerTestState;
+    use Modules\Nfse\Http\Controllers\SettingsController;
 
     use function Modules\Nfse\Http\Controllers\storage_path;
 
@@ -243,6 +244,64 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             }
 
             rmdir($path);
+        }
+    }
+
+    final class SettingsControllerTest extends TestCase
+    {
+        public function testPrepareNfseInputNormalizesFieldsAndPreservesExistingSecretsWithoutCertificateReplacement(): void
+        {
+            $controller = new class () extends SettingsController {
+                /** @param array<string, mixed> $nfseInput */
+                public function runPrepareNfseInput(array $nfseInput, bool $isReplacingCertificate): array
+                {
+                    return $this->prepareNfseInput($nfseInput, $isReplacingCertificate);
+                }
+            };
+
+            $prepared = $controller->runPrepareNfseInput([
+                'uf' => 'rj',
+                'item_lista_servico' => '01.23',
+                'item_lista_servico_display' => '01.23 - descricao',
+                'bao_mount' => 'nfse',
+                'bao_token' => '',
+                'bao_secret_id' => '',
+                'bao_role_id' => 'role-id',
+            ], false);
+
+            self::assertSame([
+                'uf' => 'RJ',
+                'item_lista_servico' => '0123',
+                'bao_mount' => '/nfse',
+                'bao_role_id' => 'role-id',
+            ], $prepared);
+        }
+
+        public function testPrepareNfseInputKeepsEmptySensitiveFieldsDuringCertificateReplacement(): void
+        {
+            $controller = new class () extends SettingsController {
+                /** @param array<string, mixed> $nfseInput */
+                public function runPrepareNfseInput(array $nfseInput, bool $isReplacingCertificate): array
+                {
+                    return $this->prepareNfseInput($nfseInput, $isReplacingCertificate);
+                }
+            };
+
+            $prepared = $controller->runPrepareNfseInput([
+                'uf' => 'sp',
+                'item_lista_servico' => '14-14',
+                'bao_mount' => '/vault/nfse/',
+                'bao_token' => '',
+                'bao_secret_id' => '',
+            ], true);
+
+            self::assertSame('SP', $prepared['uf']);
+            self::assertSame('1414', $prepared['item_lista_servico']);
+            self::assertSame('/vault/nfse', $prepared['bao_mount']);
+            self::assertArrayHasKey('bao_token', $prepared);
+            self::assertArrayHasKey('bao_secret_id', $prepared);
+            self::assertSame('', $prepared['bao_token']);
+            self::assertSame('', $prepared['bao_secret_id']);
         }
     }
 }
