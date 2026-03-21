@@ -75,7 +75,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div id="cert-error-display" class="hidden text-red-600 text-sm"></div>
 
                     <div class="flex flex-wrap gap-3">
-                        <button type="button" id="btn-read-cert" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                        <button type="button" id="btn-read-cert" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                             {{ trans('nfse::general.read_certificate') }}
                         </button>
                     </div>
@@ -359,14 +359,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
                 };
 
+                const syncReadButtonState = () => {
+                    if (!btnReadCert || !pfxPasswordInput) {
+                        return;
+                    }
+
+                    btnReadCert.disabled = pfxPasswordInput.value.trim().length === 0;
+                };
+
                 toggleStepSettings(hasSavedSettings);
 
                 if (!hasSavedSettings) {
                     toggleReplaceFields(true);
                 }
 
+                syncReadButtonState();
+                pfxPasswordInput?.addEventListener('input', syncReadButtonState);
+
                 showReplaceButton?.addEventListener('click', () => {
                     toggleReplaceFields(true);
+                    syncReadButtonState();
                     pfxFileInput.focus();
                 });
 
