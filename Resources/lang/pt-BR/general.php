@@ -44,7 +44,7 @@ return [
         'sandbox_mode'     => 'Modo Sandbox (Homologação)',
         'bao_addr'         => 'Endereço OpenBao / Vault',
         'bao_mount'        => 'Mount KV v2',
-        'bao_mount_hint'   => 'Use o mount KV v2 (ex.: /nfse). Se salvar sem barra inicial, o sistema ajusta automaticamente para começar com /.',
+        'bao_mount_hint'   => 'Use o mount KV v2 (ex.: /nfse).',
         'bao_token'        => 'Token do OpenBao / Vault',
         'bao_role_id'      => 'AppRole Role ID',
         'bao_secret_id'    => 'AppRole Secret ID',
