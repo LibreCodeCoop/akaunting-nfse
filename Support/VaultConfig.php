@@ -14,17 +14,21 @@ final class VaultConfig
      */
     public static function secretStoreConfig(): array
     {
+        $mount = self::normalizeMount(
+            self::resolve(
+                setting('nfse.bao_mount', 'nfse'),
+                ['VAULT_MOUNT'],
+                'nfse',
+            ) ?? 'nfse',
+        );
+
         return [
             'addr' => self::resolve(
                 setting('nfse.bao_addr'),
                 ['VAULT_ADDR'],
                 'http://openbao:8200',
             ) ?? 'http://openbao:8200',
-            'mount' => self::resolve(
-                setting('nfse.bao_mount', 'nfse'),
-                ['VAULT_MOUNT'],
-                'nfse',
-            ) ?? 'nfse',
+            'mount' => $mount,
             'token' => self::resolve(
                 setting('nfse.bao_token'),
                 ['VAULT_TOKEN'],
@@ -41,6 +45,19 @@ final class VaultConfig
                 null,
             ),
         ];
+    }
+
+    public static function normalizeMount(string $mount): string
+    {
+        $normalized = trim($mount);
+
+        if ($normalized === '') {
+            return '/nfse';
+        }
+
+        $normalized = '/' . ltrim($normalized, '/');
+
+        return rtrim($normalized, '/') ?: '/nfse';
     }
 
     /**
