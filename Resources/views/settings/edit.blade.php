@@ -29,16 +29,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_certificate') }}</h3>
                     <p class="text-sm text-gray-500">{{ trans('nfse::general.settings.certificate_hint') }}</p>
+                    <input type="hidden" id="replace_certificate" name="replace_certificate" value="{{ ($certificateState['has_saved_settings'] ?? false) ? '0' : '1' }}">
 
+                    @if(($certificateState['has_saved_settings'] ?? false) === true)
+                        <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
+                            <p class="font-semibold">{{ trans('nfse::general.saved_state_title') }}</p>
+                            <p>{{ trans('nfse::general.saved_state_cnpj') }} <span class="font-mono">{{ $certificateState['cnpj'] }}</span></p>
+                            <p>{{ trans('nfse::general.saved_state_city') }} {{ setting('nfse.municipio_nome', '-') }} ({{ setting('nfse.uf', '-') }})</p>
+                            <p>{{ trans('nfse::general.saved_state_iss') }} {{ setting('nfse.aliquota', '-') }}%</p>
+                            <p>
+                                {{ trans('nfse::general.saved_state_certificate') }}
+                                @if(($certificateState['has_local_certificate'] ?? false) === true)
+                                    {{ trans('nfse::general.saved_state_certificate_present') }}
+                                @else
+                                    {{ trans('nfse::general.saved_state_certificate_missing') }}
+                                @endif
+                            </p>
+                            <div class="pt-2 flex flex-wrap gap-2">
+                                <button type="button" id="btn-show-replace-cert" class="inline-flex items-center px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700">
+                                    {{ trans('nfse::general.replace_certificate') }}
+                                </button>
+                            </div>
+                        </div>
+                    @endif
+
+                    <div id="replace-cert-fields" @if(($certificateState['has_saved_settings'] ?? false) === true) hidden @endif class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium mb-1" for="pfx_file">{{ trans('nfse::general.settings.certificate') }}</label>
-                        <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2" required>
+                        <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium mb-1" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
-                        <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password" required>
+                        <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
                     </div>
+
+                    <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.edit_hint_without_certificate') }}</p>
 
                     {{-- CNPJ badge shown after a successful parse --}}
                     <div id="cert-cnpj-display" class="hidden flex items-center gap-2 p-3 bg-green-50 border border-green-300 rounded">
@@ -53,12 +79,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             {{ trans('nfse::general.read_certificate') }}
                         </button>
                     </div>
+
+                    @if(($certificateState['has_saved_settings'] ?? false) === true)
+                    <div class="border-t border-gray-200 pt-3">
+                        <button type="button" id="btn-delete-certificate" class="inline-flex items-center px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 text-sm">
+                            {{ trans('nfse::general.delete_certificate_and_settings') }}
+                        </button>
+                    </div>
+                    @endif
+                    </div>
                 </div>
 
                 {{-- ─────────────────────────────────────────────────────── --}}
                 {{-- Step 2 · NFS-e settings (shown after CNPJ read)      --}}
                 {{-- ─────────────────────────────────────────────────────── --}}
-                <div id="step-settings-section" class="space-y-8" hidden>
+                <div id="step-settings-section" class="space-y-8" @if(($certificateState['has_saved_settings'] ?? false) !== true) hidden @endif>
                     <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_settings') }}</h3>
 
@@ -142,11 +177,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </div>
             </form>
 
-            <form method="POST" action="{{ route('nfse.certificate.destroy') }}" class="mt-4">
+            <form id="delete-certificate-form" method="POST" action="{{ route('nfse.certificate.destroy') }}" class="mt-4" @if(($certificateState['has_saved_settings'] ?? false) === true) hidden @endif>
                 @csrf
                 @method('DELETE')
-                <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700">
-                    {{ trans('general.delete') }}
+                <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700" onclick="return confirm('{{ trans('nfse::general.confirm_delete_certificate_and_settings') }}');">
+                    {{ trans('nfse::general.delete_certificate_and_settings') }}
                 </button>
             </form>
 
@@ -298,6 +333,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const certCnpjValue = document.getElementById('cert-cnpj-value');
                 const certErrorDisplay = document.getElementById('cert-error-display');
                 const stepSettingsSection = document.getElementById('step-settings-section');
+                const replaceCertificateInput = document.getElementById('replace_certificate');
+                const replaceFields = document.getElementById('replace-cert-fields');
+                const showReplaceButton = document.getElementById('btn-show-replace-cert');
+                const deleteCertificateButton = document.getElementById('btn-delete-certificate');
+                const deleteForm = document.getElementById('delete-certificate-form');
+                const hasSavedSettings = @json(($certificateState['has_saved_settings'] ?? false) === true);
 
                 const settingsForm = document.getElementById('settings-form');
                 const csrfToken = settingsForm?.querySelector('input[name="_token"]')?.value ?? '';
@@ -308,7 +349,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
                 };
 
-                toggleStepSettings(false);
+                const toggleReplaceFields = (isVisible) => {
+                    if (replaceFields) {
+                        replaceFields.hidden = !isVisible;
+                    }
+
+                    if (replaceCertificateInput) {
+                        replaceCertificateInput.value = isVisible ? '1' : '0';
+                    }
+                };
+
+                toggleStepSettings(hasSavedSettings);
+
+                if (!hasSavedSettings) {
+                    toggleReplaceFields(true);
+                }
+
+                showReplaceButton?.addEventListener('click', () => {
+                    toggleReplaceFields(true);
+                    pfxFileInput.focus();
+                });
+
+                deleteCertificateButton?.addEventListener('click', () => {
+                    if (!confirm(@json(trans('nfse::general.confirm_delete_certificate_and_settings')))) {
+                        return;
+                    }
+
+                    deleteForm?.submit();
+                });
 
                 btnReadCert.addEventListener('click', async () => {
                     certErrorDisplay.classList.add('hidden');
