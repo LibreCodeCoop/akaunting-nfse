@@ -19,24 +19,52 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </div>
             @endif
 
-            {{-- ─────────────────────────────────────────────────────── --}}
-            {{-- Step 1 · Digital certificate (file picker + two actions) --}}
-            {{-- ─────────────────────────────────────────────────────── --}}
-            <div class="bg-white rounded-lg shadow p-6 space-y-4">
-                <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_certificate') }}</h3>
+            <form id="settings-form" method="POST" action="{{ route('nfse.settings.update') }}" enctype="multipart/form-data" class="space-y-8">
+                @csrf
+                @method('PATCH')
 
-                <form id="cert-form" method="POST" action="{{ route('nfse.certificate.upload') }}" enctype="multipart/form-data" class="space-y-4">
-                    @csrf
+                {{-- ─────────────────────────────────────────────────────── --}}
+                {{-- Step 1 · Digital certificate (single action)          --}}
+                {{-- ─────────────────────────────────────────────────────── --}}
+                <div class="bg-white rounded-lg shadow p-6 space-y-4">
+                    <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_certificate') }}</h3>
+                    <p class="text-sm text-gray-500">{{ trans('nfse::general.settings.certificate_hint') }}</p>
+                    <input type="hidden" id="replace_certificate" name="replace_certificate" value="{{ ($certificateState['has_saved_settings'] ?? false) ? '0' : '1' }}">
 
+                    @if(($certificateState['has_saved_settings'] ?? false) === true)
+                        <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
+                            <p class="font-semibold">{{ trans('nfse::general.saved_state_title') }}</p>
+                            <p>{{ trans('nfse::general.saved_state_cnpj') }} <span class="font-mono">{{ $certificateState['cnpj'] }}</span></p>
+                            <p>{{ trans('nfse::general.saved_state_city') }} {{ setting('nfse.municipio_nome', '-') }} ({{ setting('nfse.uf', '-') }})</p>
+                            <p>{{ trans('nfse::general.saved_state_iss') }} {{ setting('nfse.aliquota', '-') }}%</p>
+                            <p>
+                                {{ trans('nfse::general.saved_state_certificate') }}
+                                @if(($certificateState['has_local_certificate'] ?? false) === true)
+                                    {{ trans('nfse::general.saved_state_certificate_present') }}
+                                @else
+                                    {{ trans('nfse::general.saved_state_certificate_missing') }}
+                                @endif
+                            </p>
+                            <div class="pt-2 flex flex-wrap gap-2">
+                                <button type="button" id="btn-show-replace-cert" class="inline-flex items-center px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700">
+                                    {{ trans('nfse::general.replace_certificate') }}
+                                </button>
+                            </div>
+                        </div>
+                    @endif
+
+                    <div id="replace-cert-fields" @if(($certificateState['has_saved_settings'] ?? false) === true) hidden @endif class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium mb-1" for="pfx_file">{{ trans('nfse::general.settings.certificate') }}</label>
-                        <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2" required>
+                        <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium mb-1" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
-                        <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password" required>
+                        <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
                     </div>
+
+                    <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.edit_hint_without_certificate') }}</p>
 
                     {{-- CNPJ badge shown after a successful parse --}}
                     <div id="cert-cnpj-display" class="hidden flex items-center gap-2 p-3 bg-green-50 border border-green-300 rounded">
@@ -47,32 +75,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div id="cert-error-display" class="hidden text-red-600 text-sm"></div>
 
                     <div class="flex flex-wrap gap-3">
-                        <button type="button" id="btn-read-cert" class="inline-flex items-center px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">
+                        <button type="button" id="btn-read-cert" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                             {{ trans('nfse::general.read_certificate') }}
                         </button>
-                        <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
-                            {{ trans('nfse::general.upload') }}
+                    </div>
+
+                    @if(($certificateState['has_saved_settings'] ?? false) === true)
+                    <div class="border-t border-gray-200 pt-3">
+                        <button type="button" id="btn-delete-certificate" class="inline-flex items-center px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 text-sm">
+                            {{ trans('nfse::general.delete_certificate_and_settings') }}
                         </button>
                     </div>
-                </form>
+                    @endif
+                    </div>
+                </div>
 
-                <form method="POST" action="{{ route('nfse.certificate.destroy') }}">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700">
-                        {{ trans('general.delete') }}
-                    </button>
-                </form>
-            </div>
-
-            {{-- ─────────────────────────────────────────────────────── --}}
-            {{-- Step 2 · NFS-e settings (CNPJ read-only; from cert)    --}}
-            {{-- ─────────────────────────────────────────────────────── --}}
-            <form method="POST" action="{{ route('nfse.settings.update') }}" class="space-y-8 mt-8">
-                @csrf
-                @method('PATCH')
-
-                <div class="bg-white rounded-lg shadow p-6 space-y-4">
+                {{-- ─────────────────────────────────────────────────────── --}}
+                {{-- Step 2 · NFS-e settings (shown after CNPJ read)      --}}
+                {{-- ─────────────────────────────────────────────────────── --}}
+                <div id="step-settings-section" class="space-y-8" @if(($certificateState['has_saved_settings'] ?? false) !== true) hidden @endif>
+                    <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_settings') }}</h3>
 
                     {{-- CNPJ: populated by "Ler certificado" or falls back to saved value --}}
@@ -118,9 +140,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <input name="nfse[sandbox_mode]" type="checkbox" value="1" @checked((bool) old('nfse.sandbox_mode', setting('nfse.sandbox_mode', true)))>
                         <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
                     </label>
-                </div>
+                    </div>
 
-                <div class="bg-white rounded-lg shadow p-6 space-y-4">
+                    <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">OpenBao / Vault</h3>
 
                     <div>
@@ -131,6 +153,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div>
                         <label class="block text-sm font-medium mb-1" for="bao_mount">{{ trans('nfse::general.settings.bao_mount') }}</label>
                         <input id="bao_mount" name="nfse[bao_mount]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_mount', setting('nfse.bao_mount', 'nfse')) }}">
+                        <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_mount_hint') }}</p>
                     </div>
 
                     <div>
@@ -147,10 +170,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
                         <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
                     </div>
-                </div>
+                    </div>
 
-                <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
-                    {{ trans('general.save') }}
+                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                        {{ trans('general.save') }}
+                    </button>
+                </div>
+            </form>
+
+            <form id="delete-certificate-form" method="POST" action="{{ route('nfse.certificate.destroy') }}" class="mt-4" @if(($certificateState['has_saved_settings'] ?? false) === true) hidden @endif>
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700" onclick="return confirm('{{ trans('nfse::general.confirm_delete_certificate_and_settings') }}');">
+                    {{ trans('nfse::general.delete_certificate_and_settings') }}
                 </button>
             </form>
 
@@ -247,36 +279,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     renderMunicipalities(municipalities, preferredName, preferredCode);
                 };
 
-                const ufs = await fetchJson(ufsUrl);
-                const lc116Services = await fetchJson(lc116ServicesUrl);
-                renderLc116Options(lc116Services);
-
-                const initialLc116Label = lc116ByCode.get(selectedLc116Code);
-                if (initialLc116Label) {
-                    lc116DisplayInput.value = initialLc116Label;
-                    lc116CodeInput.value = selectedLc116Code;
-                }
-
-                ufSelect.innerHTML = '';
-
-                const ufPlaceholder = document.createElement('option');
-                ufPlaceholder.value = '';
-                ufPlaceholder.textContent = 'Selecione...';
-                ufSelect.appendChild(ufPlaceholder);
-
-                ufs.forEach((entry) => {
-                    const option = document.createElement('option');
-                    option.value = entry.uf;
-                    option.textContent = `${entry.uf} - ${entry.name}`;
-                    if (entry.uf === selectedUf) {
-                        option.selected = true;
-                    }
-                    ufSelect.appendChild(option);
-                });
-
-                if (selectedUf) {
-                    await loadMunicipalities(selectedUf, selectedMunicipalityName, selectedIbge);
-                }
+                const ufsPromise = fetchJson(ufsUrl);
+                const lc116ServicesPromise = fetchJson(lc116ServicesUrl);
 
                 ufSelect.addEventListener('change', async () => {
                     await loadMunicipalities(ufSelect.value);
@@ -301,8 +305,95 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const certCnpjDisplay = document.getElementById('cert-cnpj-display');
                 const certCnpjValue = document.getElementById('cert-cnpj-value');
                 const certErrorDisplay = document.getElementById('cert-error-display');
+                const stepSettingsSection = document.getElementById('step-settings-section');
+                const replaceCertificateInput = document.getElementById('replace_certificate');
+                const replaceFields = document.getElementById('replace-cert-fields');
+                const showReplaceButton = document.getElementById('btn-show-replace-cert');
+                const deleteCertificateButton = document.getElementById('btn-delete-certificate');
+                const deleteForm = document.getElementById('delete-certificate-form');
+                const hasSavedSettings = @json(($certificateState['has_saved_settings'] ?? false) === true);
 
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+                const settingsForm = document.getElementById('settings-form');
+                const csrfToken = settingsForm?.querySelector('input[name="_token"]')?.value ?? '';
+
+                const toggleStepSettings = (isVisible) => {
+                    if (stepSettingsSection) {
+                        stepSettingsSection.hidden = !isVisible;
+                    }
+                };
+
+                const toggleReplaceFields = (isVisible) => {
+                    if (replaceFields) {
+                        replaceFields.hidden = !isVisible;
+                    }
+
+                    if (replaceCertificateInput) {
+                        replaceCertificateInput.value = isVisible ? '1' : '0';
+                    }
+                };
+
+                const syncReadButtonState = () => {
+                    if (!btnReadCert || !pfxPasswordInput) {
+                        return;
+                    }
+
+                    btnReadCert.disabled = pfxPasswordInput.value.trim().length === 0;
+                };
+
+                toggleStepSettings(hasSavedSettings);
+
+                if (!hasSavedSettings) {
+                    toggleReplaceFields(true);
+                }
+
+                syncReadButtonState();
+                pfxPasswordInput?.addEventListener('input', syncReadButtonState);
+
+                showReplaceButton?.addEventListener('click', () => {
+                    toggleReplaceFields(true);
+                    syncReadButtonState();
+                    pfxFileInput.focus();
+                });
+
+                (async () => {
+                    const [ufs, lc116Services] = await Promise.all([ufsPromise, lc116ServicesPromise]);
+                    renderLc116Options(lc116Services);
+
+                    const initialLc116Label = lc116ByCode.get(selectedLc116Code);
+                    if (initialLc116Label) {
+                        lc116DisplayInput.value = initialLc116Label;
+                        lc116CodeInput.value = selectedLc116Code;
+                    }
+
+                    ufSelect.innerHTML = '';
+
+                    const ufPlaceholder = document.createElement('option');
+                    ufPlaceholder.value = '';
+                    ufPlaceholder.textContent = 'Selecione...';
+                    ufSelect.appendChild(ufPlaceholder);
+
+                    ufs.forEach((entry) => {
+                        const option = document.createElement('option');
+                        option.value = entry.uf;
+                        option.textContent = `${entry.uf} - ${entry.name}`;
+                        if (entry.uf === selectedUf) {
+                            option.selected = true;
+                        }
+                        ufSelect.appendChild(option);
+                    });
+
+                    if (selectedUf) {
+                        await loadMunicipalities(selectedUf, selectedMunicipalityName, selectedIbge);
+                    }
+                })();
+
+                deleteCertificateButton?.addEventListener('click', () => {
+                    if (!confirm(@json(trans('nfse::general.confirm_delete_certificate_and_settings')))) {
+                        return;
+                    }
+
+                    deleteForm?.submit();
+                });
 
                 btnReadCert.addEventListener('click', async () => {
                     certErrorDisplay.classList.add('hidden');
@@ -347,6 +438,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         certCnpjValue.textContent = cnpj;
                         certCnpjDisplay.classList.remove('hidden');
                         cnpjInput.value = cnpj;
+                        toggleStepSettings(true);
                     } catch {
                         certErrorDisplay.textContent = @json(trans('nfse::general.invalid_pfx'));
                         certErrorDisplay.classList.remove('hidden');
