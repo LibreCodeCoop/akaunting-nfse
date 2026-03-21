@@ -6,79 +6,13 @@
 declare(strict_types=1);
 
 namespace {
-    if (!class_exists(\App\Abstracts\Http\Controller::class, false)) {
-        eval('namespace App\\Abstracts\\Http; abstract class Controller {}');
-    }
-}
-
-namespace Modules\Nfse\Http\Controllers {
-    final class CertificateControllerTestState
-    {
-        /** @var array<string, mixed> */
-        public static array $settings = [];
-
-        public static int $savedCount = 0;
-
-        public static string $storageRoot = '';
-
-        public static function reset(): void
-        {
-            self::$settings = [];
-            self::$savedCount = 0;
-            self::$storageRoot = sys_get_temp_dir() . '/nfse-certificate-controller-test-' . uniqid('', true);
-
-            if (!is_dir(self::$storageRoot)) {
-                mkdir(self::$storageRoot, 0o777, true);
-            }
-        }
-    }
-
-    final class CertificateControllerFakeSettings
-    {
-        public function forget(string $key): void
-        {
-            unset(CertificateControllerTestState::$settings[$key]);
-        }
-
-        public function save(): void
-        {
-            CertificateControllerTestState::$savedCount++;
-        }
-    }
-
-    function setting(?string $key = null, mixed $default = null): mixed
-    {
-        if ($key === null) {
-            return new CertificateControllerFakeSettings();
-        }
-
-        if ($key === 'nfse') {
-            $prefix = 'nfse.';
-            $values = [];
-
-            foreach (CertificateControllerTestState::$settings as $settingKey => $value) {
-                if (str_starts_with($settingKey, $prefix)) {
-                    $values[substr($settingKey, strlen($prefix))] = $value;
-                }
-            }
-
-            return $values === [] ? $default : $values;
-        }
-
-        return CertificateControllerTestState::$settings[$key] ?? $default;
-    }
-
-    function storage_path(string $path = ''): string
-    {
-        return rtrim(CertificateControllerTestState::$storageRoot, '/') . ($path !== '' ? '/' . ltrim($path, '/') : '');
-    }
+    require_once __DIR__ . '/Support/ControllerIsolationState.php';
 }
 
 namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
     use Modules\Nfse\Http\Controllers\CertificateController;
-    use Modules\Nfse\Http\Controllers\CertificateControllerTestState;
-    use Modules\Nfse\Http\Controllers\SettingsController;
+    use Modules\Nfse\Http\Controllers\ControllerIsolationState;
 
     use function Modules\Nfse\Http\Controllers\storage_path;
 
@@ -90,19 +24,19 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             parent::setUp();
 
-            CertificateControllerTestState::reset();
+            ControllerIsolationState::reset();
         }
 
         protected function tearDown(): void
         {
-            $this->removeDirectory(CertificateControllerTestState::$storageRoot);
+            $this->removeDirectory(ControllerIsolationState::$storageRoot);
 
             parent::tearDown();
         }
 
         public function testDestroyCleanupRemovesStoredCertificateSecretAndSettings(): void
         {
-            CertificateControllerTestState::$settings = [
+            ControllerIsolationState::$settings = [
                 'nfse.cnpj_prestador' => '12345678000195',
                 'nfse.bao_addr' => 'http://openbao:8200',
                 'nfse.bao_mount' => '/nfse',
@@ -155,8 +89,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertFileDoesNotExist($storagePath);
             self::assertSame(['pfx/12345678000195'], $secretStore->deletedPaths);
-            self::assertSame([], CertificateControllerTestState::$settings);
-            self::assertSame(1, CertificateControllerTestState::$savedCount);
+            self::assertSame([], ControllerIsolationState::$settings);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
         }
 
         public function testStoreCertificatePersistsPrivateFileAndSecret(): void
@@ -244,64 +178,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             }
 
             rmdir($path);
-        }
-    }
-
-    final class SettingsControllerTest extends TestCase
-    {
-        public function testPrepareNfseInputNormalizesFieldsAndPreservesExistingSecretsWithoutCertificateReplacement(): void
-        {
-            $controller = new class () extends SettingsController {
-                /** @param array<string, mixed> $nfseInput */
-                public function runPrepareNfseInput(array $nfseInput, bool $isReplacingCertificate): array
-                {
-                    return $this->prepareNfseInput($nfseInput, $isReplacingCertificate);
-                }
-            };
-
-            $prepared = $controller->runPrepareNfseInput([
-                'uf' => 'rj',
-                'item_lista_servico' => '01.23',
-                'item_lista_servico_display' => '01.23 - descricao',
-                'bao_mount' => 'nfse',
-                'bao_token' => '',
-                'bao_secret_id' => '',
-                'bao_role_id' => 'role-id',
-            ], false);
-
-            self::assertSame([
-                'uf' => 'RJ',
-                'item_lista_servico' => '0123',
-                'bao_mount' => '/nfse',
-                'bao_role_id' => 'role-id',
-            ], $prepared);
-        }
-
-        public function testPrepareNfseInputKeepsEmptySensitiveFieldsDuringCertificateReplacement(): void
-        {
-            $controller = new class () extends SettingsController {
-                /** @param array<string, mixed> $nfseInput */
-                public function runPrepareNfseInput(array $nfseInput, bool $isReplacingCertificate): array
-                {
-                    return $this->prepareNfseInput($nfseInput, $isReplacingCertificate);
-                }
-            };
-
-            $prepared = $controller->runPrepareNfseInput([
-                'uf' => 'sp',
-                'item_lista_servico' => '14-14',
-                'bao_mount' => '/vault/nfse/',
-                'bao_token' => '',
-                'bao_secret_id' => '',
-            ], true);
-
-            self::assertSame('SP', $prepared['uf']);
-            self::assertSame('1414', $prepared['item_lista_servico']);
-            self::assertSame('/vault/nfse', $prepared['bao_mount']);
-            self::assertArrayHasKey('bao_token', $prepared);
-            self::assertArrayHasKey('bao_secret_id', $prepared);
-            self::assertSame('', $prepared['bao_token']);
-            self::assertSame('', $prepared['bao_secret_id']);
         }
     }
 }
