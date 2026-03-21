@@ -124,7 +124,7 @@ class SettingsController extends Controller
                     'password' => (string) $request->input('pfx_password', ''),
                 ];
 
-                PfxReader::readCertificatePem(
+                $this->validateCertificatePayload(
                     $certificatePayload['content'],
                     $certificatePayload['password'],
                 );
@@ -215,6 +215,11 @@ class SettingsController extends Controller
         }
 
         return $content;
+    }
+
+    protected function validateCertificatePayload(string $pfxContent, string $password): void
+    {
+        PfxReader::readCertificatePem($pfxContent, $password);
     }
 
     protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
