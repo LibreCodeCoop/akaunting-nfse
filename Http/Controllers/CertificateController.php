@@ -96,20 +96,34 @@ class CertificateController extends Controller
     {
         $cnpj = (string) setting('nfse.cnpj_prestador', '');
 
-        if ($cnpj !== '') {
-            $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
+        $this->clearStoredCertificate($cnpj);
+        $this->clearNfseSettings();
 
-            if (is_file($storagePath)) {
-                unlink($storagePath);
-            }
+        return redirect()->route('nfse.settings.edit')
+            ->with('success', trans('nfse::general.certificate_deleted_and_settings_cleared'));
+    }
 
-            try {
-                $this->makeSecretStore()->delete('pfx/' . $cnpj);
-            } catch (\Throwable) {
-                // Best-effort cleanup: continue clearing local settings even if remote secret is absent.
-            }
+    protected function clearStoredCertificate(string $cnpj): void
+    {
+        if ($cnpj === '') {
+            return;
         }
 
+        $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
+
+        if (is_file($storagePath)) {
+            unlink($storagePath);
+        }
+
+        try {
+            $this->makeSecretStore()->delete('pfx/' . $cnpj);
+        } catch (\Throwable) {
+            // Best-effort cleanup: continue clearing local settings even if remote secret is absent.
+        }
+    }
+
+    protected function clearNfseSettings(): void
+    {
         $nfseSettings = setting('nfse');
         if (is_array($nfseSettings)) {
             foreach (array_keys($nfseSettings) as $key) {
@@ -118,12 +132,9 @@ class CertificateController extends Controller
         }
 
         setting()->save();
-
-        return redirect()->route('nfse.settings.edit')
-            ->with('success', trans('nfse::general.certificate_deleted_and_settings_cleared'));
     }
 
-    private function makeSecretStore(): \LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
+    protected function makeSecretStore(): \LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
     {
         $config = VaultConfig::secretStoreConfig();
 
