@@ -158,6 +158,64 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(1, CertificateControllerTestState::$savedCount);
         }
 
+        public function testStoreCertificatePersistsPrivateFileAndSecret(): void
+        {
+            $secretStore = new class () implements SecretStoreInterface {
+                /** @var list<array{path: string, data: array<string, string>}> */
+                public array $putCalls = [];
+
+                public function get(string $path): array
+                {
+                    return [];
+                }
+
+                public function put(string $path, array $data): void
+                {
+                    $this->putCalls[] = [
+                        'path' => $path,
+                        'data' => $data,
+                    ];
+                }
+
+                public function delete(string $path): void
+                {
+                }
+            };
+
+            $controller = new class ($secretStore) extends CertificateController {
+                public function __construct(private readonly SecretStoreInterface $secretStore)
+                {
+                }
+
+                public function runStoreCertificate(string $cnpj, string $pfxContent, string $password): void
+                {
+                    $this->storeCertificate($cnpj, $pfxContent, $password);
+                }
+
+                protected function makeSecretStore(): SecretStoreInterface
+                {
+                    return $this->secretStore;
+                }
+            };
+
+            $controller->runStoreCertificate('12345678000195', 'pfx-binary-fixture', 'secret-password');
+
+            $storagePath = storage_path('app/nfse/pfx/12345678000195.pfx');
+
+            self::assertFileExists($storagePath);
+            self::assertSame('pfx-binary-fixture', file_get_contents($storagePath));
+            self::assertSame('0600', substr(sprintf('%o', fileperms($storagePath)), -4));
+            self::assertSame([
+                [
+                    'path' => 'pfx/12345678000195',
+                    'data' => [
+                        'pfx_path' => $storagePath,
+                        'password' => 'secret-password',
+                    ],
+                ],
+            ], $secretStore->putCalls);
+        }
+
         private function removeDirectory(string $path): void
         {
             if ($path === '' || !is_dir($path)) {
