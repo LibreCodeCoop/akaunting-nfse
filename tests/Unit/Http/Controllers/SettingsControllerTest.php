@@ -311,5 +311,84 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(1, ControllerIsolationState::$savedCount);
             self::assertSame('22222222000122', ControllerIsolationState::$settings['nfse.cnpj_prestador'] ?? null);
         }
+
+        public function testUpdateReturnsSavedMessageWhenNoCertificateIsProvided(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador' => '33333333000133',
+                        'uf' => 'rj',
+                        'municipio_nome' => 'Niteroi',
+                        'municipio_ibge' => '3303302',
+                        'item_lista_servico' => '0123',
+                        'bao_addr' => 'http://openbao:8200',
+                        'bao_mount' => '/nfse',
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->update($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame('nfse::general.saved', $response->flash['success'] ?? null);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+            self::assertSame('33333333000133', ControllerIsolationState::$settings['nfse.cnpj_prestador'] ?? null);
+        }
+
+        public function testUpdateReturnsSavedAndCertificateUploadedMessageWhenCertificateStoreSucceeds(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador' => '44444444000144',
+                        'uf' => 'rj',
+                        'municipio_nome' => 'Niteroi',
+                        'municipio_ibge' => '3303302',
+                        'item_lista_servico' => '0123',
+                        'bao_addr' => 'http://openbao:8200',
+                        'bao_mount' => '/nfse',
+                    ],
+                    'pfx_password' => 'valid-password',
+                ],
+                files: [
+                    'pfx_file' => new UploadedFile('/tmp/cert-success.pfx'),
+                ],
+            );
+
+            $controller = new class () extends SettingsController {
+                public bool $storeCalled = false;
+
+                protected function readUploadedCertificate(UploadedFile $file): string
+                {
+                    return 'fake-pfx-content';
+                }
+
+                protected function validateCertificatePayload(string $pfxContent, string $password): void
+                {
+                }
+
+                protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
+                {
+                    $this->storeCalled = true;
+                }
+            };
+
+            $response = $controller->update($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame('nfse::general.saved_and_certificate_uploaded', $response->flash['success'] ?? null);
+            self::assertTrue($controller->storeCalled);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+            self::assertSame('44444444000144', ControllerIsolationState::$settings['nfse.cnpj_prestador'] ?? null);
+        }
     }
 }
