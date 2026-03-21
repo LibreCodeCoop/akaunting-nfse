@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Modules\Nfse\Support\PfxParser;
+use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
 
 class CertificateController extends Controller
@@ -66,8 +67,9 @@ class CertificateController extends Controller
             return back()->with('error', trans('nfse::general.invalid_pfx'));
         }
 
-        $certs = [];
-        if (!openssl_pkcs12_read($pfxContent, $certs, $password)) {
+        try {
+            PfxReader::readCertificatePem($pfxContent, $password);
+        } catch (\RuntimeException) {
             return back()->with('error', trans('nfse::general.invalid_pfx'));
         }
 
