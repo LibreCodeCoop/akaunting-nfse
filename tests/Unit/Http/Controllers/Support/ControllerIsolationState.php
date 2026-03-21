@@ -21,6 +21,10 @@ namespace {
     if (!class_exists(\Illuminate\Http\RedirectResponse::class, false)) {
         eval('namespace Illuminate\\Http; class RedirectResponse { public bool $withInputCalled = false; public array $flash = []; public ?string $route = null; public ?string $target = null; public function withInput(): self { $this->withInputCalled = true; return $this; } public function with(string $key, mixed $value): self { $this->flash[$key] = $value; return $this; } }');
     }
+
+    if (!class_exists(\Illuminate\Http\JsonResponse::class, false)) {
+        eval('namespace Illuminate\\Http; class JsonResponse { public function __construct(public array $payload = [], public int $status = 200) {} public function getData(bool $assoc = false): object|array { return $assoc ? $this->payload : (object) $this->payload; } public function getStatusCode(): int { return $this->status; } }');
+    }
 }
 
 namespace Modules\Nfse\Http\Controllers {

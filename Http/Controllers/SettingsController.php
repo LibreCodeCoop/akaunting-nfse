@@ -33,17 +33,13 @@ class SettingsController extends Controller
     public function ufs(IbgeLocalities $ibgeLocalities): JsonResponse
     {
         try {
-            $rows = Http::timeout(8)
-                ->acceptJson()
-                ->get(self::IBGE_BASE_URL . '/estados')
-                ->throw()
-                ->json();
+            $rows = $this->fetchUfsRows();
 
-            return response()->json([
+            return $this->jsonResponse([
                 'data' => $ibgeLocalities->mapUfs(is_array($rows) ? $rows : []),
             ]);
         } catch (Throwable) {
-            return response()->json([
+            return $this->jsonResponse([
                 'data' => [],
                 'message' => 'Failed to load UFs from IBGE.',
             ], 502);
@@ -54,24 +50,20 @@ class SettingsController extends Controller
     {
         $normalizedUf = strtoupper(trim($uf));
         if (!preg_match('/^[A-Z]{2}$/', $normalizedUf)) {
-            return response()->json([
+            return $this->jsonResponse([
                 'data' => [],
                 'message' => 'Invalid UF.',
             ], 422);
         }
 
         try {
-            $rows = Http::timeout(8)
-                ->acceptJson()
-                ->get(self::IBGE_BASE_URL . '/estados/' . $normalizedUf . '/municipios')
-                ->throw()
-                ->json();
+            $rows = $this->fetchMunicipalitiesRows($normalizedUf);
 
-            return response()->json([
+            return $this->jsonResponse([
                 'data' => $ibgeLocalities->mapMunicipalities(is_array($rows) ? $rows : []),
             ]);
         } catch (Throwable) {
-            return response()->json([
+            return $this->jsonResponse([
                 'data' => [],
                 'message' => 'Failed to load municipalities from IBGE.',
             ], 502);
@@ -184,6 +176,33 @@ class SettingsController extends Controller
         }
 
         return $nfseInput;
+    }
+
+    protected function fetchUfsRows(): array
+    {
+        $rows = Http::timeout(8)
+            ->acceptJson()
+            ->get(self::IBGE_BASE_URL . '/estados')
+            ->throw()
+            ->json();
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    protected function fetchMunicipalitiesRows(string $normalizedUf): array
+    {
+        $rows = Http::timeout(8)
+            ->acceptJson()
+            ->get(self::IBGE_BASE_URL . '/estados/' . $normalizedUf . '/municipios')
+            ->throw()
+            ->json();
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+    {
+        return response()->json($payload, $status);
     }
 
     private function certificateState(): array

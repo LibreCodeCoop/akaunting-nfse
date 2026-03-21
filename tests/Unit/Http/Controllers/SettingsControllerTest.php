@@ -10,6 +10,7 @@ namespace {
 }
 
 namespace Modules\Nfse\Tests\Unit\Http\Controllers {
+    use Illuminate\Http\JsonResponse;
     use Illuminate\Http\RedirectResponse;
     use Illuminate\Http\Request;
     use Illuminate\Http\UploadedFile;
@@ -19,6 +20,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
     use function Modules\Nfse\Http\Controllers\storage_path;
 
+    use Modules\Nfse\Support\IbgeLocalities;
     use Modules\Nfse\Tests\TestCase;
 
     final class SettingsControllerTest extends TestCase
@@ -76,6 +78,133 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertArrayHasKey('bao_secret_id', $prepared);
             self::assertSame('', $prepared['bao_token']);
             self::assertSame('', $prepared['bao_secret_id']);
+        }
+
+        public function testUfsReturnsMappedAndSortedDataWhenIbgeRowsAreAvailable(): void
+        {
+            $controller = new class () extends SettingsController {
+                protected function fetchUfsRows(): array
+                {
+                    return [
+                        ['sigla' => 'sp', 'nome' => 'Sao Paulo'],
+                        ['sigla' => 'rj', 'nome' => 'Rio de Janeiro'],
+                        ['sigla' => 'x', 'nome' => 'Invalido'],
+                    ];
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->ufs(new IbgeLocalities());
+
+            self::assertSame(200, $response->getStatusCode());
+            self::assertSame([
+                'data' => [
+                    ['uf' => 'RJ', 'name' => 'Rio de Janeiro'],
+                    ['uf' => 'SP', 'name' => 'Sao Paulo'],
+                ],
+            ], $response->getData(true));
+        }
+
+        public function testUfsReturnsFallbackWhenIbgeRequestFails(): void
+        {
+            $controller = new class () extends SettingsController {
+                protected function fetchUfsRows(): array
+                {
+                    throw new \RuntimeException('ibge unavailable');
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->ufs(new IbgeLocalities());
+
+            self::assertSame(502, $response->getStatusCode());
+            self::assertSame([
+                'data' => [],
+                'message' => 'Failed to load UFs from IBGE.',
+            ], $response->getData(true));
+        }
+
+        public function testMunicipalitiesReturnsInvalidUfResponseWhenUfFormatIsInvalid(): void
+        {
+            $controller = new class () extends SettingsController {
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->municipalities('r', new IbgeLocalities());
+
+            self::assertSame(422, $response->getStatusCode());
+            self::assertSame([
+                'data' => [],
+                'message' => 'Invalid UF.',
+            ], $response->getData(true));
+        }
+
+        public function testMunicipalitiesReturnsMappedDataWhenIbgeRowsAreAvailable(): void
+        {
+            $controller = new class () extends SettingsController {
+                public string $receivedUf = '';
+
+                protected function fetchMunicipalitiesRows(string $normalizedUf): array
+                {
+                    $this->receivedUf = $normalizedUf;
+
+                    return [
+                        ['id' => '3303302', 'nome' => 'Niteroi'],
+                        ['id' => '3304557', 'nome' => 'Rio de Janeiro'],
+                        ['id' => '', 'nome' => 'Invalido'],
+                    ];
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->municipalities('rj', new IbgeLocalities());
+
+            self::assertSame('RJ', $controller->receivedUf);
+            self::assertSame(200, $response->getStatusCode());
+            self::assertSame([
+                'data' => [
+                    ['ibge_code' => '3303302', 'name' => 'Niteroi'],
+                    ['ibge_code' => '3304557', 'name' => 'Rio de Janeiro'],
+                ],
+            ], $response->getData(true));
+        }
+
+        public function testMunicipalitiesReturnsFallbackWhenIbgeRequestFails(): void
+        {
+            $controller = new class () extends SettingsController {
+                protected function fetchMunicipalitiesRows(string $normalizedUf): array
+                {
+                    throw new \RuntimeException('ibge unavailable');
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->municipalities('rj', new IbgeLocalities());
+
+            self::assertSame(502, $response->getStatusCode());
+            self::assertSame([
+                'data' => [],
+                'message' => 'Failed to load municipalities from IBGE.',
+            ], $response->getData(true));
         }
 
         public function testReplaceCertificateCyclePurgesOldArtifactsClearsSettingsAndStoresNewCertificate(): void
