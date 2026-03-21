@@ -153,6 +153,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div>
                         <label class="block text-sm font-medium mb-1" for="bao_mount">{{ trans('nfse::general.settings.bao_mount') }}</label>
                         <input id="bao_mount" name="nfse[bao_mount]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_mount', setting('nfse.bao_mount', 'nfse')) }}">
+                        <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_mount_hint') }}</p>
                     </div>
 
                     <div>
