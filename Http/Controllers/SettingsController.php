@@ -25,8 +25,9 @@ class SettingsController extends Controller
     public function edit(): \Illuminate\View\View
     {
         $settings = setting('nfse');
+        $certificateState = $this->certificateState();
 
-        return view('nfse::settings.edit', compact('settings'));
+        return view('nfse::settings.edit', compact('settings', 'certificateState'));
     }
 
     public function ufs(IbgeLocalities $ibgeLocalities): JsonResponse
@@ -89,6 +90,8 @@ class SettingsController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
+        $previousCnpj = (string) setting('nfse.cnpj_prestador', '');
+
         $request->validate([
             'nfse.cnpj_prestador'  => 'required|string|size:14',
             'nfse.uf'              => 'required|string|size:2',
@@ -101,6 +104,7 @@ class SettingsController extends Controller
             'nfse.bao_token'       => 'nullable|string',
             'nfse.bao_role_id'     => 'nullable|string',
             'nfse.bao_secret_id'   => 'nullable|string',
+            'replace_certificate'  => 'nullable|boolean',
             'pfx_file'             => 'nullable|file|extensions:pfx,p12|max:1024',
             'pfx_password'         => 'nullable|string|max:255|required_with:pfx_file',
         ]);
@@ -108,10 +112,12 @@ class SettingsController extends Controller
         $nfseInput = $request->input('nfse', []);
         $nfseInput['uf'] = strtoupper((string) ($nfseInput['uf'] ?? ''));
         $nfseInput['item_lista_servico'] = preg_replace('/\D/', '', (string) ($nfseInput['item_lista_servico'] ?? ''));
+        $nfseInput['bao_mount'] = VaultConfig::normalizeMount((string) ($nfseInput['bao_mount'] ?? ''));
         unset($nfseInput['item_lista_servico_display']);
 
         $certificatePayload = null;
         $certificateFile = $request->file('pfx_file');
+        $isReplacingCertificate = $certificateFile instanceof UploadedFile;
         if ($certificateFile instanceof UploadedFile) {
             try {
                 $certificatePayload = [
@@ -129,12 +135,17 @@ class SettingsController extends Controller
         }
 
         // Keep existing sensitive secrets unless user explicitly provides a new value.
-        if (($nfseInput['bao_token'] ?? '') === '') {
+        if (($nfseInput['bao_token'] ?? '') === '' && $isReplacingCertificate === false) {
             unset($nfseInput['bao_token']);
         }
 
-        if (($nfseInput['bao_secret_id'] ?? '') === '') {
+        if (($nfseInput['bao_secret_id'] ?? '') === '' && $isReplacingCertificate === false) {
             unset($nfseInput['bao_secret_id']);
+        }
+
+        if ($isReplacingCertificate && $previousCnpj !== '') {
+            $this->purgeCertificateArtifacts($previousCnpj);
+            $this->clearNfseSettings();
         }
 
         foreach ($nfseInput as $key => $value) {
@@ -161,6 +172,20 @@ class SettingsController extends Controller
 
         return redirect()->route('nfse.settings.edit')
             ->with('success', trans('nfse::general.saved'));
+    }
+
+    private function certificateState(): array
+    {
+        $cnpj = (string) setting('nfse.cnpj_prestador', '');
+        $path = $cnpj !== '' ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx') : '';
+        $hasLocalCertificate = $path !== '' && is_file($path);
+
+        return [
+            'cnpj' => $cnpj,
+            'local_path' => $path,
+            'has_local_certificate' => $hasLocalCertificate,
+            'has_saved_settings' => $cnpj !== '',
+        ];
     }
 
     private function readUploadedCertificate(UploadedFile $file): string
@@ -196,6 +221,34 @@ class SettingsController extends Controller
             'pfx_path' => $storagePath,
             'password' => $password,
         ]);
+    }
+
+    private function purgeCertificateArtifacts(string $cnpj): void
+    {
+        $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
+
+        if (is_file($storagePath)) {
+            unlink($storagePath);
+        }
+
+        try {
+            $this->makeSecretStore()->delete('pfx/' . $cnpj);
+        } catch (Throwable) {
+            // Keep replacement flow resilient if old secret is already absent.
+        }
+    }
+
+    private function clearNfseSettings(): void
+    {
+        $nfseSettings = setting('nfse');
+
+        if (!is_array($nfseSettings)) {
+            return;
+        }
+
+        foreach (array_keys($nfseSettings) as $key) {
+            setting()->forget('nfse.' . $key);
+        }
     }
 
     private function makeSecretStore(): \LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
