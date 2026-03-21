@@ -75,7 +75,7 @@ class SettingsController extends Controller
         $query = $request->query('q');
         $limit = (int) $request->query('limit', 200);
 
-        return response()->json([
+        return $this->jsonResponse([
             'data' => $lc116Catalog->search(is_string($query) ? $query : null, $limit),
         ]);
     }
