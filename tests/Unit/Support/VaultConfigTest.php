@@ -53,4 +53,19 @@ class VaultConfigTest extends TestCase
 
         self::assertSame('nfse', $value);
     }
+
+    public function testNormalizeMountAddsLeadingSlashWhenMissing(): void
+    {
+        self::assertSame('/nfse', VaultConfig::normalizeMount('nfse'));
+    }
+
+    public function testNormalizeMountKeepsSingleLeadingSlash(): void
+    {
+        self::assertSame('/nfse', VaultConfig::normalizeMount('/nfse'));
+    }
+
+    public function testNormalizeMountFallsBackForEmptyInput(): void
+    {
+        self::assertSame('/nfse', VaultConfig::normalizeMount('   '));
+    }
 }
