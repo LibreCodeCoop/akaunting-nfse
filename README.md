@@ -59,25 +59,70 @@ A senha é enviada diretamente ao OpenBao — o servidor nunca armazena em texto
 
 ### OpenBao / Vault
 
-| Variável de ambiente | Descrição |
-|---|---|
-| `VAULT_ADDR` | Endereço do servidor OpenBao/Vault (ex.: `http://openbao:8200`) |
-| `VAULT_ROLE_ID` | AppRole Role ID |
-| `VAULT_SECRET_ID` | AppRole Secret ID |
-| `VAULT_MOUNT` | Mount KV v2 (recomendado: `/nfse`) |
-| `VAULT_TOKEN` | Token para desenvolvimento/CI |
+O módulo armazena as credenciais nos campos da aba **NFS-e → Configurações**:
 
-Para desenvolvimento local, basta um token dev:
+| Campo | Descrição |
+|---|---|
+| Endereço OpenBao / Vault | URL do servidor (ex.: `http://openbao:8200`) |
+| Mount KV v2 | Path do mount (ex.: `/nfse`) |
+| Token | Token estático — use apenas em desenvolvimento ou CI |
+| AppRole Role ID | Role ID gerado pelo AppRole (produção) |
+| AppRole Secret ID | Secret ID gerado pelo AppRole (produção) |
+
+#### Desenvolvimento
+
+Inicie o OpenBao em modo dev com Docker:
 
 ```bash
-VAULT_ADDR=http://localhost:8200
-VAULT_TOKEN=dev-only-root-token
+docker run --rm -d --name openbao \
+  -p 8200:8200 \
+  -e BAO_DEV_ROOT_TOKEN_ID=dev-only-root-token \
+  openbao/openbao server -dev
 ```
 
-Observações importantes:
+Crie o mount KV v2:
 
-- Use o mount no formato com barra inicial, por exemplo `/nfse`.
-- Se você salvar sem a barra inicial no formulário, o módulo normaliza automaticamente para o formato correto ao persistir as configurações.
+```bash
+export BAO_ADDR=http://localhost:8200
+export BAO_TOKEN=dev-only-root-token
+bao secrets enable -path=nfse kv-v2
+```
+
+Configure o módulo com:
+- **Endereço**: `http://localhost:8200`
+- **Token**: `dev-only-root-token`
+- **Mount**: `/nfse`
+
+#### Produção (AppRole)
+
+AppRole é o método recomendado para produção, pois não expõe um token de longa duração.
+
+```bash
+# 1. Habilite o método AppRole
+bao auth enable approle
+
+# 2. Crie uma policy restrita ao path do módulo
+bao policy write nfse - <<EOF
+path "nfse/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+EOF
+
+# 3. Crie o role vinculado à policy
+bao write auth/approle/role/nfse \
+  token_policies="nfse" \
+  token_ttl=1h \
+  token_max_ttl=4h
+
+# 4. Obtenha o Role ID (preencha em "AppRole Role ID" no módulo)
+bao read auth/approle/role/nfse/role-id
+
+# 5. Gere um Secret ID (preencha em "AppRole Secret ID" no módulo)
+bao write -f auth/approle/role/nfse/secret-id
+
+# 6. Habilite o mount KV v2
+bao secrets enable -path=nfse kv-v2
+```
 
 ---
 
