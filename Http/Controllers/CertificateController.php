@@ -94,17 +94,33 @@ class CertificateController extends Controller
 
     public function destroy(): RedirectResponse
     {
-        $cnpj        = setting('nfse.cnpj_prestador');
-        $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
+        $cnpj = (string) setting('nfse.cnpj_prestador', '');
 
-        if (is_file($storagePath)) {
-            unlink($storagePath);
+        if ($cnpj !== '') {
+            $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
+
+            if (is_file($storagePath)) {
+                unlink($storagePath);
+            }
+
+            try {
+                $this->makeSecretStore()->delete('pfx/' . $cnpj);
+            } catch (\Throwable) {
+                // Best-effort cleanup: continue clearing local settings even if remote secret is absent.
+            }
         }
 
-        $this->makeSecretStore()->delete('pfx/' . $cnpj);
+        $nfseSettings = setting('nfse');
+        if (is_array($nfseSettings)) {
+            foreach (array_keys($nfseSettings) as $key) {
+                setting()->forget('nfse.' . $key);
+            }
+        }
+
+        setting()->save();
 
         return redirect()->route('nfse.settings.edit')
-            ->with('success', trans('nfse::general.certificate_deleted'));
+            ->with('success', trans('nfse::general.certificate_deleted_and_settings_cleared'));
     }
 
     private function makeSecretStore(): \LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
