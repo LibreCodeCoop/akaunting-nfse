@@ -200,7 +200,7 @@ class SettingsController extends Controller
         ];
     }
 
-    private function readUploadedCertificate(UploadedFile $file): string
+    protected function readUploadedCertificate(UploadedFile $file): string
     {
         $realPath = $file->getRealPath();
 
@@ -217,7 +217,7 @@ class SettingsController extends Controller
         return $content;
     }
 
-    private function storeCertificate(string $cnpj, string $pfxContent, string $password): void
+    protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
     {
         $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
 
@@ -235,7 +235,7 @@ class SettingsController extends Controller
         ]);
     }
 
-    private function purgeCertificateArtifacts(string $cnpj): void
+    protected function purgeCertificateArtifacts(string $cnpj): void
     {
         $storagePath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
 
@@ -250,7 +250,7 @@ class SettingsController extends Controller
         }
     }
 
-    private function clearNfseSettings(): void
+    protected function clearNfseSettings(): void
     {
         $nfseSettings = setting('nfse');
 
@@ -263,7 +263,7 @@ class SettingsController extends Controller
         }
     }
 
-    private function makeSecretStore(): \LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
+    protected function makeSecretStore(): \LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
     {
         $config = VaultConfig::secretStoreConfig();
 
