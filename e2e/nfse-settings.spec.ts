@@ -4,8 +4,18 @@
 import { test, expect } from '@playwright/test';
 import { loginToAkaunting } from './support/auth';
 
+test.use({ serviceWorkers: 'block' });
+
 test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
+
+  await page.route('**/certificate/parse', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { cnpj: '12345678000195' } }),
+    });
+  });
 
   await page.route('**/nfse/ibge/ufs', (route) => {
     route.fulfill({
@@ -50,19 +60,29 @@ test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo
     });
   });
 
-  await page.goto('/nfse/settings', { waitUntil: 'domcontentloaded' });
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
 
-  await expect(page).toHaveURL(/\/nfse\/settings/);
+  await expect(page).toHaveURL(/\/1\/nfse\/settings/);
   await expect(page.getByRole('heading', { name: /NFS-e/i })).toBeVisible();
 
   // Certificate wizard section appears first
   await expect(page.locator('#btn-read-cert')).toBeVisible();
   await expect(page.locator('input[name="pfx_file"]')).toBeAttached();
+  await expect(page.locator('#step-settings-section')).toBeHidden();
 
   // CNPJ field is read-only in the settings section
   const cnpjInput = page.locator('input[name="nfse[cnpj_prestador]"]');
   await expect(cnpjInput).toBeAttached();
   await expect(cnpjInput).toHaveAttribute('readonly');
+
+  await page.locator('input[name="pfx_file"]').setInputFiles('e2e/fixtures/test-cert.p12');
+  await page.locator('input[name="pfx_password"]').fill('test-password-only');
+  await page.locator('#btn-read-cert').click();
+
+  await expect(page.locator('#cert-cnpj-display')).toBeVisible();
+  await expect(cnpjInput).toHaveValue('12345678000195');
+  await expect(page.locator('#step-settings-section')).toBeVisible();
 
   await expect(page.locator('select[name="nfse[uf]"]')).toBeVisible();
   await expect(page.locator('select[name="nfse[municipio_nome]"]')).toBeVisible();
