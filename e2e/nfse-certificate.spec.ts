@@ -53,7 +53,7 @@ test.describe('NFS-e certificate upload', () => {
         await loginToAkaunting(page, testInfo);
     });
 
-    test('certificate step uses a single primary action and hides step 2 initially', async ({ page }) => {
+    test('certificate step uses a single primary action and preserves saved-state visibility', async ({ page }) => {
         await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle');
 
@@ -61,12 +61,21 @@ test.describe('NFS-e certificate upload', () => {
         const passwordInput = page.locator('input[name="pfx_password"]');
         const readButton = page.locator('#btn-read-cert');
         const stepTwo = page.locator('#step-settings-section');
+        const showReplaceButton = page.locator('#btn-show-replace-cert');
 
         await expect(fileInput).toBeAttached();
-        await expect(passwordInput).toBeVisible();
+        await expect(passwordInput).toBeAttached();
         await expect(passwordInput).toHaveAttribute('type', 'password');
-        await expect(readButton).toBeVisible();
-        await expect(stepTwo).toBeHidden();
+
+        const hasSavedState = await page.locator('text=Estado atualmente salvo').count();
+        if (hasSavedState > 0) {
+            await expect(stepTwo).toBeVisible();
+            await expect(showReplaceButton).toBeVisible();
+            await expect(readButton).toBeHidden();
+        } else {
+            await expect(stepTwo).toBeHidden();
+            await expect(readButton).toBeVisible();
+        }
     });
 
     test('file picker accepts only .pfx and .p12 extensions', async ({ page }) => {
@@ -82,6 +91,10 @@ test.describe('NFS-e certificate upload', () => {
 
         await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle');
+
+        if (await page.locator('#btn-show-replace-cert').count()) {
+            await page.locator('#btn-show-replace-cert').click();
+        }
 
         await page.locator('input[name="pfx_file"]').setInputFiles(FIXTURE);
         await page.locator('input[name="pfx_password"]').fill(TEST_PASSWORD);
@@ -102,13 +115,25 @@ test.describe('NFS-e certificate upload', () => {
         await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle');
 
+        const stepTwo = page.locator('#step-settings-section');
+        const wasVisibleBeforeRead = await stepTwo.isVisible();
+
+        if (await page.locator('#btn-show-replace-cert').count()) {
+            await page.locator('#btn-show-replace-cert').click();
+        }
+
         await page.locator('input[name="pfx_file"]').setInputFiles(FIXTURE);
         await page.locator('input[name="pfx_password"]').fill('wrong-password');
         await page.locator('#btn-read-cert').click();
 
         await expect(page.locator('#cert-error-display')).toBeVisible();
         await expect(page.locator('#cert-cnpj-display')).not.toBeVisible();
-        await expect(page.locator('#step-settings-section')).toBeHidden();
+
+        if (wasVisibleBeforeRead) {
+            await expect(stepTwo).toBeVisible();
+        } else {
+            await expect(stepTwo).toBeHidden();
+        }
     });
 });
 
