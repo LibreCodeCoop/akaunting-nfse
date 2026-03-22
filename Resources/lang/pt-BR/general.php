@@ -32,6 +32,7 @@ return [
     'nfse_emitted'          => 'NFS-e :number emitida com sucesso.',
     'nfse_cancelled'        => 'NFS-e cancelada com sucesso.',
     'nfse_emit_failed'      => 'A emissão da NFS-e foi rejeitada pelo gateway.',
+    'nfse_secret_store_failed' => 'Não foi possível acessar o segredo do certificado no Vault/OpenBao.',
     'nfse_cancel_failed'    => 'O cancelamento da NFS-e foi rejeitado pelo gateway.',
     'nfse_reemit_failed'    => 'A reemissão da NFS-e foi rejeitada pelo gateway.',
     'nfse_refreshed'        => 'NFS-e :number atualizada com sucesso.',
