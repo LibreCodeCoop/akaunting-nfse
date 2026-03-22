@@ -9,6 +9,7 @@ namespace Modules\Nfse\Http\Controllers;
 
 use App\Models\Sale\Invoice;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use LibreCodeCoop\NfsePHP\Dto\DpsData;
 use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -27,13 +28,12 @@ class InvoiceController extends Controller
         return view('nfse::dashboard.index', compact('stats', 'recentReceipts'));
     }
 
-    public function index(): \Illuminate\View\View
+    public function index(?Request $request = null): \Illuminate\View\View
     {
-        $receipts = NfseReceipt::with('invoice')
-            ->latest()
-            ->paginate(25);
+        $status = $this->normalizedIndexStatus($request?->query('status'));
+        $receipts = $this->receiptsForIndex($status);
 
-        return view('nfse::invoices.index', compact('receipts'));
+        return view('nfse::invoices.index', compact('receipts', 'status'));
     }
 
     public function pending(): \Illuminate\View\View
@@ -188,6 +188,29 @@ class InvoiceController extends Controller
             ->latest()
             ->take(10)
             ->get();
+    }
+
+    protected function receiptsForIndex(string $status): mixed
+    {
+        $query = NfseReceipt::with('invoice');
+
+        if ($status !== 'all') {
+            $query = $query->where('status', $status);
+        }
+
+        return $query->latest()->paginate(25);
+    }
+
+    protected function normalizedIndexStatus(mixed $status): string
+    {
+        if (!is_string($status)) {
+            return 'all';
+        }
+
+        $normalized = strtolower(trim($status));
+        $allowed = ['all', 'emitted', 'cancelled', 'processing'];
+
+        return in_array($normalized, $allowed, true) ? $normalized : 'all';
     }
 
     protected function pendingInvoices(): iterable
