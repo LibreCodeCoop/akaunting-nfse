@@ -61,6 +61,7 @@ return [
             'bao_addr' => 'OpenBao address configured',
             'bao_mount' => 'OpenBao mount configured',
             'certificate' => 'Local certificate available',
+            'certificate_secret' => 'Certificate secret available in Vault/OpenBao',
         ],
     ],
 
