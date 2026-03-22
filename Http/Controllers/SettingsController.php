@@ -122,9 +122,21 @@ class SettingsController extends Controller
         $certificatePayload = null;
         $certificateFile = $request->file('pfx_file');
         $isReplacingCertificate = $certificateFile instanceof UploadedFile;
+        $existingSensitiveSettings = [
+            'bao_token' => (string) setting('nfse.bao_token', ''),
+            'bao_secret_id' => (string) setting('nfse.bao_secret_id', ''),
+        ];
         $nfseInput = $this->prepareNfseInput(
             $request->input('nfse', []),
         );
+
+        // Replacement flow clears all nfse.* settings before persisting new values.
+        // If sensitive fields are blank (keep current), re-inject old values so they survive the clear.
+        foreach ($existingSensitiveSettings as $key => $value) {
+            if (!array_key_exists($key, $nfseInput) && $value !== '') {
+                $nfseInput[$key] = $value;
+            }
+        }
 
         if ($certificateFile instanceof UploadedFile) {
             try {
