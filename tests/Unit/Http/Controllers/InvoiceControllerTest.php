@@ -30,6 +30,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ControllerIsolationState::$translations = [
                 'nfse::general.nfse_emitted' => 'NFS-e emitida :number',
                 'nfse::general.nfse_cancelled' => 'NFS-e cancelada',
+                'nfse::general.nfse_refreshed' => 'NFS-e :number atualizada com sucesso.',
+                'nfse::general.nfse_refresh_failed' => 'Nao foi possivel atualizar o status da NFS-e.',
                 'nfse::general.cancel_motivo_default' => 'Cancelamento padrao',
                 'nfse::general.service_default' => 'Servico padrao',
                 'nfse::general.invoices.emit_blocked_not_ready' => 'Ambiente nao esta pronto para emissao.',
@@ -421,6 +423,108 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.pending', $response->route);
             self::assertSame('Ambiente nao esta pronto para emissao.', $response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
+        }
+
+        public function testRefreshQueriesReceiptUpdatesStatusAndRedirectsToShowPage(): void
+        {
+            $invoice = new Invoice(id: 91, amount: 220.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(91, 'CHAVE-91', 'processing');
+
+            $client = new class () implements NfseClientInterface {
+                public array $queryCalls = [];
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    $this->queryCalls[] = $chaveAcesso;
+
+                    return new ReceiptData(
+                        nfseNumber: 'NF-91',
+                        chaveAcesso: 'CHAVE-91',
+                        dataEmissao: '2026-03-21T14:35:00-03:00',
+                        codigoVerificacao: 'VER-91',
+                    );
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+            };
+
+            $response = $controller->refresh($invoice);
+
+            self::assertSame(['CHAVE-91'], $client->queryCalls);
+            self::assertSame([
+                [
+                    'nfse_number' => 'NF-91',
+                    'chave_acesso' => 'CHAVE-91',
+                    'data_emissao' => '2026-03-21T14:35:00-03:00',
+                    'codigo_verificacao' => 'VER-91',
+                    'status' => 'emitted',
+                ],
+            ], $receipt->updatedPayloads);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
+            self::assertSame('NFS-e NF-91 atualizada com sucesso.', $response->flash['success'] ?? null);
+        }
+
+        public function testRefreshReturnsErrorFlashWhenProviderQueryFails(): void
+        {
+            $invoice = new Invoice(id: 92, amount: 330.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(92, 'CHAVE-92', 'processing');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \RuntimeException('Provider timeout');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+            };
+
+            $response = $controller->refresh($invoice);
+
+            self::assertSame([], $receipt->updatedPayloads);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
+            self::assertSame('Nao foi possivel atualizar o status da NFS-e.', $response->flash['error'] ?? null);
         }
     }
 }
