@@ -243,7 +243,23 @@ class SettingsController extends Controller
             'bao_addr' => ((string) ($settings['bao_addr'] ?? '')) !== '',
             'bao_mount' => ((string) ($settings['bao_mount'] ?? '')) !== '',
             'certificate' => (bool) ($certificateState['has_local_certificate'] ?? false),
+            'certificate_secret' => $this->hasCertificateSecret((string) ($settings['cnpj_prestador'] ?? '')),
         ];
+    }
+
+    protected function hasCertificateSecret(string $cnpj): bool
+    {
+        if ($cnpj === '') {
+            return false;
+        }
+
+        try {
+            $secret = $this->makeSecretStore()->get('pfx/' . $cnpj);
+
+            return (($secret['password'] ?? '') !== '') && (($secret['pfx_path'] ?? '') !== '');
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     protected function readUploadedCertificate(UploadedFile $file): string
