@@ -66,6 +66,27 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertFalse($response->data['certificateState']['has_saved_settings'] ?? true);
         }
 
+        public function testEditReturnsSavedCnpjStateWithoutLocalCertificateWhenFileIsMissing(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.cnpj_prestador' => '98765432000199',
+                'nfse.uf' => 'SP',
+            ];
+
+            $response = (new SettingsController())->edit();
+
+            self::assertSame('nfse::settings.edit', $response->name);
+            self::assertSame([
+                'cnpj_prestador' => '98765432000199',
+                'uf' => 'SP',
+            ], $response->data['settings'] ?? []);
+            self::assertSame('98765432000199', $response->data['certificateState']['cnpj'] ?? null);
+            self::assertSame(storage_path('app/nfse/pfx/98765432000199.pfx'), $response->data['certificateState']['local_path'] ?? null);
+            self::assertFalse($response->data['certificateState']['has_local_certificate'] ?? true);
+            self::assertTrue($response->data['certificateState']['has_saved_settings'] ?? false);
+        }
+
         public function testPrepareNfseInputNormalizesFieldsAndPreservesExistingSecretsWithoutCertificateReplacement(): void
         {
             $controller = new class () extends SettingsController {
