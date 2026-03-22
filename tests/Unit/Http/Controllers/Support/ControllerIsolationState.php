@@ -25,6 +25,10 @@ namespace {
     if (!class_exists(\Illuminate\Http\JsonResponse::class, false)) {
         eval('namespace Illuminate\\Http; class JsonResponse { public function __construct(public array $payload = [], public int $status = 200) {} public function getData(bool $assoc = false): object|array { return $assoc ? $this->payload : (object) $this->payload; } public function getStatusCode(): int { return $this->status; } }');
     }
+
+    if (!class_exists(\Illuminate\View\View::class, false)) {
+        eval('namespace Illuminate\\View; class View { public function __construct(public string $name, public array $data = []) {} }');
+    }
 }
 
 namespace Modules\Nfse\Http\Controllers {
@@ -136,6 +140,13 @@ namespace Modules\Nfse\Http\Controllers {
         function storage_path(string $path = ''): string
         {
             return rtrim(ControllerIsolationState::$storageRoot, '/') . ($path !== '' ? '/' . ltrim($path, '/') : '');
+        }
+    }
+
+    if (!function_exists(__NAMESPACE__ . '\\view')) {
+        function view(string $name, array $data = []): \Illuminate\View\View
+        {
+            return new \Illuminate\View\View($name, $data);
         }
     }
 }
