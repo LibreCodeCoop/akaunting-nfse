@@ -22,7 +22,7 @@ class AddToAdminMenu
             return;
         }
 
-        $title = trans('nfse::general.name');
+        $title = $this->menuTitle();
 
         if (!$this->canAccessMenuItem($title, 'read-settings-company')) {
             return;
@@ -38,5 +38,10 @@ class AddToAdminMenu
                 'search_keywords' => trans('nfse::general.description'),
             ]
         );
+    }
+
+    protected function menuTitle(): string
+    {
+        return trans('nfse::general.name');
     }
 }
