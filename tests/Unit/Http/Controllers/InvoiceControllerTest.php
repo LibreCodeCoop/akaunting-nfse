@@ -294,5 +294,44 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame($invoice, $response->data['invoice'] ?? null);
             self::assertSame($receipt, $response->data['receipt'] ?? null);
         }
+
+        public function testDashboardReturnsViewWithOperationalStatsAndRecentReceipts(): void
+        {
+            $recentReceipts = [
+                (object) ['invoice_id' => 10, 'nfse_number' => 'NF-10'],
+            ];
+
+            $controller = new class ($recentReceipts) extends InvoiceController {
+                public function __construct(private readonly array $recentReceipts)
+                {
+                }
+
+                protected function dashboardStats(): array
+                {
+                    return [
+                        'total' => 9,
+                        'emitted' => 7,
+                        'cancelled' => 2,
+                        'sandbox_mode' => true,
+                    ];
+                }
+
+                protected function recentReceipts(): iterable
+                {
+                    return $this->recentReceipts;
+                }
+            };
+
+            $response = $controller->dashboard();
+
+            self::assertSame('nfse::dashboard.index', $response->name);
+            self::assertSame([
+                'total' => 9,
+                'emitted' => 7,
+                'cancelled' => 2,
+                'sandbox_mode' => true,
+            ], $response->data['stats'] ?? []);
+            self::assertSame($recentReceipts, $response->data['recentReceipts'] ?? []);
+        }
     }
 }
