@@ -177,11 +177,11 @@ class SettingsController extends Controller
         $nfseInput['bao_mount'] = VaultConfig::normalizeMount((string) ($nfseInput['bao_mount'] ?? ''));
         unset($nfseInput['item_lista_servico_display']);
 
-        if (($nfseInput['bao_token'] ?? '') === '' && $isReplacingCertificate === false) {
+        if (($nfseInput['bao_token'] ?? '') === '') {
             unset($nfseInput['bao_token']);
         }
 
-        if (($nfseInput['bao_secret_id'] ?? '') === '' && $isReplacingCertificate === false) {
+        if (($nfseInput['bao_secret_id'] ?? '') === '') {
             unset($nfseInput['bao_secret_id']);
         }
 
