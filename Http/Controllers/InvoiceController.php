@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use LibreCodeCoop\NfsePHP\Dto\DpsData;
 use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
+use LibreCodeCoop\NfsePHP\Exception\GatewayException;
 use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use Modules\Nfse\Models\NfseReceipt;
@@ -82,7 +83,13 @@ class InvoiceController extends Controller
         );
 
         $client = $this->makeClient($sandbox);
-        $receipt = $client->emit($dps);
+
+        try {
+            $receipt = $client->emit($dps);
+        } catch (GatewayException) {
+            return redirect()->route('nfse.invoices.pending')
+                ->with('error', trans('nfse::general.nfse_emit_failed'));
+        }
 
         $this->storeEmittedReceipt($invoice, $receipt);
 
@@ -96,7 +103,12 @@ class InvoiceController extends Controller
 
         $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
 
-        $client->cancel($receipt->chave_acesso, trans('nfse::general.cancel_motivo_default'));
+        try {
+            $client->cancel($receipt->chave_acesso, trans('nfse::general.cancel_motivo_default'));
+        } catch (GatewayException) {
+            return redirect()->route('nfse.invoices.index')
+                ->with('error', trans('nfse::general.nfse_cancel_failed'));
+        }
 
         $receipt->update(['status' => 'cancelled']);
 
@@ -192,7 +204,13 @@ class InvoiceController extends Controller
         );
 
         $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
-        $newReceipt = $client->emit($dps);
+
+        try {
+            $newReceipt = $client->emit($dps);
+        } catch (GatewayException) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_reemit_failed'));
+        }
 
         $this->storeEmittedReceipt($invoice, $newReceipt);
 
