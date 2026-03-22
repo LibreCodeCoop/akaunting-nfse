@@ -89,6 +89,10 @@ return [
         'cancel' => 'Cancel NFS-e',
         'refresh_status' => 'Refresh status',
         'refresh_all_statuses' => 'Refresh statuses in batch',
+        'filter_all' => 'All',
+        'filter_emitted' => 'Emitted',
+        'filter_processing' => 'Processing',
+        'filter_cancelled' => 'Cancelled',
         'cancel_confirm' => 'Do you want to cancel this NFS-e?',
     ],
 

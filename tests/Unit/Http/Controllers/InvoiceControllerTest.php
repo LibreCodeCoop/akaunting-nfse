@@ -11,6 +11,7 @@ namespace {
 
 namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use App\Models\Sale\Invoice;
+    use Illuminate\Http\Request;
     use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
     use LibreCodeCoop\NfsePHP\Dto\DpsData;
     use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -293,6 +294,47 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('nfse::invoices.index', $response->name);
             self::assertSame(['receipt-a', 'receipt-b'], $response->data['receipts'] ?? null);
+            self::assertSame('all', $response->data['status'] ?? null);
+        }
+
+        public function testIndexPassesStatusFilterFromRequestToReceiptQuery(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedStatus = null;
+
+                protected function receiptsForIndex(string $status): mixed
+                {
+                    $this->capturedStatus = $status;
+
+                    return ['filtered'];
+                }
+            };
+
+            $response = $controller->index(new Request(['status' => 'cancelled']));
+
+            self::assertSame('cancelled', $controller->capturedStatus);
+            self::assertSame('cancelled', $response->data['status'] ?? null);
+            self::assertSame(['filtered'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexFallsBackToAllWhenStatusFilterIsInvalid(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedStatus = null;
+
+                protected function receiptsForIndex(string $status): mixed
+                {
+                    $this->capturedStatus = $status;
+
+                    return ['fallback'];
+                }
+            };
+
+            $response = $controller->index(new Request(['status' => 'invalid-status']));
+
+            self::assertSame('all', $controller->capturedStatus);
+            self::assertSame('all', $response->data['status'] ?? null);
+            self::assertSame(['fallback'], $response->data['receipts'] ?? null);
         }
 
         public function testShowReturnsInvoiceAndReceiptInView(): void
