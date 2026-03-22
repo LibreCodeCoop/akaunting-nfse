@@ -37,8 +37,8 @@ namespace App\Traits {
 }
 
 namespace App\Events\Menu {
-    if (!class_exists(SettingsCreated::class, false)) {
-        class SettingsCreated
+    if (!class_exists(AdminCreated::class, false)) {
+        class AdminCreated
         {
             public function __construct(public object $menu)
             {
@@ -48,13 +48,13 @@ namespace App\Events\Menu {
 }
 
 namespace Modules\Nfse\Tests\Unit\Listeners {
-    use App\Events\Menu\SettingsCreated;
-    use Modules\Nfse\Listeners\ShowInSettingsMenu;
+    use App\Events\Menu\AdminCreated;
+    use Modules\Nfse\Listeners\AddToAdminMenu;
     use Modules\Nfse\Tests\TestCase;
 
-    class ShowInSettingsMenuTest extends TestCase
+    final class AddToAdminMenuTest extends TestCase
     {
-        public function testHandleAddsSettingsRouteWhenModuleEnabledAndAccessAllowed(): void
+        public function testHandleAddsDashboardRouteWhenModuleEnabledAndAccessAllowed(): void
         {
             $menu = new class () {
                 /** @var array<int, array<string, mixed>> */
@@ -76,7 +76,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                 }
             };
 
-            $listener = new class () extends ShowInSettingsMenu {
+            $listener = new class () extends AddToAdminMenu {
                 public string $permission = '';
 
                 public function moduleIsEnabled(string $alias): bool
@@ -92,11 +92,11 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                 }
             };
 
-            $listener->handle(new SettingsCreated($menu));
+            $listener->handle(new AdminCreated($menu));
 
             self::assertCount(1, $menu->calls);
-            self::assertSame('nfse.settings.edit', $menu->calls[0]['route']);
-            self::assertSame(260, $menu->calls[0]['order']);
+            self::assertSame('nfse.dashboard.index', $menu->calls[0]['route']);
+            self::assertSame(45, $menu->calls[0]['order']);
             self::assertSame('receipt_long', $menu->calls[0]['options']['icon']);
             self::assertSame('read-settings-company', $listener->permission);
         }
@@ -113,14 +113,14 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                 }
             };
 
-            $listener = new class () extends ShowInSettingsMenu {
+            $listener = new class () extends AddToAdminMenu {
                 public function moduleIsEnabled(string $alias): bool
                 {
                     return false;
                 }
             };
 
-            $listener->handle(new SettingsCreated($menu));
+            $listener->handle(new AdminCreated($menu));
 
             self::assertCount(0, $menu->calls);
         }
@@ -137,7 +137,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                 }
             };
 
-            $listener = new class () extends ShowInSettingsMenu {
+            $listener = new class () extends AddToAdminMenu {
                 public function moduleIsEnabled(string $alias): bool
                 {
                     return true;
@@ -149,7 +149,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                 }
             };
 
-            $listener->handle(new SettingsCreated($menu));
+            $listener->handle(new AdminCreated($menu));
 
             self::assertCount(0, $menu->calls);
         }

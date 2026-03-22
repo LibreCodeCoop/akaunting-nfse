@@ -33,6 +33,36 @@ return [
     'nfse_cancelled'        => 'NFS-e cancelada com sucesso.',
     'cancel_motivo_default' => 'Cancelamento solicitado pelo prestador de serviço.',
     'service_default'       => 'Prestação de serviços conforme contrato.',
+    'go_to_dashboard'       => 'Ir para o painel NFS-e',
+    'go_to_invoices'        => 'Ir para notas emitidas',
+    'go_to_settings'        => 'Ir para configurações',
+
+    'dashboard' => [
+        'menu_title' => 'NFS-e',
+        'title' => 'Painel operacional NFS-e',
+        'total_receipts' => 'Total de notas geradas',
+        'emitted' => 'Emitidas',
+        'cancelled' => 'Canceladas',
+        'environment' => 'Ambiente',
+        'sandbox_on' => 'Sandbox (Homologação)',
+        'sandbox_off' => 'Produção',
+        'recent_receipts' => 'Notas recentes',
+        'no_recent_receipts' => 'Nenhuma NFS-e emitida ainda.',
+    ],
+
+    'invoices' => [
+        'title' => 'Notas fiscais de serviço',
+        'details_title' => 'Detalhes da NFS-e',
+        'receipt_data' => 'Dados da NFS-e',
+        'invoice_data' => 'Dados da fatura',
+        'nfse_number' => 'Número da NFS-e',
+        'access_key' => 'Chave de acesso',
+        'verification_code' => 'Código de verificação',
+        'issue_date' => 'Data de emissão',
+        'back_to_list' => 'Voltar para lista',
+        'cancel' => 'Cancelar NFS-e',
+        'cancel_confirm' => 'Deseja cancelar esta NFS-e?',
+    ],
 
     'settings' => [
         'title'                 => 'Configurações NFS-e',

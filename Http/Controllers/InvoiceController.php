@@ -19,6 +19,14 @@ use Modules\Nfse\Support\VaultConfig;
 
 class InvoiceController extends Controller
 {
+    public function dashboard(): \Illuminate\View\View
+    {
+        $stats = $this->dashboardStats();
+        $recentReceipts = $this->recentReceipts();
+
+        return view('nfse::dashboard.index', compact('stats', 'recentReceipts'));
+    }
+
     public function index(): \Illuminate\View\View
     {
         $receipts = NfseReceipt::with('invoice')
@@ -82,6 +90,27 @@ class InvoiceController extends Controller
         return implode(' | ', $invoice->items->pluck('name')->toArray())
             ?: $invoice->description
             ?: trans('nfse::general.service_default');
+    }
+
+    /**
+     * @return array{total: int, emitted: int, cancelled: int, sandbox_mode: bool}
+     */
+    protected function dashboardStats(): array
+    {
+        return [
+            'total' => NfseReceipt::count(),
+            'emitted' => NfseReceipt::where('status', 'emitted')->count(),
+            'cancelled' => NfseReceipt::where('status', 'cancelled')->count(),
+            'sandbox_mode' => (bool) setting('nfse.sandbox_mode', true),
+        ];
+    }
+
+    protected function recentReceipts(): iterable
+    {
+        return NfseReceipt::with('invoice')
+            ->latest()
+            ->take(10)
+            ->get();
     }
 
     protected function makeClient(bool $sandboxMode): NfseClientInterface

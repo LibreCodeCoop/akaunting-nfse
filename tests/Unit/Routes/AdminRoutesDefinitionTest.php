@@ -36,6 +36,7 @@ class AdminRoutesDefinitionTest extends TestCase
 
     public function testCertificateAndInvoiceNamedRoutesExist(): void
     {
+        self::assertStringContainsString("->name('dashboard.index')", $this->routesContent);
         self::assertStringContainsString("->name('certificate.upload')", $this->routesContent);
         self::assertStringContainsString("->name('certificate.destroy')", $this->routesContent);
         self::assertStringContainsString("->name('certificate.parse')", $this->routesContent);
