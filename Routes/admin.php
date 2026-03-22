@@ -16,6 +16,7 @@ Route::module('nfse', function () {
     // Settings
     Route::group(['prefix' => 'settings', 'as' => 'settings.'], function () {
         Route::get('/', [SettingsController::class, 'edit'])->name('edit');
+        Route::get('/readiness', [SettingsController::class, 'readiness'])->name('readiness');
         Route::patch('/', [SettingsController::class, 'update'])->name('update');
     });
 
