@@ -150,6 +150,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">OpenBao / Vault</h3>
 
+                    <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-2">
+                        <p class="font-semibold">{{ trans('nfse::general.settings.vault_status_title') }}</p>
+                        <p id="vault-status-addr" data-configured="{{ ($vaultUiState['addr_configured'] ?? false) ? '1' : '0' }}">
+                            {{ trans('nfse::general.settings.vault_status_addr') }}: {{ ($vaultUiState['addr_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
+                        </p>
+                        <p id="vault-status-mount" data-configured="{{ ($vaultUiState['mount_configured'] ?? false) ? '1' : '0' }}">
+                            {{ trans('nfse::general.settings.vault_status_mount') }}: {{ ($vaultUiState['mount_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
+                        </p>
+                        <p id="vault-status-token" data-configured="{{ ($vaultUiState['token_configured'] ?? false) ? '1' : '0' }}">
+                            {{ trans('nfse::general.settings.vault_status_token') }}: {{ ($vaultUiState['token_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
+                        </p>
+                        <p id="vault-status-role-id" data-configured="{{ ($vaultUiState['role_id_configured'] ?? false) ? '1' : '0' }}">
+                            {{ trans('nfse::general.settings.vault_status_role_id') }}: {{ ($vaultUiState['role_id_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
+                        </p>
+                        <p id="vault-status-secret-id" data-configured="{{ ($vaultUiState['secret_id_configured'] ?? false) ? '1' : '0' }}">
+                            {{ trans('nfse::general.settings.vault_status_secret_id') }}: {{ ($vaultUiState['secret_id_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
+                        </p>
+                        <p id="vault-status-auth-mode" data-mode="{{ (string) ($vaultUiState['auth_mode'] ?? 'incomplete') }}">
+                            {{ trans('nfse::general.settings.vault_status_auth_mode') }}: {{ trans('nfse::general.settings.vault_auth_mode_' . (string) ($vaultUiState['auth_mode'] ?? 'incomplete')) }}
+                        </p>
+                        <p id="vault-status-certificate-secret" data-configured="{{ ($vaultUiState['certificate_secret_available'] ?? false) ? '1' : '0' }}">
+                            {{ trans('nfse::general.settings.vault_status_certificate_secret') }}: {{ ($vaultUiState['certificate_secret_available'] ?? false) ? trans('general.yes') : trans('general.no') }}
+                        </p>
+                    </div>
+
                     <div>
                         <label class="block text-sm font-medium mb-1" for="bao_addr">{{ trans('nfse::general.settings.bao_addr') }}</label>
                         <input id="bao_addr" name="nfse[bao_addr]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_addr', setting('nfse.bao_addr', 'http://openbao:8200')) }}" required>
@@ -164,6 +189,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div>
                         <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
                         <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
+                        <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_token_hint') }}</p>
+                        <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
+                            <input id="clear_bao_token" name="nfse[clear_bao_token]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_token', '0') === '1')>
+                            <span>{{ trans('nfse::general.settings.clear_bao_token') }}</span>
+                        </label>
                     </div>
 
                     <div>
@@ -174,7 +204,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div>
                         <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
                         <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
+                        <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_secret_id_hint') }}</p>
+                        <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
+                            <input id="clear_bao_secret_id" name="nfse[clear_bao_secret_id]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_secret_id', '0') === '1')>
+                            <span>{{ trans('nfse::general.settings.clear_bao_secret_id') }}</span>
+                        </label>
                     </div>
+
+                    <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.sensitive_fields_behavior_hint') }}</p>
                     </div>
 
                     <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
