@@ -91,6 +91,14 @@ namespace Modules\Nfse\Http\Controllers {
         }
     }
 
+    final class ControllerIsolationResponseFactory
+    {
+        public function json(array $payload, int $status = 200): \Illuminate\Http\JsonResponse
+        {
+            return new \Illuminate\Http\JsonResponse($payload, $status);
+        }
+    }
+
     if (!function_exists(__NAMESPACE__ . '\\setting')) {
         function setting(string|array|null $key = null, mixed $default = null): mixed
         {
@@ -127,6 +135,20 @@ namespace Modules\Nfse\Http\Controllers {
         function redirect(): ControllerIsolationRedirector
         {
             return new ControllerIsolationRedirector();
+        }
+    }
+
+    if (!function_exists(__NAMESPACE__ . '\\back')) {
+        function back(): \Illuminate\Http\RedirectResponse
+        {
+            return redirect()->back();
+        }
+    }
+
+    if (!function_exists(__NAMESPACE__ . '\\response')) {
+        function response(): ControllerIsolationResponseFactory
+        {
+            return new ControllerIsolationResponseFactory();
         }
     }
 
