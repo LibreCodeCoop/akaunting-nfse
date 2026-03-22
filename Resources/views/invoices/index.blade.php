@@ -51,6 +51,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </a>
         </div>
 
+        <form method="GET" action="{{ route('nfse.invoices.index') }}" class="mb-4 flex items-center gap-2">
+            <input type="hidden" name="status" value="{{ $status ?? 'all' }}">
+            <label for="per_page" class="text-sm text-gray-700">{{ trans('nfse::general.invoices.per_page') }}</label>
+            <select id="per_page" name="per_page" class="px-3 py-2 rounded border border-gray-300 text-sm">
+                @foreach([10, 25, 50, 100] as $option)
+                    <option value="{{ $option }}" @if(($perPage ?? 25) === $option) selected @endif>{{ $option }}</option>
+                @endforeach
+            </select>
+            <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
+                {{ trans('general.apply') }}
+            </button>
+        </form>
+
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
