@@ -350,6 +350,26 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->runReadUploadedCertificate($uploadedFile);
         }
+        public function testClearNfseSettingsDoesNothingWhenNoNfseSettingsAreStored(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'other.key' => 'value',
+            ];
+
+            $controller = new class () extends SettingsController {
+                public function runClearNfseSettings(): void
+                {
+                    $this->clearNfseSettings();
+                }
+            };
+
+            $controller->runClearNfseSettings();
+
+            self::assertSame([
+                'other.key' => 'value',
+            ], ControllerIsolationState::$settings);
+        }
 
         public function testUpdateReturnsBackWithInputAndInvalidPfxMessageWhenCertificateValidationFails(): void
         {
