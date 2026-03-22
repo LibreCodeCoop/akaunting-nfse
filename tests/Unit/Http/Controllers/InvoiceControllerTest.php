@@ -15,6 +15,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
     use LibreCodeCoop\NfsePHP\Dto\DpsData;
     use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
+    use LibreCodeCoop\NfsePHP\Exception\CancellationException;
+    use LibreCodeCoop\NfsePHP\Exception\IssuanceException;
+    use LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Http\Controllers\InvoiceController;
     use Modules\Nfse\Models\NfseReceipt;
@@ -951,6 +954,154 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('NFS-e reemitida NF-RE-301 com sucesso.', $response->flash['success'] ?? null);
+        }
+
+        public function testEmitRedirectsToPendingWithErrorFlashWhenGatewayRejectsIssuance(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 99,
+                amount: 500.0,
+                items: [['name' => 'Servico X']],
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new IssuanceException(
+                        'Gateway rejected',
+                        NfseErrorCode::IssuanceRejected,
+                        422,
+                        ['mensagem' => 'CNPJ inválido'],
+                    );
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+            };
+
+            $response = $controller->emit($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.pending', $response->route);
+            self::assertSame([], $response->parameters);
+            self::assertNotNull($response->flash['error'] ?? null);
+            self::assertSame([], NfseReceipt::$updateOrCreateCalls);
+        }
+
+        public function testCancelRedirectsToIndexWithErrorFlashWhenGatewayRejectsCancellation(): void
+        {
+            $invoice = new Invoice(id: 201, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(201, 'CHAVE-201', 'emitted');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new CancellationException(
+                        'Gateway rejected cancel',
+                        NfseErrorCode::CancellationRejected,
+                        409,
+                        ['mensagem' => 'NFS-e não pode ser cancelada'],
+                    );
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+            };
+
+            $response = $controller->cancel($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([], $response->parameters);
+            self::assertNotNull($response->flash['error'] ?? null);
+            self::assertSame([], $receipt->updatedPayloads);
+        }
+
+        public function testReemitRedirectsToShowWithErrorFlashWhenGatewayRejectsIssuance(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 303,
+                amount: 750.0,
+                items: [['name' => 'Srv']],
+            );
+            InvoiceControllerIsolationState::makeReceipt(303, 'CHAVE-303', 'cancelled');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new IssuanceException(
+                        'Gateway rejected reemit',
+                        NfseErrorCode::IssuanceRejected,
+                        422,
+                        ['mensagem' => 'Dados inválidos'],
+                    );
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+            };
+
+            $response = $controller->reemit($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
+            self::assertNotNull($response->flash['error'] ?? null);
+            self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
 
         public function testReemitReturnsWarningWhenReceiptIsNotCancelled(): void
