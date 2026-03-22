@@ -79,6 +79,15 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("nfse::general.readiness.checks.", $content);
         }
 
+        public function testReadinessViewShowsCertificateSecretChecklistRow(): void
+        {
+            $readinessPath = dirname(__DIR__, 3) . '/Resources/views/settings/readiness.blade.php';
+            $content = (string) file_get_contents($readinessPath);
+
+            self::assertStringContainsString("nfse::general.readiness.checks.certificate_secret", $content);
+            self::assertStringContainsString('$checklist[\'certificate_secret\']', $content);
+        }
+
         public function testPendingInvoicesViewShowsCompactSummaryAndCustomFilterInput(): void
         {
             $pendingPath = dirname(__DIR__, 3) . '/Resources/views/invoices/pending.blade.php';
