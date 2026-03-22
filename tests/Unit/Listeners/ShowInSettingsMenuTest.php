@@ -28,7 +28,7 @@ namespace App\Traits {
     if (!trait_exists(Permissions::class, false)) {
         trait Permissions
         {
-            public function canAccessMenuItem(string $title, string $permission): bool
+            public function canAccessMenuItem($title, $permission): bool
             {
                 return true;
             }
@@ -54,6 +54,21 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
 
     class ShowInSettingsMenuTest extends TestCase
     {
+        protected function setUp(): void
+        {
+            parent::setUp();
+
+            $container = \Illuminate\Container\Container::getInstance()
+                ?? new \Illuminate\Container\Container();
+            \Illuminate\Container\Container::setInstance($container);
+            $container->instance('translator', new class () {
+                public function get(string $key): string
+                {
+                    return $key;
+                }
+            });
+        }
+
         public function testHandleAddsSettingsRouteWhenModuleEnabledAndAccessAllowed(): void
         {
             $menu = new class () {
@@ -84,7 +99,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                     return true;
                 }
 
-                public function canAccessMenuItem(string $title, string $permission): bool
+                public function canAccessMenuItem($title, $permission): bool
                 {
                     $this->permission = $permission;
 
@@ -143,7 +158,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                     return true;
                 }
 
-                public function canAccessMenuItem(string $title, string $permission): bool
+                public function canAccessMenuItem($title, $permission): bool
                 {
                     return false;
                 }
