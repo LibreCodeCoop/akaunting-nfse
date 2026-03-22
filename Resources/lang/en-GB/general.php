@@ -33,6 +33,36 @@ return [
     'nfse_cancelled'        => 'NFS-e cancelled successfully.',
     'cancel_motivo_default' => 'Cancellation requested by the service provider.',
     'service_default'       => 'Service provision as per contract.',
+    'go_to_dashboard'       => 'Go to NFS-e dashboard',
+    'go_to_invoices'        => 'Go to issued invoices',
+    'go_to_settings'        => 'Go to settings',
+
+    'dashboard' => [
+        'menu_title' => 'NFS-e',
+        'title' => 'NFS-e operations dashboard',
+        'total_receipts' => 'Total issued receipts',
+        'emitted' => 'Emitted',
+        'cancelled' => 'Cancelled',
+        'environment' => 'Environment',
+        'sandbox_on' => 'Sandbox (Staging)',
+        'sandbox_off' => 'Production',
+        'recent_receipts' => 'Recent receipts',
+        'no_recent_receipts' => 'No NFS-e issued yet.',
+    ],
+
+    'invoices' => [
+        'title' => 'Service tax receipts',
+        'details_title' => 'NFS-e details',
+        'receipt_data' => 'NFS-e data',
+        'invoice_data' => 'Invoice data',
+        'nfse_number' => 'NFS-e number',
+        'access_key' => 'Access key',
+        'verification_code' => 'Verification code',
+        'issue_date' => 'Issue date',
+        'back_to_list' => 'Back to list',
+        'cancel' => 'Cancel NFS-e',
+        'cancel_confirm' => 'Do you want to cancel this NFS-e?',
+    ],
 
     'settings' => [
         'title'                 => 'NFS-e Settings',
