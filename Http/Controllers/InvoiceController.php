@@ -367,12 +367,28 @@ class InvoiceController extends Controller
             'municipio_ibge' => ((string) ($settings['municipio_ibge'] ?? '')) !== '',
             'item_lista_servico' => ((string) ($settings['item_lista_servico'] ?? '')) !== '',
             'certificate' => $certificatePath !== '' && is_file($certificatePath),
+            'certificate_secret' => $this->hasCertificateSecret($cnpj),
         ];
 
         return [
             'checklist' => $checklist,
             'isReady' => !in_array(false, $checklist, true),
         ];
+    }
+
+    protected function hasCertificateSecret(string $cnpj): bool
+    {
+        if ($cnpj === '') {
+            return false;
+        }
+
+        try {
+            $secret = $this->makeSecretStore()->get('pfx/' . $cnpj);
+
+            return (($secret['password'] ?? '') !== '') && (($secret['pfx_path'] ?? '') !== '');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     protected function makeClient(bool $sandboxMode): NfseClientInterface

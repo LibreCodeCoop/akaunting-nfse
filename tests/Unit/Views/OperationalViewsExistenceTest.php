@@ -79,6 +79,27 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("nfse::general.readiness.checks.", $content);
         }
 
+        public function testReadinessViewShowsCertificateSecretChecklistRow(): void
+        {
+            $readinessPath = dirname(__DIR__, 3) . '/Resources/views/settings/readiness.blade.php';
+            $content = (string) file_get_contents($readinessPath);
+
+            self::assertStringContainsString("nfse::general.readiness.checks.certificate_secret", $content);
+            self::assertStringContainsString('$checklist[\'certificate_secret\']', $content);
+        }
+
+        public function testSettingsViewShowsVaultStatusAndSensitiveFieldClearControls(): void
+        {
+            $settingsPath = dirname(__DIR__, 3) . '/Resources/views/settings/edit.blade.php';
+            $content = (string) file_get_contents($settingsPath);
+
+            self::assertStringContainsString('id="vault-status-token"', $content);
+            self::assertStringContainsString('id="vault-status-auth-mode"', $content);
+            self::assertStringContainsString('name="nfse[clear_bao_token]"', $content);
+            self::assertStringContainsString('name="nfse[clear_bao_secret_id]"', $content);
+            self::assertStringContainsString("trans('nfse::general.settings.sensitive_fields_behavior_hint')", $content);
+        }
+
         public function testPendingInvoicesViewShowsCompactSummaryAndCustomFilterInput(): void
         {
             $pendingPath = dirname(__DIR__, 3) . '/Resources/views/invoices/pending.blade.php';

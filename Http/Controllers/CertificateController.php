@@ -55,7 +55,11 @@ class CertificateController extends Controller
             return back()->with('error', trans('nfse::general.invalid_pfx'));
         }
 
-        $this->storeCertificate((string) $cnpj, $pfxContent, $password);
+        try {
+            $this->storeCertificate((string) $cnpj, $pfxContent, $password);
+        } catch (\Throwable) {
+            return back()->with('error', trans('nfse::general.certificate_store_failed'));
+        }
 
         return redirect()->route('nfse.settings.edit')
             ->with('success', trans('nfse::general.certificate_uploaded'));

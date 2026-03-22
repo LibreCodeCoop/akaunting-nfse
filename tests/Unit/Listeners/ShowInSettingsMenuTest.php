@@ -28,7 +28,7 @@ namespace App\Traits {
     if (!trait_exists(Permissions::class, false)) {
         trait Permissions
         {
-            public function canAccessMenuItem(string $title, string $permission): bool
+            public function canAccessMenuItem($title, $permission): bool
             {
                 return true;
             }
@@ -84,7 +84,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                     return true;
                 }
 
-                public function canAccessMenuItem(string $title, string $permission): bool
+                public function canAccessMenuItem($title, $permission): bool
                 {
                     $this->permission = $permission;
 
@@ -143,7 +143,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                     return true;
                 }
 
-                public function canAccessMenuItem(string $title, string $permission): bool
+                public function canAccessMenuItem($title, $permission): bool
                 {
                     return false;
                 }

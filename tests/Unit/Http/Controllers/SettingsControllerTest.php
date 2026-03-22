@@ -50,6 +50,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame($localCertificatePath, $response->data['certificateState']['local_path'] ?? null);
             self::assertTrue($response->data['certificateState']['has_local_certificate'] ?? false);
             self::assertTrue($response->data['certificateState']['has_saved_settings'] ?? false);
+            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
+            self::assertFalse($response->data['vaultUiState']['token_configured'] ?? true);
         }
 
         public function testEditReturnsEmptyCertificateStateWhenNoSavedCnpjExists(): void
@@ -64,6 +66,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('', $response->data['certificateState']['local_path'] ?? null);
             self::assertFalse($response->data['certificateState']['has_local_certificate'] ?? true);
             self::assertFalse($response->data['certificateState']['has_saved_settings'] ?? true);
+            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
         }
 
         public function testEditReturnsSavedCnpjStateWithoutLocalCertificateWhenFileIsMissing(): void
@@ -85,6 +88,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(storage_path('app/nfse/pfx/98765432000199.pfx'), $response->data['certificateState']['local_path'] ?? null);
             self::assertFalse($response->data['certificateState']['has_local_certificate'] ?? true);
             self::assertTrue($response->data['certificateState']['has_saved_settings'] ?? false);
+            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
         }
 
         public function testReadinessReturnsChecklistAndReadinessFlag(): void
@@ -104,7 +108,36 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             }
             file_put_contents($localCertificatePath, 'fake-pfx');
 
-            $response = (new SettingsController())->readiness();
+            $secretStore = new class () implements SecretStoreInterface {
+                public function get(string $path): array
+                {
+                    return [
+                        'pfx_path' => '/tmp/example.pfx',
+                        'password' => 'secret',
+                    ];
+                }
+
+                public function put(string $path, array $data): void
+                {
+                }
+
+                public function delete(string $path): void
+                {
+                }
+            };
+
+            $controller = new class ($secretStore) extends SettingsController {
+                public function __construct(private readonly SecretStoreInterface $secretStore)
+                {
+                }
+
+                protected function makeSecretStore(): SecretStoreInterface
+                {
+                    return $this->secretStore;
+                }
+            };
+
+            $response = $controller->readiness();
 
             self::assertSame('nfse::settings.readiness', $response->name);
             self::assertTrue($response->data['isReady'] ?? false);
@@ -115,16 +148,17 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'bao_addr' => true,
                 'bao_mount' => true,
                 'certificate' => true,
+                'certificate_secret' => true,
             ], $response->data['checklist'] ?? []);
         }
 
-        public function testPrepareNfseInputNormalizesFieldsAndPreservesExistingSecretsWithoutCertificateReplacement(): void
+        public function testPrepareNfseInputNormalizesFieldsAndDropsEmptySensitiveFields(): void
         {
             $controller = new class () extends SettingsController {
                 /** @param array<string, mixed> $nfseInput */
-                public function runPrepareNfseInput(array $nfseInput, bool $isReplacingCertificate): array
+                public function runPrepareNfseInput(array $nfseInput): array
                 {
-                    return $this->prepareNfseInput($nfseInput, $isReplacingCertificate);
+                    return $this->prepareNfseInput($nfseInput);
                 }
             };
 
@@ -136,7 +170,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'bao_token' => '',
                 'bao_secret_id' => '',
                 'bao_role_id' => 'role-id',
-            ], false);
+            ]);
 
             self::assertSame([
                 'uf' => 'RJ',
@@ -146,13 +180,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], $prepared);
         }
 
-        public function testPrepareNfseInputPreservesExistingSensitiveFieldsDuringCertificateReplacement(): void
+        public function testPrepareNfseInputAlwaysDropsEmptySensitiveFieldsEvenDuringCertificateReplacement(): void
         {
             $controller = new class () extends SettingsController {
                 /** @param array<string, mixed> $nfseInput */
-                public function runPrepareNfseInput(array $nfseInput, bool $isReplacingCertificate): array
+                public function runPrepareNfseInput(array $nfseInput): array
                 {
-                    return $this->prepareNfseInput($nfseInput, $isReplacingCertificate);
+                    return $this->prepareNfseInput($nfseInput);
                 }
             };
 
@@ -162,13 +196,39 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'bao_mount' => '/vault/nfse/',
                 'bao_token' => '',
                 'bao_secret_id' => '',
-            ], true);
+            ]);
 
             self::assertSame('SP', $prepared['uf']);
             self::assertSame('1414', $prepared['item_lista_servico']);
             self::assertSame('/vault/nfse', $prepared['bao_mount']);
             self::assertArrayNotHasKey('bao_token', $prepared);
             self::assertArrayNotHasKey('bao_secret_id', $prepared);
+        }
+
+        public function testPrepareNfseInputCanExplicitlyClearSensitiveFieldsWhenRequested(): void
+        {
+            $controller = new class () extends SettingsController {
+                /** @param array<string, mixed> $nfseInput */
+                public function runPrepareNfseInput(array $nfseInput): array
+                {
+                    return $this->prepareNfseInput($nfseInput);
+                }
+            };
+
+            $prepared = $controller->runPrepareNfseInput([
+                'uf' => 'sp',
+                'item_lista_servico' => '1414',
+                'bao_mount' => '/nfse',
+                'bao_token' => '',
+                'bao_secret_id' => '',
+                'clear_bao_token' => '1',
+                'clear_bao_secret_id' => '1',
+            ]);
+
+            self::assertSame('', $prepared['bao_token']);
+            self::assertSame('', $prepared['bao_secret_id']);
+            self::assertArrayNotHasKey('clear_bao_token', $prepared);
+            self::assertArrayNotHasKey('clear_bao_secret_id', $prepared);
         }
 
         public function testUfsReturnsMappedAndSortedDataWhenIbgeRowsAreAvailable(): void
@@ -655,6 +715,61 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('11111111000111', $controller->purgedCnpj);
             self::assertTrue($controller->clearCalled);
             self::assertSame('value', ControllerIsolationState::$settings['other.key'] ?? null);
+        }
+
+        public function testUpdateReplacingCertificatePreservesStoredSensitiveFieldsWhenSubmittedBlank(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.cnpj_prestador' => '11111111000111',
+                'nfse.uf' => 'RJ',
+                'nfse.bao_token' => 'persisted-token',
+                'nfse.bao_secret_id' => 'persisted-secret-id',
+            ];
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador' => '22222222000122',
+                        'uf' => 'rj',
+                        'municipio_nome' => 'Niteroi',
+                        'municipio_ibge' => '3303302',
+                        'item_lista_servico' => '0123',
+                        'bao_addr' => 'http://openbao:8200',
+                        'bao_mount' => '/nfse',
+                        'bao_token' => '',
+                        'bao_secret_id' => '',
+                    ],
+                    'pfx_password' => 'valid-password',
+                ],
+                files: [
+                    'pfx_file' => new UploadedFile('/tmp/cert-replace-preserve-sensitive.pfx'),
+                ],
+            );
+
+            $controller = new class () extends SettingsController {
+                protected function readUploadedCertificate(UploadedFile $file): string
+                {
+                    return 'fake-pfx-content';
+                }
+
+                protected function validateCertificatePayload(string $pfxContent, string $password): void
+                {
+                }
+
+                protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
+                {
+                }
+            };
+
+            $response = $controller->update($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame('nfse::general.saved_and_certificate_uploaded', $response->flash['success'] ?? null);
+            self::assertSame('persisted-token', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
+            self::assertSame('persisted-secret-id', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? null);
         }
 
         public function testUpdateReplacingCertificateDoesNotPurgeOrClearWhenPreviousCnpjIsMissing(): void

@@ -153,3 +153,13 @@ test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo
   await expect(page.locator('input[name="nfse[item_lista_servico]"]')).toHaveValue('0107');
 });
 
+test('readiness screen shows certificate secret checklist row', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+
+  await page.goto('/1/nfse/settings/readiness', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  await expect(page).toHaveURL(/\/1\/nfse\/settings\/readiness/);
+  await expect(page.locator('text=Segredo do certificado disponível no Vault/OpenBao')).toBeVisible();
+});
+

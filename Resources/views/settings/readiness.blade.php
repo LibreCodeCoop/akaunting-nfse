@@ -57,6 +57,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <td class="px-4 py-2">{{ trans('nfse::general.readiness.checks.certificate') }}</td>
                         <td class="px-4 py-2">{{ ($checklist['certificate'] ?? false) ? trans('general.yes') : trans('general.no') }}</td>
                     </tr>
+                    <tr>
+                        <td class="px-4 py-2">{{ trans('nfse::general.readiness.checks.certificate_secret') }}</td>
+                        <td class="px-4 py-2">{{ ($checklist['certificate_secret'] ?? false) ? trans('general.yes') : trans('general.no') }}</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
