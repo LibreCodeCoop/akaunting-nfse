@@ -35,6 +35,7 @@ return [
     'service_default'       => 'Service provision as per contract.',
     'go_to_dashboard'       => 'Go to NFS-e dashboard',
     'go_to_invoices'        => 'Go to issued invoices',
+    'go_to_pending_invoices' => 'Go to pending invoices',
     'go_to_settings'        => 'Go to settings',
 
     'dashboard' => [
@@ -52,6 +53,7 @@ return [
 
     'invoices' => [
         'title' => 'Service tax receipts',
+        'pending_title' => 'Pending invoices for issuance',
         'details_title' => 'NFS-e details',
         'receipt_data' => 'NFS-e data',
         'invoice_data' => 'Invoice data',
@@ -60,6 +62,8 @@ return [
         'verification_code' => 'Verification code',
         'issue_date' => 'Issue date',
         'back_to_list' => 'Back to list',
+        'emit_now' => 'Emit NFS-e now',
+        'no_pending' => 'No pending invoices to emit.',
         'cancel' => 'Cancel NFS-e',
         'cancel_confirm' => 'Do you want to cancel this NFS-e?',
     ],
