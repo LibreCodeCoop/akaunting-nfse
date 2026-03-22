@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 --}}
 <x-layouts.admin>
-    <x-slot name="title">NFS-e</x-slot>
+    <x-slot name="title">{{ trans('nfse::general.invoices.title') }}</x-slot>
 
     <x-slot name="content">
         @if(session('success'))
@@ -11,6 +11,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 {{ session('success') }}
             </div>
         @endif
+
+        <div class="flex flex-wrap gap-2 mb-4">
+            <a href="{{ route('nfse.dashboard.index') }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
+                {{ trans('nfse::general.go_to_dashboard') }}
+            </a>
+            <a href="{{ route('nfse.settings.edit') }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
+                {{ trans('nfse::general.go_to_settings') }}
+            </a>
+        </div>
 
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
