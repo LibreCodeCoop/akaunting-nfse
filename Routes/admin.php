@@ -10,7 +10,7 @@ use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 
-Route::module('nfse', function () {
+Route::admin('nfse', function () {
     Route::get('/', [InvoiceController::class, 'dashboard'])->name('dashboard.index');
 
     // Settings
@@ -39,6 +39,4 @@ Route::module('nfse', function () {
     Route::post('invoices/{invoice}/reemit', [InvoiceController::class, 'reemit'])->name('invoices.reemit');
     Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
-}, [
-    'middleware' => ['web', 'auth', 'language', 'company.identify'],
-]);
+});
