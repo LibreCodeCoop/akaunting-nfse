@@ -100,6 +100,30 @@ class InvoiceController extends Controller
             ->with('success', trans('nfse::general.nfse_cancelled'));
     }
 
+    public function refresh(Invoice $invoice): RedirectResponse
+    {
+        $receipt = $this->findReceiptForInvoice($invoice);
+        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+
+        try {
+            $updatedReceipt = $client->query($receipt->chave_acesso);
+
+            $receipt->update([
+                'nfse_number' => $updatedReceipt->nfseNumber,
+                'chave_acesso' => $updatedReceipt->chaveAcesso,
+                'data_emissao' => $updatedReceipt->dataEmissao,
+                'codigo_verificacao' => $updatedReceipt->codigoVerificacao,
+                'status' => 'emitted',
+            ]);
+
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('success', trans('nfse::general.nfse_refreshed', ['number' => $updatedReceipt->nfseNumber]));
+        } catch (\Throwable) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_refresh_failed'));
+        }
+    }
+
     // -------------------------------------------------------------------------
 
     protected function buildDiscriminacao(Invoice $invoice): string

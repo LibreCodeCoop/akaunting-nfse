@@ -31,6 +31,8 @@ return [
     'saved_state_certificate_missing' => 'ausente (reenvie para reativar)',
     'nfse_emitted'          => 'NFS-e :number emitida com sucesso.',
     'nfse_cancelled'        => 'NFS-e cancelada com sucesso.',
+    'nfse_refreshed'        => 'NFS-e :number atualizada com sucesso.',
+    'nfse_refresh_failed'   => 'Não foi possível atualizar o status da NFS-e.',
     'cancel_motivo_default' => 'Cancelamento solicitado pelo prestador de serviço.',
     'service_default'       => 'Prestação de serviços conforme contrato.',
     'go_to_dashboard'       => 'Ir para o painel NFS-e',
@@ -83,6 +85,7 @@ return [
         'readiness_incomplete' => 'Existem pendências de configuração. Resolva a prontidão operacional antes de emitir.',
         'no_pending' => 'Nenhuma fatura pendente de emissão.',
         'cancel' => 'Cancelar NFS-e',
+        'refresh_status' => 'Atualizar status',
         'cancel_confirm' => 'Deseja cancelar esta NFS-e?',
     ],
 
