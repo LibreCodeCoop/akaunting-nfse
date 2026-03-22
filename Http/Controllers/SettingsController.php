@@ -116,7 +116,6 @@ class SettingsController extends Controller
         $isReplacingCertificate = $certificateFile instanceof UploadedFile;
         $nfseInput = $this->prepareNfseInput(
             $request->input('nfse', []),
-            $isReplacingCertificate,
         );
 
         if ($certificateFile instanceof UploadedFile) {
@@ -170,18 +169,18 @@ class SettingsController extends Controller
      * @param array<string, mixed> $nfseInput
      * @return array<string, mixed>
      */
-    protected function prepareNfseInput(array $nfseInput, bool $isReplacingCertificate): array
+    protected function prepareNfseInput(array $nfseInput): array
     {
         $nfseInput['uf'] = strtoupper((string) ($nfseInput['uf'] ?? ''));
         $nfseInput['item_lista_servico'] = preg_replace('/\D/', '', (string) ($nfseInput['item_lista_servico'] ?? ''));
         $nfseInput['bao_mount'] = VaultConfig::normalizeMount((string) ($nfseInput['bao_mount'] ?? ''));
         unset($nfseInput['item_lista_servico_display']);
 
-        if (($nfseInput['bao_token'] ?? '') === '' && $isReplacingCertificate === false) {
+        if (($nfseInput['bao_token'] ?? '') === '') {
             unset($nfseInput['bao_token']);
         }
 
-        if (($nfseInput['bao_secret_id'] ?? '') === '' && $isReplacingCertificate === false) {
+        if (($nfseInput['bao_secret_id'] ?? '') === '') {
             unset($nfseInput['bao_secret_id']);
         }
 
