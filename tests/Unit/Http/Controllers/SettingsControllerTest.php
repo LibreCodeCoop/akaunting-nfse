@@ -50,6 +50,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame($localCertificatePath, $response->data['certificateState']['local_path'] ?? null);
             self::assertTrue($response->data['certificateState']['has_local_certificate'] ?? false);
             self::assertTrue($response->data['certificateState']['has_saved_settings'] ?? false);
+            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
+            self::assertFalse($response->data['vaultUiState']['token_configured'] ?? true);
         }
 
         public function testEditReturnsEmptyCertificateStateWhenNoSavedCnpjExists(): void
@@ -64,6 +66,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('', $response->data['certificateState']['local_path'] ?? null);
             self::assertFalse($response->data['certificateState']['has_local_certificate'] ?? true);
             self::assertFalse($response->data['certificateState']['has_saved_settings'] ?? true);
+            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
         }
 
         public function testEditReturnsSavedCnpjStateWithoutLocalCertificateWhenFileIsMissing(): void
@@ -85,6 +88,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(storage_path('app/nfse/pfx/98765432000199.pfx'), $response->data['certificateState']['local_path'] ?? null);
             self::assertFalse($response->data['certificateState']['has_local_certificate'] ?? true);
             self::assertTrue($response->data['certificateState']['has_saved_settings'] ?? false);
+            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
         }
 
         public function testReadinessReturnsChecklistAndReadinessFlag(): void
@@ -199,6 +203,32 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('/vault/nfse', $prepared['bao_mount']);
             self::assertArrayNotHasKey('bao_token', $prepared);
             self::assertArrayNotHasKey('bao_secret_id', $prepared);
+        }
+
+        public function testPrepareNfseInputCanExplicitlyClearSensitiveFieldsWhenRequested(): void
+        {
+            $controller = new class () extends SettingsController {
+                /** @param array<string, mixed> $nfseInput */
+                public function runPrepareNfseInput(array $nfseInput): array
+                {
+                    return $this->prepareNfseInput($nfseInput);
+                }
+            };
+
+            $prepared = $controller->runPrepareNfseInput([
+                'uf' => 'sp',
+                'item_lista_servico' => '1414',
+                'bao_mount' => '/nfse',
+                'bao_token' => '',
+                'bao_secret_id' => '',
+                'clear_bao_token' => '1',
+                'clear_bao_secret_id' => '1',
+            ]);
+
+            self::assertSame('', $prepared['bao_token']);
+            self::assertSame('', $prepared['bao_secret_id']);
+            self::assertArrayNotHasKey('clear_bao_token', $prepared);
+            self::assertArrayNotHasKey('clear_bao_secret_id', $prepared);
         }
 
         public function testUfsReturnsMappedAndSortedDataWhenIbgeRowsAreAvailable(): void
