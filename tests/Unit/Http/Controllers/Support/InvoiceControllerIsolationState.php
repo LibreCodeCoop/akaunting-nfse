@@ -8,8 +8,12 @@ declare(strict_types=1);
 namespace {
     require_once __DIR__ . '/ControllerIsolationState.php';
 
+    if (!class_exists(\App\Models\Document\Document::class, false)) {
+        eval('namespace App\\Models\\Document; class Document { public function __construct(public int $id = 0, public float $amount = 0.0, public ?object $contact = null, public ?object $items = null, public string $description = "") { $this->items ??= new \\App\\Models\\Sale\\FakeCollection([]); } public static function invoice(): object { return new class () { public function when(bool $condition, callable $callback): self { if ($condition) { $callback($this); } return $this; } public function whereNotIn(string $column, array $values): self { return $this; } public function where(mixed ...$args): self { if (($args[0] ?? null) instanceof \\Closure) { $args[0]($this); } return $this; } public function orWhereHas(string $relation, callable $callback): self { $callback($this); return $this; } public function latest(): self { return $this; } public function paginate(int $perPage): array { return []; } }; } }');
+    }
+
     if (!class_exists(\App\Models\Sale\Invoice::class, false)) {
-        eval('namespace App\\Models\\Sale; class Invoice { public function __construct(public int $id = 0, public float $amount = 0.0, public ?object $contact = null, public ?object $items = null, public string $description = "") { $this->items ??= new FakeCollection([]); } } class FakeCollection { public function __construct(private array $items) {} public function pluck(string $key): self { return new self(array_map(static fn (array|object $item): mixed => is_array($item) ? ($item[$key] ?? null) : ($item->$key ?? null), $this->items)); } public function toArray(): array { return $this->items; } }');
+        eval('namespace App\\Models\\Sale; class Invoice extends \\App\\Models\\Document\\Document {} class FakeCollection { public function __construct(private array $items) {} public function pluck(string $key): self { return new self(array_map(static fn (array|object $item): mixed => is_array($item) ? ($item[$key] ?? null) : ($item->$key ?? null), $this->items)); } public function toArray(): array { return $this->items; } }');
     }
 
     if (!class_exists(\Modules\Nfse\Models\NfseReceipt::class, false)) {
