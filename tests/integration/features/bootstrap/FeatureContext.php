@@ -170,6 +170,20 @@ final class FeatureContext implements Context
         );
     }
 
+    #[Then('the response should mark :elementId as configured :configuredValue')]
+    public function theResponseShouldMarkElementAsConfigured(string $elementId, string $configuredValue): void
+    {
+        $this->ensureResponse();
+
+        $needle = sprintf('id="%s" data-configured="%s"', $elementId, $configuredValue);
+        $body = (string) $this->response->getBody();
+
+        $this->ensure(
+            str_contains($body, $needle),
+            sprintf('Expected response body to contain configured marker "%s".', $needle)
+        );
+    }
+
     private function request(string $method, string $path, array $options = []): ResponseInterface
     {
         $resolvedPath = $this->replaceCompanyPlaceholder($path);
