@@ -47,6 +47,7 @@ class AdminRoutesDefinitionTest extends TestCase
         self::assertStringContainsString("->name('invoices.index')", $this->routesContent);
         self::assertStringContainsString("->name('invoices.pending')", $this->routesContent);
         self::assertStringContainsString("->name('invoices.emit')", $this->routesContent);
+        self::assertStringContainsString("->name('invoices.refresh')", $this->routesContent);
         self::assertStringContainsString("->name('invoices.show')", $this->routesContent);
         self::assertStringContainsString("->name('invoices.cancel')", $this->routesContent);
     }
