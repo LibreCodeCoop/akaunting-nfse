@@ -20,5 +20,14 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/invoices/show.blade.php');
             self::assertFileExists($basePath . '/settings/readiness.blade.php');
         }
+
+        public function testInvoicesIndexViewKeepsFiltersInPaginationAndOffersClearAction(): void
+        {
+            $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
+            $content = (string) file_get_contents($indexPath);
+
+            self::assertStringContainsString('{{ $receipts->appends(request()->query())->links() }}', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.clear_filters')", $content);
+        }
     }
 }

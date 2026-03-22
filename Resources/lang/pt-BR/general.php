@@ -93,6 +93,7 @@ return [
         'filter_emitted' => 'Emitidas',
         'filter_processing' => 'Processando',
         'filter_cancelled' => 'Canceladas',
+        'clear_filters' => 'Limpar filtros',
         'per_page' => 'Itens por página',
         'search_label' => 'Buscar',
         'search_placeholder' => 'Número NFS-e, chave ou código',

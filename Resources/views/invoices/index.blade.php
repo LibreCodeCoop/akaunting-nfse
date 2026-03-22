@@ -49,6 +49,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <a href="{{ route('nfse.invoices.index', ['status' => 'cancelled', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center px-3 py-2 rounded text-sm {{ ($status ?? 'all') === 'cancelled' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 hover:bg-gray-200' }}">
                 {{ trans('nfse::general.invoices.filter_cancelled') }}
             </a>
+            <a href="{{ route('nfse.invoices.index') }}" class="inline-flex items-center px-3 py-2 rounded text-sm bg-gray-100 hover:bg-gray-200">
+                {{ trans('nfse::general.invoices.clear_filters') }}
+            </a>
         </div>
 
         <form method="GET" action="{{ route('nfse.invoices.index') }}" class="mb-4 flex items-center gap-2">
@@ -113,7 +116,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         </div>
 
         <div class="mt-4">
-            {{ $receipts->links() }}
+            {{ $receipts->appends(request()->query())->links() }}
         </div>
     </x-slot>
 </x-layouts.admin>

@@ -93,6 +93,7 @@ return [
         'filter_emitted' => 'Emitted',
         'filter_processing' => 'Processing',
         'filter_cancelled' => 'Cancelled',
+        'clear_filters' => 'Clear filters',
         'per_page' => 'Items per page',
         'search_label' => 'Search',
         'search_placeholder' => 'NFS-e number, access key, or code',
