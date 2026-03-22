@@ -20,10 +20,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         @if(!$isReady)
             <div class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded mb-4">
-                {{ trans('nfse::general.invoices.readiness_incomplete') }}
-                <a href="{{ route('nfse.settings.readiness') }}" class="underline">
-                    {{ trans('nfse::general.go_to_readiness') }}
-                </a>
+                    <p>{{ trans('nfse::general.invoices.readiness_incomplete') }}</p>
+                    @php $missingItems = array_keys(array_filter($checklist, fn($v) => !$v)); @endphp
+                    @if(count($missingItems) > 0)
+                        <ul class="mt-2 list-disc list-inside text-sm">
+                            @foreach($missingItems as $key)
+                                <li>{{ trans('nfse::general.readiness.checks.' . $key) }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
+                    <a href="{{ route('nfse.settings.readiness') }}" class="underline mt-2 inline-block text-sm">
+                        {{ trans('nfse::general.go_to_readiness') }}
+                    </a>
             </div>
         @endif
 
