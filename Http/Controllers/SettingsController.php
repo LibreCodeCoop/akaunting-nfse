@@ -24,10 +24,16 @@ class SettingsController extends Controller
 
     public function edit(): \Illuminate\View\View
     {
-        $settings = setting('nfse');
+        $settings = setting('nfse', []);
+        $settingsArray = is_array($settings) ? $settings : [];
         $certificateState = $this->certificateState();
+        $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
 
-        return view('nfse::settings.edit', compact('settings', 'certificateState'));
+        return view('nfse::settings.edit', [
+            'settings' => $settingsArray,
+            'certificateState' => $certificateState,
+            'vaultUiState' => $vaultUiState,
+        ]);
     }
 
     public function readiness(): \Illuminate\View\View
@@ -106,6 +112,8 @@ class SettingsController extends Controller
             'nfse.bao_token'       => 'nullable|string',
             'nfse.bao_role_id'     => 'nullable|string',
             'nfse.bao_secret_id'   => 'nullable|string',
+            'nfse.clear_bao_token' => 'nullable|boolean',
+            'nfse.clear_bao_secret_id' => 'nullable|boolean',
             'replace_certificate'  => 'nullable|boolean',
             'pfx_file'             => 'nullable|file|extensions:pfx,p12|max:1024',
             'pfx_password'         => 'nullable|string|max:255|required_with:pfx_file',
@@ -171,20 +179,63 @@ class SettingsController extends Controller
      */
     protected function prepareNfseInput(array $nfseInput): array
     {
+        $clearBaoToken = in_array((string) ($nfseInput['clear_bao_token'] ?? ''), ['1', 'true', 'on'], true);
+        $clearBaoSecretId = in_array((string) ($nfseInput['clear_bao_secret_id'] ?? ''), ['1', 'true', 'on'], true);
+
         $nfseInput['uf'] = strtoupper((string) ($nfseInput['uf'] ?? ''));
         $nfseInput['item_lista_servico'] = preg_replace('/\D/', '', (string) ($nfseInput['item_lista_servico'] ?? ''));
         $nfseInput['bao_mount'] = VaultConfig::normalizeMount((string) ($nfseInput['bao_mount'] ?? ''));
+        unset($nfseInput['clear_bao_token'], $nfseInput['clear_bao_secret_id']);
         unset($nfseInput['item_lista_servico_display']);
 
-        if (($nfseInput['bao_token'] ?? '') === '') {
+        if ($clearBaoToken) {
+            $nfseInput['bao_token'] = '';
+        } elseif (($nfseInput['bao_token'] ?? '') === '') {
             unset($nfseInput['bao_token']);
         }
 
-        if (($nfseInput['bao_secret_id'] ?? '') === '') {
+        if ($clearBaoSecretId) {
+            $nfseInput['bao_secret_id'] = '';
+        } elseif (($nfseInput['bao_secret_id'] ?? '') === '') {
             unset($nfseInput['bao_secret_id']);
         }
 
         return $nfseInput;
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @param array<string, mixed> $certificateState
+     * @return array<string, bool|string>
+     */
+    protected function vaultUiState(array $settings, array $certificateState): array
+    {
+        $addrConfigured = ((string) ($settings['bao_addr'] ?? '')) !== '';
+        $mountConfigured = ((string) ($settings['bao_mount'] ?? '')) !== '';
+        $tokenConfigured = ((string) ($settings['bao_token'] ?? '')) !== '';
+        $roleIdConfigured = ((string) ($settings['bao_role_id'] ?? '')) !== '';
+        $secretIdConfigured = ((string) ($settings['bao_secret_id'] ?? '')) !== '';
+        $approleComplete = $roleIdConfigured && $secretIdConfigured;
+
+        $authMode = 'incomplete';
+        if ($tokenConfigured) {
+            $authMode = 'token';
+        } elseif ($approleComplete) {
+            $authMode = 'approle';
+        }
+
+        $cnpj = (string) ($settings['cnpj_prestador'] ?? ($certificateState['cnpj'] ?? ''));
+
+        return [
+            'addr_configured' => $addrConfigured,
+            'mount_configured' => $mountConfigured,
+            'token_configured' => $tokenConfigured,
+            'role_id_configured' => $roleIdConfigured,
+            'secret_id_configured' => $secretIdConfigured,
+            'approle_complete' => $approleComplete,
+            'auth_mode' => $authMode,
+            'certificate_secret_available' => $this->hasCertificateSecret($cnpj),
+        ];
     }
 
     protected function fetchUfsRows(): array
