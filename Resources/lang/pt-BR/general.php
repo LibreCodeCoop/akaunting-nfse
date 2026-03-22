@@ -79,6 +79,8 @@ return [
         'issue_date' => 'Data de emissão',
         'back_to_list' => 'Voltar para lista',
         'emit_now' => 'Emitir NFS-e agora',
+        'emit_blocked_not_ready' => 'Ambiente não está pronto para emissão.',
+        'readiness_incomplete' => 'Existem pendências de configuração. Resolva a prontidão operacional antes de emitir.',
         'no_pending' => 'Nenhuma fatura pendente de emissão.',
         'cancel' => 'Cancelar NFS-e',
         'cancel_confirm' => 'Deseja cancelar esta NFS-e?',
