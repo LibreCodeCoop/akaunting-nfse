@@ -104,7 +104,36 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             }
             file_put_contents($localCertificatePath, 'fake-pfx');
 
-            $response = (new SettingsController())->readiness();
+            $secretStore = new class () implements SecretStoreInterface {
+                public function get(string $path): array
+                {
+                    return [
+                        'pfx_path' => '/tmp/example.pfx',
+                        'password' => 'secret',
+                    ];
+                }
+
+                public function put(string $path, array $data): void
+                {
+                }
+
+                public function delete(string $path): void
+                {
+                }
+            };
+
+            $controller = new class ($secretStore) extends SettingsController {
+                public function __construct(private readonly SecretStoreInterface $secretStore)
+                {
+                }
+
+                protected function makeSecretStore(): SecretStoreInterface
+                {
+                    return $this->secretStore;
+                }
+            };
+
+            $response = $controller->readiness();
 
             self::assertSame('nfse::settings.readiness', $response->name);
             self::assertTrue($response->data['isReady'] ?? false);
@@ -115,6 +144,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'bao_addr' => true,
                 'bao_mount' => true,
                 'certificate' => true,
+                'certificate_secret' => true,
             ], $response->data['checklist'] ?? []);
         }
 
