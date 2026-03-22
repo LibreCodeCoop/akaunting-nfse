@@ -32,9 +32,10 @@ class InvoiceController extends Controller
     {
         $status = $this->normalizedIndexStatus($request?->query('status'));
         $perPage = $this->normalizedIndexPerPage($request?->query('per_page'));
-        $receipts = $this->receiptsForIndex($status, $perPage);
+        $search = $this->normalizedIndexSearch($request?->query('q'));
+        $receipts = $this->receiptsForIndex($status, $perPage, $search);
 
-        return view('nfse::invoices.index', compact('receipts', 'status', 'perPage'));
+        return view('nfse::invoices.index', compact('receipts', 'status', 'perPage', 'search'));
     }
 
     public function pending(): \Illuminate\View\View
@@ -191,12 +192,20 @@ class InvoiceController extends Controller
             ->get();
     }
 
-    protected function receiptsForIndex(string $status, int $perPage): mixed
+    protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
     {
         $query = NfseReceipt::with('invoice');
 
         if ($status !== 'all') {
             $query = $query->where('status', $status);
+        }
+
+        if ($search !== null) {
+            $query = $query->where(function ($innerQuery) use ($search) {
+                $innerQuery->where('nfse_number', 'like', '%' . $search . '%')
+                    ->orWhere('chave_acesso', 'like', '%' . $search . '%')
+                    ->orWhere('codigo_verificacao', 'like', '%' . $search . '%');
+            });
         }
 
         return $query->latest()->paginate($perPage);
@@ -220,6 +229,17 @@ class InvoiceController extends Controller
         $normalized = is_numeric($perPage) ? (int) $perPage : 25;
 
         return in_array($normalized, $allowed, true) ? $normalized : 25;
+    }
+
+    protected function normalizedIndexSearch(mixed $search): ?string
+    {
+        if (!is_string($search)) {
+            return null;
+        }
+
+        $normalized = trim($search);
+
+        return $normalized !== '' ? $normalized : null;
     }
 
     protected function pendingInvoices(): iterable

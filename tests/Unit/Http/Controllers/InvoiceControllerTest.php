@@ -296,6 +296,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(['receipt-a', 'receipt-b'], $response->data['receipts'] ?? null);
             self::assertSame('all', $response->data['status'] ?? null);
             self::assertSame(25, $response->data['perPage'] ?? null);
+            self::assertNull($response->data['search'] ?? null);
         }
 
         public function testIndexPassesStatusFilterFromRequestToReceiptQuery(): void
@@ -303,11 +304,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
                 public ?string $capturedStatus = null;
                 public ?int $capturedPerPage = null;
+                public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
                 {
                     $this->capturedStatus = $status;
                     $this->capturedPerPage = $perPage;
+                    $this->capturedSearch = $search;
 
                     return ['filtered'];
                 }
@@ -317,6 +320,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('cancelled', $controller->capturedStatus);
             self::assertSame(25, $controller->capturedPerPage);
+            self::assertNull($controller->capturedSearch);
             self::assertSame('cancelled', $response->data['status'] ?? null);
             self::assertSame(['filtered'], $response->data['receipts'] ?? null);
         }
@@ -326,11 +330,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
                 public ?string $capturedStatus = null;
                 public ?int $capturedPerPage = null;
+                public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
                 {
                     $this->capturedStatus = $status;
                     $this->capturedPerPage = $perPage;
+                    $this->capturedSearch = $search;
 
                     return ['fallback'];
                 }
@@ -340,6 +346,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('all', $controller->capturedStatus);
             self::assertSame(25, $controller->capturedPerPage);
+            self::assertNull($controller->capturedSearch);
             self::assertSame('all', $response->data['status'] ?? null);
             self::assertSame(['fallback'], $response->data['receipts'] ?? null);
         }
@@ -349,11 +356,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
                 public ?string $capturedStatus = null;
                 public ?int $capturedPerPage = null;
+                public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
                 {
                     $this->capturedStatus = $status;
                     $this->capturedPerPage = $perPage;
+                    $this->capturedSearch = $search;
 
                     return ['custom-page'];
                 }
@@ -363,6 +372,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('emitted', $controller->capturedStatus);
             self::assertSame(50, $controller->capturedPerPage);
+            self::assertNull($controller->capturedSearch);
             self::assertSame(50, $response->data['perPage'] ?? null);
             self::assertSame(['custom-page'], $response->data['receipts'] ?? null);
         }
@@ -371,10 +381,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             $controller = new class () extends InvoiceController {
                 public ?int $capturedPerPage = null;
+                public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
                 {
                     $this->capturedPerPage = $perPage;
+                    $this->capturedSearch = $search;
 
                     return ['default-page'];
                 }
@@ -383,8 +395,49 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->index(new Request(['per_page' => '13']));
 
             self::assertSame(25, $controller->capturedPerPage);
+            self::assertNull($controller->capturedSearch);
             self::assertSame(25, $response->data['perPage'] ?? null);
             self::assertSame(['default-page'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexUsesTrimmedSearchQueryWhenProvided(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSearch = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                {
+                    $this->capturedSearch = $search;
+
+                    return ['search'];
+                }
+            };
+
+            $response = $controller->index(new Request(['q' => '  NF-2026-001  ']));
+
+            self::assertSame('NF-2026-001', $controller->capturedSearch);
+            self::assertSame('NF-2026-001', $response->data['search'] ?? null);
+            self::assertSame(['search'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexConvertsEmptySearchToNull(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSearch = 'marker';
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                {
+                    $this->capturedSearch = $search;
+
+                    return ['empty-search'];
+                }
+            };
+
+            $response = $controller->index(new Request(['q' => '   ']));
+
+            self::assertNull($controller->capturedSearch);
+            self::assertNull($response->data['search'] ?? null);
+            self::assertSame(['empty-search'], $response->data['receipts'] ?? null);
         }
 
         public function testShowReturnsInvoiceAndReceiptInView(): void
