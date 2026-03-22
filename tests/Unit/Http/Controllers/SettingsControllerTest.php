@@ -25,6 +25,33 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
     final class SettingsControllerTest extends TestCase
     {
+        public function testEditReturnsSettingsAndCertificateStateIncludingLocalCertificatePresence(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.cnpj_prestador' => '12345678000190',
+                'nfse.uf' => 'RJ',
+            ];
+
+            $localCertificatePath = storage_path('app/nfse/pfx/12345678000190.pfx');
+            if (!is_dir(dirname($localCertificatePath))) {
+                mkdir(dirname($localCertificatePath), 0o777, true);
+            }
+            file_put_contents($localCertificatePath, 'fake-pfx');
+
+            $response = (new SettingsController())->edit();
+
+            self::assertSame('nfse::settings.edit', $response->name);
+            self::assertSame([
+                'cnpj_prestador' => '12345678000190',
+                'uf' => 'RJ',
+            ], $response->data['settings'] ?? []);
+            self::assertSame('12345678000190', $response->data['certificateState']['cnpj'] ?? null);
+            self::assertSame($localCertificatePath, $response->data['certificateState']['local_path'] ?? null);
+            self::assertTrue($response->data['certificateState']['has_local_certificate'] ?? false);
+            self::assertTrue($response->data['certificateState']['has_saved_settings'] ?? false);
+        }
+
         public function testPrepareNfseInputNormalizesFieldsAndPreservesExistingSecretsWithoutCertificateReplacement(): void
         {
             $controller = new class () extends SettingsController {
