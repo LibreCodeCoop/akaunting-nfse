@@ -34,6 +34,7 @@ Route::module('nfse', function () {
     Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('invoices/pending', [InvoiceController::class, 'pending'])->name('invoices.pending');
     Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])->name('invoices.emit');
+    Route::post('invoices/refresh-all', [InvoiceController::class, 'refreshAll'])->name('invoices.refresh-all');
     Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])->name('invoices.refresh');
     Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
