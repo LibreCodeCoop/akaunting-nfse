@@ -36,7 +36,23 @@ return [
     'go_to_dashboard'       => 'Go to NFS-e dashboard',
     'go_to_invoices'        => 'Go to issued invoices',
     'go_to_pending_invoices' => 'Go to pending invoices',
+    'go_to_readiness'       => 'View operational readiness',
     'go_to_settings'        => 'Go to settings',
+
+    'readiness' => [
+        'title' => 'NFS-e operational readiness',
+        'ready' => 'Environment ready for issuance',
+        'not_ready' => 'Environment is not ready yet',
+        'hint' => 'Complete the pending checks below to reduce issuance failures.',
+        'checks' => [
+            'cnpj_prestador' => 'Service provider CNPJ saved',
+            'municipio_ibge' => 'IBGE municipality configured',
+            'item_lista_servico' => 'LC 116 service item configured',
+            'bao_addr' => 'OpenBao address configured',
+            'bao_mount' => 'OpenBao mount configured',
+            'certificate' => 'Local certificate available',
+        ],
+    ],
 
     'dashboard' => [
         'menu_title' => 'NFS-e',
