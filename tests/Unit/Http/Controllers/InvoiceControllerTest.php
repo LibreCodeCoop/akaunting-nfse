@@ -295,16 +295,19 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::invoices.index', $response->name);
             self::assertSame(['receipt-a', 'receipt-b'], $response->data['receipts'] ?? null);
             self::assertSame('all', $response->data['status'] ?? null);
+            self::assertSame(25, $response->data['perPage'] ?? null);
         }
 
         public function testIndexPassesStatusFilterFromRequestToReceiptQuery(): void
         {
             $controller = new class () extends InvoiceController {
                 public ?string $capturedStatus = null;
+                public ?int $capturedPerPage = null;
 
-                protected function receiptsForIndex(string $status): mixed
+                protected function receiptsForIndex(string $status, int $perPage): mixed
                 {
                     $this->capturedStatus = $status;
+                    $this->capturedPerPage = $perPage;
 
                     return ['filtered'];
                 }
@@ -313,6 +316,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->index(new Request(['status' => 'cancelled']));
 
             self::assertSame('cancelled', $controller->capturedStatus);
+            self::assertSame(25, $controller->capturedPerPage);
             self::assertSame('cancelled', $response->data['status'] ?? null);
             self::assertSame(['filtered'], $response->data['receipts'] ?? null);
         }
@@ -321,10 +325,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             $controller = new class () extends InvoiceController {
                 public ?string $capturedStatus = null;
+                public ?int $capturedPerPage = null;
 
-                protected function receiptsForIndex(string $status): mixed
+                protected function receiptsForIndex(string $status, int $perPage): mixed
                 {
                     $this->capturedStatus = $status;
+                    $this->capturedPerPage = $perPage;
 
                     return ['fallback'];
                 }
@@ -333,8 +339,52 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->index(new Request(['status' => 'invalid-status']));
 
             self::assertSame('all', $controller->capturedStatus);
+            self::assertSame(25, $controller->capturedPerPage);
             self::assertSame('all', $response->data['status'] ?? null);
             self::assertSame(['fallback'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexUsesRequestedPerPageWhenAllowed(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedStatus = null;
+                public ?int $capturedPerPage = null;
+
+                protected function receiptsForIndex(string $status, int $perPage): mixed
+                {
+                    $this->capturedStatus = $status;
+                    $this->capturedPerPage = $perPage;
+
+                    return ['custom-page'];
+                }
+            };
+
+            $response = $controller->index(new Request(['status' => 'emitted', 'per_page' => '50']));
+
+            self::assertSame('emitted', $controller->capturedStatus);
+            self::assertSame(50, $controller->capturedPerPage);
+            self::assertSame(50, $response->data['perPage'] ?? null);
+            self::assertSame(['custom-page'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexFallsBackToDefaultPerPageWhenValueIsInvalid(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?int $capturedPerPage = null;
+
+                protected function receiptsForIndex(string $status, int $perPage): mixed
+                {
+                    $this->capturedPerPage = $perPage;
+
+                    return ['default-page'];
+                }
+            };
+
+            $response = $controller->index(new Request(['per_page' => '13']));
+
+            self::assertSame(25, $controller->capturedPerPage);
+            self::assertSame(25, $response->data['perPage'] ?? null);
+            self::assertSame(['default-page'], $response->data['receipts'] ?? null);
         }
 
         public function testShowReturnsInvoiceAndReceiptInView(): void
