@@ -36,6 +36,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </a>
         </div>
 
+        <div class="flex flex-wrap gap-2 mb-4">
+            <a href="{{ route('nfse.invoices.index', ['status' => 'all']) }}" class="inline-flex items-center px-3 py-2 rounded text-sm {{ ($status ?? 'all') === 'all' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 hover:bg-gray-200' }}">
+                {{ trans('nfse::general.invoices.filter_all') }}
+            </a>
+            <a href="{{ route('nfse.invoices.index', ['status' => 'emitted']) }}" class="inline-flex items-center px-3 py-2 rounded text-sm {{ ($status ?? 'all') === 'emitted' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 hover:bg-gray-200' }}">
+                {{ trans('nfse::general.invoices.filter_emitted') }}
+            </a>
+            <a href="{{ route('nfse.invoices.index', ['status' => 'processing']) }}" class="inline-flex items-center px-3 py-2 rounded text-sm {{ ($status ?? 'all') === 'processing' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 hover:bg-gray-200' }}">
+                {{ trans('nfse::general.invoices.filter_processing') }}
+            </a>
+            <a href="{{ route('nfse.invoices.index', ['status' => 'cancelled']) }}" class="inline-flex items-center px-3 py-2 rounded text-sm {{ ($status ?? 'all') === 'cancelled' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 hover:bg-gray-200' }}">
+                {{ trans('nfse::general.invoices.filter_cancelled') }}
+            </a>
+        </div>
+
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
