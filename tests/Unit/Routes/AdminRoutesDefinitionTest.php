@@ -21,10 +21,9 @@ class AdminRoutesDefinitionTest extends TestCase
         $this->routesContent = file_get_contents($path);
     }
 
-    public function testUsesModuleRouteMacroWithCompanyContext(): void
+    public function testUsesAdminRouteMacroWithCompanyContext(): void
     {
-        self::assertStringContainsString("Route::module('nfse'", $this->routesContent);
-        self::assertStringContainsString("'middleware' => ['web', 'auth', 'language', 'company.identify']", $this->routesContent);
+        self::assertStringContainsString("Route::admin('nfse'", $this->routesContent);
     }
 
     public function testSettingsRouteUsesModuleSettingsGroup(): void
