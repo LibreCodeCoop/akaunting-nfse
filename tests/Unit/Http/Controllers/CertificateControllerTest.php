@@ -10,6 +10,9 @@ namespace {
 }
 
 namespace Modules\Nfse\Tests\Unit\Http\Controllers {
+    use Illuminate\Http\JsonResponse;
+    use Illuminate\Http\Request;
+    use Illuminate\Http\UploadedFile;
     use LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
     use Modules\Nfse\Http\Controllers\CertificateController;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
@@ -25,6 +28,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             parent::setUp();
 
             ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.cnpj_prestador' => '12345678000195',
+            ];
         }
 
         protected function tearDown(): void
@@ -149,6 +155,130 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     ],
                 ],
             ], $secretStore->putCalls);
+        }
+
+        public function testParsePfxReturnsInvalidPfxResponseWhenUploadedFileCannotBeRead(): void
+        {
+            $controller = new class () extends CertificateController {
+                protected function readUploadedFile(UploadedFile $file): string
+                {
+                    throw new \RuntimeException('unreadable');
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->parsePfx(new Request(
+                inputs: ['pfx_password' => 'secret'],
+                files: ['pfx_file' => new UploadedFile('/tmp/ignored')],
+            ));
+
+            self::assertSame(422, $response->getStatusCode());
+            self::assertSame(['error' => 'nfse::general.invalid_pfx'], $response->getData(true));
+        }
+
+        public function testParsePfxReturnsParsedCertificateData(): void
+        {
+            $controller = new class () extends CertificateController {
+                protected function readUploadedFile(UploadedFile $file): string
+                {
+                    return 'pfx-binary';
+                }
+
+                protected function parseUploadedCertificate(string $pfxContent, string $password): array
+                {
+                    return [
+                        'cnpj' => '12345678000195',
+                        'valid_to' => '2027-03-21',
+                    ];
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->parsePfx(new Request(
+                inputs: ['pfx_password' => 'secret'],
+                files: ['pfx_file' => new UploadedFile('/tmp/ignored')],
+            ));
+
+            self::assertSame(200, $response->getStatusCode());
+            self::assertSame([
+                'data' => [
+                    'cnpj' => '12345678000195',
+                    'valid_to' => '2027-03-21',
+                ],
+            ], $response->getData(true));
+        }
+
+        public function testUploadReturnsBackWithErrorWhenCertificateValidationFails(): void
+        {
+            $controller = new class () extends CertificateController {
+                protected function readUploadedFile(UploadedFile $file): string
+                {
+                    return 'pfx-binary';
+                }
+
+                protected function validateUploadedCertificate(string $pfxContent, string $password): void
+                {
+                    throw new \RuntimeException('invalid');
+                }
+            };
+
+            $response = $controller->upload(new Request(
+                inputs: ['pfx_password' => 'wrong'],
+                files: ['pfx_file' => new UploadedFile('/tmp/ignored')],
+            ));
+
+            self::assertSame('back', $response->target);
+            self::assertSame('nfse::general.invalid_pfx', $response->flash['error'] ?? null);
+        }
+
+        public function testUploadStoresCertificateAndRedirectsOnSuccess(): void
+        {
+            $controller = new class () extends CertificateController {
+                /** @var list<array{cnpj: string, content: string, password: string}> */
+                public array $storeCalls = [];
+
+                protected function readUploadedFile(UploadedFile $file): string
+                {
+                    return 'pfx-binary';
+                }
+
+                protected function validateUploadedCertificate(string $pfxContent, string $password): void
+                {
+                }
+
+                protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
+                {
+                    $this->storeCalls[] = [
+                        'cnpj' => $cnpj,
+                        'content' => $pfxContent,
+                        'password' => $password,
+                    ];
+                }
+            };
+
+            $response = $controller->upload(new Request(
+                inputs: ['pfx_password' => 'secret'],
+                files: ['pfx_file' => new UploadedFile('/tmp/ignored')],
+            ));
+
+            self::assertSame([
+                [
+                    'cnpj' => '12345678000195',
+                    'content' => 'pfx-binary',
+                    'password' => 'secret',
+                ],
+            ], $controller->storeCalls);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame('nfse::general.certificate_uploaded', $response->flash['success'] ?? null);
         }
 
         private function removeDirectory(string $path): void
