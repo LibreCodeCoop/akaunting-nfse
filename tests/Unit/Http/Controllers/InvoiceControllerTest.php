@@ -26,6 +26,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
     final class InvoiceControllerTest extends TestCase
     {
+        public function testControllerUsesDocumentModelAliasForInvoices(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString('use App\\Models\\Document\\Document as Invoice;', $content);
+            self::assertStringContainsString('Invoice::invoice()', $content);
+        }
+
         protected function setUp(): void
         {
             parent::setUp();
