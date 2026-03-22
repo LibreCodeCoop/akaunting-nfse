@@ -69,6 +69,22 @@ O módulo armazena as credenciais nos campos da aba **NFS-e → Configurações*
 | AppRole Role ID | Role ID gerado pelo AppRole (produção) |
 | AppRole Secret ID | Secret ID gerado pelo AppRole (produção) |
 
+### Prontidão operacional antes de emitir
+
+Antes de emitir NFS-e, valide a tela **NFS-e -> Configuracoes -> Prontidao operacional**.
+
+Ela precisa indicar **Sim** para todos os itens, incluindo:
+
+- CNPJ do prestador salvo
+- Municipio IBGE configurado
+- Item da lista LC 116 configurado
+- Endereco OpenBao configurado
+- Mount OpenBao configurado
+- Certificado local disponivel
+- Segredo do certificado disponivel no Vault/OpenBao
+
+Se o ultimo item estiver pendente, a emissao sera bloqueada para evitar falha em tempo de envio.
+
 #### Desenvolvimento
 
 Inicie o OpenBao em modo dev com Docker:
