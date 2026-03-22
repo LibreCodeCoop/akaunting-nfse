@@ -93,6 +93,7 @@ return [
         'filter_emitted' => 'Emitted',
         'filter_processing' => 'Processing',
         'filter_cancelled' => 'Cancelled',
+        'per_page' => 'Items per page',
         'cancel_confirm' => 'Do you want to cancel this NFS-e?',
     ],
 
