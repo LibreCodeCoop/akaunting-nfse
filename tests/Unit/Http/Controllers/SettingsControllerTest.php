@@ -371,6 +371,29 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], ControllerIsolationState::$settings);
         }
 
+        public function testClearNfseSettingsForgetsOnlyNfseKeys(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.cnpj_prestador' => '12345678000190',
+                'nfse.uf' => 'RJ',
+                'other.key' => 'value',
+            ];
+
+            $controller = new class () extends SettingsController {
+                public function runClearNfseSettings(): void
+                {
+                    $this->clearNfseSettings();
+                }
+            };
+
+            $controller->runClearNfseSettings();
+
+            self::assertSame([
+                'other.key' => 'value',
+            ], ControllerIsolationState::$settings);
+        }
+
         public function testUpdateReturnsBackWithInputAndInvalidPfxMessageWhenCertificateValidationFails(): void
         {
             ControllerIsolationState::reset();
