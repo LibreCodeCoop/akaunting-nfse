@@ -43,7 +43,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <td class="px-6 py-4">{{ $receipt->data_emissao ? $receipt->data_emissao->format('d/m/Y H:i') : '—' }}</td>
                             <td class="px-6 py-4">{{ $receipt->status }}</td>
                             <td class="px-6 py-4 text-right">
-                                <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="text-indigo-600 hover:underline">{{ trans('general.view') }}</a>
+                                <div class="inline-flex items-center gap-3">
+                                    <form action="{{ route('nfse.invoices.refresh', $receipt->invoice_id) }}" method="POST">
+                                        @csrf
+                                        <button type="submit" class="text-gray-600 hover:underline">{{ trans('nfse::general.invoices.refresh_status') }}</button>
+                                    </form>
+                                    <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="text-indigo-600 hover:underline">{{ trans('general.view') }}</a>
+                                </div>
                             </td>
                         </tr>
                     @empty
