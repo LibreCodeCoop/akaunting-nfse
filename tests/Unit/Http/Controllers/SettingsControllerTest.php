@@ -246,6 +246,37 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], $response->getData(true));
         }
 
+        public function testMunicipalitiesTrimsWhitespaceBeforeNormalizingUf(): void
+        {
+            $controller = new class () extends SettingsController {
+                public string $receivedUf = '';
+
+                protected function fetchMunicipalitiesRows(string $normalizedUf): array
+                {
+                    $this->receivedUf = $normalizedUf;
+
+                    return [
+                        ['id' => '3550308', 'nome' => 'Sao Paulo'],
+                    ];
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->municipalities(' sp ', new IbgeLocalities());
+
+            self::assertSame('SP', $controller->receivedUf);
+            self::assertSame(200, $response->getStatusCode());
+            self::assertSame([
+                'data' => [
+                    ['ibge_code' => '3550308', 'name' => 'Sao Paulo'],
+                ],
+            ], $response->getData(true));
+        }
+
         public function testMunicipalitiesReturnsFallbackWhenIbgeRequestFails(): void
         {
             $controller = new class () extends SettingsController {
