@@ -18,6 +18,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use LibreCodeCoop\NfsePHP\Exception\CancellationException;
     use LibreCodeCoop\NfsePHP\Exception\IssuanceException;
     use LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
+    use LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Http\Controllers\InvoiceController;
     use Modules\Nfse\Models\NfseReceipt;
@@ -48,6 +49,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.nfse_refresh_all_partial' => 'Atualizacao parcial: :updated atualizadas e :failed falharam.',
                 'nfse::general.nfse_reemitted' => 'NFS-e reemitida :number com sucesso.',
                 'nfse::general.nfse_reemit_not_cancelled' => 'A NFS-e precisa estar cancelada para reemissao manual.',
+                'nfse::general.nfse_secret_store_failed' => 'Nao foi possivel acessar o segredo do certificado no Vault/OpenBao.',
                 'nfse::general.cancel_motivo_default' => 'Cancelamento padrao',
                 'nfse::general.service_default' => 'Servico padrao',
                 'nfse::general.invoices.emit_blocked_not_ready' => 'Ambiente nao esta pronto para emissao.',
@@ -1014,6 +1016,51 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
 
+        public function testEmitRedirectsToPendingWithErrorFlashWhenSecretStoreFails(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 199,
+                amount: 500.0,
+                items: [['name' => 'Servico X']],
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new SecretStoreException('Vault unavailable');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+            };
+
+            $response = $controller->emit($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.pending', $response->route);
+            self::assertSame([], $response->parameters);
+            self::assertSame('Nao foi possivel acessar o segredo do certificado no Vault/OpenBao.', $response->flash['error'] ?? null);
+            self::assertSame([], NfseReceipt::$updateOrCreateCalls);
+        }
+
         public function testCancelRedirectsToIndexWithErrorFlashWhenGatewayRejectsCancellation(): void
         {
             $invoice = new Invoice(id: 201, amount: 100.0);
@@ -1109,6 +1156,52 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertNotNull($response->flash['error'] ?? null);
+            self::assertSame([], NfseReceipt::$updateOrCreateCalls);
+        }
+
+        public function testReemitRedirectsToShowWithErrorFlashWhenSecretStoreFails(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 304,
+                amount: 750.0,
+                items: [['name' => 'Srv']],
+            );
+            InvoiceControllerIsolationState::makeReceipt(304, 'CHAVE-304', 'cancelled');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new SecretStoreException('Vault unavailable');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+            };
+
+            $response = $controller->reemit($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
+            self::assertSame('Nao foi possivel acessar o segredo do certificado no Vault/OpenBao.', $response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
 
