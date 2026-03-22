@@ -146,7 +146,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], $prepared);
         }
 
-        public function testPrepareNfseInputKeepsEmptySensitiveFieldsDuringCertificateReplacement(): void
+        public function testPrepareNfseInputPreservesExistingSensitiveFieldsDuringCertificateReplacement(): void
         {
             $controller = new class () extends SettingsController {
                 /** @param array<string, mixed> $nfseInput */
@@ -167,10 +167,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('SP', $prepared['uf']);
             self::assertSame('1414', $prepared['item_lista_servico']);
             self::assertSame('/vault/nfse', $prepared['bao_mount']);
-            self::assertArrayHasKey('bao_token', $prepared);
-            self::assertArrayHasKey('bao_secret_id', $prepared);
-            self::assertSame('', $prepared['bao_token']);
-            self::assertSame('', $prepared['bao_secret_id']);
+            self::assertArrayNotHasKey('bao_token', $prepared);
+            self::assertArrayNotHasKey('bao_secret_id', $prepared);
         }
 
         public function testUfsReturnsMappedAndSortedDataWhenIbgeRowsAreAvailable(): void
