@@ -58,6 +58,16 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.invoices.clear_filters')", $content);
         }
 
+        public function testPendingViewListsSpecificMissingChecklistItemsWhenNotReady(): void
+        {
+            $pendingPath = dirname(__DIR__, 3) . '/Resources/views/invoices/pending.blade.php';
+            $content = (string) file_get_contents($pendingPath);
+
+            // The view must iterate \$checklist to surface per-item labels rather than a generic banner.
+            self::assertStringContainsString('$checklist', $content);
+            self::assertStringContainsString("nfse::general.readiness.checks.", $content);
+        }
+
         public function testInvoiceShowViewOffersReemitActionForCancelledReceipts(): void
         {
             $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
