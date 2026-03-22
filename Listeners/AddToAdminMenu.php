@@ -24,7 +24,7 @@ class AddToAdminMenu
 
         $title = trans('nfse::general.name');
 
-        if (!$this->canAccessMenuItem($title, 'read-settings-company')) {
+        if (!$this->canAccessMenuItem($title, 'read-nfse-settings')) {
             return;
         }
 
