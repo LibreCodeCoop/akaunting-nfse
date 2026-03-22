@@ -544,6 +544,72 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('value', ControllerIsolationState::$settings['other.key'] ?? null);
         }
 
+        public function testUpdateReplacingCertificateDoesNotPurgeOrClearWhenPreviousCnpjIsMissing(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.uf' => 'RJ',
+                'other.key' => 'value',
+            ];
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador' => '33333333000133',
+                        'uf' => 'rj',
+                        'municipio_nome' => 'Niteroi',
+                        'municipio_ibge' => '3303302',
+                        'item_lista_servico' => '0123',
+                        'bao_addr' => 'http://openbao:8200',
+                        'bao_mount' => '/nfse',
+                    ],
+                    'pfx_password' => 'valid-password',
+                ],
+                files: [
+                    'pfx_file' => new UploadedFile('/tmp/cert-replace-no-prev.pfx'),
+                ],
+            );
+
+            $controller = new class () extends SettingsController {
+                public ?string $purgedCnpj = null;
+                public bool $clearCalled = false;
+
+                protected function readUploadedCertificate(UploadedFile $file): string
+                {
+                    return 'fake-pfx-content';
+                }
+
+                protected function validateCertificatePayload(string $pfxContent, string $password): void
+                {
+                }
+
+                protected function purgeCertificateArtifacts(string $cnpj): void
+                {
+                    $this->purgedCnpj = $cnpj;
+                }
+
+                protected function clearNfseSettings(): void
+                {
+                    $this->clearCalled = true;
+                    parent::clearNfseSettings();
+                }
+
+                protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
+                {
+                }
+            };
+
+            $response = $controller->update($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame('nfse::general.saved_and_certificate_uploaded', $response->flash['success'] ?? null);
+            self::assertNull($controller->purgedCnpj);
+            self::assertFalse($controller->clearCalled);
+            self::assertSame('value', ControllerIsolationState::$settings['other.key'] ?? null);
+        }
+
         public function testUpdateReturnsStoreFailureMessageAfterSettingsSaveWhenCertificateStoreThrows(): void
         {
             ControllerIsolationState::reset();
