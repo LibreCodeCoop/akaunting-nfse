@@ -519,5 +519,67 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(1, ControllerIsolationState::$savedCount);
             self::assertSame('44444444000144', ControllerIsolationState::$settings['nfse.cnpj_prestador'] ?? null);
         }
+
+        public function testLc116ServicesReturnsFilteredCatalogData(): void
+        {
+            $controller = new class () extends SettingsController {
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $request = new Request([
+                'q' => 'contabilidade',
+                'limit' => 10,
+            ]);
+
+            $response = $controller->lc116Services($request, new \Modules\Nfse\Support\Lc116Catalog());
+
+            self::assertSame(200, $response->getStatusCode());
+            self::assertCount(1, $response->getData(true)['data']);
+            self::assertSame('1719', $response->getData(true)['data'][0]['code']);
+        }
+
+        public function testLc116ServicesEnforcesMinimumLimitWhenProvidedLimitIsZero(): void
+        {
+            $controller = new class () extends SettingsController {
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $request = new Request([
+                'q' => '',
+                'limit' => 0,
+            ]);
+
+            $response = $controller->lc116Services($request, new \Modules\Nfse\Support\Lc116Catalog());
+
+            self::assertSame(200, $response->getStatusCode());
+            self::assertCount(1, $response->getData(true)['data']);
+        }
+
+        public function testLc116ServicesUsesNullQueryWhenRequestQueryValueIsNotString(): void
+        {
+            $controller = new class () extends SettingsController {
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $request = new Request([
+                'q' => ['unexpected'],
+                'limit' => 2,
+            ]);
+
+            $response = $controller->lc116Services($request, new \Modules\Nfse\Support\Lc116Catalog());
+
+            self::assertSame(200, $response->getStatusCode());
+            self::assertCount(2, $response->getData(true)['data']);
+            self::assertSame('0101', $response->getData(true)['data'][0]['code']);
+        }
     }
 }
