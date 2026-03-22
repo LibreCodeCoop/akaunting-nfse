@@ -6,35 +6,43 @@
 declare(strict_types=1);
 
 namespace {
-    function trans(string $key): string
-    {
-        return $key;
+    if (!function_exists('trans')) {
+        function trans(string $key): string
+        {
+            return $key;
+        }
     }
 }
 
 namespace App\Traits {
-    trait Modules
-    {
-        public function moduleIsEnabled(string $alias): bool
+    if (!trait_exists(Modules::class, false)) {
+        trait Modules
         {
-            return true;
+            public function moduleIsEnabled(string $alias): bool
+            {
+                return true;
+            }
         }
     }
 
-    trait Permissions
-    {
-        public function canAccessMenuItem(string $title, string $permission): bool
+    if (!trait_exists(Permissions::class, false)) {
+        trait Permissions
         {
-            return true;
+            public function canAccessMenuItem(string $title, string $permission): bool
+            {
+                return true;
+            }
         }
     }
 }
 
 namespace App\Events\Menu {
-    class SettingsCreated
-    {
-        public function __construct(public object $menu)
+    if (!class_exists(SettingsCreated::class, false)) {
+        class SettingsCreated
         {
+            public function __construct(public object $menu)
+            {
+            }
         }
     }
 }
