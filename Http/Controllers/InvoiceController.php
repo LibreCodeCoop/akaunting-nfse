@@ -9,7 +9,9 @@ namespace Modules\Nfse\Http\Controllers;
 
 use App\Models\Sale\Invoice;
 use Illuminate\Http\RedirectResponse;
+use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use LibreCodeCoop\NfsePHP\Dto\DpsData;
+use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use Modules\Nfse\Models\NfseReceipt;
@@ -50,19 +52,10 @@ class InvoiceController extends Controller
             nomeTomador:      $invoice->contact?->name ?? '',
         );
 
-        $client  = new NfseClient(secretStore: $this->makeSecretStore(), sandboxMode: $sandbox);
+        $client = $this->makeClient($sandbox);
         $receipt = $client->emit($dps);
 
-        NfseReceipt::updateOrCreate(
-            ['invoice_id' => $invoice->id],
-            [
-                'nfse_number'         => $receipt->nfseNumber,
-                'chave_acesso'        => $receipt->chaveAcesso,
-                'data_emissao'        => $receipt->dataEmissao,
-                'codigo_verificacao'  => $receipt->codigoVerificacao,
-                'status'              => 'emitted',
-            ]
-        );
+        $this->storeEmittedReceipt($invoice, $receipt);
 
         return redirect()->route('nfse.invoices.show', $invoice)
             ->with('success', trans('nfse::general.nfse_emitted', ['number' => $receipt->nfseNumber]));
@@ -70,12 +63,9 @@ class InvoiceController extends Controller
 
     public function cancel(Invoice $invoice): RedirectResponse
     {
-        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $receipt = $this->findReceiptForInvoice($invoice);
 
-        $client = new NfseClient(
-            secretStore: $this->makeSecretStore(),
-            sandboxMode: (bool) setting('nfse.sandbox_mode', true),
-        );
+        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
 
         $client->cancel($receipt->chave_acesso, trans('nfse::general.cancel_motivo_default'));
 
@@ -87,14 +77,38 @@ class InvoiceController extends Controller
 
     // -------------------------------------------------------------------------
 
-    private function buildDiscriminacao(Invoice $invoice): string
+    protected function buildDiscriminacao(Invoice $invoice): string
     {
         return implode(' | ', $invoice->items->pluck('name')->toArray())
             ?: $invoice->description
             ?: trans('nfse::general.service_default');
     }
 
-    private function makeSecretStore(): OpenBaoSecretStore
+    protected function makeClient(bool $sandboxMode): NfseClientInterface
+    {
+        return new NfseClient(secretStore: $this->makeSecretStore(), sandboxMode: $sandboxMode);
+    }
+
+    protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt): void
+    {
+        NfseReceipt::updateOrCreate(
+            ['invoice_id' => $invoice->id],
+            [
+                'nfse_number' => $receipt->nfseNumber,
+                'chave_acesso' => $receipt->chaveAcesso,
+                'data_emissao' => $receipt->dataEmissao,
+                'codigo_verificacao' => $receipt->codigoVerificacao,
+                'status' => 'emitted',
+            ]
+        );
+    }
+
+    protected function findReceiptForInvoice(Invoice $invoice): NfseReceipt
+    {
+        return NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+    }
+
+    protected function makeSecretStore(): OpenBaoSecretStore
     {
         $config = VaultConfig::secretStoreConfig();
 
