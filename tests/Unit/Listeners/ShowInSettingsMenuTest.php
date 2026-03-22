@@ -98,7 +98,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
             self::assertSame('nfse.settings.edit', $menu->calls[0]['route']);
             self::assertSame(260, $menu->calls[0]['order']);
             self::assertSame('receipt_long', $menu->calls[0]['options']['icon']);
-            self::assertSame('read-settings-company', $listener->permission);
+            self::assertSame('read-nfse-settings', $listener->permission);
         }
 
         public function testHandleSkipsWhenModuleDisabled(): void
