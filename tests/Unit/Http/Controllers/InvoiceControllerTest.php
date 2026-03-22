@@ -123,6 +123,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
                     return $this->client;
                 }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
             };
 
             $response = $controller->emit($invoice);
@@ -193,6 +198,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     return $this->client;
                 }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
             };
 
             $controller->emit($invoice);
@@ -239,6 +249,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     return $this->client;
                 }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
             };
 
             $controller->emit($invoice);
@@ -283,6 +298,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 protected function makeClient(bool $sandboxMode): NfseClientInterface
                 {
                     return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
                 }
             };
 
@@ -663,6 +683,27 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
 
+        public function testPendingIncludesCertificateSecretChecklistFlagWhenVaultSecretIsMissing(): void
+        {
+            $controller = new class () extends InvoiceController {
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return false;
+                }
+
+                protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
+                {
+                    return [];
+                }
+            };
+
+            $response = $controller->pending();
+
+            self::assertSame('nfse::invoices.pending', $response->name);
+            self::assertFalse($response->data['isReady'] ?? true);
+            self::assertSame(false, $response->data['checklist']['certificate_secret'] ?? null);
+        }
+
         public function testRefreshQueriesReceiptUpdatesStatusAndRedirectsToShowPage(): void
         {
             $invoice = new Invoice(id: 91, amount: 220.0);
@@ -702,6 +743,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 protected function makeClient(bool $sandboxMode): NfseClientInterface
                 {
                     return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
                 }
             };
 
@@ -753,6 +799,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 protected function makeClient(bool $sandboxMode): NfseClientInterface
                 {
                     return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
                 }
             };
 
@@ -1005,6 +1056,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     return $this->client;
                 }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
             };
 
             $response = $controller->emit($invoice);
@@ -1049,6 +1105,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 protected function makeClient(bool $sandboxMode): NfseClientInterface
                 {
                     return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
                 }
             };
 
@@ -1096,6 +1157,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 protected function makeClient(bool $sandboxMode): NfseClientInterface
                 {
                     return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
                 }
             };
 
@@ -1148,6 +1214,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     return $this->client;
                 }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
             };
 
             $response = $controller->reemit($invoice);
@@ -1193,6 +1264,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 protected function makeClient(bool $sandboxMode): NfseClientInterface
                 {
                     return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
                 }
             };
 
