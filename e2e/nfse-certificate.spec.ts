@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
+import { execFileSync } from 'child_process';
 import { test, expect, type Page } from '@playwright/test';
 import { loginToAkaunting } from './support/auth';
 
@@ -22,6 +25,52 @@ import { loginToAkaunting } from './support/auth';
 const FIXTURE = path.join(__dirname, 'fixtures', 'test-cert.p12');
 const TEST_PASSWORD = 'test-password-only';
 const TEST_CNPJ = '12345678000195';
+const REAL_CERT_FLOW_ENABLED = process.env.NFSE_E2E_REAL_CERT_FLOW === '1';
+
+function createTemporaryPfx(password: string): { pfxPath: string; cleanup: () => void } {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nfse-e2e-pfx-'));
+    const keyPath = path.join(tempDir, 'cert.key');
+    const certPath = path.join(tempDir, 'cert.crt');
+    const pfxPath = path.join(tempDir, 'cert.p12');
+
+    execFileSync('openssl', [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-keyout',
+        keyPath,
+        '-out',
+        certPath,
+        '-days',
+        '2',
+        '-nodes',
+        '-subj',
+        '/C=BR/ST=RJ/L=Niteroi/O=NfseE2E/OU=QA/CN=nfse-e2e.local',
+    ]);
+
+    execFileSync('openssl', [
+        'pkcs12',
+        '-export',
+        '-out',
+        pfxPath,
+        '-inkey',
+        keyPath,
+        '-in',
+        certPath,
+        '-name',
+        'nfse-e2e',
+        '-passout',
+        `pass:${password}`,
+    ]);
+
+    return {
+        pfxPath,
+        cleanup: () => {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        },
+    };
+}
 
 test.use({ serviceWorkers: 'block' });
 
@@ -133,6 +182,45 @@ test.describe('NFS-e certificate upload', () => {
             await expect(stepTwo).toBeVisible();
         } else {
             await expect(stepTwo).toBeHidden();
+        }
+    });
+
+    test('real replace flow stores certificate password in Vault and marks readiness as yes', async ({ page }, testInfo) => {
+        if (!REAL_CERT_FLOW_ENABLED) {
+            testInfo.skip('Set NFSE_E2E_REAL_CERT_FLOW=1 to run real Vault/OpenBao certificate flow.');
+        }
+
+        const generatedPassword = `pw-${Date.now()}-Vault!`;
+        const { pfxPath, cleanup } = createTemporaryPfx(generatedPassword);
+
+        try {
+            await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+            await page.waitForLoadState('networkidle');
+
+            const hasSavedState = await page.locator('text=Estado atualmente salvo').count();
+            if (hasSavedState === 0) {
+                testInfo.skip('This test requires an existing saved NFS-e configuration to run replace flow.');
+            }
+
+            const showReplaceButton = page.locator('#btn-show-replace-cert');
+            if (await showReplaceButton.count()) {
+                await showReplaceButton.click();
+            }
+
+            await page.locator('input[name="pfx_file"]').setInputFiles(pfxPath);
+            await page.locator('input[name="pfx_password"]').fill(generatedPassword);
+
+            await page.locator('#settings-form button[type="submit"]').click();
+            await page.waitForLoadState('networkidle');
+
+            await page.goto('/1/nfse/settings/readiness', { waitUntil: 'domcontentloaded' });
+            await page.waitForLoadState('networkidle');
+
+            const secretRow = page.locator('tr', { hasText: 'Segredo do certificado disponível no Vault/OpenBao' });
+            await expect(secretRow).toBeVisible();
+            await expect(secretRow.locator('td').nth(1)).toContainText('Sim');
+        } finally {
+            cleanup();
         }
     });
 });
