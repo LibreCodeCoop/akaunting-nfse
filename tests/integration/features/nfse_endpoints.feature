@@ -39,6 +39,67 @@ Feature: NFS-e endpoints contract
     Then the response status should be 302
     And the response should redirect to "/<company_id>/nfse/settings"
 
+  Scenario: Settings update preserves blank sensitive fields unless explicit clear is requested
+    When I send "PATCH" request to "/<company_id>/nfse/settings" with form data:
+      | nfse[cnpj_prestador] | 12345678901234      |
+      | nfse[uf] | SP                             |
+      | nfse[municipio_nome] | Sao Paulo         |
+      | nfse[municipio_ibge] | 3550308             |
+      | nfse[item_lista_servico] | 0107            |
+      | nfse[aliquota] | 5.00                     |
+      | nfse[sandbox_mode] | 1                     |
+      | nfse[bao_addr] | https://vault.local.test |
+      | nfse[bao_mount] | nfse                    |
+      | nfse[bao_token] | token-ci-preserve       |
+      | nfse[bao_role_id] | role-ci               |
+      | nfse[bao_secret_id] | secret-ci-preserve   |
+    Then the response status should be 302
+    And the response should redirect to "/<company_id>/nfse/settings"
+
+    When I send "PATCH" request to "/<company_id>/nfse/settings" with form data:
+      | nfse[cnpj_prestador] | 12345678901234      |
+      | nfse[uf] | SP                             |
+      | nfse[municipio_nome] | Sao Paulo         |
+      | nfse[municipio_ibge] | 3550308             |
+      | nfse[item_lista_servico] | 0107            |
+      | nfse[aliquota] | 5.00                     |
+      | nfse[sandbox_mode] | 1                     |
+      | nfse[bao_addr] | https://vault.local.test |
+      | nfse[bao_mount] | nfse                    |
+      | nfse[bao_token] |                         |
+      | nfse[bao_role_id] | role-ci               |
+      | nfse[bao_secret_id] |                     |
+    Then the response status should be 302
+    And the response should redirect to "/<company_id>/nfse/settings"
+
+    When I send "GET" request to "/<company_id>/nfse/settings"
+    Then the response status should be 200
+    And the response should mark "vault-status-token" as configured "1"
+    And the response should mark "vault-status-secret-id" as configured "1"
+
+    When I send "PATCH" request to "/<company_id>/nfse/settings" with form data:
+      | nfse[cnpj_prestador] | 12345678901234      |
+      | nfse[uf] | SP                             |
+      | nfse[municipio_nome] | Sao Paulo         |
+      | nfse[municipio_ibge] | 3550308             |
+      | nfse[item_lista_servico] | 0107            |
+      | nfse[aliquota] | 5.00                     |
+      | nfse[sandbox_mode] | 1                     |
+      | nfse[bao_addr] | https://vault.local.test |
+      | nfse[bao_mount] | nfse                    |
+      | nfse[bao_token] |                         |
+      | nfse[bao_role_id] | role-ci               |
+      | nfse[bao_secret_id] |                     |
+      | nfse[clear_bao_token] | 1                 |
+      | nfse[clear_bao_secret_id] | 1             |
+    Then the response status should be 302
+    And the response should redirect to "/<company_id>/nfse/settings"
+
+    When I send "GET" request to "/<company_id>/nfse/settings"
+    Then the response status should be 200
+    And the response should mark "vault-status-token" as configured "0"
+    And the response should mark "vault-status-secret-id" as configured "0"
+
   Scenario: IBGE lookup endpoints respond with data contract
     When I send "GET" request to "/<company_id>/nfse/ibge/ufs"
     Then the response status should be one of 200,502
