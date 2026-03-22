@@ -36,7 +36,23 @@ return [
     'go_to_dashboard'       => 'Ir para o painel NFS-e',
     'go_to_invoices'        => 'Ir para notas emitidas',
     'go_to_pending_invoices' => 'Ir para faturas pendentes',
+    'go_to_readiness'       => 'Ver prontidão operacional',
     'go_to_settings'        => 'Ir para configurações',
+
+    'readiness' => [
+        'title' => 'Prontidão operacional NFS-e',
+        'ready' => 'Ambiente pronto para emissão',
+        'not_ready' => 'Ambiente ainda não está pronto',
+        'hint' => 'Complete os itens pendentes abaixo para reduzir falhas de emissão.',
+        'checks' => [
+            'cnpj_prestador' => 'CNPJ do prestador salvo',
+            'municipio_ibge' => 'Município IBGE configurado',
+            'item_lista_servico' => 'Item da lista LC 116 configurado',
+            'bao_addr' => 'Endereço OpenBao configurado',
+            'bao_mount' => 'Mount OpenBao configurado',
+            'certificate' => 'Certificado local disponível',
+        ],
+    ],
 
     'dashboard' => [
         'menu_title' => 'NFS-e',
