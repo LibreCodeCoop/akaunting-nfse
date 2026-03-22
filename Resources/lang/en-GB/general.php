@@ -31,6 +31,8 @@ return [
     'saved_state_certificate_missing' => 'missing (upload again to restore)',
     'nfse_emitted'          => 'NFS-e :number emitted successfully.',
     'nfse_cancelled'        => 'NFS-e cancelled successfully.',
+    'nfse_refreshed'        => 'NFS-e :number refreshed successfully.',
+    'nfse_refresh_failed'   => 'Could not refresh NFS-e status.',
     'cancel_motivo_default' => 'Cancellation requested by the service provider.',
     'service_default'       => 'Service provision as per contract.',
     'go_to_dashboard'       => 'Go to NFS-e dashboard',
@@ -83,6 +85,7 @@ return [
         'readiness_incomplete' => 'There are pending configuration checks. Resolve operational readiness before issuing.',
         'no_pending' => 'No pending invoices to emit.',
         'cancel' => 'Cancel NFS-e',
+        'refresh_status' => 'Refresh status',
         'cancel_confirm' => 'Do you want to cancel this NFS-e?',
     ],
 
