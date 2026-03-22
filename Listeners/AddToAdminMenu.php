@@ -24,7 +24,7 @@ class AddToAdminMenu
 
         $title = $this->menuTitle();
 
-        if (!$this->canAccessMenuItem($title, 'read-settings-company')) {
+        if (!$this->canAccessMenuItem($title, 'read-nfse-settings')) {
             return;
         }
 

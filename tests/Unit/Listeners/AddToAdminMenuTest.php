@@ -54,21 +54,6 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
 
     final class AddToAdminMenuTest extends TestCase
     {
-        protected function setUp(): void
-        {
-            parent::setUp();
-
-            $container = \Illuminate\Container\Container::getInstance()
-                ?? new \Illuminate\Container\Container();
-            \Illuminate\Container\Container::setInstance($container);
-            $container->instance('translator', new class () {
-                public function get(string $key): string
-                {
-                    return $key;
-                }
-            });
-        }
-
         public function testHandleAddsDashboardRouteWhenModuleEnabledAndAccessAllowed(): void
         {
             $menu = new class () {
@@ -113,7 +98,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
             self::assertSame('nfse.dashboard.index', $menu->calls[0]['route']);
             self::assertSame(45, $menu->calls[0]['order']);
             self::assertSame('receipt_long', $menu->calls[0]['options']['icon']);
-            self::assertSame('read-settings-company', $listener->permission);
+            self::assertSame('read-nfse-settings', $listener->permission);
         }
 
         public function testHandleSkipsWhenModuleDisabled(): void
