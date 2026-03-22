@@ -30,6 +30,15 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.invoices.clear_filters')", $content);
         }
 
+        public function testPendingInvoicesViewKeepsFiltersInPaginationAndOffersClearAction(): void
+        {
+            $pendingPath = dirname(__DIR__, 3) . '/Resources/views/invoices/pending.blade.php';
+            $content = (string) file_get_contents($pendingPath);
+
+            self::assertStringContainsString('{{ $pendingInvoices->appends(request()->query())->links() }}', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.clear_filters')", $content);
+        }
+
         public function testInvoiceShowViewOffersReemitActionForCancelledReceipts(): void
         {
             $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
