@@ -93,6 +93,7 @@ return [
         'filter_emitted' => 'Emitidas',
         'filter_processing' => 'Processando',
         'filter_cancelled' => 'Canceladas',
+        'per_page' => 'Itens por página',
         'cancel_confirm' => 'Deseja cancelar esta NFS-e?',
     ],
 

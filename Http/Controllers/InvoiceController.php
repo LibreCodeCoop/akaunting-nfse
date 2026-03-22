@@ -31,9 +31,10 @@ class InvoiceController extends Controller
     public function index(?Request $request = null): \Illuminate\View\View
     {
         $status = $this->normalizedIndexStatus($request?->query('status'));
-        $receipts = $this->receiptsForIndex($status);
+        $perPage = $this->normalizedIndexPerPage($request?->query('per_page'));
+        $receipts = $this->receiptsForIndex($status, $perPage);
 
-        return view('nfse::invoices.index', compact('receipts', 'status'));
+        return view('nfse::invoices.index', compact('receipts', 'status', 'perPage'));
     }
 
     public function pending(): \Illuminate\View\View
@@ -190,7 +191,7 @@ class InvoiceController extends Controller
             ->get();
     }
 
-    protected function receiptsForIndex(string $status): mixed
+    protected function receiptsForIndex(string $status, int $perPage): mixed
     {
         $query = NfseReceipt::with('invoice');
 
@@ -198,7 +199,7 @@ class InvoiceController extends Controller
             $query = $query->where('status', $status);
         }
 
-        return $query->latest()->paginate(25);
+        return $query->latest()->paginate($perPage);
     }
 
     protected function normalizedIndexStatus(mixed $status): string
@@ -211,6 +212,14 @@ class InvoiceController extends Controller
         $allowed = ['all', 'emitted', 'cancelled', 'processing'];
 
         return in_array($normalized, $allowed, true) ? $normalized : 'all';
+    }
+
+    protected function normalizedIndexPerPage(mixed $perPage): int
+    {
+        $allowed = [10, 25, 50, 100];
+        $normalized = is_numeric($perPage) ? (int) $perPage : 25;
+
+        return in_array($normalized, $allowed, true) ? $normalized : 25;
     }
 
     protected function pendingInvoices(): iterable
