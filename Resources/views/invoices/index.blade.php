@@ -102,6 +102,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                         @csrf
                                         <button type="submit" class="text-gray-600 hover:underline">{{ trans('nfse::general.invoices.refresh_status') }}</button>
                                     </form>
+                                    @if(($receipt->status ?? '') === 'emitted')
+                                        <form action="{{ route('nfse.invoices.cancel', $receipt->invoice_id) }}" method="POST" onsubmit="return confirm('{{ trans('nfse::general.invoices.cancel_confirm') }}')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="text-red-700 hover:underline">{{ trans('nfse::general.invoices.cancel') }}</button>
+                                        </form>
+                                    @endif
                                     @if(($receipt->status ?? '') === 'cancelled')
                                         <form action="{{ route('nfse.invoices.reemit', $receipt->invoice_id) }}" method="POST" onsubmit="return confirm('{{ trans('nfse::general.invoices.reemit_confirm') }}')">
                                             @csrf
