@@ -31,15 +31,31 @@ class VaultConfigTest extends TestCase
     {
         $value = VaultConfig::resolve(
             null,
-            ['VAULT_TOKEN'],
+            ['VAULT_TOKEN', 'OPENBAO_TOKEN'],
             null,
             static fn (string $key): ?string => match ($key) {
                 'VAULT_TOKEN' => 'vault-token',
+                'OPENBAO_TOKEN' => 'openbao-token',
                 default => null,
             },
         );
 
         self::assertSame('vault-token', $value);
+    }
+
+    public function testResolveFallsBackToOpenbaoEnvAliasWhenVaultEnvIsMissing(): void
+    {
+        $value = VaultConfig::resolve(
+            null,
+            ['VAULT_TOKEN', 'OPENBAO_TOKEN'],
+            null,
+            static fn (string $key): ?string => match ($key) {
+                'OPENBAO_TOKEN' => 'openbao-token',
+                default => null,
+            },
+        );
+
+        self::assertSame('openbao-token', $value);
     }
 
     public function testResolveReturnsDefaultWhenSettingAndEnvAreMissing(): void

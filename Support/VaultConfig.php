@@ -17,7 +17,7 @@ final class VaultConfig
         $mount = self::normalizeMount(
             self::resolve(
                 setting('nfse.bao_mount', 'nfse'),
-                ['VAULT_MOUNT'],
+                ['VAULT_MOUNT', 'OPENBAO_MOUNT'],
                 'nfse',
             ) ?? 'nfse',
         );
@@ -25,23 +25,23 @@ final class VaultConfig
         return [
             'addr' => self::resolve(
                 setting('nfse.bao_addr'),
-                ['VAULT_ADDR'],
+                ['VAULT_ADDR', 'OPENBAO_ADDR'],
                 'http://openbao:8200',
             ) ?? 'http://openbao:8200',
             'mount' => $mount,
             'token' => self::resolve(
                 setting('nfse.bao_token'),
-                ['VAULT_TOKEN'],
+                ['VAULT_TOKEN', 'OPENBAO_TOKEN'],
                 null,
             ),
             'roleId' => self::resolve(
                 setting('nfse.bao_role_id'),
-                ['VAULT_ROLE_ID'],
+                ['VAULT_ROLE_ID', 'OPENBAO_ROLE_ID'],
                 null,
             ),
             'secretId' => self::resolve(
                 setting('nfse.bao_secret_id'),
-                ['VAULT_SECRET_ID'],
+                ['VAULT_SECRET_ID', 'OPENBAO_SECRET_ID'],
                 null,
             ),
         ];
