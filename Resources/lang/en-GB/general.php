@@ -94,6 +94,8 @@ return [
         'filter_processing' => 'Processing',
         'filter_cancelled' => 'Cancelled',
         'per_page' => 'Items per page',
+        'search_label' => 'Search',
+        'search_placeholder' => 'NFS-e number, access key, or code',
         'cancel_confirm' => 'Do you want to cancel this NFS-e?',
     ],
 
