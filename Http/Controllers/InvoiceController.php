@@ -38,14 +38,16 @@ class InvoiceController extends Controller
         return view('nfse::invoices.index', compact('receipts', 'status', 'perPage', 'search'));
     }
 
-    public function pending(): \Illuminate\View\View
+    public function pending(?Request $request = null): \Illuminate\View\View
     {
-        $pendingInvoices = $this->pendingInvoices();
+        $perPage = $this->normalizedPendingPerPage($request?->query('per_page'));
+        $search = $this->normalizedPendingSearch($request?->query('q'));
+        $pendingInvoices = $this->pendingInvoices($perPage, $search);
         $readiness = $this->emissionReadiness();
         $checklist = $readiness['checklist'];
         $isReady = $readiness['isReady'];
 
-        return view('nfse::invoices.pending', compact('pendingInvoices', 'checklist', 'isReady'));
+        return view('nfse::invoices.pending', compact('pendingInvoices', 'checklist', 'isReady', 'perPage', 'search'));
     }
 
     public function show(Invoice $invoice): \Illuminate\View\View
@@ -278,7 +280,7 @@ class InvoiceController extends Controller
         return $normalized !== '' ? $normalized : null;
     }
 
-    protected function pendingInvoices(): iterable
+    protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
     {
         $processedInvoiceIds = NfseReceipt::query()
             ->pluck('invoice_id')
@@ -286,14 +288,41 @@ class InvoiceController extends Controller
             ->values()
             ->all();
 
-        return Invoice::query()
+        $query = Invoice::query()
             ->when(
                 $processedInvoiceIds !== [],
                 static fn ($query) => $query->whereNotIn('id', $processedInvoiceIds)
-            )
-            ->latest()
-            ->take(30)
-            ->get();
+            );
+
+        if ($search !== null) {
+            $query = $query->where(function ($innerQuery) use ($search) {
+                $innerQuery->where('number', 'like', '%' . $search . '%')
+                    ->orWhereHas('contact', function ($contactQuery) use ($search) {
+                        $contactQuery->where('name', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        return $query->latest()->paginate($perPage);
+    }
+
+    protected function normalizedPendingPerPage(mixed $perPage): int
+    {
+        $allowed = [10, 25, 50, 100];
+        $normalized = is_numeric($perPage) ? (int) $perPage : 25;
+
+        return in_array($normalized, $allowed, true) ? $normalized : 25;
+    }
+
+    protected function normalizedPendingSearch(mixed $search): ?string
+    {
+        if (!is_string($search)) {
+            return null;
+        }
+
+        $normalized = trim($search);
+
+        return $normalized !== '' ? $normalized : null;
     }
 
     /**
