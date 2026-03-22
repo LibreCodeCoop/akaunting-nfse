@@ -47,6 +47,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         {{ trans('nfse::general.invoices.cancel') }}
                     </button>
                 </form>
+            @else
+                <form action="{{ route('nfse.invoices.reemit', $invoice) }}" method="POST" onsubmit="return confirm('{{ trans('nfse::general.invoices.reemit_confirm') }}')">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm">
+                        {{ trans('nfse::general.invoices.reemit') }}
+                    </button>
+                </form>
             @endif
         </div>
     </x-slot>

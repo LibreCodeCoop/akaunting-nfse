@@ -162,6 +162,42 @@ class InvoiceController extends Controller
             ]));
     }
 
+    public function reemit(Invoice $invoice): RedirectResponse
+    {
+        $receipt = $this->findReceiptForInvoice($invoice);
+
+        if (($receipt->status ?? '') !== 'cancelled') {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.nfse_reemit_not_cancelled'));
+        }
+
+        $readiness = $this->emissionReadiness();
+
+        if (($readiness['isReady'] ?? false) !== true) {
+            return redirect()->route('nfse.invoices.pending')
+                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'));
+        }
+
+        $dps = new DpsData(
+            cnpjPrestador: setting('nfse.cnpj_prestador'),
+            municipioIbge: setting('nfse.municipio_ibge'),
+            itemListaServico: setting('nfse.item_lista_servico', '0107'),
+            valorServico: number_format((float) $invoice->amount, 2, '.', ''),
+            aliquota: setting('nfse.aliquota', '5.00'),
+            discriminacao: $this->buildDiscriminacao($invoice),
+            documentoTomador: $invoice->contact?->tax_number ?? '',
+            nomeTomador: $invoice->contact?->name ?? '',
+        );
+
+        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+        $newReceipt = $client->emit($dps);
+
+        $this->storeEmittedReceipt($invoice, $newReceipt);
+
+        return redirect()->route('nfse.invoices.show', $invoice)
+            ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $newReceipt->nfseNumber]));
+    }
+
     // -------------------------------------------------------------------------
 
     protected function buildDiscriminacao(Invoice $invoice): string

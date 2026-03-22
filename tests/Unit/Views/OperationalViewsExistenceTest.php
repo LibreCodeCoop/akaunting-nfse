@@ -29,5 +29,15 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('{{ $receipts->appends(request()->query())->links() }}', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.clear_filters')", $content);
         }
+
+        public function testInvoiceShowViewOffersReemitActionForCancelledReceipts(): void
+        {
+            $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
+            $content = (string) file_get_contents($showPath);
+
+            self::assertStringContainsString('route(\'nfse.invoices.reemit\', $invoice)', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.reemit')", $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.reemit_confirm')", $content);
+        }
     }
 }
