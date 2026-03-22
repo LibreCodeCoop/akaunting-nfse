@@ -19,7 +19,7 @@ namespace {
     }
 
     if (!class_exists(\Illuminate\Http\RedirectResponse::class, false)) {
-        eval('namespace Illuminate\\Http; class RedirectResponse { public bool $withInputCalled = false; public array $flash = []; public ?string $route = null; public ?string $target = null; public function withInput(): self { $this->withInputCalled = true; return $this; } public function with(string $key, mixed $value): self { $this->flash[$key] = $value; return $this; } }');
+        eval('namespace Illuminate\\Http; class RedirectResponse { public bool $withInputCalled = false; public array $flash = []; public ?string $route = null; public ?string $target = null; public array $parameters = []; public function withInput(): self { $this->withInputCalled = true; return $this; } public function with(string $key, mixed $value): self { $this->flash[$key] = $value; return $this; } }');
     }
 
     if (!class_exists(\Illuminate\Http\JsonResponse::class, false)) {
@@ -67,11 +67,12 @@ namespace Modules\Nfse\Http\Controllers {
             return $response;
         }
 
-        public function route(string $name): \Illuminate\Http\RedirectResponse
+        public function route(string $name, mixed ...$parameters): \Illuminate\Http\RedirectResponse
         {
             $response = new \Illuminate\Http\RedirectResponse();
             $response->target = 'route';
             $response->route = $name;
+            $response->parameters = $parameters;
 
             return $response;
         }
@@ -130,9 +131,15 @@ namespace Modules\Nfse\Http\Controllers {
     }
 
     if (!function_exists(__NAMESPACE__ . '\\trans')) {
-        function trans(string $key): string
+        function trans(string $key, array $replace = []): string
         {
-            return ControllerIsolationState::$translations[$key] ?? $key;
+            $translated = ControllerIsolationState::$translations[$key] ?? $key;
+
+            foreach ($replace as $name => $value) {
+                $translated = str_replace(':' . $name, (string) $value, $translated);
+            }
+
+            return $translated;
         }
     }
 
