@@ -10,6 +10,8 @@ namespace Modules\Nfse\Http\Controllers;
 use App\Models\Sale\Invoice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use LibreCodeCoop\NfsePHP\Config\CertConfig;
+use LibreCodeCoop\NfsePHP\Config\EnvironmentConfig;
 use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use LibreCodeCoop\NfsePHP\Dto\DpsData;
 use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -368,7 +370,17 @@ class InvoiceController extends Controller
 
     protected function makeClient(bool $sandboxMode): NfseClientInterface
     {
-        return new NfseClient(secretStore: $this->makeSecretStore(), sandboxMode: $sandboxMode);
+        $cnpj = (string) setting('nfse.cnpj_prestador', '');
+
+        return new NfseClient(
+            environment: new EnvironmentConfig(sandboxMode: $sandboxMode),
+            cert:        new CertConfig(
+                cnpj:      $cnpj,
+                pfxPath:   storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
+                vaultPath: 'pfx/' . $cnpj,
+            ),
+            secretStore: $this->makeSecretStore(),
+        );
     }
 
     protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt): void
