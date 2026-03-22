@@ -16,6 +16,7 @@ use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use LibreCodeCoop\NfsePHP\Dto\DpsData;
 use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use LibreCodeCoop\NfsePHP\Exception\GatewayException;
+use LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use Modules\Nfse\Models\NfseReceipt;
@@ -88,6 +89,9 @@ class InvoiceController extends Controller
 
         try {
             $receipt = $client->emit($dps);
+        } catch (SecretStoreException) {
+            return redirect()->route('nfse.invoices.pending')
+                ->with('error', trans('nfse::general.nfse_secret_store_failed'));
         } catch (GatewayException) {
             return redirect()->route('nfse.invoices.pending')
                 ->with('error', trans('nfse::general.nfse_emit_failed'));
@@ -209,6 +213,9 @@ class InvoiceController extends Controller
 
         try {
             $newReceipt = $client->emit($dps);
+        } catch (SecretStoreException) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_secret_store_failed'));
         } catch (GatewayException) {
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_reemit_failed'));
