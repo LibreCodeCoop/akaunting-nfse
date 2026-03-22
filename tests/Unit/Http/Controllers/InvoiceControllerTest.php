@@ -333,5 +333,29 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], $response->data['stats'] ?? []);
             self::assertSame($recentReceipts, $response->data['recentReceipts'] ?? []);
         }
+
+        public function testPendingReturnsViewWithInvoicesReadyForEmission(): void
+        {
+            $pendingInvoices = [
+                new Invoice(id: 11, amount: 120.0),
+                new Invoice(id: 12, amount: 220.0),
+            ];
+
+            $controller = new class ($pendingInvoices) extends InvoiceController {
+                public function __construct(private readonly array $pendingInvoices)
+                {
+                }
+
+                protected function pendingInvoices(): iterable
+                {
+                    return $this->pendingInvoices;
+                }
+            };
+
+            $response = $controller->pending();
+
+            self::assertSame('nfse::invoices.pending', $response->name);
+            self::assertSame($pendingInvoices, $response->data['pendingInvoices'] ?? []);
+        }
     }
 }

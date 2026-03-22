@@ -10,6 +10,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <a href="{{ route('nfse.invoices.index') }}" class="inline-flex items-center px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
                 {{ trans('nfse::general.go_to_invoices') }}
             </a>
+            <a href="{{ route('nfse.invoices.pending') }}" class="inline-flex items-center px-3 py-2 rounded bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-sm">
+                {{ trans('nfse::general.go_to_pending_invoices') }}
+            </a>
             <a href="{{ route('nfse.settings.edit') }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
                 {{ trans('nfse::general.go_to_settings') }}
             </a>

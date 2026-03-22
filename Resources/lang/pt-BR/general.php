@@ -35,6 +35,7 @@ return [
     'service_default'       => 'Prestação de serviços conforme contrato.',
     'go_to_dashboard'       => 'Ir para o painel NFS-e',
     'go_to_invoices'        => 'Ir para notas emitidas',
+    'go_to_pending_invoices' => 'Ir para faturas pendentes',
     'go_to_settings'        => 'Ir para configurações',
 
     'dashboard' => [
@@ -52,6 +53,7 @@ return [
 
     'invoices' => [
         'title' => 'Notas fiscais de serviço',
+        'pending_title' => 'Faturas pendentes para emissão',
         'details_title' => 'Detalhes da NFS-e',
         'receipt_data' => 'Dados da NFS-e',
         'invoice_data' => 'Dados da fatura',
@@ -60,6 +62,8 @@ return [
         'verification_code' => 'Código de verificação',
         'issue_date' => 'Data de emissão',
         'back_to_list' => 'Voltar para lista',
+        'emit_now' => 'Emitir NFS-e agora',
+        'no_pending' => 'Nenhuma fatura pendente de emissão.',
         'cancel' => 'Cancelar NFS-e',
         'cancel_confirm' => 'Deseja cancelar esta NFS-e?',
     ],

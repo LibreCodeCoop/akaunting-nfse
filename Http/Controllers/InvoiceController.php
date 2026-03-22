@@ -36,6 +36,13 @@ class InvoiceController extends Controller
         return view('nfse::invoices.index', compact('receipts'));
     }
 
+    public function pending(): \Illuminate\View\View
+    {
+        $pendingInvoices = $this->pendingInvoices();
+
+        return view('nfse::invoices.pending', compact('pendingInvoices'));
+    }
+
     public function show(Invoice $invoice): \Illuminate\View\View
     {
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
@@ -110,6 +117,24 @@ class InvoiceController extends Controller
         return NfseReceipt::with('invoice')
             ->latest()
             ->take(10)
+            ->get();
+    }
+
+    protected function pendingInvoices(): iterable
+    {
+        $processedInvoiceIds = NfseReceipt::query()
+            ->pluck('invoice_id')
+            ->filter()
+            ->values()
+            ->all();
+
+        return Invoice::query()
+            ->when(
+                $processedInvoiceIds !== [],
+                static fn ($query) => $query->whereNotIn('id', $processedInvoiceIds)
+            )
+            ->latest()
+            ->take(30)
             ->get();
     }
 
