@@ -124,6 +124,42 @@ class InvoiceController extends Controller
         }
     }
 
+    public function refreshAll(): RedirectResponse
+    {
+        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+        $updated = 0;
+        $failed = 0;
+
+        foreach ($this->refreshableReceipts() as $receipt) {
+            try {
+                $updatedReceipt = $client->query($receipt->chave_acesso);
+
+                $receipt->update([
+                    'nfse_number' => $updatedReceipt->nfseNumber,
+                    'chave_acesso' => $updatedReceipt->chaveAcesso,
+                    'data_emissao' => $updatedReceipt->dataEmissao,
+                    'codigo_verificacao' => $updatedReceipt->codigoVerificacao,
+                    'status' => 'emitted',
+                ]);
+
+                $updated++;
+            } catch (\Throwable) {
+                $failed++;
+            }
+        }
+
+        if ($failed === 0) {
+            return redirect()->route('nfse.invoices.index')
+                ->with('success', trans('nfse::general.nfse_refresh_all_done', ['count' => $updated]));
+        }
+
+        return redirect()->route('nfse.invoices.index')
+            ->with('warning', trans('nfse::general.nfse_refresh_all_partial', [
+                'updated' => $updated,
+                'failed' => $failed,
+            ]));
+    }
+
     // -------------------------------------------------------------------------
 
     protected function buildDiscriminacao(Invoice $invoice): string
@@ -217,6 +253,16 @@ class InvoiceController extends Controller
     protected function findReceiptForInvoice(Invoice $invoice): NfseReceipt
     {
         return NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+    }
+
+    protected function refreshableReceipts(): iterable
+    {
+        return NfseReceipt::query()
+            ->whereNotNull('chave_acesso')
+            ->where('status', '!=', 'cancelled')
+            ->latest()
+            ->take(30)
+            ->get();
     }
 
     protected function makeSecretStore(): OpenBaoSecretStore

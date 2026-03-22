@@ -33,6 +33,8 @@ return [
     'nfse_cancelled'        => 'NFS-e cancelled successfully.',
     'nfse_refreshed'        => 'NFS-e :number refreshed successfully.',
     'nfse_refresh_failed'   => 'Could not refresh NFS-e status.',
+    'nfse_refresh_all_done' => 'Refresh completed for :count NFS-e receipts.',
+    'nfse_refresh_all_partial' => 'Partial refresh: :updated updated and :failed failed.',
     'cancel_motivo_default' => 'Cancellation requested by the service provider.',
     'service_default'       => 'Service provision as per contract.',
     'go_to_dashboard'       => 'Go to NFS-e dashboard',
@@ -86,6 +88,7 @@ return [
         'no_pending' => 'No pending invoices to emit.',
         'cancel' => 'Cancel NFS-e',
         'refresh_status' => 'Refresh status',
+        'refresh_all_statuses' => 'Refresh statuses in batch',
         'cancel_confirm' => 'Do you want to cancel this NFS-e?',
     ],
 
