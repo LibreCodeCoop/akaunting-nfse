@@ -717,6 +717,61 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('value', ControllerIsolationState::$settings['other.key'] ?? null);
         }
 
+        public function testUpdateReplacingCertificatePreservesStoredSensitiveFieldsWhenSubmittedBlank(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.cnpj_prestador' => '11111111000111',
+                'nfse.uf' => 'RJ',
+                'nfse.bao_token' => 'persisted-token',
+                'nfse.bao_secret_id' => 'persisted-secret-id',
+            ];
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador' => '22222222000122',
+                        'uf' => 'rj',
+                        'municipio_nome' => 'Niteroi',
+                        'municipio_ibge' => '3303302',
+                        'item_lista_servico' => '0123',
+                        'bao_addr' => 'http://openbao:8200',
+                        'bao_mount' => '/nfse',
+                        'bao_token' => '',
+                        'bao_secret_id' => '',
+                    ],
+                    'pfx_password' => 'valid-password',
+                ],
+                files: [
+                    'pfx_file' => new UploadedFile('/tmp/cert-replace-preserve-sensitive.pfx'),
+                ],
+            );
+
+            $controller = new class () extends SettingsController {
+                protected function readUploadedCertificate(UploadedFile $file): string
+                {
+                    return 'fake-pfx-content';
+                }
+
+                protected function validateCertificatePayload(string $pfxContent, string $password): void
+                {
+                }
+
+                protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
+                {
+                }
+            };
+
+            $response = $controller->update($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame('nfse::general.saved_and_certificate_uploaded', $response->flash['success'] ?? null);
+            self::assertSame('persisted-token', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
+            self::assertSame('persisted-secret-id', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? null);
+        }
+
         public function testUpdateReplacingCertificateDoesNotPurgeOrClearWhenPreviousCnpjIsMissing(): void
         {
             ControllerIsolationState::reset();
