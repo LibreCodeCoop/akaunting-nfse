@@ -412,6 +412,38 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->runReadUploadedCertificate($uploadedFile);
         }
+
+        public function testReadUploadedCertificateReturnsFileContentsWhenTemporaryFilePathIsValid(): void
+        {
+            $controller = new class () extends SettingsController {
+                public function runReadUploadedCertificate(UploadedFile $file): string
+                {
+                    return $this->readUploadedCertificate($file);
+                }
+            };
+
+            $path = tempnam(sys_get_temp_dir(), 'nfse-pfx-');
+            self::assertNotFalse($path);
+
+            file_put_contents($path, 'PFX-CONTENT');
+
+            $uploadedFile = new UploadedFile(
+                $path,
+                'certificate.pfx',
+                'application/x-pkcs12',
+                null,
+                true,
+            );
+
+            try {
+                self::assertSame('PFX-CONTENT', $controller->runReadUploadedCertificate($uploadedFile));
+            } finally {
+                if (is_file($path)) {
+                    unlink($path);
+                }
+            }
+        }
+
         public function testClearNfseSettingsDoesNothingWhenNoNfseSettingsAreStored(): void
         {
             ControllerIsolationState::reset();
