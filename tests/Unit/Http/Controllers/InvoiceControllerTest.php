@@ -505,7 +505,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function pendingInvoices(): iterable
+                protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
                 {
                     return $this->pendingInvoices;
                 }
@@ -529,12 +529,88 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::invoices.pending', $response->name);
             self::assertSame($pendingInvoices, $response->data['pendingInvoices'] ?? []);
             self::assertTrue($response->data['isReady'] ?? false);
+            self::assertSame(25, $response->data['perPage'] ?? null);
+            self::assertNull($response->data['search'] ?? null);
             self::assertSame([
                 'cnpj_prestador' => true,
                 'municipio_ibge' => true,
                 'item_lista_servico' => true,
                 'certificate' => true,
             ], $response->data['checklist'] ?? []);
+        }
+
+        public function testPendingPassesSearchAndPerPageFromRequestToPendingQuery(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?int $capturedPerPage = null;
+                public ?string $capturedSearch = null;
+
+                protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
+                {
+                    $this->capturedPerPage = $perPage;
+                    $this->capturedSearch = $search;
+
+                    return ['pending-filtered'];
+                }
+
+                protected function emissionReadiness(): array
+                {
+                    return [
+                        'isReady' => true,
+                        'checklist' => [
+                            'cnpj_prestador' => true,
+                            'municipio_ibge' => true,
+                            'item_lista_servico' => true,
+                            'certificate' => true,
+                        ],
+                    ];
+                }
+            };
+
+            $response = $controller->pending(new Request(['per_page' => '50', 'q' => '  ACME  ']));
+
+            self::assertSame(50, $controller->capturedPerPage);
+            self::assertSame('ACME', $controller->capturedSearch);
+            self::assertSame(50, $response->data['perPage'] ?? null);
+            self::assertSame('ACME', $response->data['search'] ?? null);
+            self::assertSame(['pending-filtered'], $response->data['pendingInvoices'] ?? null);
+        }
+
+        public function testPendingNormalizesInvalidFiltersBeforeLoadingInvoices(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?int $capturedPerPage = null;
+                public ?string $capturedSearch = 'marker';
+
+                protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
+                {
+                    $this->capturedPerPage = $perPage;
+                    $this->capturedSearch = $search;
+
+                    return ['pending-default'];
+                }
+
+                protected function emissionReadiness(): array
+                {
+                    return [
+                        'isReady' => true,
+                        'checklist' => [
+                            'cnpj_prestador' => true,
+                            'municipio_ibge' => true,
+                            'item_lista_servico' => true,
+                            'certificate' => true,
+                        ],
+                    ];
+                }
+            };
+
+            $response = $controller->pending(new Request(['per_page' => '13', 'q' => '   ']));
+
+            self::assertSame(25, $controller->capturedPerPage);
+            self::assertNull($controller->capturedSearch);
+            self::assertSame(25, $response->data['perPage'] ?? null);
+            self::assertNull($response->data['search'] ?? null);
+            self::assertSame(['pending-default'], $response->data['pendingInvoices'] ?? null);
         }
 
         public function testEmitRedirectsToPendingWhenEmissionReadinessIsNotSatisfied(): void
