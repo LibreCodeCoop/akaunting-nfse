@@ -49,6 +49,17 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.invoices.cancel_confirm')", $content);
         }
 
+        public function testInvoicesIndexViewShowsMiniDashboardQuickFiltersAndRowDetails(): void
+        {
+            $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
+            $content = (string) file_get_contents($indexPath);
+
+            self::assertStringContainsString("trans('nfse::general.invoices.listing_overview')", $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.quick_filters')", $content);
+            self::assertStringContainsString('<details class="group">', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.more_details')", $content);
+        }
+
         public function testPendingInvoicesViewKeepsFiltersInPaginationAndOffersClearAction(): void
         {
             $pendingPath = dirname(__DIR__, 3) . '/Resources/views/invoices/pending.blade.php';
@@ -66,6 +77,16 @@ namespace Modules\Nfse\Tests\Unit\Views {
             // The view must iterate \$checklist to surface per-item labels rather than a generic banner.
             self::assertStringContainsString('$checklist', $content);
             self::assertStringContainsString("nfse::general.readiness.checks.", $content);
+        }
+
+        public function testPendingInvoicesViewShowsCompactSummaryAndCustomFilterInput(): void
+        {
+            $pendingPath = dirname(__DIR__, 3) . '/Resources/views/invoices/pending.blade.php';
+            $content = (string) file_get_contents($pendingPath);
+
+            self::assertStringContainsString("trans('nfse::general.invoices.pending_summary')", $content);
+            self::assertStringContainsString('id="pending-search-field"', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.search_in_field')", $content);
         }
 
         public function testInvoiceShowViewOffersReemitActionForCancelledReceipts(): void
