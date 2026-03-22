@@ -12,7 +12,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         @endif
 
+        @if(session('warning'))
+            <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+                {{ session('warning') }}
+            </div>
+        @endif
+
         <div class="flex flex-wrap gap-2 mb-4">
+            <form action="{{ route('nfse.invoices.refresh-all') }}" method="POST">
+                @csrf
+                <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-blue-100 hover:bg-blue-200 text-blue-700 text-sm">
+                    {{ trans('nfse::general.invoices.refresh_all_statuses') }}
+                </button>
+            </form>
             <a href="{{ route('nfse.dashboard.index') }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
                 {{ trans('nfse::general.go_to_dashboard') }}
             </a>
