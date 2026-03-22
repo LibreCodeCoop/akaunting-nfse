@@ -32,6 +32,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.nfse_cancelled' => 'NFS-e cancelada',
                 'nfse::general.cancel_motivo_default' => 'Cancelamento padrao',
                 'nfse::general.service_default' => 'Servico padrao',
+                'nfse::general.invoices.emit_blocked_not_ready' => 'Ambiente nao esta pronto para emissao.',
             ];
             ControllerIsolationState::$settings = [
                 'nfse.cnpj_prestador' => '12345678000195',
@@ -40,6 +41,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.aliquota' => '4.50',
                 'nfse.sandbox_mode' => false,
             ];
+
+            $certificateDir = ControllerIsolationState::$storageRoot . '/app/nfse/pfx';
+            if (!is_dir($certificateDir)) {
+                mkdir($certificateDir, 0o777, true);
+            }
+
+            file_put_contents($certificateDir . '/12345678000195.pfx', 'fake-certificate');
         }
 
         public function testEmitBuildsDpsPersistsReceiptAndRedirectsToShowPage(): void
@@ -350,12 +358,69 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     return $this->pendingInvoices;
                 }
+
+                protected function emissionReadiness(): array
+                {
+                    return [
+                        'isReady' => true,
+                        'checklist' => [
+                            'cnpj_prestador' => true,
+                            'municipio_ibge' => true,
+                            'item_lista_servico' => true,
+                            'certificate' => true,
+                        ],
+                    ];
+                }
             };
 
             $response = $controller->pending();
 
             self::assertSame('nfse::invoices.pending', $response->name);
             self::assertSame($pendingInvoices, $response->data['pendingInvoices'] ?? []);
+            self::assertTrue($response->data['isReady'] ?? false);
+            self::assertSame([
+                'cnpj_prestador' => true,
+                'municipio_ibge' => true,
+                'item_lista_servico' => true,
+                'certificate' => true,
+            ], $response->data['checklist'] ?? []);
+        }
+
+        public function testEmitRedirectsToPendingWhenEmissionReadinessIsNotSatisfied(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 77,
+                amount: 450.0,
+                items: [['name' => 'Servico X']],
+                description: 'Descricao',
+            );
+
+            $controller = new class () extends InvoiceController {
+                protected function emissionReadiness(): array
+                {
+                    return [
+                        'isReady' => false,
+                        'checklist' => [
+                            'cnpj_prestador' => false,
+                            'municipio_ibge' => true,
+                            'item_lista_servico' => true,
+                            'certificate' => false,
+                        ],
+                    ];
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    throw new \RuntimeException('Client must not be created when readiness is not satisfied.');
+                }
+            };
+
+            $response = $controller->emit($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.pending', $response->route);
+            self::assertSame('Ambiente nao esta pronto para emissao.', $response->flash['error'] ?? null);
+            self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
     }
 }

@@ -39,8 +39,11 @@ class InvoiceController extends Controller
     public function pending(): \Illuminate\View\View
     {
         $pendingInvoices = $this->pendingInvoices();
+        $readiness = $this->emissionReadiness();
+        $checklist = $readiness['checklist'];
+        $isReady = $readiness['isReady'];
 
-        return view('nfse::invoices.pending', compact('pendingInvoices'));
+        return view('nfse::invoices.pending', compact('pendingInvoices', 'checklist', 'isReady'));
     }
 
     public function show(Invoice $invoice): \Illuminate\View\View
@@ -52,6 +55,13 @@ class InvoiceController extends Controller
 
     public function emit(Invoice $invoice): RedirectResponse
     {
+        $readiness = $this->emissionReadiness();
+
+        if (($readiness['isReady'] ?? false) !== true) {
+            return redirect()->route('nfse.invoices.pending')
+                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'));
+        }
+
         $cnpj    = setting('nfse.cnpj_prestador');
         $ibge    = setting('nfse.municipio_ibge');
         $sandbox = (bool) setting('nfse.sandbox_mode', true);
@@ -136,6 +146,29 @@ class InvoiceController extends Controller
             ->latest()
             ->take(30)
             ->get();
+    }
+
+    /**
+     * @return array{checklist: array<string, bool>, isReady: bool}
+     */
+    protected function emissionReadiness(): array
+    {
+        $settings = setting('nfse', []);
+        $settings = is_array($settings) ? $settings : [];
+        $cnpj = (string) ($settings['cnpj_prestador'] ?? '');
+        $certificatePath = $cnpj !== '' ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx') : '';
+
+        $checklist = [
+            'cnpj_prestador' => $cnpj !== '',
+            'municipio_ibge' => ((string) ($settings['municipio_ibge'] ?? '')) !== '',
+            'item_lista_servico' => ((string) ($settings['item_lista_servico'] ?? '')) !== '',
+            'certificate' => $certificatePath !== '' && is_file($certificatePath),
+        ];
+
+        return [
+            'checklist' => $checklist,
+            'isReady' => !in_array(false, $checklist, true),
+        ];
     }
 
     protected function makeClient(bool $sandboxMode): NfseClientInterface

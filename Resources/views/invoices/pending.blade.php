@@ -12,6 +12,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         @endif
 
+        @if(session('error'))
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {{ session('error') }}
+            </div>
+        @endif
+
+        @if(!$isReady)
+            <div class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded mb-4">
+                {{ trans('nfse::general.invoices.readiness_incomplete') }}
+                <a href="{{ route('nfse.settings.readiness') }}" class="underline">
+                    {{ trans('nfse::general.go_to_readiness') }}
+                </a>
+            </div>
+        @endif
+
         <div class="flex flex-wrap gap-2 mb-4">
             <a href="{{ route('nfse.dashboard.index') }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
                 {{ trans('nfse::general.go_to_dashboard') }}
@@ -40,7 +55,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <td class="px-4 py-2 text-right">
                                 <form action="{{ route('nfse.invoices.emit', $invoice) }}" method="POST">
                                     @csrf
-                                    <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
+                                    <button
+                                        type="submit"
+                                        @if(!$isReady) disabled @endif
+                                        title="@if(!$isReady){{ trans('nfse::general.invoices.emit_blocked_not_ready') }}@endif"
+                                        class="inline-flex items-center px-3 py-2 rounded text-white text-sm @if($isReady)bg-indigo-600 hover:bg-indigo-700 @else bg-gray-400 cursor-not-allowed @endif"
+                                    >
                                         {{ trans('nfse::general.invoices.emit_now') }}
                                     </button>
                                 </form>

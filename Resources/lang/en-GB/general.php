@@ -79,6 +79,8 @@ return [
         'issue_date' => 'Issue date',
         'back_to_list' => 'Back to list',
         'emit_now' => 'Emit NFS-e now',
+        'emit_blocked_not_ready' => 'Environment is not ready for issuance.',
+        'readiness_incomplete' => 'There are pending configuration checks. Resolve operational readiness before issuing.',
         'no_pending' => 'No pending invoices to emit.',
         'cancel' => 'Cancel NFS-e',
         'cancel_confirm' => 'Do you want to cancel this NFS-e?',
