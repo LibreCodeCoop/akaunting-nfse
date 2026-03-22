@@ -148,13 +148,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], $response->data['checklist'] ?? []);
         }
 
-        public function testPrepareNfseInputNormalizesFieldsAndPreservesExistingSecretsWithoutCertificateReplacement(): void
+        public function testPrepareNfseInputNormalizesFieldsAndDropsEmptySensitiveFields(): void
         {
             $controller = new class () extends SettingsController {
                 /** @param array<string, mixed> $nfseInput */
-                public function runPrepareNfseInput(array $nfseInput, bool $isReplacingCertificate): array
+                public function runPrepareNfseInput(array $nfseInput): array
                 {
-                    return $this->prepareNfseInput($nfseInput, $isReplacingCertificate);
+                    return $this->prepareNfseInput($nfseInput);
                 }
             };
 
@@ -166,7 +166,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'bao_token' => '',
                 'bao_secret_id' => '',
                 'bao_role_id' => 'role-id',
-            ], false);
+            ]);
 
             self::assertSame([
                 'uf' => 'RJ',
@@ -176,13 +176,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], $prepared);
         }
 
-        public function testPrepareNfseInputKeepsEmptySensitiveFieldsDuringCertificateReplacement(): void
+        public function testPrepareNfseInputAlwaysDropsEmptySensitiveFieldsEvenDuringCertificateReplacement(): void
         {
             $controller = new class () extends SettingsController {
                 /** @param array<string, mixed> $nfseInput */
-                public function runPrepareNfseInput(array $nfseInput, bool $isReplacingCertificate): array
+                public function runPrepareNfseInput(array $nfseInput): array
                 {
-                    return $this->prepareNfseInput($nfseInput, $isReplacingCertificate);
+                    return $this->prepareNfseInput($nfseInput);
                 }
             };
 
@@ -192,15 +192,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'bao_mount' => '/vault/nfse/',
                 'bao_token' => '',
                 'bao_secret_id' => '',
-            ], true);
+            ]);
 
             self::assertSame('SP', $prepared['uf']);
             self::assertSame('1414', $prepared['item_lista_servico']);
             self::assertSame('/vault/nfse', $prepared['bao_mount']);
-            self::assertArrayHasKey('bao_token', $prepared);
-            self::assertArrayHasKey('bao_secret_id', $prepared);
-            self::assertSame('', $prepared['bao_token']);
-            self::assertSame('', $prepared['bao_secret_id']);
+            self::assertArrayNotHasKey('bao_token', $prepared);
+            self::assertArrayNotHasKey('bao_secret_id', $prepared);
         }
 
         public function testUfsReturnsMappedAndSortedDataWhenIbgeRowsAreAvailable(): void
