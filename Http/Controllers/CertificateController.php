@@ -10,6 +10,7 @@ namespace Modules\Nfse\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Modules\Nfse\Support\PfxParser;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
@@ -26,23 +27,14 @@ class CertificateController extends Controller
         $file    = $request->file('pfx_file');
         $password = $request->input('pfx_password');
 
-        $realPath = $file->getRealPath();
-        if ($realPath === false) {
-            return response()->json(['error' => trans('nfse::general.invalid_pfx')], 422);
-        }
-
-        $pfxContent = file_get_contents($realPath);
-        if ($pfxContent === false) {
-            return response()->json(['error' => trans('nfse::general.invalid_pfx')], 422);
-        }
-
         try {
-            $data = PfxParser::extractFromContent($pfxContent, $password);
+            $pfxContent = $this->readUploadedFile($file);
+            $data = $this->parseUploadedCertificate($pfxContent, $password);
         } catch (\RuntimeException) {
-            return response()->json(['error' => trans('nfse::general.invalid_pfx')], 422);
+            return $this->jsonResponse(['error' => trans('nfse::general.invalid_pfx')], 422);
         }
 
-        return response()->json(['data' => $data]);
+        return $this->jsonResponse(['data' => $data]);
     }
 
     public function upload(Request $request): RedirectResponse
@@ -56,19 +48,9 @@ class CertificateController extends Controller
         $password = $request->input('pfx_password');
         $cnpj     = setting('nfse.cnpj_prestador');
 
-        // Verify PFX is readable before storing
-        $realPath = $file->getRealPath();
-        if ($realPath === false) {
-            return back()->with('error', trans('nfse::general.invalid_pfx'));
-        }
-
-        $pfxContent = file_get_contents($realPath);
-        if ($pfxContent === false) {
-            return back()->with('error', trans('nfse::general.invalid_pfx'));
-        }
-
         try {
-            PfxReader::readCertificatePem($pfxContent, $password);
+            $pfxContent = $this->readUploadedFile($file);
+            $this->validateUploadedCertificate($pfxContent, $password);
         } catch (\RuntimeException) {
             return back()->with('error', trans('nfse::general.invalid_pfx'));
         }
@@ -77,6 +59,41 @@ class CertificateController extends Controller
 
         return redirect()->route('nfse.settings.edit')
             ->with('success', trans('nfse::general.certificate_uploaded'));
+    }
+
+    protected function readUploadedFile(UploadedFile $file): string
+    {
+        $realPath = $file->getRealPath();
+
+        if ($realPath === false) {
+            throw new \RuntimeException('Invalid uploaded PFX path.');
+        }
+
+        $pfxContent = file_get_contents($realPath);
+
+        if ($pfxContent === false) {
+            throw new \RuntimeException('Failed to read uploaded PFX.');
+        }
+
+        return $pfxContent;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function parseUploadedCertificate(string $pfxContent, string $password): array
+    {
+        return PfxParser::extractFromContent($pfxContent, $password);
+    }
+
+    protected function validateUploadedCertificate(string $pfxContent, string $password): void
+    {
+        PfxReader::readCertificatePem($pfxContent, $password);
+    }
+
+    protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+    {
+        return response()->json($payload, $status);
     }
 
     public function destroy(): RedirectResponse
