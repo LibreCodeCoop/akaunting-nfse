@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
-use App\Models\Sale\Invoice;
+use App\Models\Document\Document as Invoice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use LibreCodeCoop\NfsePHP\Config\CertConfig;
@@ -308,7 +308,7 @@ class InvoiceController extends Controller
             ->values()
             ->all();
 
-        $query = Invoice::query()
+        $query = Invoice::invoice()
             ->when(
                 $processedInvoiceIds !== [],
                 static fn ($query) => $query->whereNotIn('id', $processedInvoiceIds)
@@ -316,7 +316,7 @@ class InvoiceController extends Controller
 
         if ($search !== null) {
             $query = $query->where(function ($innerQuery) use ($search) {
-                $innerQuery->where('number', 'like', '%' . $search . '%')
+                $innerQuery->where('document_number', 'like', '%' . $search . '%')
                     ->orWhereHas('contact', function ($contactQuery) use ($search) {
                         $contactQuery->where('name', 'like', '%' . $search . '%');
                     });
