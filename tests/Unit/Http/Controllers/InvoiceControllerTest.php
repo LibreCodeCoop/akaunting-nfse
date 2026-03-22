@@ -31,6 +31,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.nfse_emitted' => 'NFS-e emitida :number',
                 'nfse::general.nfse_cancelled' => 'NFS-e cancelada',
                 'nfse::general.cancel_motivo_default' => 'Cancelamento padrao',
+                'nfse::general.service_default' => 'Servico padrao',
             ];
             ControllerIsolationState::$settings = [
                 'nfse.cnpj_prestador' => '12345678000195',
@@ -171,6 +172,52 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('Descricao da nota', $client->capturedDps?->discriminacao);
         }
 
+        public function testEmitFallsBackToDefaultServiceLabelWhenItemsAndDescriptionAreEmpty(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 8,
+                amount: 91.0,
+                items: [],
+                description: '',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-8', 'CHAVE-8', '2026-03-21T12:05:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame('Servico padrao', $client->capturedDps?->discriminacao);
+        }
+
         public function testCancelUsesStoredReceiptUpdatesStatusAndRedirectsToIndex(): void
         {
             $invoice = new Invoice(id: 88, amount: 10.0);
@@ -224,6 +271,28 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
             self::assertSame('NFS-e cancelada', $response->flash['success'] ?? null);
+        }
+
+        public function testIndexReturnsInvoicesViewWithPaginatedReceipts(): void
+        {
+            NfseReceipt::$paginateItems = ['receipt-a', 'receipt-b'];
+
+            $response = (new InvoiceController())->index();
+
+            self::assertSame('nfse::invoices.index', $response->name);
+            self::assertSame(['receipt-a', 'receipt-b'], $response->data['receipts'] ?? null);
+        }
+
+        public function testShowReturnsInvoiceAndReceiptInView(): void
+        {
+            $invoice = new Invoice(id: 99, amount: 300.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(99, 'CHAVE-99');
+
+            $response = (new InvoiceController())->show($invoice);
+
+            self::assertSame('nfse::invoices.show', $response->name);
+            self::assertSame($invoice, $response->data['invoice'] ?? null);
+            self::assertSame($receipt, $response->data['receipt'] ?? null);
         }
     }
 }
