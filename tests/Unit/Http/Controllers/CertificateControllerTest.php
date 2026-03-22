@@ -239,6 +239,33 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::general.invalid_pfx', $response->flash['error'] ?? null);
         }
 
+        public function testUploadRedirectsBackWithErrorWhenSecretStoreFails(): void
+        {
+            $controller = new class () extends CertificateController {
+                protected function readUploadedFile(UploadedFile $file): string
+                {
+                    return 'pfx-binary';
+                }
+
+                protected function validateUploadedCertificate(string $pfxContent, string $password): void
+                {
+                }
+
+                protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
+                {
+                    throw new \RuntimeException('Vault write failed');
+                }
+            };
+
+            $response = $controller->upload(new Request(
+                inputs: ['pfx_password' => 'secret'],
+                files: ['pfx_file' => new UploadedFile('/tmp/ignored')],
+            ));
+
+            self::assertSame('back', $response->target);
+            self::assertSame('nfse::general.certificate_store_failed', $response->flash['error'] ?? null);
+        }
+
         public function testUploadStoresCertificateAndRedirectsOnSuccess(): void
         {
             $controller = new class () extends CertificateController {
