@@ -35,6 +35,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.nfse_refresh_failed' => 'Nao foi possivel atualizar o status da NFS-e.',
                 'nfse::general.nfse_refresh_all_done' => 'Atualizacao concluida para :count NFS-e.',
                 'nfse::general.nfse_refresh_all_partial' => 'Atualizacao parcial: :updated atualizadas e :failed falharam.',
+                'nfse::general.nfse_reemitted' => 'NFS-e reemitida :number com sucesso.',
+                'nfse::general.nfse_reemit_not_cancelled' => 'A NFS-e precisa estar cancelada para reemissao manual.',
                 'nfse::general.cancel_motivo_default' => 'Cancelamento padrao',
                 'nfse::general.service_default' => 'Servico padrao',
                 'nfse::general.invoices.emit_blocked_not_ready' => 'Ambiente nao esta pronto para emissao.',
@@ -789,6 +791,111 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
             self::assertSame('Atualizacao parcial: 1 atualizadas e 1 falharam.', $response->flash['warning'] ?? null);
+        }
+
+        public function testReemitBuildsDpsForCancelledReceiptAndRedirectsToShow(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 301,
+                amount: 700.45,
+                items: [['name' => 'Servico Reemissao']],
+                description: 'Descricao reemissao',
+                contactName: 'Cliente X',
+                contactTaxNumber: '12312312300199',
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(301, 'CHAVE-301', 'cancelled');
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData(
+                        nfseNumber: 'NF-RE-301',
+                        chaveAcesso: 'CHAVE-RE-301',
+                        dataEmissao: '2026-03-21T18:00:00-03:00',
+                        codigoVerificacao: 'RE301',
+                    );
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function emissionReadiness(): array
+                {
+                    return [
+                        'isReady' => true,
+                        'checklist' => [
+                            'cnpj_prestador' => true,
+                            'municipio_ibge' => true,
+                            'item_lista_servico' => true,
+                            'certificate' => true,
+                        ],
+                    ];
+                }
+            };
+
+            $response = $controller->reemit($invoice);
+
+            self::assertSame('Servico Reemissao', $client->capturedDps?->discriminacao);
+            self::assertSame([
+                [
+                    'attributes' => ['invoice_id' => 301],
+                    'values' => [
+                        'nfse_number' => 'NF-RE-301',
+                        'chave_acesso' => 'CHAVE-RE-301',
+                        'data_emissao' => '2026-03-21T18:00:00-03:00',
+                        'codigo_verificacao' => 'RE301',
+                        'status' => 'emitted',
+                    ],
+                ],
+            ], NfseReceipt::$updateOrCreateCalls);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
+            self::assertSame('NFS-e reemitida NF-RE-301 com sucesso.', $response->flash['success'] ?? null);
+        }
+
+        public function testReemitReturnsWarningWhenReceiptIsNotCancelled(): void
+        {
+            $invoice = new Invoice(id: 302, amount: 200.0);
+            InvoiceControllerIsolationState::makeReceipt(302, 'CHAVE-302', 'emitted');
+
+            $controller = new class () extends InvoiceController {
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    throw new \RuntimeException('Client must not be created when receipt is not cancelled.');
+                }
+            };
+
+            $response = $controller->reemit($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
+            self::assertSame('A NFS-e precisa estar cancelada para reemissao manual.', $response->flash['warning'] ?? null);
+            self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
     }
 }
