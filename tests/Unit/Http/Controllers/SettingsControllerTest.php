@@ -91,6 +91,38 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
         }
 
+        public function testEditDetectsAuthModeAsAppRoleWhenTokenAndAppRoleAreBothConfigured(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_token' => 'persisted-token',
+                'nfse.bao_role_id' => 'role-id',
+                'nfse.bao_secret_id' => 'secret-id',
+            ];
+
+            $response = (new SettingsController())->edit();
+
+            self::assertSame('approle', $response->data['vaultUiState']['auth_mode'] ?? null);
+            self::assertTrue($response->data['vaultUiState']['token_configured'] ?? false);
+            self::assertTrue($response->data['vaultUiState']['approle_complete'] ?? false);
+        }
+
+        public function testEditDetectsAuthModeAsTokenWhenOnlyTokenIsConfigured(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_token' => 'persisted-token',
+                'nfse.bao_role_id' => '',
+                'nfse.bao_secret_id' => '',
+            ];
+
+            $response = (new SettingsController())->edit();
+
+            self::assertSame('token', $response->data['vaultUiState']['auth_mode'] ?? null);
+            self::assertTrue($response->data['vaultUiState']['token_configured'] ?? false);
+            self::assertFalse($response->data['vaultUiState']['approle_complete'] ?? true);
+        }
+
         public function testPrepareNfseInputNormalizesFieldsAndDropsEmptySensitiveFields(): void
         {
             $controller = new class () extends SettingsController {
