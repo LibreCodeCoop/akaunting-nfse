@@ -16,6 +16,7 @@ use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use LibreCodeCoop\NfsePHP\Dto\DpsData;
 use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use LibreCodeCoop\NfsePHP\Exception\GatewayException;
+use LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 use LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
@@ -95,6 +96,9 @@ class InvoiceController extends Controller
         } catch (GatewayException) {
             return redirect()->route('nfse.invoices.pending')
                 ->with('error', trans('nfse::general.nfse_emit_failed'));
+        } catch (PfxImportException) {
+            return redirect()->route('nfse.invoices.pending')
+                ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         }
 
         $this->storeEmittedReceipt($invoice, $receipt);
@@ -219,6 +223,9 @@ class InvoiceController extends Controller
         } catch (GatewayException) {
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_reemit_failed'));
+        } catch (PfxImportException) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         }
 
         $this->storeEmittedReceipt($invoice, $newReceipt);
