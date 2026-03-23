@@ -138,6 +138,8 @@ return [
         'bao_role_id'      => 'AppRole Role ID',
         'bao_secret_id'    => 'AppRole Secret ID',
         'bao_secret_id_hint' => 'Deixe em branco para manter o Secret ID já salvo.',
+        'show_password' => 'Mostrar',
+        'hide_password' => 'Ocultar',
         'clear_bao_secret_id' => 'Limpar Secret ID salvo no banco ao salvar',
         'sensitive_fields_behavior_hint' => 'Campos sensíveis em branco não sobrescrevem valores já salvos. Marque as opções de limpeza para apagar valores existentes.',
         'vault_gate_locked_notice' => 'Antes de qualquer outra configuração, conclua o Vault/OpenBao com endereço, mount e autenticação válida (Token ou AppRole completo).',
