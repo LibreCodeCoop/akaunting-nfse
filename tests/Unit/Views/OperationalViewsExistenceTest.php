@@ -90,6 +90,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.settings.sensitive_fields_behavior_hint')", $content);
             self::assertStringContainsString("trans('nfse::general.settings.vault_gate_locked_notice')", $content);
             self::assertStringContainsString("trans('nfse::general.settings.vault_gate_ready_notice')", $content);
+            self::assertStringContainsString("trans('nfse::general.settings.vault_section_title')", $content);
             self::assertStringContainsString("trans('nfse::general.settings.bao_token_local_dev_hint')", $content);
             self::assertStringContainsString('id="toggle-pfx-password"', $content);
             self::assertStringContainsString('id="toggle-bao-token"', $content);
