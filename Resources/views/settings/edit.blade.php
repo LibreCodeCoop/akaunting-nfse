@@ -206,6 +206,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_mount_hint') }}</p>
                     </div>
 
+                    @php
+                        $selectedAuthMode = old('auth_mode_ui', (string) ($vaultUiState['auth_mode'] ?? 'incomplete'));
+                        if (! in_array($selectedAuthMode, ['token', 'approle'], true)) {
+                            $selectedAuthMode = 'token';
+                        }
+                    @endphp
+
                     {{-- Seletor de modo de autenticação --}}
                     <fieldset id="vault-auth-mode-fieldset" class="rounded-md border border-gray-200 p-3 space-y-2" aria-describedby="vault-auth-mode-hint">
                         <legend class="px-1 text-sm font-semibold">{{ trans('nfse::general.settings.auth_mode_group_label') }}</legend>
@@ -214,20 +221,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
                                 <input id="auth-mode-token" type="radio" name="auth_mode_ui" value="token"
                                     onclick="document.getElementById('vault-token-section')?.classList.remove('hidden'); document.getElementById('vault-token-section') && (document.getElementById('vault-token-section').hidden = false); document.getElementById('vault-approle-section')?.classList.add('hidden'); document.getElementById('vault-approle-section') && (document.getElementById('vault-approle-section').hidden = true);"
-                                    @checked(in_array($vaultUiState['auth_mode'] ?? 'incomplete', ['token', 'incomplete']))>
+                                    @checked($selectedAuthMode === 'token')>
                                 {{ trans('nfse::general.settings.auth_mode_option_token') }}
                             </label>
                             <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
                                 <input id="auth-mode-approle" type="radio" name="auth_mode_ui" value="approle"
                                     onclick="document.getElementById('vault-token-section')?.classList.add('hidden'); document.getElementById('vault-token-section') && (document.getElementById('vault-token-section').hidden = true); document.getElementById('vault-approle-section')?.classList.remove('hidden'); document.getElementById('vault-approle-section') && (document.getElementById('vault-approle-section').hidden = false);"
-                                    @checked(($vaultUiState['auth_mode'] ?? '') === 'approle')>
+                                    @checked($selectedAuthMode === 'approle')>
                                 {{ trans('nfse::general.settings.auth_mode_option_approle') }}
                             </label>
                         </div>
-                    </fieldset>
 
-                    {{-- Campos de Token --}}
-                    <div id="vault-token-section" class="space-y-4 @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif" @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif>
+                        {{-- Campos de Token --}}
+                        <div id="vault-token-section" class="space-y-4 @if($selectedAuthMode === 'approle') hidden @endif" @if($selectedAuthMode === 'approle') hidden @endif>
                         @php($showLocalTokenHint = app()->environment(['local', 'development']))
                         <div>
                             <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
@@ -262,44 +268,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <span>{{ trans('nfse::general.settings.clear_bao_token') }}</span>
                             </label>
                         </div>
-                    </div>
+                        </div>
 
-                    {{-- Campos de AppRole --}}
-                    <div id="vault-approle-section" class="space-y-4 @if(($vaultUiState['auth_mode'] ?? 'incomplete') !== 'approle') hidden @endif" @if(($vaultUiState['auth_mode'] ?? 'incomplete') !== 'approle') hidden @endif>
-                        <div>
-                            <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
-                            <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
-                            <div class="relative">
-                                <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2 pr-10" autocomplete="new-password">
-                                <button
-                                    id="toggle-bao-secret-id"
-                                    type="button"
-                                    class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
-                                    aria-label="{{ trans('nfse::general.settings.show_password') }}"
-                                    onclick="const input = document.getElementById('bao_secret_id'); const eyeOpen = this.querySelector('[data-eye-open]'); const eyeOff = this.querySelector('[data-eye-off]'); if (input) { input.type = input.type === 'password' ? 'text' : 'password'; const hidden = input.type === 'password'; eyeOpen?.classList.toggle('hidden', !hidden); eyeOff?.classList.toggle('hidden', hidden); this.setAttribute('aria-label', hidden ? '{{ trans('nfse::general.settings.show_password') }}' : '{{ trans('nfse::general.settings.hide_password') }}'); }"
-                                >
-                                    <svg data-eye-open xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12z" />
-                                        <circle cx="12" cy="12" r="3" />
-                                    </svg>
-                                    <svg data-eye-off xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 hidden">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6.7 0 10.5 6 10.5 6a18.8 18.8 0 0 1-4 4.8" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.9C3.7 8.7 1.5 12 1.5 12a18.7 18.7 0 0 0 5.6 6" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 10a3 3 0 0 0 4.1 4.1" />
-                                    </svg>
-                                    <span class="sr-only">{{ trans('nfse::general.settings.show_password') }}</span>
-                                </button>
+                        {{-- Campos de AppRole --}}
+                        <div id="vault-approle-section" class="space-y-4 @if($selectedAuthMode !== 'approle') hidden @endif" @if($selectedAuthMode !== 'approle') hidden @endif>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
+                                <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}">
                             </div>
-                            <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
-                                <input id="clear_bao_secret_id" name="nfse[clear_bao_secret_id]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_secret_id', '0') === '1')>
-                                <span>{{ trans('nfse::general.settings.clear_bao_secret_id') }}</span>
-                            </label>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
+                                <div class="relative">
+                                    <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2 pr-10" autocomplete="new-password">
+                                    <button
+                                        id="toggle-bao-secret-id"
+                                        type="button"
+                                        class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
+                                        aria-label="{{ trans('nfse::general.settings.show_password') }}"
+                                        onclick="const input = document.getElementById('bao_secret_id'); const eyeOpen = this.querySelector('[data-eye-open]'); const eyeOff = this.querySelector('[data-eye-off]'); if (input) { input.type = input.type === 'password' ? 'text' : 'password'; const hidden = input.type === 'password'; eyeOpen?.classList.toggle('hidden', !hidden); eyeOff?.classList.toggle('hidden', hidden); this.setAttribute('aria-label', hidden ? '{{ trans('nfse::general.settings.show_password') }}' : '{{ trans('nfse::general.settings.hide_password') }}'); }"
+                                    >
+                                        <svg data-eye-open xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                        <svg data-eye-off xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 hidden">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6.7 0 10.5 6 10.5 6a18.8 18.8 0 0 1-4 4.8" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.9C3.7 8.7 1.5 12 1.5 12a18.7 18.7 0 0 0 5.6 6" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 10a3 3 0 0 0 4.1 4.1" />
+                                        </svg>
+                                        <span class="sr-only">{{ trans('nfse::general.settings.show_password') }}</span>
+                                    </button>
+                                </div>
+                                <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
+                                    <input id="clear_bao_secret_id" name="nfse[clear_bao_secret_id]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_secret_id', '0') === '1')>
+                                    <span>{{ trans('nfse::general.settings.clear_bao_secret_id') }}</span>
+                                </label>
+                            </div>
                         </div>
-                    </div>
+                    </fieldset>
 
                     <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.sensitive_fields_behavior_hint') }}</p>
                     </div>
