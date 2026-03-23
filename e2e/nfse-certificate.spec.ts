@@ -187,7 +187,7 @@ test.describe('NFS-e certificate upload', () => {
 
     test('real replace flow stores certificate password in Vault and marks readiness as yes', async ({ page }, testInfo) => {
         if (!REAL_CERT_FLOW_ENABLED) {
-            testInfo.skip('Set NFSE_E2E_REAL_CERT_FLOW=1 to run real Vault/OpenBao certificate flow.');
+            testInfo.skip('Set NFSE_E2E_REAL_CERT_FLOW=1 to run real Vault certificate flow.');
         }
 
         const generatedPassword = `pw-${Date.now()}-Vault!`;
@@ -216,7 +216,7 @@ test.describe('NFS-e certificate upload', () => {
             await page.goto('/1/nfse/settings/readiness', { waitUntil: 'domcontentloaded' });
             await page.waitForLoadState('networkidle');
 
-            const secretRow = page.locator('tr', { hasText: 'Segredo do certificado disponível no Vault/OpenBao' });
+            const secretRow = page.locator('tr', { hasText: 'Segredo do certificado disponível no Vault' });
             await expect(secretRow).toBeVisible();
             await expect(secretRow.locator('td').nth(1)).toContainText('Sim');
         } finally {

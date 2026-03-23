@@ -175,7 +175,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     @endif
 
                     <div class="bg-white rounded-lg shadow p-6 space-y-4">
-                    <h3 class="text-xl font-semibold">OpenBao / Vault</h3>
+                    <h3 class="text-xl font-semibold">{{ trans('nfse::general.settings.vault_section_title') }}</h3>
 
                     {{-- Status compacto: apenas modo de auth + segredo do certificado --}}
                     <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
