@@ -98,6 +98,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('name="nfse[clear_bao_token]"', $content);
             self::assertStringContainsString('name="nfse[clear_bao_secret_id]"', $content);
             self::assertStringContainsString("trans('nfse::general.settings.sensitive_fields_behavior_hint')", $content);
+            self::assertStringContainsString("trans('nfse::general.settings.vault_gate_locked_notice')", $content);
+            self::assertStringContainsString("trans('nfse::general.settings.vault_gate_ready_notice')", $content);
         }
 
         public function testPendingInvoicesViewShowsCompactSummaryAndCustomFilterInput(): void
