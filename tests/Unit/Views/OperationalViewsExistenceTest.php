@@ -116,6 +116,18 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("document.getElementById('vault-approle-section')", $content);
             self::assertStringContainsString('id="vault-token-section"', $content);
             self::assertStringContainsString('id="vault-approle-section"', $content);
+            $fieldsetStart = strpos($content, 'id="vault-auth-mode-fieldset"');
+            $fieldsetEnd = strpos($content, '</fieldset>', (int) $fieldsetStart);
+            $tokenSection = strpos($content, 'id="vault-token-section"');
+            $approleSection = strpos($content, 'id="vault-approle-section"');
+            self::assertIsInt($fieldsetStart);
+            self::assertIsInt($fieldsetEnd);
+            self::assertIsInt($tokenSection);
+            self::assertIsInt($approleSection);
+            self::assertGreaterThan($fieldsetStart, $tokenSection);
+            self::assertGreaterThan($fieldsetStart, $approleSection);
+            self::assertLessThan($fieldsetEnd, $tokenSection);
+            self::assertLessThan($fieldsetEnd, $approleSection);
             self::assertStringNotContainsString('id="delete-certificate-form"', $content);
             self::assertStringContainsString("setting('nfse.bao_mount', '/nfse')", $content);
         }
