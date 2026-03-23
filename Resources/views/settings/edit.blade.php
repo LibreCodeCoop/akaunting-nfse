@@ -61,17 +61,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </div>
 
                     <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <label class="block text-sm font-medium" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
+                        <label class="block text-sm font-medium mb-1" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
+                        <div class="relative">
+                            <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2 pr-10" autocomplete="new-password">
                             <button
+                                id="toggle-pfx-password"
                                 type="button"
-                                class="text-xs text-blue-700 hover:underline"
-                                data-password-toggle-target="pfx_password"
-                                data-show-label="{{ trans('nfse::general.settings.show_password') }}"
-                                data-hide-label="{{ trans('nfse::general.settings.hide_password') }}"
-                            >{{ trans('nfse::general.settings.show_password') }}</button>
+                                class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
+                                aria-label="{{ trans('nfse::general.settings.show_password') }}"
+                                onclick="const input = document.getElementById('pfx_password'); if (input) { input.type = input.type === 'password' ? 'text' : 'password'; }"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                                <span class="sr-only">{{ trans('nfse::general.settings.show_password') }}</span>
+                            </button>
                         </div>
-                        <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
                     </div>
 
                     <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.edit_hint_without_certificate') }}</p>
@@ -214,17 +220,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div id="vault-token-section" class="space-y-4 @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif" @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif>
                         @php($showLocalTokenHint = app()->environment(['local', 'development']))
                         <div>
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="block text-sm font-medium" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
+                            <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
+                            <div class="relative">
+                                <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2 pr-10" autocomplete="new-password" @if($showLocalTokenHint) placeholder="dev-only-root-token" @endif>
                                 <button
+                                    id="toggle-bao-token"
                                     type="button"
-                                    class="text-xs text-blue-700 hover:underline"
-                                    data-password-toggle-target="bao_token"
-                                    data-show-label="{{ trans('nfse::general.settings.show_password') }}"
-                                    data-hide-label="{{ trans('nfse::general.settings.hide_password') }}"
-                                >{{ trans('nfse::general.settings.show_password') }}</button>
+                                    class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
+                                    aria-label="{{ trans('nfse::general.settings.show_password') }}"
+                                    onclick="const input = document.getElementById('bao_token'); if (input) { input.type = input.type === 'password' ? 'text' : 'password'; }"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                    <span class="sr-only">{{ trans('nfse::general.settings.show_password') }}</span>
+                                </button>
                             </div>
-                            <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password" @if($showLocalTokenHint) placeholder="dev-only-root-token" @endif>
                             <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_token_hint') }}</p>
                             @if($showLocalTokenHint)
                                 <p class="text-xs text-blue-700 mt-1">{{ trans('nfse::general.settings.bao_token_local_dev_hint') }}</p>
@@ -243,17 +255,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}">
                         </div>
                         <div>
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="block text-sm font-medium" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
+                            <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
+                            <div class="relative">
+                                <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2 pr-10" autocomplete="new-password">
                                 <button
+                                    id="toggle-bao-secret-id"
                                     type="button"
-                                    class="text-xs text-blue-700 hover:underline"
-                                    data-password-toggle-target="bao_secret_id"
-                                    data-show-label="{{ trans('nfse::general.settings.show_password') }}"
-                                    data-hide-label="{{ trans('nfse::general.settings.hide_password') }}"
-                                >{{ trans('nfse::general.settings.show_password') }}</button>
+                                    class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
+                                    aria-label="{{ trans('nfse::general.settings.show_password') }}"
+                                    onclick="const input = document.getElementById('bao_secret_id'); if (input) { input.type = input.type === 'password' ? 'text' : 'password'; }"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                    <span class="sr-only">{{ trans('nfse::general.settings.show_password') }}</span>
+                                </button>
                             </div>
-                            <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
                             <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
                                 <input id="clear_bao_secret_id" name="nfse[clear_bao_secret_id]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_secret_id', '0') === '1')>
                                 <span>{{ trans('nfse::general.settings.clear_bao_secret_id') }}</span>
@@ -400,35 +418,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 const settingsForm = document.getElementById('settings-form');
                 const csrfToken = settingsForm?.querySelector('input[name="_token"]')?.value ?? '';
-
-                // ── Password visibility toggles ───────────────────────────────
-                const passwordToggleButtons = document.querySelectorAll('[data-password-toggle-target]');
-
-                passwordToggleButtons.forEach((button) => {
-                    const targetId = button.getAttribute('data-password-toggle-target');
-                    if (!targetId) {
-                        return;
-                    }
-
-                    const input = document.getElementById(targetId);
-                    if (!(input instanceof HTMLInputElement)) {
-                        return;
-                    }
-
-                    const showLabel = button.getAttribute('data-show-label') ?? 'Show';
-                    const hideLabel = button.getAttribute('data-hide-label') ?? 'Hide';
-
-                    const syncToggleLabel = () => {
-                        button.textContent = input.type === 'password' ? showLabel : hideLabel;
-                    };
-
-                    button.addEventListener('click', () => {
-                        input.type = input.type === 'password' ? 'text' : 'password';
-                        syncToggleLabel();
-                    });
-
-                    syncToggleLabel();
-                });
 
                 // ── Auth mode toggle (Token / AppRole) ──────────────────────
                 const vaultTokenSection = document.getElementById('vault-token-section');
