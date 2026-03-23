@@ -133,6 +133,7 @@ return [
         'bao_mount_hint'   => 'Use o mount KV v2 (ex.: /nfse).',
         'bao_token'        => 'Token do OpenBao / Vault',
         'bao_token_hint'   => 'Deixe em branco para manter o token já salvo.',
+        'bao_token_local_dev_hint' => 'Em ambiente local de desenvolvimento, o token padrão costuma ser dev-only-root-token.',
         'clear_bao_token'  => 'Limpar token salvo no banco ao salvar',
         'bao_role_id'      => 'AppRole Role ID',
         'bao_secret_id'    => 'AppRole Secret ID',

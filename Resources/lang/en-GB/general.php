@@ -133,6 +133,7 @@ return [
         'bao_mount_hint'   => 'Use the KV v2 mount path (example: /nfse).',
         'bao_token'        => 'OpenBao / Vault Token',
         'bao_token_hint'   => 'Leave blank to keep the currently saved token.',
+        'bao_token_local_dev_hint' => 'In local development, the default token is often dev-only-root-token.',
         'clear_bao_token'  => 'Clear saved token on save',
         'bao_role_id'      => 'AppRole Role ID',
         'bao_secret_id'    => 'AppRole Secret ID',
