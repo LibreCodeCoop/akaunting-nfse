@@ -9,22 +9,14 @@ namespace Modules\Nfse\Listeners;
 
 use App\Events\Menu\AdminCreated as Event;
 use App\Traits\Modules;
-use App\Traits\Permissions;
 
 class AddToAdminMenu
 {
     use Modules;
-    use Permissions;
 
     public function handle(Event $event): void
     {
         if (!$this->moduleIsEnabled('nfse')) {
-            return;
-        }
-
-        $title = $this->menuTitle();
-
-        if (!$this->canAccessMenuItem($title, 'read-nfse-settings')) {
             return;
         }
 
@@ -38,10 +30,5 @@ class AddToAdminMenu
                 'search_keywords' => trans('nfse::general.description'),
             ]
         );
-    }
-
-    protected function menuTitle(): string
-    {
-        return trans('nfse::general.name');
     }
 }
