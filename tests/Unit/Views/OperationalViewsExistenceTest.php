@@ -100,6 +100,10 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.settings.sensitive_fields_behavior_hint')", $content);
             self::assertStringContainsString("trans('nfse::general.settings.vault_gate_locked_notice')", $content);
             self::assertStringContainsString("trans('nfse::general.settings.vault_gate_ready_notice')", $content);
+            // Auth mode toggle (token / approle mutually exclusive sections)
+            self::assertStringContainsString('name="auth_mode_ui"', $content);
+            self::assertStringContainsString('id="vault-token-section"', $content);
+            self::assertStringContainsString('id="vault-approle-section"', $content);
         }
 
         public function testPendingInvoicesViewShowsCompactSummaryAndCustomFilterInput(): void
