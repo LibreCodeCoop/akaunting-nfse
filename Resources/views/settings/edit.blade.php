@@ -161,23 +161,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">OpenBao / Vault</h3>
 
-                    <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-2">
+                    {{-- Status compacto: apenas modo de auth + segredo do certificado --}}
+                    <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
                         <p class="font-semibold">{{ trans('nfse::general.settings.vault_status_title') }}</p>
-                        <p id="vault-status-addr" data-configured="{{ ($vaultUiState['addr_configured'] ?? false) ? '1' : '0' }}">
-                            {{ trans('nfse::general.settings.vault_status_addr') }}: {{ ($vaultUiState['addr_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
-                        </p>
-                        <p id="vault-status-mount" data-configured="{{ ($vaultUiState['mount_configured'] ?? false) ? '1' : '0' }}">
-                            {{ trans('nfse::general.settings.vault_status_mount') }}: {{ ($vaultUiState['mount_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
-                        </p>
-                        <p id="vault-status-token" data-configured="{{ ($vaultUiState['token_configured'] ?? false) ? '1' : '0' }}">
-                            {{ trans('nfse::general.settings.vault_status_token') }}: {{ ($vaultUiState['token_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
-                        </p>
-                        <p id="vault-status-role-id" data-configured="{{ ($vaultUiState['role_id_configured'] ?? false) ? '1' : '0' }}">
-                            {{ trans('nfse::general.settings.vault_status_role_id') }}: {{ ($vaultUiState['role_id_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
-                        </p>
-                        <p id="vault-status-secret-id" data-configured="{{ ($vaultUiState['secret_id_configured'] ?? false) ? '1' : '0' }}">
-                            {{ trans('nfse::general.settings.vault_status_secret_id') }}: {{ ($vaultUiState['secret_id_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
-                        </p>
+                        {{-- Metadados ocultos preservados para acesso programático --}}
+                        <p id="vault-status-addr" class="hidden" data-configured="{{ ($vaultUiState['addr_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-mount" class="hidden" data-configured="{{ ($vaultUiState['mount_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-token" class="hidden" data-configured="{{ ($vaultUiState['token_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-role-id" class="hidden" data-configured="{{ ($vaultUiState['role_id_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-secret-id" class="hidden" data-configured="{{ ($vaultUiState['secret_id_configured'] ?? false) ? '1' : '0' }}"></p>
+                        {{-- Resumo visível --}}
                         <p id="vault-status-auth-mode" data-mode="{{ (string) ($vaultUiState['auth_mode'] ?? 'incomplete') }}">
                             {{ trans('nfse::general.settings.vault_status_auth_mode') }}: {{ trans('nfse::general.settings.vault_auth_mode_' . (string) ($vaultUiState['auth_mode'] ?? 'incomplete')) }}
                         </p>
@@ -197,29 +190,46 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_mount_hint') }}</p>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
-                        <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
-                        <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_token_hint') }}</p>
-                        <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
-                            <input id="clear_bao_token" name="nfse[clear_bao_token]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_token', '0') === '1')>
-                            <span>{{ trans('nfse::general.settings.clear_bao_token') }}</span>
+                    {{-- Seletor de modo de autenticação --}}
+                    <div class="flex gap-6 pt-1">
+                        <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
+                            <input type="radio" name="auth_mode_ui" value="token"
+                                @checked(in_array($vaultUiState['auth_mode'] ?? 'incomplete', ['token', 'incomplete']))>
+                            Token
+                        </label>
+                        <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
+                            <input type="radio" name="auth_mode_ui" value="approle"
+                                @checked(($vaultUiState['auth_mode'] ?? '') === 'approle')>
+                            AppRole
                         </label>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
-                        <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}">
+                    {{-- Campos de Token --}}
+                    <div id="vault-token-section" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
+                            <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
+                            <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
+                                <input id="clear_bao_token" name="nfse[clear_bao_token]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_token', '0') === '1')>
+                                <span>{{ trans('nfse::general.settings.clear_bao_token') }}</span>
+                            </label>
+                        </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
-                        <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
-                        <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_secret_id_hint') }}</p>
-                        <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
-                            <input id="clear_bao_secret_id" name="nfse[clear_bao_secret_id]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_secret_id', '0') === '1')>
-                            <span>{{ trans('nfse::general.settings.clear_bao_secret_id') }}</span>
-                        </label>
+                    {{-- Campos de AppRole --}}
+                    <div id="vault-approle-section" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
+                            <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
+                            <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
+                            <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
+                                <input id="clear_bao_secret_id" name="nfse[clear_bao_secret_id]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_secret_id', '0') === '1')>
+                                <span>{{ trans('nfse::general.settings.clear_bao_secret_id') }}</span>
+                            </label>
+                        </div>
                     </div>
 
                     <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.sensitive_fields_behavior_hint') }}</p>
@@ -369,6 +379,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 const settingsForm = document.getElementById('settings-form');
                 const csrfToken = settingsForm?.querySelector('input[name="_token"]')?.value ?? '';
+
+                // ── Auth mode toggle (Token / AppRole) ──────────────────────
+                const vaultTokenSection = document.getElementById('vault-token-section');
+                const vaultApproleSection = document.getElementById('vault-approle-section');
+                const authModeRadios = document.querySelectorAll('input[name="auth_mode_ui"]');
+
+                const toggleAuthSections = (mode) => {
+                    if (vaultTokenSection) vaultTokenSection.hidden = mode !== 'token';
+                    if (vaultApproleSection) vaultApproleSection.hidden = mode !== 'approle';
+                };
+
+                authModeRadios.forEach((radio) => {
+                    radio.addEventListener('change', () => toggleAuthSections(radio.value));
+                });
+
+                const initialAuthMode = document.querySelector('input[name="auth_mode_ui"]:checked')?.value ?? 'token';
+                toggleAuthSections(initialAuthMode);
 
                 const toggleStepSettings = (isVisible) => {
                     if (stepNfseFields) {
