@@ -77,17 +77,8 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
             };
 
             $listener = new class () extends AddToAdminMenu {
-                public string $permission = '';
-
                 public function moduleIsEnabled(string $alias): bool
                 {
-                    return true;
-                }
-
-                public function canAccessMenuItem($title, $permission): bool
-                {
-                    $this->permission = $permission;
-
                     return true;
                 }
             };
@@ -98,7 +89,6 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
             self::assertSame('nfse.dashboard.index', $menu->calls[0]['route']);
             self::assertSame(45, $menu->calls[0]['order']);
             self::assertSame('receipt_long', $menu->calls[0]['options']['icon']);
-            self::assertSame('read-nfse-settings', $listener->permission);
         }
 
         public function testHandleSkipsWhenModuleDisabled(): void
@@ -125,7 +115,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
             self::assertCount(0, $menu->calls);
         }
 
-        public function testHandleSkipsWhenUserCannotAccessMenuItem(): void
+        public function testHandleAddsDashboardRouteEvenWhenPermissionHelperWouldDeny(): void
         {
             $menu = new class () {
                 /** @var array<int, array<string, mixed>> */
@@ -133,7 +123,10 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
 
                 public function route(string $route, string $title, array $params, int $order, array $options): void
                 {
-                    $this->calls[] = [];
+                    $this->calls[] = [
+                        'route' => $route,
+                        'title' => $title,
+                    ];
                 }
             };
 
@@ -151,7 +144,8 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
 
             $listener->handle(new AdminCreated($menu));
 
-            self::assertCount(0, $menu->calls);
+            self::assertCount(1, $menu->calls);
+            self::assertSame('nfse.dashboard.index', $menu->calls[0]['route']);
         }
     }
 }
