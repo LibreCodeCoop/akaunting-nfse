@@ -36,16 +36,6 @@ class SettingsController extends Controller
         ]);
     }
 
-    public function readiness(): \Illuminate\View\View
-    {
-        $settings = setting('nfse', []);
-        $certificateState = $this->certificateState();
-        $checklist = $this->readinessChecklist(is_array($settings) ? $settings : [], $certificateState);
-        $isReady = !in_array(false, $checklist, true);
-
-        return view('nfse::settings.readiness', compact('settings', 'certificateState', 'checklist', 'isReady'));
-    }
-
     public function ufs(IbgeLocalities $ibgeLocalities): JsonResponse
     {
         try {
@@ -363,24 +353,6 @@ class SettingsController extends Controller
             'local_path' => $path,
             'has_local_certificate' => $hasLocalCertificate,
             'has_saved_settings' => $cnpj !== '',
-        ];
-    }
-
-    /**
-     * @param array<string, mixed> $settings
-     * @param array<string, mixed> $certificateState
-     * @return array<string, bool>
-     */
-    protected function readinessChecklist(array $settings, array $certificateState): array
-    {
-        return [
-            'cnpj_prestador' => ((string) ($settings['cnpj_prestador'] ?? '')) !== '',
-            'municipio_ibge' => ((string) ($settings['municipio_ibge'] ?? '')) !== '',
-            'item_lista_servico' => ((string) ($settings['item_lista_servico'] ?? '')) !== '',
-            'bao_addr' => ((string) ($settings['bao_addr'] ?? '')) !== '',
-            'bao_mount' => ((string) ($settings['bao_mount'] ?? '')) !== '',
-            'certificate' => (bool) ($certificateState['has_local_certificate'] ?? false),
-            'certificate_secret' => $this->hasCertificateSecret((string) ($settings['cnpj_prestador'] ?? '')),
         ];
     }
 
