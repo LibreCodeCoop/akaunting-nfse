@@ -46,22 +46,28 @@ class CertificateController extends Controller
 
         $file     = $request->file('pfx_file');
         $password = $request->input('pfx_password');
-        $cnpj     = setting('nfse.cnpj_prestador');
 
         try {
             $pfxContent = $this->readUploadedFile($file);
-            $this->validateUploadedCertificate($pfxContent, $password);
+            $data = $this->parseUploadedCertificate($pfxContent, $password);
+            $cnpj = $data['cnpj'] ?? null;
+
+            if (!$cnpj) {
+                return back()->with('error', trans('nfse::general.cnpj_not_found'));
+            }
         } catch (\RuntimeException) {
             return back()->with('error', trans('nfse::general.invalid_pfx'));
         }
 
         try {
-            $this->storeCertificate((string) $cnpj, $pfxContent, $password);
+            $this->storeCertificate($cnpj, $pfxContent, $password);
+            setting(['nfse.cnpj_prestador' => $cnpj]);
+            setting()->save();
         } catch (\Throwable) {
             return back()->with('error', trans('nfse::general.certificate_store_failed'));
         }
 
-        return redirect()->route('nfse.settings.edit')
+        return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])
             ->with('success', trans('nfse::general.certificate_uploaded'));
     }
 
