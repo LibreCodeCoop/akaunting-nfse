@@ -224,7 +224,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return 'pfx-binary';
                 }
 
-                protected function validateUploadedCertificate(string $pfxContent, string $password): void
+                protected function parseUploadedCertificate(string $pfxContent, string $password): array
                 {
                     throw new \RuntimeException('invalid');
                 }
@@ -239,6 +239,29 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::general.invalid_pfx', $response->flash['error'] ?? null);
         }
 
+        public function testUploadReturnsBackWithErrorWhenCnpjNotFoundInCertificate(): void
+        {
+            $controller = new class () extends CertificateController {
+                protected function readUploadedFile(UploadedFile $file): string
+                {
+                    return 'pfx-binary';
+                }
+
+                protected function parseUploadedCertificate(string $pfxContent, string $password): array
+                {
+                    return ['valid_to' => '2027-03-21']; // Missing CNPJ
+                }
+            };
+
+            $response = $controller->upload(new Request(
+                inputs: ['pfx_password' => 'secret'],
+                files: ['pfx_file' => new UploadedFile('/tmp/ignored')],
+            ));
+
+            self::assertSame('back', $response->target);
+            self::assertSame('nfse::general.cnpj_not_found', $response->flash['error'] ?? null);
+        }
+
         public function testUploadRedirectsBackWithErrorWhenSecretStoreFails(): void
         {
             $controller = new class () extends CertificateController {
@@ -247,8 +270,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return 'pfx-binary';
                 }
 
-                protected function validateUploadedCertificate(string $pfxContent, string $password): void
+                protected function parseUploadedCertificate(string $pfxContent, string $password): array
                 {
+                    return ['cnpj' => '12345678000195', 'valid_to' => '2027-03-21'];
                 }
 
                 protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
@@ -266,8 +290,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::general.certificate_store_failed', $response->flash['error'] ?? null);
         }
 
-        public function testUploadStoresCertificateAndRedirectsOnSuccess(): void
+        public function testUploadStoresCertificateExtractsCnpjAndRedirectsOnSuccess(): void
         {
+            ControllerIsolationState::$settings = [];
             $controller = new class () extends CertificateController {
                 /** @var list<array{cnpj: string, content: string, password: string}> */
                 public array $storeCalls = [];
@@ -277,8 +302,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return 'pfx-binary';
                 }
 
-                protected function validateUploadedCertificate(string $pfxContent, string $password): void
+                protected function parseUploadedCertificate(string $pfxContent, string $password): array
                 {
+                    return [
+                        'cnpj' => '12345678000195',
+                        'valid_to' => '2027-03-21',
+                    ];
                 }
 
                 protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
@@ -305,7 +334,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], $controller->storeCalls);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'certificate'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.certificate_uploaded', $response->flash['success'] ?? null);
+            // Verify CNPJ was saved to settings and persist() was called
+            self::assertSame('12345678000195', ControllerIsolationState::$settings['nfse.cnpj_prestador'] ?? null);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
         }
 
         private function removeDirectory(string $path): void
