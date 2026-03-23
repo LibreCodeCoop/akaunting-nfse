@@ -94,6 +94,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('name="auth_mode_ui"', $content);
             self::assertStringContainsString('id="auth-mode-token"', $content);
             self::assertStringContainsString('id="auth-mode-approle"', $content);
+            self::assertStringContainsString("document.getElementById('vault-token-section')", $content);
+            self::assertStringContainsString("document.getElementById('vault-approle-section')", $content);
             self::assertStringContainsString('id="vault-token-section"', $content);
             self::assertStringContainsString('id="vault-approle-section"', $content);
             self::assertStringNotContainsString('id="delete-certificate-form"', $content);
