@@ -189,11 +189,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div class="flex gap-6 pt-1">
                         <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
                             <input id="auth-mode-token" type="radio" name="auth_mode_ui" value="token"
+                                onclick="document.getElementById('vault-token-section')?.classList.remove('hidden'); document.getElementById('vault-token-section') && (document.getElementById('vault-token-section').hidden = false); document.getElementById('vault-approle-section')?.classList.add('hidden'); document.getElementById('vault-approle-section') && (document.getElementById('vault-approle-section').hidden = true);"
                                 @checked(in_array($vaultUiState['auth_mode'] ?? 'incomplete', ['token', 'incomplete']))>
                             Token
                         </label>
                         <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
                             <input id="auth-mode-approle" type="radio" name="auth_mode_ui" value="approle"
+                                onclick="document.getElementById('vault-token-section')?.classList.add('hidden'); document.getElementById('vault-token-section') && (document.getElementById('vault-token-section').hidden = true); document.getElementById('vault-approle-section')?.classList.remove('hidden'); document.getElementById('vault-approle-section') && (document.getElementById('vault-approle-section').hidden = false);"
                                 @checked(($vaultUiState['auth_mode'] ?? '') === 'approle')>
                             AppRole
                         </label>
