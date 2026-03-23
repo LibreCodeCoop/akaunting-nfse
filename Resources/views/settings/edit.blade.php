@@ -188,19 +188,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     {{-- Seletor de modo de autenticação --}}
                     <div class="flex gap-6 pt-1">
                         <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
-                            <input type="radio" name="auth_mode_ui" value="token"
+                            <input id="auth-mode-token" type="radio" name="auth_mode_ui" value="token"
                                 @checked(in_array($vaultUiState['auth_mode'] ?? 'incomplete', ['token', 'incomplete']))>
                             Token
                         </label>
                         <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
-                            <input type="radio" name="auth_mode_ui" value="approle"
+                            <input id="auth-mode-approle" type="radio" name="auth_mode_ui" value="approle"
                                 @checked(($vaultUiState['auth_mode'] ?? '') === 'approle')>
                             AppRole
                         </label>
                     </div>
 
                     {{-- Campos de Token --}}
-                    <div id="vault-token-section" class="space-y-4">
+                    <div id="vault-token-section" class="space-y-4 @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif" @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif>
                         <div>
                             <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
                             <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
@@ -212,7 +212,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </div>
 
                     {{-- Campos de AppRole --}}
-                    <div id="vault-approle-section" class="space-y-4">
+                    <div id="vault-approle-section" class="space-y-4 @if(($vaultUiState['auth_mode'] ?? 'incomplete') !== 'approle') hidden @endif" @if(($vaultUiState['auth_mode'] ?? 'incomplete') !== 'approle') hidden @endif>
                         <div>
                             <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
                             <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}">
@@ -234,14 +234,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         {{ trans('general.save') }}
                     </button>
                 </div>
-            </form>
-
-            <form id="delete-certificate-form" method="POST" action="{{ route('nfse.certificate.destroy') }}" class="mt-4" @if(($certificateState['has_saved_settings'] ?? false) === true) hidden @endif>
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700" onclick="return confirm('{{ trans('nfse::general.confirm_delete_certificate_and_settings') }}');">
-                    {{ trans('nfse::general.delete_certificate_and_settings') }}
-                </button>
             </form>
 
         </div>
@@ -380,9 +372,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const vaultApproleSection = document.getElementById('vault-approle-section');
                 const authModeRadios = document.querySelectorAll('input[name="auth_mode_ui"]');
 
+                const setSectionVisibility = (element, isVisible) => {
+                    if (!element) {
+                        return;
+                    }
+
+                    element.hidden = !isVisible;
+                    element.classList.toggle('hidden', !isVisible);
+                };
+
                 const toggleAuthSections = (mode) => {
-                    if (vaultTokenSection) vaultTokenSection.hidden = mode !== 'token';
-                    if (vaultApproleSection) vaultApproleSection.hidden = mode !== 'approle';
+                    setSectionVisibility(vaultTokenSection, mode === 'token');
+                    setSectionVisibility(vaultApproleSection, mode === 'approle');
                 };
 
                 authModeRadios.forEach((radio) => {
