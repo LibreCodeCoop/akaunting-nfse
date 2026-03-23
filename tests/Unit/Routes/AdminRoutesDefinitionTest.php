@@ -30,7 +30,6 @@ class AdminRoutesDefinitionTest extends TestCase
     {
         self::assertStringContainsString("'prefix' => 'settings'", $this->routesContent);
         self::assertStringContainsString("->name('edit')", $this->routesContent);
-        self::assertStringContainsString("->name('readiness')", $this->routesContent);
         self::assertStringContainsString("->name('update')", $this->routesContent);
     }
 

@@ -91,67 +91,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
         }
 
-        public function testReadinessReturnsChecklistAndReadinessFlag(): void
-        {
-            ControllerIsolationState::reset();
-            ControllerIsolationState::$settings = [
-                'nfse.cnpj_prestador' => '12345678000190',
-                'nfse.municipio_ibge' => '3303302',
-                'nfse.item_lista_servico' => '0107',
-                'nfse.bao_addr' => 'http://openbao:8200',
-                'nfse.bao_mount' => '/nfse',
-            ];
-
-            $localCertificatePath = storage_path('app/nfse/pfx/12345678000190.pfx');
-            if (!is_dir(dirname($localCertificatePath))) {
-                mkdir(dirname($localCertificatePath), 0o777, true);
-            }
-            file_put_contents($localCertificatePath, 'fake-pfx');
-
-            $secretStore = new class () implements SecretStoreInterface {
-                public function get(string $path): array
-                {
-                    return [
-                        'pfx_path' => '/tmp/example.pfx',
-                        'password' => 'secret',
-                    ];
-                }
-
-                public function put(string $path, array $data): void
-                {
-                }
-
-                public function delete(string $path): void
-                {
-                }
-            };
-
-            $controller = new class ($secretStore) extends SettingsController {
-                public function __construct(private readonly SecretStoreInterface $secretStore)
-                {
-                }
-
-                protected function makeSecretStore(): SecretStoreInterface
-                {
-                    return $this->secretStore;
-                }
-            };
-
-            $response = $controller->readiness();
-
-            self::assertSame('nfse::settings.readiness', $response->name);
-            self::assertTrue($response->data['isReady'] ?? false);
-            self::assertSame([
-                'cnpj_prestador' => true,
-                'municipio_ibge' => true,
-                'item_lista_servico' => true,
-                'bao_addr' => true,
-                'bao_mount' => true,
-                'certificate' => true,
-                'certificate_secret' => true,
-            ], $response->data['checklist'] ?? []);
-        }
-
         public function testPrepareNfseInputNormalizesFieldsAndDropsEmptySensitiveFields(): void
         {
             $controller = new class () extends SettingsController {
@@ -608,6 +547,60 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], ControllerIsolationState::$settings);
         }
 
+        public function testUpdateAllowsVaultOnlySaveBeforeCertificateAndFiscalSettings(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'bao_addr' => 'http://openbao:8200',
+                        'bao_mount' => '/nfse',
+                        'bao_token' => 'dev-only-root-token',
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->update($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame('nfse::general.vault_saved_continue', $response->flash['success'] ?? null);
+            self::assertSame('http://openbao:8200', ControllerIsolationState::$settings['nfse.bao_addr'] ?? null);
+            self::assertSame('/nfse', ControllerIsolationState::$settings['nfse.bao_mount'] ?? null);
+            self::assertSame('dev-only-root-token', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
+            self::assertArrayNotHasKey('nfse.cnpj_prestador', ControllerIsolationState::$settings);
+        }
+
+        public function testUpdateBlocksFullSettingsFlowWhenVaultIsNotReady(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador' => '33333333000133',
+                        'uf' => 'rj',
+                        'municipio_nome' => 'Niteroi',
+                        'municipio_ibge' => '3303302',
+                        'item_lista_servico' => '0123',
+                        'bao_addr' => 'http://openbao:8200',
+                        'bao_mount' => '/nfse',
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->update($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame('nfse::general.vault_required_before_certificate_and_settings', $response->flash['error'] ?? null);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+            self::assertArrayNotHasKey('nfse.cnpj_prestador', ControllerIsolationState::$settings);
+        }
+
         public function testUpdateReturnsBackWithInputAndInvalidPfxMessageWhenCertificateValidationFails(): void
         {
             ControllerIsolationState::reset();
@@ -622,6 +615,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'item_lista_servico' => '0123',
                         'bao_addr' => 'http://openbao:8200',
                         'bao_mount' => 'nfse',
+                        'bao_token' => 'dev-only-root-token',
                     ],
                     'pfx_password' => 'invalid',
                 ],
@@ -669,6 +663,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'item_lista_servico' => '0123',
                         'bao_addr' => 'http://openbao:8200',
                         'bao_mount' => '/nfse',
+                        'bao_token' => 'dev-only-root-token',
                     ],
                     'pfx_password' => 'valid-password',
                 ],
@@ -738,6 +733,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'bao_addr' => 'http://openbao:8200',
                         'bao_mount' => '/nfse',
                         'bao_token' => '',
+                        'bao_role_id' => 'role-id',
                         'bao_secret_id' => '',
                     ],
                     'pfx_password' => 'valid-password',
@@ -790,6 +786,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'item_lista_servico' => '0123',
                         'bao_addr' => 'http://openbao:8200',
                         'bao_mount' => '/nfse',
+                        'bao_token' => 'dev-only-root-token',
                     ],
                     'pfx_password' => 'valid-password',
                 ],
@@ -852,6 +849,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'item_lista_servico' => '0123',
                         'bao_addr' => 'http://openbao:8200',
                         'bao_mount' => '/nfse',
+                        'bao_token' => 'dev-only-root-token',
                     ],
                     'pfx_password' => 'valid-password',
                 ],
@@ -900,6 +898,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'item_lista_servico' => '0123',
                         'bao_addr' => 'http://openbao:8200',
                         'bao_mount' => '/nfse',
+                        'bao_token' => 'dev-only-root-token',
                     ],
                 ],
             );
@@ -928,6 +927,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'item_lista_servico' => '0123',
                         'bao_addr' => 'http://openbao:8200',
                         'bao_mount' => '/nfse',
+                        'bao_token' => 'dev-only-root-token',
                     ],
                     'pfx_password' => 'valid-password',
                 ],

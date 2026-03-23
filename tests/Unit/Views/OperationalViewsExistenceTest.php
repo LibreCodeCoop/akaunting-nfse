@@ -18,7 +18,6 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/invoices/index.blade.php');
             self::assertFileExists($basePath . '/invoices/pending.blade.php');
             self::assertFileExists($basePath . '/invoices/show.blade.php');
-            self::assertFileExists($basePath . '/settings/readiness.blade.php');
         }
 
         public function testInvoicesIndexViewKeepsFiltersInPaginationAndOffersClearAction(): void
@@ -79,15 +78,6 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("nfse::general.readiness.checks.", $content);
         }
 
-        public function testReadinessViewShowsCertificateSecretChecklistRow(): void
-        {
-            $readinessPath = dirname(__DIR__, 3) . '/Resources/views/settings/readiness.blade.php';
-            $content = (string) file_get_contents($readinessPath);
-
-            self::assertStringContainsString("nfse::general.readiness.checks.certificate_secret", $content);
-            self::assertStringContainsString('$checklist[\'certificate_secret\']', $content);
-        }
-
         public function testSettingsViewShowsVaultStatusAndSensitiveFieldClearControls(): void
         {
             $settingsPath = dirname(__DIR__, 3) . '/Resources/views/settings/edit.blade.php';
@@ -98,6 +88,17 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('name="nfse[clear_bao_token]"', $content);
             self::assertStringContainsString('name="nfse[clear_bao_secret_id]"', $content);
             self::assertStringContainsString("trans('nfse::general.settings.sensitive_fields_behavior_hint')", $content);
+            self::assertStringContainsString("trans('nfse::general.settings.vault_gate_locked_notice')", $content);
+            self::assertStringContainsString("trans('nfse::general.settings.vault_gate_ready_notice')", $content);
+            // Auth mode toggle (token / approle mutually exclusive sections)
+            self::assertStringContainsString('name="auth_mode_ui"', $content);
+            self::assertStringContainsString('id="auth-mode-token"', $content);
+            self::assertStringContainsString('id="auth-mode-approle"', $content);
+            self::assertStringContainsString("document.getElementById('vault-token-section')", $content);
+            self::assertStringContainsString("document.getElementById('vault-approle-section')", $content);
+            self::assertStringContainsString('id="vault-token-section"', $content);
+            self::assertStringContainsString('id="vault-approle-section"', $content);
+            self::assertStringNotContainsString('id="delete-certificate-form"', $content);
         }
 
         public function testPendingInvoicesViewShowsCompactSummaryAndCustomFilterInput(): void

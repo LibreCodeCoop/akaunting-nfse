@@ -26,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 {{-- ─────────────────────────────────────────────────────── --}}
                 {{-- Step 1 · Digital certificate (single action)          --}}
                 {{-- ─────────────────────────────────────────────────────── --}}
+                @if(($vaultUiState['ready'] ?? false) === true)
                 <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_certificate') }}</h3>
                     <p class="text-sm text-gray-500">{{ trans('nfse::general.settings.certificate_hint') }}</p>
@@ -65,11 +66,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </div>
 
                     <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.edit_hint_without_certificate') }}</p>
-                    <div>
-                        <a href="{{ route('nfse.settings.readiness') }}" class="inline-flex items-center px-3 py-2 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs">
-                            {{ trans('nfse::general.go_to_readiness') }}
-                        </a>
-                    </div>
 
                     {{-- CNPJ badge shown after a successful parse --}}
                     <div id="cert-cnpj-display" class="hidden flex items-center gap-2 p-3 bg-green-50 border border-green-300 rounded">
@@ -94,12 +90,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     @endif
                     </div>
                 </div>
+                @else
+                <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
+                    {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
+                </div>
+                @endif
 
                 {{-- ─────────────────────────────────────────────────────── --}}
                 {{-- Step 2 · NFS-e settings (shown after CNPJ read)      --}}
                 {{-- ─────────────────────────────────────────────────────── --}}
-                <div id="step-settings-section" class="space-y-8" @if(($certificateState['has_saved_settings'] ?? false) !== true) hidden @endif>
-                    <div class="bg-white rounded-lg shadow p-6 space-y-4">
+                <div id="step-settings-section" class="space-y-8">
+                    @if(($vaultUiState['ready'] ?? false) === true)
+                    <p class="text-sm text-green-700 bg-green-50 border border-green-300 rounded px-3 py-2">
+                        {{ trans('nfse::general.settings.vault_gate_ready_notice') }}
+                    </p>
+                    <div id="step-nfse-fields" class="bg-white rounded-lg shadow p-6 space-y-4" @if(($certificateState['has_saved_settings'] ?? false) !== true) hidden @endif>
                     <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_settings') }}</h3>
 
                     {{-- CNPJ: populated by "Ler certificado" or falls back to saved value --}}
@@ -146,27 +151,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
                     </label>
                     </div>
+                    @endif
 
                     <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">OpenBao / Vault</h3>
 
-                    <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-2">
+                    {{-- Status compacto: apenas modo de auth + segredo do certificado --}}
+                    <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
                         <p class="font-semibold">{{ trans('nfse::general.settings.vault_status_title') }}</p>
-                        <p id="vault-status-addr" data-configured="{{ ($vaultUiState['addr_configured'] ?? false) ? '1' : '0' }}">
-                            {{ trans('nfse::general.settings.vault_status_addr') }}: {{ ($vaultUiState['addr_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
-                        </p>
-                        <p id="vault-status-mount" data-configured="{{ ($vaultUiState['mount_configured'] ?? false) ? '1' : '0' }}">
-                            {{ trans('nfse::general.settings.vault_status_mount') }}: {{ ($vaultUiState['mount_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
-                        </p>
-                        <p id="vault-status-token" data-configured="{{ ($vaultUiState['token_configured'] ?? false) ? '1' : '0' }}">
-                            {{ trans('nfse::general.settings.vault_status_token') }}: {{ ($vaultUiState['token_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
-                        </p>
-                        <p id="vault-status-role-id" data-configured="{{ ($vaultUiState['role_id_configured'] ?? false) ? '1' : '0' }}">
-                            {{ trans('nfse::general.settings.vault_status_role_id') }}: {{ ($vaultUiState['role_id_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
-                        </p>
-                        <p id="vault-status-secret-id" data-configured="{{ ($vaultUiState['secret_id_configured'] ?? false) ? '1' : '0' }}">
-                            {{ trans('nfse::general.settings.vault_status_secret_id') }}: {{ ($vaultUiState['secret_id_configured'] ?? false) ? trans('general.yes') : trans('general.no') }}
-                        </p>
+                        {{-- Metadados ocultos preservados para acesso programático --}}
+                        <p id="vault-status-addr" class="hidden" data-configured="{{ ($vaultUiState['addr_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-mount" class="hidden" data-configured="{{ ($vaultUiState['mount_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-token" class="hidden" data-configured="{{ ($vaultUiState['token_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-role-id" class="hidden" data-configured="{{ ($vaultUiState['role_id_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-secret-id" class="hidden" data-configured="{{ ($vaultUiState['secret_id_configured'] ?? false) ? '1' : '0' }}"></p>
+                        {{-- Resumo visível --}}
                         <p id="vault-status-auth-mode" data-mode="{{ (string) ($vaultUiState['auth_mode'] ?? 'incomplete') }}">
                             {{ trans('nfse::general.settings.vault_status_auth_mode') }}: {{ trans('nfse::general.settings.vault_auth_mode_' . (string) ($vaultUiState['auth_mode'] ?? 'incomplete')) }}
                         </p>
@@ -186,29 +185,48 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_mount_hint') }}</p>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
-                        <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
-                        <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_token_hint') }}</p>
-                        <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
-                            <input id="clear_bao_token" name="nfse[clear_bao_token]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_token', '0') === '1')>
-                            <span>{{ trans('nfse::general.settings.clear_bao_token') }}</span>
+                    {{-- Seletor de modo de autenticação --}}
+                    <div class="flex gap-6 pt-1">
+                        <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
+                            <input id="auth-mode-token" type="radio" name="auth_mode_ui" value="token"
+                                onclick="document.getElementById('vault-token-section')?.classList.remove('hidden'); document.getElementById('vault-token-section') && (document.getElementById('vault-token-section').hidden = false); document.getElementById('vault-approle-section')?.classList.add('hidden'); document.getElementById('vault-approle-section') && (document.getElementById('vault-approle-section').hidden = true);"
+                                @checked(in_array($vaultUiState['auth_mode'] ?? 'incomplete', ['token', 'incomplete']))>
+                            Token
+                        </label>
+                        <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
+                            <input id="auth-mode-approle" type="radio" name="auth_mode_ui" value="approle"
+                                onclick="document.getElementById('vault-token-section')?.classList.add('hidden'); document.getElementById('vault-token-section') && (document.getElementById('vault-token-section').hidden = true); document.getElementById('vault-approle-section')?.classList.remove('hidden'); document.getElementById('vault-approle-section') && (document.getElementById('vault-approle-section').hidden = false);"
+                                @checked(($vaultUiState['auth_mode'] ?? '') === 'approle')>
+                            AppRole
                         </label>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
-                        <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}">
+                    {{-- Campos de Token --}}
+                    <div id="vault-token-section" class="space-y-4 @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif" @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif>
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
+                            <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
+                            <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
+                                <input id="clear_bao_token" name="nfse[clear_bao_token]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_token', '0') === '1')>
+                                <span>{{ trans('nfse::general.settings.clear_bao_token') }}</span>
+                            </label>
+                        </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
-                        <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
-                        <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_secret_id_hint') }}</p>
-                        <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
-                            <input id="clear_bao_secret_id" name="nfse[clear_bao_secret_id]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_secret_id', '0') === '1')>
-                            <span>{{ trans('nfse::general.settings.clear_bao_secret_id') }}</span>
-                        </label>
+                    {{-- Campos de AppRole --}}
+                    <div id="vault-approle-section" class="space-y-4 @if(($vaultUiState['auth_mode'] ?? 'incomplete') !== 'approle') hidden @endif" @if(($vaultUiState['auth_mode'] ?? 'incomplete') !== 'approle') hidden @endif>
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
+                            <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>
+                            <input id="bao_secret_id" name="nfse[bao_secret_id]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
+                            <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
+                                <input id="clear_bao_secret_id" name="nfse[clear_bao_secret_id]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_secret_id', '0') === '1')>
+                                <span>{{ trans('nfse::general.settings.clear_bao_secret_id') }}</span>
+                            </label>
+                        </div>
                     </div>
 
                     <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.sensitive_fields_behavior_hint') }}</p>
@@ -218,14 +236,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         {{ trans('general.save') }}
                     </button>
                 </div>
-            </form>
-
-            <form id="delete-certificate-form" method="POST" action="{{ route('nfse.certificate.destroy') }}" class="mt-4" @if(($certificateState['has_saved_settings'] ?? false) === true) hidden @endif>
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700" onclick="return confirm('{{ trans('nfse::general.confirm_delete_certificate_and_settings') }}');">
-                    {{ trans('nfse::general.delete_certificate_and_settings') }}
-                </button>
             </form>
 
         </div>
@@ -347,20 +357,47 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const certCnpjDisplay = document.getElementById('cert-cnpj-display');
                 const certCnpjValue = document.getElementById('cert-cnpj-value');
                 const certErrorDisplay = document.getElementById('cert-error-display');
-                const stepSettingsSection = document.getElementById('step-settings-section');
+                const stepNfseFields = document.getElementById('step-nfse-fields');
                 const replaceCertificateInput = document.getElementById('replace_certificate');
                 const replaceFields = document.getElementById('replace-cert-fields');
                 const showReplaceButton = document.getElementById('btn-show-replace-cert');
                 const deleteCertificateButton = document.getElementById('btn-delete-certificate');
                 const deleteForm = document.getElementById('delete-certificate-form');
                 const hasSavedSettings = @json(($certificateState['has_saved_settings'] ?? false) === true);
+                const vaultReady = @json(($vaultUiState['ready'] ?? false) === true);
 
                 const settingsForm = document.getElementById('settings-form');
                 const csrfToken = settingsForm?.querySelector('input[name="_token"]')?.value ?? '';
 
+                // ── Auth mode toggle (Token / AppRole) ──────────────────────
+                const vaultTokenSection = document.getElementById('vault-token-section');
+                const vaultApproleSection = document.getElementById('vault-approle-section');
+                const authModeRadios = document.querySelectorAll('input[name="auth_mode_ui"]');
+
+                const setSectionVisibility = (element, isVisible) => {
+                    if (!element) {
+                        return;
+                    }
+
+                    element.hidden = !isVisible;
+                    element.classList.toggle('hidden', !isVisible);
+                };
+
+                const toggleAuthSections = (mode) => {
+                    setSectionVisibility(vaultTokenSection, mode === 'token');
+                    setSectionVisibility(vaultApproleSection, mode === 'approle');
+                };
+
+                authModeRadios.forEach((radio) => {
+                    radio.addEventListener('change', () => toggleAuthSections(radio.value));
+                });
+
+                const initialAuthMode = document.querySelector('input[name="auth_mode_ui"]:checked')?.value ?? 'token';
+                toggleAuthSections(initialAuthMode);
+
                 const toggleStepSettings = (isVisible) => {
-                    if (stepSettingsSection) {
-                        stepSettingsSection.hidden = !isVisible;
+                    if (stepNfseFields) {
+                        stepNfseFields.hidden = !isVisible;
                     }
                 };
 
@@ -382,7 +419,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     btnReadCert.disabled = pfxPasswordInput.value.trim().length === 0;
                 };
 
-                toggleStepSettings(hasSavedSettings);
+                toggleStepSettings(vaultReady && hasSavedSettings);
 
                 if (!hasSavedSettings) {
                     toggleReplaceFields(true);
@@ -394,7 +431,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 showReplaceButton?.addEventListener('click', () => {
                     toggleReplaceFields(true);
                     syncReadButtonState();
-                    pfxFileInput.focus();
+                    pfxFileInput?.focus();
                 });
 
                 (async () => {
@@ -437,13 +474,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     deleteForm?.submit();
                 });
 
-                btnReadCert.addEventListener('click', async () => {
-                    certErrorDisplay.classList.add('hidden');
-                    certCnpjDisplay.classList.add('hidden');
+                btnReadCert?.addEventListener('click', async () => {
+                    certErrorDisplay?.classList.add('hidden');
+                    certCnpjDisplay?.classList.add('hidden');
 
-                    if (!pfxFileInput.files.length) {
-                        certErrorDisplay.textContent = @json(trans('nfse::general.settings.certificate')) + ': selecione um arquivo PFX.';
-                        certErrorDisplay.classList.remove('hidden');
+                    if (!pfxFileInput?.files?.length) {
+                        if (certErrorDisplay) {
+                            certErrorDisplay.textContent = @json(trans('nfse::general.settings.certificate')) + ': selecione um arquivo PFX.';
+                            certErrorDisplay.classList.remove('hidden');
+                        }
                         return;
                     }
 
@@ -451,7 +490,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     const formData = new FormData();
                     formData.append('pfx_file', pfxFileInput.files[0]);
-                    formData.append('pfx_password', pfxPasswordInput.value);
+                    formData.append('pfx_password', pfxPasswordInput?.value ?? '');
                     formData.append('_token', csrfToken);
 
                     try {
@@ -464,26 +503,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         const payload = await response.json().catch(() => ({}));
 
                         if (!response.ok) {
-                            certErrorDisplay.textContent = payload.error ?? @json(trans('nfse::general.invalid_pfx'));
-                            certErrorDisplay.classList.remove('hidden');
+                            if (certErrorDisplay) {
+                                certErrorDisplay.textContent = payload.error ?? @json(trans('nfse::general.invalid_pfx'));
+                                certErrorDisplay.classList.remove('hidden');
+                            }
                             return;
                         }
 
                         const cnpj = payload.data?.cnpj ?? null;
 
                         if (!cnpj) {
-                            certErrorDisplay.textContent = @json(trans('nfse::general.cnpj_not_found'));
-                            certErrorDisplay.classList.remove('hidden');
+                            if (certErrorDisplay) {
+                                certErrorDisplay.textContent = @json(trans('nfse::general.cnpj_not_found'));
+                                certErrorDisplay.classList.remove('hidden');
+                            }
                             return;
                         }
 
-                        certCnpjValue.textContent = cnpj;
-                        certCnpjDisplay.classList.remove('hidden');
-                        cnpjInput.value = cnpj;
+                        if (certCnpjValue) {
+                            certCnpjValue.textContent = cnpj;
+                        }
+                        certCnpjDisplay?.classList.remove('hidden');
+                        if (cnpjInput) {
+                            cnpjInput.value = cnpj;
+                        }
                         toggleStepSettings(true);
                     } catch {
-                        certErrorDisplay.textContent = @json(trans('nfse::general.invalid_pfx'));
-                        certErrorDisplay.classList.remove('hidden');
+                        if (certErrorDisplay) {
+                            certErrorDisplay.textContent = @json(trans('nfse::general.invalid_pfx'));
+                            certErrorDisplay.classList.remove('hidden');
+                        }
                     } finally {
                         btnReadCert.disabled = false;
                     }
