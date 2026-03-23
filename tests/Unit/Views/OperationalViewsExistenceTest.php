@@ -99,6 +99,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="vault-token-section"', $content);
             self::assertStringContainsString('id="vault-approle-section"', $content);
             self::assertStringNotContainsString('id="delete-certificate-form"', $content);
+            self::assertStringContainsString("setting('nfse.bao_mount', '/nfse')", $content);
         }
 
         public function testPendingInvoicesViewShowsCompactSummaryAndCustomFilterInput(): void
