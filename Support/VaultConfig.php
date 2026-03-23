@@ -16,10 +16,10 @@ final class VaultConfig
     {
         $mount = self::normalizeMount(
             self::resolve(
-                setting('nfse.bao_mount', 'nfse'),
+                setting('nfse.bao_mount', '/nfse'),
                 ['VAULT_MOUNT', 'OPENBAO_MOUNT'],
-                'nfse',
-            ) ?? 'nfse',
+                '/nfse',
+            ) ?? '/nfse',
         );
 
         return [
