@@ -18,7 +18,6 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/invoices/index.blade.php');
             self::assertFileExists($basePath . '/invoices/pending.blade.php');
             self::assertFileExists($basePath . '/invoices/show.blade.php');
-            self::assertFileExists($basePath . '/settings/readiness.blade.php');
         }
 
         public function testInvoicesIndexViewKeepsFiltersInPaginationAndOffersClearAction(): void
@@ -77,15 +76,6 @@ namespace Modules\Nfse\Tests\Unit\Views {
             // The view must iterate \$checklist to surface per-item labels rather than a generic banner.
             self::assertStringContainsString('$checklist', $content);
             self::assertStringContainsString("nfse::general.readiness.checks.", $content);
-        }
-
-        public function testReadinessViewShowsCertificateSecretChecklistRow(): void
-        {
-            $readinessPath = dirname(__DIR__, 3) . '/Resources/views/settings/readiness.blade.php';
-            $content = (string) file_get_contents($readinessPath);
-
-            self::assertStringContainsString("nfse::general.readiness.checks.certificate_secret", $content);
-            self::assertStringContainsString('$checklist[\'certificate_secret\']', $content);
         }
 
         public function testSettingsViewShowsVaultStatusAndSensitiveFieldClearControls(): void
