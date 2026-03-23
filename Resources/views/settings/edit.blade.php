@@ -207,20 +207,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </div>
 
                     {{-- Seletor de modo de autenticação --}}
-                    <div class="flex gap-6 pt-1">
-                        <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
-                            <input id="auth-mode-token" type="radio" name="auth_mode_ui" value="token"
-                                onclick="document.getElementById('vault-token-section')?.classList.remove('hidden'); document.getElementById('vault-token-section') && (document.getElementById('vault-token-section').hidden = false); document.getElementById('vault-approle-section')?.classList.add('hidden'); document.getElementById('vault-approle-section') && (document.getElementById('vault-approle-section').hidden = true);"
-                                @checked(in_array($vaultUiState['auth_mode'] ?? 'incomplete', ['token', 'incomplete']))>
-                            Token
-                        </label>
-                        <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
-                            <input id="auth-mode-approle" type="radio" name="auth_mode_ui" value="approle"
-                                onclick="document.getElementById('vault-token-section')?.classList.add('hidden'); document.getElementById('vault-token-section') && (document.getElementById('vault-token-section').hidden = true); document.getElementById('vault-approle-section')?.classList.remove('hidden'); document.getElementById('vault-approle-section') && (document.getElementById('vault-approle-section').hidden = false);"
-                                @checked(($vaultUiState['auth_mode'] ?? '') === 'approle')>
-                            AppRole
-                        </label>
-                    </div>
+                    <fieldset id="vault-auth-mode-fieldset" class="rounded-md border border-gray-200 p-3 space-y-2" aria-describedby="vault-auth-mode-hint">
+                        <legend class="px-1 text-sm font-semibold">{{ trans('nfse::general.settings.auth_mode_group_label') }}</legend>
+                        <p id="vault-auth-mode-hint" class="text-xs text-gray-500">{{ trans('nfse::general.settings.auth_mode_group_hint') }}</p>
+                        <div class="flex gap-6 pt-1">
+                            <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
+                                <input id="auth-mode-token" type="radio" name="auth_mode_ui" value="token"
+                                    onclick="document.getElementById('vault-token-section')?.classList.remove('hidden'); document.getElementById('vault-token-section') && (document.getElementById('vault-token-section').hidden = false); document.getElementById('vault-approle-section')?.classList.add('hidden'); document.getElementById('vault-approle-section') && (document.getElementById('vault-approle-section').hidden = true);"
+                                    @checked(in_array($vaultUiState['auth_mode'] ?? 'incomplete', ['token', 'incomplete']))>
+                                {{ trans('nfse::general.settings.auth_mode_option_token') }}
+                            </label>
+                            <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
+                                <input id="auth-mode-approle" type="radio" name="auth_mode_ui" value="approle"
+                                    onclick="document.getElementById('vault-token-section')?.classList.add('hidden'); document.getElementById('vault-token-section') && (document.getElementById('vault-token-section').hidden = true); document.getElementById('vault-approle-section')?.classList.remove('hidden'); document.getElementById('vault-approle-section') && (document.getElementById('vault-approle-section').hidden = false);"
+                                    @checked(($vaultUiState['auth_mode'] ?? '') === 'approle')>
+                                {{ trans('nfse::general.settings.auth_mode_option_approle') }}
+                            </label>
+                        </div>
+                    </fieldset>
 
                     {{-- Campos de Token --}}
                     <div id="vault-token-section" class="space-y-4 @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif" @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif>
