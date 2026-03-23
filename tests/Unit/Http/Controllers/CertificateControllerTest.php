@@ -249,7 +249,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
                 protected function parseUploadedCertificate(string $pfxContent, string $password): array
                 {
-                    return ['valid_to' => '2027-03-21']; // Missing CNPJ
+                    return ['valid_to' => '2027-03-21'];
                 }
             };
 
@@ -336,7 +336,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.settings.edit', $response->route);
             self::assertSame(['tab' => 'certificate'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.certificate_uploaded', $response->flash['success'] ?? null);
-            // Verify CNPJ was saved to settings and persist() was called
             self::assertSame('12345678000195', ControllerIsolationState::$settings['nfse.cnpj_prestador'] ?? null);
             self::assertSame(1, ControllerIsolationState::$savedCount);
         }
