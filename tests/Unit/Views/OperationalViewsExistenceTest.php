@@ -92,8 +92,11 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.settings.vault_gate_ready_notice')", $content);
             // Auth mode toggle (token / approle mutually exclusive sections)
             self::assertStringContainsString('name="auth_mode_ui"', $content);
+            self::assertStringContainsString('id="auth-mode-token"', $content);
+            self::assertStringContainsString('id="auth-mode-approle"', $content);
             self::assertStringContainsString('id="vault-token-section"', $content);
             self::assertStringContainsString('id="vault-approle-section"', $content);
+            self::assertStringNotContainsString('id="delete-certificate-form"', $content);
         }
 
         public function testPendingInvoicesViewShowsCompactSummaryAndCustomFilterInput(): void
