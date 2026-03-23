@@ -17,6 +17,8 @@ Route::admin('nfse', function () {
     Route::group(['prefix' => 'settings', 'as' => 'settings.'], function () {
         Route::get('/', [SettingsController::class, 'edit'])->name('edit');
         Route::patch('/', [SettingsController::class, 'update'])->name('update');
+        Route::patch('/vault', [SettingsController::class, 'updateVault'])->name('vault');
+        Route::patch('/fiscal', [SettingsController::class, 'updateFiscal'])->name('fiscal');
     });
 
     // IBGE localities lookup
