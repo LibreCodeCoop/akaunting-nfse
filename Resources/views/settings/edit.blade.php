@@ -122,9 +122,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 {{-- ─────────────────────────────────────────────────────── --}}
                 <div id="step-settings-section" class="space-y-8">
                     @if(($vaultUiState['ready'] ?? false) === true)
-                    <p class="text-sm text-green-700 bg-green-50 border border-green-300 rounded px-3 py-2">
-                        {{ trans('nfse::general.settings.vault_gate_ready_notice') }}
-                    </p>
                     <div id="step-nfse-fields" class="bg-white rounded-lg shadow p-6 space-y-4" @if(($certificateState['has_saved_settings'] ?? false) !== true) hidden @endif>
                     <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_settings') }}</h3>
 
@@ -176,6 +173,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">{{ trans('nfse::general.settings.vault_section_title') }}</h3>
+                    @if(($vaultUiState['ready'] ?? false) === true)
+                        <p class="text-sm text-green-700 bg-green-50 border border-green-300 rounded px-3 py-2">
+                            {{ trans('nfse::general.settings.vault_gate_ready_notice') }}
+                        </p>
+                    @endif
 
                     {{-- Status compacto: apenas modo de auth + segredo do certificado --}}
                     <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
