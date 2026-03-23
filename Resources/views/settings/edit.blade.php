@@ -24,153 +24,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 @method('PATCH')
 
                 {{-- ─────────────────────────────────────────────────────── --}}
-                {{-- Step 1 · Digital certificate (single action)          --}}
-                {{-- ─────────────────────────────────────────────────────── --}}
-                @if(($vaultUiState['ready'] ?? false) === true)
-                <div class="bg-white rounded-lg shadow p-6 space-y-4">
-                    <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_certificate') }}</h3>
-                    <p class="text-sm text-gray-500">{{ trans('nfse::general.settings.certificate_hint') }}</p>
-                    <input type="hidden" id="replace_certificate" name="replace_certificate" value="{{ ($certificateState['has_saved_settings'] ?? false) ? '0' : '1' }}">
-
-                    @if(($certificateState['has_saved_settings'] ?? false) === true)
-                        <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
-                            <p class="font-semibold">{{ trans('nfse::general.saved_state_title') }}</p>
-                            <p>{{ trans('nfse::general.saved_state_cnpj') }} <span class="font-mono">{{ $certificateState['cnpj'] }}</span></p>
-                            <p>{{ trans('nfse::general.saved_state_city') }} {{ setting('nfse.municipio_nome', '-') }} ({{ setting('nfse.uf', '-') }})</p>
-                            <p>{{ trans('nfse::general.saved_state_iss') }} {{ setting('nfse.aliquota', '-') }}%</p>
-                            <p>
-                                {{ trans('nfse::general.saved_state_certificate') }}
-                                @if(($certificateState['has_local_certificate'] ?? false) === true)
-                                    {{ trans('nfse::general.saved_state_certificate_present') }}
-                                @else
-                                    {{ trans('nfse::general.saved_state_certificate_missing') }}
-                                @endif
-                            </p>
-                            <div class="pt-2 flex flex-wrap gap-2">
-                                <button type="button" id="btn-show-replace-cert" class="inline-flex items-center px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700">
-                                    {{ trans('nfse::general.replace_certificate') }}
-                                </button>
-                            </div>
-                        </div>
-                    @endif
-
-                    <div id="replace-cert-fields" @if(($certificateState['has_saved_settings'] ?? false) === true) hidden @endif class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="pfx_file">{{ trans('nfse::general.settings.certificate') }}</label>
-                        <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
-                        <div class="relative">
-                            <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2 pr-10" autocomplete="new-password">
-                            <button
-                                id="toggle-pfx-password"
-                                type="button"
-                                class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
-                                aria-label="{{ trans('nfse::general.settings.show_password') }}"
-                                onclick="const input = document.getElementById('pfx_password'); const eyeOpen = this.querySelector('[data-eye-open]'); const eyeOff = this.querySelector('[data-eye-off]'); if (input) { input.type = input.type === 'password' ? 'text' : 'password'; const hidden = input.type === 'password'; eyeOpen?.classList.toggle('hidden', !hidden); eyeOff?.classList.toggle('hidden', hidden); this.setAttribute('aria-label', hidden ? '{{ trans('nfse::general.settings.show_password') }}' : '{{ trans('nfse::general.settings.hide_password') }}'); }"
-                            >
-                                <svg data-eye-open xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12z" />
-                                    <circle cx="12" cy="12" r="3" />
-                                </svg>
-                                <svg data-eye-off xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 hidden">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6.7 0 10.5 6 10.5 6a18.8 18.8 0 0 1-4 4.8" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.9C3.7 8.7 1.5 12 1.5 12a18.7 18.7 0 0 0 5.6 6" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 10a3 3 0 0 0 4.1 4.1" />
-                                </svg>
-                                <span class="sr-only">{{ trans('nfse::general.settings.show_password') }}</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.edit_hint_without_certificate') }}</p>
-
-                    {{-- CNPJ badge shown after a successful parse --}}
-                    <div id="cert-cnpj-display" class="hidden flex items-center gap-2 p-3 bg-green-50 border border-green-300 rounded">
-                        <span class="text-sm text-green-700">{{ trans('nfse::general.cnpj_from_certificate') }}</span>
-                        <span id="cert-cnpj-value" class="font-mono font-bold text-green-900"></span>
-                    </div>
-
-                    <div id="cert-error-display" class="hidden text-red-600 text-sm"></div>
-
-                    <div class="flex flex-wrap gap-3">
-                        <button type="button" id="btn-read-cert" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            {{ trans('nfse::general.read_certificate') }}
-                        </button>
-                    </div>
-
-                    @if(($certificateState['has_saved_settings'] ?? false) === true)
-                    <div class="border-t border-gray-200 pt-3">
-                        <button type="button" id="btn-delete-certificate" class="inline-flex items-center px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 text-sm">
-                            {{ trans('nfse::general.delete_certificate_and_settings') }}
-                        </button>
-                    </div>
-                    @endif
-                    </div>
-                </div>
-                @else
-                <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
-                    {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
-                </div>
-                @endif
-
-                {{-- ─────────────────────────────────────────────────────── --}}
                 {{-- Step 2 · NFS-e settings (shown after CNPJ read)      --}}
                 {{-- ─────────────────────────────────────────────────────── --}}
                 <div id="step-settings-section" class="space-y-8">
-                    @if(($vaultUiState['ready'] ?? false) === true)
-                    <div id="step-nfse-fields" class="bg-white rounded-lg shadow p-6 space-y-4" @if(($certificateState['has_saved_settings'] ?? false) !== true) hidden @endif>
-                    <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_settings') }}</h3>
-
-                    {{-- CNPJ: populated by "Ler certificado" or falls back to saved value --}}
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="cnpj_prestador">{{ trans('nfse::general.settings.cnpj_from_certificate') }}</label>
-                        <input id="cnpj_prestador" name="nfse[cnpj_prestador]" type="text" class="w-full border rounded px-3 py-2 bg-gray-50 text-gray-500" value="{{ old('nfse.cnpj_prestador', setting('nfse.cnpj_prestador')) }}" readonly>
-                        <p class="text-xs text-gray-400 mt-1">{{ trans('nfse::general.cnpj_from_certificate') }}</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="uf">{{ trans('nfse::general.settings.uf') }}</label>
-                        <select id="uf" name="nfse[uf]" class="w-full border rounded px-3 py-2" required>
-                            <option value="">Selecione...</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="municipio_nome">{{ trans('nfse::general.settings.municipio_nome') }}</label>
-                        <select id="municipio_nome" name="nfse[municipio_nome]" class="w-full border rounded px-3 py-2" required disabled>
-                            <option value="">Selecione o estado primeiro...</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="municipio_ibge_display">{{ trans('nfse::general.settings.municipio_ibge') }}</label>
-                        <input id="municipio_ibge_display" type="text" class="w-full border rounded px-3 py-2 bg-gray-50" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" readonly>
-                        <input id="municipio_ibge" name="nfse[municipio_ibge]" type="hidden" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" required>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="item_lista_servico">{{ trans('nfse::general.settings.item_lista') }}</label>
-                        <input id="item_lista_servico_display" name="nfse[item_lista_servico_display]" type="text" list="lc116_services" class="w-full border rounded px-3 py-2" value="" placeholder="{{ trans('nfse::general.settings.item_lista_hint') }}" autocomplete="off" required>
-                        <datalist id="lc116_services"></datalist>
-                        <input id="item_lista_servico" name="nfse[item_lista_servico]" type="hidden" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}" required>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="aliquota">{{ trans('nfse::general.settings.aliquota') }}</label>
-                        <input id="aliquota" name="nfse[aliquota]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.aliquota', setting('nfse.aliquota', '5.00')) }}">
-                    </div>
-
-                    <label class="inline-flex items-center gap-2">
-                        <input name="nfse[sandbox_mode]" type="checkbox" value="1" @checked((bool) old('nfse.sandbox_mode', setting('nfse.sandbox_mode', true)))>
-                        <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
-                    </label>
-                    </div>
-                    @endif
-
                     <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">{{ trans('nfse::general.settings.vault_section_title') }}</h3>
                     @if(($vaultUiState['ready'] ?? false) === true)
@@ -313,7 +169,144 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.sensitive_fields_behavior_hint') }}</p>
                     </div>
 
-                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                    @if(($vaultUiState['ready'] ?? false) === true)
+                    <div class="bg-white rounded-lg shadow p-6 space-y-4">
+                        <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_certificate') }}</h3>
+                        <p class="text-sm text-gray-500">{{ trans('nfse::general.settings.certificate_hint') }}</p>
+                        <input type="hidden" id="replace_certificate" name="replace_certificate" value="{{ ($certificateState['has_saved_settings'] ?? false) ? '0' : '1' }}">
+
+                        @if(($certificateState['has_saved_settings'] ?? false) === true)
+                            <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
+                                <p class="font-semibold">{{ trans('nfse::general.saved_state_title') }}</p>
+                                <p>{{ trans('nfse::general.saved_state_cnpj') }} <span class="font-mono">{{ $certificateState['cnpj'] }}</span></p>
+                                <p>{{ trans('nfse::general.saved_state_city') }} {{ setting('nfse.municipio_nome', '-') }} ({{ setting('nfse.uf', '-') }})</p>
+                                <p>{{ trans('nfse::general.saved_state_iss') }} {{ setting('nfse.aliquota', '-') }}%</p>
+                                <p>
+                                    {{ trans('nfse::general.saved_state_certificate') }}
+                                    @if(($certificateState['has_local_certificate'] ?? false) === true)
+                                        {{ trans('nfse::general.saved_state_certificate_present') }}
+                                    @else
+                                        {{ trans('nfse::general.saved_state_certificate_missing') }}
+                                    @endif
+                                </p>
+                                <div class="pt-2 flex flex-wrap gap-2">
+                                    <button type="button" id="btn-show-replace-cert" class="inline-flex items-center px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700">
+                                        {{ trans('nfse::general.replace_certificate') }}
+                                    </button>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div id="replace-cert-fields" @if(($certificateState['has_saved_settings'] ?? false) === true) hidden @endif class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="pfx_file">{{ trans('nfse::general.settings.certificate') }}</label>
+                            <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
+                            <div class="relative">
+                                <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2 pr-10" autocomplete="new-password">
+                                <button
+                                    id="toggle-pfx-password"
+                                    type="button"
+                                    class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
+                                    aria-label="{{ trans('nfse::general.settings.show_password') }}"
+                                    onclick="const input = document.getElementById('pfx_password'); const eyeOpen = this.querySelector('[data-eye-open]'); const eyeOff = this.querySelector('[data-eye-off]'); if (input) { input.type = input.type === 'password' ? 'text' : 'password'; const hidden = input.type === 'password'; eyeOpen?.classList.toggle('hidden', !hidden); eyeOff?.classList.toggle('hidden', hidden); this.setAttribute('aria-label', hidden ? '{{ trans('nfse::general.settings.show_password') }}' : '{{ trans('nfse::general.settings.hide_password') }}'); }"
+                                >
+                                    <svg data-eye-open xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                    <svg data-eye-off xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 hidden">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6.7 0 10.5 6 10.5 6a18.8 18.8 0 0 1-4 4.8" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.9C3.7 8.7 1.5 12 1.5 12a18.7 18.7 0 0 0 5.6 6" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 10a3 3 0 0 0 4.1 4.1" />
+                                    </svg>
+                                    <span class="sr-only">{{ trans('nfse::general.settings.show_password') }}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.edit_hint_without_certificate') }}</p>
+
+                        <div id="cert-cnpj-display" class="hidden flex items-center gap-2 p-3 bg-green-50 border border-green-300 rounded">
+                            <span class="text-sm text-green-700">{{ trans('nfse::general.cnpj_from_certificate') }}</span>
+                            <span id="cert-cnpj-value" class="font-mono font-bold text-green-900"></span>
+                        </div>
+
+                        <div id="cert-error-display" class="hidden text-red-600 text-sm"></div>
+
+                        <div class="flex flex-wrap gap-3">
+                            <button type="button" id="btn-read-cert" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                {{ trans('nfse::general.read_certificate') }}
+                            </button>
+                        </div>
+
+                        @if(($certificateState['has_saved_settings'] ?? false) === true)
+                        <div class="border-t border-gray-200 pt-3">
+                            <button type="button" id="btn-delete-certificate" class="inline-flex items-center px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 text-sm">
+                                {{ trans('nfse::general.delete_certificate_and_settings') }}
+                            </button>
+                        </div>
+                        @endif
+                        </div>
+                    </div>
+
+                    <div id="step-nfse-fields" class="bg-white rounded-lg shadow p-6 space-y-4" @if(($certificateState['has_saved_settings'] ?? false) !== true) hidden @endif>
+                    <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_settings') }}</h3>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="cnpj_prestador">{{ trans('nfse::general.settings.cnpj_from_certificate') }}</label>
+                        <input id="cnpj_prestador" name="nfse[cnpj_prestador]" type="text" class="w-full border rounded px-3 py-2 bg-gray-50 text-gray-500" value="{{ old('nfse.cnpj_prestador', setting('nfse.cnpj_prestador')) }}" readonly>
+                        <p class="text-xs text-gray-400 mt-1">{{ trans('nfse::general.cnpj_from_certificate') }}</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="uf">{{ trans('nfse::general.settings.uf') }}</label>
+                        <select id="uf" name="nfse[uf]" class="w-full border rounded px-3 py-2" required>
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="municipio_nome">{{ trans('nfse::general.settings.municipio_nome') }}</label>
+                        <select id="municipio_nome" name="nfse[municipio_nome]" class="w-full border rounded px-3 py-2" required disabled>
+                            <option value="">Selecione o estado primeiro...</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="municipio_ibge_display">{{ trans('nfse::general.settings.municipio_ibge') }}</label>
+                        <input id="municipio_ibge_display" type="text" class="w-full border rounded px-3 py-2 bg-gray-50" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" readonly>
+                        <input id="municipio_ibge" name="nfse[municipio_ibge]" type="hidden" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="item_lista_servico">{{ trans('nfse::general.settings.item_lista') }}</label>
+                        <input id="item_lista_servico_display" name="nfse[item_lista_servico_display]" type="text" list="lc116_services" class="w-full border rounded px-3 py-2" value="" placeholder="{{ trans('nfse::general.settings.item_lista_hint') }}" autocomplete="off" required>
+                        <datalist id="lc116_services"></datalist>
+                        <input id="item_lista_servico" name="nfse[item_lista_servico]" type="hidden" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="aliquota">{{ trans('nfse::general.settings.aliquota') }}</label>
+                        <input id="aliquota" name="nfse[aliquota]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.aliquota', setting('nfse.aliquota', '5.00')) }}">
+                    </div>
+
+                    <label class="inline-flex items-center gap-2">
+                        <input name="nfse[sandbox_mode]" type="checkbox" value="1" @checked((bool) old('nfse.sandbox_mode', setting('nfse.sandbox_mode', true)))>
+                        <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
+                    </label>
+                    </div>
+                    @else
+                    <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
+                        {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
+                    </div>
+                    @endif
+
+                    <button id="save-settings-button" type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         {{ trans('general.save') }}
                     </button>
                 </div>
@@ -415,20 +408,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const ufsPromise = fetchJson(ufsUrl);
                 const lc116ServicesPromise = fetchJson(lc116ServicesUrl);
 
-                ufSelect.addEventListener('change', async () => {
+                ufSelect?.addEventListener('change', async () => {
                     await loadMunicipalities(ufSelect.value);
+                    updateSaveButtonState();
                 });
 
-                municipalitySelect.addEventListener('change', () => {
+                municipalitySelect?.addEventListener('change', () => {
                     const selectedOption = municipalitySelect.options[municipalitySelect.selectedIndex];
                     const ibgeCode = selectedOption?.dataset?.ibge ?? '';
                     ibgeHidden.value = ibgeCode;
                     ibgeDisplay.value = ibgeCode;
+                    updateSaveButtonState();
                 });
 
-                lc116DisplayInput.addEventListener('input', () => {
+                lc116DisplayInput?.addEventListener('input', () => {
                     const normalizedCode = lc116ByLabel.get(lc116DisplayInput.value) ?? '';
                     lc116CodeInput.value = normalizedCode;
+                    updateSaveButtonState();
                 });
 
                 // ── Certificate wizard ──────────────────────────────────────
@@ -449,6 +445,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 const settingsForm = document.getElementById('settings-form');
                 const csrfToken = settingsForm?.querySelector('input[name="_token"]')?.value ?? '';
+                const saveSettingsButton = document.getElementById('save-settings-button');
+
+                const vaultAddrInput = document.getElementById('bao_addr');
+                const vaultMountInput = document.getElementById('bao_mount');
+                const vaultTokenInput = document.getElementById('bao_token');
+                const vaultRoleIdInput = document.getElementById('bao_role_id');
+                const vaultSecretIdInput = document.getElementById('bao_secret_id');
+                const clearBaoTokenInput = document.getElementById('clear_bao_token');
+                const clearBaoSecretIdInput = document.getElementById('clear_bao_secret_id');
+                const tokenConfiguredStatus = document.getElementById('vault-status-token');
+                const roleConfiguredStatus = document.getElementById('vault-status-role-id');
+                const secretConfiguredStatus = document.getElementById('vault-status-secret-id');
 
                 // ── Auth mode toggle (Token / AppRole) ──────────────────────
                 const vaultTokenSection = document.getElementById('vault-token-section');
@@ -469,17 +477,72 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     setSectionVisibility(vaultApproleSection, mode === 'approle');
                 };
 
+                const getActiveAuthMode = () => document.querySelector('input[name="auth_mode_ui"]:checked')?.value ?? 'token';
+
+                const isValidUrl = (value) => {
+                    try {
+                        const parsed = new URL(value);
+                        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+                    } catch {
+                        return false;
+                    }
+                };
+
+                const isConfigured = (element) => element?.dataset?.configured === '1';
+
+                const updateSaveButtonState = () => {
+                    if (!saveSettingsButton) {
+                        return;
+                    }
+
+                    const authMode = getActiveAuthMode();
+                    const addr = vaultAddrInput?.value?.trim() ?? '';
+                    const mount = vaultMountInput?.value?.trim() ?? '';
+
+                    const tokenValue = vaultTokenInput?.value?.trim() ?? '';
+                    const roleIdValue = vaultRoleIdInput?.value?.trim() ?? '';
+                    const secretIdValue = vaultSecretIdInput?.value?.trim() ?? '';
+
+                    const tokenAvailable = tokenValue !== '' || (isConfigured(tokenConfiguredStatus) && !clearBaoTokenInput?.checked);
+                    const secretAvailable = secretIdValue !== '' || (isConfigured(secretConfiguredStatus) && !clearBaoSecretIdInput?.checked);
+                    const roleAvailable = roleIdValue !== '' || isConfigured(roleConfiguredStatus);
+
+                    const vaultCoreReady = addr !== '' && isValidUrl(addr) && mount !== '';
+                    const vaultAuthReady = authMode === 'approle'
+                        ? roleAvailable && secretAvailable
+                        : tokenAvailable;
+
+                    let postVaultReady = true;
+                    if (vaultReady) {
+                        const sectionVisible = stepNfseFields ? !stepNfseFields.hidden : false;
+                        const cnpjOk = (cnpjInput?.value?.trim() ?? '').length === 14;
+                        const ufOk = (ufSelect?.value?.trim() ?? '') !== '';
+                        const cityOk = (municipalitySelect?.value?.trim() ?? '') !== '';
+                        const ibgeOk = (ibgeHidden?.value?.trim() ?? '').length === 7;
+                        const lc116Ok = (lc116CodeInput?.value?.trim() ?? '').length === 4;
+
+                        postVaultReady = sectionVisible && cnpjOk && ufOk && cityOk && ibgeOk && lc116Ok;
+                    }
+
+                    saveSettingsButton.disabled = !(vaultCoreReady && vaultAuthReady && postVaultReady);
+                };
+
                 authModeRadios.forEach((radio) => {
-                    radio.addEventListener('change', () => toggleAuthSections(radio.value));
+                    radio.addEventListener('change', () => {
+                        toggleAuthSections(radio.value);
+                        updateSaveButtonState();
+                    });
                 });
 
-                const initialAuthMode = document.querySelector('input[name="auth_mode_ui"]:checked')?.value ?? 'token';
+                const initialAuthMode = getActiveAuthMode();
                 toggleAuthSections(initialAuthMode);
 
                 const toggleStepSettings = (isVisible) => {
                     if (stepNfseFields) {
                         stepNfseFields.hidden = !isVisible;
                     }
+
+                    updateSaveButtonState();
                 };
 
                 const toggleReplaceFields = (isVisible) => {
@@ -508,14 +571,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 syncReadButtonState();
                 pfxPasswordInput?.addEventListener('input', syncReadButtonState);
+                vaultAddrInput?.addEventListener('input', updateSaveButtonState);
+                vaultMountInput?.addEventListener('input', updateSaveButtonState);
+                vaultTokenInput?.addEventListener('input', updateSaveButtonState);
+                vaultRoleIdInput?.addEventListener('input', updateSaveButtonState);
+                vaultSecretIdInput?.addEventListener('input', updateSaveButtonState);
+                clearBaoTokenInput?.addEventListener('change', updateSaveButtonState);
+                clearBaoSecretIdInput?.addEventListener('change', updateSaveButtonState);
+                cnpjInput?.addEventListener('input', updateSaveButtonState);
 
                 showReplaceButton?.addEventListener('click', () => {
                     toggleReplaceFields(true);
                     syncReadButtonState();
                     pfxFileInput?.focus();
+                    updateSaveButtonState();
                 });
 
+                updateSaveButtonState();
+
                 (async () => {
+                    if (!ufSelect || !municipalitySelect || !ibgeHidden || !ibgeDisplay || !lc116DisplayInput || !lc116CodeInput || !lc116Datalist) {
+                        updateSaveButtonState();
+                        return;
+                    }
+
                     const [ufs, lc116Services] = await Promise.all([ufsPromise, lc116ServicesPromise]);
                     renderLc116Options(lc116Services);
 
@@ -545,6 +624,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (selectedUf) {
                         await loadMunicipalities(selectedUf, selectedMunicipalityName, selectedIbge);
                     }
+
+                    updateSaveButtonState();
                 })();
 
                 deleteCertificateButton?.addEventListener('click', () => {
@@ -609,6 +690,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             cnpjInput.value = cnpj;
                         }
                         toggleStepSettings(true);
+                        updateSaveButtonState();
                     } catch {
                         if (certErrorDisplay) {
                             certErrorDisplay.textContent = @json(trans('nfse::general.invalid_pfx'));

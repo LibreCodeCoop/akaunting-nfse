@@ -95,6 +95,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="toggle-pfx-password"', $content);
             self::assertStringContainsString('id="toggle-bao-token"', $content);
             self::assertStringContainsString('id="toggle-bao-secret-id"', $content);
+            self::assertStringContainsString('id="save-settings-button"', $content);
             self::assertStringContainsString('data-eye-open', $content);
             self::assertStringContainsString('data-eye-off', $content);
             self::assertStringContainsString("document.getElementById('pfx_password')", $content);
@@ -122,17 +123,23 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $approleSection = strpos($content, 'id="vault-approle-section"');
             $vaultTitle = strpos($content, "trans('nfse::general.settings.vault_section_title')");
             $vaultReadyNotice = strpos($content, "trans('nfse::general.settings.vault_gate_ready_notice')");
+            $certificateStep = strpos($content, "trans('nfse::general.step_certificate')");
+            $settingsStep = strpos($content, "trans('nfse::general.step_settings')");
             self::assertIsInt($fieldsetStart);
             self::assertIsInt($fieldsetEnd);
             self::assertIsInt($tokenSection);
             self::assertIsInt($approleSection);
             self::assertIsInt($vaultTitle);
             self::assertIsInt($vaultReadyNotice);
+            self::assertIsInt($certificateStep);
+            self::assertIsInt($settingsStep);
             self::assertGreaterThan($fieldsetStart, $tokenSection);
             self::assertGreaterThan($fieldsetStart, $approleSection);
             self::assertLessThan($fieldsetEnd, $tokenSection);
             self::assertLessThan($fieldsetEnd, $approleSection);
             self::assertGreaterThan($vaultTitle, $vaultReadyNotice);
+            self::assertGreaterThan($vaultTitle, $certificateStep);
+            self::assertGreaterThan($vaultTitle, $settingsStep);
             self::assertStringNotContainsString('id="delete-certificate-form"', $content);
             self::assertStringContainsString("setting('nfse.bao_mount', '/nfse')", $content);
         }
