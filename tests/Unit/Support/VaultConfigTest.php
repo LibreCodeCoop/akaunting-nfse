@@ -63,11 +63,11 @@ class VaultConfigTest extends TestCase
         $value = VaultConfig::resolve(
             '',
             ['VAULT_MOUNT'],
-            'nfse',
+            '/nfse',
             static fn (string $_key): ?string => null,
         );
 
-        self::assertSame('nfse', $value);
+        self::assertSame('/nfse', $value);
     }
 
     public function testNormalizeMountAddsLeadingSlashWhenMissing(): void
