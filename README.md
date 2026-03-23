@@ -87,27 +87,23 @@ Se o ultimo item estiver pendente, a emissao sera bloqueada para evitar falha em
 
 #### Desenvolvimento
 
-Inicie o OpenBao em modo dev com Docker:
+O ambiente de desenvolvimento utiliza o [akaunting-docker](https://github.com/LibreCodeCoop/akaunting-docker), que já inclui o OpenBao no `docker-compose.override.yml`.
+
+Ao subir o ambiente pela primeira vez, o serviço `openbao-init` cria automaticamente o mount KV v2 e habilita o AppRole. Você pode verificar:
 
 ```bash
-docker run --rm -d --name openbao \
-  -p 8200:8200 \
-  -e BAO_DEV_ROOT_TOKEN_ID=dev-only-root-token \
-  openbao/openbao server -dev
+docker compose exec -e BAO_ADDR=http://127.0.0.1:8200 -e BAO_TOKEN=dev-only-root-token \
+  openbao bao secrets list
 ```
 
-Crie o mount KV v2:
-
-```bash
-export BAO_ADDR=http://localhost:8200
-export BAO_TOKEN=dev-only-root-token
-bao secrets enable -path=nfse kv-v2
-```
+O módulo já sabe o endereço do OpenBao via variável de ambiente `OPENBAO_ADDR=http://openbao:8200`
+(injetada no container `akaunting.php` pelo `docker-compose.yml`), então não é necessário configurar
+manualmente o endereço na tela de configurações para o ambiente docker-compose local.
 
 Configure o módulo com:
-- **Endereço**: `http://localhost:8200`
-- **Token**: `dev-only-root-token`
-- **Mount**: `/nfse`
+- **Endereço**: `http://openbao:8200` (padrão já preenchido)
+- **Token**: `dev-only-root-token` (padrão do modo dev)
+- **Mount**: `/nfse` (padrão já preenchido)
 
 #### Produção (AppRole)
 
