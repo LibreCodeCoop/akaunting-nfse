@@ -97,6 +97,14 @@ async function mockCertificateParse(page: Page, status: number, body: Record<str
     }, { mockedStatus: status, mockedBody: body });
 }
 
+async function openCertificateTab(page: Page) {
+    const certificateTab = page.locator('#tab-btn-certificate');
+
+    await expect(certificateTab).toBeEnabled();
+    await certificateTab.click();
+    await expect(page.locator('#tab-panel-certificate')).toBeVisible();
+}
+
 test.describe('NFS-e certificate upload', () => {
     test.beforeEach(async ({ page }, testInfo) => {
         await loginToAkaunting(page, testInfo);
@@ -105,11 +113,12 @@ test.describe('NFS-e certificate upload', () => {
     test('certificate step uses a single primary action and preserves saved-state visibility', async ({ page }) => {
         await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle');
+        await openCertificateTab(page);
 
         const fileInput = page.locator('input[name="pfx_file"]');
         const passwordInput = page.locator('input[name="pfx_password"]');
         const readButton = page.locator('#btn-read-cert');
-        const stepTwo = page.locator('#step-settings-section');
+        const certificatePanel = page.locator('#tab-panel-certificate');
         const showReplaceButton = page.locator('#btn-show-replace-cert');
 
         await expect(fileInput).toBeAttached();
@@ -118,11 +127,11 @@ test.describe('NFS-e certificate upload', () => {
 
         const hasSavedState = await page.locator('text=Estado atualmente salvo').count();
         if (hasSavedState > 0) {
-            await expect(stepTwo).toBeVisible();
+            await expect(certificatePanel).toBeVisible();
             await expect(showReplaceButton).toBeVisible();
             await expect(readButton).toBeHidden();
         } else {
-            await expect(stepTwo).toBeHidden();
+            await expect(certificatePanel).toBeVisible();
             await expect(readButton).toBeVisible();
         }
     });
@@ -130,6 +139,7 @@ test.describe('NFS-e certificate upload', () => {
     test('file picker accepts only .pfx and .p12 extensions', async ({ page }) => {
         await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle');
+        await openCertificateTab(page);
 
         const fileInput = page.locator('input[name="pfx_file"]');
         await expect(fileInput).toHaveAttribute('accept', /\.pfx|\.p12/);
@@ -140,6 +150,7 @@ test.describe('NFS-e certificate upload', () => {
 
         await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle');
+        await openCertificateTab(page);
 
         if (await page.locator('#btn-show-replace-cert').count()) {
             await page.locator('#btn-show-replace-cert').click();
@@ -152,10 +163,7 @@ test.describe('NFS-e certificate upload', () => {
         // CNPJ badge should appear
         await expect(page.locator('#cert-cnpj-display')).toBeVisible();
         await expect(page.locator('#cert-cnpj-value')).toHaveText(TEST_CNPJ);
-        await expect(page.locator('#step-settings-section')).toBeVisible();
-
-        // CNPJ read-only input in settings form should be updated
-        await expect(page.locator('input[name="nfse[cnpj_prestador]"]')).toHaveValue(TEST_CNPJ);
+        await expect(page.locator('#btn-upload-cert')).toBeEnabled();
     });
 
     test('read-certificate shows error for invalid PFX via mocked parse', async ({ page }) => {
@@ -163,9 +171,7 @@ test.describe('NFS-e certificate upload', () => {
 
         await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle');
-
-        const stepTwo = page.locator('#step-settings-section');
-        const wasVisibleBeforeRead = await stepTwo.isVisible();
+        await openCertificateTab(page);
 
         if (await page.locator('#btn-show-replace-cert').count()) {
             await page.locator('#btn-show-replace-cert').click();
@@ -177,17 +183,12 @@ test.describe('NFS-e certificate upload', () => {
 
         await expect(page.locator('#cert-error-display')).toBeVisible();
         await expect(page.locator('#cert-cnpj-display')).not.toBeVisible();
-
-        if (wasVisibleBeforeRead) {
-            await expect(stepTwo).toBeVisible();
-        } else {
-            await expect(stepTwo).toBeHidden();
-        }
+        await expect(page.locator('#tab-panel-certificate')).toBeVisible();
     });
 
     test('real replace flow stores certificate password in Vault and marks readiness as yes', async ({ page }, testInfo) => {
         if (!REAL_CERT_FLOW_ENABLED) {
-            testInfo.skip('Set NFSE_E2E_REAL_CERT_FLOW=1 to run real Vault certificate flow.');
+            test.skip(true, 'Set NFSE_E2E_REAL_CERT_FLOW=1 to run real Vault certificate flow.');
         }
 
         const generatedPassword = `pw-${Date.now()}-Vault!`;
@@ -196,10 +197,11 @@ test.describe('NFS-e certificate upload', () => {
         try {
             await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
             await page.waitForLoadState('networkidle');
+            await openCertificateTab(page);
 
             const hasSavedState = await page.locator('text=Estado atualmente salvo').count();
             if (hasSavedState === 0) {
-                testInfo.skip('This test requires an existing saved NFS-e configuration to run replace flow.');
+                test.skip(true, 'This test requires an existing saved NFS-e configuration to run replace flow.');
             }
 
             const showReplaceButton = page.locator('#btn-show-replace-cert');
@@ -210,8 +212,10 @@ test.describe('NFS-e certificate upload', () => {
             await page.locator('input[name="pfx_file"]').setInputFiles(pfxPath);
             await page.locator('input[name="pfx_password"]').fill(generatedPassword);
 
-            await page.locator('#settings-form button[type="submit"]').click();
+            await page.locator('#btn-upload-cert').click();
             await page.waitForLoadState('networkidle');
+
+            await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=certificate/);
 
             await page.goto('/1/nfse/settings/readiness', { waitUntil: 'domcontentloaded' });
             await page.waitForLoadState('networkidle');
