@@ -160,6 +160,6 @@ test('readiness screen shows certificate secret checklist row', async ({ page },
   await page.waitForLoadState('networkidle');
 
   await expect(page).toHaveURL(/\/1\/nfse\/settings\/readiness/);
-  await expect(page.locator('text=Segredo do certificado disponível no Vault/OpenBao')).toBeVisible();
+  await expect(page.locator('text=Segredo do certificado disponível no Vault')).toBeVisible();
 });
 
