@@ -120,14 +120,19 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $fieldsetEnd = strpos($content, '</fieldset>', (int) $fieldsetStart);
             $tokenSection = strpos($content, 'id="vault-token-section"');
             $approleSection = strpos($content, 'id="vault-approle-section"');
+            $vaultTitle = strpos($content, "trans('nfse::general.settings.vault_section_title')");
+            $vaultReadyNotice = strpos($content, "trans('nfse::general.settings.vault_gate_ready_notice')");
             self::assertIsInt($fieldsetStart);
             self::assertIsInt($fieldsetEnd);
             self::assertIsInt($tokenSection);
             self::assertIsInt($approleSection);
+            self::assertIsInt($vaultTitle);
+            self::assertIsInt($vaultReadyNotice);
             self::assertGreaterThan($fieldsetStart, $tokenSection);
             self::assertGreaterThan($fieldsetStart, $approleSection);
             self::assertLessThan($fieldsetEnd, $tokenSection);
             self::assertLessThan($fieldsetEnd, $approleSection);
+            self::assertGreaterThan($vaultTitle, $vaultReadyNotice);
             self::assertStringNotContainsString('id="delete-certificate-form"', $content);
             self::assertStringContainsString("setting('nfse.bao_mount', '/nfse')", $content);
         }
