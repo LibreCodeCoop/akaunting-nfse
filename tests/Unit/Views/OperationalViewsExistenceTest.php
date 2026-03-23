@@ -94,10 +94,13 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="toggle-pfx-password"', $content);
             self::assertStringContainsString('id="toggle-bao-token"', $content);
             self::assertStringContainsString('id="toggle-bao-secret-id"', $content);
+            self::assertStringContainsString('data-eye-open', $content);
+            self::assertStringContainsString('data-eye-off', $content);
             self::assertStringContainsString("document.getElementById('pfx_password')", $content);
             self::assertStringContainsString("document.getElementById('bao_token')", $content);
             self::assertStringContainsString("document.getElementById('bao_secret_id')", $content);
             self::assertStringContainsString("trans('nfse::general.settings.show_password')", $content);
+            self::assertStringContainsString("trans('nfse::general.settings.hide_password')", $content);
             // Auth mode toggle (token / approle mutually exclusive sections)
             self::assertStringContainsString('name="auth_mode_ui"', $content);
             self::assertStringContainsString('id="auth-mode-token"', $content);
