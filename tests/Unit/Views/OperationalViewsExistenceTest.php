@@ -95,7 +95,11 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="toggle-pfx-password"', $content);
             self::assertStringContainsString('id="toggle-bao-token"', $content);
             self::assertStringContainsString('id="toggle-bao-secret-id"', $content);
-            self::assertStringContainsString('id="save-settings-button"', $content);
+            self::assertStringContainsString('id="tab-btn-{{ $tabKey }}"', $content);
+            self::assertStringContainsString('class="tab-button', $content);
+            self::assertStringContainsString('id="tab-panel-vault"', $content);
+            self::assertStringContainsString('id="tab-panel-certificate"', $content);
+            self::assertStringContainsString('id="tab-panel-fiscal"', $content);
             self::assertStringContainsString('data-eye-open', $content);
             self::assertStringContainsString('data-eye-off', $content);
             self::assertStringContainsString("document.getElementById('pfx_password')", $content);
@@ -140,7 +144,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertGreaterThan($vaultTitle, $vaultReadyNotice);
             self::assertGreaterThan($vaultTitle, $certificateStep);
             self::assertGreaterThan($vaultTitle, $settingsStep);
-            self::assertStringNotContainsString('id="delete-certificate-form"', $content);
+            self::assertStringContainsString('id="delete-certificate-form"', $content);
             self::assertStringContainsString("setting('nfse.bao_mount', '/nfse')", $content);
         }
 

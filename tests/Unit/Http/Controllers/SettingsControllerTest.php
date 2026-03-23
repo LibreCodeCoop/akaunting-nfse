@@ -1058,5 +1058,169 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertCount(2, $response->getData(true)['data']);
             self::assertSame('0101', $response->getData(true)['data'][0]['code']);
         }
+
+        // ── updateVault ─────────────────────────────────────────────────────
+
+        public function testUpdateVaultSavesVaultSettingsAndRedirectsToVaultTab(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'bao_addr'  => 'http://openbao:8200',
+                        'bao_mount' => '/nfse',
+                        'bao_token' => 'dev-only-root-token',
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->updateVault($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'vault'], $response->parameters[0] ?? null);
+            self::assertSame('nfse::general.vault_saved_continue', $response->flash['success'] ?? null);
+            self::assertSame('http://openbao:8200', ControllerIsolationState::$settings['nfse.bao_addr'] ?? null);
+            self::assertSame('/nfse', ControllerIsolationState::$settings['nfse.bao_mount'] ?? null);
+            self::assertSame('dev-only-root-token', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
+            self::assertArrayNotHasKey('nfse.cnpj_prestador', ControllerIsolationState::$settings);
+        }
+
+        public function testUpdateVaultWithAppRoleSavesRoleIdAndSecretId(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'bao_addr'      => 'https://vault.example.com',
+                        'bao_mount'     => 'nfse',
+                        'bao_role_id'   => 'my-role',
+                        'bao_secret_id' => 'my-secret',
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->updateVault($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame('nfse::general.vault_saved_continue', $response->flash['success'] ?? null);
+            self::assertSame('https://vault.example.com', ControllerIsolationState::$settings['nfse.bao_addr'] ?? null);
+            self::assertSame('/nfse', ControllerIsolationState::$settings['nfse.bao_mount'] ?? null);
+            self::assertSame('my-role', ControllerIsolationState::$settings['nfse.bao_role_id'] ?? null);
+            self::assertSame('my-secret', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? null);
+            self::assertArrayNotHasKey('nfse.bao_token', ControllerIsolationState::$settings);
+        }
+
+        // ── updateFiscal ─────────────────────────────────────────────────────
+
+        public function testUpdateFiscalSavesFiscalSettingsAndRedirectsToFiscalTab(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr'  => 'http://openbao:8200',
+                'nfse.bao_mount' => '/nfse',
+                'nfse.bao_token' => 'dev-only-root-token',
+            ];
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador'    => '12345678000190',
+                        'uf'                => 'rj',
+                        'municipio_nome'    => 'Niteroi',
+                        'municipio_ibge'    => '3303302',
+                        'item_lista_servico' => '0123',
+                        'aliquota'          => '5.00',
+                        'sandbox_mode'      => '1',
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->updateFiscal($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'fiscal'], $response->parameters[0] ?? null);
+            self::assertSame('nfse::general.saved', $response->flash['success'] ?? null);
+            self::assertSame('12345678000190', ControllerIsolationState::$settings['nfse.cnpj_prestador'] ?? null);
+            self::assertSame('RJ', ControllerIsolationState::$settings['nfse.uf'] ?? null);
+            self::assertSame('Niteroi', ControllerIsolationState::$settings['nfse.municipio_nome'] ?? null);
+            self::assertSame('3303302', ControllerIsolationState::$settings['nfse.municipio_ibge'] ?? null);
+            self::assertSame('0123', ControllerIsolationState::$settings['nfse.item_lista_servico'] ?? null);
+            self::assertSame('5.00', ControllerIsolationState::$settings['nfse.aliquota'] ?? null);
+            // Vault keys must not be overwritten by fiscal save
+            self::assertSame('http://openbao:8200', ControllerIsolationState::$settings['nfse.bao_addr'] ?? null);
+        }
+
+        public function testUpdateFiscalRedirectsWithErrorWhenVaultIsNotReady(): void
+        {
+            ControllerIsolationState::reset();
+            // No vault settings stored → vault not ready
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador'    => '12345678000190',
+                        'uf'                => 'rj',
+                        'municipio_nome'    => 'Niteroi',
+                        'municipio_ibge'    => '3303302',
+                        'item_lista_servico' => '0123',
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->updateFiscal($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'vault'], $response->parameters[0] ?? null);
+            self::assertSame('nfse::general.vault_required_before_certificate_and_settings', $response->flash['error'] ?? null);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+        }
+
+        // ── edit() tab resolution ───────────────────────────────────────────
+
+        public function testEditDefaultsToVaultTabWhenNoRequestProvided(): void
+        {
+            ControllerIsolationState::reset();
+
+            $response = (new SettingsController())->edit();
+
+            self::assertSame('vault', $response->data['activeTab'] ?? null);
+        }
+
+        public function testEditPassesActiveTabFromRequestQueryParameter(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr'  => 'http://openbao:8200',
+                'nfse.bao_mount' => '/nfse',
+                'nfse.bao_token' => 'token',
+                'nfse.cnpj_prestador' => '12345678000190',
+            ];
+
+            $request = new Request(inputs: ['tab' => 'fiscal']);
+
+            $response = (new SettingsController())->edit($request);
+
+            self::assertSame('fiscal', $response->data['activeTab'] ?? null);
+        }
+
+        public function testEditFallsBackToVaultTabWhenTabValueIsInvalid(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(inputs: ['tab' => 'malicious']);
+
+            $response = (new SettingsController())->edit($request);
+
+            self::assertSame('vault', $response->data['activeTab'] ?? null);
+        }
     }
 }

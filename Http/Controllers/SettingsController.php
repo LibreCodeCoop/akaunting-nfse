@@ -22,18 +22,91 @@ class SettingsController extends Controller
 {
     private const IBGE_BASE_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades';
 
-    public function edit(): \Illuminate\View\View
+    public function edit(?Request $request = null): \Illuminate\View\View
     {
         $settings = setting('nfse', []);
         $settingsArray = is_array($settings) ? $settings : [];
         $certificateState = $this->certificateState();
         $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
 
+        $rawTab = $request !== null ? $request->query('tab') : null;
+        $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal'], true))
+            ? $rawTab
+            : 'vault';
+
         return view('nfse::settings.edit', [
             'settings' => $settingsArray,
             'certificateState' => $certificateState,
             'vaultUiState' => $vaultUiState,
+            'activeTab' => $activeTab,
         ]);
+    }
+
+    public function updateVault(Request $request): RedirectResponse
+    {
+        $rawNfseInput = $request->input('nfse', []);
+        $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
+        $nfseInput = $this->prepareNfseInput($rawNfseInput);
+
+        $request->validate([
+            'nfse.bao_addr'            => 'required|url',
+            'nfse.bao_mount'           => 'required|string',
+            'nfse.bao_token'           => 'nullable|string',
+            'nfse.bao_role_id'         => 'nullable|string',
+            'nfse.bao_secret_id'       => 'nullable|string',
+            'nfse.clear_bao_token'     => 'nullable|boolean',
+            'nfse.clear_bao_secret_id' => 'nullable|boolean',
+        ]);
+
+        foreach (['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'] as $key) {
+            if (array_key_exists($key, $nfseInput)) {
+                setting(['nfse.' . $key => $nfseInput[$key]]);
+            }
+        }
+
+        setting()->save();
+
+        return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
+            ->with('success', trans('nfse::general.vault_saved_continue'));
+    }
+
+    public function updateFiscal(Request $request): RedirectResponse
+    {
+        $settings = setting('nfse', []);
+        $settingsArray = is_array($settings) ? $settings : [];
+
+        if (!$this->isVaultReady($settingsArray)) {
+            return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
+                ->with('error', trans('nfse::general.vault_required_before_certificate_and_settings'));
+        }
+
+        $request->validate([
+            'nfse.cnpj_prestador'     => 'required|string|size:14',
+            'nfse.uf'                 => 'required|string|size:2',
+            'nfse.municipio_nome'     => 'required|string|max:255',
+            'nfse.municipio_ibge'     => 'required|string|size:7',
+            'nfse.item_lista_servico' => 'required|string|size:4',
+            'nfse.aliquota'           => 'nullable|string',
+            'nfse.sandbox_mode'       => 'nullable|boolean',
+        ]);
+
+        $rawNfseInput = $request->input('nfse', []);
+        $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
+
+        $fiscalInput = $rawNfseInput;
+        $fiscalInput['uf'] = strtoupper((string) ($fiscalInput['uf'] ?? ''));
+        $fiscalInput['item_lista_servico'] = preg_replace('/\D/', '', (string) ($fiscalInput['item_lista_servico'] ?? ''));
+
+        foreach (['cnpj_prestador', 'uf', 'municipio_nome', 'municipio_ibge', 'item_lista_servico', 'aliquota', 'sandbox_mode'] as $key) {
+            if (array_key_exists($key, $fiscalInput)) {
+                setting(['nfse.' . $key => $fiscalInput[$key]]);
+            }
+        }
+
+        setting()->save();
+
+        return redirect()->route('nfse.settings.edit', ['tab' => 'fiscal'])
+            ->with('success', trans('nfse::general.saved'));
     }
 
     public function ufs(IbgeLocalities $ibgeLocalities): JsonResponse
