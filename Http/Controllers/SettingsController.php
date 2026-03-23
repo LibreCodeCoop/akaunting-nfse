@@ -100,6 +100,54 @@ class SettingsController extends Controller
     {
         $previousCnpj = (string) setting('nfse.cnpj_prestador', '');
 
+        $rawNfseInput = $request->input('nfse', []);
+        $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
+        $nfseInput = $this->prepareNfseInput($rawNfseInput);
+
+        $existingVaultSettings = [
+            'bao_addr' => (string) setting('nfse.bao_addr', ''),
+            'bao_mount' => (string) setting('nfse.bao_mount', ''),
+            'bao_token' => (string) setting('nfse.bao_token', ''),
+            'bao_role_id' => (string) setting('nfse.bao_role_id', ''),
+            'bao_secret_id' => (string) setting('nfse.bao_secret_id', ''),
+        ];
+
+        $projectedVaultSettings = $this->projectVaultSettings($existingVaultSettings, $nfseInput);
+        $vaultReadyAfterSubmission = $this->isVaultReady($projectedVaultSettings);
+
+        $certificatePayload = null;
+        $certificateFile = $request->file('pfx_file');
+        $isReplacingCertificate = $certificateFile instanceof UploadedFile;
+        $isVaultOnlySubmission = !$isReplacingCertificate && !array_key_exists('cnpj_prestador', $rawNfseInput);
+
+        if ($isVaultOnlySubmission) {
+            $request->validate([
+                'nfse.bao_addr'        => 'required|url',
+                'nfse.bao_mount'       => 'required|string',
+                'nfse.bao_token'       => 'nullable|string',
+                'nfse.bao_role_id'     => 'nullable|string',
+                'nfse.bao_secret_id'   => 'nullable|string',
+                'nfse.clear_bao_token' => 'nullable|boolean',
+                'nfse.clear_bao_secret_id' => 'nullable|boolean',
+            ]);
+
+            foreach (['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'] as $key) {
+                if (array_key_exists($key, $nfseInput)) {
+                    setting(['nfse.' . $key => $nfseInput[$key]]);
+                }
+            }
+
+            setting()->save();
+
+            return redirect()->route('nfse.settings.edit')
+                ->with('success', trans('nfse::general.vault_saved_continue'));
+        }
+
+        if (!$vaultReadyAfterSubmission) {
+            return redirect()->route('nfse.settings.edit')
+                ->with('error', trans('nfse::general.vault_required_before_certificate_and_settings'));
+        }
+
         $request->validate([
             'nfse.cnpj_prestador'  => 'required|string|size:14',
             'nfse.uf'              => 'required|string|size:2',
@@ -119,16 +167,10 @@ class SettingsController extends Controller
             'pfx_password'         => 'nullable|string|max:255|required_with:pfx_file',
         ]);
 
-        $certificatePayload = null;
-        $certificateFile = $request->file('pfx_file');
-        $isReplacingCertificate = $certificateFile instanceof UploadedFile;
         $existingSensitiveSettings = [
             'bao_token' => (string) setting('nfse.bao_token', ''),
             'bao_secret_id' => (string) setting('nfse.bao_secret_id', ''),
         ];
-        $nfseInput = $this->prepareNfseInput(
-            $request->input('nfse', []),
-        );
 
         // Replacement flow clears all nfse.* settings before persisting new values.
         // If sensitive fields are blank (keep current), re-inject old values so they survive the clear.
@@ -246,8 +288,41 @@ class SettingsController extends Controller
             'secret_id_configured' => $secretIdConfigured,
             'approle_complete' => $approleComplete,
             'auth_mode' => $authMode,
+            'ready' => $this->isVaultReady($settings),
             'certificate_secret_available' => $this->hasCertificateSecret($cnpj),
         ];
+    }
+
+    /**
+     * @param array<string, string> $currentVaultSettings
+     * @param array<string, mixed> $nfseInput
+     * @return array<string, string>
+     */
+    protected function projectVaultSettings(array $currentVaultSettings, array $nfseInput): array
+    {
+        $projected = $currentVaultSettings;
+
+        foreach (['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'] as $vaultKey) {
+            if (array_key_exists($vaultKey, $nfseInput)) {
+                $projected[$vaultKey] = (string) $nfseInput[$vaultKey];
+            }
+        }
+
+        return $projected;
+    }
+
+    /**
+     * @param array<string, mixed> $vaultSettings
+     */
+    protected function isVaultReady(array $vaultSettings): bool
+    {
+        $hasAddress = ((string) ($vaultSettings['bao_addr'] ?? '')) !== '';
+        $hasMount = ((string) ($vaultSettings['bao_mount'] ?? '')) !== '';
+        $hasToken = ((string) ($vaultSettings['bao_token'] ?? '')) !== '';
+        $hasAppRole = ((string) ($vaultSettings['bao_role_id'] ?? '')) !== ''
+            && ((string) ($vaultSettings['bao_secret_id'] ?? '')) !== '';
+
+        return $hasAddress && $hasMount && ($hasToken || $hasAppRole);
     }
 
     protected function fetchUfsRows(): array
