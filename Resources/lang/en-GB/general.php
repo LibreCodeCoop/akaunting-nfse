@@ -138,6 +138,8 @@ return [
         'bao_role_id'      => 'AppRole Role ID',
         'bao_secret_id'    => 'AppRole Secret ID',
         'bao_secret_id_hint' => 'Leave blank to keep the currently saved Secret ID.',
+        'show_password' => 'Show',
+        'hide_password' => 'Hide',
         'clear_bao_secret_id' => 'Clear saved Secret ID on save',
         'sensitive_fields_behavior_hint' => 'Blank sensitive fields do not overwrite existing values. Tick the clear options to remove stored values.',
         'vault_gate_locked_notice' => 'Before anything else, finish Vault/OpenBao setup with address, mount, and valid authentication (Token or complete AppRole).',
