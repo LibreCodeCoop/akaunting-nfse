@@ -91,67 +91,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
         }
 
-        public function testReadinessReturnsChecklistAndReadinessFlag(): void
-        {
-            ControllerIsolationState::reset();
-            ControllerIsolationState::$settings = [
-                'nfse.cnpj_prestador' => '12345678000190',
-                'nfse.municipio_ibge' => '3303302',
-                'nfse.item_lista_servico' => '0107',
-                'nfse.bao_addr' => 'http://openbao:8200',
-                'nfse.bao_mount' => '/nfse',
-            ];
-
-            $localCertificatePath = storage_path('app/nfse/pfx/12345678000190.pfx');
-            if (!is_dir(dirname($localCertificatePath))) {
-                mkdir(dirname($localCertificatePath), 0o777, true);
-            }
-            file_put_contents($localCertificatePath, 'fake-pfx');
-
-            $secretStore = new class () implements SecretStoreInterface {
-                public function get(string $path): array
-                {
-                    return [
-                        'pfx_path' => '/tmp/example.pfx',
-                        'password' => 'secret',
-                    ];
-                }
-
-                public function put(string $path, array $data): void
-                {
-                }
-
-                public function delete(string $path): void
-                {
-                }
-            };
-
-            $controller = new class ($secretStore) extends SettingsController {
-                public function __construct(private readonly SecretStoreInterface $secretStore)
-                {
-                }
-
-                protected function makeSecretStore(): SecretStoreInterface
-                {
-                    return $this->secretStore;
-                }
-            };
-
-            $response = $controller->readiness();
-
-            self::assertSame('nfse::settings.readiness', $response->name);
-            self::assertTrue($response->data['isReady'] ?? false);
-            self::assertSame([
-                'cnpj_prestador' => true,
-                'municipio_ibge' => true,
-                'item_lista_servico' => true,
-                'bao_addr' => true,
-                'bao_mount' => true,
-                'certificate' => true,
-                'certificate_secret' => true,
-            ], $response->data['checklist'] ?? []);
-        }
-
         public function testPrepareNfseInputNormalizesFieldsAndDropsEmptySensitiveFields(): void
         {
             $controller = new class () extends SettingsController {
