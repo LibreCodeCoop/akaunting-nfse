@@ -66,11 +66,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </div>
 
                     <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.edit_hint_without_certificate') }}</p>
-                    <div>
-                        <a href="{{ route('nfse.settings.readiness') }}" class="inline-flex items-center px-3 py-2 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs">
-                            {{ trans('nfse::general.go_to_readiness') }}
-                        </a>
-                    </div>
 
                     {{-- CNPJ badge shown after a successful parse --}}
                     <div id="cert-cnpj-display" class="hidden flex items-center gap-2 p-3 bg-green-50 border border-green-300 rounded">
