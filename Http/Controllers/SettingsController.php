@@ -262,10 +262,10 @@ class SettingsController extends Controller
         $approleComplete = $roleIdConfigured && $secretIdConfigured;
 
         $authMode = 'incomplete';
-        if ($tokenConfigured) {
-            $authMode = 'token';
-        } elseif ($approleComplete) {
+        if ($approleComplete) {
             $authMode = 'approle';
+        } elseif ($tokenConfigured) {
+            $authMode = 'token';
         }
 
         $cnpj = (string) ($settings['cnpj_prestador'] ?? ($certificateState['cnpj'] ?? ''));
