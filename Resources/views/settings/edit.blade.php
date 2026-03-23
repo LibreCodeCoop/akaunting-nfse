@@ -26,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 {{-- ─────────────────────────────────────────────────────── --}}
                 {{-- Step 1 · Digital certificate (single action)          --}}
                 {{-- ─────────────────────────────────────────────────────── --}}
+                @if(($vaultUiState['ready'] ?? false) === true)
                 <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_certificate') }}</h3>
                     <p class="text-sm text-gray-500">{{ trans('nfse::general.settings.certificate_hint') }}</p>
@@ -94,12 +95,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     @endif
                     </div>
                 </div>
+                @else
+                <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
+                    {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
+                </div>
+                @endif
 
                 {{-- ─────────────────────────────────────────────────────── --}}
                 {{-- Step 2 · NFS-e settings (shown after CNPJ read)      --}}
                 {{-- ─────────────────────────────────────────────────────── --}}
-                <div id="step-settings-section" class="space-y-8" @if(($certificateState['has_saved_settings'] ?? false) !== true) hidden @endif>
-                    <div class="bg-white rounded-lg shadow p-6 space-y-4">
+                <div id="step-settings-section" class="space-y-8">
+                    @if(($vaultUiState['ready'] ?? false) === true)
+                    <p class="text-sm text-green-700 bg-green-50 border border-green-300 rounded px-3 py-2">
+                        {{ trans('nfse::general.settings.vault_gate_ready_notice') }}
+                    </p>
+                    <div id="step-nfse-fields" class="bg-white rounded-lg shadow p-6 space-y-4" @if(($certificateState['has_saved_settings'] ?? false) !== true) hidden @endif>
                     <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_settings') }}</h3>
 
                     {{-- CNPJ: populated by "Ler certificado" or falls back to saved value --}}
@@ -146,6 +156,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
                     </label>
                     </div>
+                    @endif
 
                     <div class="bg-white rounded-lg shadow p-6 space-y-4">
                     <h3 class="text-xl font-semibold">OpenBao / Vault</h3>
@@ -347,20 +358,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const certCnpjDisplay = document.getElementById('cert-cnpj-display');
                 const certCnpjValue = document.getElementById('cert-cnpj-value');
                 const certErrorDisplay = document.getElementById('cert-error-display');
-                const stepSettingsSection = document.getElementById('step-settings-section');
+                const stepNfseFields = document.getElementById('step-nfse-fields');
                 const replaceCertificateInput = document.getElementById('replace_certificate');
                 const replaceFields = document.getElementById('replace-cert-fields');
                 const showReplaceButton = document.getElementById('btn-show-replace-cert');
                 const deleteCertificateButton = document.getElementById('btn-delete-certificate');
                 const deleteForm = document.getElementById('delete-certificate-form');
                 const hasSavedSettings = @json(($certificateState['has_saved_settings'] ?? false) === true);
+                const vaultReady = @json(($vaultUiState['ready'] ?? false) === true);
 
                 const settingsForm = document.getElementById('settings-form');
                 const csrfToken = settingsForm?.querySelector('input[name="_token"]')?.value ?? '';
 
                 const toggleStepSettings = (isVisible) => {
-                    if (stepSettingsSection) {
-                        stepSettingsSection.hidden = !isVisible;
+                    if (stepNfseFields) {
+                        stepNfseFields.hidden = !isVisible;
                     }
                 };
 
@@ -382,7 +394,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     btnReadCert.disabled = pfxPasswordInput.value.trim().length === 0;
                 };
 
-                toggleStepSettings(hasSavedSettings);
+                toggleStepSettings(vaultReady && hasSavedSettings);
 
                 if (!hasSavedSettings) {
                     toggleReplaceFields(true);
@@ -394,7 +406,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 showReplaceButton?.addEventListener('click', () => {
                     toggleReplaceFields(true);
                     syncReadButtonState();
-                    pfxFileInput.focus();
+                    pfxFileInput?.focus();
                 });
 
                 (async () => {
@@ -437,13 +449,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     deleteForm?.submit();
                 });
 
-                btnReadCert.addEventListener('click', async () => {
-                    certErrorDisplay.classList.add('hidden');
-                    certCnpjDisplay.classList.add('hidden');
+                btnReadCert?.addEventListener('click', async () => {
+                    certErrorDisplay?.classList.add('hidden');
+                    certCnpjDisplay?.classList.add('hidden');
 
-                    if (!pfxFileInput.files.length) {
-                        certErrorDisplay.textContent = @json(trans('nfse::general.settings.certificate')) + ': selecione um arquivo PFX.';
-                        certErrorDisplay.classList.remove('hidden');
+                    if (!pfxFileInput?.files?.length) {
+                        if (certErrorDisplay) {
+                            certErrorDisplay.textContent = @json(trans('nfse::general.settings.certificate')) + ': selecione um arquivo PFX.';
+                            certErrorDisplay.classList.remove('hidden');
+                        }
                         return;
                     }
 
@@ -451,7 +465,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     const formData = new FormData();
                     formData.append('pfx_file', pfxFileInput.files[0]);
-                    formData.append('pfx_password', pfxPasswordInput.value);
+                    formData.append('pfx_password', pfxPasswordInput?.value ?? '');
                     formData.append('_token', csrfToken);
 
                     try {
@@ -464,26 +478,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         const payload = await response.json().catch(() => ({}));
 
                         if (!response.ok) {
-                            certErrorDisplay.textContent = payload.error ?? @json(trans('nfse::general.invalid_pfx'));
-                            certErrorDisplay.classList.remove('hidden');
+                            if (certErrorDisplay) {
+                                certErrorDisplay.textContent = payload.error ?? @json(trans('nfse::general.invalid_pfx'));
+                                certErrorDisplay.classList.remove('hidden');
+                            }
                             return;
                         }
 
                         const cnpj = payload.data?.cnpj ?? null;
 
                         if (!cnpj) {
-                            certErrorDisplay.textContent = @json(trans('nfse::general.cnpj_not_found'));
-                            certErrorDisplay.classList.remove('hidden');
+                            if (certErrorDisplay) {
+                                certErrorDisplay.textContent = @json(trans('nfse::general.cnpj_not_found'));
+                                certErrorDisplay.classList.remove('hidden');
+                            }
                             return;
                         }
 
-                        certCnpjValue.textContent = cnpj;
-                        certCnpjDisplay.classList.remove('hidden');
-                        cnpjInput.value = cnpj;
+                        if (certCnpjValue) {
+                            certCnpjValue.textContent = cnpj;
+                        }
+                        certCnpjDisplay?.classList.remove('hidden');
+                        if (cnpjInput) {
+                            cnpjInput.value = cnpj;
+                        }
                         toggleStepSettings(true);
                     } catch {
-                        certErrorDisplay.textContent = @json(trans('nfse::general.invalid_pfx'));
-                        certErrorDisplay.classList.remove('hidden');
+                        if (certErrorDisplay) {
+                            certErrorDisplay.textContent = @json(trans('nfse::general.invalid_pfx'));
+                            certErrorDisplay.classList.remove('hidden');
+                        }
                     } finally {
                         btnReadCert.disabled = false;
                     }
