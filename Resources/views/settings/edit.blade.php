@@ -19,32 +19,55 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </div>
             @endif
 
-            <form id="settings-form" method="POST" action="{{ route('nfse.settings.update') }}" enctype="multipart/form-data" class="space-y-8">
-                @csrf
-                @method('PATCH')
+            @php
+                $vaultReady = ($vaultUiState['ready'] ?? false) === true;
+                $hasSavedSettings = ($certificateState['has_saved_settings'] ?? false) === true;
+                $selectedAuthMode = old('auth_mode_ui', (string) ($vaultUiState['auth_mode'] ?? 'incomplete'));
+                if (! in_array($selectedAuthMode, ['token', 'approle'], true)) {
+                    $selectedAuthMode = 'token';
+                }
+                $tabs = [
+                    'vault'       => ['label' => trans('nfse::general.settings.vault_section_title'), 'enabled' => true],
+                    'certificate' => ['label' => trans('nfse::general.step_certificate'),             'enabled' => $vaultReady],
+                    'fiscal'      => ['label' => trans('nfse::general.step_settings'),                'enabled' => $hasSavedSettings],
+                ];
+            @endphp
 
-                {{-- ─────────────────────────────────────────────────────── --}}
-                {{-- Step 2 · NFS-e settings (shown after CNPJ read)      --}}
-                {{-- ─────────────────────────────────────────────────────── --}}
-                <div id="step-settings-section" class="space-y-8">
-                    <div class="bg-white rounded-lg shadow p-6 space-y-4">
-                    <h3 class="text-xl font-semibold">{{ trans('nfse::general.settings.vault_section_title') }}</h3>
-                    @if(($vaultUiState['ready'] ?? false) === true)
-                        <p class="text-sm text-green-700 bg-green-50 border border-green-300 rounded px-3 py-2">
+            {{-- ── Tab navigation ──────────────────────────────────────── --}}
+            <div class="border-b border-gray-200 mb-6">
+                <nav class="-mb-px flex" aria-label="{{ trans('nfse::general.settings.title') }}">
+                    @foreach($tabs as $tabKey => $tab)
+                        <button
+                            type="button"
+                            data-tab="{{ $tabKey }}"
+                            id="tab-btn-{{ $tabKey }}"
+                            class="tab-button px-5 py-3 text-sm font-medium border-b-2 whitespace-nowrap {{ $activeTab === $tabKey ? 'border-green-600 text-green-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} {{ !$tab['enabled'] ? 'opacity-40 cursor-not-allowed' : '' }}"
+                            @if(!$tab['enabled']) disabled aria-disabled="true" @endif
+                        >{{ $tab['label'] }}</button>
+                    @endforeach
+                </nav>
+            </div>
+
+            {{-- ── Panel 1: Vault ───────────────────────────────────────── --}}
+            <div id="tab-panel-vault" class="tab-panel @if($activeTab !== 'vault') hidden @endif">
+                <form method="POST" action="{{ route('nfse.settings.vault') }}" class="space-y-4">
+                    @csrf
+                    @method('PATCH')
+
+                    @if($vaultReady)
+                        <p id="vault-gate-ready-notice" class="text-sm text-green-700 bg-green-50 border border-green-300 rounded px-3 py-2">
                             {{ trans('nfse::general.settings.vault_gate_ready_notice') }}
                         </p>
                     @endif
 
-                    {{-- Status compacto: apenas modo de auth + segredo do certificado --}}
+                    {{-- Status summary (hidden metadata for JS) --}}
                     <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
                         <p class="font-semibold">{{ trans('nfse::general.settings.vault_status_title') }}</p>
-                        {{-- Metadados ocultos preservados para acesso programático --}}
-                        <p id="vault-status-addr" class="hidden" data-configured="{{ ($vaultUiState['addr_configured'] ?? false) ? '1' : '0' }}"></p>
-                        <p id="vault-status-mount" class="hidden" data-configured="{{ ($vaultUiState['mount_configured'] ?? false) ? '1' : '0' }}"></p>
-                        <p id="vault-status-token" class="hidden" data-configured="{{ ($vaultUiState['token_configured'] ?? false) ? '1' : '0' }}"></p>
-                        <p id="vault-status-role-id" class="hidden" data-configured="{{ ($vaultUiState['role_id_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-addr"      class="hidden" data-configured="{{ ($vaultUiState['addr_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-mount"     class="hidden" data-configured="{{ ($vaultUiState['mount_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-token"     class="hidden" data-configured="{{ ($vaultUiState['token_configured'] ?? false) ? '1' : '0' }}"></p>
+                        <p id="vault-status-role-id"   class="hidden" data-configured="{{ ($vaultUiState['role_id_configured'] ?? false) ? '1' : '0' }}"></p>
                         <p id="vault-status-secret-id" class="hidden" data-configured="{{ ($vaultUiState['secret_id_configured'] ?? false) ? '1' : '0' }}"></p>
-                        {{-- Resumo visível --}}
                         <p id="vault-status-auth-mode" data-mode="{{ (string) ($vaultUiState['auth_mode'] ?? 'incomplete') }}">
                             {{ trans('nfse::general.settings.vault_status_auth_mode') }}: {{ trans('nfse::general.settings.vault_auth_mode_' . (string) ($vaultUiState['auth_mode'] ?? 'incomplete')) }}
                         </p>
@@ -64,14 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_mount_hint') }}</p>
                     </div>
 
-                    @php
-                        $selectedAuthMode = old('auth_mode_ui', (string) ($vaultUiState['auth_mode'] ?? 'incomplete'));
-                        if (! in_array($selectedAuthMode, ['token', 'approle'], true)) {
-                            $selectedAuthMode = 'token';
-                        }
-                    @endphp
-
-                    {{-- Seletor de modo de autenticação --}}
+                    {{-- Auth mode fieldset --}}
                     <fieldset id="vault-auth-mode-fieldset" class="rounded-md border border-gray-200 p-3 space-y-2" aria-describedby="vault-auth-mode-hint">
                         <legend class="px-1 text-sm font-semibold">{{ trans('nfse::general.settings.auth_mode_group_label') }}</legend>
                         <p id="vault-auth-mode-hint" class="text-xs text-gray-500">{{ trans('nfse::general.settings.auth_mode_group_hint') }}</p>
@@ -90,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </label>
                         </div>
 
-                        {{-- Campos de Token --}}
+                        {{-- Token fields --}}
                         <div id="vault-token-section" class="space-y-4 @if($selectedAuthMode === 'approle') hidden @endif" @if($selectedAuthMode === 'approle') hidden @endif>
                         @php($showLocalTokenHint = app()->environment(['local', 'development']))
                         <div>
@@ -128,7 +144,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </div>
                         </div>
 
-                        {{-- Campos de AppRole --}}
+                        {{-- AppRole fields --}}
                         <div id="vault-approle-section" class="space-y-4 @if($selectedAuthMode !== 'approle') hidden @endif" @if($selectedAuthMode !== 'approle') hidden @endif>
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
@@ -158,6 +174,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                         <span class="sr-only">{{ trans('nfse::general.settings.show_password') }}</span>
                                     </button>
                                 </div>
+                                <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_secret_id_hint') }}</p>
                                 <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
                                     <input id="clear_bao_secret_id" name="nfse[clear_bao_secret_id]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_secret_id', '0') === '1')>
                                     <span>{{ trans('nfse::general.settings.clear_bao_secret_id') }}</span>
@@ -167,15 +184,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </fieldset>
 
                     <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.sensitive_fields_behavior_hint') }}</p>
+
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                            {{ trans('general.save') }}
+                        </button>
                     </div>
+                </form>
+            </div>
 
-                    @if(($vaultUiState['ready'] ?? false) === true)
-                    <div class="bg-white rounded-lg shadow p-6 space-y-4">
-                        <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_certificate') }}</h3>
+            {{-- ── Panel 2: Certificate ──────────────────────────────────── --}}
+            <div id="tab-panel-certificate" class="tab-panel @if($activeTab !== 'certificate') hidden @endif">
+
+                @if(!$vaultReady)
+                    <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
+                        {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
+                    </div>
+                @else
+                    <form id="certificate-form" method="POST" action="{{ route('nfse.certificate.upload') }}" enctype="multipart/form-data" class="space-y-4">
+                        @csrf
+
                         <p class="text-sm text-gray-500">{{ trans('nfse::general.settings.certificate_hint') }}</p>
-                        <input type="hidden" id="replace_certificate" name="replace_certificate" value="{{ ($certificateState['has_saved_settings'] ?? false) ? '0' : '1' }}">
 
-                        @if(($certificateState['has_saved_settings'] ?? false) === true)
+                        @if($hasSavedSettings)
                             <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
                                 <p class="font-semibold">{{ trans('nfse::general.saved_state_title') }}</p>
                                 <p>{{ trans('nfse::general.saved_state_cnpj') }} <span class="font-mono">{{ $certificateState['cnpj'] }}</span></p>
@@ -197,442 +228,230 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
                         @endif
 
-                        <div id="replace-cert-fields" @if(($certificateState['has_saved_settings'] ?? false) === true) hidden @endif class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-1" for="pfx_file">{{ trans('nfse::general.settings.certificate') }}</label>
-                            <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2">
-                        </div>
+                        <div id="replace-cert-fields" @if($hasSavedSettings) hidden @endif class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="pfx_file">{{ trans('nfse::general.settings.certificate') }}</label>
+                                <input id="pfx_file" name="pfx_file" type="file" accept=".pfx,.p12" class="w-full border rounded px-3 py-2">
+                            </div>
 
-                        <div>
-                            <label class="block text-sm font-medium mb-1" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
-                            <div class="relative">
-                                <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2 pr-10" autocomplete="new-password">
-                                <button
-                                    id="toggle-pfx-password"
-                                    type="button"
-                                    class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
-                                    aria-label="{{ trans('nfse::general.settings.show_password') }}"
-                                    onclick="const input = document.getElementById('pfx_password'); const eyeOpen = this.querySelector('[data-eye-open]'); const eyeOff = this.querySelector('[data-eye-off]'); if (input) { input.type = input.type === 'password' ? 'text' : 'password'; const hidden = input.type === 'password'; eyeOpen?.classList.toggle('hidden', !hidden); eyeOff?.classList.toggle('hidden', hidden); this.setAttribute('aria-label', hidden ? '{{ trans('nfse::general.settings.show_password') }}' : '{{ trans('nfse::general.settings.hide_password') }}'); }"
-                                >
-                                    <svg data-eye-open xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12z" />
-                                        <circle cx="12" cy="12" r="3" />
-                                    </svg>
-                                    <svg data-eye-off xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 hidden">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6.7 0 10.5 6 10.5 6a18.8 18.8 0 0 1-4 4.8" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.9C3.7 8.7 1.5 12 1.5 12a18.7 18.7 0 0 0 5.6 6" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 10a3 3 0 0 0 4.1 4.1" />
-                                    </svg>
-                                    <span class="sr-only">{{ trans('nfse::general.settings.show_password') }}</span>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="pfx_password">{{ trans('nfse::general.settings.pfx_password') }}</label>
+                                <div class="relative">
+                                    <input id="pfx_password" name="pfx_password" type="password" class="w-full border rounded px-3 py-2 pr-10" autocomplete="new-password">
+                                    <button
+                                        id="toggle-pfx-password"
+                                        type="button"
+                                        class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
+                                        aria-label="{{ trans('nfse::general.settings.show_password') }}"
+                                        onclick="const input = document.getElementById('pfx_password'); const eyeOpen = this.querySelector('[data-eye-open]'); const eyeOff = this.querySelector('[data-eye-off]'); if (input) { input.type = input.type === 'password' ? 'text' : 'password'; const hidden = input.type === 'password'; eyeOpen?.classList.toggle('hidden', !hidden); eyeOff?.classList.toggle('hidden', hidden); this.setAttribute('aria-label', hidden ? '{{ trans('nfse::general.settings.show_password') }}' : '{{ trans('nfse::general.settings.hide_password') }}'); }"
+                                    >
+                                        <svg data-eye-open xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                        <svg data-eye-off xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 hidden">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6.7 0 10.5 6 10.5 6a18.8 18.8 0 0 1-4 4.8" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.5 6.9C3.7 8.7 1.5 12 1.5 12a18.7 18.7 0 0 0 5.6 6" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.9 10a3 3 0 0 0 4.1 4.1" />
+                                        </svg>
+                                        <span class="sr-only">{{ trans('nfse::general.settings.show_password') }}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.edit_hint_without_certificate') }}</p>
+
+                            <div id="cert-cnpj-display" class="hidden flex items-center gap-2 p-3 bg-green-50 border border-green-300 rounded">
+                                <span class="text-sm text-green-700">{{ trans('nfse::general.cnpj_from_certificate') }}</span>
+                                <span id="cert-cnpj-value" class="font-mono font-bold text-green-900"></span>
+                            </div>
+
+                            <div id="cert-error-display" class="hidden text-red-600 text-sm"></div>
+
+                            <div class="flex flex-wrap gap-3">
+                                <button type="button" id="btn-read-cert" class="inline-flex items-center px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                    {{ trans('nfse::general.read_certificate') }}
                                 </button>
                             </div>
                         </div>
 
-                        <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.edit_hint_without_certificate') }}</p>
-
-                        <div id="cert-cnpj-display" class="hidden flex items-center gap-2 p-3 bg-green-50 border border-green-300 rounded">
-                            <span class="text-sm text-green-700">{{ trans('nfse::general.cnpj_from_certificate') }}</span>
-                            <span id="cert-cnpj-value" class="font-mono font-bold text-green-900"></span>
-                        </div>
-
-                        <div id="cert-error-display" class="hidden text-red-600 text-sm"></div>
-
-                        <div class="flex flex-wrap gap-3">
-                            <button type="button" id="btn-read-cert" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                                {{ trans('nfse::general.read_certificate') }}
-                            </button>
-                        </div>
-
-                        @if(($certificateState['has_saved_settings'] ?? false) === true)
-                        <div class="border-t border-gray-200 pt-3">
-                            <button type="button" id="btn-delete-certificate" class="inline-flex items-center px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 text-sm">
-                                {{ trans('nfse::general.delete_certificate_and_settings') }}
-                            </button>
-                        </div>
+                        @if($hasSavedSettings)
+                            <div class="border-t border-gray-200 pt-3">
+                                <button type="button" id="btn-delete-certificate" class="inline-flex items-center px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 text-sm">
+                                    {{ trans('nfse::general.delete_certificate_and_settings') }}
+                                </button>
+                            </div>
                         @endif
+
+                        <div class="flex justify-end pt-2">
+                            <button id="btn-upload-cert" type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" @if(!$hasSavedSettings) disabled @endif>
+                                {{ trans('general.save') }}
+                            </button>
                         </div>
-                    </div>
+                    </form>
 
-                    <div id="step-nfse-fields" class="bg-white rounded-lg shadow p-6 space-y-4" @if(($certificateState['has_saved_settings'] ?? false) !== true) hidden @endif>
-                    <h3 class="text-xl font-semibold">{{ trans('nfse::general.step_settings') }}</h3>
+                    {{-- Delete certificate form (separate, no enctype) --}}
+                    <form id="delete-certificate-form" method="POST" action="{{ route('nfse.certificate.destroy') }}">
+                        @csrf
+                        @method('DELETE')
+                    </form>
+                @endif
+            </div>
 
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="cnpj_prestador">{{ trans('nfse::general.settings.cnpj_from_certificate') }}</label>
-                        <input id="cnpj_prestador" name="nfse[cnpj_prestador]" type="text" class="w-full border rounded px-3 py-2 bg-gray-50 text-gray-500" value="{{ old('nfse.cnpj_prestador', setting('nfse.cnpj_prestador')) }}" readonly>
-                        <p class="text-xs text-gray-400 mt-1">{{ trans('nfse::general.cnpj_from_certificate') }}</p>
-                    </div>
+            {{-- ── Panel 3: Fiscal data ──────────────────────────────────── --}}
+            <div id="tab-panel-fiscal" class="tab-panel @if($activeTab !== 'fiscal') hidden @endif">
 
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="uf">{{ trans('nfse::general.settings.uf') }}</label>
-                        <select id="uf" name="nfse[uf]" class="w-full border rounded px-3 py-2" required>
-                            <option value="">Selecione...</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="municipio_nome">{{ trans('nfse::general.settings.municipio_nome') }}</label>
-                        <select id="municipio_nome" name="nfse[municipio_nome]" class="w-full border rounded px-3 py-2" required disabled>
-                            <option value="">Selecione o estado primeiro...</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="municipio_ibge_display">{{ trans('nfse::general.settings.municipio_ibge') }}</label>
-                        <input id="municipio_ibge_display" type="text" class="w-full border rounded px-3 py-2 bg-gray-50" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" readonly>
-                        <input id="municipio_ibge" name="nfse[municipio_ibge]" type="hidden" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" required>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="item_lista_servico">{{ trans('nfse::general.settings.item_lista') }}</label>
-                        <input id="item_lista_servico_display" name="nfse[item_lista_servico_display]" type="text" list="lc116_services" class="w-full border rounded px-3 py-2" value="" placeholder="{{ trans('nfse::general.settings.item_lista_hint') }}" autocomplete="off" required>
-                        <datalist id="lc116_services"></datalist>
-                        <input id="item_lista_servico" name="nfse[item_lista_servico]" type="hidden" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}" required>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1" for="aliquota">{{ trans('nfse::general.settings.aliquota') }}</label>
-                        <input id="aliquota" name="nfse[aliquota]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.aliquota', setting('nfse.aliquota', '5.00')) }}">
-                    </div>
-
-                    <label class="inline-flex items-center gap-2">
-                        <input name="nfse[sandbox_mode]" type="checkbox" value="1" @checked((bool) old('nfse.sandbox_mode', setting('nfse.sandbox_mode', true)))>
-                        <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
-                    </label>
-                    </div>
-                    @else
+                @if(!$hasSavedSettings)
                     <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
                         {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
                     </div>
-                    @endif
+                @else
+                    <form method="POST" action="{{ route('nfse.settings.fiscal') }}" class="space-y-4">
+                        @csrf
+                        @method('PATCH')
 
-                    <button id="save-settings-button" type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                        {{ trans('general.save') }}
-                    </button>
-                </div>
-            </form>
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="cnpj_prestador">{{ trans('nfse::general.settings.cnpj_from_certificate') }}</label>
+                            <input id="cnpj_prestador" name="nfse[cnpj_prestador]" type="text" class="w-full border rounded px-3 py-2 bg-gray-50 text-gray-500" value="{{ old('nfse.cnpj_prestador', setting('nfse.cnpj_prestador')) }}" readonly>
+                            <p class="text-xs text-gray-400 mt-1">{{ trans('nfse::general.cnpj_from_certificate') }}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="uf">{{ trans('nfse::general.settings.uf') }}</label>
+                            <select id="uf" name="nfse[uf]" class="w-full border rounded px-3 py-2" required>
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="municipio_nome">{{ trans('nfse::general.settings.municipio_nome') }}</label>
+                            <select id="municipio_nome" name="nfse[municipio_nome]" class="w-full border rounded px-3 py-2" required disabled>
+                                <option value="">Selecione o estado primeiro...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="municipio_ibge_display">{{ trans('nfse::general.settings.municipio_ibge') }}</label>
+                            <input id="municipio_ibge_display" type="text" class="w-full border rounded px-3 py-2 bg-gray-50" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" readonly>
+                            <input id="municipio_ibge" name="nfse[municipio_ibge]" type="hidden" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" required>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="item_lista_servico">{{ trans('nfse::general.settings.item_lista') }}</label>
+                            <input id="item_lista_servico_display" name="nfse[item_lista_servico_display]" type="text" list="lc116_services" class="w-full border rounded px-3 py-2" value="" placeholder="{{ trans('nfse::general.settings.item_lista_hint') }}" autocomplete="off" required>
+                            <datalist id="lc116_services"></datalist>
+                            <input id="item_lista_servico" name="nfse[item_lista_servico]" type="hidden" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}" required>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="aliquota">{{ trans('nfse::general.settings.aliquota') }}</label>
+                            <input id="aliquota" name="nfse[aliquota]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.aliquota', setting('nfse.aliquota', '5.00')) }}">
+                        </div>
+
+                        <label class="inline-flex items-center gap-2">
+                            <input name="nfse[sandbox_mode]" type="checkbox" value="1" @checked((bool) old('nfse.sandbox_mode', setting('nfse.sandbox_mode', true)))>
+                            <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
+                        </label>
+
+                        <div class="flex justify-end pt-2">
+                            <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                                {{ trans('general.save') }}
+                            </button>
+                        </div>
+                    </form>
+                @endif
+            </div>
 
         </div>
 
         <script>
             document.addEventListener('DOMContentLoaded', async () => {
-                const ufSelect = document.getElementById('uf');
-                const municipalitySelect = document.getElementById('municipio_nome');
-                const ibgeHidden = document.getElementById('municipio_ibge');
-                const ibgeDisplay = document.getElementById('municipio_ibge_display');
-                const cnpjInput = document.getElementById('cnpj_prestador');
 
-                const selectedUf = @json(old('nfse.uf', setting('nfse.uf', '')));
-                const selectedMunicipalityName = @json(old('nfse.municipio_nome', setting('nfse.municipio_nome', '')));
-                const selectedIbge = @json(old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')));
-                const selectedLc116Code = @json(old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')));
-
-                const ufsUrl = @json(route('nfse.ibge.ufs'));
-                const municipalitiesUrlTemplate = @json(route('nfse.ibge.municipalities', ['uf' => '__UF__']));
-                const lc116ServicesUrl = @json(route('nfse.lc116.services'));
-                const parsePfxUrl = @json(route('nfse.certificate.parse'));
-
-                const lc116DisplayInput = document.getElementById('item_lista_servico_display');
-                const lc116CodeInput = document.getElementById('item_lista_servico');
-                const lc116Datalist = document.getElementById('lc116_services');
-                const lc116ByLabel = new Map();
-                const lc116ByCode = new Map();
-
-                const fetchJson = async (url) => {
-                    const response = await fetch(url, { headers: { Accept: 'application/json' } });
-                    const payload = await response.json().catch(() => ({ data: [] }));
-
-                    if (!response.ok) {
-                        return [];
-                    }
-
-                    return Array.isArray(payload.data) ? payload.data : [];
-                };
-
-                const renderLc116Options = (services) => {
-                    lc116Datalist.innerHTML = '';
-
-                    services.forEach((service) => {
-                        const option = document.createElement('option');
-                        option.value = service.label;
-                        lc116Datalist.appendChild(option);
-
-                        lc116ByLabel.set(service.label, service.code);
-                        lc116ByCode.set(service.code, service.label);
-                    });
-                };
-
-                const renderMunicipalities = (municipalities, selectedName, selectedCode) => {
-                    municipalitySelect.innerHTML = '';
-
-                    const placeholder = document.createElement('option');
-                    placeholder.value = '';
-                    placeholder.textContent = 'Selecione...';
-                    municipalitySelect.appendChild(placeholder);
-
-                    municipalities.forEach((city) => {
-                        const option = document.createElement('option');
-                        option.value = city.name;
-                        option.textContent = city.name;
-                        option.dataset.ibge = city.ibge_code;
-
-                        if ((selectedCode && city.ibge_code === selectedCode) || (!selectedCode && selectedName && city.name === selectedName)) {
-                            option.selected = true;
-                            ibgeHidden.value = city.ibge_code;
-                            ibgeDisplay.value = city.ibge_code;
+                // ── Tab switcher ────────────────────────────────────────────
+                document.querySelectorAll('.tab-button').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
+                            return;
                         }
 
-                        municipalitySelect.appendChild(option);
+                        document.querySelectorAll('.tab-button').forEach((b) => {
+                            b.classList.remove('border-green-600', 'text-green-700');
+                            b.classList.add('border-transparent', 'text-gray-500');
+                        });
+
+                        document.querySelectorAll('.tab-panel').forEach((p) => {
+                            p.classList.add('hidden');
+                        });
+
+                        btn.classList.add('border-green-600', 'text-green-700');
+                        btn.classList.remove('border-transparent', 'text-gray-500');
+                        document.getElementById('tab-panel-' + btn.dataset.tab)?.classList.remove('hidden');
                     });
-
-                    municipalitySelect.disabled = false;
-                };
-
-                const loadMunicipalities = async (uf, preferredName = '', preferredCode = '') => {
-                    if (!uf) {
-                        municipalitySelect.disabled = true;
-                        municipalitySelect.innerHTML = '<option value="">Selecione o estado primeiro...</option>';
-                        ibgeHidden.value = '';
-                        ibgeDisplay.value = '';
-                        return;
-                    }
-
-                    municipalitySelect.disabled = true;
-                    municipalitySelect.innerHTML = '<option value="">Carregando municípios...</option>';
-
-                    const url = municipalitiesUrlTemplate.replace('__UF__', encodeURIComponent(uf));
-                    const municipalities = await fetchJson(url);
-                    renderMunicipalities(municipalities, preferredName, preferredCode);
-                };
-
-                const ufsPromise = fetchJson(ufsUrl);
-                const lc116ServicesPromise = fetchJson(lc116ServicesUrl);
-
-                ufSelect?.addEventListener('change', async () => {
-                    await loadMunicipalities(ufSelect.value);
-                    updateSaveButtonState();
                 });
-
-                municipalitySelect?.addEventListener('change', () => {
-                    const selectedOption = municipalitySelect.options[municipalitySelect.selectedIndex];
-                    const ibgeCode = selectedOption?.dataset?.ibge ?? '';
-                    ibgeHidden.value = ibgeCode;
-                    ibgeDisplay.value = ibgeCode;
-                    updateSaveButtonState();
-                });
-
-                lc116DisplayInput?.addEventListener('input', () => {
-                    const normalizedCode = lc116ByLabel.get(lc116DisplayInput.value) ?? '';
-                    lc116CodeInput.value = normalizedCode;
-                    updateSaveButtonState();
-                });
-
-                // ── Certificate wizard ──────────────────────────────────────
-                const btnReadCert = document.getElementById('btn-read-cert');
-                const pfxFileInput = document.getElementById('pfx_file');
-                const pfxPasswordInput = document.getElementById('pfx_password');
-                const certCnpjDisplay = document.getElementById('cert-cnpj-display');
-                const certCnpjValue = document.getElementById('cert-cnpj-value');
-                const certErrorDisplay = document.getElementById('cert-error-display');
-                const stepNfseFields = document.getElementById('step-nfse-fields');
-                const replaceCertificateInput = document.getElementById('replace_certificate');
-                const replaceFields = document.getElementById('replace-cert-fields');
-                const showReplaceButton = document.getElementById('btn-show-replace-cert');
-                const deleteCertificateButton = document.getElementById('btn-delete-certificate');
-                const deleteForm = document.getElementById('delete-certificate-form');
-                const hasSavedSettings = @json(($certificateState['has_saved_settings'] ?? false) === true);
-                const vaultReady = @json(($vaultUiState['ready'] ?? false) === true);
-
-                const settingsForm = document.getElementById('settings-form');
-                const csrfToken = settingsForm?.querySelector('input[name="_token"]')?.value ?? '';
-                const saveSettingsButton = document.getElementById('save-settings-button');
-
-                const vaultAddrInput = document.getElementById('bao_addr');
-                const vaultMountInput = document.getElementById('bao_mount');
-                const vaultTokenInput = document.getElementById('bao_token');
-                const vaultRoleIdInput = document.getElementById('bao_role_id');
-                const vaultSecretIdInput = document.getElementById('bao_secret_id');
-                const clearBaoTokenInput = document.getElementById('clear_bao_token');
-                const clearBaoSecretIdInput = document.getElementById('clear_bao_secret_id');
-                const tokenConfiguredStatus = document.getElementById('vault-status-token');
-                const roleConfiguredStatus = document.getElementById('vault-status-role-id');
-                const secretConfiguredStatus = document.getElementById('vault-status-secret-id');
 
                 // ── Auth mode toggle (Token / AppRole) ──────────────────────
-                const vaultTokenSection = document.getElementById('vault-token-section');
+                const vaultTokenSection   = document.getElementById('vault-token-section');
                 const vaultApproleSection = document.getElementById('vault-approle-section');
-                const authModeRadios = document.querySelectorAll('input[name="auth_mode_ui"]');
 
                 const setSectionVisibility = (element, isVisible) => {
-                    if (!element) {
-                        return;
-                    }
-
+                    if (!element) return;
                     element.hidden = !isVisible;
                     element.classList.toggle('hidden', !isVisible);
                 };
 
-                const toggleAuthSections = (mode) => {
-                    setSectionVisibility(vaultTokenSection, mode === 'token');
-                    setSectionVisibility(vaultApproleSection, mode === 'approle');
-                };
-
-                const getActiveAuthMode = () => document.querySelector('input[name="auth_mode_ui"]:checked')?.value ?? 'token';
-
-                const isValidUrl = (value) => {
-                    try {
-                        const parsed = new URL(value);
-                        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-                    } catch {
-                        return false;
-                    }
-                };
-
-                const isConfigured = (element) => element?.dataset?.configured === '1';
-
-                const updateSaveButtonState = () => {
-                    if (!saveSettingsButton) {
-                        return;
-                    }
-
-                    const authMode = getActiveAuthMode();
-                    const addr = vaultAddrInput?.value?.trim() ?? '';
-                    const mount = vaultMountInput?.value?.trim() ?? '';
-
-                    const tokenValue = vaultTokenInput?.value?.trim() ?? '';
-                    const roleIdValue = vaultRoleIdInput?.value?.trim() ?? '';
-                    const secretIdValue = vaultSecretIdInput?.value?.trim() ?? '';
-
-                    const tokenAvailable = tokenValue !== '' || (isConfigured(tokenConfiguredStatus) && !clearBaoTokenInput?.checked);
-                    const secretAvailable = secretIdValue !== '' || (isConfigured(secretConfiguredStatus) && !clearBaoSecretIdInput?.checked);
-                    const roleAvailable = roleIdValue !== '' || isConfigured(roleConfiguredStatus);
-
-                    const vaultCoreReady = addr !== '' && isValidUrl(addr) && mount !== '';
-                    const vaultAuthReady = authMode === 'approle'
-                        ? roleAvailable && secretAvailable
-                        : tokenAvailable;
-
-                    let postVaultReady = true;
-                    if (vaultReady) {
-                        const sectionVisible = stepNfseFields ? !stepNfseFields.hidden : false;
-                        const cnpjOk = (cnpjInput?.value?.trim() ?? '').length === 14;
-                        const ufOk = (ufSelect?.value?.trim() ?? '') !== '';
-                        const cityOk = (municipalitySelect?.value?.trim() ?? '') !== '';
-                        const ibgeOk = (ibgeHidden?.value?.trim() ?? '').length === 7;
-                        const lc116Ok = (lc116CodeInput?.value?.trim() ?? '').length === 4;
-
-                        postVaultReady = sectionVisible && cnpjOk && ufOk && cityOk && ibgeOk && lc116Ok;
-                    }
-
-                    saveSettingsButton.disabled = !(vaultCoreReady && vaultAuthReady && postVaultReady);
-                };
-
-                authModeRadios.forEach((radio) => {
+                document.querySelectorAll('input[name="auth_mode_ui"]').forEach((radio) => {
                     radio.addEventListener('change', () => {
-                        toggleAuthSections(radio.value);
-                        updateSaveButtonState();
+                        setSectionVisibility(vaultTokenSection, radio.value === 'token');
+                        setSectionVisibility(vaultApproleSection, radio.value === 'approle');
                     });
                 });
 
-                const initialAuthMode = getActiveAuthMode();
-                toggleAuthSections(initialAuthMode);
+                // ── Certificate tab: read cert + upload button ──────────────
+                const btnReadCert       = document.getElementById('btn-read-cert');
+                const btnUploadCert     = document.getElementById('btn-upload-cert');
+                const pfxFileInput      = document.getElementById('pfx_file');
+                const pfxPasswordInput  = document.getElementById('pfx_password');
+                const certCnpjDisplay   = document.getElementById('cert-cnpj-display');
+                const certCnpjValue     = document.getElementById('cert-cnpj-value');
+                const certErrorDisplay  = document.getElementById('cert-error-display');
+                const replaceFields     = document.getElementById('replace-cert-fields');
+                const showReplaceButton = document.getElementById('btn-show-replace-cert');
+                const deleteCertBtn     = document.getElementById('btn-delete-certificate');
+                const deleteForm        = document.getElementById('delete-certificate-form');
+                const certificateForm   = document.getElementById('certificate-form');
+                const csrfToken         = certificateForm?.querySelector('input[name="_token"]')?.value ?? '';
 
-                const toggleStepSettings = (isVisible) => {
-                    if (stepNfseFields) {
-                        stepNfseFields.hidden = !isVisible;
+                const parsePfxUrl      = @json(route('nfse.certificate.parse'));
+                const hasSavedSettings = @json(($certificateState['has_saved_settings'] ?? false) === true);
+
+                const syncCertButtons = () => {
+                    const hasFile     = (pfxFileInput?.files?.length ?? 0) > 0;
+                    const hasPassword = (pfxPasswordInput?.value?.trim() ?? '').length > 0;
+
+                    if (btnReadCert) {
+                        btnReadCert.disabled = !hasFile || !hasPassword;
                     }
 
-                    updateSaveButtonState();
+                    if (btnUploadCert) {
+                        btnUploadCert.disabled = !hasSavedSettings && (!hasFile || !hasPassword);
+                    }
                 };
 
-                const toggleReplaceFields = (isVisible) => {
-                    if (replaceFields) {
-                        replaceFields.hidden = !isVisible;
-                    }
-
-                    if (replaceCertificateInput) {
-                        replaceCertificateInput.value = isVisible ? '1' : '0';
-                    }
-                };
-
-                const syncReadButtonState = () => {
-                    if (!btnReadCert || !pfxPasswordInput) {
-                        return;
-                    }
-
-                    btnReadCert.disabled = pfxPasswordInput.value.trim().length === 0;
-                };
-
-                toggleStepSettings(vaultReady && hasSavedSettings);
-
-                if (!hasSavedSettings) {
-                    toggleReplaceFields(true);
-                }
-
-                syncReadButtonState();
-                pfxPasswordInput?.addEventListener('input', syncReadButtonState);
-                vaultAddrInput?.addEventListener('input', updateSaveButtonState);
-                vaultMountInput?.addEventListener('input', updateSaveButtonState);
-                vaultTokenInput?.addEventListener('input', updateSaveButtonState);
-                vaultRoleIdInput?.addEventListener('input', updateSaveButtonState);
-                vaultSecretIdInput?.addEventListener('input', updateSaveButtonState);
-                clearBaoTokenInput?.addEventListener('change', updateSaveButtonState);
-                clearBaoSecretIdInput?.addEventListener('change', updateSaveButtonState);
-                cnpjInput?.addEventListener('input', updateSaveButtonState);
+                pfxFileInput?.addEventListener('change', syncCertButtons);
+                pfxPasswordInput?.addEventListener('input', syncCertButtons);
+                syncCertButtons();
 
                 showReplaceButton?.addEventListener('click', () => {
-                    toggleReplaceFields(true);
-                    syncReadButtonState();
+                    if (replaceFields) replaceFields.hidden = false;
                     pfxFileInput?.focus();
-                    updateSaveButtonState();
+                    syncCertButtons();
                 });
 
-                updateSaveButtonState();
-
-                (async () => {
-                    if (!ufSelect || !municipalitySelect || !ibgeHidden || !ibgeDisplay || !lc116DisplayInput || !lc116CodeInput || !lc116Datalist) {
-                        updateSaveButtonState();
-                        return;
-                    }
-
-                    const [ufs, lc116Services] = await Promise.all([ufsPromise, lc116ServicesPromise]);
-                    renderLc116Options(lc116Services);
-
-                    const initialLc116Label = lc116ByCode.get(selectedLc116Code);
-                    if (initialLc116Label) {
-                        lc116DisplayInput.value = initialLc116Label;
-                        lc116CodeInput.value = selectedLc116Code;
-                    }
-
-                    ufSelect.innerHTML = '';
-
-                    const ufPlaceholder = document.createElement('option');
-                    ufPlaceholder.value = '';
-                    ufPlaceholder.textContent = 'Selecione...';
-                    ufSelect.appendChild(ufPlaceholder);
-
-                    ufs.forEach((entry) => {
-                        const option = document.createElement('option');
-                        option.value = entry.uf;
-                        option.textContent = `${entry.uf} - ${entry.name}`;
-                        if (entry.uf === selectedUf) {
-                            option.selected = true;
-                        }
-                        ufSelect.appendChild(option);
-                    });
-
-                    if (selectedUf) {
-                        await loadMunicipalities(selectedUf, selectedMunicipalityName, selectedIbge);
-                    }
-
-                    updateSaveButtonState();
-                })();
-
-                deleteCertificateButton?.addEventListener('click', () => {
+                deleteCertBtn?.addEventListener('click', () => {
                     if (!confirm(@json(trans('nfse::general.confirm_delete_certificate_and_settings')))) {
                         return;
                     }
-
                     deleteForm?.submit();
                 });
 
@@ -682,15 +501,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             return;
                         }
 
-                        if (certCnpjValue) {
-                            certCnpjValue.textContent = cnpj;
-                        }
+                        if (certCnpjValue) certCnpjValue.textContent = cnpj;
                         certCnpjDisplay?.classList.remove('hidden');
-                        if (cnpjInput) {
-                            cnpjInput.value = cnpj;
-                        }
-                        toggleStepSettings(true);
-                        updateSaveButtonState();
+                        syncCertButtons();
                     } catch {
                         if (certErrorDisplay) {
                             certErrorDisplay.textContent = @json(trans('nfse::general.invalid_pfx'));
@@ -700,6 +513,134 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         btnReadCert.disabled = false;
                     }
                 });
+
+                // ── Fiscal tab: UF / municipality / LC116 ───────────────────
+                const ufSelect           = document.getElementById('uf');
+                const municipalitySelect = document.getElementById('municipio_nome');
+                const ibgeHidden         = document.getElementById('municipio_ibge');
+                const ibgeDisplay        = document.getElementById('municipio_ibge_display');
+                const lc116DisplayInput  = document.getElementById('item_lista_servico_display');
+                const lc116CodeInput     = document.getElementById('item_lista_servico');
+                const lc116Datalist      = document.getElementById('lc116_services');
+
+                if (!ufSelect) {
+                    return; // fiscal tab not rendered (no saved settings)
+                }
+
+                const selectedUf              = @json(old('nfse.uf', setting('nfse.uf', '')));
+                const selectedMunicipalityName = @json(old('nfse.municipio_nome', setting('nfse.municipio_nome', '')));
+                const selectedIbge            = @json(old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')));
+                const selectedLc116Code       = @json(old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')));
+
+                const ufsUrl                   = @json(route('nfse.ibge.ufs'));
+                const municipalitiesUrlTemplate = @json(route('nfse.ibge.municipalities', ['uf' => '__UF__']));
+                const lc116ServicesUrl         = @json(route('nfse.lc116.services'));
+
+                const lc116ByLabel = new Map();
+                const lc116ByCode  = new Map();
+
+                const fetchJson = async (url) => {
+                    const response = await fetch(url, { headers: { Accept: 'application/json' } });
+                    const payload  = await response.json().catch(() => ({ data: [] }));
+                    if (!response.ok) return [];
+                    return Array.isArray(payload.data) ? payload.data : [];
+                };
+
+                const renderLc116Options = (services) => {
+                    lc116Datalist.innerHTML = '';
+                    services.forEach((service) => {
+                        const option  = document.createElement('option');
+                        option.value  = service.label;
+                        lc116Datalist.appendChild(option);
+                        lc116ByLabel.set(service.label, service.code);
+                        lc116ByCode.set(service.code, service.label);
+                    });
+                };
+
+                const renderMunicipalities = (municipalities, selectedName, selectedCode) => {
+                    municipalitySelect.innerHTML = '';
+                    const placeholder       = document.createElement('option');
+                    placeholder.value       = '';
+                    placeholder.textContent = 'Selecione...';
+                    municipalitySelect.appendChild(placeholder);
+
+                    municipalities.forEach((city) => {
+                        const option        = document.createElement('option');
+                        option.value        = city.name;
+                        option.textContent  = city.name;
+                        option.dataset.ibge = city.ibge_code;
+
+                        if ((selectedCode && city.ibge_code === selectedCode) || (!selectedCode && selectedName && city.name === selectedName)) {
+                            option.selected   = true;
+                            ibgeHidden.value  = city.ibge_code;
+                            ibgeDisplay.value = city.ibge_code;
+                        }
+
+                        municipalitySelect.appendChild(option);
+                    });
+
+                    municipalitySelect.disabled = false;
+                };
+
+                const loadMunicipalities = async (uf, preferredName = '', preferredCode = '') => {
+                    if (!uf) {
+                        municipalitySelect.disabled = true;
+                        municipalitySelect.innerHTML = '<option value="">Selecione o estado primeiro...</option>';
+                        ibgeHidden.value  = '';
+                        ibgeDisplay.value = '';
+                        return;
+                    }
+
+                    municipalitySelect.disabled = true;
+                    municipalitySelect.innerHTML = '<option value="">Carregando municípios...</option>';
+
+                    const url            = municipalitiesUrlTemplate.replace('__UF__', encodeURIComponent(uf));
+                    const municipalities = await fetchJson(url);
+                    renderMunicipalities(municipalities, preferredName, preferredCode);
+                };
+
+                ufSelect.addEventListener('change', async () => {
+                    await loadMunicipalities(ufSelect.value);
+                });
+
+                municipalitySelect.addEventListener('change', () => {
+                    const selectedOption = municipalitySelect.options[municipalitySelect.selectedIndex];
+                    const ibgeCode       = selectedOption?.dataset?.ibge ?? '';
+                    ibgeHidden.value     = ibgeCode;
+                    ibgeDisplay.value    = ibgeCode;
+                });
+
+                lc116DisplayInput?.addEventListener('input', () => {
+                    lc116CodeInput.value = lc116ByLabel.get(lc116DisplayInput.value) ?? '';
+                });
+
+                const [ufs, lc116Services] = await Promise.all([fetchJson(ufsUrl), fetchJson(lc116ServicesUrl)]);
+
+                renderLc116Options(lc116Services);
+
+                const initialLc116Label = lc116ByCode.get(selectedLc116Code);
+                if (initialLc116Label) {
+                    lc116DisplayInput.value = initialLc116Label;
+                    lc116CodeInput.value    = selectedLc116Code;
+                }
+
+                ufSelect.innerHTML = '';
+                const ufPlaceholder       = document.createElement('option');
+                ufPlaceholder.value       = '';
+                ufPlaceholder.textContent = 'Selecione...';
+                ufSelect.appendChild(ufPlaceholder);
+
+                ufs.forEach((entry) => {
+                    const option       = document.createElement('option');
+                    option.value       = entry.uf;
+                    option.textContent = `${entry.uf} - ${entry.name}`;
+                    if (entry.uf === selectedUf) option.selected = true;
+                    ufSelect.appendChild(option);
+                });
+
+                if (selectedUf) {
+                    await loadMunicipalities(selectedUf, selectedMunicipalityName, selectedIbge);
+                }
             });
         </script>
     </x-slot>
