@@ -103,6 +103,12 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.settings.show_password')", $content);
             self::assertStringContainsString("trans('nfse::general.settings.hide_password')", $content);
             // Auth mode toggle (token / approle mutually exclusive sections)
+            self::assertStringContainsString('id="vault-auth-mode-fieldset"', $content);
+            self::assertStringContainsString('id="vault-auth-mode-hint"', $content);
+            self::assertStringContainsString("trans('nfse::general.settings.auth_mode_group_label')", $content);
+            self::assertStringContainsString("trans('nfse::general.settings.auth_mode_group_hint')", $content);
+            self::assertStringContainsString("trans('nfse::general.settings.auth_mode_option_token')", $content);
+            self::assertStringContainsString("trans('nfse::general.settings.auth_mode_option_approle')", $content);
             self::assertStringContainsString('name="auth_mode_ui"', $content);
             self::assertStringContainsString('id="auth-mode-token"', $content);
             self::assertStringContainsString('id="auth-mode-approle"', $content);
