@@ -203,9 +203,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     {{-- Campos de Token --}}
                     <div id="vault-token-section" class="space-y-4 @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif" @if(($vaultUiState['auth_mode'] ?? 'incomplete') === 'approle') hidden @endif>
+                        @php($showLocalTokenHint = app()->environment(['local', 'development']))
                         <div>
                             <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
-                            <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password">
+                            <input id="bao_token" name="nfse[bao_token]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password" @if($showLocalTokenHint) placeholder="dev-only-root-token" @endif>
+                            <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_token_hint') }}</p>
+                            @if($showLocalTokenHint)
+                                <p class="text-xs text-blue-700 mt-1">{{ trans('nfse::general.settings.bao_token_local_dev_hint') }}</p>
+                            @endif
                             <label class="inline-flex items-center gap-2 mt-2 text-xs text-gray-700">
                                 <input id="clear_bao_token" name="nfse[clear_bao_token]" type="checkbox" value="1" @checked((string) old('nfse.clear_bao_token', '0') === '1')>
                                 <span>{{ trans('nfse::general.settings.clear_bao_token') }}</span>
