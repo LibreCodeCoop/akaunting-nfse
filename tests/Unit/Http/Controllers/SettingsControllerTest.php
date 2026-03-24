@@ -247,11 +247,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = $controller->ufs(new IbgeLocalities());
 
-            self::assertSame(502, $response->getStatusCode());
-            self::assertSame([
-                'data' => [],
-                'message' => 'Failed to load UFs from IBGE.',
-            ], $response->getData(true));
+            self::assertSame(200, $response->getStatusCode());
+
+            $payload = $response->getData(true);
+
+            self::assertSame('Using local fallback list because IBGE is unavailable.', $payload['message'] ?? null);
+            self::assertCount(27, $payload['data'] ?? []);
+            self::assertSame(['uf' => 'AC', 'name' => 'Acre'], $payload['data'][0] ?? null);
+            self::assertSame(['uf' => 'TO', 'name' => 'Tocantins'], $payload['data'][26] ?? null);
         }
 
         public function testMunicipalitiesReturnsInvalidUfResponseWhenUfFormatIsInvalid(): void
@@ -1133,8 +1136,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'uf'                => 'rj',
                         'municipio_nome'    => 'Niteroi',
                         'municipio_ibge'    => '3303302',
-                        'item_lista_servico' => '0123',
-                        'aliquota'          => '5.00',
                         'sandbox_mode'      => '1',
                     ],
                 ],
@@ -1151,8 +1152,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('RJ', ControllerIsolationState::$settings['nfse.uf'] ?? null);
             self::assertSame('Niteroi', ControllerIsolationState::$settings['nfse.municipio_nome'] ?? null);
             self::assertSame('3303302', ControllerIsolationState::$settings['nfse.municipio_ibge'] ?? null);
-            self::assertSame('0123', ControllerIsolationState::$settings['nfse.item_lista_servico'] ?? null);
-            self::assertSame('5.00', ControllerIsolationState::$settings['nfse.aliquota'] ?? null);
+            self::assertArrayNotHasKey('nfse.item_lista_servico', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.aliquota', ControllerIsolationState::$settings);
             // Vault keys must not be overwritten by fiscal save
             self::assertSame('http://openbao:8200', ControllerIsolationState::$settings['nfse.bao_addr'] ?? null);
         }
@@ -1210,6 +1211,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = (new SettingsController())->edit($request);
 
             self::assertSame('fiscal', $response->data['activeTab'] ?? null);
+        }
+
+        public function testEditAcceptsServicesTabFromRequestQueryParameter(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr' => 'http://openbao:8200',
+                'nfse.bao_mount' => '/nfse',
+                'nfse.bao_token' => 'token',
+                'nfse.cnpj_prestador' => '12345678000190',
+            ];
+
+            $request = new Request(inputs: ['tab' => 'services']);
+
+            $response = (new SettingsController())->edit($request);
+
+            self::assertSame('services', $response->data['activeTab'] ?? null);
         }
 
         public function testEditFallsBackToVaultTabWhenTabValueIsInvalid(): void
