@@ -16,6 +16,7 @@ use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use LibreCodeCoop\NfsePHP\Dto\DpsData;
 use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use LibreCodeCoop\NfsePHP\Exception\GatewayException;
+use LibreCodeCoop\NfsePHP\Exception\NetworkException;
 use LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 use LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 use LibreCodeCoop\NfsePHP\Http\NfseClient;
@@ -64,6 +65,8 @@ class InvoiceController extends Controller
 
     public function emit(Invoice $invoice): RedirectResponse
     {
+        $this->ensureInvoiceRelationsLoaded($invoice);
+
         $readiness = $this->emissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
@@ -79,11 +82,13 @@ class InvoiceController extends Controller
             cnpjPrestador:    $cnpj,
             municipioIbge:    $ibge,
             itemListaServico: setting('nfse.item_lista_servico', '0107'),
+            codigoTributacaoNacional: $this->nationalTaxCode(),
             valorServico:     number_format((float) $invoice->amount, 2, '.', ''),
-            aliquota:         setting('nfse.aliquota', '5.00'),
+            aliquota:         $this->normalizedAliquota(),
             discriminacao:    $this->buildDiscriminacao($invoice),
             documentoTomador: $invoice->contact?->tax_number ?? '',
             nomeTomador:      $invoice->contact?->name ?? '',
+            tipoAmbiente:     $sandbox ? 2 : 1,
         );
 
         $client = $this->makeClient($sandbox);
@@ -93,7 +98,25 @@ class InvoiceController extends Controller
         } catch (SecretStoreException) {
             return redirect()->route('nfse.invoices.pending')
                 ->with('error', trans('nfse::general.nfse_secret_store_failed'));
-        } catch (GatewayException) {
+        } catch (GatewayException $e) {
+            $gatewayDetail = $this->gatewayErrorDetail($e);
+
+            $this->safeLogError('NFS-e issuance rejected by SEFIN', [
+                'invoice_id' => $invoice->id,
+                'http_status' => $e->httpStatus,
+                'upstream_payload' => $e->upstreamPayload,
+                'gateway_detail' => $gatewayDetail,
+            ]);
+
+            return redirect()->route('nfse.invoices.pending')
+                ->with('error', trans('nfse::general.nfse_emit_failed'))
+                ->with('nfse_gateway_error_detail', $gatewayDetail);
+        } catch (NetworkException $e) {
+            $this->safeLogError('NFS-e issuance failed due network/transport error', [
+                'invoice_id' => $invoice->id,
+                'message' => $e->getMessage(),
+            ]);
+
             return redirect()->route('nfse.invoices.pending')
                 ->with('error', trans('nfse::general.nfse_emit_failed'));
         } catch (PfxImportException) {
@@ -188,6 +211,8 @@ class InvoiceController extends Controller
 
     public function reemit(Invoice $invoice): RedirectResponse
     {
+        $this->ensureInvoiceRelationsLoaded($invoice);
+
         $receipt = $this->findReceiptForInvoice($invoice);
 
         if (($receipt->status ?? '') !== 'cancelled') {
@@ -202,25 +227,47 @@ class InvoiceController extends Controller
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'));
         }
 
+        $sandboxReemit = (bool) setting('nfse.sandbox_mode', true);
+
         $dps = new DpsData(
             cnpjPrestador: setting('nfse.cnpj_prestador'),
             municipioIbge: setting('nfse.municipio_ibge'),
             itemListaServico: setting('nfse.item_lista_servico', '0107'),
+            codigoTributacaoNacional: $this->nationalTaxCode(),
             valorServico: number_format((float) $invoice->amount, 2, '.', ''),
-            aliquota: setting('nfse.aliquota', '5.00'),
+            aliquota: $this->normalizedAliquota(),
             discriminacao: $this->buildDiscriminacao($invoice),
             documentoTomador: $invoice->contact?->tax_number ?? '',
             nomeTomador: $invoice->contact?->name ?? '',
+            tipoAmbiente: $sandboxReemit ? 2 : 1,
         );
 
-        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+        $client = $this->makeClient($sandboxReemit);
 
         try {
             $newReceipt = $client->emit($dps);
         } catch (SecretStoreException) {
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed'));
-        } catch (GatewayException) {
+        } catch (GatewayException $e) {
+            $gatewayDetail = $this->gatewayErrorDetail($e);
+
+            $this->safeLogError('NFS-e reissuance rejected by SEFIN', [
+                'invoice_id' => $invoice->id,
+                'http_status' => $e->httpStatus,
+                'upstream_payload' => $e->upstreamPayload,
+                'gateway_detail' => $gatewayDetail,
+            ]);
+
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_reemit_failed'))
+                ->with('nfse_gateway_error_detail', $gatewayDetail);
+        } catch (NetworkException $e) {
+            $this->safeLogError('NFS-e reissuance failed due network/transport error', [
+                'invoice_id' => $invoice->id,
+                'message' => $e->getMessage(),
+            ]);
+
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_reemit_failed'));
         } catch (PfxImportException) {
@@ -241,6 +288,59 @@ class InvoiceController extends Controller
         return implode(' | ', $invoice->items->pluck('name')->toArray())
             ?: $invoice->description
             ?: trans('nfse::general.service_default');
+    }
+
+    protected function ensureInvoiceRelationsLoaded(Invoice $invoice): void
+    {
+        if (method_exists($invoice, 'loadMissing')) {
+            $invoice->loadMissing(['contact', 'items']);
+        }
+    }
+
+    protected function safeLogError(string $message, array $context = []): void
+    {
+        if (!function_exists('logger')) {
+            return;
+        }
+
+        try {
+            logger()->error($message, $context);
+        } catch (\Throwable) {
+            // Logging must never block NFS-e flows in degraded test/runtime contexts.
+        }
+    }
+
+    protected function gatewayErrorDetail(GatewayException $exception): ?string
+    {
+        $payload = $exception->upstreamPayload;
+
+        if (!is_array($payload)) {
+            return null;
+        }
+
+        $firstError = null;
+
+        if (isset($payload['erros']) && is_array($payload['erros']) && isset($payload['erros'][0]) && is_array($payload['erros'][0])) {
+            $firstError = $payload['erros'][0];
+        } elseif (isset($payload['erro']) && is_array($payload['erro'])) {
+            $firstError = $payload['erro'];
+        }
+
+        if (!is_array($firstError)) {
+            return null;
+        }
+
+        $code = trim((string) ($firstError['Codigo'] ?? $firstError['codigo'] ?? ''));
+        $description = trim((string) ($firstError['Descricao'] ?? $firstError['descricao'] ?? $firstError['mensagem'] ?? ''));
+        $complement = trim((string) ($firstError['Complemento'] ?? $firstError['complemento'] ?? ''));
+
+        $parts = array_filter([$code, $description, $complement], static fn (string $value): bool => $value !== '');
+
+        if ($parts === []) {
+            return null;
+        }
+
+        return implode(' - ', $parts);
     }
 
     /**
@@ -323,6 +423,7 @@ class InvoiceController extends Controller
             ->all();
 
         $query = Invoice::invoice()
+            ->with(['contact'])
             ->when(
                 $processedInvoiceIds !== [],
                 static fn ($query) => $query->whereNotIn('id', $processedInvoiceIds)
@@ -368,6 +469,8 @@ class InvoiceController extends Controller
         $settings = is_array($settings) ? $settings : [];
         $cnpj = (string) ($settings['cnpj_prestador'] ?? '');
         $certificatePath = $cnpj !== '' ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx') : '';
+        $transportCertificatePath = $this->projectRootPath('client.crt.pem');
+        $transportPrivateKeyPath = $this->projectRootPath('client.key.pem');
 
         $checklist = [
             'cnpj_prestador' => $cnpj !== '',
@@ -375,12 +478,34 @@ class InvoiceController extends Controller
             'item_lista_servico' => ((string) ($settings['item_lista_servico'] ?? '')) !== '',
             'certificate' => $certificatePath !== '' && is_file($certificatePath),
             'certificate_secret' => $this->hasCertificateSecret($cnpj),
+            'transport_certificate' => is_file($transportCertificatePath) && is_file($transportPrivateKeyPath),
         ];
 
         return [
             'checklist' => $checklist,
             'isReady' => !in_array(false, $checklist, true),
         ];
+    }
+
+    protected function nationalTaxCode(): string
+    {
+        $configured = preg_replace('/\D+/', '', (string) setting('nfse.codigo_tributacao_nacional', '')) ?: '';
+
+        if ($configured !== '') {
+            return str_pad(substr($configured, 0, 6), 6, '0', STR_PAD_LEFT);
+        }
+
+        $lc116Code = preg_replace('/\D+/', '', (string) setting('nfse.item_lista_servico', '0107')) ?: '0107';
+
+        return str_pad(substr($lc116Code, 0, 4), 4, '0', STR_PAD_LEFT) . '01';
+    }
+
+    protected function normalizedAliquota(): string
+    {
+        $configured = (string) setting('nfse.aliquota', '5.00');
+        $normalized = str_replace(',', '.', trim($configured));
+
+        return number_format((float) $normalized, 2, '.', '');
     }
 
     protected function hasCertificateSecret(string $cnpj): bool
@@ -408,9 +533,35 @@ class InvoiceController extends Controller
                 cnpj:      $cnpj,
                 pfxPath:   storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
                 vaultPath: 'pfx/' . $cnpj,
+                transportCertificatePath: $this->existingProjectRootPath('client.crt.pem'),
+                transportPrivateKeyPath: $this->existingProjectRootPath('client.key.pem'),
             ),
             secretStore: $this->makeSecretStore(),
         );
+    }
+
+    protected function existingProjectRootPath(string $relativePath): ?string
+    {
+        $absolutePath = $this->projectRootPath($relativePath);
+
+        return is_file($absolutePath) ? $absolutePath : null;
+    }
+
+    protected function projectRootPath(string $relativePath): string
+    {
+        if (function_exists('app')) {
+            try {
+                $application = app();
+
+                if (is_object($application) && method_exists($application, 'basePath')) {
+                    return $application->basePath($relativePath);
+                }
+            } catch (\Throwable) {
+                // Fall back to module-relative path when container helper is unavailable.
+            }
+        }
+
+        return dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . ltrim($relativePath, DIRECTORY_SEPARATOR);
     }
 
     protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt): void
