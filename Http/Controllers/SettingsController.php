@@ -12,6 +12,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Modules\Nfse\Models\CompanyService;
+use Modules\Nfse\Support\BrazilianStates;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\PfxReader;
@@ -30,15 +32,78 @@ class SettingsController extends Controller
         $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
 
         $rawTab = $request !== null ? $request->query('tab') : null;
-        $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal'], true))
+        $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'services'], true))
             ? $rawTab
             : 'vault';
+
+        $servicesSearch = $request !== null ? trim((string) $request->query('services_search', '')) : '';
+        $servicesStatus = $request !== null ? (string) $request->query('services_status', 'all') : 'all';
+
+        if (!in_array($servicesStatus, ['all', 'active', 'inactive'], true)) {
+            $servicesStatus = 'all';
+        }
+
+        $companyId = 0;
+
+        if ($request !== null && method_exists($request, 'route')) {
+            $routeCompanyId = $request->route('company_id');
+            $companyId = is_numeric($routeCompanyId) ? (int) $routeCompanyId : 0;
+        }
+
+        if ($companyId <= 0 && function_exists('company_id')) {
+            $companyId = (int) (company_id() ?? 0);
+        }
+
+        if ($companyId <= 0 && function_exists('auth')) {
+            $user = null;
+
+            try {
+                $user = auth()->user();
+            } catch (Throwable) {
+                $user = null;
+            }
+
+            if ($user !== null && isset($user->company_id)) {
+                $companyId = (int) $user->company_id;
+            }
+        }
+
+        $companyServices = [];
+
+        if ($companyId > 0 && method_exists(CompanyService::class, 'query')) {
+            $query = CompanyService::where('company_id', $companyId);
+
+            if ($servicesSearch !== '') {
+                $like = '%' . $servicesSearch . '%';
+
+                $query->where(function ($builder) use ($like): void {
+                    $builder->where('item_lista_servico', 'like', $like)
+                        ->orWhere('description', 'like', $like);
+                });
+            }
+
+            if ($servicesStatus === 'active') {
+                $query->where('is_active', true);
+            }
+
+            if ($servicesStatus === 'inactive') {
+                $query->where('is_active', false);
+            }
+
+            $companyServices = $query
+                ->orderBy('is_default', 'desc')
+                ->orderBy('created_at')
+                ->get();
+        }
 
         return view('nfse::settings.edit', [
             'settings' => $settingsArray,
             'certificateState' => $certificateState,
             'vaultUiState' => $vaultUiState,
             'activeTab' => $activeTab,
+            'companyServices' => $companyServices,
+            'servicesSearch' => $servicesSearch,
+            'servicesStatus' => $servicesStatus,
         ]);
     }
 
@@ -85,8 +150,6 @@ class SettingsController extends Controller
             'nfse.uf'                 => 'required|string|size:2',
             'nfse.municipio_nome'     => 'required|string|max:255',
             'nfse.municipio_ibge'     => 'required|string|size:7',
-            'nfse.item_lista_servico' => 'required|string|size:4',
-            'nfse.aliquota'           => 'nullable|string',
             'nfse.sandbox_mode'       => 'nullable|boolean',
         ]);
 
@@ -95,9 +158,8 @@ class SettingsController extends Controller
 
         $fiscalInput = $rawNfseInput;
         $fiscalInput['uf'] = strtoupper((string) ($fiscalInput['uf'] ?? ''));
-        $fiscalInput['item_lista_servico'] = preg_replace('/\D/', '', (string) ($fiscalInput['item_lista_servico'] ?? ''));
 
-        foreach (['cnpj_prestador', 'uf', 'municipio_nome', 'municipio_ibge', 'item_lista_servico', 'aliquota', 'sandbox_mode'] as $key) {
+        foreach (['cnpj_prestador', 'uf', 'municipio_nome', 'municipio_ibge', 'sandbox_mode'] as $key) {
             if (array_key_exists($key, $fiscalInput)) {
                 setting(['nfse.' . $key => $fiscalInput[$key]]);
             }
@@ -119,9 +181,9 @@ class SettingsController extends Controller
             ]);
         } catch (Throwable) {
             return $this->jsonResponse([
-                'data' => [],
-                'message' => 'Failed to load UFs from IBGE.',
-            ], 502);
+                'data' => (new BrazilianStates())->all(),
+                'message' => 'Using local fallback list because IBGE is unavailable.',
+            ]);
         }
     }
 
@@ -217,6 +279,7 @@ class SettingsController extends Controller
             'nfse.municipio_nome'  => 'required|string|max:255',
             'nfse.municipio_ibge'  => 'required|string|size:7',
             'nfse.item_lista_servico' => 'required|string|size:4',
+            'nfse.codigo_tributacao_nacional' => 'nullable|string|size:6',
             'nfse.sandbox_mode'    => 'nullable|boolean',
             'nfse.bao_addr'        => 'required|url',
             'nfse.bao_mount'       => 'required|string',
@@ -301,9 +364,14 @@ class SettingsController extends Controller
 
         $nfseInput['uf'] = strtoupper((string) ($nfseInput['uf'] ?? ''));
         $nfseInput['item_lista_servico'] = preg_replace('/\D/', '', (string) ($nfseInput['item_lista_servico'] ?? ''));
+        $nfseInput['codigo_tributacao_nacional'] = preg_replace('/\D/', '', (string) ($nfseInput['codigo_tributacao_nacional'] ?? ''));
         $nfseInput['bao_mount'] = VaultConfig::normalizeMount((string) ($nfseInput['bao_mount'] ?? ''));
         unset($nfseInput['clear_bao_token'], $nfseInput['clear_bao_secret_id']);
         unset($nfseInput['item_lista_servico_display']);
+
+        if (($nfseInput['codigo_tributacao_nacional'] ?? '') === '') {
+            unset($nfseInput['codigo_tributacao_nacional']);
+        }
 
         if ($clearBaoToken) {
             $nfseInput['bao_token'] = '';
