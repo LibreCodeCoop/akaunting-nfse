@@ -15,6 +15,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         @if(session('error'))
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                 {{ session('error') }}
+
+                @if(session('nfse_gateway_error_detail'))
+                    <p class="mt-2 text-sm">
+                        <strong>Detalhe SEFIN:</strong> {{ session('nfse_gateway_error_detail') }}
+                    </p>
+                @endif
             </div>
         @endif
 
