@@ -90,6 +90,29 @@ final class Lc116Catalog
     ];
 
     /**
+     * @return array{code: string, display_code: string, description: string, label: string}|null
+     */
+    public function find(string $code): ?array
+    {
+        $normalizedCode = preg_replace('/\D+/', '', $code) ?: '';
+
+        foreach (self::ITEMS as $item) {
+            if ($item['code'] !== $normalizedCode) {
+                continue;
+            }
+
+            return [
+                'code' => $item['code'],
+                'display_code' => $item['display_code'],
+                'description' => $item['description'],
+                'label' => $item['display_code'] . ' - ' . $item['description'],
+            ];
+        }
+
+        return null;
+    }
+
+    /**
      * @return array<int, array{code: string, display_code: string, description: string, label: string}>
      */
     public function search(?string $query = null, int $limit = 200): array
