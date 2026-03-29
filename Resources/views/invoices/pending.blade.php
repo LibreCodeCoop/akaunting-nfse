@@ -35,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             @endforeach
                         </ul>
                     @endif
-                    <a href="{{ route('nfse.settings.readiness') }}" class="underline mt-2 inline-block text-sm">
+                    <a href="{{ route('nfse.settings.edit', ['tab' => 'vault']) }}" class="underline mt-2 inline-block text-sm">
                         {{ trans('nfse::general.go_to_readiness') }}
                     </a>
             </div>
