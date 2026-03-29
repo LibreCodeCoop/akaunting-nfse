@@ -216,7 +216,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], $response->getData(true));
         }
 
-        public function testUploadReturnsBackWithErrorWhenCertificateValidationFails(): void
+        public function testUploadRedirectsToCertificateTabWithErrorWhenCertificateValidationFails(): void
         {
             $controller = new class () extends CertificateController {
                 protected function readUploadedFile(UploadedFile $file): string
@@ -235,11 +235,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 files: ['pfx_file' => new UploadedFile('/tmp/ignored')],
             ));
 
-            self::assertSame('back', $response->target);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'certificate'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.invalid_pfx', $response->flash['error'] ?? null);
         }
 
-        public function testUploadReturnsBackWithErrorWhenCnpjNotFoundInCertificate(): void
+        public function testUploadRedirectsToCertificateTabWithErrorWhenCnpjNotFoundInCertificate(): void
         {
             $controller = new class () extends CertificateController {
                 protected function readUploadedFile(UploadedFile $file): string
@@ -258,11 +260,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 files: ['pfx_file' => new UploadedFile('/tmp/ignored')],
             ));
 
-            self::assertSame('back', $response->target);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'certificate'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.cnpj_not_found', $response->flash['error'] ?? null);
         }
 
-        public function testUploadRedirectsBackWithErrorWhenSecretStoreFails(): void
+        public function testUploadRedirectsToCertificateTabWithErrorWhenSecretStoreFails(): void
         {
             $controller = new class () extends CertificateController {
                 protected function readUploadedFile(UploadedFile $file): string
@@ -286,8 +290,22 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 files: ['pfx_file' => new UploadedFile('/tmp/ignored')],
             ));
 
-            self::assertSame('back', $response->target);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'certificate'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.certificate_store_failed', $response->flash['error'] ?? null);
+        }
+
+        public function testUploadRedirectsToCertificateTabWhenPayloadIsMissing(): void
+        {
+            $controller = new CertificateController();
+
+            $response = $controller->upload(new Request());
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'certificate'], $response->parameters[0] ?? null);
+            self::assertSame('nfse::general.invalid_pfx', $response->flash['error'] ?? null);
         }
 
         public function testUploadStoresCertificateExtractsCnpjAndRedirectsOnSuccess(): void
