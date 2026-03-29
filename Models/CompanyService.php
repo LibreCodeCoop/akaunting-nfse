@@ -7,7 +7,9 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Modules\Nfse\Support\Lc116Catalog;
 
 class CompanyService extends Model
 {
@@ -28,4 +30,17 @@ class CompanyService extends Model
         'is_default' => 'boolean',
         'is_active' => 'boolean',
     ];
+
+    protected function displayName(): Attribute
+    {
+        return Attribute::get(function (): string {
+            $catalogEntry = (new Lc116Catalog())->find((string) $this->item_lista_servico);
+
+            if ($catalogEntry !== null) {
+                return $catalogEntry['label'];
+            }
+
+            return (string) $this->item_lista_servico;
+        });
+    }
 }
