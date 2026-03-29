@@ -15,6 +15,26 @@ namespace Illuminate\Database\Eloquent;
 
 class Model
 {
+    protected $table = '';
+
+    protected $fillable = [];
+
+    protected $casts = [];
+
+    public function getFillable(): array
+    {
+        return $this->fillable;
+    }
+
+    public function getCasts(): array
+    {
+        return $this->casts;
+    }
+
+    public function getTable(): string
+    {
+        return $this->table;
+    }
 }
 
 namespace Illuminate\Support;
