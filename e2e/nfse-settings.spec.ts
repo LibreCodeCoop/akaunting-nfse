@@ -6,6 +6,14 @@ import { loginToAkaunting } from './support/auth';
 
 test.use({ serviceWorkers: 'block' });
 
+async function openTab(page, tabId, panelId) {
+  const tab = page.locator(tabId);
+  await expect(tab).toBeVisible();
+  await expect(tab).toBeEnabled();
+  await tab.click();
+  await expect(page.locator(panelId)).toBeVisible();
+}
+
 test('replace action works even while async lookups are still loading', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
 
@@ -43,8 +51,10 @@ test('replace action works even while async lookups are still loading', async ({
 
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
 
+  await openTab(page, '#tab-btn-certificate', '#tab-panel-certificate');
+
   const showReplaceButton = page.locator('#btn-show-replace-cert');
-  if (await showReplaceButton.count()) {
+  if (await showReplaceButton.isVisible()) {
     await showReplaceButton.click();
     await expect(page.locator('#replace-cert-fields')).toBeVisible();
   }
@@ -110,34 +120,28 @@ test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo
   await expect(page).toHaveURL(/\/1\/nfse\/settings/);
   await expect(page.locator('h1:has-text("NFS-e")')).toBeVisible();
 
-  // Certificate wizard section appears first
+  await openTab(page, '#tab-btn-certificate', '#tab-panel-certificate');
+
   await expect(page.locator('input[name="pfx_file"]')).toBeAttached();
-
-  const stepSettingsSection = page.locator('#step-settings-section');
-  const hasSavedState = await page.locator('text=Estado atualmente salvo').count();
-  if (hasSavedState > 0) {
-    await expect(stepSettingsSection).toBeVisible();
-    await expect(page.locator('#btn-show-replace-cert')).toBeVisible();
-    await expect(page.locator('#btn-read-cert')).toBeHidden();
-    await page.locator('#btn-show-replace-cert').click();
-    await expect(page.locator('#btn-read-cert')).toBeVisible();
-  } else {
-    await expect(stepSettingsSection).toBeHidden();
-    await expect(page.locator('#btn-read-cert')).toBeVisible();
-  }
-
-  // CNPJ field is read-only in the settings section
-  const cnpjInput = page.locator('input[name="nfse[cnpj_prestador]"]');
-  await expect(cnpjInput).toBeAttached();
-  await expect(cnpjInput).toHaveAttribute('readonly');
+  await expect(page.locator('#btn-show-replace-cert')).toBeVisible();
+  await expect(page.locator('#btn-read-cert')).toBeHidden();
+  await page.locator('#btn-show-replace-cert').click();
+  await expect(page.locator('#replace-cert-fields')).toBeVisible();
+  await expect(page.locator('#btn-read-cert')).toBeVisible();
 
   await page.locator('input[name="pfx_file"]').setInputFiles('e2e/fixtures/test-cert.p12');
   await page.locator('input[name="pfx_password"]').fill('test-password-only');
   await page.locator('#btn-read-cert').click();
 
   await expect(page.locator('#cert-cnpj-display')).toBeVisible();
-  await expect(cnpjInput).toHaveValue('12345678000195');
-  await expect(stepSettingsSection).toBeVisible();
+  await expect(page.locator('#cert-cnpj-value')).toHaveText('12345678000195');
+  await expect(page.locator('#btn-upload-cert')).toBeEnabled();
+
+  await openTab(page, '#tab-btn-fiscal', '#tab-panel-fiscal');
+
+  const cnpjInput = page.locator('input[name="nfse[cnpj_prestador]"]');
+  await expect(cnpjInput).toBeVisible();
+  await expect(cnpjInput).toHaveAttribute('readonly');
 
   await expect(page.locator('select[name="nfse[uf]"]')).toBeVisible();
   await expect(page.locator('select[name="nfse[municipio_nome]"]')).toBeVisible();
@@ -149,17 +153,161 @@ test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo
   await page.locator('select[name="nfse[municipio_nome]"]').selectOption('Sao Paulo');
   await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('3550308');
 
-  await page.locator('input[name="nfse[item_lista_servico_display]"]').fill('1.07 - Suporte tecnico em informatica, inclusive instalacao, configuracao e manutencao');
+  const firstLc116Label = await page.locator('#lc116_services option').first().getAttribute('value');
+  expect(firstLc116Label).toBeTruthy();
+
+  await page.locator('input[name="nfse[item_lista_servico_display]"]').fill(firstLc116Label!);
   await expect(page.locator('input[name="nfse[item_lista_servico]"]')).toHaveValue('0107');
 });
 
-test('readiness screen shows certificate secret checklist row', async ({ page }, testInfo) => {
+test('vault status summary shows certificate secret checklist row', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
 
-  await page.goto('/1/nfse/settings/readiness', { waitUntil: 'domcontentloaded' });
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
-  await expect(page).toHaveURL(/\/1\/nfse\/settings\/readiness/);
-  await expect(page.locator('text=Segredo do certificado disponível no Vault')).toBeVisible();
+  await expect(page).toHaveURL(/\/1\/nfse\/settings/);
+  await expect(page.locator('#vault-status-certificate-secret')).toBeVisible();
+  await expect(page.locator('text=Segredo do certificado no Vault')).toBeVisible();
+});
+
+test('full dependent setup flow covers vault, certificate, fiscal and services steps', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+
+  await page.route('**/nfse/ibge/ufs', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          { uf: 'SP', name: 'Sao Paulo' },
+          { uf: 'RJ', name: 'Rio de Janeiro' },
+        ],
+      }),
+    });
+  });
+
+  await page.route('**/nfse/ibge/municipalities/SP', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          { ibge_code: '3550308', name: 'Sao Paulo' },
+          { ibge_code: '3509502', name: 'Campinas' },
+        ],
+      }),
+    });
+  });
+
+  await page.route('**/nfse/lc116/services', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            code: '0107',
+            display_code: '1.07',
+            description: 'Suporte tecnico em informatica',
+            label: '1.07 - Suporte tecnico em informatica',
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  // Step 1: Vault server config must save first.
+  await expect(page.locator('#tab-panel-vault')).toBeVisible();
+  await page.locator('input[name="nfse[bao_addr]"]').fill('http://openbao:8200');
+  await page.locator('input[name="nfse[bao_mount]"]').fill('/nfse');
+  await page.locator('input[name="nfse[bao_token]"]').fill('dev-only-root-token');
+  await page.locator('#tab-panel-vault button[type="submit"]').click();
+  await page.waitForLoadState('networkidle');
+  await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=vault/);
+
+  // Step 2: Certificate depends on Vault; failed upload must stay in settings and tab 2.
+  await openTab(page, '#tab-btn-certificate', '#tab-panel-certificate');
+
+  const showReplaceButton = page.locator('#btn-show-replace-cert');
+  if (await showReplaceButton.count()) {
+    await showReplaceButton.click();
+  }
+
+  await page.locator('input[name="pfx_file"]').setInputFiles('e2e/fixtures/test-cert.p12');
+  await page.locator('input[name="pfx_password"]').fill('wrong-password');
+  await page.locator('#btn-upload-cert').click();
+  await page.waitForLoadState('networkidle');
+
+  await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=certificate/);
+  await expect(page).not.toHaveURL(/\/1\/nfse\/ibge\/municipalities\//);
+  await expect(page.locator('#tab-panel-certificate')).toBeVisible();
+
+  // Step 3: Fiscal settings depends on previous steps being available.
+  await openTab(page, '#tab-btn-fiscal', '#tab-panel-fiscal');
+  await page.locator('select[name="nfse[uf]"]').selectOption('SP');
+  await page.locator('select[name="nfse[municipio_nome]"]').selectOption('Sao Paulo');
+  await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('3550308');
+
+  const firstLc116Label = await page.locator('#lc116_services option').first().getAttribute('value');
+  expect(firstLc116Label).toBeTruthy();
+
+  await page.locator('input[name="nfse[item_lista_servico_display]"]').fill(firstLc116Label!);
+  await expect(page.locator('input[name="nfse[item_lista_servico]"]')).toHaveValue('0107');
+  await page.locator('#tab-panel-fiscal button[type="submit"]').click();
+  await page.waitForLoadState('networkidle');
+  await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=fiscal/);
+
+  // Step 4: Services tab becomes part of the same guided setup flow.
+  await openTab(page, '#tab-btn-services', '#tab-panel-services');
+  await expect(page.locator('#services-filter-form')).toBeVisible();
+  await expect(page.locator('a[href*="/nfse/settings/services/create"]')).toBeVisible();
+});
+
+test('service create LC116 selection does not navigate to JSON endpoint', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+
+  const generatedCode = String(Date.now()).slice(-4).padStart(4, '0');
+  const generatedNbs = `${generatedCode}01`;
+  const generatedLabel = `${generatedCode} - Servico E2E ${generatedCode}`;
+
+  await page.route('**/nfse/lc116/services**', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            code: generatedCode,
+            display_code: generatedCode,
+            description: `Servico E2E ${generatedCode}`,
+            label: generatedLabel,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto('/1/nfse/settings/services/create', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  const lcDisplay = page.locator('#item_lista_servico_display');
+  await lcDisplay.fill('servico e2e');
+  await page.waitForTimeout(400);
+  await lcDisplay.fill(generatedLabel);
+  await lcDisplay.press('Tab');
+
+  await expect(page.locator('#item_lista_servico')).toHaveValue(generatedCode);
+  await expect(page).not.toHaveURL(/\/1\/nfse\/lc116\/services/);
+  await expect(page.locator('body')).not.toContainText('{"data":[');
+
+  await lcDisplay.focus();
+  await lcDisplay.press('Enter');
+  await expect(page).toHaveURL(/\/1\/nfse\/settings\/services\/create/);
+  await expect(page).not.toHaveURL(/\/1\/nfse\/lc116\/services/);
+  await expect(page.locator('body')).not.toContainText('{"data":[');
 });
 
