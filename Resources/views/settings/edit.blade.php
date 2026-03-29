@@ -344,6 +344,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <input id="municipio_ibge" name="nfse[municipio_ibge]" type="hidden" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" required>
                         </div>
 
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="item_lista_servico_display">{{ trans('nfse::general.settings.item_lista') }}</label>
+                            <input id="item_lista_servico_display" name="nfse[item_lista_servico_display]" type="text" list="lc116_services" class="w-full border rounded px-3 py-2" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}">
+                            <input id="item_lista_servico" name="nfse[item_lista_servico]" type="hidden" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}">
+                            <datalist id="lc116_services"></datalist>
+                        </div>
+
                         <label class="inline-flex items-center gap-2">
                             <input name="nfse[sandbox_mode]" type="checkbox" value="1" @checked((bool) old('nfse.sandbox_mode', setting('nfse.sandbox_mode', true)))>
                             <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
