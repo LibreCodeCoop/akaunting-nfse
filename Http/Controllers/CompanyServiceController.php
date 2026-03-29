@@ -43,10 +43,9 @@ class CompanyServiceController extends Controller
 
         $validated['item_lista_servico'] = preg_replace('/\D+/', '', (string) $validated['item_lista_servico']) ?: '';
         $validated['codigo_tributacao_nacional'] = preg_replace('/\D+/', '', (string) ($validated['codigo_tributacao_nacional'] ?? '')) ?: '';
-
-        if ($validated['codigo_tributacao_nacional'] === '') {
-            $validated['codigo_tributacao_nacional'] = str_pad(substr($validated['item_lista_servico'], 0, 4), 4, '0', STR_PAD_LEFT) . '01';
-        }
+        $validated['codigo_tributacao_nacional'] = $validated['codigo_tributacao_nacional'] !== ''
+            ? $validated['codigo_tributacao_nacional']
+            : null;
 
         $companyId = $this->resolveCompanyId($request);
 
@@ -114,10 +113,9 @@ class CompanyServiceController extends Controller
         ]);
 
         $validated['codigo_tributacao_nacional'] = preg_replace('/\D+/', '', (string) ($validated['codigo_tributacao_nacional'] ?? '')) ?: '';
-
-        if ($validated['codigo_tributacao_nacional'] === '') {
-            $validated['codigo_tributacao_nacional'] = str_pad(substr((string) $service->item_lista_servico, 0, 4), 4, '0', STR_PAD_LEFT) . '01';
-        }
+        $validated['codigo_tributacao_nacional'] = $validated['codigo_tributacao_nacional'] !== ''
+            ? $validated['codigo_tributacao_nacional']
+            : null;
 
         $service->update($validated);
 
