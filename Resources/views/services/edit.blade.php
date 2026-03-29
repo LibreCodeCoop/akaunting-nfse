@@ -33,10 +33,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             >
                         </div>
 
-                        <div class="relative sm:col-span-3 required">
+                        <div class="relative sm:col-span-3">
                             <label for="codigo_tributacao_nacional" class="block text-sm font-medium mb-1">
                                 {{ trans('nfse::general.settings.services.national_tax_code') }}
-                                <span class="text-red-500 ml-0.5">*</span>
                             </label>
                             <input
                                 type="text"
@@ -45,10 +44,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 inputmode="numeric"
                                 pattern="[0-9]{6}"
                                 maxlength="6"
+                                placeholder="Opcional. Ex: 101011"
                                 value="{{ old('codigo_tributacao_nacional', $service->codigo_tributacao_nacional) }}"
-                                required
                                 class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                             >
+                            <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.settings.codigo_tributacao_nacional_hint') }}</p>
+                            <p class="mt-1 text-xs">
+                                <a href="https://www.gov.br/nfse/pt-br/mei-e-demais-empresas/codigos-de-tributacao-nacional-nbs" target="_blank" rel="noopener noreferrer" class="text-blue-700 hover:text-blue-800 underline">
+                                    Lista oficial de codigos de tributacao nacional (NBS)
+                                </a>
+                            </p>
                         </div>
 
                         <div class="relative sm:col-span-3 required">
