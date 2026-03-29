@@ -1240,5 +1240,48 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('vault', $response->data['activeTab'] ?? null);
         }
+
+        public function testUpdateAllowsSavingWhenClearingVaultCredentialsMakesVaultIncomplete(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.cnpj_prestador' => '12345678901234',
+                'nfse.bao_addr' => 'https://vault.local.test',
+                'nfse.bao_mount' => '/nfse',
+                'nfse.bao_token' => 'token-ci-preserve',
+                'nfse.bao_role_id' => 'role-ci',
+                'nfse.bao_secret_id' => 'secret-ci-preserve',
+            ];
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'cnpj_prestador' => '12345678901234',
+                        'uf' => 'SP',
+                        'municipio_nome' => 'Sao Paulo',
+                        'municipio_ibge' => '3550308',
+                        'item_lista_servico' => '0107',
+                        'bao_addr' => 'https://vault.local.test',
+                        'bao_mount' => 'nfse',
+                        'bao_token' => '',
+                        'bao_role_id' => 'role-ci',
+                        'bao_secret_id' => '',
+                        'clear_bao_token' => '1',
+                        'clear_bao_secret_id' => '1',
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->update($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            // Should NOT return vault_required error -- clear flags bypass the vault-ready gate.
+            self::assertArrayNotHasKey('error', $response->flash);
+            // Sensitive fields should be explicitly emptied.
+            self::assertSame('', ControllerIsolationState::$settings['nfse.bao_token'] ?? 'NOT_SET');
+            self::assertSame('', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? 'NOT_SET');
+        }
     }
 }
