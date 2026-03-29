@@ -26,6 +26,14 @@ class SettingsController extends Controller
 
     public function edit(?Request $request = null): \Illuminate\View\View
     {
+        if ($request === null && function_exists('request')) {
+            $resolvedRequest = request();
+
+            if ($resolvedRequest instanceof Request) {
+                $request = $resolvedRequest;
+            }
+        }
+
         $settings = setting('nfse', []);
         $settingsArray = is_array($settings) ? $settings : [];
         $certificateState = $this->certificateState();
@@ -268,7 +276,10 @@ class SettingsController extends Controller
                 ->with('success', trans('nfse::general.vault_saved_continue'));
         }
 
-        if (!$vaultReadyAfterSubmission) {
+        $isExplicitlyClearingCredentials = in_array((string) ($rawNfseInput['clear_bao_token'] ?? ''), ['1', 'true', 'on'], true)
+            || in_array((string) ($rawNfseInput['clear_bao_secret_id'] ?? ''), ['1', 'true', 'on'], true);
+
+        if (!$isExplicitlyClearingCredentials && !$vaultReadyAfterSubmission) {
             return redirect()->route('nfse.settings.edit')
                 ->with('error', trans('nfse::general.vault_required_before_certificate_and_settings'));
         }
