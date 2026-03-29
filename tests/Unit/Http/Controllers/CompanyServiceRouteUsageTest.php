@@ -81,6 +81,7 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertStringContainsString('<textarea', $createView);
         self::assertStringContainsString('name="item_lista_servico_display"', $createView);
         self::assertStringContainsString('name="item_lista_servico"', $createView);
+        self::assertStringContainsString('name="codigo_tributacao_nacional"', $createView);
         self::assertStringContainsString('name="aliquota"', $createView);
         self::assertStringContainsString('name="is_active"', $createView);
         self::assertStringContainsString('name="description"', $createView);
@@ -95,9 +96,28 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertStringNotContainsString('<x-form.input.', $editView);
         self::assertStringContainsString('<input', $editView);
         self::assertStringContainsString('<textarea', $editView);
+        self::assertStringContainsString('name="codigo_tributacao_nacional"', $editView);
         self::assertStringContainsString('name="aliquota"', $editView);
         self::assertStringNotContainsString('name="is_active"', $editView);
         self::assertStringContainsString('name="description"', $editView);
+    }
+
+    public function testNationalTaxCodeFieldIsOptionalAndControllerDoesNotForceFallbackCode(): void
+    {
+        $createView = file_get_contents(dirname(__DIR__, 4) . '/Resources/views/services/create.blade.php');
+        $editView = file_get_contents(dirname(__DIR__, 4) . '/Resources/views/services/edit.blade.php');
+        $controller = file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/CompanyServiceController.php');
+
+        self::assertNotFalse($createView);
+        self::assertNotFalse($editView);
+        self::assertNotFalse($controller);
+
+        self::assertDoesNotMatchRegularExpression('/<input[^>]*name="codigo_tributacao_nacional"[^>]*required[^>]*>/', $createView);
+        self::assertDoesNotMatchRegularExpression('/<input[^>]*name="codigo_tributacao_nacional"[^>]*required[^>]*>/', $editView);
+
+        self::assertStringContainsString("'codigo_tributacao_nacional' => ['nullable', 'string', 'size:6']", $controller);
+        self::assertStringNotContainsString('str_pad(substr($validated[\'item_lista_servico\'], 0, 4), 4, \'0\', STR_PAD_LEFT) . \'01\'', $controller);
+        self::assertStringNotContainsString('str_pad(substr((string) $service->item_lista_servico, 0, 4), 4, \'0\', STR_PAD_LEFT) . \'01\'', $controller);
     }
 
     public function testServicesListingViewIncludesFilterAndToggleActiveControls(): void
