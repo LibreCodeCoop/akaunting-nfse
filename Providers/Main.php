@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Providers;
 
 use Illuminate\Support\ServiceProvider as Provider;
+use Modules\Nfse\Console\Commands\ProvisionTestUser;
 
 class Main extends Provider
 {
@@ -27,6 +28,12 @@ class Main extends Provider
     public function register(): void
     {
         $this->loadRoutes();
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                ProvisionTestUser::class,
+            ]);
+        }
     }
 
     protected function loadViews(): void
