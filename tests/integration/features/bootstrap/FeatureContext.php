@@ -41,6 +41,8 @@ final class FeatureContext implements Context
     #[Given('I am authenticated in Akaunting as configured user')]
     public function iAmAuthenticatedInAkauntingAsConfiguredUser(): void
     {
+        $this->csrfToken = null;
+
         $email = getenv('NFSE_BEHAT_EMAIL');
         $password = getenv('NFSE_BEHAT_PASSWORD');
 
@@ -63,10 +65,27 @@ final class FeatureContext implements Context
             ],
         ]);
 
-        $this->ensure(
-            in_array($this->response->getStatusCode(), [302, 303], true),
-            'Expected authentication redirect after POST /auth/login.'
-        );
+            $statusCode = $this->response->getStatusCode();
+
+            // Akaunting returns HTTP 200 with JSON {success:true, redirect:...} on AJAX login success.
+            if ($statusCode === 200) {
+                $body = (array) json_decode((string) $this->response->getBody(), true);
+                $this->ensure(
+                    ($body['success'] ?? false) === true,
+                    'Expected authentication redirect after POST /auth/login.'
+                );
+
+                $this->ensureBaselineNfseSettings();
+
+                return;
+            }
+
+            $this->ensure(
+                in_array($statusCode, [302, 303], true),
+                'Expected authentication redirect after POST /auth/login.'
+            );
+
+        $this->ensureBaselineNfseSettings();
     }
 
     #[Given('I use company id :companyId')]
@@ -175,13 +194,15 @@ final class FeatureContext implements Context
     {
         $this->ensureResponse();
 
-        $needle = sprintf('id="%s" data-configured="%s"', $elementId, $configuredValue);
-        $body = (string) $this->response->getBody();
+            // Use a regex so the check succeeds regardless of other HTML attributes
+            // that may appear between id="..." and data-configured="..." on the same element.
+            $pattern = '/id="' . preg_quote($elementId, '/') . '"[^>]*\bdata-configured="' . preg_quote($configuredValue, '/') . '"/';
+            $body = (string) $this->response->getBody();
 
-        $this->ensure(
-            str_contains($body, $needle),
-            sprintf('Expected response body to contain configured marker "%s".', $needle)
-        );
+            $this->ensure(
+                (bool) preg_match($pattern, $body),
+                sprintf('Expected element id="%s" to have data-configured="%s".', $elementId, $configuredValue)
+            );
     }
 
     private function request(string $method, string $path, array $options = []): ResponseInterface
@@ -213,6 +234,62 @@ final class FeatureContext implements Context
         );
 
         $this->csrfToken = $this->extractCsrfToken((string) $response->getBody());
+    }
+
+    private function ensureBaselineNfseSettings(): void
+    {
+        $settingsPath = $this->replaceCompanyPlaceholder('/<company_id>/nfse/settings');
+        $response = $this->client->request('GET', $settingsPath);
+
+        $this->ensure(
+            $response->getStatusCode() === 200,
+            'Unable to load settings page after authentication.'
+        );
+
+        $body = (string) $response->getBody();
+        $this->csrfToken = $this->extractCsrfToken($body);
+
+        if (str_contains($body, 'nfse[cnpj_prestador]') && str_contains($body, 'nfse[item_lista_servico]')) {
+            return;
+        }
+
+        $seedResponse = $this->client->request('PATCH', $settingsPath, [
+            'form_params' => [
+                '_token' => $this->csrfToken,
+                'nfse[cnpj_prestador]' => '12345678901234',
+                'nfse[uf]' => 'SP',
+                'nfse[municipio_nome]' => 'Sao Paulo',
+                'nfse[municipio_ibge]' => '3550308',
+                'nfse[item_lista_servico]' => '0107',
+                'nfse[aliquota]' => '5.00',
+                'nfse[sandbox_mode]' => '1',
+                'nfse[bao_addr]' => 'https://vault.local.test',
+                'nfse[bao_mount]' => 'nfse',
+                'nfse[bao_token]' => 'token-behat-seed',
+                'nfse[bao_role_id]' => 'role-behat-seed',
+                'nfse[bao_secret_id]' => 'secret-behat-seed',
+            ],
+        ]);
+
+        $this->ensure(
+            in_array($seedResponse->getStatusCode(), [302, 303], true),
+            sprintf('Expected baseline NFS-e settings seed to redirect, got %d.', $seedResponse->getStatusCode())
+        );
+
+        $confirmedResponse = $this->client->request('GET', $settingsPath);
+        $confirmedBody = (string) $confirmedResponse->getBody();
+
+        $this->ensure(
+            $confirmedResponse->getStatusCode() === 200,
+            'Unable to reload settings page after seeding baseline NFS-e settings.'
+        );
+
+        $this->ensure(
+            str_contains($confirmedBody, 'nfse[cnpj_prestador]') && str_contains($confirmedBody, 'nfse[item_lista_servico]'),
+            'Baseline NFS-e settings seed did not unlock the fiscal settings form.'
+        );
+
+        $this->csrfToken = $this->extractCsrfToken($confirmedBody);
     }
 
     private function extractCsrfToken(string $html): string
