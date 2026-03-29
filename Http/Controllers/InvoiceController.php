@@ -77,6 +77,8 @@ class InvoiceController extends Controller
         $cnpj    = setting('nfse.cnpj_prestador');
         $ibge    = setting('nfse.municipio_ibge');
         $sandbox = (bool) setting('nfse.sandbox_mode', true);
+        $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
+        $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
 
         $dps = new DpsData(
             cnpjPrestador:    $cnpj,
@@ -86,10 +88,17 @@ class InvoiceController extends Controller
             valorServico:     number_format((float) $invoice->amount, 2, '.', ''),
             aliquota:         $this->normalizedAliquota(),
             discriminacao:    $this->buildDiscriminacao($invoice),
-            documentoTomador: $invoice->contact?->tax_number ?? '',
+            documentoTomador: $tomadorDocument,
             nomeTomador:      $invoice->contact?->name ?? '',
+            opcaoSimplesNacional: $opcaoSimplesNacional,
             tipoAmbiente:     $sandbox ? 2 : 1,
         );
+
+        $this->safeLogInfo('NFS-e emission payload', [
+            'invoice_id' => $invoice->id,
+            'opSimpNac' => $dps->opcaoSimplesNacional,
+            'aliquota' => $dps->aliquota,
+        ]);
 
         $client = $this->makeClient($sandbox);
 
@@ -228,6 +237,8 @@ class InvoiceController extends Controller
         }
 
         $sandboxReemit = (bool) setting('nfse.sandbox_mode', true);
+        $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
+        $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
 
         $dps = new DpsData(
             cnpjPrestador: setting('nfse.cnpj_prestador'),
@@ -237,8 +248,9 @@ class InvoiceController extends Controller
             valorServico: number_format((float) $invoice->amount, 2, '.', ''),
             aliquota: $this->normalizedAliquota(),
             discriminacao: $this->buildDiscriminacao($invoice),
-            documentoTomador: $invoice->contact?->tax_number ?? '',
+            documentoTomador: $tomadorDocument,
             nomeTomador: $invoice->contact?->name ?? '',
+            opcaoSimplesNacional: $opcaoSimplesNacional,
             tipoAmbiente: $sandboxReemit ? 2 : 1,
         );
 
@@ -290,10 +302,34 @@ class InvoiceController extends Controller
             ?: trans('nfse::general.service_default');
     }
 
+    protected function normalizedTomadorDocument(?string $document): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $document) ?: '';
+
+        if (in_array(strlen($digits), [11, 14], true)) {
+            return $digits;
+        }
+
+        return '';
+    }
+
     protected function ensureInvoiceRelationsLoaded(Invoice $invoice): void
     {
         if (method_exists($invoice, 'loadMissing')) {
             $invoice->loadMissing(['contact', 'items']);
+        }
+    }
+
+    protected function safeLogInfo(string $message, array $context = []): void
+    {
+        if (!function_exists('logger')) {
+            return;
+        }
+
+        try {
+            logger()->info($message, $context);
+        } catch (\Throwable) {
+            // Logging must never block NFS-e flows in degraded test/runtime contexts.
         }
     }
 
@@ -506,6 +542,13 @@ class InvoiceController extends Controller
         $normalized = str_replace(',', '.', trim($configured));
 
         return number_format((float) $normalized, 2, '.', '');
+    }
+
+    protected function normalizedOpcaoSimplesNacional(): int
+    {
+        $configured = (int) setting('nfse.opcao_simples_nacional', 2);
+
+        return in_array($configured, [1, 2], true) ? $configured : 2;
     }
 
     protected function hasCertificateSecret(string $cnpj): bool
