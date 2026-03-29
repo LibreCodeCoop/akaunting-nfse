@@ -36,6 +36,21 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('Invoice::invoice()', $content);
         }
 
+        public function testProjectRootPathUsesIsolationApplicationBasePath(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function resolveProjectRootPath(string $relativePath): string
+                {
+                    return $this->projectRootPath($relativePath);
+                }
+            };
+
+            self::assertSame(
+                ControllerIsolationState::$storageRoot . '/client.crt.pem',
+                $controller->resolveProjectRootPath('client.crt.pem'),
+            );
+        }
+
         protected function setUp(): void
         {
             parent::setUp();
