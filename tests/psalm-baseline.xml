@@ -2,24 +2,9 @@
 <!-- SPDX-FileCopyrightText: 2026 LibreCode coop and contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <files psalm-version="6.16.1@f1f5de594dc76faf8784e02d3dc4716c91c6f6ac">
-  <file src="Models/NfseReceipt.php">
-    <UndefinedClass>
-      <code><![CDATA[BelongsTo]]></code>
-      <code><![CDATA[\App\Models\Sale\Invoice]]></code>
-    </UndefinedClass>
-    <UndefinedMethod>
-      <code><![CDATA[belongsTo]]></code>
-    </UndefinedMethod>
-  </file>
   <file src="Providers/Main.php">
     <UndefinedFunction>
       <code><![CDATA[app()]]></code>
     </UndefinedFunction>
-    <UndefinedMethod>
-      <code><![CDATA[loadMigrationsFrom]]></code>
-      <code><![CDATA[loadRoutesFrom]]></code>
-      <code><![CDATA[loadTranslationsFrom]]></code>
-      <code><![CDATA[loadViewsFrom]]></code>
-    </UndefinedMethod>
   </file>
 </files>
