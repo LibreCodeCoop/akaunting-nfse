@@ -99,6 +99,14 @@ namespace Modules\Nfse\Http\Controllers {
         }
     }
 
+    final class ControllerIsolationFakeApplication
+    {
+        public function basePath(string $path = ''): string
+        {
+            return rtrim(ControllerIsolationState::$storageRoot, '/') . ($path !== '' ? '/' . ltrim($path, '/') : '');
+        }
+    }
+
     if (!function_exists(__NAMESPACE__ . '\\setting')) {
         function setting(string|array|null $key = null, mixed $default = null): mixed
         {
@@ -149,6 +157,13 @@ namespace Modules\Nfse\Http\Controllers {
         function response(): ControllerIsolationResponseFactory
         {
             return new ControllerIsolationResponseFactory();
+        }
+    }
+
+    if (!function_exists(__NAMESPACE__ . '\\app')) {
+        function app(): ControllerIsolationFakeApplication
+        {
+            return new ControllerIsolationFakeApplication();
         }
     }
 
