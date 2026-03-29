@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "description": "Playwright E2E tests for akaunting-nfse module",
   "scripts": {
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:debug": "playwright test --debug"
+    "test:e2e": "playwright test -c playwright.config.ts",
+    "test:e2e:headed": "playwright test -c playwright.config.ts --headed",
+    "test:e2e:debug": "playwright test -c playwright.config.ts --debug"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2"
