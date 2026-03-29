@@ -7,10 +7,12 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Models;
 
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Nfse\Support\Lc116Catalog;
 
+/**
+ * @property string|null $item_lista_servico
+ */
 class CompanyService extends Model
 {
     protected $table = 'nfse_company_services';
@@ -31,16 +33,15 @@ class CompanyService extends Model
         'is_active' => 'boolean',
     ];
 
-    protected function displayName(): Attribute
+    public function getDisplayNameAttribute(): string
     {
-        return Attribute::get(function (): string {
-            $catalogEntry = (new Lc116Catalog())->find((string) $this->item_lista_servico);
+        $itemListaServico = (string) $this->__get('item_lista_servico');
+        $catalogEntry = (new Lc116Catalog())->find($itemListaServico);
 
-            if ($catalogEntry !== null) {
-                return $catalogEntry['label'];
-            }
+        if ($catalogEntry !== null) {
+            return $catalogEntry['label'];
+        }
 
-            return (string) $this->item_lista_servico;
-        });
+        return $itemListaServico;
     }
 }
