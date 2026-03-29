@@ -46,10 +46,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <input id="item_lista_servico" name="item_lista_servico" type="hidden" value="{{ old('item_lista_servico') }}">
 
                         {{-- National tax code (NBS) --}}
-                        <div class="relative sm:col-span-3 required">
+                        <div class="relative sm:col-span-3">
                             <label for="codigo_tributacao_nacional" class="block text-sm font-medium mb-1">
                                 {{ trans('nfse::general.settings.services.national_tax_code') }}
-                                <span class="text-red-500 ml-0.5">*</span>
                             </label>
                             <input
                                 type="text"
@@ -58,10 +57,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 inputmode="numeric"
                                 pattern="[0-9]{6}"
                                 maxlength="6"
+                                placeholder="Opcional. Ex: 101011"
                                 value="{{ old('codigo_tributacao_nacional') }}"
-                                required
                                 class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                             >
+                            <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.settings.codigo_tributacao_nacional_hint') }}</p>
+                            <p class="mt-1 text-xs">
+                                <a href="https://www.gov.br/nfse/pt-br/mei-e-demais-empresas/codigos-de-tributacao-nacional-nbs" target="_blank" rel="noopener noreferrer" class="text-blue-700 hover:text-blue-800 underline">
+                                    Lista oficial de codigos de tributacao nacional (NBS)
+                                </a>
+                            </p>
                         </div>
 
                         {{-- Aliquota --}}
@@ -143,7 +148,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const syncSelectedCode = () => {
                     const selectedText = displayInput.value;
                     const options = datalist.querySelectorAll('option');
-                    const nbsInput = document.getElementById('codigo_tributacao_nacional');
 
                     hiddenInput.value = '';
 
@@ -151,17 +155,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         if (option.value === selectedText) {
                             hiddenInput.value = option.dataset.code ?? '';
 
-                            const normalized = String(hiddenInput.value || '').replace(/\D+/g, '').padStart(4, '0').slice(0, 4);
-                            if (nbsInput && normalized.length === 4 && !String(nbsInput.value || '').trim()) {
-                                nbsInput.value = `${normalized}01`;
-                            }
-
                             return;
                         }
                     }
                 };
 
                 displayInput.addEventListener('change', syncSelectedCode);
+                displayInput.addEventListener('blur', syncSelectedCode);
+
+                // Keep Enter inside LC116 autocomplete from submitting the form prematurely.
+                displayInput.addEventListener('keydown', (event) => {
+                    if (event.key !== 'Enter') {
+                        return;
+                    }
+
+                    syncSelectedCode();
+                    event.preventDefault();
+                });
 
                 displayInput.addEventListener('input', debounce(async (e) => {
                     const query = e.target.value.trim();
@@ -171,7 +181,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
 
                     try {
-                        const response = await fetch(`{{ route('nfse.lc116.services') }}?q=${encodeURIComponent(query)}`);
+                        const response = await fetch(`{{ route('nfse.lc116.services') }}?q=${encodeURIComponent(query)}`, {
+                            headers: { Accept: 'application/json' },
+                        });
                         const payload = await response.json();
                         const services = Array.isArray(payload.data) ? payload.data : [];
 
@@ -183,12 +195,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             option.dataset.code = item.code;
                             datalist.appendChild(option);
                         });
-
-                        const normalized = String(hiddenInput.value || '').replace(/\D+/g, '').padStart(4, '0').slice(0, 4);
-                        const nbsInput = document.getElementById('codigo_tributacao_nacional');
-                        if (nbsInput && normalized.length === 4 && !String(nbsInput.value || '').trim()) {
-                            nbsInput.value = `${normalized}01`;
-                        }
 
                         syncSelectedCode();
                     } catch (error) {
