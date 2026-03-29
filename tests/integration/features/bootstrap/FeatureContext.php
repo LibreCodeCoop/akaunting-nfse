@@ -1,10 +1,9 @@
 <?php
 
+// SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 declare(strict_types=1);
-/**
- * SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
- * SPDX-License-Identifier: AGPL-3.0-or-later
- */
 
 use Behat\Behat\Context\Context;
 use Behat\Gherkin\Node\TableNode;
@@ -65,25 +64,25 @@ final class FeatureContext implements Context
             ],
         ]);
 
-            $statusCode = $this->response->getStatusCode();
+        $statusCode = $this->response->getStatusCode();
 
-            // Akaunting returns HTTP 200 with JSON {success:true, redirect:...} on AJAX login success.
-            if ($statusCode === 200) {
-                $body = (array) json_decode((string) $this->response->getBody(), true);
-                $this->ensure(
-                    ($body['success'] ?? false) === true,
-                    'Expected authentication redirect after POST /auth/login.'
-                );
-
-                $this->ensureBaselineNfseSettings();
-
-                return;
-            }
-
+        // Akaunting returns HTTP 200 with JSON {success:true, redirect:...} on AJAX login success.
+        if ($statusCode === 200) {
+            $body = (array) json_decode((string) $this->response->getBody(), true);
             $this->ensure(
-                in_array($statusCode, [302, 303], true),
+                ($body['success'] ?? false) === true,
                 'Expected authentication redirect after POST /auth/login.'
             );
+
+            $this->ensureBaselineNfseSettings();
+
+            return;
+        }
+
+        $this->ensure(
+            in_array($statusCode, [302, 303], true),
+            'Expected authentication redirect after POST /auth/login.'
+        );
 
         $this->ensureBaselineNfseSettings();
     }
@@ -194,15 +193,15 @@ final class FeatureContext implements Context
     {
         $this->ensureResponse();
 
-            // Use a regex so the check succeeds regardless of other HTML attributes
-            // that may appear between id="..." and data-configured="..." on the same element.
-            $pattern = '/id="' . preg_quote($elementId, '/') . '"[^>]*\bdata-configured="' . preg_quote($configuredValue, '/') . '"/';
-            $body = (string) $this->response->getBody();
+        // Use a regex so the check succeeds regardless of other HTML attributes
+        // that may appear between id="..." and data-configured="..." on the same element.
+        $pattern = '/id="' . preg_quote($elementId, '/') . '"[^>]*\bdata-configured="' . preg_quote($configuredValue, '/') . '"/';
+        $body = (string) $this->response->getBody();
 
-            $this->ensure(
-                (bool) preg_match($pattern, $body),
-                sprintf('Expected element id="%s" to have data-configured="%s".', $elementId, $configuredValue)
-            );
+        $this->ensure(
+            (bool) preg_match($pattern, $body),
+            sprintf('Expected element id="%s" to have data-configured="%s".', $elementId, $configuredValue)
+        );
     }
 
     private function request(string $method, string $path, array $options = []): ResponseInterface
