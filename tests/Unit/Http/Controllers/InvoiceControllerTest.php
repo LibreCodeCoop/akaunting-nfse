@@ -145,6 +145,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('Servico A | Servico B', $client->capturedDps?->discriminacao);
             self::assertSame('99887766000155', $client->capturedDps?->documentoTomador);
             self::assertSame('ACME Ltda', $client->capturedDps?->nomeTomador);
+            self::assertSame(2, $client->capturedDps?->opcaoSimplesNacional);
             self::assertSame(1, $client->capturedDps?->tipoAmbiente);
             self::assertSame([
                 [
@@ -220,6 +221,112 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertTrue($controller->capturedSandbox);
             self::assertSame(2, $client->capturedDps?->tipoAmbiente);
+        }
+
+        public function testEmitNormalizesFormattedTomadorDocument(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 1042,
+                amount: 10.0,
+                items: [],
+                description: 'Teste tomador formatado',
+                contactName: 'Tomador Formatado',
+                contactTaxNumber: '99.887.766/0001-55',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-1042', 'CHAVE-1042', '2026-03-23T12:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame('99887766000155', $client->capturedDps?->documentoTomador);
+        }
+
+        public function testEmitDropsInvalidTomadorDocument(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 1043,
+                amount: 11.0,
+                items: [],
+                description: 'Teste tomador invalido',
+                contactName: 'Tomador Invalido',
+                contactTaxNumber: 'ABC',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-1043', 'CHAVE-1043', '2026-03-23T12:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame('', $client->capturedDps?->documentoTomador);
         }
 
         public function testEmitFallsBackToInvoiceDescriptionWhenItemsAreEmpty(): void
