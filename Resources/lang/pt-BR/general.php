@@ -172,7 +172,7 @@ return [
         'item_lista'       => 'Item da Lista de Serviços (LC 116)',
         'item_lista_hint'  => 'Selecione um item oficial da LC 116',
         'codigo_tributacao_nacional' => 'Código de tributação nacional (NBS)',
-        'codigo_tributacao_nacional_hint' => 'Informe o código nacional de 6 dígitos do serviço. Ex.: 010701 para suporte técnico em informática.',
+        'codigo_tributacao_nacional_hint' => 'Opcional. Informe o código nacional de 6 dígitos apenas quando necessário para o seu cenário fiscal.',
         'aliquota'         => 'Alíquota ISS (%)',
         'services_config_moved_hint' => 'Configurações de serviço (item LC116, código nacional e alíquota) agora são gerenciadas exclusivamente na aba 4. Serviços.',
         'services' => [
