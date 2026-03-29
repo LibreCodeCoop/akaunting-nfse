@@ -14,7 +14,8 @@ class CompanyServiceTest extends TestCase
 {
     private function skipWhenEloquentModelIsUnavailable(): void
     {
-        if (!class_exists(\Illuminate\Database\Eloquent\Model::class)) {
+        if (!class_exists(\Illuminate\Database\Eloquent\Model::class, false)
+            || !method_exists(\Illuminate\Database\Eloquent\Model::class, 'getFillable')) {
             $this->markTestSkipped('Illuminate Eloquent is not available in this test runtime.');
         }
     }
@@ -76,5 +77,15 @@ class CompanyServiceTest extends TestCase
 
         $service = new CompanyService();
         $this->assertSame('nfse_company_services', $service->getTable());
+    }
+
+    public function testDisplayNameReturnsCatalogLabelForSavedLc116Code(): void
+    {
+        $this->skipWhenEloquentModelIsUnavailable();
+
+        $service = new CompanyService();
+        $service->item_lista_servico = '0101';
+
+        $this->assertSame('1.01 - Analise e desenvolvimento de sistemas', $service->display_name);
     }
 }
