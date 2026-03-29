@@ -25,6 +25,7 @@ import { loginToAkaunting } from './support/auth';
 const FIXTURE = path.join(__dirname, 'fixtures', 'test-cert.p12');
 const TEST_PASSWORD = 'test-password-only';
 const TEST_CNPJ = '12345678000195';
+const REAL_FLOW_CNPJ = '12345678901234';
 const REAL_CERT_FLOW_ENABLED = process.env.NFSE_E2E_REAL_CERT_FLOW === '1';
 
 function createTemporaryPfx(password: string): { pfxPath: string; cleanup: () => void } {
@@ -46,7 +47,7 @@ function createTemporaryPfx(password: string): { pfxPath: string; cleanup: () =>
         '2',
         '-nodes',
         '-subj',
-        '/C=BR/ST=RJ/L=Niteroi/O=NfseE2E/OU=QA/CN=nfse-e2e.local',
+        `/C=BR/ST=RJ/L=Niteroi/O=NfseE2E/OU=QA/CN=NfseE2E:${REAL_FLOW_CNPJ}/serialNumber=${REAL_FLOW_CNPJ}`,
     ]);
 
     execFileSync('openssl', [
@@ -186,7 +187,40 @@ test.describe('NFS-e certificate upload', () => {
         await expect(page.locator('#tab-panel-certificate')).toBeVisible();
     });
 
-    test('real replace flow stores certificate password in Vault and marks readiness as yes', async ({ page }, testInfo) => {
+    test('save on certificate tab never navigates to IBGE JSON endpoint', async ({ page }) => {
+        await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle');
+        await openCertificateTab(page);
+
+        const uploadButton = page.locator('#btn-upload-cert');
+        const fileInput = page.locator('input[name="pfx_file"]');
+        const passwordInput = page.locator('input[name="pfx_password"]');
+        const showReplaceButton = page.locator('#btn-show-replace-cert');
+
+        if (await uploadButton.isDisabled()) {
+            if (await showReplaceButton.count()) {
+                await showReplaceButton.click();
+            }
+
+            await fileInput.setInputFiles(FIXTURE);
+            await passwordInput.fill('wrong-password');
+            await expect(uploadButton).toBeEnabled();
+        }
+
+        await uploadButton.click();
+        await page.waitForLoadState('networkidle');
+
+        await expect(page).toHaveURL(/\/1\/nfse\/settings(\?tab=certificate)?/);
+        await expect(page.locator('body')).not.toContainText('{"data":[');
+        await expect(page).not.toHaveURL(/\/1\/nfse\/ibge\/municipalities\//);
+
+        const certificateTab = page.locator('#tab-btn-certificate');
+        await expect(certificateTab).toBeEnabled();
+        await certificateTab.click();
+        await expect(page.locator('#tab-panel-certificate')).toBeVisible();
+    });
+
+    test('real replace flow stores certificate password in Vault and shows saved state as present', async ({ page }, testInfo) => {
         if (!REAL_CERT_FLOW_ENABLED) {
             test.skip(true, 'Set NFSE_E2E_REAL_CERT_FLOW=1 to run real Vault certificate flow.');
         }
@@ -216,13 +250,14 @@ test.describe('NFS-e certificate upload', () => {
             await page.waitForLoadState('networkidle');
 
             await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=certificate/);
+            await expect(page.locator('body')).toContainText('Certificado enviado e senha armazenada com segurança.');
+            await expect(page.locator('text=Senha no Vault: presente')).toBeVisible();
 
-            await page.goto('/1/nfse/settings/readiness', { waitUntil: 'domcontentloaded' });
-            await page.waitForLoadState('networkidle');
-
-            const secretRow = page.locator('tr', { hasText: 'Segredo do certificado disponível no Vault' });
-            await expect(secretRow).toBeVisible();
-            await expect(secretRow.locator('td').nth(1)).toContainText('Sim');
+            const vaultTab = page.locator('#tab-btn-vault');
+            await expect(vaultTab).toBeEnabled();
+            await vaultTab.click();
+            await expect(page.locator('#tab-panel-vault')).toBeVisible();
+            await expect(page.locator('#vault-status-certificate-secret')).toContainText('Sim');
         } finally {
             cleanup();
         }
