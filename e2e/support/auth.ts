@@ -15,8 +15,12 @@ export async function loginToAkaunting(page: Page, testInfo: TestInfo): Promise<
   await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
-  await page.locator('form[action*="auth/login"] button[type="submit"]').click();
 
-  await page.waitForLoadState('networkidle');
+  await Promise.all([
+    page.waitForURL((url) => !url.pathname.endsWith('/auth/login')),
+    page.locator('form[action*="auth/login"] button[type="submit"]').click(),
+  ]);
+
   await expect(page).not.toHaveURL(/\/auth\/login$/);
+  await expect(page.locator('body')).toBeVisible();
 }

@@ -29,6 +29,6 @@ class NfseReceipt extends Model
 
     public function invoice(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Sale\Invoice::class);
+        return $this->belongsTo(\App\Models\Document\Document::class);
     }
 }

@@ -15,6 +15,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         @if(session('error'))
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                 {{ session('error') }}
+
+                @if(session('nfse_gateway_error_detail'))
+                    <p class="mt-2 text-sm">
+                        <strong>Detalhe SEFIN:</strong> {{ session('nfse_gateway_error_detail') }}
+                    </p>
+                @endif
             </div>
         @endif
 
@@ -29,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             @endforeach
                         </ul>
                     @endif
-                    <a href="{{ route('nfse.settings.readiness') }}" class="underline mt-2 inline-block text-sm">
+                    <a href="{{ route('nfse.settings.edit', ['tab' => 'vault']) }}" class="underline mt-2 inline-block text-sm">
                         {{ trans('nfse::general.go_to_readiness') }}
                     </a>
             </div>

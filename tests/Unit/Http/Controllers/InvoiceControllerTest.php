@@ -36,6 +36,21 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('Invoice::invoice()', $content);
         }
 
+        public function testProjectRootPathUsesIsolationApplicationBasePath(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function resolveProjectRootPath(string $relativePath): string
+                {
+                    return $this->projectRootPath($relativePath);
+                }
+            };
+
+            self::assertSame(
+                ControllerIsolationState::$storageRoot . '/client.crt.pem',
+                $controller->resolveProjectRootPath('client.crt.pem'),
+            );
+        }
+
         protected function setUp(): void
         {
             parent::setUp();
@@ -60,6 +75,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.cnpj_prestador' => '12345678000195',
                 'nfse.municipio_ibge' => '3303302',
                 'nfse.item_lista_servico' => '0107',
+                'nfse.codigo_tributacao_nacional' => '010701',
                 'nfse.aliquota' => '4.50',
                 'nfse.sandbox_mode' => false,
             ];
@@ -70,6 +86,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             }
 
             file_put_contents($certificateDir . '/12345678000195.pfx', 'fake-certificate');
+            file_put_contents(ControllerIsolationState::$storageRoot . '/client.crt.pem', 'fake-transport-certificate');
+            file_put_contents(ControllerIsolationState::$storageRoot . '/client.key.pem', 'fake-transport-private-key');
         }
 
         public function testEmitBuildsDpsPersistsReceiptAndRedirectsToShowPage(): void
@@ -138,11 +156,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('12345678000195', $client->capturedDps?->cnpjPrestador);
             self::assertSame('3303302', $client->capturedDps?->municipioIbge);
             self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('1500.25', $client->capturedDps?->valorServico);
             self::assertSame('4.50', $client->capturedDps?->aliquota);
             self::assertSame('Servico A | Servico B', $client->capturedDps?->discriminacao);
             self::assertSame('99887766000155', $client->capturedDps?->documentoTomador);
             self::assertSame('ACME Ltda', $client->capturedDps?->nomeTomador);
+            self::assertSame(2, $client->capturedDps?->opcaoSimplesNacional);
+            self::assertSame(1, $client->capturedDps?->tipoAmbiente);
             self::assertSame([
                 [
                     'attributes' => ['invoice_id' => 42],
@@ -159,6 +180,170 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('NFS-e emitida NF-2026-0001', $response->flash['success'] ?? null);
+        }
+
+        public function testEmitSetsTipoAmbienteFromSandboxMode(): void
+        {
+            ControllerIsolationState::$settings['nfse.sandbox_mode'] = true;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 99,
+                amount: 100.0,
+                items: [],
+                description: 'Teste sandbox',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-99', 'CHAVE-99', '2026-03-23T10:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public ?bool $capturedSandbox = null;
+
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    $this->capturedSandbox = $sandboxMode;
+
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertTrue($controller->capturedSandbox);
+            self::assertSame(2, $client->capturedDps?->tipoAmbiente);
+        }
+
+        public function testEmitNormalizesFormattedTomadorDocument(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 1042,
+                amount: 10.0,
+                items: [],
+                description: 'Teste tomador formatado',
+                contactName: 'Tomador Formatado',
+                contactTaxNumber: '99.887.766/0001-55',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-1042', 'CHAVE-1042', '2026-03-23T12:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame('99887766000155', $client->capturedDps?->documentoTomador);
+        }
+
+        public function testEmitDropsInvalidTomadorDocument(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 1043,
+                amount: 11.0,
+                items: [],
+                description: 'Teste tomador invalido',
+                contactName: 'Tomador Invalido',
+                contactTaxNumber: 'ABC',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-1043', 'CHAVE-1043', '2026-03-23T12:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame('', $client->capturedDps?->documentoTomador);
         }
 
         public function testEmitFallsBackToInvoiceDescriptionWhenItemsAreEmpty(): void
@@ -704,6 +889,27 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::invoices.pending', $response->name);
             self::assertFalse($response->data['isReady'] ?? true);
             self::assertSame(false, $response->data['checklist']['certificate_secret'] ?? null);
+        }
+
+        public function testPendingIncludesTransportCertificateChecklistFlagWhenPemFilesAreMissing(): void
+        {
+            $controller = new class () extends InvoiceController {
+                protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
+                {
+                    return [];
+                }
+
+                protected function projectRootPath(string $relativePath): string
+                {
+                    return '/nonexistent/' . ltrim($relativePath, '/');
+                }
+            };
+
+            $response = $controller->pending();
+
+            self::assertSame('nfse::invoices.pending', $response->name);
+            self::assertFalse($response->data['isReady'] ?? true);
+            self::assertSame(false, $response->data['checklist']['transport_certificate'] ?? null);
         }
 
         public function testRefreshQueriesReceiptUpdatesStatusAndRedirectsToShowPage(): void

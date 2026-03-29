@@ -30,6 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     'vault'       => ['label' => trans('nfse::general.settings.vault_section_title'), 'enabled' => true],
                     'certificate' => ['label' => trans('nfse::general.step_certificate'),             'enabled' => $vaultReady],
                     'fiscal'      => ['label' => trans('nfse::general.step_settings'),                'enabled' => $hasSavedSettings],
+                    'services'    => ['label' => trans('nfse::general.settings.services.tab_title'), 'enabled' => $hasSavedSettings],
                 ];
             @endphp
 
@@ -210,14 +211,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <div class="p-3 rounded border border-blue-300 bg-blue-50 text-blue-800 text-sm space-y-1">
                                 <p class="font-semibold">{{ trans('nfse::general.saved_state_title') }}</p>
                                 <p>{{ trans('nfse::general.saved_state_cnpj') }} <span class="font-mono">{{ $certificateState['cnpj'] }}</span></p>
-                                <p>{{ trans('nfse::general.saved_state_city') }} {{ setting('nfse.municipio_nome', '-') }} ({{ setting('nfse.uf', '-') }})</p>
-                                <p>{{ trans('nfse::general.saved_state_iss') }} {{ setting('nfse.aliquota', '-') }}%</p>
                                 <p>
                                     {{ trans('nfse::general.saved_state_certificate') }}
                                     @if(($certificateState['has_local_certificate'] ?? false) === true)
                                         {{ trans('nfse::general.saved_state_certificate_present') }}
                                     @else
                                         {{ trans('nfse::general.saved_state_certificate_missing') }}
+                                    @endif
+                                </p>
+                                <p>
+                                    {{ trans('nfse::general.saved_state_vault_password') }}
+                                    @if(($vaultUiState['certificate_secret_available'] ?? false) === true)
+                                        {{ trans('nfse::general.saved_state_vault_password_present') }}
+                                    @else
+                                        {{ trans('nfse::general.saved_state_vault_password_missing') }}
                                     @endif
                                 </p>
                                 <div class="pt-2 flex flex-wrap gap-2">
@@ -338,15 +345,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1" for="item_lista_servico">{{ trans('nfse::general.settings.item_lista') }}</label>
-                            <input id="item_lista_servico_display" name="nfse[item_lista_servico_display]" type="text" list="lc116_services" class="w-full border rounded px-3 py-2" value="" placeholder="{{ trans('nfse::general.settings.item_lista_hint') }}" autocomplete="off" required>
+                            <label class="block text-sm font-medium mb-1" for="item_lista_servico_display">{{ trans('nfse::general.settings.item_lista') }}</label>
+                            <input id="item_lista_servico_display" name="nfse[item_lista_servico_display]" type="text" list="lc116_services" class="w-full border rounded px-3 py-2" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}">
+                            <input id="item_lista_servico" name="nfse[item_lista_servico]" type="hidden" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}">
                             <datalist id="lc116_services"></datalist>
-                            <input id="item_lista_servico" name="nfse[item_lista_servico]" type="hidden" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}" required>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium mb-1" for="aliquota">{{ trans('nfse::general.settings.aliquota') }}</label>
-                            <input id="aliquota" name="nfse[aliquota]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.aliquota', setting('nfse.aliquota', '5.00')) }}">
                         </div>
 
                         <label class="inline-flex items-center gap-2">
@@ -360,6 +362,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </button>
                         </div>
                     </form>
+                @endif
+            </div>
+
+            {{-- ── Panel 4: Services ─────────────────────────────────────── --}}
+            <div id="tab-panel-services" class="tab-panel @if($activeTab !== 'services') hidden @endif">
+
+                @if(!$hasSavedSettings)
+                    <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
+                        {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
+                    </div>
+                @else
+                    @include('nfse::settings.partials.services')
                 @endif
             </div>
 
@@ -522,6 +536,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const lc116DisplayInput  = document.getElementById('item_lista_servico_display');
                 const lc116CodeInput     = document.getElementById('item_lista_servico');
                 const lc116Datalist      = document.getElementById('lc116_services');
+                const hasLc116Autocomplete = Boolean(lc116DisplayInput && lc116CodeInput && lc116Datalist);
 
                 if (!ufSelect) {
                     return; // fiscal tab not rendered (no saved settings)
@@ -547,6 +562,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 };
 
                 const renderLc116Options = (services) => {
+                    if (!hasLc116Autocomplete) {
+                        return;
+                    }
+
                     lc116Datalist.innerHTML = '';
                     services.forEach((service) => {
                         const option  = document.createElement('option');
@@ -611,17 +630,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 });
 
                 lc116DisplayInput?.addEventListener('input', () => {
+                    if (!lc116CodeInput) {
+                        return;
+                    }
+
                     lc116CodeInput.value = lc116ByLabel.get(lc116DisplayInput.value) ?? '';
                 });
 
-                const [ufs, lc116Services] = await Promise.all([fetchJson(ufsUrl), fetchJson(lc116ServicesUrl)]);
+                const ufs = await fetchJson(ufsUrl);
 
-                renderLc116Options(lc116Services);
+                if (hasLc116Autocomplete) {
+                    const lc116Services = await fetchJson(lc116ServicesUrl);
+                    renderLc116Options(lc116Services);
 
-                const initialLc116Label = lc116ByCode.get(selectedLc116Code);
-                if (initialLc116Label) {
-                    lc116DisplayInput.value = initialLc116Label;
-                    lc116CodeInput.value    = selectedLc116Code;
+                    const initialLc116Label = lc116ByCode.get(selectedLc116Code);
+                    if (initialLc116Label && lc116DisplayInput && lc116CodeInput) {
+                        lc116DisplayInput.value = initialLc116Label;
+                        lc116CodeInput.value    = selectedLc116Code;
+                    }
                 }
 
                 ufSelect.innerHTML = '';

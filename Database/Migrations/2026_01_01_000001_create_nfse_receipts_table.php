@@ -25,7 +25,7 @@ return new class extends Migration
 
             $table->foreign('invoice_id')
                 ->references('id')
-                ->on('invoices')
+                ->on('documents')
                 ->onDelete('cascade');
         });
     }

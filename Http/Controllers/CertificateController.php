@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\ValidationException;
 use Modules\Nfse\Support\PfxParser;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
@@ -39,13 +40,23 @@ class CertificateController extends Controller
 
     public function upload(Request $request): RedirectResponse
     {
-        $request->validate([
-            'pfx_file'    => 'required|file|extensions:pfx,p12|max:1024',
-            'pfx_password' => 'required|string|max:255',
-        ]);
+        try {
+            $request->validate([
+                'pfx_file'    => 'required|file|extensions:pfx,p12|max:1024',
+                'pfx_password' => 'required|string|max:255',
+            ]);
+        } catch (ValidationException) {
+            return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])
+                ->with('error', trans('nfse::general.invalid_pfx'));
+        }
 
         $file     = $request->file('pfx_file');
         $password = $request->input('pfx_password');
+
+        if (!$file instanceof UploadedFile || !is_string($password) || trim($password) === '') {
+            return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])
+                ->with('error', trans('nfse::general.invalid_pfx'));
+        }
 
         try {
             $pfxContent = $this->readUploadedFile($file);
@@ -53,10 +64,12 @@ class CertificateController extends Controller
             $cnpj = $data['cnpj'] ?? null;
 
             if (!$cnpj) {
-                return back()->with('error', trans('nfse::general.cnpj_not_found'));
+                return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])
+                    ->with('error', trans('nfse::general.cnpj_not_found'));
             }
         } catch (\RuntimeException) {
-            return back()->with('error', trans('nfse::general.invalid_pfx'));
+            return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])
+                ->with('error', trans('nfse::general.invalid_pfx'));
         }
 
         try {
@@ -64,7 +77,8 @@ class CertificateController extends Controller
             setting(['nfse.cnpj_prestador' => $cnpj]);
             setting()->save();
         } catch (\Throwable) {
-            return back()->with('error', trans('nfse::general.certificate_store_failed'));
+            return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])
+                ->with('error', trans('nfse::general.certificate_store_failed'));
         }
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])

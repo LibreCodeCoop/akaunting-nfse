@@ -10,6 +10,17 @@ namespace {
         eval('namespace App\\Abstracts\\Http; abstract class Controller {}');
     }
 
+    if (!class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationFakeApplication::class, false)) {
+        eval('namespace Modules\\Nfse\\Http\\Controllers; final class ControllerIsolationFakeApplication { public function basePath(string $path = ""): string { return rtrim(ControllerIsolationState::$storageRoot, "/") . ($path !== "" ? "/" . ltrim($path, "/") : ""); } }');
+    }
+
+    if (!function_exists('app')) {
+        function app(): \Modules\Nfse\Http\Controllers\ControllerIsolationFakeApplication
+        {
+            return new \Modules\Nfse\Http\Controllers\ControllerIsolationFakeApplication();
+        }
+    }
+
     if (!class_exists(\Illuminate\Http\Request::class, false)) {
         eval('namespace Illuminate\\Http; class Request { public function __construct(private array $inputs = [], private array $files = []) {} public function validate(array $rules): void {} public function input(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } public function file(string $key): mixed { return $this->files[$key] ?? null; } public function query(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } }');
     }

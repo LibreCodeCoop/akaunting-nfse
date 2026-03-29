@@ -129,6 +129,29 @@ Feature: NFS-e endpoints contract
     Then the response status should be 302
     And the response should redirect to "/<company_id>/nfse/settings"
 
+  Scenario: Pending invoices page renders even when readiness is incomplete
+    When I send "PATCH" request to "/<company_id>/nfse/settings" with form data:
+      | nfse[cnpj_prestador] | 12345678901234      |
+      | nfse[uf] | SP                             |
+      | nfse[municipio_nome] | Sao Paulo         |
+      | nfse[municipio_ibge] | 3550308             |
+      | nfse[item_lista_servico] | 0107            |
+      | nfse[aliquota] | 5.00                     |
+      | nfse[sandbox_mode] | 1                     |
+      | nfse[bao_addr] | https://vault.local.test |
+      | nfse[bao_mount] | nfse                    |
+      | nfse[bao_token] |                         |
+      | nfse[bao_role_id] | role-ci               |
+      | nfse[bao_secret_id] |                     |
+      | nfse[clear_bao_token] | 1                 |
+      | nfse[clear_bao_secret_id] | 1             |
+    Then the response status should be 302
+    And the response should redirect to "/<company_id>/nfse/settings"
+
+    When I send "GET" request to "/<company_id>/nfse/invoices/pending"
+    Then the response status should be 200
+    And the response body should contain "nfse/settings?tab=vault"
+
   Scenario: Invoice endpoints are reachable and non-existing invoice IDs fail with 404
     When I send "GET" request to "/<company_id>/nfse/invoices"
     Then the response status should be 200
