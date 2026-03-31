@@ -30,8 +30,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     'vault'       => ['label' => trans('nfse::general.settings.vault_section_title'), 'enabled' => true],
                     'certificate' => ['label' => trans('nfse::general.step_certificate'),             'enabled' => $vaultReady],
                     'fiscal'      => ['label' => trans('nfse::general.step_settings'),                'enabled' => $hasSavedSettings],
+                    'federal'     => ['label' => trans('nfse::general.settings.federal.tab_title'),  'enabled' => $hasSavedSettings],
                     'services'    => ['label' => trans('nfse::general.settings.services.tab_title'), 'enabled' => $hasSavedSettings],
                 ];
+
+                $selectedFederalMode = old('nfse.tributacao_federal_mode', setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
+                if (! in_array($selectedFederalMode, ['per_invoice_amounts', 'percentage_profile'], true)) {
+                    $selectedFederalMode = 'per_invoice_amounts';
+                }
+                $simplesStatus = (string) old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 2)) === '1'
+                    ? trans('nfse::general.settings.opcao_simples_nacional_not_optant')
+                    : trans('nfse::general.settings.opcao_simples_nacional_optant');
             @endphp
 
             {{-- ── Tab navigation ──────────────────────────────────────── --}}
@@ -345,10 +354,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium mb-1" for="item_lista_servico_display">{{ trans('nfse::general.settings.item_lista') }}</label>
-                            <input id="item_lista_servico_display" name="nfse[item_lista_servico_display]" type="text" list="lc116_services" class="w-full border rounded px-3 py-2" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}">
-                            <input id="item_lista_servico" name="nfse[item_lista_servico]" type="hidden" value="{{ old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')) }}">
-                            <datalist id="lc116_services"></datalist>
+                            <label class="block text-sm font-medium mb-1" for="opcao_simples_nacional">{{ trans('nfse::general.settings.opcao_simples_nacional') }}</label>
+                            <select id="opcao_simples_nacional" name="nfse[opcao_simples_nacional]" class="w-full border rounded px-3 py-2">
+                                <option value="1" @selected((string) old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 2)) === '1')>{{ trans('nfse::general.settings.opcao_simples_nacional_not_optant') }}</option>
+                                <option value="2" @selected((string) old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 2)) === '2')>{{ trans('nfse::general.settings.opcao_simples_nacional_optant') }}</option>
+                            </select>
                         </div>
 
                         <label class="inline-flex items-center gap-2">
@@ -365,7 +375,187 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 @endif
             </div>
 
-            {{-- ── Panel 4: Services ─────────────────────────────────────── --}}
+            {{-- ── Panel 4: Federal taxation ─────────────────────────────── --}}
+            <div id="tab-panel-federal" class="tab-panel @if($activeTab !== 'federal') hidden @endif">
+
+                @if(!$hasSavedSettings)
+                    <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
+                        {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
+                    </div>
+                @else
+                    <form method="POST" action="{{ route('nfse.settings.federal') }}" class="space-y-4">
+                        @csrf
+                        @method('PATCH')
+
+                        <h3 class="text-base font-semibold text-gray-900">{{ trans('nfse::general.settings.federal.heading') }}</h3>
+
+                        <p class="text-sm text-gray-600">{{ trans('nfse::general.settings.federal.helper') }}</p>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="federal_opcao_simples_status">{{ trans('nfse::general.settings.federal.current_simples_status') }}</label>
+                            <input id="federal_opcao_simples_status" type="text" class="w-full border rounded px-3 py-2 bg-gray-50" value="{{ $simplesStatus }}" readonly>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="federal-piscofins-situacao">{{ trans('nfse::general.settings.federal.piscofins_situacao_tributaria') }}</label>
+                                <select id="federal-piscofins-situacao" name="nfse[federal_piscofins_situacao_tributaria]" class="w-full border rounded px-3 py-2">
+                                    <option value="">{{ trans('nfse::general.settings.federal.select_placeholder') }}</option>
+                                    <option value="0" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '0')>00 - Nenhum</option>
+                                    <option value="1" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '1')>01 - Operacao Tributavel com Aliquota Basica</option>
+                                    <option value="2" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '2')>02 - Operacao Tributavel com Aliquota Diferenciada</option>
+                                    <option value="3" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '3')>03 - Operacao Tributavel com Aliquota por Unidade de Medida de Produto</option>
+                                    <option value="4" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '4')>04 - Operacao Tributavel monofasica - Revenda a Aliquota Zero</option>
+                                    <option value="5" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '5')>05 - Operacao Tributavel por Substituicao Tributaria</option>
+                                    <option value="6" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '6')>06 - Operacao Tributavel a Aliquota Zero</option>
+                                    <option value="7" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '7')>07 - Operacao Isenta da Contribuicao</option>
+                                    <option value="8" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '8')>08 - Operacao sem Incidencia da Contribuicao</option>
+                                    <option value="9" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '9')>09 - Operacao com Suspensao da Contribuicao</option>
+                                    <option value="49" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '49')>49 - Outras Operacoes de Saida</option>
+                                    <option value="50" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '50')>50 - Operacao com Direito a Credito</option>
+                                    <option value="51" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '51')>51 - Operacao com Direito a Credito nao tributada</option>
+                                    <option value="52" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '52')>52 - Operacao com Direito a Credito para exportacao</option>
+                                    <option value="53" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '53')>53 - Credito para receitas tributadas e nao tributadas</option>
+                                    <option value="54" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '54')>54 - Credito para receitas internas e exportacao</option>
+                                    <option value="55" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '55')>55 - Credito para receitas nao tributadas e exportacao</option>
+                                    <option value="56" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '56')>56 - Credito para receitas mistas</option>
+                                    <option value="60" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '60')>60 - Credito Presumido</option>
+                                    <option value="61" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '61')>61 - Credito Presumido nao tributada</option>
+                                    <option value="62" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '62')>62 - Credito Presumido exportacao</option>
+                                    <option value="63" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '63')>63 - Credito Presumido receitas mistas internas</option>
+                                    <option value="64" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '64')>64 - Credito Presumido interno e exportacao</option>
+                                    <option value="65" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '65')>65 - Credito Presumido nao tributada e exportacao</option>
+                                    <option value="66" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '66')>66 - Credito Presumido receitas mistas</option>
+                                    <option value="67" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '67')>67 - Credito Presumido outras operacoes</option>
+                                    <option value="70" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '70')>70 - Operacao de Aquisicao sem Direito a Credito</option>
+                                    <option value="71" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '71')>71 - Operacao de Aquisicao com Isencao</option>
+                                    <option value="72" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '72')>72 - Operacao de Aquisicao com Suspensao</option>
+                                    <option value="73" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '73')>73 - Operacao de Aquisicao a Aliquota Zero</option>
+                                    <option value="74" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '74')>74 - Operacao de Aquisicao sem Incidencia</option>
+                                    <option value="75" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '75')>75 - Operacao de Aquisicao por Substituicao Tributaria</option>
+                                    <option value="98" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '98')>98 - Outras Operacoes de Entrada</option>
+                                    <option value="99" @selected((string) old('nfse.federal_piscofins_situacao_tributaria', setting('nfse.federal_piscofins_situacao_tributaria', '')) === '99')>99 - Outras Operacoes</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="federal-piscofins-tipo-retencao">{{ trans('nfse::general.settings.federal.piscofins_tipo_retencao') }}</label>
+                                <select id="federal-piscofins-tipo-retencao" name="nfse[federal_piscofins_tipo_retencao]" class="w-full border rounded px-3 py-2">
+                                    <option value="">{{ trans('nfse::general.settings.federal.select_placeholder') }}</option>
+                                    <option value="0" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '0')>PIS/COFINS/CSLL Nao Retidos</option>
+                                    <option value="3" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '3')>PIS/COFINS/CSLL Retidos</option>
+                                    <option value="4" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '4')>PIS/COFINS Retidos, CSLL Nao Retido</option>
+                                    <option value="5" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '5')>PIS Retido, COFINS/CSLL Nao Retido</option>
+                                    <option value="6" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '6')>COFINS Retido, PIS/CSLL Nao Retido</option>
+                                    <option value="7" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '7')>PIS Nao Retido, COFINS/CSLL Retidos</option>
+                                    <option value="8" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '8')>PIS/COFINS Nao Retidos, CSLL Retido</option>
+                                    <option value="9" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '9')>COFINS Nao Retido, PIS/CSLL Retidos</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="federal-piscofins-panel" class="rounded-md border border-gray-200 p-3 space-y-4 hidden">
+                            <div id="federal-piscofins-bc-row">
+                                <label class="block text-sm font-medium mb-1" for="federal_piscofins_base_calculo">{{ trans('nfse::general.settings.federal.piscofins_base_calculo') }}</label>
+                                <input id="federal_piscofins_base_calculo" name="nfse[federal_piscofins_base_calculo]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_base_calculo', setting('nfse.federal_piscofins_base_calculo', '')) }}" placeholder="0.00">
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="federal_piscofins_aliquota_pis">{{ trans('nfse::general.settings.federal.piscofins_aliquota_pis') }}</label>
+                                    <input id="federal_piscofins_aliquota_pis" name="nfse[federal_piscofins_aliquota_pis]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_aliquota_pis', setting('nfse.federal_piscofins_aliquota_pis', '')) }}" placeholder="0.00">
+                                </div>
+                                <div id="federal-piscofins-pis-valor-col">
+                                    <label class="block text-sm font-medium mb-1" for="federal_piscofins_valor_pis">{{ trans('nfse::general.settings.federal.piscofins_valor_pis') }}</label>
+                                    <input id="federal_piscofins_valor_pis" name="nfse[federal_piscofins_valor_pis]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_valor_pis', setting('nfse.federal_piscofins_valor_pis', '')) }}" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="federal_piscofins_aliquota_cofins">{{ trans('nfse::general.settings.federal.piscofins_aliquota_cofins') }}</label>
+                                    <input id="federal_piscofins_aliquota_cofins" name="nfse[federal_piscofins_aliquota_cofins]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_aliquota_cofins', setting('nfse.federal_piscofins_aliquota_cofins', '')) }}" placeholder="0.00">
+                                </div>
+                                <div id="federal-piscofins-cofins-valor-col">
+                                    <label class="block text-sm font-medium mb-1" for="federal_piscofins_valor_cofins">{{ trans('nfse::general.settings.federal.piscofins_valor_cofins') }}</label>
+                                    <input id="federal_piscofins_valor_cofins" name="nfse[federal_piscofins_valor_cofins]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_valor_cofins', setting('nfse.federal_piscofins_valor_cofins', '')) }}" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="federal_valor_irrf">{{ trans('nfse::general.settings.federal.valor_irrf') }}</label>
+                                <input id="federal_valor_irrf" name="nfse[federal_valor_irrf]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2" value="{{ old('nfse.federal_valor_irrf', setting('nfse.federal_valor_irrf', '')) }}" placeholder="0.00">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="federal_valor_csll">{{ trans('nfse::general.settings.federal.valor_csll') }}</label>
+                                <input id="federal_valor_csll" name="nfse[federal_valor_csll]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2" value="{{ old('nfse.federal_valor_csll', setting('nfse.federal_valor_csll', '')) }}" placeholder="0.00">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="federal_valor_cp">{{ trans('nfse::general.settings.federal.valor_cp') }}</label>
+                                <input id="federal_valor_cp" name="nfse[federal_valor_cp]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2" value="{{ old('nfse.federal_valor_cp', setting('nfse.federal_valor_cp', '')) }}" placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <fieldset class="rounded-md border border-gray-200 p-3 space-y-2">
+                            <legend class="px-1 text-sm font-semibold">{{ trans('nfse::general.settings.federal.behavior_label') }}</legend>
+                            <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.federal.behavior_hint') }}</p>
+
+                            <div class="space-y-2 pt-1">
+                                <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
+                                    <input type="radio" name="nfse[tributacao_federal_mode]" value="per_invoice_amounts" @checked($selectedFederalMode === 'per_invoice_amounts')>
+                                    {{ trans('nfse::general.settings.federal.mode_per_invoice_amounts') }}
+                                </label>
+                                <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
+                                    <input type="radio" name="nfse[tributacao_federal_mode]" value="percentage_profile" @checked($selectedFederalMode === 'percentage_profile')>
+                                    {{ trans('nfse::general.settings.federal.mode_percentage_profile') }}
+                                </label>
+                            </div>
+                        </fieldset>
+
+                        <div id="federal-tributos-percent-rows" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="tributos_fed_p">{{ trans('nfse::general.settings.federal.tributos_fed_p') }}</label>
+                                    <input id="tributos_fed_p" name="nfse[tributos_fed_p]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2" value="{{ old('nfse.tributos_fed_p', setting('nfse.tributos_fed_p', '')) }}" placeholder="0.00">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="tributos_est_p">{{ trans('nfse::general.settings.federal.tributos_est_p') }}</label>
+                                    <input id="tributos_est_p" name="nfse[tributos_est_p]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2" value="{{ old('nfse.tributos_est_p', setting('nfse.tributos_est_p', '')) }}" placeholder="0.00">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="tributos_mun_p">{{ trans('nfse::general.settings.federal.tributos_mun_p') }}</label>
+                                    <input id="tributos_mun_p" name="nfse[tributos_mun_p]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2" value="{{ old('nfse.tributos_mun_p', setting('nfse.tributos_mun_p', '')) }}" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="tributos_fed_sn">{{ trans('nfse::general.settings.federal.tributos_fed_sn') }}</label>
+                                    <input id="tributos_fed_sn" name="nfse[tributos_fed_sn]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2" value="{{ old('nfse.tributos_fed_sn', setting('nfse.tributos_fed_sn', '')) }}" placeholder="0.00">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="tributos_est_sn">{{ trans('nfse::general.settings.federal.tributos_est_sn') }}</label>
+                                    <input id="tributos_est_sn" name="nfse[tributos_est_sn]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2" value="{{ old('nfse.tributos_est_sn', setting('nfse.tributos_est_sn', '')) }}" placeholder="0.00">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="tributos_mun_sn">{{ trans('nfse::general.settings.federal.tributos_mun_sn') }}</label>
+                                    <input id="tributos_mun_sn" name="nfse[tributos_mun_sn]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2" value="{{ old('nfse.tributos_mun_sn', setting('nfse.tributos_mun_sn', '')) }}" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-2">
+                            <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                                {{ trans('general.save') }}
+                            </button>
+                        </div>
+                    </form>
+                @endif
+            </div>
+
+            {{-- ── Panel 5: Services ─────────────────────────────────────── --}}
             <div id="tab-panel-services" class="tab-panel @if($activeTab !== 'services') hidden @endif">
 
                 @if(!$hasSavedSettings)
@@ -528,16 +718,120 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
                 });
 
+                // ── Federal tab: official-like PIS/COFINS interactions ────
+                const federalSituacao = document.getElementById('federal-piscofins-situacao');
+                const federalTipoRetencao = document.getElementById('federal-piscofins-tipo-retencao');
+                const federalPanel = document.getElementById('federal-piscofins-panel');
+                const federalCsll = document.getElementById('federal_valor_csll');
+                const federalFields = Array.from(document.querySelectorAll('.federal-piscofins-field'));
+
+                const blockPiscofinsFields = (blockAndZero) => {
+                    federalFields.forEach((field) => {
+                        if (!(field instanceof HTMLInputElement)) {
+                            return;
+                        }
+
+                        if (blockAndZero) {
+                            field.value = '0.00';
+                            field.readOnly = true;
+                            field.classList.add('bg-gray-50');
+                        } else {
+                            if (field.value === '0.00') {
+                                field.value = '';
+                            }
+                            field.readOnly = false;
+                            field.classList.remove('bg-gray-50');
+                        }
+                    });
+                };
+
+                const syncFederalPanel = () => {
+                    if (!(federalSituacao instanceof HTMLSelectElement)) {
+                        return;
+                    }
+
+                    const situacao = federalSituacao.value;
+                    const showPiscofins = situacao !== '' && situacao !== '0';
+
+                    if (federalPanel) {
+                        federalPanel.classList.toggle('hidden', !showPiscofins);
+                    }
+
+                    if (!showPiscofins) {
+                        if (federalTipoRetencao instanceof HTMLSelectElement) {
+                            federalTipoRetencao.value = '';
+                        }
+
+                        federalFields.forEach((field) => {
+                            if (field instanceof HTMLInputElement) {
+                                field.value = '';
+                                field.readOnly = false;
+                                field.classList.remove('bg-gray-50');
+                            }
+                        });
+                    }
+
+                    blockPiscofinsFields(situacao === '4' || situacao === '6');
+                };
+
+                const syncFederalRetencao = () => {
+                    if (!(federalTipoRetencao instanceof HTMLSelectElement) || !(federalCsll instanceof HTMLInputElement)) {
+                        return;
+                    }
+
+                    const hasCsllRetention = federalTipoRetencao.value !== '' && federalTipoRetencao.value !== '0';
+
+                    federalCsll.readOnly = !hasCsllRetention;
+                    federalCsll.classList.toggle('bg-gray-50', !hasCsllRetention);
+
+                    if (!hasCsllRetention) {
+                        federalCsll.value = '';
+                    }
+                };
+
+                federalSituacao?.addEventListener('change', () => {
+                    syncFederalPanel();
+                    syncFederalRetencao();
+                });
+
+                federalTipoRetencao?.addEventListener('change', () => {
+                    syncFederalRetencao();
+                });
+
+                syncFederalPanel();
+                syncFederalRetencao();
+
+                // ── Federal mode toggle: per_invoice_amounts ↔ percentage_profile ──
+                const federalModeRadios = document.querySelectorAll('input[name="nfse[tributacao_federal_mode]"]');
+                const federalBcRow = document.getElementById('federal-piscofins-bc-row');
+                const federalPisValorCol = document.getElementById('federal-piscofins-pis-valor-col');
+                const federalCofinsValorCol = document.getElementById('federal-piscofins-cofins-valor-col');
+                const tributosPercentRows = document.getElementById('federal-tributos-percent-rows');
+
+                const syncFederalMode = () => {
+                    const mode = document.querySelector('input[name="nfse[tributacao_federal_mode]"]:checked')?.value ?? 'per_invoice_amounts';
+                    const isPercentage = mode === 'percentage_profile';
+
+                    // In percentage_profile mode: BC and valor fields are auto-calculated at emission time
+                    federalBcRow?.classList.toggle('hidden', isPercentage);
+                    federalPisValorCol?.classList.toggle('hidden', isPercentage);
+                    federalCofinsValorCol?.classList.toggle('hidden', isPercentage);
+
+                    // Percentage profile rows only relevant in percentage_profile mode
+                    tributosPercentRows?.classList.toggle('hidden', !isPercentage);
+                };
+
+                federalModeRadios.forEach((radio) => {
+                    radio.addEventListener('change', syncFederalMode);
+                });
+
+                syncFederalMode();
+
                 // ── Fiscal tab: UF / municipality / LC116 ───────────────────
                 const ufSelect           = document.getElementById('uf');
                 const municipalitySelect = document.getElementById('municipio_nome');
                 const ibgeHidden         = document.getElementById('municipio_ibge');
                 const ibgeDisplay        = document.getElementById('municipio_ibge_display');
-                const lc116DisplayInput  = document.getElementById('item_lista_servico_display');
-                const lc116CodeInput     = document.getElementById('item_lista_servico');
-                const lc116Datalist      = document.getElementById('lc116_services');
-                const hasLc116Autocomplete = Boolean(lc116DisplayInput && lc116CodeInput && lc116Datalist);
-
                 if (!ufSelect) {
                     return; // fiscal tab not rendered (no saved settings)
                 }
@@ -545,35 +839,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const selectedUf              = @json(old('nfse.uf', setting('nfse.uf', '')));
                 const selectedMunicipalityName = @json(old('nfse.municipio_nome', setting('nfse.municipio_nome', '')));
                 const selectedIbge            = @json(old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')));
-                const selectedLc116Code       = @json(old('nfse.item_lista_servico', setting('nfse.item_lista_servico', '0107')));
 
                 const ufsUrl                   = @json(route('nfse.ibge.ufs'));
                 const municipalitiesUrlTemplate = @json(route('nfse.ibge.municipalities', ['uf' => '__UF__']));
-                const lc116ServicesUrl         = @json(route('nfse.lc116.services'));
-
-                const lc116ByLabel = new Map();
-                const lc116ByCode  = new Map();
 
                 const fetchJson = async (url) => {
                     const response = await fetch(url, { headers: { Accept: 'application/json' } });
                     const payload  = await response.json().catch(() => ({ data: [] }));
                     if (!response.ok) return [];
                     return Array.isArray(payload.data) ? payload.data : [];
-                };
-
-                const renderLc116Options = (services) => {
-                    if (!hasLc116Autocomplete) {
-                        return;
-                    }
-
-                    lc116Datalist.innerHTML = '';
-                    services.forEach((service) => {
-                        const option  = document.createElement('option');
-                        option.value  = service.label;
-                        lc116Datalist.appendChild(option);
-                        lc116ByLabel.set(service.label, service.code);
-                        lc116ByCode.set(service.code, service.label);
-                    });
                 };
 
                 const renderMunicipalities = (municipalities, selectedName, selectedCode) => {
@@ -629,26 +903,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     ibgeDisplay.value    = ibgeCode;
                 });
 
-                lc116DisplayInput?.addEventListener('input', () => {
-                    if (!lc116CodeInput) {
-                        return;
-                    }
-
-                    lc116CodeInput.value = lc116ByLabel.get(lc116DisplayInput.value) ?? '';
-                });
-
                 const ufs = await fetchJson(ufsUrl);
-
-                if (hasLc116Autocomplete) {
-                    const lc116Services = await fetchJson(lc116ServicesUrl);
-                    renderLc116Options(lc116Services);
-
-                    const initialLc116Label = lc116ByCode.get(selectedLc116Code);
-                    if (initialLc116Label && lc116DisplayInput && lc116CodeInput) {
-                        lc116DisplayInput.value = initialLc116Label;
-                        lc116CodeInput.value    = selectedLc116Code;
-                    }
-                }
 
                 ufSelect.innerHTML = '';
                 const ufPlaceholder       = document.createElement('option');

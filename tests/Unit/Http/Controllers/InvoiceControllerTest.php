@@ -10,7 +10,7 @@ namespace {
 }
 
 namespace Modules\Nfse\Tests\Unit\Http\Controllers {
-    use App\Models\Sale\Invoice;
+    use App\Models\Document\Document as Invoice;
     use Illuminate\Http\Request;
     use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
     use LibreCodeCoop\NfsePHP\Dto\DpsData;
@@ -34,6 +34,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertStringContainsString('use App\\Models\\Document\\Document as Invoice;', $content);
             self::assertStringContainsString('Invoice::invoice()', $content);
+        }
+
+        public function testCompanyServiceSelectionSupportRecognizesEloquentModelWithoutMethodExistsWhereCheck(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString('is_subclass_of(CompanyService::class', $content);
+            self::assertStringNotContainsString("method_exists(CompanyService::class, 'where')", $content);
         }
 
         public function testProjectRootPathUsesIsolationApplicationBasePath(): void
@@ -69,7 +77,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.nfse_pfx_import_failed'   => 'Nao foi possivel importar o certificado PFX.',
                 'nfse::general.cancel_motivo_default' => 'Cancelamento padrao',
                 'nfse::general.service_default' => 'Servico padrao',
-                'nfse::general.invoices.emit_blocked_not_ready' => 'Ambiente nao esta pronto para emissao.',
+                'nfse::general.invoices.emit_blocked_not_ready' => 'Existem configuracoes pendentes para liberar a emissao.',
             ];
             ControllerIsolationState::$settings = [
                 'nfse.cnpj_prestador' => '12345678000195',
@@ -77,6 +85,17 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.item_lista_servico' => '0107',
                 'nfse.codigo_tributacao_nacional' => '010701',
                 'nfse.aliquota' => '4.50',
+                'nfse.federal_piscofins_situacao_tributaria' => '1',
+                'nfse.federal_piscofins_tipo_retencao' => '3',
+                'nfse.federal_piscofins_base_calculo' => '1500.25',
+                'nfse.federal_piscofins_aliquota_pis' => '1.65',
+                'nfse.federal_piscofins_valor_pis' => '24.75',
+                'nfse.federal_piscofins_aliquota_cofins' => '7.60',
+                'nfse.federal_piscofins_valor_cofins' => '114.02',
+                'nfse.federal_valor_irrf' => '15.00',
+                'nfse.federal_valor_csll' => '10.00',
+                'nfse.federal_valor_cp' => '5.00',
+                'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
                 'nfse.sandbox_mode' => false,
             ];
 
@@ -103,6 +122,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 contactName: 'ACME Ltda',
                 contactTaxNumber: '99887766000155',
             );
+            $invoice->issued_at = '2026-02-04 08:37:53';
 
             $client = new class () implements NfseClientInterface {
                 public ?DpsData $capturedDps = null;
@@ -164,6 +184,20 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('ACME Ltda', $client->capturedDps?->nomeTomador);
             self::assertSame(2, $client->capturedDps?->opcaoSimplesNacional);
             self::assertSame(1, $client->capturedDps?->tipoAmbiente);
+            self::assertSame('1', $client->capturedDps?->federalPiscofinsSituacaoTributaria);
+            self::assertSame('3', $client->capturedDps?->federalPiscofinsTipoRetencao);
+            self::assertSame('1500.25', $client->capturedDps?->federalPiscofinsBaseCalculo);
+            self::assertSame('1.65', $client->capturedDps?->federalPiscofinsAliquotaPis);
+            self::assertSame('24.75', $client->capturedDps?->federalPiscofinsValorPis);
+            self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
+            self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
+            self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
+            self::assertSame('10.00', $client->capturedDps?->federalValorCsll);
+            self::assertSame('5.00', $client->capturedDps?->federalValorCp);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('00001', $client->capturedDps?->serie);
+            self::assertSame('42', $client->capturedDps?->numeroDps);
+            self::assertSame('2026-02-04', $client->capturedDps?->dataCompetencia);
             self::assertSame([
                 [
                     'attributes' => ['invoice_id' => 42],
@@ -180,6 +214,284 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('NFS-e emitida NF-2026-0001', $response->flash['success'] ?? null);
+        }
+
+        public function testEmitCalculatesValoresFromAliquotasInPercentageProfileMode(): void
+        {
+            ControllerIsolationState::$settings['nfse.tributacao_federal_mode'] = 'percentage_profile';
+            // Override stored absolute valores with distinct values to prove they are NOT used
+            ControllerIsolationState::$settings['nfse.federal_piscofins_base_calculo'] = '999.00';
+            ControllerIsolationState::$settings['nfse.federal_piscofins_valor_pis'] = '999.00';
+            ControllerIsolationState::$settings['nfse.federal_piscofins_valor_cofins'] = '999.00';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 43,
+                amount: 1500.25,
+                items: [['name' => 'Servico C']],
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->issued_at = '2026-02-04 08:37:53';
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-43', 'CHAVE-43', '2026-03-21T10:30:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            // Base = invoice amount, not stored setting '999.00'
+            self::assertSame('1500.25', $client->capturedDps?->federalPiscofinsBaseCalculo);
+            // PIS valor = 1500.25 × 1.65 / 100 = 24.75 (not stored '999.00')
+            self::assertSame('24.75', $client->capturedDps?->federalPiscofinsValorPis);
+            // COFINS valor = 1500.25 × 7.60 / 100 = 114.02 (not stored '999.00')
+            self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
+            // Aliquotas are still from settings
+            self::assertSame('1.65', $client->capturedDps?->federalPiscofinsAliquotaPis);
+            self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
+            // Retention amounts still from settings (not percentage-calculated)
+            self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
+            self::assertSame('10.00', $client->capturedDps?->federalValorCsll);
+            self::assertSame('5.00', $client->capturedDps?->federalValorCp);
+            // No tributos_* percent configured → indicadorTributacao = 0
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+        }
+
+        public function testEmitSetsIndicadorTributacaoTwoWhenTributosPercentConfigured(): void
+        {
+            ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '10.50';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 44,
+                amount: 500.00,
+                items: [['name' => 'Servico D']],
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->issued_at = '2026-02-04 08:37:53';
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-44', 'CHAVE-44', '2026-03-21T10:30:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
+        }
+
+        public function testEmitPrefersDefaultCompanyServiceOverLegacyFiscalSettings(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 52,
+                amount: 875.4,
+                items: [],
+                description: 'Servico do cadastro padrao',
+                contactName: 'Cliente Padrao',
+                contactTaxNumber: '11222333000144',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-52', 'CHAVE-52', '2026-03-23T15:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return (object) [
+                        'item_lista_servico' => '1401',
+                        'codigo_tributacao_nacional' => '140101',
+                        'aliquota' => '6.75',
+                        'description' => 'Consultoria padrao',
+                        'is_default' => true,
+                        'is_active' => true,
+                    ];
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame('1401', $client->capturedDps?->itemListaServico);
+            self::assertSame('140101', $client->capturedDps?->codigoTributacaoNacional);
+            self::assertSame('6.75', $client->capturedDps?->aliquota);
+        }
+
+        public function testNationalTaxCodeFallsBackToSettingWhenDefaultServiceCodeIsMissing(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function exposedNationalTaxCode(?object $defaultService = null): string
+                {
+                    return $this->nationalTaxCode($defaultService);
+                }
+
+                protected function supportsCompanyServiceSelection(): bool
+                {
+                    return true;
+                }
+            };
+
+            $defaultService = (object) [
+                'item_lista_servico' => '1401',
+                'codigo_tributacao_nacional' => null,
+                'aliquota' => '5.00',
+            ];
+
+            self::assertSame('010701', $controller->exposedNationalTaxCode($defaultService));
+        }
+
+        public function testItemListaServicoPreservesThreeDigitMunicipalCode(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function exposedItemListaServico(?object $defaultService = null): string
+                {
+                    return $this->itemListaServico($defaultService);
+                }
+
+                protected function supportsCompanyServiceSelection(): bool
+                {
+                    return true;
+                }
+            };
+
+            $defaultService = (object) [
+                'item_lista_servico' => '001',
+                'codigo_tributacao_nacional' => '010101',
+                'aliquota' => '2.00',
+            ];
+
+            self::assertSame('001', $controller->exposedItemListaServico($defaultService));
+        }
+
+        public function testEmissionReadinessDoesNotRequireNationalTaxCodeWhenUsingCompanyServices(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 88, amount: 100.0, items: []);
+
+            $controller = new class () extends InvoiceController {
+                public function exposedEmissionReadiness(): array
+                {
+                    return $this->emissionReadiness();
+                }
+
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return (object) [
+                        'item_lista_servico' => '1401',
+                        'codigo_tributacao_nacional' => null,
+                        'aliquota' => '5.00',
+                        'is_default' => true,
+                        'is_active' => true,
+                    ];
+                }
+
+                protected function supportsCompanyServiceSelection(): bool
+                {
+                    return true;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $readiness = $controller->exposedEmissionReadiness();
+
+            self::assertTrue($readiness['isReady'] ?? false);
+            self::assertArrayNotHasKey('codigo_tributacao_nacional', $readiness['checklist']);
+            self::assertSame(true, $readiness['checklist']['item_lista_servico'] ?? null);
         }
 
         public function testEmitSetsTipoAmbienteFromSandboxMode(): void
@@ -866,7 +1178,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.pending', $response->route);
-            self::assertSame('Ambiente nao esta pronto para emissao.', $response->flash['error'] ?? null);
+            self::assertSame('Existem configuracoes pendentes para liberar a emissao.', $response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
 

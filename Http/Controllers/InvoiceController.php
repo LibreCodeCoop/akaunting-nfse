@@ -21,6 +21,7 @@ use LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 use LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
+use Modules\Nfse\Models\CompanyService;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\VaultConfig;
 
@@ -66,6 +67,7 @@ class InvoiceController extends Controller
     public function emit(Invoice $invoice): RedirectResponse
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
+        $defaultService = $this->resolveDefaultCompanyService($invoice);
 
         $readiness = $this->emissionReadiness();
 
@@ -79,19 +81,34 @@ class InvoiceController extends Controller
         $sandbox = (bool) setting('nfse.sandbox_mode', true);
         $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
+        $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
 
         $dps = new DpsData(
             cnpjPrestador:    $cnpj,
             municipioIbge:    $ibge,
-            itemListaServico: setting('nfse.item_lista_servico', '0107'),
-            codigoTributacaoNacional: $this->nationalTaxCode(),
+            itemListaServico: $this->itemListaServico($defaultService),
+            codigoTributacaoNacional: $this->nationalTaxCode($defaultService),
             valorServico:     number_format((float) $invoice->amount, 2, '.', ''),
-            aliquota:         $this->normalizedAliquota(),
+            aliquota:         $this->normalizedAliquota($defaultService),
             discriminacao:    $this->buildDiscriminacao($invoice),
             documentoTomador: $tomadorDocument,
             nomeTomador:      $invoice->contact?->name ?? '',
             opcaoSimplesNacional: $opcaoSimplesNacional,
             tipoAmbiente:     $sandbox ? 2 : 1,
+            serie:            $this->dpsSerie($invoice),
+            numeroDps:        $this->dpsNumber($invoice),
+            dataCompetencia:  $this->competenceDate($invoice),
+            indicadorTributacao: $federalPayload['indicadorTributacao'],
+            federalPiscofinsSituacaoTributaria: $federalPayload['federalPiscofinsSituacaoTributaria'],
+            federalPiscofinsTipoRetencao: $federalPayload['federalPiscofinsTipoRetencao'],
+            federalPiscofinsBaseCalculo: $federalPayload['federalPiscofinsBaseCalculo'],
+            federalPiscofinsAliquotaPis: $federalPayload['federalPiscofinsAliquotaPis'],
+            federalPiscofinsValorPis: $federalPayload['federalPiscofinsValorPis'],
+            federalPiscofinsAliquotaCofins: $federalPayload['federalPiscofinsAliquotaCofins'],
+            federalPiscofinsValorCofins: $federalPayload['federalPiscofinsValorCofins'],
+            federalValorIrrf: $federalPayload['federalValorIrrf'],
+            federalValorCsll: $federalPayload['federalValorCsll'],
+            federalValorCp: $federalPayload['federalValorCp'],
         );
 
         $this->safeLogInfo('NFS-e emission payload', [
@@ -221,6 +238,7 @@ class InvoiceController extends Controller
     public function reemit(Invoice $invoice): RedirectResponse
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
+        $defaultService = $this->resolveDefaultCompanyService($invoice);
 
         $receipt = $this->findReceiptForInvoice($invoice);
 
@@ -239,19 +257,34 @@ class InvoiceController extends Controller
         $sandboxReemit = (bool) setting('nfse.sandbox_mode', true);
         $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
+        $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
 
         $dps = new DpsData(
             cnpjPrestador: setting('nfse.cnpj_prestador'),
             municipioIbge: setting('nfse.municipio_ibge'),
-            itemListaServico: setting('nfse.item_lista_servico', '0107'),
-            codigoTributacaoNacional: $this->nationalTaxCode(),
+            itemListaServico: $this->itemListaServico($defaultService),
+            codigoTributacaoNacional: $this->nationalTaxCode($defaultService),
             valorServico: number_format((float) $invoice->amount, 2, '.', ''),
-            aliquota: $this->normalizedAliquota(),
+            aliquota: $this->normalizedAliquota($defaultService),
             discriminacao: $this->buildDiscriminacao($invoice),
             documentoTomador: $tomadorDocument,
             nomeTomador: $invoice->contact?->name ?? '',
             opcaoSimplesNacional: $opcaoSimplesNacional,
             tipoAmbiente: $sandboxReemit ? 2 : 1,
+            serie: $this->dpsSerie($invoice),
+            numeroDps: $this->dpsNumber($invoice),
+            dataCompetencia: $this->competenceDate($invoice),
+            indicadorTributacao: $federalPayload['indicadorTributacao'],
+            federalPiscofinsSituacaoTributaria: $federalPayload['federalPiscofinsSituacaoTributaria'],
+            federalPiscofinsTipoRetencao: $federalPayload['federalPiscofinsTipoRetencao'],
+            federalPiscofinsBaseCalculo: $federalPayload['federalPiscofinsBaseCalculo'],
+            federalPiscofinsAliquotaPis: $federalPayload['federalPiscofinsAliquotaPis'],
+            federalPiscofinsValorPis: $federalPayload['federalPiscofinsValorPis'],
+            federalPiscofinsAliquotaCofins: $federalPayload['federalPiscofinsAliquotaCofins'],
+            federalPiscofinsValorCofins: $federalPayload['federalPiscofinsValorCofins'],
+            federalValorIrrf: $federalPayload['federalValorIrrf'],
+            federalValorCsll: $federalPayload['federalValorCsll'],
+            federalValorCp: $federalPayload['federalValorCp'],
         );
 
         $client = $this->makeClient($sandboxReemit);
@@ -503,6 +536,7 @@ class InvoiceController extends Controller
     {
         $settings = setting('nfse', []);
         $settings = is_array($settings) ? $settings : [];
+        $defaultService = $this->resolveDefaultCompanyService();
         $cnpj = (string) ($settings['cnpj_prestador'] ?? '');
         $certificatePath = $cnpj !== '' ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx') : '';
         $transportCertificatePath = $this->projectRootPath('client.crt.pem');
@@ -511,7 +545,7 @@ class InvoiceController extends Controller
         $checklist = [
             'cnpj_prestador' => $cnpj !== '',
             'municipio_ibge' => ((string) ($settings['municipio_ibge'] ?? '')) !== '',
-            'item_lista_servico' => ((string) ($settings['item_lista_servico'] ?? '')) !== '',
+            'item_lista_servico' => $this->itemListaServico($defaultService) !== '',
             'certificate' => $certificatePath !== '' && is_file($certificatePath),
             'certificate_secret' => $this->hasCertificateSecret($cnpj),
             'transport_certificate' => is_file($transportCertificatePath) && is_file($transportPrivateKeyPath),
@@ -523,25 +557,125 @@ class InvoiceController extends Controller
         ];
     }
 
-    protected function nationalTaxCode(): string
+    protected function itemListaServico(?object $defaultService = null): string
     {
-        $configured = preg_replace('/\D+/', '', (string) setting('nfse.codigo_tributacao_nacional', '')) ?: '';
+        $serviceCode = preg_replace('/\D+/', '', (string) ($defaultService->item_lista_servico ?? '')) ?: '';
+
+        if ($serviceCode !== '') {
+            return substr($serviceCode, 0, 4);
+        }
+
+        return preg_replace('/\D+/', '', (string) setting('nfse.item_lista_servico', '0107')) ?: '0107';
+    }
+
+    protected function nationalTaxCode(?object $defaultService = null): string
+    {
+        $configured = preg_replace('/\D+/', '', (string) ($defaultService->codigo_tributacao_nacional ?? '')) ?: '';
+
+        if ($configured === '') {
+            $configured = preg_replace('/\D+/', '', (string) setting('nfse.codigo_tributacao_nacional', '')) ?: '';
+        }
 
         if ($configured !== '') {
             return str_pad(substr($configured, 0, 6), 6, '0', STR_PAD_LEFT);
         }
 
-        $lc116Code = preg_replace('/\D+/', '', (string) setting('nfse.item_lista_servico', '0107')) ?: '0107';
-
-        return str_pad(substr($lc116Code, 0, 4), 4, '0', STR_PAD_LEFT) . '01';
+        return '';
     }
 
-    protected function normalizedAliquota(): string
+    protected function normalizedAliquota(?object $defaultService = null): string
     {
-        $configured = (string) setting('nfse.aliquota', '5.00');
+        $configured = (string) ($defaultService->aliquota ?? '');
+
+        if ($configured === '') {
+            $configured = (string) setting('nfse.aliquota', '5.00');
+        }
+
         $normalized = str_replace(',', '.', trim($configured));
 
         return number_format((float) $normalized, 2, '.', '');
+    }
+
+    protected function dpsSerie(Invoice $invoice): string
+    {
+        return '00001';
+    }
+
+    protected function dpsNumber(Invoice $invoice): string
+    {
+        $invoiceId = isset($invoice->id) ? (int) $invoice->id : 0;
+
+        return (string) max($invoiceId, 1);
+    }
+
+    protected function competenceDate(Invoice $invoice): ?string
+    {
+        $issuedAt = $invoice->issued_at ?? null;
+
+        if ($issuedAt instanceof \DateTimeInterface) {
+            return $issuedAt->format('Y-m-d');
+        }
+
+        if (is_string($issuedAt) && $issuedAt !== '') {
+            $timestamp = strtotime($issuedAt);
+
+            if ($timestamp !== false) {
+                return date('Y-m-d', $timestamp);
+            }
+        }
+
+        return null;
+    }
+
+    protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+    {
+        if (! $this->supportsCompanyServiceSelection()) {
+            return null;
+        }
+
+        $companyId = is_numeric($invoice?->company_id ?? null) ? (int) $invoice->company_id : $this->resolveCompanyId();
+
+        if ($companyId <= 0) {
+            return null;
+        }
+
+        return CompanyService::where('company_id', $companyId)
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    protected function supportsCompanyServiceSelection(): bool
+    {
+        if (! class_exists(\Illuminate\Database\Eloquent\Model::class)) {
+            return false;
+        }
+
+        return class_exists(CompanyService::class)
+            && is_subclass_of(CompanyService::class, \Illuminate\Database\Eloquent\Model::class);
+    }
+
+    protected function resolveCompanyId(): int
+    {
+        if (function_exists('company_id')) {
+            $companyId = (int) (company_id() ?? 0);
+
+            if ($companyId > 0) {
+                return $companyId;
+            }
+        }
+
+        if (! function_exists('auth')) {
+            return 0;
+        }
+
+        try {
+            $user = auth()->user();
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        return $user !== null && isset($user->company_id) ? (int) $user->company_id : 0;
     }
 
     protected function normalizedOpcaoSimplesNacional(): int
@@ -549,6 +683,101 @@ class InvoiceController extends Controller
         $configured = (int) setting('nfse.opcao_simples_nacional', 2);
 
         return in_array($configured, [1, 2], true) ? $configured : 2;
+    }
+
+    protected function federalPayloadValues(float $invoiceAmount): array
+    {
+        $mode = (string) setting('nfse.tributacao_federal_mode', 'per_invoice_amounts');
+        $situacaoTributaria = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_situacao_tributaria', ''));
+        $tipoRetencao = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_tipo_retencao', ''));
+
+        $indicadorTributacao = (
+            setting('nfse.tributos_fed_p', '') !== '' ||
+            setting('nfse.tributos_est_p', '') !== '' ||
+            setting('nfse.tributos_mun_p', '') !== '' ||
+            setting('nfse.tributos_fed_sn', '') !== '' ||
+            setting('nfse.tributos_est_sn', '') !== '' ||
+            setting('nfse.tributos_mun_sn', '') !== ''
+        ) ? 2 : 0;
+
+        if ($situacaoTributaria === '' || $situacaoTributaria === '0') {
+            return [
+                'federalPiscofinsSituacaoTributaria' => '',
+                'federalPiscofinsTipoRetencao' => '',
+                'federalPiscofinsBaseCalculo' => '',
+                'federalPiscofinsAliquotaPis' => '',
+                'federalPiscofinsValorPis' => '',
+                'federalPiscofinsAliquotaCofins' => '',
+                'federalPiscofinsValorCofins' => '',
+                'federalValorIrrf' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_irrf', '')),
+                'federalValorCsll' => '',
+                'federalValorCp' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_cp', '')),
+                'indicadorTributacao' => $indicadorTributacao,
+            ];
+        }
+
+        $valorCsll = ($tipoRetencao !== '' && $tipoRetencao !== '0')
+            ? $this->normalizedFederalDecimal(setting('nfse.federal_valor_csll', ''))
+            : '';
+
+        if ($mode === 'percentage_profile') {
+            $aliquotaPis = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_pis', ''));
+            $aliquotaCofins = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_cofins', ''));
+
+            return [
+                'federalPiscofinsSituacaoTributaria' => $situacaoTributaria,
+                'federalPiscofinsTipoRetencao' => $tipoRetencao,
+                'federalPiscofinsBaseCalculo' => number_format($invoiceAmount, 2, '.', ''),
+                'federalPiscofinsAliquotaPis' => $aliquotaPis,
+                'federalPiscofinsValorPis' => $aliquotaPis !== ''
+                    ? number_format($invoiceAmount * (float) $aliquotaPis / 100, 2, '.', '')
+                    : '',
+                'federalPiscofinsAliquotaCofins' => $aliquotaCofins,
+                'federalPiscofinsValorCofins' => $aliquotaCofins !== ''
+                    ? number_format($invoiceAmount * (float) $aliquotaCofins / 100, 2, '.', '')
+                    : '',
+                'federalValorIrrf' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_irrf', '')),
+                'federalValorCsll' => $valorCsll,
+                'federalValorCp' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_cp', '')),
+                'indicadorTributacao' => $indicadorTributacao,
+            ];
+        }
+
+        return [
+            'federalPiscofinsSituacaoTributaria' => $situacaoTributaria,
+            'federalPiscofinsTipoRetencao' => $tipoRetencao,
+            'federalPiscofinsBaseCalculo' => $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_base_calculo', '')),
+            'federalPiscofinsAliquotaPis' => $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_pis', '')),
+            'federalPiscofinsValorPis' => $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_valor_pis', '')),
+            'federalPiscofinsAliquotaCofins' => $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_cofins', '')),
+            'federalPiscofinsValorCofins' => $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_valor_cofins', '')),
+            'federalValorIrrf' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_irrf', '')),
+            'federalValorCsll' => $valorCsll,
+            'federalValorCp' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_cp', '')),
+            'indicadorTributacao' => $indicadorTributacao,
+        ];
+    }
+
+    protected function normalizedFederalSelectValue(mixed $value): string
+    {
+        $normalized = trim((string) $value);
+
+        return preg_match('/^\d+$/', $normalized) === 1 ? $normalized : '';
+    }
+
+    protected function normalizedFederalDecimal(mixed $value): string
+    {
+        if (!is_string($value) && !is_numeric($value)) {
+            return '';
+        }
+
+        $normalized = str_replace(',', '.', trim((string) $value));
+
+        if ($normalized === '' || !is_numeric($normalized)) {
+            return '';
+        }
+
+        return number_format((float) $normalized, 2, '.', '');
     }
 
     protected function hasCertificateSecret(string $cnpj): bool

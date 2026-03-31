@@ -40,7 +40,7 @@ class SettingsController extends Controller
         $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
 
         $rawTab = $request !== null ? $request->query('tab') : null;
-        $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'services'], true))
+        $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'federal', 'services'], true))
             ? $rawTab
             : 'vault';
 
@@ -77,6 +77,7 @@ class SettingsController extends Controller
         }
 
         $companyServices = [];
+        $defaultCompanyService = null;
 
         if ($companyId > 0 && method_exists(CompanyService::class, 'query')) {
             $query = CompanyService::where('company_id', $companyId);
@@ -102,6 +103,13 @@ class SettingsController extends Controller
                 ->orderBy('is_default', 'desc')
                 ->orderBy('created_at')
                 ->get();
+
+            foreach ($companyServices as $companyService) {
+                if (($companyService->is_default ?? false) && ($companyService->is_active ?? true)) {
+                    $defaultCompanyService = $companyService;
+                    break;
+                }
+            }
         }
 
         return view('nfse::settings.edit', [
@@ -110,6 +118,7 @@ class SettingsController extends Controller
             'vaultUiState' => $vaultUiState,
             'activeTab' => $activeTab,
             'companyServices' => $companyServices,
+            'defaultCompanyService' => $defaultCompanyService,
             'servicesSearch' => $servicesSearch,
             'servicesStatus' => $servicesStatus,
         ]);
@@ -158,6 +167,7 @@ class SettingsController extends Controller
             'nfse.uf'                 => 'required|string|size:2',
             'nfse.municipio_nome'     => 'required|string|max:255',
             'nfse.municipio_ibge'     => 'required|string|size:7',
+            'nfse.opcao_simples_nacional' => 'nullable|in:1,2',
             'nfse.sandbox_mode'       => 'nullable|boolean',
         ]);
 
@@ -167,7 +177,7 @@ class SettingsController extends Controller
         $fiscalInput = $rawNfseInput;
         $fiscalInput['uf'] = strtoupper((string) ($fiscalInput['uf'] ?? ''));
 
-        foreach (['cnpj_prestador', 'uf', 'municipio_nome', 'municipio_ibge', 'sandbox_mode'] as $key) {
+        foreach (['cnpj_prestador', 'uf', 'municipio_nome', 'municipio_ibge', 'opcao_simples_nacional', 'sandbox_mode'] as $key) {
             if (array_key_exists($key, $fiscalInput)) {
                 setting(['nfse.' . $key => $fiscalInput[$key]]);
             }
@@ -176,6 +186,88 @@ class SettingsController extends Controller
         setting()->save();
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'fiscal'])
+            ->with('success', trans('nfse::general.saved'));
+    }
+
+    public function updateFederal(Request $request): RedirectResponse
+    {
+        $settings = setting('nfse', []);
+        $settingsArray = is_array($settings) ? $settings : [];
+
+        if (!$this->isVaultReady($settingsArray)) {
+            return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
+                ->with('error', trans('nfse::general.vault_required_before_certificate_and_settings'));
+        }
+
+        $request->validate([
+            'nfse.tributacao_federal_mode' => 'required|in:per_invoice_amounts,percentage_profile',
+            'nfse.federal_piscofins_situacao_tributaria' => 'nullable|regex:/^\d+$/',
+            'nfse.federal_piscofins_tipo_retencao' => 'nullable|regex:/^\d+$/',
+            'nfse.federal_piscofins_base_calculo' => 'nullable|numeric|min:0',
+            'nfse.federal_piscofins_aliquota_pis' => 'nullable|numeric|min:0|max:100',
+            'nfse.federal_piscofins_valor_pis' => 'nullable|numeric|min:0',
+            'nfse.federal_piscofins_aliquota_cofins' => 'nullable|numeric|min:0|max:100',
+            'nfse.federal_piscofins_valor_cofins' => 'nullable|numeric|min:0',
+            'nfse.federal_valor_irrf' => 'nullable|numeric|min:0',
+            'nfse.federal_valor_csll' => 'nullable|numeric|min:0',
+            'nfse.federal_valor_cp' => 'nullable|numeric|min:0',
+            'nfse.tributos_fed_p' => 'nullable|numeric|min:0|max:100',
+            'nfse.tributos_est_p' => 'nullable|numeric|min:0|max:100',
+            'nfse.tributos_mun_p' => 'nullable|numeric|min:0|max:100',
+            'nfse.tributos_fed_sn' => 'nullable|numeric|min:0|max:100',
+            'nfse.tributos_est_sn' => 'nullable|numeric|min:0|max:100',
+            'nfse.tributos_mun_sn' => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        $rawNfseInput = $request->input('nfse', []);
+        $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
+
+        $keys = [
+            'tributacao_federal_mode',
+            'federal_piscofins_situacao_tributaria',
+            'federal_piscofins_tipo_retencao',
+            'federal_piscofins_base_calculo',
+            'federal_piscofins_aliquota_pis',
+            'federal_piscofins_valor_pis',
+            'federal_piscofins_aliquota_cofins',
+            'federal_piscofins_valor_cofins',
+            'federal_valor_irrf',
+            'federal_valor_csll',
+            'federal_valor_cp',
+            'tributos_fed_p',
+            'tributos_est_p',
+            'tributos_mun_p',
+            'tributos_fed_sn',
+            'tributos_est_sn',
+            'tributos_mun_sn',
+        ];
+
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $rawNfseInput)) {
+                continue;
+            }
+
+            $value = $rawNfseInput[$key];
+
+            if (in_array($key, ['federal_piscofins_situacao_tributaria', 'federal_piscofins_tipo_retencao'], true)) {
+                $value = trim((string) $value);
+                $value = preg_match('/^\d+$/', $value) === 1 ? $value : null;
+            } elseif ($key !== 'tributacao_federal_mode') {
+                $value = is_string($value) ? str_replace(',', '.', trim($value)) : $value;
+
+                if ($value === '' || $value === null) {
+                    $value = null;
+                } elseif (is_numeric($value)) {
+                    $value = number_format((float) $value, 2, '.', '');
+                }
+            }
+
+            setting(['nfse.' . $key => $value]);
+        }
+
+        setting()->save();
+
+        return redirect()->route('nfse.settings.edit', ['tab' => 'federal'])
             ->with('success', trans('nfse::general.saved'));
     }
 
@@ -289,8 +381,6 @@ class SettingsController extends Controller
             'nfse.uf'              => 'required|string|size:2',
             'nfse.municipio_nome'  => 'required|string|max:255',
             'nfse.municipio_ibge'  => 'required|string|size:7',
-            'nfse.item_lista_servico' => 'required|string|size:4',
-            'nfse.codigo_tributacao_nacional' => 'nullable|string|size:6',
             'nfse.sandbox_mode'    => 'nullable|boolean',
             'nfse.bao_addr'        => 'required|url',
             'nfse.bao_mount'       => 'required|string',

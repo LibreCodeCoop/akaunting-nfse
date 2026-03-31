@@ -97,23 +97,6 @@ test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo
     });
   });
 
-  await page.route('**/nfse/lc116/services', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          {
-            code: '0107',
-            display_code: '1.07',
-            description: 'Suporte tecnico em informatica, inclusive instalacao, configuracao e manutencao',
-            label: '1.07 - Suporte tecnico em informatica, inclusive instalacao, configuracao e manutencao',
-          },
-        ],
-      }),
-    });
-  });
-
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
@@ -146,18 +129,10 @@ test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo
   await expect(page.locator('select[name="nfse[uf]"]')).toBeVisible();
   await expect(page.locator('select[name="nfse[municipio_nome]"]')).toBeVisible();
   await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toBeAttached();
-  await expect(page.locator('input[name="nfse[item_lista_servico_display]"]')).toBeVisible();
-  await expect(page.locator('input[name="nfse[item_lista_servico]"]')).toBeAttached();
 
   await page.locator('select[name="nfse[uf]"]').selectOption('SP');
   await page.locator('select[name="nfse[municipio_nome]"]').selectOption('Sao Paulo');
   await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('3550308');
-
-  const firstLc116Label = await page.locator('#lc116_services option').first().getAttribute('value');
-  expect(firstLc116Label).toBeTruthy();
-
-  await page.locator('input[name="nfse[item_lista_servico_display]"]').fill(firstLc116Label!);
-  await expect(page.locator('input[name="nfse[item_lista_servico]"]')).toHaveValue('0107');
 });
 
 test('vault status summary shows certificate secret checklist row', async ({ page }, testInfo) => {
@@ -200,23 +175,6 @@ test('full dependent setup flow covers vault, certificate, fiscal and services s
     });
   });
 
-  await page.route('**/nfse/lc116/services', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          {
-            code: '0107',
-            display_code: '1.07',
-            description: 'Suporte tecnico em informatica',
-            label: '1.07 - Suporte tecnico em informatica',
-          },
-        ],
-      }),
-    });
-  });
-
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
@@ -251,12 +209,6 @@ test('full dependent setup flow covers vault, certificate, fiscal and services s
   await page.locator('select[name="nfse[uf]"]').selectOption('SP');
   await page.locator('select[name="nfse[municipio_nome]"]').selectOption('Sao Paulo');
   await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('3550308');
-
-  const firstLc116Label = await page.locator('#lc116_services option').first().getAttribute('value');
-  expect(firstLc116Label).toBeTruthy();
-
-  await page.locator('input[name="nfse[item_lista_servico_display]"]').fill(firstLc116Label!);
-  await expect(page.locator('input[name="nfse[item_lista_servico]"]')).toHaveValue('0107');
   await page.locator('#tab-panel-fiscal button[type="submit"]').click();
   await page.waitForLoadState('networkidle');
   await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=fiscal/);
