@@ -41,6 +41,17 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertStringContainsString("route('nfse.settings.edit', ['tab' => 'services'])", $content);
     }
 
+    public function testCompanyServiceControllerDoesNotMirrorDefaultServiceIntoLegacySettings(): void
+    {
+        $content = file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/CompanyServiceController.php');
+
+        self::assertNotFalse($content);
+        self::assertStringNotContainsString('syncDefaultServiceSettings', $content);
+        self::assertStringNotContainsString("'nfse.item_lista_servico'", $content);
+        self::assertStringNotContainsString("'nfse.codigo_tributacao_nacional'", $content);
+        self::assertStringNotContainsString("'nfse.aliquota'", $content);
+    }
+
     public function testServiceViewsUseDefinedSettingsEditRouteForBackAndCancel(): void
     {
         $createView = file_get_contents(dirname(__DIR__, 4) . '/Resources/views/services/create.blade.php');
