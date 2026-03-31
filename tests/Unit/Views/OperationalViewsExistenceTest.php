@@ -183,6 +183,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('bg-green-50', $content);
             self::assertStringNotContainsString('id="federal_opcao_simples_status"', $content);
             self::assertStringNotContainsString("trans('nfse::general.settings.federal.current_simples_status')", $content);
+            self::assertStringContainsString('data-tax-unit="money"', $content);
+            self::assertStringContainsString('data-tax-unit="percent"', $content);
         }
 
         public function testSettingsTranslationsDoNotExposeInternalOpSimpNacFieldNames(): void
