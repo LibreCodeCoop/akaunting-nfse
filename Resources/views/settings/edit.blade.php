@@ -38,9 +38,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 if (! in_array($selectedFederalMode, ['per_invoice_amounts', 'percentage_profile'], true)) {
                     $selectedFederalMode = 'per_invoice_amounts';
                 }
-                $simplesStatus = (string) old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 2)) === '1'
-                    ? trans('nfse::general.settings.opcao_simples_nacional_not_optant')
-                    : trans('nfse::general.settings.opcao_simples_nacional_optant');
             @endphp
 
             {{-- ── Tab navigation ──────────────────────────────────────── --}}
@@ -393,11 +390,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <h3 class="text-base font-semibold text-gray-900">{{ trans('nfse::general.settings.federal.heading') }}</h3>
 
                         <p class="text-sm text-gray-600">{{ trans('nfse::general.settings.federal.helper') }}</p>
-
-                        <div>
-                            <label class="block text-sm font-medium mb-1" for="federal_opcao_simples_status">{{ trans('nfse::general.settings.federal.current_simples_status') }}</label>
-                            <input id="federal_opcao_simples_status" type="text" class="w-full border rounded px-3 py-2 bg-gray-50" value="{{ $simplesStatus }}" readonly>
-                        </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
