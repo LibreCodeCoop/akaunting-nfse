@@ -453,8 +453,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <div id="federal-piscofins-bc-row">
                                 <label class="block text-sm font-medium mb-1" for="federal_piscofins_base_calculo">{{ trans('nfse::general.settings.federal.piscofins_base_calculo') }}</label>
                                 <div class="relative">
-                                    <input id="federal_piscofins_base_calculo" name="nfse[federal_piscofins_base_calculo]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_base_calculo', setting('nfse.federal_piscofins_base_calculo', '')) }}" placeholder="0.00">
-                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">R$</span>
+                                    <input id="federal_piscofins_base_calculo" name="nfse[federal_piscofins_base_calculo]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_base_calculo', setting('nfse.federal_piscofins_base_calculo', '')) }}" placeholder="0.00">
+                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
                                 </div>
                             </div>
 
@@ -469,8 +469,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <div id="federal-piscofins-pis-valor-col">
                                     <label class="block text-sm font-medium mb-1" for="federal_piscofins_valor_pis">{{ trans('nfse::general.settings.federal.piscofins_valor_pis') }}</label>
                                     <div class="relative">
-                                        <input id="federal_piscofins_valor_pis" name="nfse[federal_piscofins_valor_pis]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_valor_pis', setting('nfse.federal_piscofins_valor_pis', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">R$</span>
+                                        <input id="federal_piscofins_valor_pis" name="nfse[federal_piscofins_valor_pis]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_valor_pis', setting('nfse.federal_piscofins_valor_pis', '')) }}" placeholder="0.00">
+                                        <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
                                     </div>
                                 </div>
                             </div>
@@ -486,8 +486,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <div id="federal-piscofins-cofins-valor-col">
                                     <label class="block text-sm font-medium mb-1" for="federal_piscofins_valor_cofins">{{ trans('nfse::general.settings.federal.piscofins_valor_cofins') }}</label>
                                     <div class="relative">
-                                        <input id="federal_piscofins_valor_cofins" name="nfse[federal_piscofins_valor_cofins]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_valor_cofins', setting('nfse.federal_piscofins_valor_cofins', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">R$</span>
+                                        <input id="federal_piscofins_valor_cofins" name="nfse[federal_piscofins_valor_cofins]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_valor_cofins', setting('nfse.federal_piscofins_valor_cofins', '')) }}" placeholder="0.00">
+                                        <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
                                     </div>
                                 </div>
                             </div>
@@ -497,22 +497,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="federal_valor_irrf">{{ trans('nfse::general.settings.federal.valor_irrf') }}</label>
                                 <div class="relative">
-                                    <input id="federal_valor_irrf" name="nfse[federal_valor_irrf]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.federal_valor_irrf', setting('nfse.federal_valor_irrf', '')) }}" placeholder="0.00">
-                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">R$</span>
+                                    <input id="federal_valor_irrf" name="nfse[federal_valor_irrf]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2" value="{{ old('nfse.federal_valor_irrf', setting('nfse.federal_valor_irrf', '')) }}" placeholder="0.00">
+                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
                                 </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="federal_valor_csll">{{ trans('nfse::general.settings.federal.valor_csll') }}</label>
                                 <div class="relative">
-                                    <input id="federal_valor_csll" name="nfse[federal_valor_csll]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.federal_valor_csll', setting('nfse.federal_valor_csll', '')) }}" placeholder="0.00">
-                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">R$</span>
+                                    <input id="federal_valor_csll" name="nfse[federal_valor_csll]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2" value="{{ old('nfse.federal_valor_csll', setting('nfse.federal_valor_csll', '')) }}" placeholder="0.00">
+                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
                                 </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="federal_valor_cp">{{ trans('nfse::general.settings.federal.valor_cp') }}</label>
                                 <div class="relative">
-                                    <input id="federal_valor_cp" name="nfse[federal_valor_cp]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.federal_valor_cp', setting('nfse.federal_valor_cp', '')) }}" placeholder="0.00">
-                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">R$</span>
+                                    <input id="federal_valor_cp" name="nfse[federal_valor_cp]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2" value="{{ old('nfse.federal_valor_cp', setting('nfse.federal_valor_cp', '')) }}" placeholder="0.00">
+                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
                                 </div>
                             </div>
                         </div>

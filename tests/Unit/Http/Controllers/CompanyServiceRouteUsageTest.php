@@ -163,6 +163,10 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertStringContainsString("trans('nfse::general.settings.services.aliquota')", $editView);
         self::assertStringNotContainsString("trans('nfse::general.settings.services.aliquota') . ' (%)'", $createView);
         self::assertStringNotContainsString("trans('nfse::general.settings.services.aliquota') . ' (%)'", $editView);
+        self::assertStringContainsString('data-tax-affix="percent"', $createView);
+        self::assertStringContainsString('data-tax-affix="percent"', $editView);
+        self::assertStringContainsString('absolute inset-y-0 right-0', $createView);
+        self::assertStringContainsString('absolute inset-y-0 right-0', $editView);
     }
 
     public function testServiceViewsUseExplicitSubmitButtonsInsteadOfVueLoadingButtonsComponent(): void

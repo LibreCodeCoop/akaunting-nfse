@@ -61,17 +61,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 {{ trans('nfse::general.settings.services.aliquota') }}
                                 <span class="text-red-500 ml-0.5">*</span>
                             </label>
-                            <input
-                                type="number"
-                                name="aliquota"
-                                id="aliquota"
-                                step="0.01"
-                                min="0"
-                                max="100"
-                                value="{{ old('aliquota', $service->aliquota) }}"
-                                required
-                                class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                            >
+                            <div class="relative">
+                                <input
+                                    type="number"
+                                    name="aliquota"
+                                    id="aliquota"
+                                    step="0.01"
+                                    min="0"
+                                    max="100"
+                                    value="{{ old('aliquota', $service->aliquota) }}"
+                                    required
+                                    class="w-full border rounded-lg px-3 py-2 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                >
+                                <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
+                            </div>
                         </div>
 
                         <div class="relative sm:col-span-6">

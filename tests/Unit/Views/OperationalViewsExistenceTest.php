@@ -185,6 +185,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringNotContainsString("trans('nfse::general.settings.federal.current_simples_status')", $content);
             self::assertStringContainsString('data-tax-affix="money"', $content);
             self::assertStringContainsString('data-tax-affix="percent"', $content);
+            self::assertStringContainsString('pointer-events-none absolute inset-y-0 left-0', $content);
             self::assertStringContainsString('pointer-events-none absolute inset-y-0 right-0', $content);
             self::assertStringNotContainsString('R$ = valor monetario', $content);
         }
