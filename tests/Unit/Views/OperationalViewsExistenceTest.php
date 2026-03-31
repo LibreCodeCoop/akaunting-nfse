@@ -181,6 +181,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('name="nfse[tributos_mun_sn]"', $content);
             self::assertStringContainsString('id="federal-save-button"', $content);
             self::assertStringContainsString('bg-green-50', $content);
+            self::assertStringNotContainsString('id="federal_opcao_simples_status"', $content);
+            self::assertStringNotContainsString("trans('nfse::general.settings.federal.current_simples_status')", $content);
         }
 
         public function testSettingsTranslationsDoNotExposeInternalOpSimpNacFieldNames(): void
