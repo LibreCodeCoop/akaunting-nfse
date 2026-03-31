@@ -19,8 +19,6 @@ Feature: NFS-e endpoints contract
     And the response body should contain "nfse[uf]"
     And the response body should contain "nfse[municipio_nome]"
     And the response body should contain "nfse[municipio_ibge]"
-    And the response body should contain "nfse[item_lista_servico_display]"
-    And the response body should contain "nfse[item_lista_servico]"
 
   Scenario: Settings update endpoint accepts valid payload and redirects back
     When I send "PATCH" request to "/<company_id>/nfse/settings" with form data:
@@ -28,8 +26,6 @@ Feature: NFS-e endpoints contract
       | nfse[uf] | SP                             |
       | nfse[municipio_nome] | Sao Paulo         |
       | nfse[municipio_ibge] | 3550308             |
-      | nfse[item_lista_servico] | 0107            |
-      | nfse[aliquota] | 5.00                     |
       | nfse[sandbox_mode] | 1                     |
       | nfse[bao_addr] | https://vault.local.test |
       | nfse[bao_mount] | nfse                    |
@@ -45,8 +41,6 @@ Feature: NFS-e endpoints contract
       | nfse[uf] | SP                             |
       | nfse[municipio_nome] | Sao Paulo         |
       | nfse[municipio_ibge] | 3550308             |
-      | nfse[item_lista_servico] | 0107            |
-      | nfse[aliquota] | 5.00                     |
       | nfse[sandbox_mode] | 1                     |
       | nfse[bao_addr] | https://vault.local.test |
       | nfse[bao_mount] | nfse                    |
@@ -61,8 +55,6 @@ Feature: NFS-e endpoints contract
       | nfse[uf] | SP                             |
       | nfse[municipio_nome] | Sao Paulo         |
       | nfse[municipio_ibge] | 3550308             |
-      | nfse[item_lista_servico] | 0107            |
-      | nfse[aliquota] | 5.00                     |
       | nfse[sandbox_mode] | 1                     |
       | nfse[bao_addr] | https://vault.local.test |
       | nfse[bao_mount] | nfse                    |
@@ -82,8 +74,6 @@ Feature: NFS-e endpoints contract
       | nfse[uf] | SP                             |
       | nfse[municipio_nome] | Sao Paulo         |
       | nfse[municipio_ibge] | 3550308             |
-      | nfse[item_lista_servico] | 0107            |
-      | nfse[aliquota] | 5.00                     |
       | nfse[sandbox_mode] | 1                     |
       | nfse[bao_addr] | https://vault.local.test |
       | nfse[bao_mount] | nfse                    |
@@ -135,8 +125,6 @@ Feature: NFS-e endpoints contract
       | nfse[uf] | SP                             |
       | nfse[municipio_nome] | Sao Paulo         |
       | nfse[municipio_ibge] | 3550308             |
-      | nfse[item_lista_servico] | 0107            |
-      | nfse[aliquota] | 5.00                     |
       | nfse[sandbox_mode] | 1                     |
       | nfse[bao_addr] | https://vault.local.test |
       | nfse[bao_mount] | nfse                    |
