@@ -30,8 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     'vault'       => ['label' => trans('nfse::general.settings.vault_section_title'), 'enabled' => true],
                     'certificate' => ['label' => trans('nfse::general.step_certificate'),             'enabled' => $vaultReady],
                     'fiscal'      => ['label' => trans('nfse::general.step_settings'),                'enabled' => $hasSavedSettings],
-                    'federal'     => ['label' => trans('nfse::general.settings.federal.tab_title'),  'enabled' => $hasSavedSettings],
                     'services'    => ['label' => trans('nfse::general.settings.services.tab_title'), 'enabled' => $hasSavedSettings],
+                    'federal'     => ['label' => trans('nfse::general.settings.federal.tab_title'),  'enabled' => $hasSavedSettings],
                 ];
 
                 $selectedFederalMode = old('nfse.tributacao_federal_mode', setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
@@ -366,8 +366,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
                         </label>
 
-                        <div class="flex justify-end pt-2">
-                            <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                        <div class="rounded-md border border-green-200 bg-green-50 px-4 py-3 md:flex md:items-center md:justify-between">
+                            <p class="text-sm text-green-900 mb-2 md:mb-0">
+                                {{ trans('nfse::general.settings.federal.helper') }}
+                            </p>
+                            <button id="federal-save-button" type="submit" class="inline-flex w-full md:w-auto justify-center items-center px-5 py-2.5 rounded bg-green-700 text-white hover:bg-green-800 font-semibold shadow-sm">
                                 {{ trans('general.save') }}
                             </button>
                         </div>
