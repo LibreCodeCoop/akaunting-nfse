@@ -119,10 +119,6 @@ class CompanyServiceController extends Controller
 
         $service->update($validated);
 
-        if ($service->is_default) {
-            $this->syncDefaultServiceSettings($service);
-        }
-
         return redirect()->route('nfse.settings.edit', ['tab' => 'services'])
             ->with('success', trans('nfse::general.settings.services.service_updated'));
     }
@@ -244,18 +240,5 @@ class CompanyServiceController extends Controller
             ->update(['is_default' => false]);
 
         $service->update(['is_default' => true]);
-
-        $this->syncDefaultServiceSettings($service);
-    }
-
-    private function syncDefaultServiceSettings(CompanyService $service): void
-    {
-        setting([
-            'nfse.item_lista_servico' => (string) $service->item_lista_servico,
-            'nfse.codigo_tributacao_nacional' => (string) $service->codigo_tributacao_nacional,
-            'nfse.aliquota' => number_format((float) $service->aliquota, 2, '.', ''),
-        ]);
-
-        setting()->save();
     }
 }
