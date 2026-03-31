@@ -409,7 +409,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('6.75', $client->capturedDps?->aliquota);
         }
 
-        public function testNationalTaxCodeDoesNotInferFromLc116WhenServiceCodeIsMissing(): void
+        public function testNationalTaxCodeFallsBackToSettingWhenDefaultServiceCodeIsMissing(): void
         {
             $controller = new class () extends InvoiceController {
                 public function exposedNationalTaxCode(?object $defaultService = null): string
@@ -429,7 +429,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'aliquota' => '5.00',
             ];
 
-            self::assertSame('', $controller->exposedNationalTaxCode($defaultService));
+            self::assertSame('010701', $controller->exposedNationalTaxCode($defaultService));
         }
 
         public function testItemListaServicoPreservesThreeDigitMunicipalCode(): void
