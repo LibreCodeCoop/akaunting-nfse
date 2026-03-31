@@ -76,6 +76,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             // The view must iterate \$checklist to surface per-item labels rather than a generic banner.
             self::assertStringContainsString('$checklist', $content);
             self::assertStringContainsString("nfse::general.readiness.checks.", $content);
+            self::assertStringContainsString("route('nfse.settings.edit', ['tab' => 'services'])", $content);
+            self::assertStringContainsString("trans('nfse::general.go_to_settings')", $content);
         }
 
         public function testSettingsViewShowsVaultStatusAndSensitiveFieldClearControls(): void
@@ -146,6 +148,50 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertGreaterThan($vaultTitle, $settingsStep);
             self::assertStringContainsString('id="delete-certificate-form"', $content);
             self::assertStringContainsString("setting('nfse.bao_mount', '/nfse')", $content);
+        }
+
+        public function testSettingsViewKeepsServiceSelectionOnlyInServicesTab(): void
+        {
+            $settingsPath = dirname(__DIR__, 3) . '/Resources/views/settings/edit.blade.php';
+            $content = (string) file_get_contents($settingsPath);
+
+            self::assertStringContainsString('name="nfse[opcao_simples_nacional]"', $content);
+            self::assertStringNotContainsString('name="nfse[item_lista_servico_display]"', $content);
+            self::assertStringNotContainsString('name="nfse[item_lista_servico]"', $content);
+            self::assertStringNotContainsString('id="lc116_services"', $content);
+            self::assertStringNotContainsString("document.getElementById('item_lista_servico_display')", $content);
+            self::assertStringContainsString("trans('nfse::general.settings.federal.tab_title')", $content);
+            self::assertStringContainsString("route('nfse.settings.federal')", $content);
+            self::assertStringContainsString('name="nfse[tributacao_federal_mode]"', $content);
+            self::assertStringContainsString('name="nfse[federal_piscofins_situacao_tributaria]"', $content);
+            self::assertStringContainsString('name="nfse[federal_piscofins_tipo_retencao]"', $content);
+            self::assertStringContainsString('name="nfse[federal_piscofins_base_calculo]"', $content);
+            self::assertStringContainsString('name="nfse[federal_piscofins_valor_cofins]"', $content);
+            self::assertStringContainsString('name="nfse[federal_valor_csll]"', $content);
+            self::assertStringContainsString('id="federal-piscofins-panel"', $content);
+            self::assertStringContainsString('id="federal-piscofins-situacao"', $content);
+            self::assertStringContainsString('id="federal-piscofins-tipo-retencao"', $content);
+            self::assertStringContainsString('name="nfse[tributos_fed_p]"', $content);
+            self::assertStringContainsString('name="nfse[tributos_mun_sn]"', $content);
+        }
+
+        public function testSettingsTranslationsDoNotExposeInternalOpSimpNacFieldNames(): void
+        {
+            $ptBrPath = dirname(__DIR__, 3) . '/Resources/lang/pt-BR/general.php';
+            $enGbPath = dirname(__DIR__, 3) . '/Resources/lang/en-GB/general.php';
+
+            $ptBrContent = (string) file_get_contents($ptBrPath);
+            $enGbContent = (string) file_get_contents($enGbPath);
+
+            self::assertStringNotContainsString('opSimpNac', $ptBrContent);
+            self::assertStringNotContainsString('opSimpNac', $enGbContent);
+            self::assertStringNotContainsString('prontidão operacional', $ptBrContent);
+            self::assertStringNotContainsString('operational readiness', $enGbContent);
+
+            self::assertStringContainsString("'opcao_simples_nacional_not_optant' => 'Não optante'", $ptBrContent);
+            self::assertStringContainsString("'opcao_simples_nacional_optant' => 'Optante'", $ptBrContent);
+            self::assertStringContainsString("'go_to_settings'        => 'Ver configurações'", $ptBrContent);
+            self::assertStringContainsString("'go_to_settings'        => 'View settings'", $enGbContent);
         }
 
         public function testPendingInvoicesViewShowsCompactSummaryAndCustomFilterInput(): void
