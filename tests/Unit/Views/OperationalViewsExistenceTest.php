@@ -155,6 +155,12 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $settingsPath = dirname(__DIR__, 3) . '/Resources/views/settings/edit.blade.php';
             $content = (string) file_get_contents($settingsPath);
 
+            $servicesTabPos = strpos($content, "trans('nfse::general.settings.services.tab_title')");
+            $federalTabPos = strpos($content, "trans('nfse::general.settings.federal.tab_title')");
+            self::assertIsInt($servicesTabPos);
+            self::assertIsInt($federalTabPos);
+            self::assertLessThan($federalTabPos, $servicesTabPos);
+
             self::assertStringContainsString('name="nfse[opcao_simples_nacional]"', $content);
             self::assertStringNotContainsString('name="nfse[item_lista_servico_display]"', $content);
             self::assertStringNotContainsString('name="nfse[item_lista_servico]"', $content);
@@ -173,6 +179,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="federal-piscofins-tipo-retencao"', $content);
             self::assertStringContainsString('name="nfse[tributos_fed_p]"', $content);
             self::assertStringContainsString('name="nfse[tributos_mun_sn]"', $content);
+            self::assertStringContainsString('id="federal-save-button"', $content);
+            self::assertStringContainsString('bg-green-50', $content);
         }
 
         public function testSettingsTranslationsDoNotExposeInternalOpSimpNacFieldNames(): void
