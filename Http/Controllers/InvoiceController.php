@@ -565,10 +565,6 @@ class InvoiceController extends Controller
             return substr($serviceCode, 0, 4);
         }
 
-        if ($this->supportsCompanyServiceSelection()) {
-            return '';
-        }
-
         return preg_replace('/\D+/', '', (string) setting('nfse.item_lista_servico', '0107')) ?: '0107';
     }
 
@@ -576,7 +572,7 @@ class InvoiceController extends Controller
     {
         $configured = preg_replace('/\D+/', '', (string) ($defaultService->codigo_tributacao_nacional ?? '')) ?: '';
 
-        if ($configured === '' && ! $this->supportsCompanyServiceSelection()) {
+        if ($configured === '') {
             $configured = preg_replace('/\D+/', '', (string) setting('nfse.codigo_tributacao_nacional', '')) ?: '';
         }
 
