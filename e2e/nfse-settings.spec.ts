@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { loginToAkaunting } from './support/auth';
 
 test.use({ serviceWorkers: 'block' });
 
-async function openTab(page, tabId, panelId) {
+async function openTab(page: Page, tabId: string, panelId: string) {
   const tab = page.locator(tabId);
   await expect(tab).toBeVisible();
   await expect(tab).toBeEnabled();
@@ -144,6 +144,113 @@ test('vault status summary shows certificate secret checklist row', async ({ pag
   await expect(page).toHaveURL(/\/1\/nfse\/settings/);
   await expect(page.locator('#vault-status-certificate-secret')).toBeVisible();
   await expect(page.locator('text=Segredo do certificado no Vault')).toBeVisible();
+});
+
+test('federal tab visibility matrix matches situacao tributaria and tipo retencao', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+
+  await page.goto('/1/nfse/settings?tab=federal', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  await expect(page.locator('#tab-panel-federal')).toBeVisible();
+
+  const situacaoSelect = page.locator('#federal-piscofins-situacao');
+  const tipoRetencaoSelect = page.locator('#federal-piscofins-tipo-retencao');
+  const piscofinsPanel = page.locator('#federal-piscofins-panel');
+  const csllRow = page.locator('#federal-valor-csll-row');
+
+  // Situacao 0/empty: panel and CSLL row must be hidden regardless of retention type.
+  for (const situacao of ['', '0']) {
+    await situacaoSelect.selectOption(situacao);
+    await expect(piscofinsPanel).toBeHidden();
+    await expect(csllRow).toBeHidden();
+  }
+
+  // Situacao with tributacao enabled: panel visible, CSLL controlled by retention type.
+  await situacaoSelect.selectOption('1');
+  await expect(piscofinsPanel).toBeVisible();
+
+  const matrix = [
+    { tipoRetencao: '0', shouldShowCsll: false },
+    { tipoRetencao: '3', shouldShowCsll: true },
+    { tipoRetencao: '4', shouldShowCsll: false },
+    { tipoRetencao: '5', shouldShowCsll: false },
+    { tipoRetencao: '6', shouldShowCsll: false },
+    { tipoRetencao: '7', shouldShowCsll: true },
+    { tipoRetencao: '8', shouldShowCsll: true },
+    { tipoRetencao: '9', shouldShowCsll: true },
+  ];
+
+  for (const entry of matrix) {
+    await tipoRetencaoSelect.selectOption(entry.tipoRetencao);
+
+    if (entry.shouldShowCsll) {
+      await expect(csllRow).toBeVisible();
+    } else {
+      await expect(csllRow).toBeHidden();
+    }
+  }
+});
+
+test('fiscal tab resets municipality IBGE when UF changes and updates after new selection', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+
+  await page.route('**/nfse/ibge/ufs', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          { uf: 'SP', name: 'Sao Paulo' },
+          { uf: 'RJ', name: 'Rio de Janeiro' },
+        ],
+      }),
+    });
+  });
+
+  await page.route('**/nfse/ibge/municipalities/SP', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          { ibge_code: '3550308', name: 'Sao Paulo' },
+          { ibge_code: '3509502', name: 'Campinas' },
+        ],
+      }),
+    });
+  });
+
+  await page.route('**/nfse/ibge/municipalities/RJ', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          { ibge_code: '3303302', name: 'Niteroi' },
+          { ibge_code: '3304557', name: 'Rio de Janeiro' },
+        ],
+      }),
+    });
+  });
+
+  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  await expect(page.locator('#tab-panel-fiscal')).toBeVisible();
+
+  await page.locator('select[name="nfse[uf]"]').selectOption('SP');
+  await page.locator('select[name="nfse[municipio_nome]"]').selectOption('Sao Paulo');
+  await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('3550308');
+
+  await page.locator('select[name="nfse[uf]"]').selectOption('RJ');
+
+  // Changing UF must clear stale municipality/IBGE until the user selects a city from the new UF.
+  await expect(page.locator('select[name="nfse[municipio_nome]"]')).toHaveValue('');
+  await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('');
+
+  await page.locator('select[name="nfse[municipio_nome]"]').selectOption('Niteroi');
+  await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('3303302');
 });
 
 test('full dependent setup flow covers vault, certificate, fiscal and services steps', async ({ page }, testInfo) => {
