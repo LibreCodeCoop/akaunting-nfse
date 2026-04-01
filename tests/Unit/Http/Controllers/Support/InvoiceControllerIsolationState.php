@@ -47,13 +47,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers\Support {
             string $description = '',
             ?string $contactName = null,
             ?string $contactTaxNumber = null,
+            ?string $contactAddress = null,
+            ?string $contactZipCode = null,
+            ?string $contactCityIbge = null,
+            ?string $contactPhone = null,
+            ?string $contactEmail = null,
         ): Invoice {
             $contact = null;
 
-            if ($contactName !== null || $contactTaxNumber !== null) {
+            if ($contactName !== null || $contactTaxNumber !== null || $contactAddress !== null || $contactZipCode !== null || $contactCityIbge !== null || $contactPhone !== null || $contactEmail !== null) {
                 $contact = (object) [
                     'name' => $contactName,
                     'tax_number' => $contactTaxNumber,
+                    'address' => $contactAddress,
+                    'zip_code' => $contactZipCode,
+                    'municipio_ibge' => $contactCityIbge,
+                    'phone' => $contactPhone,
+                    'email' => $contactEmail,
                 ];
             }
 
