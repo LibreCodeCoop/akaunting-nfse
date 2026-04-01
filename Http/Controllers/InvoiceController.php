@@ -196,9 +196,12 @@ class InvoiceController extends Controller
 
         try {
             $client->cancel($receipt->chave_acesso, trans('nfse::general.cancel_motivo_default'));
-        } catch (GatewayException) {
+        } catch (GatewayException $e) {
+            $gatewayDetail = $this->gatewayErrorDetail($e);
+
             return redirect()->route('nfse.invoices.index')
-                ->with('error', trans('nfse::general.nfse_cancel_failed'));
+                ->with('error', trans('nfse::general.nfse_cancel_failed'))
+                ->with('nfse_gateway_error_detail', $gatewayDetail);
         }
 
         $receipt->update(['status' => 'cancelled']);
@@ -552,6 +555,17 @@ class InvoiceController extends Controller
             $firstError = $payload['erros'][0];
         } elseif (isset($payload['erro']) && is_array($payload['erro'])) {
             $firstError = $payload['erro'];
+        } elseif (
+            isset($payload['codigo'])
+            || isset($payload['Codigo'])
+            || isset($payload['descricao'])
+            || isset($payload['Descricao'])
+            || isset($payload['mensagem'])
+            || isset($payload['Mensagem'])
+            || isset($payload['complemento'])
+            || isset($payload['Complemento'])
+        ) {
+            $firstError = $payload;
         }
 
         if (!is_array($firstError)) {

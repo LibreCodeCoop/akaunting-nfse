@@ -1841,6 +1841,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.index', $response->route);
             self::assertSame([], $response->parameters);
             self::assertNotNull($response->flash['error'] ?? null);
+            self::assertSame('NFS-e não pode ser cancelada', $response->flash['nfse_gateway_error_detail'] ?? null);
             self::assertSame([], $receipt->updatedPayloads);
         }
 
