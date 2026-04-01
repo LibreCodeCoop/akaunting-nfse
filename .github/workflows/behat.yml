@@ -38,10 +38,6 @@ jobs:
           tools: composer
           coverage: none
 
-      - name: Configure nfse-php repository
-        working-directory: modules/Nfse
-        run: composer config repositories.librecodeoop-nfse-php vcs https://github.com/LibreCodeCoop/nfse-php.git
-
       - name: Install dependencies
         working-directory: modules/Nfse
         run: composer install --prefer-dist --no-progress
