@@ -21,6 +21,12 @@
         "php": "^8.2",
         "librecodeoop/nfse-php": "dev-main"
     },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/LibreCodeCoop/nfse-php.git"
+        }
+    ],
     "require-dev": {
         "behat/behat": "^3.16",
         "phpunit/phpunit": "^11.0",
