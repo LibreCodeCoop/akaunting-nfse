@@ -87,14 +87,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.aliquota' => '4.50',
                 'nfse.federal_piscofins_situacao_tributaria' => '1',
                 'nfse.federal_piscofins_tipo_retencao' => '3',
-                'nfse.federal_piscofins_base_calculo' => '1500.25',
                 'nfse.federal_piscofins_aliquota_pis' => '1.65',
-                'nfse.federal_piscofins_valor_pis' => '24.75',
                 'nfse.federal_piscofins_aliquota_cofins' => '7.60',
-                'nfse.federal_piscofins_valor_cofins' => '114.02',
-                'nfse.federal_valor_irrf' => '15.00',
-                'nfse.federal_valor_csll' => '10.00',
-                'nfse.federal_valor_cp' => '5.00',
+                'nfse.federal_piscofins_base_calculo' => '999.99',
+                'nfse.federal_piscofins_valor_pis' => '999.99',
+                'nfse.federal_piscofins_valor_cofins' => '999.99',
+                'nfse.federal_valor_irrf' => '1.00',
+                'nfse.federal_valor_csll' => '1.00',
+                'nfse.federal_valor_cp' => '1.00',
                 'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
                 'nfse.sandbox_mode' => false,
             ];
@@ -191,9 +191,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('24.75', $client->capturedDps?->federalPiscofinsValorPis);
             self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
             self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
+            // IRRF = 1.00% × 1500.25 = 15.0025 → '15.00'
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            self::assertSame('10.00', $client->capturedDps?->federalValorCsll);
-            self::assertSame('5.00', $client->capturedDps?->federalValorCp);
+            // CSLL = 1.00% × 1500.25 = 15.0025 → '15.00' (tipoRetencao '3' ≠ '0')
+            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
+            // CP always '' (RNG6110 reject in produção restrita)
+            self::assertSame('', $client->capturedDps?->federalValorCp);
             self::assertSame(0, $client->capturedDps?->indicadorTributacao);
             self::assertSame('00001', $client->capturedDps?->serie);
             self::assertSame('42', $client->capturedDps?->numeroDps);
@@ -271,26 +274,30 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            // Base = invoice amount, not stored setting '999.00'
+            // Base = invoice amount, not any stored helper value
             self::assertSame('1500.25', $client->capturedDps?->federalPiscofinsBaseCalculo);
-            // PIS valor = 1500.25 × 1.65 / 100 = 24.75 (not stored '999.00')
+            // PIS valor = 1500.25 × 1.65 / 100 = 24.75
             self::assertSame('24.75', $client->capturedDps?->federalPiscofinsValorPis);
-            // COFINS valor = 1500.25 × 7.60 / 100 = 114.02 (not stored '999.00')
+            // COFINS valor = 1500.25 × 7.60 / 100 = 114.02
             self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
             // Aliquotas are still from settings
             self::assertSame('1.65', $client->capturedDps?->federalPiscofinsAliquotaPis);
             self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
-            // Retention amounts still from settings (not percentage-calculated)
+            // IRRF and CSLL are calculated from percentage settings (1.00% × 1500.25 = 15.00)
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            self::assertSame('10.00', $client->capturedDps?->federalValorCsll);
-            self::assertSame('5.00', $client->capturedDps?->federalValorCp);
+            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
+            // CP always '' (RNG6110 reject in produção restrita)
+            self::assertSame('', $client->capturedDps?->federalValorCp);
             // No tributos_* percent configured → indicadorTributacao = 0
             self::assertSame(0, $client->capturedDps?->indicadorTributacao);
         }
 
         public function testEmitSetsIndicadorTributacaoTwoWhenTributosPercentConfigured(): void
         {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
             ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '10.50';
+            ControllerIsolationState::$settings['nfse.tributos_est_p'] = '0.00';
+            ControllerIsolationState::$settings['nfse.tributos_mun_p'] = '2.00';
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 44,
@@ -340,6 +347,114 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller->emit($invoice);
 
             self::assertSame(2, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('10.50', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('2.00', $client->capturedDps?->totalTributosPercentualMunicipal);
+        }
+
+        public function testEmitUsesSimplesNacionalTributosProfileWhenCompanyIsOptant(): void
+        {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 2;
+            ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '99.99';
+            ControllerIsolationState::$settings['nfse.tributos_est_p'] = '99.99';
+            ControllerIsolationState::$settings['nfse.tributos_mun_p'] = '99.99';
+            ControllerIsolationState::$settings['nfse.tributos_fed_sn'] = '4.44';
+            ControllerIsolationState::$settings['nfse.tributos_est_sn'] = '1.11';
+            ControllerIsolationState::$settings['nfse.tributos_mun_sn'] = '0.55';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 45,
+                amount: 500.00,
+                items: [['name' => 'Servico E']],
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->issued_at = '2026-02-04 08:37:53';
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-45', 'CHAVE-45', '2026-03-21T10:30:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('4.44', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('1.11', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('0.55', $client->capturedDps?->totalTributosPercentualMunicipal);
+        }
+
+        public function testRuntimeXmlBuilderStartsInfDpsWithTpAmbBeforeMunicipalityFields(): void
+        {
+            $builder = new \LibreCodeCoop\NfsePHP\Xml\XmlBuilder();
+            $xml = $builder->buildDps(new DpsData(
+                cnpjPrestador: '12345678000195',
+                municipioIbge: '3303302',
+                itemListaServico: '0107',
+                valorServico: '31500.00',
+                aliquota: '2.00',
+                discriminacao: 'Servico de teste E2E',
+                tipoAmbiente: 2,
+                codigoTributacaoNacional: '010101',
+                documentoTomador: '12345678000195',
+                nomeTomador: 'Cliente de Teste',
+                opcaoSimplesNacional: 1,
+                totalTributosPercentualFederal: '3.65',
+                totalTributosPercentualEstadual: '0.00',
+                totalTributosPercentualMunicipal: '2.00',
+                federalPiscofinsSituacaoTributaria: '1',
+                federalPiscofinsTipoRetencao: '4',
+                federalPiscofinsBaseCalculo: '31500.00',
+                federalPiscofinsAliquotaPis: '0.65',
+                federalPiscofinsValorPis: '204.75',
+                federalPiscofinsAliquotaCofins: '3.00',
+                federalPiscofinsValorCofins: '945.00',
+                federalValorIrrf: '472.50',
+                federalValorCsll: '0.00',
+                federalValorCp: '0.00',
+            ));
+
+            $normalizedXml = str_replace(["\n", '  '], '', $xml);
+            self::assertStringContainsString('<tpAmb>2</tpAmb><dhEmi>', $normalizedXml);
+            self::assertStringContainsString('<verAplic>akaunting-nfse</verAplic><serie>00001</serie><nDPS>1</nDPS>', $normalizedXml);
+            self::assertStringContainsString('<serv><locPrest><cLocPrestacao>3303302</cLocPrestacao></locPrest><cServ><cTribNac>010101</cTribNac><cTribMun>0107</cTribMun>', $normalizedXml);
+            self::assertStringContainsString('<piscofins><CST>01</CST><vBCPisCofins>31500.00</vBCPisCofins><pAliqPis>0.65</pAliqPis><pAliqCofins>3.00</pAliqCofins><vPis>204.75</vPis><vCofins>945.00</vCofins><tpRetPisCofins>4</tpRetPisCofins></piscofins>', $normalizedXml);
+            self::assertStringContainsString('<vRetIRRF>472.50</vRetIRRF>', $normalizedXml);
+            self::assertStringNotContainsString('<vRetCSLL>', $normalizedXml);
+            self::assertStringNotContainsString('<vRetCP>', $normalizedXml);
+            self::assertStringContainsString('<pTotTrib><pTotTribFed>3.65</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>2.00</pTotTribMun></pTotTrib>', $normalizedXml);
+            self::assertStringNotContainsString('<cMun>3303302</cMun>', $normalizedXml);
         }
 
         public function testEmitPrefersDefaultCompanyServiceOverLegacyFiscalSettings(): void

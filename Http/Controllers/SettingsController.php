@@ -23,6 +23,7 @@ use Throwable;
 class SettingsController extends Controller
 {
     private const IBGE_BASE_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades';
+    private const BRASIL_API_BASE_URL = 'https://brasilapi.com.br/api';
 
     public function edit(?Request $request = null): \Illuminate\View\View
     {
@@ -200,17 +201,14 @@ class SettingsController extends Controller
         }
 
         $request->validate([
-            'nfse.tributacao_federal_mode' => 'required|in:per_invoice_amounts,percentage_profile',
+            'nfse.tributacao_federal_mode' => 'nullable|in:percentage_profile',
             'nfse.federal_piscofins_situacao_tributaria' => 'nullable|regex:/^\d+$/',
             'nfse.federal_piscofins_tipo_retencao' => 'nullable|regex:/^\d+$/',
-            'nfse.federal_piscofins_base_calculo' => 'nullable|numeric|min:0',
             'nfse.federal_piscofins_aliquota_pis' => 'nullable|numeric|min:0|max:100',
-            'nfse.federal_piscofins_valor_pis' => 'nullable|numeric|min:0',
             'nfse.federal_piscofins_aliquota_cofins' => 'nullable|numeric|min:0|max:100',
-            'nfse.federal_piscofins_valor_cofins' => 'nullable|numeric|min:0',
-            'nfse.federal_valor_irrf' => 'nullable|numeric|min:0',
-            'nfse.federal_valor_csll' => 'nullable|numeric|min:0',
-            'nfse.federal_valor_cp' => 'nullable|numeric|min:0',
+            'nfse.federal_valor_irrf' => 'nullable|numeric|min:0|max:100',
+            'nfse.federal_valor_csll' => 'nullable|numeric|min:0|max:100',
+            'nfse.federal_valor_cp' => 'nullable|numeric|min:0|max:100',
             'nfse.tributos_fed_p' => 'nullable|numeric|min:0|max:100',
             'nfse.tributos_est_p' => 'nullable|numeric|min:0|max:100',
             'nfse.tributos_mun_p' => 'nullable|numeric|min:0|max:100',
@@ -221,16 +219,14 @@ class SettingsController extends Controller
 
         $rawNfseInput = $request->input('nfse', []);
         $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
+        $rawNfseInput['tributacao_federal_mode'] = 'percentage_profile';
 
         $keys = [
             'tributacao_federal_mode',
             'federal_piscofins_situacao_tributaria',
             'federal_piscofins_tipo_retencao',
-            'federal_piscofins_base_calculo',
             'federal_piscofins_aliquota_pis',
-            'federal_piscofins_valor_pis',
             'federal_piscofins_aliquota_cofins',
-            'federal_piscofins_valor_cofins',
             'federal_valor_irrf',
             'federal_valor_csll',
             'federal_valor_cp',
@@ -263,6 +259,10 @@ class SettingsController extends Controller
             }
 
             setting(['nfse.' . $key => $value]);
+        }
+
+        foreach (['federal_piscofins_base_calculo', 'federal_piscofins_valor_pis', 'federal_piscofins_valor_cofins'] as $deprecatedKey) {
+            setting()->forget('nfse.' . $deprecatedKey);
         }
 
         setting()->save();
@@ -304,10 +304,20 @@ class SettingsController extends Controller
                 'data' => $ibgeLocalities->mapMunicipalities(is_array($rows) ? $rows : []),
             ]);
         } catch (Throwable) {
-            return $this->jsonResponse([
-                'data' => [],
-                'message' => 'Failed to load municipalities from IBGE.',
-            ], 502);
+            try {
+                $rows = $this->fetchMunicipalitiesRowsFallback($normalizedUf);
+
+                return $this->jsonResponse([
+                    'data' => $ibgeLocalities->mapMunicipalities(is_array($rows) ? $rows : []),
+                    'message' => 'Using fallback municipalities source because IBGE is unavailable.',
+                ]);
+            } catch (Throwable) {
+                // Keep endpoint stable for UI even if all providers are unavailable.
+                return $this->jsonResponse([
+                    'data' => [],
+                    'message' => 'Failed to load municipalities from IBGE and fallback source.',
+                ]);
+            }
         }
     }
 
@@ -571,12 +581,44 @@ class SettingsController extends Controller
     protected function fetchMunicipalitiesRows(string $normalizedUf): array
     {
         $rows = Http::timeout(8)
+            ->retry(2, 150)
             ->acceptJson()
             ->get(self::IBGE_BASE_URL . '/estados/' . $normalizedUf . '/municipios')
             ->throw()
             ->json();
 
         return is_array($rows) ? $rows : [];
+    }
+
+    protected function fetchMunicipalitiesRowsFallback(string $normalizedUf): array
+    {
+        $rows = Http::timeout(8)
+            ->retry(2, 150)
+            ->acceptJson()
+            ->get(self::BRASIL_API_BASE_URL . '/ibge/municipios/v1/' . $normalizedUf, [
+                'providers' => 'dados-abertos-br,gov',
+            ])
+            ->throw()
+            ->json();
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        $normalizedRows = [];
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $normalizedRows[] = [
+                'id' => $row['codigo_ibge'] ?? '',
+                'nome' => $row['nome'] ?? '',
+            ];
+        }
+
+        return $normalizedRows;
     }
 
     protected function jsonResponse(array $payload, int $status = 200): JsonResponse

@@ -340,12 +340,20 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], $response->getData(true));
         }
 
-        public function testMunicipalitiesReturnsFallbackWhenIbgeRequestFails(): void
+        public function testMunicipalitiesReturnsFallbackDataWhenIbgeRequestFails(): void
         {
             $controller = new class () extends SettingsController {
                 protected function fetchMunicipalitiesRows(string $normalizedUf): array
                 {
                     throw new \RuntimeException('ibge unavailable');
+                }
+
+                protected function fetchMunicipalitiesRowsFallback(string $normalizedUf): array
+                {
+                    return [
+                        ['id' => '3303302', 'nome' => 'Niteroi'],
+                        ['id' => '3304557', 'nome' => 'Rio de Janeiro'],
+                    ];
                 }
 
                 protected function jsonResponse(array $payload, int $status = 200): JsonResponse
@@ -356,10 +364,41 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = $controller->municipalities('rj', new IbgeLocalities());
 
-            self::assertSame(502, $response->getStatusCode());
+            self::assertSame(200, $response->getStatusCode());
+            self::assertSame([
+                'data' => [
+                    ['ibge_code' => '3303302', 'name' => 'Niteroi'],
+                    ['ibge_code' => '3304557', 'name' => 'Rio de Janeiro'],
+                ],
+                'message' => 'Using fallback municipalities source because IBGE is unavailable.',
+            ], $response->getData(true));
+        }
+
+        public function testMunicipalitiesReturnsEmptyDataWhenIbgeAndFallbackFail(): void
+        {
+            $controller = new class () extends SettingsController {
+                protected function fetchMunicipalitiesRows(string $normalizedUf): array
+                {
+                    throw new \RuntimeException('ibge unavailable');
+                }
+
+                protected function fetchMunicipalitiesRowsFallback(string $normalizedUf): array
+                {
+                    throw new \RuntimeException('fallback unavailable');
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->municipalities('rj', new IbgeLocalities());
+
+            self::assertSame(200, $response->getStatusCode());
             self::assertSame([
                 'data' => [],
-                'message' => 'Failed to load municipalities from IBGE.',
+                'message' => 'Failed to load municipalities from IBGE and fallback source.',
             ], $response->getData(true));
         }
 
@@ -1199,16 +1238,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $request = new Request(
                 inputs: [
                     'nfse' => [
-                        'tributacao_federal_mode' => 'percentage_profile',
                         'federal_piscofins_situacao_tributaria' => '4',
                         'federal_piscofins_tipo_retencao' => '3',
-                        'federal_piscofins_base_calculo' => '1000,00',
                         'federal_piscofins_aliquota_pis' => '1,65',
-                        'federal_piscofins_valor_pis' => '16,50',
                         'federal_piscofins_aliquota_cofins' => '7,60',
-                        'federal_piscofins_valor_cofins' => '76,00',
                         'federal_valor_irrf' => '15,00',
-                        'federal_valor_csll' => '10,00',
+                        'federal_valor_csll' => '12,50',
                         'federal_valor_cp' => '5,00',
                         'tributos_fed_p' => '8,55',
                         'tributos_est_p' => '2.10',
@@ -1230,14 +1265,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('percentage_profile', ControllerIsolationState::$settings['nfse.tributacao_federal_mode'] ?? null);
             self::assertSame('4', ControllerIsolationState::$settings['nfse.federal_piscofins_situacao_tributaria'] ?? null);
             self::assertSame('3', ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] ?? null);
-            self::assertSame('1000.00', ControllerIsolationState::$settings['nfse.federal_piscofins_base_calculo'] ?? null);
             self::assertSame('1.65', ControllerIsolationState::$settings['nfse.federal_piscofins_aliquota_pis'] ?? null);
-            self::assertSame('16.50', ControllerIsolationState::$settings['nfse.federal_piscofins_valor_pis'] ?? null);
             self::assertSame('7.60', ControllerIsolationState::$settings['nfse.federal_piscofins_aliquota_cofins'] ?? null);
-            self::assertSame('76.00', ControllerIsolationState::$settings['nfse.federal_piscofins_valor_cofins'] ?? null);
             self::assertSame('15.00', ControllerIsolationState::$settings['nfse.federal_valor_irrf'] ?? null);
-            self::assertSame('10.00', ControllerIsolationState::$settings['nfse.federal_valor_csll'] ?? null);
+            self::assertSame('12.50', ControllerIsolationState::$settings['nfse.federal_valor_csll'] ?? null);
             self::assertSame('5.00', ControllerIsolationState::$settings['nfse.federal_valor_cp'] ?? null);
+            self::assertArrayNotHasKey('nfse.federal_piscofins_base_calculo', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.federal_piscofins_valor_pis', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.federal_piscofins_valor_cofins', ControllerIsolationState::$settings);
             self::assertSame('8.55', ControllerIsolationState::$settings['nfse.tributos_fed_p'] ?? null);
             self::assertSame('2.10', ControllerIsolationState::$settings['nfse.tributos_est_p'] ?? null);
             self::assertSame('1.35', ControllerIsolationState::$settings['nfse.tributos_mun_p'] ?? null);
@@ -1253,7 +1288,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $request = new Request(
                 inputs: [
                     'nfse' => [
-                        'tributacao_federal_mode' => 'per_invoice_amounts',
                     ],
                 ],
             );

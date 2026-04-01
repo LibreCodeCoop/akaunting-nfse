@@ -21,6 +21,7 @@ use LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 use LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
+use LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 use Modules\Nfse\Models\CompanyService;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\VaultConfig;
@@ -99,6 +100,9 @@ class InvoiceController extends Controller
             numeroDps:        $this->dpsNumber($invoice),
             dataCompetencia:  $this->competenceDate($invoice),
             indicadorTributacao: $federalPayload['indicadorTributacao'],
+            totalTributosPercentualFederal: $federalPayload['totalTributosPercentualFederal'],
+            totalTributosPercentualEstadual: $federalPayload['totalTributosPercentualEstadual'],
+            totalTributosPercentualMunicipal: $federalPayload['totalTributosPercentualMunicipal'],
             federalPiscofinsSituacaoTributaria: $federalPayload['federalPiscofinsSituacaoTributaria'],
             federalPiscofinsTipoRetencao: $federalPayload['federalPiscofinsTipoRetencao'],
             federalPiscofinsBaseCalculo: $federalPayload['federalPiscofinsBaseCalculo'],
@@ -115,6 +119,22 @@ class InvoiceController extends Controller
             'invoice_id' => $invoice->id,
             'opSimpNac' => $dps->opcaoSimplesNacional,
             'aliquota' => $dps->aliquota,
+            'tipoAmbiente' => $dps->tipoAmbiente,
+            'indicador_tributacao' => $dps->indicadorTributacao,
+            'tributacao_federal_mode' => (string) setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'),
+            'federal_piscofins_situacao_tributaria' => $dps->federalPiscofinsSituacaoTributaria,
+            'federal_piscofins_tipo_retencao' => $dps->federalPiscofinsTipoRetencao,
+            'federal_piscofins_base_calculo' => $dps->federalPiscofinsBaseCalculo,
+            'federal_piscofins_aliquota_pis' => $dps->federalPiscofinsAliquotaPis,
+            'federal_piscofins_valor_pis' => $dps->federalPiscofinsValorPis,
+            'federal_piscofins_aliquota_cofins' => $dps->federalPiscofinsAliquotaCofins,
+            'federal_piscofins_valor_cofins' => $dps->federalPiscofinsValorCofins,
+            'federal_valor_irrf' => $dps->federalValorIrrf,
+            'federal_valor_csll' => $dps->federalValorCsll,
+            'federal_valor_cp' => $dps->federalValorCp,
+            'tributos_fed_p' => (string) setting('nfse.tributos_fed_p', ''),
+            'tributos_est_p' => (string) setting('nfse.tributos_est_p', ''),
+            'tributos_mun_p' => (string) setting('nfse.tributos_mun_p', ''),
         ]);
 
         $client = $this->makeClient($sandbox);
@@ -126,12 +146,14 @@ class InvoiceController extends Controller
                 ->with('error', trans('nfse::general.nfse_secret_store_failed'));
         } catch (GatewayException $e) {
             $gatewayDetail = $this->gatewayErrorDetail($e);
+            $xmlOrderDebug = $this->dpsXmlOrderDebug($dps);
 
             $this->safeLogError('NFS-e issuance rejected by SEFIN', [
                 'invoice_id' => $invoice->id,
                 'http_status' => $e->httpStatus,
                 'upstream_payload' => $e->upstreamPayload,
                 'gateway_detail' => $gatewayDetail,
+                'xml_order_debug' => $xmlOrderDebug,
             ]);
 
             return redirect()->route('nfse.invoices.pending')
@@ -275,6 +297,9 @@ class InvoiceController extends Controller
             numeroDps: $this->dpsNumber($invoice),
             dataCompetencia: $this->competenceDate($invoice),
             indicadorTributacao: $federalPayload['indicadorTributacao'],
+            totalTributosPercentualFederal: $federalPayload['totalTributosPercentualFederal'],
+            totalTributosPercentualEstadual: $federalPayload['totalTributosPercentualEstadual'],
+            totalTributosPercentualMunicipal: $federalPayload['totalTributosPercentualMunicipal'],
             federalPiscofinsSituacaoTributaria: $federalPayload['federalPiscofinsSituacaoTributaria'],
             federalPiscofinsTipoRetencao: $federalPayload['federalPiscofinsTipoRetencao'],
             federalPiscofinsBaseCalculo: $federalPayload['federalPiscofinsBaseCalculo'],
@@ -296,12 +321,14 @@ class InvoiceController extends Controller
                 ->with('error', trans('nfse::general.nfse_secret_store_failed'));
         } catch (GatewayException $e) {
             $gatewayDetail = $this->gatewayErrorDetail($e);
+            $xmlOrderDebug = $this->dpsXmlOrderDebug($dps);
 
             $this->safeLogError('NFS-e reissuance rejected by SEFIN', [
                 'invoice_id' => $invoice->id,
                 'http_status' => $e->httpStatus,
                 'upstream_payload' => $e->upstreamPayload,
                 'gateway_detail' => $gatewayDetail,
+                'xml_order_debug' => $xmlOrderDebug,
             ]);
 
             return redirect()->route('nfse.invoices.show', $invoice)
@@ -658,7 +685,11 @@ class InvoiceController extends Controller
     protected function resolveCompanyId(): int
     {
         if (function_exists('company_id')) {
-            $companyId = (int) (company_id() ?? 0);
+            try {
+                $companyId = (int) (company_id() ?? 0);
+            } catch (\Throwable) {
+                $companyId = 0;
+            }
 
             if ($companyId > 0) {
                 return $companyId;
@@ -687,17 +718,18 @@ class InvoiceController extends Controller
 
     protected function federalPayloadValues(float $invoiceAmount): array
     {
-        $mode = (string) setting('nfse.tributacao_federal_mode', 'per_invoice_amounts');
         $situacaoTributaria = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_situacao_tributaria', ''));
         $tipoRetencao = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_tipo_retencao', ''));
+        $isSimplesNacionalOptant = $this->normalizedOpcaoSimplesNacional() === 2;
+
+        $totalTributosPercentualFederal = $this->normalizedFederalDecimal(setting($isSimplesNacionalOptant ? 'nfse.tributos_fed_sn' : 'nfse.tributos_fed_p', ''));
+        $totalTributosPercentualEstadual = $this->normalizedFederalDecimal(setting($isSimplesNacionalOptant ? 'nfse.tributos_est_sn' : 'nfse.tributos_est_p', ''));
+        $totalTributosPercentualMunicipal = $this->normalizedFederalDecimal(setting($isSimplesNacionalOptant ? 'nfse.tributos_mun_sn' : 'nfse.tributos_mun_p', ''));
 
         $indicadorTributacao = (
-            setting('nfse.tributos_fed_p', '') !== '' ||
-            setting('nfse.tributos_est_p', '') !== '' ||
-            setting('nfse.tributos_mun_p', '') !== '' ||
-            setting('nfse.tributos_fed_sn', '') !== '' ||
-            setting('nfse.tributos_est_sn', '') !== '' ||
-            setting('nfse.tributos_mun_sn', '') !== ''
+            $totalTributosPercentualFederal !== '' ||
+            $totalTributosPercentualEstadual !== '' ||
+            $totalTributosPercentualMunicipal !== ''
         ) ? 2 : 0;
 
         if ($situacaoTributaria === '' || $situacaoTributaria === '0') {
@@ -709,53 +741,64 @@ class InvoiceController extends Controller
                 'federalPiscofinsValorPis' => '',
                 'federalPiscofinsAliquotaCofins' => '',
                 'federalPiscofinsValorCofins' => '',
-                'federalValorIrrf' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_irrf', '')),
-                'federalValorCsll' => '',
-                'federalValorCp' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_cp', '')),
+                'federalValorIrrf' => $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_irrf'),
+                'federalValorCsll' => $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_csll'),
+                // Produção restrita currently rejects vRetCP (RNG6110), so keep CP as UI/config only.
+                'federalValorCp' => '',
                 'indicadorTributacao' => $indicadorTributacao,
+                'totalTributosPercentualFederal' => $totalTributosPercentualFederal,
+                'totalTributosPercentualEstadual' => $totalTributosPercentualEstadual,
+                'totalTributosPercentualMunicipal' => $totalTributosPercentualMunicipal,
             ];
         }
 
-        $valorCsll = ($tipoRetencao !== '' && $tipoRetencao !== '0')
-            ? $this->normalizedFederalDecimal(setting('nfse.federal_valor_csll', ''))
-            : '';
-
-        if ($mode === 'percentage_profile') {
-            $aliquotaPis = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_pis', ''));
-            $aliquotaCofins = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_cofins', ''));
-
-            return [
-                'federalPiscofinsSituacaoTributaria' => $situacaoTributaria,
-                'federalPiscofinsTipoRetencao' => $tipoRetencao,
-                'federalPiscofinsBaseCalculo' => number_format($invoiceAmount, 2, '.', ''),
-                'federalPiscofinsAliquotaPis' => $aliquotaPis,
-                'federalPiscofinsValorPis' => $aliquotaPis !== ''
-                    ? number_format($invoiceAmount * (float) $aliquotaPis / 100, 2, '.', '')
-                    : '',
-                'federalPiscofinsAliquotaCofins' => $aliquotaCofins,
-                'federalPiscofinsValorCofins' => $aliquotaCofins !== ''
-                    ? number_format($invoiceAmount * (float) $aliquotaCofins / 100, 2, '.', '')
-                    : '',
-                'federalValorIrrf' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_irrf', '')),
-                'federalValorCsll' => $valorCsll,
-                'federalValorCp' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_cp', '')),
-                'indicadorTributacao' => $indicadorTributacao,
-            ];
-        }
+        $aliquotaPis = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_pis', ''));
+        $aliquotaCofins = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_cofins', ''));
 
         return [
             'federalPiscofinsSituacaoTributaria' => $situacaoTributaria,
             'federalPiscofinsTipoRetencao' => $tipoRetencao,
-            'federalPiscofinsBaseCalculo' => $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_base_calculo', '')),
-            'federalPiscofinsAliquotaPis' => $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_pis', '')),
-            'federalPiscofinsValorPis' => $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_valor_pis', '')),
-            'federalPiscofinsAliquotaCofins' => $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_cofins', '')),
-            'federalPiscofinsValorCofins' => $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_valor_cofins', '')),
-            'federalValorIrrf' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_irrf', '')),
-            'federalValorCsll' => $valorCsll,
-            'federalValorCp' => $this->normalizedFederalDecimal(setting('nfse.federal_valor_cp', '')),
+            'federalPiscofinsBaseCalculo' => number_format($invoiceAmount, 2, '.', ''),
+            'federalPiscofinsAliquotaPis' => $aliquotaPis,
+            'federalPiscofinsValorPis' => $aliquotaPis !== ''
+                ? number_format($invoiceAmount * (float) $aliquotaPis / 100, 2, '.', '')
+                : '',
+            'federalPiscofinsAliquotaCofins' => $aliquotaCofins,
+            'federalPiscofinsValorCofins' => $aliquotaCofins !== ''
+                ? number_format($invoiceAmount * (float) $aliquotaCofins / 100, 2, '.', '')
+                : '',
+            'federalValorIrrf' => $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_irrf'),
+            'federalValorCsll' => $tipoRetencao !== '0'
+                ? $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_csll')
+                : '',
+            // Produção restrita currently rejects vRetCP (RNG6110), so keep CP as UI/config only.
+            'federalValorCp' => '',
             'indicadorTributacao' => $indicadorTributacao,
+            'totalTributosPercentualFederal' => $totalTributosPercentualFederal,
+            'totalTributosPercentualEstadual' => $totalTributosPercentualEstadual,
+            'totalTributosPercentualMunicipal' => $totalTributosPercentualMunicipal,
         ];
+    }
+
+    /**
+     * Calculate federal retention value in reais based on percentage setting
+     */
+    protected function calculateFederalRetentionValue(float $invoiceAmount, string $settingKey): string
+    {
+        $percentageStr = $this->normalizedFederalDecimal(setting('nfse.' . $settingKey, ''));
+
+        if ($percentageStr === '') {
+            return '';
+        }
+
+        $percentage = (float) $percentageStr;
+        if ($percentage <= 0) {
+            return '';
+        }
+
+        $calculatedValue = $invoiceAmount * $percentage / 100;
+
+        return number_format($calculatedValue, 2, '.', '');
     }
 
     protected function normalizedFederalSelectValue(mixed $value): string
@@ -778,6 +821,31 @@ class InvoiceController extends Controller
         }
 
         return number_format((float) $normalized, 2, '.', '');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function dpsXmlOrderDebug(DpsData $dps): array
+    {
+        try {
+            $xml = (new XmlBuilder())->buildDps($dps);
+            $normalized = str_replace(["\r", "\n", "\t"], '', $xml);
+            $tpAmbIndex = strpos($normalized, '<tpAmb>');
+            $cMunIndex = strpos($normalized, '<cMun>');
+
+            return [
+                'xml_builder_file' => (new \ReflectionClass(XmlBuilder::class))->getFileName(),
+                'tpAmb_index' => $tpAmbIndex,
+                'cMun_index' => $cMunIndex,
+                'tpAmb_before_cMun' => $tpAmbIndex !== false && $cMunIndex !== false && $tpAmbIndex < $cMunIndex,
+                'xml_prefix' => substr($normalized, 0, 260),
+            ];
+        } catch (\Throwable $throwable) {
+            return [
+                'debug_error' => $throwable->getMessage(),
+            ];
+        }
     }
 
     protected function hasCertificateSecret(string $cnpj): bool

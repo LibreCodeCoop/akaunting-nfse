@@ -34,10 +34,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     'federal'     => ['label' => trans('nfse::general.settings.federal.tab_title'),  'enabled' => $hasSavedSettings],
                 ];
 
-                $selectedFederalMode = old('nfse.tributacao_federal_mode', setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
-                if (! in_array($selectedFederalMode, ['per_invoice_amounts', 'percentage_profile'], true)) {
-                    $selectedFederalMode = 'per_invoice_amounts';
-                }
             @endphp
 
             {{-- ── Tab navigation ──────────────────────────────────────── --}}
@@ -450,30 +446,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </div>
 
                         <div id="federal-piscofins-panel" class="rounded-md border border-gray-200 p-3 space-y-4 hidden">
-                            <div id="federal-piscofins-bc-row">
-                                <label class="block text-sm font-medium mb-1" for="federal_piscofins_base_calculo">{{ trans('nfse::general.settings.federal.piscofins_base_calculo') }}</label>
-                                <div class="relative">
-                                    <input id="federal_piscofins_base_calculo" name="nfse[federal_piscofins_base_calculo]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_base_calculo', setting('nfse.federal_piscofins_base_calculo', '')) }}" placeholder="0.00">
-                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-1" for="federal_piscofins_aliquota_pis">{{ trans('nfse::general.settings.federal.piscofins_aliquota_pis') }}</label>
-                                    <div class="relative">
-                                        <input id="federal_piscofins_aliquota_pis" name="nfse[federal_piscofins_aliquota_pis]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_aliquota_pis', setting('nfse.federal_piscofins_aliquota_pis', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                    </div>
-                                </div>
-                                <div id="federal-piscofins-pis-valor-col">
-                                    <label class="block text-sm font-medium mb-1" for="federal_piscofins_valor_pis">{{ trans('nfse::general.settings.federal.piscofins_valor_pis') }}</label>
-                                    <div class="relative">
-                                        <input id="federal_piscofins_valor_pis" name="nfse[federal_piscofins_valor_pis]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_valor_pis', setting('nfse.federal_piscofins_valor_pis', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
-                                    </div>
-                                </div>
-                            </div>
+                            <p id="federal-piscofins-preview-note" class="text-xs text-gray-500">
+                                {{ trans('nfse::general.settings.federal.piscofins_preview_note') }}
+                            </p>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
@@ -483,58 +458,51 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                         <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
                                     </div>
                                 </div>
-                                <div id="federal-piscofins-cofins-valor-col">
-                                    <label class="block text-sm font-medium mb-1" for="federal_piscofins_valor_cofins">{{ trans('nfse::general.settings.federal.piscofins_valor_cofins') }}</label>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="federal_piscofins_aliquota_pis">{{ trans('nfse::general.settings.federal.piscofins_aliquota_pis') }}</label>
                                     <div class="relative">
-                                        <input id="federal_piscofins_valor_cofins" name="nfse[federal_piscofins_valor_cofins]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_valor_cofins', setting('nfse.federal_piscofins_valor_cofins', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
+                                        <input id="federal_piscofins_aliquota_pis" name="nfse[federal_piscofins_aliquota_pis]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_aliquota_pis', setting('nfse.federal_piscofins_aliquota_pis', '')) }}" placeholder="0.00">
+                                        <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="federal_valor_irrf">{{ trans('nfse::general.settings.federal.valor_irrf') }}</label>
                                 <div class="relative">
-                                    <input id="federal_valor_irrf" name="nfse[federal_valor_irrf]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2" value="{{ old('nfse.federal_valor_irrf', setting('nfse.federal_valor_irrf', '')) }}" placeholder="0.00">
-                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
+                                    <input id="federal_valor_irrf" name="nfse[federal_valor_irrf]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.federal_valor_irrf', setting('nfse.federal_valor_irrf', '')) }}" placeholder="0.00">
+                                    <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
                                 </div>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1" for="federal_valor_csll">{{ trans('nfse::general.settings.federal.valor_csll') }}</label>
-                                <div class="relative">
-                                    <input id="federal_valor_csll" name="nfse[federal_valor_csll]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2" value="{{ old('nfse.federal_valor_csll', setting('nfse.federal_valor_csll', '')) }}" placeholder="0.00">
-                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
-                                </div>
+                                <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.federal.valor_irrf_hint') }}</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="federal_valor_cp">{{ trans('nfse::general.settings.federal.valor_cp') }}</label>
                                 <div class="relative">
-                                    <input id="federal_valor_cp" name="nfse[federal_valor_cp]" type="text" inputmode="decimal" class="w-full border rounded pl-12 pr-3 py-2" value="{{ old('nfse.federal_valor_cp', setting('nfse.federal_valor_cp', '')) }}" placeholder="0.00">
-                                    <span data-tax-affix="money" class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-sm text-gray-400">R$</span>
+                                    <input id="federal_valor_cp" name="nfse[federal_valor_cp]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.federal_valor_cp', setting('nfse.federal_valor_cp', '')) }}" placeholder="0.00">
+                                    <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
                                 </div>
+                                <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.federal.valor_cp_hint') }}</p>
                             </div>
                         </div>
 
-                        <fieldset class="rounded-md border border-gray-200 p-3 space-y-2">
-                            <legend class="px-1 text-sm font-semibold">{{ trans('nfse::general.settings.federal.behavior_label') }}</legend>
-                            <p class="text-xs text-gray-500">{{ trans('nfse::general.settings.federal.behavior_hint') }}</p>
-
-                            <div class="space-y-2 pt-1">
-                                <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
-                                    <input type="radio" name="nfse[tributacao_federal_mode]" value="per_invoice_amounts" @checked($selectedFederalMode === 'per_invoice_amounts')>
-                                    {{ trans('nfse::general.settings.federal.mode_per_invoice_amounts') }}
-                                </label>
-                                <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-sm">
-                                    <input type="radio" name="nfse[tributacao_federal_mode]" value="percentage_profile" @checked($selectedFederalMode === 'percentage_profile')>
-                                    {{ trans('nfse::general.settings.federal.mode_percentage_profile') }}
-                                </label>
+                        <div id="federal-valor-csll-row" class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden">
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="federal_valor_csll">{{ trans('nfse::general.settings.federal.valor_csll') }}</label>
+                                <div class="relative">
+                                    <input id="federal_valor_csll" name="nfse[federal_valor_csll]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.federal_valor_csll', setting('nfse.federal_valor_csll', '')) }}" placeholder="0.00">
+                                    <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.federal.valor_csll_hint') }}</p>
                             </div>
-                        </fieldset>
+                            <div></div>
+                        </div>
+
+                        <input name="nfse[tributacao_federal_mode]" type="hidden" value="percentage_profile">
 
                         <div id="federal-tributos-percent-rows" class="space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div id="federal-tributos-profile-p" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium mb-1" for="tributos_fed_p">{{ trans('nfse::general.settings.federal.tributos_fed_p') }}</label>
                                     <div class="relative">
@@ -558,7 +526,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div id="federal-tributos-profile-sn" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium mb-1" for="tributos_fed_sn">{{ trans('nfse::general.settings.federal.tributos_fed_sn') }}</label>
                                     <div class="relative">
@@ -759,8 +727,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const federalSituacao = document.getElementById('federal-piscofins-situacao');
                 const federalTipoRetencao = document.getElementById('federal-piscofins-tipo-retencao');
                 const federalPanel = document.getElementById('federal-piscofins-panel');
-                const federalCsll = document.getElementById('federal_valor_csll');
+                const federalValorCsllRow = document.getElementById('federal-valor-csll-row');
+                const federalTributosProfileP = document.getElementById('federal-tributos-profile-p');
+                const federalTributosProfileSn = document.getElementById('federal-tributos-profile-sn');
                 const federalFields = Array.from(document.querySelectorAll('.federal-piscofins-field'));
+                const selectedOpcaoSimplesNacional = String(@json(old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 2))));
+
+                const syncFederalTributosProfileVisibility = () => {
+                    // Option 2 means Simples Nacional optant.
+                    const isSimplesNacionalOptant = selectedOpcaoSimplesNacional === '2';
+
+                    federalTributosProfileP?.classList.toggle('hidden', isSimplesNacionalOptant);
+                    federalTributosProfileSn?.classList.toggle('hidden', !isSimplesNacionalOptant);
+                };
 
                 const blockPiscofinsFields = (blockAndZero) => {
                     federalFields.forEach((field) => {
@@ -780,6 +759,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             field.classList.remove('bg-gray-50');
                         }
                     });
+                };
+
+                const syncFederalCsllVisibility = () => {
+                    if (!(federalTipoRetencao instanceof HTMLSelectElement)) {
+                        return;
+                    }
+
+                    const tipoRetencao = federalTipoRetencao.value;
+                    // Follow retention-type semantics in UI:
+                    // show CSLL only when retention type includes CSLL.
+                    const showCsll = ['3', '7', '8', '9'].includes(tipoRetencao);
+
+                    if (federalValorCsllRow) {
+                        federalValorCsllRow.classList.toggle('hidden', !showCsll);
+                    }
                 };
 
                 const syncFederalPanel = () => {
@@ -806,63 +800,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 field.classList.remove('bg-gray-50');
                             }
                         });
+
+                        syncFederalCsllVisibility();
                     }
 
                     blockPiscofinsFields(situacao === '4' || situacao === '6');
                 };
 
-                const syncFederalRetencao = () => {
-                    if (!(federalTipoRetencao instanceof HTMLSelectElement) || !(federalCsll instanceof HTMLInputElement)) {
-                        return;
-                    }
-
-                    const hasCsllRetention = federalTipoRetencao.value !== '' && federalTipoRetencao.value !== '0';
-
-                    federalCsll.readOnly = !hasCsllRetention;
-                    federalCsll.classList.toggle('bg-gray-50', !hasCsllRetention);
-
-                    if (!hasCsllRetention) {
-                        federalCsll.value = '';
-                    }
-                };
-
                 federalSituacao?.addEventListener('change', () => {
                     syncFederalPanel();
-                    syncFederalRetencao();
                 });
 
                 federalTipoRetencao?.addEventListener('change', () => {
-                    syncFederalRetencao();
+                    syncFederalCsllVisibility();
                 });
 
                 syncFederalPanel();
-                syncFederalRetencao();
-
-                // ── Federal mode toggle: per_invoice_amounts ↔ percentage_profile ──
-                const federalModeRadios = document.querySelectorAll('input[name="nfse[tributacao_federal_mode]"]');
-                const federalBcRow = document.getElementById('federal-piscofins-bc-row');
-                const federalPisValorCol = document.getElementById('federal-piscofins-pis-valor-col');
-                const federalCofinsValorCol = document.getElementById('federal-piscofins-cofins-valor-col');
-                const tributosPercentRows = document.getElementById('federal-tributos-percent-rows');
-
-                const syncFederalMode = () => {
-                    const mode = document.querySelector('input[name="nfse[tributacao_federal_mode]"]:checked')?.value ?? 'per_invoice_amounts';
-                    const isPercentage = mode === 'percentage_profile';
-
-                    // In percentage_profile mode: BC and valor fields are auto-calculated at emission time
-                    federalBcRow?.classList.toggle('hidden', isPercentage);
-                    federalPisValorCol?.classList.toggle('hidden', isPercentage);
-                    federalCofinsValorCol?.classList.toggle('hidden', isPercentage);
-
-                    // Percentage profile rows only relevant in percentage_profile mode
-                    tributosPercentRows?.classList.toggle('hidden', !isPercentage);
-                };
-
-                federalModeRadios.forEach((radio) => {
-                    radio.addEventListener('change', syncFederalMode);
-                });
-
-                syncFederalMode();
+                syncFederalCsllVisibility();
+                syncFederalTributosProfileVisibility();
 
                 // ── Fiscal tab: UF / municipality / LC116 ───────────────────
                 const ufSelect           = document.getElementById('uf');
@@ -893,6 +848,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     placeholder.value       = '';
                     placeholder.textContent = 'Selecione...';
                     municipalitySelect.appendChild(placeholder);
+                    ibgeHidden.value  = '';
+                    ibgeDisplay.value = '';
+
+                    let hasPreselectedMunicipality = false;
 
                     municipalities.forEach((city) => {
                         const option        = document.createElement('option');
@@ -904,10 +863,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             option.selected   = true;
                             ibgeHidden.value  = city.ibge_code;
                             ibgeDisplay.value = city.ibge_code;
+                            hasPreselectedMunicipality = true;
                         }
 
                         municipalitySelect.appendChild(option);
                     });
+
+                    if (!hasPreselectedMunicipality) {
+                        municipalitySelect.value = '';
+                    }
 
                     municipalitySelect.disabled = false;
                 };
@@ -923,6 +887,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     municipalitySelect.disabled = true;
                     municipalitySelect.innerHTML = '<option value="">Carregando municípios...</option>';
+                    ibgeHidden.value  = '';
+                    ibgeDisplay.value = '';
 
                     const url            = municipalitiesUrlTemplate.replace('__UF__', encodeURIComponent(uf));
                     const municipalities = await fetchJson(url);
