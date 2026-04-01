@@ -92,9 +92,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.federal_piscofins_base_calculo' => '999.99',
                 'nfse.federal_piscofins_valor_pis' => '999.99',
                 'nfse.federal_piscofins_valor_cofins' => '999.99',
-                'nfse.federal_valor_irrf' => '15.00',
-                'nfse.federal_valor_csll' => '999.99',
-                'nfse.federal_valor_cp' => '5.00',
+                'nfse.federal_valor_irrf' => '1.00',
+                'nfse.federal_valor_csll' => '1.00',
+                'nfse.federal_valor_cp' => '1.00',
                 'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
                 'nfse.sandbox_mode' => false,
             ];
@@ -191,9 +191,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('24.75', $client->capturedDps?->federalPiscofinsValorPis);
             self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
             self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
+            // IRRF = 1.00% × 1500.25 = 15.0025 → '15.00'
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            self::assertSame('999.99', $client->capturedDps?->federalValorCsll);
-            self::assertSame('5.00', $client->capturedDps?->federalValorCp);
+            // CSLL = 1.00% × 1500.25 = 15.0025 → '15.00' (tipoRetencao '3' ≠ '0')
+            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
+            // CP always '' (RNG6110 reject in produção restrita)
+            self::assertSame('', $client->capturedDps?->federalValorCp);
             self::assertSame(0, $client->capturedDps?->indicadorTributacao);
             self::assertSame('00001', $client->capturedDps?->serie);
             self::assertSame('42', $client->capturedDps?->numeroDps);
@@ -280,10 +283,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // Aliquotas are still from settings
             self::assertSame('1.65', $client->capturedDps?->federalPiscofinsAliquotaPis);
             self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
-            // Only direct retention amounts that remain configurable are preserved.
+            // IRRF and CSLL are calculated from percentage settings (1.00% × 1500.25 = 15.00)
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            self::assertSame('999.99', $client->capturedDps?->federalValorCsll);
-            self::assertSame('5.00', $client->capturedDps?->federalValorCp);
+            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
+            // CP always '' (RNG6110 reject in produção restrita)
+            self::assertSame('', $client->capturedDps?->federalValorCp);
             // No tributos_* percent configured → indicadorTributacao = 0
             self::assertSame(0, $client->capturedDps?->indicadorTributacao);
         }
