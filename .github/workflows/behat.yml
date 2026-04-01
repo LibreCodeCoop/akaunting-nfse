@@ -31,18 +31,16 @@ jobs:
         with:
           path: modules/Nfse
 
-      - name: Checkout nfse-php sibling package
-        uses: actions/checkout@v6
-        with:
-          repository: LibreCodeCoop/nfse-php
-          path: packages/librecodeoop/nfse-php
-
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           tools: composer
           coverage: none
+
+      - name: Configure nfse-php repository
+        working-directory: modules/Nfse
+        run: composer config repositories.librecodeoop-nfse-php vcs https://github.com/LibreCodeCoop/nfse-php.git
 
       - name: Install dependencies
         working-directory: modules/Nfse
