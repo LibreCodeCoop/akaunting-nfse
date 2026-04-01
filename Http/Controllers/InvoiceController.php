@@ -81,39 +81,49 @@ class InvoiceController extends Controller
         $ibge    = setting('nfse.municipio_ibge');
         $sandbox = (bool) setting('nfse.sandbox_mode', true);
         $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
+        $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
 
-        $dps = new DpsData(
-            cnpjPrestador:    $cnpj,
-            municipioIbge:    $ibge,
-            itemListaServico: $this->itemListaServico($defaultService),
-            codigoTributacaoNacional: $this->nationalTaxCode($defaultService),
-            valorServico:     number_format((float) $invoice->amount, 2, '.', ''),
-            aliquota:         $this->normalizedAliquota($defaultService),
-            discriminacao:    $this->buildDiscriminacao($invoice),
-            documentoTomador: $tomadorDocument,
-            nomeTomador:      $invoice->contact?->name ?? '',
-            opcaoSimplesNacional: $opcaoSimplesNacional,
-            tipoAmbiente:     $sandbox ? 2 : 1,
-            serie:            $this->dpsSerie($invoice),
-            numeroDps:        $this->dpsNumber($invoice),
-            dataCompetencia:  $this->competenceDate($invoice),
-            indicadorTributacao: $federalPayload['indicadorTributacao'],
-            totalTributosPercentualFederal: $federalPayload['totalTributosPercentualFederal'],
-            totalTributosPercentualEstadual: $federalPayload['totalTributosPercentualEstadual'],
-            totalTributosPercentualMunicipal: $federalPayload['totalTributosPercentualMunicipal'],
-            federalPiscofinsSituacaoTributaria: $federalPayload['federalPiscofinsSituacaoTributaria'],
-            federalPiscofinsTipoRetencao: $federalPayload['federalPiscofinsTipoRetencao'],
-            federalPiscofinsBaseCalculo: $federalPayload['federalPiscofinsBaseCalculo'],
-            federalPiscofinsAliquotaPis: $federalPayload['federalPiscofinsAliquotaPis'],
-            federalPiscofinsValorPis: $federalPayload['federalPiscofinsValorPis'],
-            federalPiscofinsAliquotaCofins: $federalPayload['federalPiscofinsAliquotaCofins'],
-            federalPiscofinsValorCofins: $federalPayload['federalPiscofinsValorCofins'],
-            federalValorIrrf: $federalPayload['federalValorIrrf'],
-            federalValorCsll: $federalPayload['federalValorCsll'],
-            federalValorCp: $federalPayload['federalValorCp'],
-        );
+        $dps = $this->makeDpsData([
+            'cnpjPrestador' => $cnpj,
+            'municipioIbge' => $ibge,
+            'itemListaServico' => $this->itemListaServico($defaultService),
+            'codigoTributacaoNacional' => $this->nationalTaxCode($defaultService),
+            'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
+            'aliquota' => $this->normalizedAliquota($defaultService),
+            'discriminacao' => $this->buildDiscriminacao($invoice),
+            'documentoTomador' => $tomadorDocument,
+            'nomeTomador' => $invoice->contact?->name ?? '',
+            'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
+            'tomadorCep' => $tomadorPayload['cep'],
+            'tomadorLogradouro' => $tomadorPayload['logradouro'],
+            'tomadorNumero' => $tomadorPayload['numero'],
+            'tomadorComplemento' => $tomadorPayload['complemento'],
+            'tomadorBairro' => $tomadorPayload['bairro'],
+            'tomadorInscricaoMunicipal' => $tomadorPayload['inscricao_municipal'],
+            'tomadorTelefone' => $tomadorPayload['telefone'],
+            'tomadorEmail' => $tomadorPayload['email'],
+            'opcaoSimplesNacional' => $opcaoSimplesNacional,
+            'tipoAmbiente' => $sandbox ? 2 : 1,
+            'serie' => $this->dpsSerie($invoice),
+            'numeroDps' => $this->dpsNumber($invoice),
+            'dataCompetencia' => $this->competenceDate($invoice),
+            'indicadorTributacao' => $federalPayload['indicadorTributacao'],
+            'totalTributosPercentualFederal' => $federalPayload['totalTributosPercentualFederal'],
+            'totalTributosPercentualEstadual' => $federalPayload['totalTributosPercentualEstadual'],
+            'totalTributosPercentualMunicipal' => $federalPayload['totalTributosPercentualMunicipal'],
+            'federalPiscofinsSituacaoTributaria' => $federalPayload['federalPiscofinsSituacaoTributaria'],
+            'federalPiscofinsTipoRetencao' => $federalPayload['federalPiscofinsTipoRetencao'],
+            'federalPiscofinsBaseCalculo' => $federalPayload['federalPiscofinsBaseCalculo'],
+            'federalPiscofinsAliquotaPis' => $federalPayload['federalPiscofinsAliquotaPis'],
+            'federalPiscofinsValorPis' => $federalPayload['federalPiscofinsValorPis'],
+            'federalPiscofinsAliquotaCofins' => $federalPayload['federalPiscofinsAliquotaCofins'],
+            'federalPiscofinsValorCofins' => $federalPayload['federalPiscofinsValorCofins'],
+            'federalValorIrrf' => $federalPayload['federalValorIrrf'],
+            'federalValorCsll' => $federalPayload['federalValorCsll'],
+            'federalValorCp' => $federalPayload['federalValorCp'],
+        ]);
 
         $this->safeLogInfo('NFS-e emission payload', [
             'invoice_id' => $invoice->id,
@@ -278,39 +288,49 @@ class InvoiceController extends Controller
 
         $sandboxReemit = (bool) setting('nfse.sandbox_mode', true);
         $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
+        $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
 
-        $dps = new DpsData(
-            cnpjPrestador: setting('nfse.cnpj_prestador'),
-            municipioIbge: setting('nfse.municipio_ibge'),
-            itemListaServico: $this->itemListaServico($defaultService),
-            codigoTributacaoNacional: $this->nationalTaxCode($defaultService),
-            valorServico: number_format((float) $invoice->amount, 2, '.', ''),
-            aliquota: $this->normalizedAliquota($defaultService),
-            discriminacao: $this->buildDiscriminacao($invoice),
-            documentoTomador: $tomadorDocument,
-            nomeTomador: $invoice->contact?->name ?? '',
-            opcaoSimplesNacional: $opcaoSimplesNacional,
-            tipoAmbiente: $sandboxReemit ? 2 : 1,
-            serie: $this->dpsSerie($invoice),
-            numeroDps: $this->dpsNumber($invoice),
-            dataCompetencia: $this->competenceDate($invoice),
-            indicadorTributacao: $federalPayload['indicadorTributacao'],
-            totalTributosPercentualFederal: $federalPayload['totalTributosPercentualFederal'],
-            totalTributosPercentualEstadual: $federalPayload['totalTributosPercentualEstadual'],
-            totalTributosPercentualMunicipal: $federalPayload['totalTributosPercentualMunicipal'],
-            federalPiscofinsSituacaoTributaria: $federalPayload['federalPiscofinsSituacaoTributaria'],
-            federalPiscofinsTipoRetencao: $federalPayload['federalPiscofinsTipoRetencao'],
-            federalPiscofinsBaseCalculo: $federalPayload['federalPiscofinsBaseCalculo'],
-            federalPiscofinsAliquotaPis: $federalPayload['federalPiscofinsAliquotaPis'],
-            federalPiscofinsValorPis: $federalPayload['federalPiscofinsValorPis'],
-            federalPiscofinsAliquotaCofins: $federalPayload['federalPiscofinsAliquotaCofins'],
-            federalPiscofinsValorCofins: $federalPayload['federalPiscofinsValorCofins'],
-            federalValorIrrf: $federalPayload['federalValorIrrf'],
-            federalValorCsll: $federalPayload['federalValorCsll'],
-            federalValorCp: $federalPayload['federalValorCp'],
-        );
+        $dps = $this->makeDpsData([
+            'cnpjPrestador' => (string) setting('nfse.cnpj_prestador'),
+            'municipioIbge' => (string) setting('nfse.municipio_ibge'),
+            'itemListaServico' => $this->itemListaServico($defaultService),
+            'codigoTributacaoNacional' => $this->nationalTaxCode($defaultService),
+            'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
+            'aliquota' => $this->normalizedAliquota($defaultService),
+            'discriminacao' => $this->buildDiscriminacao($invoice),
+            'documentoTomador' => $tomadorDocument,
+            'nomeTomador' => $invoice->contact?->name ?? '',
+            'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
+            'tomadorCep' => $tomadorPayload['cep'],
+            'tomadorLogradouro' => $tomadorPayload['logradouro'],
+            'tomadorNumero' => $tomadorPayload['numero'],
+            'tomadorComplemento' => $tomadorPayload['complemento'],
+            'tomadorBairro' => $tomadorPayload['bairro'],
+            'tomadorInscricaoMunicipal' => $tomadorPayload['inscricao_municipal'],
+            'tomadorTelefone' => $tomadorPayload['telefone'],
+            'tomadorEmail' => $tomadorPayload['email'],
+            'opcaoSimplesNacional' => $opcaoSimplesNacional,
+            'tipoAmbiente' => $sandboxReemit ? 2 : 1,
+            'serie' => $this->dpsSerie($invoice),
+            'numeroDps' => $this->dpsNumber($invoice),
+            'dataCompetencia' => $this->competenceDate($invoice),
+            'indicadorTributacao' => $federalPayload['indicadorTributacao'],
+            'totalTributosPercentualFederal' => $federalPayload['totalTributosPercentualFederal'],
+            'totalTributosPercentualEstadual' => $federalPayload['totalTributosPercentualEstadual'],
+            'totalTributosPercentualMunicipal' => $federalPayload['totalTributosPercentualMunicipal'],
+            'federalPiscofinsSituacaoTributaria' => $federalPayload['federalPiscofinsSituacaoTributaria'],
+            'federalPiscofinsTipoRetencao' => $federalPayload['federalPiscofinsTipoRetencao'],
+            'federalPiscofinsBaseCalculo' => $federalPayload['federalPiscofinsBaseCalculo'],
+            'federalPiscofinsAliquotaPis' => $federalPayload['federalPiscofinsAliquotaPis'],
+            'federalPiscofinsValorPis' => $federalPayload['federalPiscofinsValorPis'],
+            'federalPiscofinsAliquotaCofins' => $federalPayload['federalPiscofinsAliquotaCofins'],
+            'federalPiscofinsValorCofins' => $federalPayload['federalPiscofinsValorCofins'],
+            'federalValorIrrf' => $federalPayload['federalValorIrrf'],
+            'federalValorCsll' => $federalPayload['federalValorCsll'],
+            'federalValorCp' => $federalPayload['federalValorCp'],
+        ]);
 
         $client = $this->makeClient($sandboxReemit);
 
@@ -368,6 +388,118 @@ class InvoiceController extends Controller
 
         if (in_array(strlen($digits), [11, 14], true)) {
             return $digits;
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    protected function makeDpsData(array $payload): DpsData
+    {
+        $constructor = new \ReflectionMethod(DpsData::class, '__construct');
+        $supportedPayload = [];
+
+        foreach ($constructor->getParameters() as $parameter) {
+            $name = $parameter->getName();
+
+            if (array_key_exists($name, $payload)) {
+                $supportedPayload[$name] = $payload[$name];
+            }
+        }
+
+        return new DpsData(...$supportedPayload);
+    }
+
+    /**
+     * @return array{codigo_municipio: string, cep: string, logradouro: string, numero: string, complemento: string, bairro: string, inscricao_municipal: string, telefone: string, email: string}
+     */
+    protected function tomadorPayload(?object $contact): array
+    {
+        $codigoMunicipio = $this->normalizedTomadorMunicipioIbge($contact);
+        $cep = $this->normalizedTomadorCep($this->contactStringField($contact, ['zip_code', 'cep']));
+
+        $logradouro = '';
+        $numero = '';
+        $complemento = '';
+        $bairro = '';
+
+        if ($codigoMunicipio !== '' && $cep !== '') {
+            $logradouro = $this->contactStringField($contact, ['address', 'logradouro']);
+            $numero = $this->contactStringField($contact, ['number', 'numero']);
+            $complemento = $this->contactStringField($contact, ['complement', 'complemento']);
+            $bairro = $this->contactStringField($contact, ['district', 'bairro', 'neighborhood']);
+        } else {
+            $codigoMunicipio = '';
+            $cep = '';
+        }
+
+        return [
+            'codigo_municipio' => $codigoMunicipio,
+            'cep' => $cep,
+            'logradouro' => $logradouro,
+            'numero' => $numero,
+            'complemento' => $complemento,
+            'bairro' => $bairro,
+            'inscricao_municipal' => $this->contactStringField($contact, ['inscricao_municipal', 'municipal_registration', 'im']),
+            'telefone' => $this->normalizedTomadorTelefone($this->contactStringField($contact, ['phone', 'telefone'])),
+            'email' => $this->normalizedTomadorEmail($this->contactStringField($contact, ['email'])),
+        ];
+    }
+
+    protected function normalizedTomadorMunicipioIbge(?object $contact): string
+    {
+        $raw = $this->contactStringField($contact, ['municipio_ibge', 'city_ibge', 'ibge_code', 'city_code', 'city']);
+        $digits = preg_replace('/\D+/', '', $raw) ?: '';
+
+        return strlen($digits) === 7 ? $digits : '';
+    }
+
+    protected function normalizedTomadorCep(string $cep): string
+    {
+        $digits = preg_replace('/\D+/', '', $cep) ?: '';
+
+        return strlen($digits) === 8 ? $digits : '';
+    }
+
+    protected function normalizedTomadorTelefone(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?: '';
+
+        if ($digits === '') {
+            return '';
+        }
+
+        return strlen($digits) >= 8 && strlen($digits) <= 13 ? $digits : '';
+    }
+
+    protected function normalizedTomadorEmail(string $email): string
+    {
+        $normalized = trim($email);
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        return filter_var($normalized, FILTER_VALIDATE_EMAIL) !== false ? $normalized : '';
+    }
+
+    /**
+     * @param list<string> $fields
+     */
+    protected function contactStringField(?object $contact, array $fields): string
+    {
+        if ($contact === null) {
+            return '';
+        }
+
+        foreach ($fields as $field) {
+            if (!isset($contact->{$field})) {
+                continue;
+            }
+
+            return trim((string) $contact->{$field});
         }
 
         return '';
