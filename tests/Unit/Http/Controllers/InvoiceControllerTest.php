@@ -121,6 +121,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 description: 'Descricao fallback',
                 contactName: 'ACME Ltda',
                 contactTaxNumber: '99887766000155',
+                contactAddress: 'Avenida Rio Branco, 500',
+                contactZipCode: '24020-077',
+                contactCityIbge: '3303302',
+                contactPhone: '(21) 98888-7777',
+                contactEmail: 'financeiro@acme.test',
             );
             $invoice->issued_at = '2026-02-04 08:37:53';
 
@@ -182,6 +187,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('Servico A | Servico B', $client->capturedDps?->discriminacao);
             self::assertSame('99887766000155', $client->capturedDps?->documentoTomador);
             self::assertSame('ACME Ltda', $client->capturedDps?->nomeTomador);
+            if ($client->capturedDps !== null && property_exists($client->capturedDps, 'tomadorCodigoMunicipio')) {
+                self::assertSame('3303302', $client->capturedDps->tomadorCodigoMunicipio);
+                self::assertSame('24020077', $client->capturedDps->tomadorCep);
+                self::assertSame('Avenida Rio Branco, 500', $client->capturedDps->tomadorLogradouro);
+                self::assertSame('21988887777', $client->capturedDps->tomadorTelefone);
+                self::assertSame('financeiro@acme.test', $client->capturedDps->tomadorEmail);
+            }
             self::assertSame(2, $client->capturedDps?->opcaoSimplesNacional);
             self::assertSame(1, $client->capturedDps?->tipoAmbiente);
             self::assertSame('1', $client->capturedDps?->federalPiscofinsSituacaoTributaria);
@@ -718,6 +730,29 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller->emit($invoice);
 
             self::assertSame('99887766000155', $client->capturedDps?->documentoTomador);
+        }
+
+        public function testTomadorPayloadSkipsAddressWhenMunicipioIbgeIsMissing(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function exposedTomadorPayload(?object $contact): array
+                {
+                    return $this->tomadorPayload($contact);
+                }
+            };
+
+            $payload = $controller->exposedTomadorPayload((object) [
+                'address' => 'Rua sem codigo',
+                'zip_code' => '24020-077',
+                'phone' => '(21) 97777-6666',
+                'email' => 'contato@example.test',
+            ]);
+
+            self::assertSame('', $payload['codigo_municipio']);
+            self::assertSame('', $payload['cep']);
+            self::assertSame('', $payload['logradouro']);
+            self::assertSame('21977776666', $payload['telefone']);
+            self::assertSame('contato@example.test', $payload['email']);
         }
 
         public function testEmitDropsInvalidTomadorDocument(): void
