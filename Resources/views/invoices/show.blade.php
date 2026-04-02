@@ -12,6 +12,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         @endif
 
+        @if($errors->has('cancel_reason') || $errors->has('cancel_justification'))
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                @error('cancel_reason')
+                    <p>{{ $message }}</p>
+                @enderror
+                @error('cancel_justification')
+                    <p>{{ $message }}</p>
+                @enderror
+            </div>
+        @endif
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
             <div class="bg-white rounded border p-4">
                 <h2 class="font-semibold mb-3">{{ trans('nfse::general.invoices.receipt_data') }}</h2>
@@ -28,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <h2 class="font-semibold mb-3">{{ trans('nfse::general.invoices.invoice_data') }}</h2>
                 <dl class="grid grid-cols-1 gap-2 text-sm">
                     <div><dt class="text-gray-500">{{ trans('general.invoice') }}</dt><dd>{{ $invoice->number ?? ('#' . $invoice->id) }}</dd></div>
-                    <div><dt class="text-gray-500">{{ trans('general.customer') }}</dt><dd>{{ $invoice->contact?->name ?? '—' }}</dd></div>
+                    <div><dt class="text-gray-500">{{ trans('nfse::general.invoices.customer') }}</dt><dd>{{ $invoice->contact?->name ?? '—' }}</dd></div>
                     <div><dt class="text-gray-500">{{ trans('general.amount') }}</dt><dd>{{ $invoice->amount ?? '—' }}</dd></div>
                 </dl>
             </div>
@@ -40,13 +51,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </a>
 
             @if(($receipt->status ?? '') !== 'cancelled')
-                <form action="{{ route('nfse.invoices.cancel', $invoice) }}" method="POST" onsubmit="return confirm('{{ trans('nfse::general.invoices.cancel_confirm') }}')">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm">
-                        {{ trans('nfse::general.invoices.cancel') }}
-                    </button>
-                </form>
+                <button
+                    type="button"
+                    class="inline-flex items-center px-3 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm"
+                    data-cancel-trigger="true"
+                    data-cancel-action="{{ route('nfse.invoices.cancel', $invoice) }}"
+                >
+                    {{ trans('nfse::general.invoices.cancel') }}
+                </button>
             @else
                 <form action="{{ route('nfse.invoices.reemit', $invoice) }}" method="POST" onsubmit="return confirm('{{ trans('nfse::general.invoices.reemit_confirm') }}')">
                     @csrf
@@ -56,5 +68,182 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </form>
             @endif
         </div>
+
+        <div
+            id="nfse-cancel-modal"
+            class="fixed inset-0 z-[100] hidden"
+            data-old-action="{{ old('cancel_invoice_action', '') }}"
+            aria-hidden="true"
+        >
+            <div class="absolute inset-0 bg-slate-500/55 backdrop-blur-[1px] backdrop-brightness-75" data-cancel-close="true"></div>
+
+            <div class="relative flex min-h-full items-center justify-center overflow-y-auto p-4">
+                <div class="w-full max-w-2xl rounded-lg bg-white shadow-xl">
+                    <div class="flex items-center justify-between border-b px-5 py-4">
+                        <h3 class="text-lg font-semibold text-gray-800">{{ trans('nfse::general.invoices.cancel_modal_title') }}</h3>
+                        <button type="button" class="text-gray-500 hover:text-gray-700" data-cancel-close="true">{{ trans('nfse::general.invoices.cancel_modal_close') }}</button>
+                    </div>
+
+                    <form id="nfse-cancel-form" method="POST" action="" class="p-5 space-y-4">
+                        @csrf
+                        @method('DELETE')
+                        <input type="hidden" name="cancel_invoice_action" id="cancel_invoice_action" value="{{ old('cancel_invoice_action', '') }}">
+                        @php($cancelReasonOptions = trans('nfse::general.invoices.cancel_reason_options'))
+
+                        <div>
+                            <label for="cancel_reason" class="block text-sm font-medium text-gray-700 mb-1">{{ trans('nfse::general.invoices.cancel_modal_reason') }}</label>
+                            <select
+                                id="cancel_reason"
+                                name="cancel_reason"
+                                class="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                                required
+                            >
+                                <option value="">{{ trans('nfse::general.invoices.cancel_modal_reason_select_placeholder') }}</option>
+                                @if(is_array($cancelReasonOptions))
+                                    @foreach($cancelReasonOptions as $reasonOption)
+                                        <option value="{{ $reasonOption }}" @selected(old('cancel_reason', '') === $reasonOption)>{{ $reasonOption }}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="cancel_justification" class="block text-sm font-medium text-gray-700 mb-1">{{ trans('nfse::general.invoices.cancel_modal_justification') }}</label>
+                            <textarea
+                                id="cancel_justification"
+                                name="cancel_justification"
+                                rows="4"
+                                class="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                                placeholder="{{ trans('nfse::general.invoices.cancel_modal_justification_placeholder') }}"
+                                maxlength="1000"
+                                required
+                            >{{ old('cancel_justification', '') }}</textarea>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-2 border-t pt-4">
+                            <button type="button" class="inline-flex items-center rounded bg-gray-100 px-3 py-2 text-sm hover:bg-gray-200" data-cancel-close="true">
+                                {{ trans('nfse::general.invoices.cancel_modal_close') }}
+                            </button>
+                            <button id="cancel-submit-button" type="submit" class="inline-flex items-center rounded px-3 py-2 text-sm font-medium transition-colors duration-150 bg-gray-300 text-gray-500 cursor-not-allowed opacity-70" disabled aria-disabled="true" aria-busy="false">
+                                <svg id="cancel-submit-spinner" class="mr-2 hidden h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                </svg>
+                                <span id="cancel-submit-label">{{ trans('nfse::general.invoices.cancel_modal_submit') }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            (() => {
+                const modal = document.getElementById('nfse-cancel-modal');
+                const form = document.getElementById('nfse-cancel-form');
+                const reasonSelect = document.getElementById('cancel_reason');
+                const justificationInput = document.getElementById('cancel_justification');
+                const submitButton = document.getElementById('cancel-submit-button');
+                const submitSpinner = document.getElementById('cancel-submit-spinner');
+                const submitLabel = document.getElementById('cancel-submit-label');
+                const actionInput = document.getElementById('cancel_invoice_action');
+                const submitDefaultLabel = @json((string) trans('nfse::general.invoices.cancel_modal_submit'));
+                const submitLoadingLabel = @json((string) trans('nfse::general.invoices.cancel_modal_submitting'));
+                let isSubmitting = false;
+
+                if (!modal || !form || !reasonSelect || !justificationInput || !submitButton || !submitSpinner || !submitLabel || !actionInput) {
+                    return;
+                }
+
+                const setSubmittingState = (submitting) => {
+                    isSubmitting = submitting;
+
+                    if (submitting) {
+                        submitButton.disabled = true;
+                        submitButton.setAttribute('aria-disabled', 'true');
+                        submitButton.setAttribute('aria-busy', 'true');
+                        submitButton.classList.remove('bg-red-600', 'hover:bg-red-700', 'cursor-pointer', 'opacity-100');
+                        submitButton.classList.add('bg-gray-400', 'text-white', 'cursor-not-allowed', 'opacity-100');
+                        submitSpinner.classList.remove('hidden');
+                        submitLabel.textContent = submitLoadingLabel;
+
+                        return;
+                    }
+
+                    submitButton.setAttribute('aria-busy', 'false');
+                    submitSpinner.classList.add('hidden');
+                    submitLabel.textContent = submitDefaultLabel;
+                    updateSubmitState();
+                };
+
+                const updateSubmitState = () => {
+                    if (isSubmitting) {
+                        return;
+                    }
+
+                    const enabled = reasonSelect.value.trim() !== '' && justificationInput.value.trim() !== '';
+                    submitButton.disabled = !enabled;
+                    submitButton.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+
+                    if (enabled) {
+                        submitButton.classList.remove('bg-gray-300', 'bg-gray-400', 'text-gray-500', 'cursor-not-allowed', 'opacity-70');
+                        submitButton.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700', 'cursor-pointer', 'opacity-100');
+
+                        return;
+                    }
+
+                    submitButton.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700', 'cursor-pointer', 'opacity-100');
+                    submitButton.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed', 'opacity-70');
+                };
+
+                const openModal = (actionUrl) => {
+                    if (!actionUrl) {
+                        return;
+                    }
+
+                    form.action = actionUrl;
+                    actionInput.value = actionUrl;
+                    modal.classList.remove('hidden');
+                    modal.setAttribute('aria-hidden', 'false');
+                    document.body.classList.add('overflow-hidden');
+                    updateSubmitState();
+                    reasonSelect.focus();
+                };
+
+                const closeModal = () => {
+                    if (isSubmitting) {
+                        return;
+                    }
+
+                    modal.classList.add('hidden');
+                    modal.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('overflow-hidden');
+                };
+
+                document.querySelectorAll('[data-cancel-trigger="true"]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        openModal(button.getAttribute('data-cancel-action'));
+                    });
+                });
+
+                modal.querySelectorAll('[data-cancel-close="true"]').forEach((button) => {
+                    button.addEventListener('click', closeModal);
+                });
+
+                reasonSelect.addEventListener('change', updateSubmitState);
+                justificationInput.addEventListener('input', updateSubmitState);
+                form.addEventListener('submit', () => {
+                    if (isSubmitting) {
+                        return;
+                    }
+
+                    setSubmittingState(true);
+                });
+
+                if (modal.getAttribute('data-old-action')) {
+                    openModal(modal.getAttribute('data-old-action'));
+                }
+            })();
+        </script>
     </x-slot>
 </x-layouts.admin>
