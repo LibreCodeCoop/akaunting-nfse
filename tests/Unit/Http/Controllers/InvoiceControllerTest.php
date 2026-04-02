@@ -1136,16 +1136,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame($receipt, $response->data['receipt'] ?? null);
         }
 
-        public function testDashboardReturnsViewWithOperationalStatsAndRecentReceipts(): void
+        public function testDashboardReturnsViewWithOperationalStats(): void
         {
-            $recentReceipts = [
-                (object) ['invoice_id' => 10, 'nfse_number' => 'NF-10'],
-            ];
-
-            $controller = new class ($recentReceipts) extends InvoiceController {
-                public function __construct(private readonly array $recentReceipts)
-                {
-                }
+            $controller = new class () extends InvoiceController {
 
                 protected function dashboardStats(): array
                 {
@@ -1157,10 +1150,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     ];
                 }
 
-                protected function recentReceipts(): iterable
-                {
-                    return $this->recentReceipts;
-                }
             };
 
             $response = $controller->dashboard();
@@ -1172,127 +1161,42 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'cancelled' => 2,
                 'sandbox_mode' => true,
             ], $response->data['stats'] ?? []);
-            self::assertSame($recentReceipts, $response->data['recentReceipts'] ?? []);
         }
 
-        public function testPendingReturnsViewWithInvoicesReadyForEmission(): void
+        public function testPendingRedirectsToUnifiedListingWithDefaultFilters(): void
         {
-            $pendingInvoices = [
-                new Invoice(id: 11, amount: 120.0),
-                new Invoice(id: 12, amount: 220.0),
-            ];
-
-            $controller = new class ($pendingInvoices) extends InvoiceController {
-                public function __construct(private readonly array $pendingInvoices)
-                {
-                }
-
-                protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
-                {
-                    return $this->pendingInvoices;
-                }
-
-                protected function emissionReadiness(): array
-                {
-                    return [
-                        'isReady' => true,
-                        'checklist' => [
-                            'cnpj_prestador' => true,
-                            'municipio_ibge' => true,
-                            'item_lista_servico' => true,
-                            'certificate' => true,
-                        ],
-                    ];
-                }
+            $controller = new class () extends InvoiceController {
             };
 
             $response = $controller->pending();
 
-            self::assertSame('nfse::invoices.pending', $response->name);
-            self::assertSame($pendingInvoices, $response->data['pendingInvoices'] ?? []);
-            self::assertTrue($response->data['isReady'] ?? false);
-            self::assertSame(25, $response->data['perPage'] ?? null);
-            self::assertNull($response->data['search'] ?? null);
-            self::assertSame([
-                'cnpj_prestador' => true,
-                'municipio_ibge' => true,
-                'item_lista_servico' => true,
-                'certificate' => true,
-            ], $response->data['checklist'] ?? []);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
         }
 
-        public function testPendingPassesSearchAndPerPageFromRequestToPendingQuery(): void
+        public function testPendingPassesSearchAndPerPageToUnifiedListing(): void
         {
             $controller = new class () extends InvoiceController {
-                public ?int $capturedPerPage = null;
-                public ?string $capturedSearch = null;
-
-                protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
-                {
-                    $this->capturedPerPage = $perPage;
-                    $this->capturedSearch = $search;
-
-                    return ['pending-filtered'];
-                }
-
-                protected function emissionReadiness(): array
-                {
-                    return [
-                        'isReady' => true,
-                        'checklist' => [
-                            'cnpj_prestador' => true,
-                            'municipio_ibge' => true,
-                            'item_lista_servico' => true,
-                            'certificate' => true,
-                        ],
-                    ];
-                }
             };
 
             $response = $controller->pending(new Request(['per_page' => '50', 'q' => '  ACME  ']));
 
-            self::assertSame(50, $controller->capturedPerPage);
-            self::assertSame('ACME', $controller->capturedSearch);
-            self::assertSame(50, $response->data['perPage'] ?? null);
-            self::assertSame('ACME', $response->data['search'] ?? null);
-            self::assertSame(['pending-filtered'], $response->data['pendingInvoices'] ?? null);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending', 'per_page' => 50, 'q' => 'ACME']], $response->parameters);
         }
 
-        public function testPendingNormalizesInvalidFiltersBeforeLoadingInvoices(): void
+        public function testPendingNormalizesInvalidFiltersBeforeRedirectingToUnifiedListing(): void
         {
             $controller = new class () extends InvoiceController {
-                public ?int $capturedPerPage = null;
-                public ?string $capturedSearch = 'marker';
-
-                protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
-                {
-                    $this->capturedPerPage = $perPage;
-                    $this->capturedSearch = $search;
-
-                    return ['pending-default'];
-                }
-
-                protected function emissionReadiness(): array
-                {
-                    return [
-                        'isReady' => true,
-                        'checklist' => [
-                            'cnpj_prestador' => true,
-                            'municipio_ibge' => true,
-                            'item_lista_servico' => true,
-                            'certificate' => true,
-                        ],
-                    ];
-                }
             };
 
             $response = $controller->pending(new Request(['per_page' => '13', 'q' => '   ']));
 
-            self::assertSame(25, $controller->capturedPerPage);
-            self::assertNull($controller->capturedSearch);
-            self::assertSame(25, $response->data['perPage'] ?? null);
-            self::assertNull($response->data['search'] ?? null);
-            self::assertSame(['pending-default'], $response->data['pendingInvoices'] ?? null);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
         }
 
         public function testEmitRedirectsToPendingWhenEmissionReadinessIsNotSatisfied(): void
@@ -1327,7 +1231,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->emit($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.pending', $response->route);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending']], $response->parameters);
             self::assertSame('Existem configuracoes pendentes para liberar a emissao.', $response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
@@ -1348,9 +1253,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = $controller->pending();
 
-            self::assertSame('nfse::invoices.pending', $response->name);
-            self::assertFalse($response->data['isReady'] ?? true);
-            self::assertSame(false, $response->data['checklist']['certificate_secret'] ?? null);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
         }
 
         public function testPendingIncludesTransportCertificateChecklistFlagWhenPemFilesAreMissing(): void
@@ -1369,9 +1274,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = $controller->pending();
 
-            self::assertSame('nfse::invoices.pending', $response->name);
-            self::assertFalse($response->data['isReady'] ?? true);
-            self::assertSame(false, $response->data['checklist']['transport_certificate'] ?? null);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
         }
 
         public function testRefreshQueriesReceiptUpdatesStatusAndRedirectsToShowPage(): void
@@ -1736,8 +1641,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->emit($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.pending', $response->route);
-            self::assertSame([], $response->parameters);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending']], $response->parameters);
             self::assertNotNull($response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
@@ -1786,8 +1691,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->emit($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.pending', $response->route);
-            self::assertSame([], $response->parameters);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending']], $response->parameters);
             self::assertSame('Nao foi possivel acessar o segredo do certificado no Vault/OpenBao.', $response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
@@ -1843,6 +1748,303 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertNotNull($response->flash['error'] ?? null);
             self::assertSame('NFS-e não pode ser cancelada', $response->flash['nfse_gateway_error_detail'] ?? null);
             self::assertSame([], $receipt->updatedPayloads);
+        }
+
+        public function testCancelRedirectsToIndexWithMessageDetailWhenGatewayPayloadUsesMessageKey(): void
+        {
+            $invoice = new Invoice(id: 202, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(202, 'CHAVE-202', 'emitted');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new CancellationException(
+                        'Gateway rejected cancel',
+                        NfseErrorCode::CancellationRejected,
+                        405,
+                        ['message' => 'The requested resource does not support http method DELETE.'],
+                    );
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->cancel($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([], $response->parameters);
+            self::assertNotNull($response->flash['error'] ?? null);
+            self::assertSame(
+                'The requested resource does not support http method DELETE.',
+                $response->flash['nfse_gateway_error_detail'] ?? null,
+            );
+            self::assertSame([], $receipt->updatedPayloads);
+        }
+
+        public function testCancelRedirectsToIndexWithExceptionMessageWhenPayloadHasNoDetailFields(): void
+        {
+            $invoice = new Invoice(id: 203, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(203, 'CHAVE-203', 'emitted');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new CancellationException(
+                        'SEFIN gateway rejected cancellation (HTTP 405)',
+                        NfseErrorCode::CancellationRejected,
+                        405,
+                        ['unexpected' => 'shape'],
+                    );
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->cancel($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([], $response->parameters);
+            self::assertNotNull($response->flash['error'] ?? null);
+            self::assertSame(
+                'SEFIN gateway rejected cancellation (HTTP 405)',
+                $response->flash['nfse_gateway_error_detail'] ?? null,
+            );
+            self::assertSame([], $receipt->updatedPayloads);
+        }
+
+        public function testCancelRedirectsToIndexWithDetailFromValidationErrorPayloadShape(): void
+        {
+            $invoice = new Invoice(id: 204, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(204, 'CHAVE-204', 'emitted');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new CancellationException(
+                        'Gateway rejected cancel',
+                        NfseErrorCode::CancellationRejected,
+                        400,
+                        [
+                            'title' => 'One or more validation errors occurred.',
+                            'detail' => 'Schema validation failed for event payload.',
+                            'errors' => [
+                                'pedidoRegistroEventoXmlGZipB64' => ['The payload is invalid.'],
+                            ],
+                        ],
+                    );
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->cancel($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([], $response->parameters);
+            self::assertNotNull($response->flash['error'] ?? null);
+            self::assertSame(
+                'Schema validation failed for event payload. - The payload is invalid.',
+                $response->flash['nfse_gateway_error_detail'] ?? null,
+            );
+            self::assertSame([], $receipt->updatedPayloads);
+        }
+
+        public function testCancelRedirectsToIndexWithDetailFromErroArrayPayloadShape(): void
+        {
+            $invoice = new Invoice(id: 205, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(205, 'CHAVE-205', 'emitted');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new CancellationException(
+                        'Gateway rejected cancel',
+                        NfseErrorCode::CancellationRejected,
+                        400,
+                        [
+                            'erro' => [
+                                [
+                                    'codigo' => 'E6154',
+                                    'descricao' => 'Xml não está utilizando codificação UTF-8.',
+                                ],
+                            ],
+                        ],
+                    );
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->cancel($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([], $response->parameters);
+            self::assertNotNull($response->flash['error'] ?? null);
+            self::assertSame(
+                'E6154 - Xml não está utilizando codificação UTF-8.',
+                $response->flash['nfse_gateway_error_detail'] ?? null,
+            );
+            self::assertSame([], $receipt->updatedPayloads);
+        }
+
+        public function testCancelTreatsAlreadyRegisteredCancellationAsSuccess(): void
+        {
+            $invoice = new Invoice(id: 206, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(206, 'CHAVE-206', 'emitted');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new CancellationException(
+                        'Gateway rejected cancel',
+                        NfseErrorCode::CancellationRejected,
+                        400,
+                        [
+                            'erro' => [
+                                [
+                                    'codigo' => 'E0840',
+                                    'descricao' => 'Evento de cancelamento já vinculado à NFS-e.',
+                                ],
+                            ],
+                        ],
+                    );
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->cancel($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([], $response->parameters);
+            self::assertSame('NFS-e cancelada', $response->flash['success'] ?? null);
+            self::assertArrayNotHasKey('error', $response->flash);
+            self::assertSame([['status' => 'cancelled']], $receipt->updatedPayloads);
         }
 
         public function testReemitRedirectsToShowWithErrorFlashWhenGatewayRejectsIssuance(): void
@@ -1996,8 +2198,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->emit($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.pending', $response->route);
-            self::assertSame([], $response->parameters);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending']], $response->parameters);
             self::assertSame('Nao foi possivel importar o certificado PFX.', $response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
