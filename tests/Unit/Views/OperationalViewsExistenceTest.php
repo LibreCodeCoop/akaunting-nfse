@@ -16,7 +16,6 @@ namespace Modules\Nfse\Tests\Unit\Views {
 
             self::assertFileExists($basePath . '/dashboard/index.blade.php');
             self::assertFileExists($basePath . '/invoices/index.blade.php');
-            self::assertFileExists($basePath . '/invoices/pending.blade.php');
             self::assertFileExists($basePath . '/invoices/show.blade.php');
         }
 
@@ -45,7 +44,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
 
             self::assertStringContainsString('route(\'nfse.invoices.cancel\', $receipt->invoice_id)', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.cancel')", $content);
-            self::assertStringContainsString("trans('nfse::general.invoices.cancel_confirm')", $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.cancel_modal_title')", $content);
         }
 
         public function testInvoicesIndexViewShowsMiniDashboardQuickFiltersAndRowDetails(): void
@@ -55,29 +54,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
 
             self::assertStringContainsString("trans('nfse::general.invoices.listing_overview')", $content);
             self::assertStringContainsString("trans('nfse::general.invoices.quick_filters')", $content);
-            self::assertStringContainsString('<details class="group">', $content);
-            self::assertStringContainsString("trans('nfse::general.invoices.more_details')", $content);
-        }
-
-        public function testPendingInvoicesViewKeepsFiltersInPaginationAndOffersClearAction(): void
-        {
-            $pendingPath = dirname(__DIR__, 3) . '/Resources/views/invoices/pending.blade.php';
-            $content = (string) file_get_contents($pendingPath);
-
-            self::assertStringContainsString('{{ $pendingInvoices->appends(request()->query())->links() }}', $content);
-            self::assertStringContainsString("trans('nfse::general.invoices.clear_filters')", $content);
-        }
-
-        public function testPendingViewListsSpecificMissingChecklistItemsWhenNotReady(): void
-        {
-            $pendingPath = dirname(__DIR__, 3) . '/Resources/views/invoices/pending.blade.php';
-            $content = (string) file_get_contents($pendingPath);
-
-            // The view must iterate \$checklist to surface per-item labels rather than a generic banner.
-            self::assertStringContainsString('$checklist', $content);
-            self::assertStringContainsString("nfse::general.readiness.checks.", $content);
-            self::assertStringContainsString("route('nfse.settings.edit', ['tab' => 'services'])", $content);
-            self::assertStringContainsString("trans('nfse::general.go_to_settings')", $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.filter_pending')", $content);
+            self::assertStringContainsString("trans('general.actions')", $content);
         }
 
         public function testSettingsViewShowsVaultStatusAndSensitiveFieldClearControls(): void
@@ -211,16 +189,6 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("'opcao_simples_nacional_optant' => 'Optante'", $ptBrContent);
             self::assertStringContainsString("'go_to_settings'        => 'Ver configurações'", $ptBrContent);
             self::assertStringContainsString("'go_to_settings'        => 'View settings'", $enGbContent);
-        }
-
-        public function testPendingInvoicesViewShowsCompactSummaryAndCustomFilterInput(): void
-        {
-            $pendingPath = dirname(__DIR__, 3) . '/Resources/views/invoices/pending.blade.php';
-            $content = (string) file_get_contents($pendingPath);
-
-            self::assertStringContainsString("trans('nfse::general.invoices.pending_summary')", $content);
-            self::assertStringContainsString('id="pending-search-field"', $content);
-            self::assertStringContainsString("trans('nfse::general.invoices.search_in_field')", $content);
         }
 
         public function testInvoiceShowViewOffersReemitActionForCancelledReceipts(): void
