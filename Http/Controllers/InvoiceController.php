@@ -31,31 +31,36 @@ class InvoiceController extends Controller
     public function dashboard(): \Illuminate\View\View
     {
         $stats = $this->dashboardStats();
-        $recentReceipts = $this->recentReceipts();
 
-        return view('nfse::dashboard.index', compact('stats', 'recentReceipts'));
+        return view('nfse::dashboard.index', compact('stats'));
     }
 
     public function index(?Request $request = null): \Illuminate\View\View
     {
+        $request = $this->currentRequest($request);
+
         $status = $this->normalizedIndexStatus($request?->query('status'));
         $perPage = $this->normalizedIndexPerPage($request?->query('per_page'));
         $search = $this->normalizedIndexSearch($request?->query('q'));
-        $receipts = $this->receiptsForIndex($status, $perPage, $search);
+        $overviewCounts = $this->listingOverviewCounts();
+        $receipts = $status === 'pending' ? null : $this->receiptsForIndex($status, $perPage, $search);
+        $pendingInvoices = $status === 'pending' ? $this->pendingInvoices($perPage, $search) : null;
+        $pendingReadiness = $status === 'pending' ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
 
-        return view('nfse::invoices.index', compact('receipts', 'status', 'perPage', 'search'));
+        return view('nfse::invoices.index', compact('receipts', 'pendingInvoices', 'pendingReadiness', 'overviewCounts', 'status', 'perPage', 'search'));
     }
 
-    public function pending(?Request $request = null): \Illuminate\View\View
+    public function pending(?Request $request = null): RedirectResponse
     {
-        $perPage = $this->normalizedPendingPerPage($request?->query('per_page'));
-        $search = $this->normalizedPendingSearch($request?->query('q'));
-        $pendingInvoices = $this->pendingInvoices($perPage, $search);
-        $readiness = $this->emissionReadiness();
-        $checklist = $readiness['checklist'];
-        $isReady = $readiness['isReady'];
+        $request = $this->currentRequest($request);
+        $perPage = $request?->query('per_page');
+        $search = $request?->query('q');
 
-        return view('nfse::invoices.pending', compact('pendingInvoices', 'checklist', 'isReady', 'perPage', 'search'));
+        return redirect()->route('nfse.invoices.index', array_filter([
+            'status' => 'pending',
+            'per_page' => $this->normalizedIndexPerPage($perPage),
+            'q' => $this->normalizedIndexSearch($search),
+        ], static fn ($value): bool => $value !== null && $value !== ''));
     }
 
     public function show(Invoice $invoice): \Illuminate\View\View
@@ -73,7 +78,7 @@ class InvoiceController extends Controller
         $readiness = $this->emissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
-            return redirect()->route('nfse.invoices.pending')
+            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'));
         }
 
@@ -152,7 +157,7 @@ class InvoiceController extends Controller
         try {
             $receipt = $client->emit($dps);
         } catch (SecretStoreException) {
-            return redirect()->route('nfse.invoices.pending')
+            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_secret_store_failed'));
         } catch (GatewayException $e) {
             $gatewayDetail = $this->gatewayErrorDetail($e);
@@ -166,7 +171,7 @@ class InvoiceController extends Controller
                 'xml_order_debug' => $xmlOrderDebug,
             ]);
 
-            return redirect()->route('nfse.invoices.pending')
+            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed'))
                 ->with('nfse_gateway_error_detail', $gatewayDetail);
         } catch (NetworkException $e) {
@@ -175,10 +180,10 @@ class InvoiceController extends Controller
                 'message' => $e->getMessage(),
             ]);
 
-            return redirect()->route('nfse.invoices.pending')
+            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed'));
         } catch (PfxImportException) {
-            return redirect()->route('nfse.invoices.pending')
+            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         }
 
@@ -188,16 +193,38 @@ class InvoiceController extends Controller
             ->with('success', trans('nfse::general.nfse_emitted', ['number' => $receipt->nfseNumber]));
     }
 
-    public function cancel(Invoice $invoice): RedirectResponse
+    public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse
     {
         $receipt = $this->findReceiptForInvoice($invoice);
 
         $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+        $cancelReason = $this->cancellationReasonForGateway($request);
 
         try {
-            $client->cancel($receipt->chave_acesso, trans('nfse::general.cancel_motivo_default'));
+            $client->cancel($receipt->chave_acesso, $cancelReason);
         } catch (GatewayException $e) {
             $gatewayDetail = $this->gatewayErrorDetail($e);
+
+            if ($this->isCancellationAlreadyRegistered($e, $gatewayDetail)) {
+                $receipt->update(['status' => 'cancelled']);
+
+                $this->safeLogInfo('NFS-e cancellation already registered at SEFIN; local receipt marked as cancelled', [
+                    'invoice_id' => $invoice->id,
+                    'http_status' => $e->httpStatus,
+                    'upstream_payload' => $e->upstreamPayload,
+                    'gateway_detail' => $gatewayDetail,
+                ]);
+
+                return redirect()->route('nfse.invoices.index')
+                    ->with('success', trans('nfse::general.nfse_cancelled'));
+            }
+
+            $this->safeLogError('NFS-e cancellation rejected by SEFIN', [
+                'invoice_id' => $invoice->id,
+                'http_status' => $e->httpStatus,
+                'upstream_payload' => $e->upstreamPayload,
+                'gateway_detail' => $gatewayDetail,
+            ]);
 
             return redirect()->route('nfse.invoices.index')
                 ->with('error', trans('nfse::general.nfse_cancel_failed'))
@@ -208,6 +235,96 @@ class InvoiceController extends Controller
 
         return redirect()->route('nfse.invoices.index')
             ->with('success', trans('nfse::general.nfse_cancelled'));
+    }
+
+    protected function cancellationReasonForGateway(?Request $request = null): string
+    {
+        $request = $this->currentRequest($request);
+        $allowedReasons = $this->cancellationReasonOptions();
+
+        if (!$request instanceof Request) {
+            return (string) trans('nfse::general.cancel_motivo_default');
+        }
+
+        $allInput = method_exists($request, 'all') && is_array($request->all())
+            ? $request->all()
+            : [];
+
+        $isDeleteMethod = method_exists($request, 'isMethod')
+            ? $request->isMethod('delete')
+            : false;
+
+        $hasStructuredCancellationData = array_key_exists('cancel_reason', $allInput)
+            || array_key_exists('cancel_justification', $allInput);
+
+        $requiresStructuredCancellationData = $isDeleteMethod || $hasStructuredCancellationData;
+
+        if (!$requiresStructuredCancellationData) {
+            return (string) trans('nfse::general.cancel_motivo_default');
+        }
+
+        if (method_exists($request, 'validate')) {
+            $validated = $request->validate(
+                [
+                    'cancel_reason' => ['required', 'string', 'max:120', 'in:' . implode(',', $allowedReasons)],
+                    'cancel_justification' => ['required', 'string', 'max:1000'],
+                ],
+                [
+                    'cancel_reason.required' => (string) trans('nfse::general.invoices.cancel_reason_required'),
+                    'cancel_reason.in' => (string) trans('nfse::general.invoices.cancel_reason_invalid'),
+                    'cancel_justification.required' => (string) trans('nfse::general.invoices.cancel_justification_required'),
+                ],
+            );
+
+            $reason = trim((string) ($validated['cancel_reason'] ?? ''));
+            $justification = trim((string) ($validated['cancel_justification'] ?? ''));
+
+            return $reason . ' - ' . $justification;
+        }
+
+        $reason = trim((string) ($allInput['cancel_reason'] ?? ''));
+        $justification = trim((string) ($allInput['cancel_justification'] ?? ''));
+
+        if ($reason === '' || $justification === '' || !in_array($reason, $allowedReasons, true)) {
+            return (string) trans('nfse::general.cancel_motivo_default');
+        }
+
+        return $reason . ' - ' . $justification;
+    }
+
+    protected function currentRequest(?Request $request = null): ?Request
+    {
+        if ($request instanceof Request) {
+            return $request;
+        }
+
+        if (function_exists('app') && app()->bound('request')) {
+            $resolvedRequest = app('request');
+
+            return $resolvedRequest instanceof Request ? $resolvedRequest : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function cancellationReasonOptions(): array
+    {
+        $localized = trans('nfse::general.invoices.cancel_reason_options');
+
+        if (!is_array($localized)) {
+            return ['Erro na emissão', 'Serviço não prestado', 'Outros'];
+        }
+
+        $normalized = array_values(array_filter(array_map(static function ($value): string {
+            return trim((string) $value);
+        }, $localized), static function (string $value): bool {
+            return $value !== '';
+        }));
+
+        return $normalized !== [] ? $normalized : ['Erro na emissão', 'Serviço não prestado', 'Outros'];
     }
 
     public function refresh(Invoice $invoice): RedirectResponse
@@ -285,7 +402,7 @@ class InvoiceController extends Controller
         $readiness = $this->emissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
-            return redirect()->route('nfse.invoices.pending')
+            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'));
         }
 
@@ -554,12 +671,24 @@ class InvoiceController extends Controller
         if (isset($payload['erros']) && is_array($payload['erros']) && isset($payload['erros'][0]) && is_array($payload['erros'][0])) {
             $firstError = $payload['erros'][0];
         } elseif (isset($payload['erro']) && is_array($payload['erro'])) {
-            $firstError = $payload['erro'];
+            if (isset($payload['erro'][0]) && is_array($payload['erro'][0])) {
+                $firstError = $payload['erro'][0];
+            } else {
+                $firstError = $payload['erro'];
+            }
         } elseif (
             isset($payload['codigo'])
             || isset($payload['Codigo'])
             || isset($payload['descricao'])
             || isset($payload['Descricao'])
+            || isset($payload['detail'])
+            || isset($payload['Detail'])
+            || isset($payload['title'])
+            || isset($payload['Title'])
+            || isset($payload['errors'])
+            || isset($payload['Errors'])
+            || isset($payload['message'])
+            || isset($payload['Message'])
             || isset($payload['mensagem'])
             || isset($payload['Mensagem'])
             || isset($payload['complemento'])
@@ -569,20 +698,88 @@ class InvoiceController extends Controller
         }
 
         if (!is_array($firstError)) {
-            return null;
+            $fallback = trim($exception->getMessage());
+
+            return $fallback !== '' ? $fallback : null;
         }
 
         $code = trim((string) ($firstError['Codigo'] ?? $firstError['codigo'] ?? ''));
-        $description = trim((string) ($firstError['Descricao'] ?? $firstError['descricao'] ?? $firstError['mensagem'] ?? ''));
+        $description = trim((string) (
+            $firstError['Descricao']
+            ?? $firstError['descricao']
+            ?? $firstError['detail']
+            ?? $firstError['Detail']
+            ?? $firstError['title']
+            ?? $firstError['Title']
+            ?? $firstError['mensagem']
+            ?? $firstError['Mensagem']
+            ?? $firstError['message']
+            ?? ''
+        ));
         $complement = trim((string) ($firstError['Complemento'] ?? $firstError['complemento'] ?? ''));
+
+        if ($complement === '' && isset($firstError['errors']) && is_array($firstError['errors'])) {
+            foreach ($firstError['errors'] as $messages) {
+                if (is_array($messages) && isset($messages[0]) && is_string($messages[0]) && trim($messages[0]) !== '') {
+                    $complement = trim($messages[0]);
+
+                    break;
+                }
+
+                if (is_string($messages) && trim($messages) !== '') {
+                    $complement = trim($messages);
+
+                    break;
+                }
+            }
+        }
 
         $parts = array_filter([$code, $description, $complement], static fn (string $value): bool => $value !== '');
 
         if ($parts === []) {
-            return null;
+            $fallback = trim($exception->getMessage());
+
+            return $fallback !== '' ? $fallback : null;
         }
 
         return implode(' - ', $parts);
+    }
+
+    protected function isCancellationAlreadyRegistered(GatewayException $exception, ?string $gatewayDetail = null): bool
+    {
+        if ($gatewayDetail !== null && stripos($gatewayDetail, 'E0840') !== false) {
+            return true;
+        }
+
+        $payload = $exception->upstreamPayload;
+
+        if (!is_array($payload)) {
+            return false;
+        }
+
+        $errors = [];
+
+        if (isset($payload['erro']) && is_array($payload['erro'])) {
+            $errors = isset($payload['erro'][0]) && is_array($payload['erro'][0])
+                ? $payload['erro']
+                : [$payload['erro']];
+        } elseif (isset($payload['erros']) && is_array($payload['erros'])) {
+            $errors = $payload['erros'];
+        }
+
+        foreach ($errors as $error) {
+            if (!is_array($error)) {
+                continue;
+            }
+
+            $code = strtoupper(trim((string) ($error['Codigo'] ?? $error['codigo'] ?? '')));
+
+            if ($code === 'E0840') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -596,14 +793,6 @@ class InvoiceController extends Controller
             'cancelled' => NfseReceipt::where('status', 'cancelled')->count(),
             'sandbox_mode' => (bool) setting('nfse.sandbox_mode', true),
         ];
-    }
-
-    protected function recentReceipts(): iterable
-    {
-        return NfseReceipt::with('invoice')
-            ->latest()
-            ->take(10)
-            ->get();
     }
 
     protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
@@ -625,6 +814,56 @@ class InvoiceController extends Controller
         return $query->latest()->paginate($perPage);
     }
 
+    /**
+     * @return array{total: int, emitted: int, processing: int, cancelled: int, pending: int}
+     */
+    protected function listingOverviewCounts(): array
+    {
+        try {
+            $totalReceipts = NfseReceipt::count();
+        } catch (\Throwable) {
+            $totalReceipts = 0;
+        }
+
+        try {
+            $emitted = NfseReceipt::where('status', 'emitted')->count();
+        } catch (\Throwable) {
+            $emitted = 0;
+        }
+
+        try {
+            $processing = NfseReceipt::where('status', 'processing')->count();
+        } catch (\Throwable) {
+            $processing = 0;
+        }
+
+        try {
+            $cancelled = NfseReceipt::where('status', 'cancelled')->count();
+        } catch (\Throwable) {
+            $cancelled = 0;
+        }
+
+        $pending = 0;
+
+        try {
+            $pendingQuery = $this->pendingInvoicesQuery();
+
+            if (is_object($pendingQuery) && is_callable([$pendingQuery, 'count'])) {
+                $pending = (int) $pendingQuery->count();
+            }
+        } catch (\Throwable) {
+            $pending = 0;
+        }
+
+        return [
+            'total' => $totalReceipts + $pending,
+            'emitted' => $emitted,
+            'processing' => $processing,
+            'cancelled' => $cancelled,
+            'pending' => $pending,
+        ];
+    }
+
     protected function normalizedIndexStatus(mixed $status): string
     {
         if (!is_string($status)) {
@@ -632,7 +871,7 @@ class InvoiceController extends Controller
         }
 
         $normalized = strtolower(trim($status));
-        $allowed = ['all', 'emitted', 'cancelled', 'processing'];
+        $allowed = ['all', 'emitted', 'cancelled', 'processing', 'pending'];
 
         return in_array($normalized, $allowed, true) ? $normalized : 'all';
     }
@@ -658,11 +897,20 @@ class InvoiceController extends Controller
 
     protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
     {
-        $processedInvoiceIds = NfseReceipt::query()
-            ->pluck('invoice_id')
-            ->filter()
-            ->values()
-            ->all();
+        return $this->pendingInvoicesQuery($search)->latest()->paginate($perPage);
+    }
+
+    protected function pendingInvoicesQuery(?string $search = null): mixed
+    {
+        try {
+            $processedInvoiceIds = NfseReceipt::query()
+                ->pluck('invoice_id')
+                ->filter()
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            $processedInvoiceIds = [];
+        }
 
         $query = Invoice::invoice()
             ->with(['contact'])
@@ -674,32 +922,14 @@ class InvoiceController extends Controller
         if ($search !== null) {
             $query = $query->where(function ($innerQuery) use ($search) {
                 $innerQuery->where('document_number', 'like', '%' . $search . '%')
+                    ->orWhere('amount', 'like', '%' . $search . '%')
                     ->orWhereHas('contact', function ($contactQuery) use ($search) {
                         $contactQuery->where('name', 'like', '%' . $search . '%');
                     });
             });
         }
 
-        return $query->latest()->paginate($perPage);
-    }
-
-    protected function normalizedPendingPerPage(mixed $perPage): int
-    {
-        $allowed = [10, 25, 50, 100];
-        $normalized = is_numeric($perPage) ? (int) $perPage : 25;
-
-        return in_array($normalized, $allowed, true) ? $normalized : 25;
-    }
-
-    protected function normalizedPendingSearch(mixed $search): ?string
-    {
-        if (!is_string($search)) {
-            return null;
-        }
-
-        $normalized = trim($search);
-
-        return $normalized !== '' ? $normalized : null;
+        return $query;
     }
 
     /**
