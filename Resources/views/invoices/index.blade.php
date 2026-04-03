@@ -5,6 +5,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <x-layouts.admin>
     <x-slot name="title">{{ trans('nfse::general.invoices.title') }}</x-slot>
 
+    <x-slot name="buttons">
+        <form action="{{ route('nfse.invoices.refresh-all') }}" method="POST" class="inline-block">
+            @csrf
+            <x-button kind="primary" id="index-more-actions-refresh-nfse-invoices">
+                {{ trans('nfse::general.invoices.refresh_all_statuses') }}
+            </x-button>
+        </form>
+
+        <x-link href="{{ route('nfse.settings.edit') }}" id="index-more-actions-open-nfse-settings">
+            {{ trans('nfse::general.go_to_settings') }}
+        </x-link>
+    </x-slot>
+
     <x-slot name="content">
         @if(session('success'))
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
@@ -102,18 +115,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <p class="text-2xl font-semibold text-indigo-700">{{ $visiblePending }}</p>
                 </div>
             </div>
-        </div>
-
-        <div class="flex flex-wrap gap-2 mb-4">
-            <form action="{{ route('nfse.invoices.refresh-all') }}" method="POST">
-                @csrf
-                <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-blue-100 hover:bg-blue-200 text-blue-700 text-sm">
-                    {{ trans('nfse::general.invoices.refresh_all_statuses') }}
-                </button>
-            </form>
-            <a href="{{ route('nfse.settings.edit') }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
-                {{ trans('nfse::general.go_to_settings') }}
-            </a>
         </div>
 
         <x-form method="GET" action="{{ route($listingRouteName) }}">
