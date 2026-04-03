@@ -56,8 +56,11 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.invoices.quick_filters')", $content);
             self::assertStringContainsString("trans('nfse::general.invoices.filter_pending')", $content);
             self::assertStringContainsString("trans('general.actions')", $content);
-            self::assertStringContainsString('$invoice->number ?? $invoice->document_number', $content);
-            self::assertStringContainsString('$receipt->invoice?->number ?? $receipt->invoice?->document_number', $content);
+            self::assertStringContainsString('$invoice->number ?? $invoice->document_number ?? (\'#\' . $invoice->id)', $content);
+            self::assertStringContainsString('route(\'nfse.invoices.show\', $invoice)', $content);
+            self::assertStringContainsString('route(\'nfse.invoices.show\', $receipt->invoice_id)', $content);
+            self::assertStringContainsString('$receipt->invoice?->number ?? $receipt->invoice?->document_number ?? (\'#\' . $receipt->invoice_id)', $content);
+            self::assertStringContainsString('class="text-indigo-700 hover:underline"', $content);
             self::assertStringNotContainsString('uppercase">NFS-e</th>', $content);
         }
 
