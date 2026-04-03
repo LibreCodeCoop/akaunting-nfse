@@ -351,6 +351,58 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         <script>
             (() => {
+                const cookieFilters = @json($searchStringCookieFilters ?? []);
+
+                // Keep native AkauntingSearch visual chips in sync after page reload.
+                const hydrateSearchStringCookie = () => {
+                    if (!cookieFilters || Object.keys(cookieFilters).length === 0) {
+                        return;
+                    }
+
+                    const path = window.location.href.replace(window.location.search, '');
+                    let searchStringCookie = {};
+
+                    const readRawCookie = (name) => {
+                        const cookies = document.cookie ? document.cookie.split('; ') : [];
+
+                        for (const item of cookies) {
+                            const separatorIndex = item.indexOf('=');
+
+                            if (separatorIndex === -1) {
+                                continue;
+                            }
+
+                            const key = item.slice(0, separatorIndex);
+                            const value = item.slice(separatorIndex + 1);
+
+                            if (key === name) {
+                                return decodeURIComponent(value);
+                            }
+                        }
+
+                        return null;
+                    };
+
+                    try {
+                        const rawCookie = (typeof Cookies !== 'undefined' && typeof Cookies.get === 'function')
+                            ? Cookies.get('search-string')
+                            : readRawCookie('search-string');
+                        searchStringCookie = rawCookie ? JSON.parse(rawCookie) : {};
+                    } catch (error) {
+                        searchStringCookie = {};
+                    }
+
+                    searchStringCookie[path] = cookieFilters;
+
+                    if (typeof Cookies !== 'undefined' && typeof Cookies.set === 'function') {
+                        Cookies.set('search-string', searchStringCookie);
+                    } else {
+                        document.cookie = 'search-string=' + encodeURIComponent(JSON.stringify(searchStringCookie)) + '; path=/';
+                    }
+                };
+
+                hydrateSearchStringCookie();
+
                 const modal = document.getElementById('nfse-cancel-modal');
                 const form = document.getElementById('nfse-cancel-form');
                 const reasonSelect = document.getElementById('cancel_reason');
