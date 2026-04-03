@@ -24,7 +24,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
             $content = (string) file_get_contents($indexPath);
 
-            self::assertStringContainsString('{{ $receipts->appends(request()->query())->links() }}', $content);
+            self::assertStringContainsString('<x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.clear_filters')", $content);
         }
 
@@ -56,11 +56,10 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.invoices.quick_filters')", $content);
             self::assertStringContainsString("trans('nfse::general.invoices.filter_pending')", $content);
             self::assertStringContainsString("trans('general.actions')", $content);
-            self::assertStringContainsString('id="q" name="q"', $content);
-            self::assertStringContainsString('list="nfse-search-suggestions"', $content);
-            self::assertStringContainsString('status:pending', $content);
-            self::assertStringContainsString('status:emitted', $content);
-            self::assertStringContainsString('per_page:50', $content);
+            self::assertStringContainsString('<x-search-string :filters="$searchStringFilters" />', $content);
+            self::assertStringContainsString("'key' => 'status'", $content);
+            self::assertStringNotContainsString("'key' => 'per_page'", $content);
+            self::assertStringContainsString('<x-script folder="common" file="documents" />', $content);
             self::assertStringNotContainsString('id="nfse-status-filter"', $content);
             self::assertStringContainsString('class="bg-white border border-gray-200 rounded-lg overflow-hidden"', $content);
             self::assertStringContainsString('text-xs font-semibold uppercase tracking-wide text-gray-500', $content);
