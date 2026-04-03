@@ -364,6 +364,66 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('2.00', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
+        public function testEmitDefaultsMissingEstadualTributosPercentualToZeroWhenTributacaoIsEnabled(): void
+        {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
+            ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '3.65';
+            ControllerIsolationState::$settings['nfse.tributos_est_p'] = '';
+            ControllerIsolationState::$settings['nfse.tributos_mun_p'] = '2.00';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 440,
+                amount: 500.00,
+                items: [['name' => 'Servico D2']],
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->issued_at = '2026-02-04 08:37:53';
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-440', 'CHAVE-440', '2026-03-21T10:30:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('3.65', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('2.00', $client->capturedDps?->totalTributosPercentualMunicipal);
+        }
+
         public function testEmitUsesSimplesNacionalTributosProfileWhenCompanyIsOptant(): void
         {
             ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 2;

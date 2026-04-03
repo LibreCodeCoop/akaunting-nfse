@@ -1108,6 +1108,13 @@ class InvoiceController extends Controller
             $totalTributosPercentualMunicipal !== ''
         ) ? 2 : 0;
 
+        if ($indicadorTributacao === 2) {
+            // RNG6110 schema validation requires the tributos percentage sequence to be present and ordered.
+            $totalTributosPercentualFederal = $totalTributosPercentualFederal !== '' ? $totalTributosPercentualFederal : '0.00';
+            $totalTributosPercentualEstadual = $totalTributosPercentualEstadual !== '' ? $totalTributosPercentualEstadual : '0.00';
+            $totalTributosPercentualMunicipal = $totalTributosPercentualMunicipal !== '' ? $totalTributosPercentualMunicipal : '0.00';
+        }
+
         if ($situacaoTributaria === '' || $situacaoTributaria === '0') {
             return [
                 'federalPiscofinsSituacaoTributaria' => '',
