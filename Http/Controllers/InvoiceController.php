@@ -1115,13 +1115,13 @@ class InvoiceController extends Controller
             }
 
             $key = $from;
-            $value = \Illuminate\Support\Carbon::parse($from)->format($dateFormat);
+            $value = $this->formatDateForSearchFilter($from, $dateFormat);
 
             if ($operator === 'range' && $to !== null) {
                 $key = $from . '-to-' . $to;
-                $value = \Illuminate\Support\Carbon::parse($from)->format($dateFormat)
+                $value = $this->formatDateForSearchFilter($from, $dateFormat)
                     . ' to '
-                    . \Illuminate\Support\Carbon::parse($to)->format($dateFormat);
+                    . $this->formatDateForSearchFilter($to, $dateFormat);
                 $operator = '><';
             }
 
@@ -1133,6 +1133,15 @@ class InvoiceController extends Controller
         }
 
         return $filters;
+    }
+
+    protected function formatDateForSearchFilter(string $date, string $dateFormat): string
+    {
+        try {
+            return (new \DateTimeImmutable($date))->format($dateFormat);
+        } catch (\Throwable) {
+            return $date;
+        }
     }
 
     /**
