@@ -236,7 +236,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 };
                             @endphp
                             <tr>
-                                <td class="px-6 py-4">{{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}</td>
+                                <td class="px-6 py-4">
+                                    <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="text-indigo-700 hover:underline">
+                                        {{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}
+                                    </a>
+                                </td>
                                 <td class="px-6 py-4">{{ $receipt->invoice?->contact?->name ?? '—' }}</td>
                                 <td class="px-6 py-4">{{ money($receipt->invoice?->amount ?? 0, default_currency(), true) }}</td>
                                 <td class="px-6 py-4">{{ $receipt->data_emissao ? $receipt->data_emissao->format('d/m/Y H:i') : '—' }}</td>
