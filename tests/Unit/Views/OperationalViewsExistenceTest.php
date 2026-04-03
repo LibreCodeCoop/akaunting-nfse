@@ -58,6 +58,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('general.actions')", $content);
             self::assertStringContainsString('<x-search-string :filters="$searchStringFilters" />', $content);
             self::assertStringContainsString("'key' => 'status'", $content);
+            self::assertStringContainsString("'key' => 'data_emissao'", $content);
+            self::assertStringContainsString("'type' => 'date'", $content);
             self::assertStringNotContainsString("'key' => 'per_page'", $content);
             self::assertStringContainsString('<x-script folder="common" file="documents" />', $content);
             self::assertStringNotContainsString('id="nfse-status-filter"', $content);
