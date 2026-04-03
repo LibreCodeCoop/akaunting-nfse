@@ -1199,7 +1199,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         public function testDashboardReturnsViewWithOperationalStats(): void
         {
             $controller = new class () extends InvoiceController {
-
                 protected function dashboardStats(): array
                 {
                     return [
