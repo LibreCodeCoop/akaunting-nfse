@@ -39,13 +39,13 @@ class InvoiceController extends Controller
     {
         $request = $this->currentRequest($request);
 
-        $search = $this->normalizedIndexSearch($request?->query('q'));
+        $search = $this->normalizedIndexSearch($request?->query('search', $request?->query('q')));
         $parsedFilters = $this->parsedIndexSearchFilters($search);
         $status = $parsedFilters['status'] ?? $this->normalizedIndexStatus($request?->query('status'));
-        $perPage = $parsedFilters['per_page'] ?? $this->normalizedIndexPerPage($request?->query('per_page'));
+        $perPage = $parsedFilters['per_page'] ?? $this->normalizedIndexPerPage($request?->query('limit', $request?->query('per_page')));
         $searchTerm = $parsedFilters['search'];
         $overviewCounts = $this->listingOverviewCounts();
-        $receipts = $status === 'pending' ? null : $this->receiptsForIndex($status, $perPage, $searchTerm);
+        $receipts = $status === 'pending' ? null : $this->receiptsForIndex($status, $perPage, $searchTerm, $parsedFilters['date_emissao'] ?? null);
         $pendingInvoices = $status === 'pending' ? $this->pendingInvoices($perPage, $searchTerm) : null;
         $pendingReadiness = $status === 'pending' ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
 
@@ -55,13 +55,13 @@ class InvoiceController extends Controller
     public function pending(?Request $request = null): RedirectResponse
     {
         $request = $this->currentRequest($request);
-        $perPage = $request?->query('per_page');
-        $search = $request?->query('q');
+        $perPage = $request?->query('limit', $request?->query('per_page'));
+        $search = $request?->query('search', $request?->query('q'));
 
         return redirect()->route('nfse.invoices.index', array_filter([
             'status' => 'pending',
-            'per_page' => $this->normalizedIndexPerPage($perPage),
-            'q' => $this->normalizedIndexSearch($search),
+            'limit' => $this->normalizedIndexPerPage($perPage),
+            'search' => $this->normalizedIndexSearch($search),
         ], static fn ($value): bool => $value !== null && $value !== ''));
     }
 
@@ -805,12 +805,20 @@ class InvoiceController extends Controller
         ];
     }
 
-    protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+    protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
     {
         $query = NfseReceipt::with('invoice');
 
         if ($status !== 'all') {
-            $query = $query->where('status', $status);
+            if (str_contains($status, ',')) {
+                $statuses = array_values(array_filter(array_map(static fn (string $item): string => trim($item), explode(',', $status))));
+
+                if ($statuses !== []) {
+                    $query = $query->whereIn('status', $statuses);
+                }
+            } else {
+                $query = $query->where('status', $status);
+            }
         }
 
         if ($search !== null) {
@@ -819,6 +827,21 @@ class InvoiceController extends Controller
                     ->orWhere('chave_acesso', 'like', '%' . $search . '%')
                     ->orWhere('codigo_verificacao', 'like', '%' . $search . '%');
             });
+        }
+
+        if ($dateFilter !== null) {
+            $operator = $dateFilter['operator'];
+            $from     = $dateFilter['from'];
+            $to       = $dateFilter['to'] ?? null;
+
+            if ($operator === 'range' && $to !== null) {
+                $query = $query->whereDate('data_emissao', '>=', $from)
+                               ->whereDate('data_emissao', '<=', $to);
+            } elseif ($operator === '!=') {
+                $query = $query->whereDate('data_emissao', '!=', $from);
+            } else {
+                $query = $query->whereDate('data_emissao', '=', $from);
+            }
         }
 
         return $query->latest()->paginate($perPage);
@@ -906,32 +929,54 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @return array{status: ?string, per_page: ?int, search: ?string}
+     * @return array{status: ?string, per_page: ?int, search: ?string, date_emissao: ?array{operator: string, from: string, to: ?string}}
      */
     protected function parsedIndexSearchFilters(?string $search): array
     {
         if ($search === null) {
-            return ['status' => null, 'per_page' => null, 'search' => null];
+            return ['status' => null, 'per_page' => null, 'search' => null, 'date_emissao' => null];
         }
 
         $status = null;
         $perPage = null;
+        $dateFilter = null;
+        $datePattern = '[0-9]{4}-[0-9]{2}-[0-9]{2}';
 
-        if (preg_match('/(?:^|\s)status:(all|emitted|cancelled|processing|pending)\b/i', $search, $statusMatch) === 1) {
-            $status = $this->normalizedIndexStatus($statusMatch[1]);
+        if (preg_match('/(?:^|\s)status:([^\s]+)/i', $search, $statusMatch) === 1) {
+            $statusTokens = array_values(array_filter(array_map(static fn (string $item): string => trim(strtolower($item)), explode(',', $statusMatch[1]))));
+            $allowedStatuses = ['all', 'emitted', 'cancelled', 'processing', 'pending'];
+            $validStatuses = array_values(array_unique(array_filter($statusTokens, static fn (string $item): bool => in_array($item, $allowedStatuses, true))));
+
+            if ($validStatuses !== []) {
+                $status = in_array('all', $validStatuses, true) ? 'all' : implode(',', $validStatuses);
+            }
         }
 
         if (preg_match('/(?:^|\s)per_page:(10|25|50|100)\b/i', $search, $perPageMatch) === 1) {
             $perPage = $this->normalizedIndexPerPage($perPageMatch[1]);
         }
 
-        $searchWithoutTokens = preg_replace('/(?:^|\s)(status:(?:all|emitted|cancelled|processing|pending)|per_page:(?:10|25|50|100))\b/i', ' ', $search);
+        // Range: data_emissao>=YYYY-MM-DD data_emissao<=YYYY-MM-DD (order-independent)
+        if (preg_match('/(?:^|\s)data_emissao>=(' . $datePattern . ')/i', $search, $fromMatch) === 1
+            && preg_match('/(?:^|\s)data_emissao<=(' . $datePattern . ')/i', $search, $toMatch) === 1) {
+            $dateFilter = ['operator' => 'range', 'from' => $fromMatch[1], 'to' => $toMatch[1]];
+        } elseif (preg_match('/(?:^|\s)not\s+data_emissao:(' . $datePattern . ')(?:\s|$)/i', $search, $notMatch) === 1) {
+            // Not equal: not data_emissao:YYYY-MM-DD
+            $dateFilter = ['operator' => '!=', 'from' => $notMatch[1], 'to' => null];
+        } elseif (preg_match('/(?:^|\s)data_emissao:(' . $datePattern . ')(?:\s|$)/i', $search, $equalMatch) === 1) {
+            // Equal: data_emissao:YYYY-MM-DD
+            $dateFilter = ['operator' => '=', 'from' => $equalMatch[1], 'to' => null];
+        }
+
+        $searchWithoutTokens = preg_replace('/(?:^|\s)(status:[^\s]+|per_page:(?:10|25|50|100))\b/i', ' ', $search);
+        $searchWithoutTokens = preg_replace('/(?:^|\s)(?:not\s+data_emissao:[0-9]{4}-[0-9]{2}-[0-9]{2}|data_emissao(?:>=|<=|:)[0-9]{4}-[0-9]{2}-[0-9]{2})/i', ' ', (string) $searchWithoutTokens);
         $searchWithoutTokens = is_string($searchWithoutTokens) ? preg_replace('/\s+/', ' ', trim($searchWithoutTokens)) : null;
 
         return [
             'status' => $status,
             'per_page' => $perPage,
             'search' => $this->normalizedIndexSearch($searchWithoutTokens),
+            'date_emissao' => $dateFilter,
         ];
     }
 
