@@ -1110,7 +1110,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedStatus = $status;
                     $this->capturedPerPage = $perPage;
@@ -1136,7 +1136,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedStatus = $status;
                     $this->capturedPerPage = $perPage;
@@ -1162,7 +1162,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedStatus = $status;
                     $this->capturedPerPage = $perPage;
@@ -1187,7 +1187,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedPerPage = $perPage;
                     $this->capturedSearch = $search;
@@ -1209,7 +1209,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedSearch = $search;
 
@@ -1229,7 +1229,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
                 public ?string $capturedSearch = 'marker';
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedSearch = $search;
 
@@ -1249,7 +1249,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedSearch = $search;
 
@@ -1270,7 +1270,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 public ?string $capturedStatus = null;
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedStatus = $status;
                     $this->capturedSearch = $search;
@@ -1286,6 +1286,102 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('emitted,cancelled', $response->data['status'] ?? null);
             self::assertSame('status:emitted,cancelled', $response->data['search'] ?? null);
             self::assertSame(['multi-status'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexParsesEqualDateFilterToken(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?array $capturedDateFilter = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedDateFilter = $dateFilter;
+
+                    return [];
+                }
+            };
+
+            $controller->index(new Request(['search' => 'data_emissao:2024-03-15']));
+
+            self::assertSame(['operator' => '=', 'from' => '2024-03-15', 'to' => null], $controller->capturedDateFilter);
+        }
+
+        public function testIndexParsesNotEqualDateFilterToken(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?array $capturedDateFilter = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedDateFilter = $dateFilter;
+
+                    return [];
+                }
+            };
+
+            $controller->index(new Request(['search' => 'not data_emissao:2024-03-15']));
+
+            self::assertSame(['operator' => '!=', 'from' => '2024-03-15', 'to' => null], $controller->capturedDateFilter);
+        }
+
+        public function testIndexParsesDateRangeFilterToken(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?array $capturedDateFilter = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedDateFilter = $dateFilter;
+
+                    return [];
+                }
+            };
+
+            $controller->index(new Request(['search' => 'data_emissao>=2024-01-01 data_emissao<=2024-01-31']));
+
+            self::assertSame(['operator' => 'range', 'from' => '2024-01-01', 'to' => '2024-01-31'], $controller->capturedDateFilter);
+        }
+
+        public function testIndexParsesDateFilterWithoutLeakingToSearchTerm(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSearch = null;
+                public ?array $capturedDateFilter = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedSearch  = $search;
+                    $this->capturedDateFilter = $dateFilter;
+
+                    return [];
+                }
+            };
+
+            $controller->index(new Request(['search' => 'ACME data_emissao:2024-03-15 foo']));
+
+            self::assertSame('ACME foo', $controller->capturedSearch);
+            self::assertSame(['operator' => '=', 'from' => '2024-03-15', 'to' => null], $controller->capturedDateFilter);
+        }
+
+        public function testIndexParsesDateRangeWithoutLeakingToSearchTerm(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSearch = null;
+                public ?array $capturedDateFilter = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedSearch  = $search;
+                    $this->capturedDateFilter = $dateFilter;
+
+                    return [];
+                }
+            };
+
+            $controller->index(new Request(['search' => 'data_emissao>=2024-01-01 data_emissao<=2024-01-31']));
+
+            self::assertNull($controller->capturedSearch);
+            self::assertSame(['operator' => 'range', 'from' => '2024-01-01', 'to' => '2024-01-31'], $controller->capturedDateFilter);
         }
 
         public function testShowReturnsInvoiceAndReceiptInView(): void
