@@ -62,6 +62,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("'type' => 'date'", $content);
             self::assertStringNotContainsString("'key' => 'per_page'", $content);
             self::assertStringContainsString('<x-script folder="common" file="documents" />', $content);
+            self::assertStringContainsString("const cookieFilters = @json(\$searchStringCookieFilters ?? []);", $content);
+            self::assertStringContainsString("Cookies.set('search-string', searchStringCookie);", $content);
             self::assertStringNotContainsString('id="nfse-status-filter"', $content);
             self::assertStringContainsString('class="bg-white border border-gray-200 rounded-lg overflow-hidden"', $content);
             self::assertStringContainsString('text-xs font-semibold uppercase tracking-wide text-gray-500', $content);
