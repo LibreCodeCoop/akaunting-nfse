@@ -1104,6 +1104,14 @@ class InvoiceController extends Controller
     {
         $situacaoTributaria = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_situacao_tributaria', ''));
         $tipoRetencao = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_tipo_retencao', ''));
+        $valorCsllRetencao = $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_csll');
+
+        if (in_array($tipoRetencao, ['4', '5', '6'], true) && $valorCsllRetencao === '') {
+            // Gateway currently rejects tpRetPisCofins != 0 without vRetCSLL.
+            // When configured CSLL retention is zero, fallback avoids invalid payloads.
+            $tipoRetencao = '0';
+        }
+
         $isSimplesNacionalOptant = $this->normalizedOpcaoSimplesNacional() === 2;
 
         $totalTributosPercentualFederal = $this->normalizedFederalDecimal(setting($isSimplesNacionalOptant ? 'nfse.tributos_fed_sn' : 'nfse.tributos_fed_p', ''));
@@ -1160,7 +1168,7 @@ class InvoiceController extends Controller
                 : '',
             'federalValorIrrf' => $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_irrf'),
             'federalValorCsll' => $tipoRetencao !== '0'
-                ? $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_csll')
+                ? $valorCsllRetencao
                 : '',
             // Produção restrita currently rejects vRetCP (RNG6110), so keep CP as UI/config only.
             'federalValorCp' => '',
