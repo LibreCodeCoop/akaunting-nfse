@@ -44,6 +44,15 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringNotContainsString("method_exists(CompanyService::class, 'where')", $content);
         }
 
+        public function testReceiptsIndexSearchIncludesCustomerNameRelation(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("NfseReceipt::with('invoice.contact')", $content);
+            self::assertStringContainsString("->orWhereHas('invoice.contact'", $content);
+            self::assertStringContainsString("'name', 'like', '%' . \$search . '%'", $content);
+        }
+
         public function testProjectRootPathUsesIsolationApplicationBasePath(): void
         {
             $controller = new class () extends InvoiceController {
