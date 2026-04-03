@@ -97,32 +97,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         </div>
 
         <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-            <p class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">{{ trans('nfse::general.invoices.quick_filters') }}</p>
-            <div class="flex flex-wrap gap-2 mb-4">
-                <a href="{{ route($listingRouteName, ['status' => 'all', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm border {{ ($status ?? 'all') === 'all' ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-100' }}">
-                    <span>{{ trans('nfse::general.invoices.filter_all') }}</span>
-                    <span class="text-xs font-semibold">{{ $visibleTotal }}</span>
+            <p class="text-sm font-semibold text-gray-700 mb-3">{{ trans('nfse::general.invoices.quick_filters') }}</p>
+            <div class="flex flex-wrap gap-3 border-b border-gray-200 pb-3 mb-4 text-sm">
+                <a href="{{ route($listingRouteName, ['status' => 'all', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'all' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
+                    {{ trans('nfse::general.invoices.filter_all') }}
                 </a>
-                <a href="{{ route($listingRouteName, ['status' => 'emitted', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm border {{ ($status ?? 'all') === 'emitted' ? 'bg-green-100 border-green-200 text-green-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-100' }}">
-                    <span>{{ trans('nfse::general.invoices.filter_emitted') }}</span>
-                    <span class="text-xs font-semibold">{{ $visibleEmitted }}</span>
+                <a href="{{ route($listingRouteName, ['status' => 'emitted', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'emitted' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
+                    {{ trans('nfse::general.invoices.filter_emitted') }}
                 </a>
-                <a href="{{ route($listingRouteName, ['status' => 'processing', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm border {{ ($status ?? 'all') === 'processing' ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-100' }}">
-                    <span>{{ trans('nfse::general.invoices.filter_processing') }}</span>
-                    <span class="text-xs font-semibold">{{ $visibleProcessing }}</span>
+                <a href="{{ route($listingRouteName, ['status' => 'processing', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'processing' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
+                    {{ trans('nfse::general.invoices.filter_processing') }}
                 </a>
-                <a href="{{ route($listingRouteName, ['status' => 'cancelled', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm border {{ ($status ?? 'all') === 'cancelled' ? 'bg-red-100 border-red-200 text-red-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-100' }}">
-                    <span>{{ trans('nfse::general.invoices.filter_cancelled') }}</span>
-                    <span class="text-xs font-semibold">{{ $visibleCancelled }}</span>
+                <a href="{{ route($listingRouteName, ['status' => 'cancelled', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'cancelled' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
+                    {{ trans('nfse::general.invoices.filter_cancelled') }}
                 </a>
-                <a href="{{ route($listingRouteName, ['status' => 'pending', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm border {{ ($status ?? 'all') === 'pending' ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-100' }}">
-                    <span>{{ trans('nfse::general.invoices.filter_pending') }}</span>
-                    <span class="text-xs font-semibold">{{ $visiblePending }}</span>
+                <a href="{{ route($listingRouteName, ['status' => 'pending', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'pending' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
+                    {{ trans('nfse::general.invoices.filter_pending') }}
                 </a>
             </div>
 
             <form method="GET" action="{{ route($listingRouteName) }}">
-                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                     <div class="md:col-span-2">
                         <label for="q" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans('nfse::general.invoices.search_label') }}</label>
                         <input id="q" name="q" type="text" value="{{ $search ?? '' }}" list="nfse-search-suggestions" placeholder="{{ trans('nfse::general.invoices.search_placeholder') }}" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
@@ -153,7 +148,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </select>
                     </div>
 
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 md:col-span-4 justify-end">
                         <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
                             {{ trans('general.apply') }}
                         </button>
