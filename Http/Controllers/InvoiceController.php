@@ -28,6 +28,10 @@ use Modules\Nfse\Support\VaultConfig;
 
 class InvoiceController extends Controller
 {
+    protected string $indexSortBy = 'due_at';
+
+    protected string $indexSortDirection = 'desc';
+
     public function dashboard(): \Illuminate\View\View
     {
         $stats = $this->dashboardStats();
@@ -35,22 +39,58 @@ class InvoiceController extends Controller
         return view('nfse::dashboard.index', compact('stats'));
     }
 
-    public function index(?Request $request = null): \Illuminate\View\View
+    public function index(?Request $request = null): \Illuminate\View\View|RedirectResponse
     {
         $request = $this->currentRequest($request);
 
+        $hasExplicitState = $this->requestHasIndexState($request);
+        $savedPreferences = $this->loadIndexPreferences();
+
+        if (!$hasExplicitState && $savedPreferences !== []) {
+            return redirect()->route('nfse.invoices.index', $this->indexRestoreQueryParams($savedPreferences));
+        }
+
         $search = $this->normalizedIndexSearch($request?->query('search', $request?->query('q')));
+        $requestedStatus = $request?->query('status');
+        $requestedPerPage = $request?->query('limit', $request?->query('per_page'));
+        $requestedSortBy = $request?->query('sort', $request?->query('sort_by'));
+        $requestedSortDirection = $request?->query('direction', $request?->query('sort_direction'));
+
+        if (!$hasExplicitState && $savedPreferences !== []) {
+            $search ??= $savedPreferences['search'];
+            $requestedStatus ??= $savedPreferences['status'];
+            $requestedPerPage ??= $savedPreferences['per_page'];
+            $requestedSortBy ??= $savedPreferences['sort_by'];
+            $requestedSortDirection ??= $savedPreferences['sort_direction'];
+        }
+
         $parsedFilters = $this->parsedIndexSearchFilters($search);
-        $status = $parsedFilters['status'] ?? $this->normalizedIndexStatus($request?->query('status'));
-        $perPage = $parsedFilters['per_page'] ?? $this->normalizedIndexPerPage($request?->query('limit', $request?->query('per_page')));
+        $status = $requestedStatus !== null
+            ? $this->normalizedIndexStatus($requestedStatus)
+            : ($parsedFilters['status'] ?? 'all');
+        $perPage = $requestedPerPage !== null
+            ? $this->normalizedIndexPerPage($requestedPerPage)
+            : ($parsedFilters['per_page'] ?? 25);
+        $this->indexSortBy = $this->normalizedIndexSortBy($requestedSortBy);
+        $this->indexSortDirection = $this->normalizedIndexSortDirection($requestedSortDirection);
         $searchTerm = $parsedFilters['search'];
         $searchStringCookieFilters = $this->searchStringCookieFilters($parsedFilters);
         $overviewCounts = $this->listingOverviewCounts();
         $receipts = $status === 'pending' ? null : $this->receiptsForIndex($status, $perPage, $searchTerm, $parsedFilters['date_emissao'] ?? null);
         $pendingInvoices = $status === 'pending' ? $this->pendingInvoices($perPage, $searchTerm) : null;
         $pendingReadiness = $status === 'pending' ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
+        $sortBy = $this->indexSortBy;
+        $sortDirection = $this->indexSortDirection;
 
-        return view('nfse::invoices.index', compact('receipts', 'pendingInvoices', 'pendingReadiness', 'overviewCounts', 'status', 'perPage', 'search', 'searchStringCookieFilters'));
+        $this->saveIndexPreferences([
+            'status' => $status,
+            'per_page' => $perPage,
+            'search' => $search,
+            'sort_by' => $sortBy,
+            'sort_direction' => $sortDirection,
+        ]);
+
+        return view('nfse::invoices.index', compact('receipts', 'pendingInvoices', 'pendingReadiness', 'overviewCounts', 'status', 'perPage', 'search', 'searchStringCookieFilters', 'sortBy', 'sortDirection'));
     }
 
     public function pending(?Request $request = null): RedirectResponse
@@ -851,7 +891,9 @@ class InvoiceController extends Controller
             }
         }
 
-        return $query->latest()->paginate($perPage);
+        $query = $this->applyReceiptsSorting($query);
+
+        return $query->paginate($perPage);
     }
 
     /**
@@ -944,6 +986,76 @@ class InvoiceController extends Controller
         return $normalized !== '' ? $normalized : null;
     }
 
+    protected function normalizedIndexSortBy(mixed $sortBy): string
+    {
+        if (!is_string($sortBy)) {
+            return 'due_at';
+        }
+
+        $normalized = strtolower(trim($sortBy));
+        $allowed = ['due_at', 'issued_at', 'status', 'document_number', 'customer', 'amount', 'created_at'];
+
+        return in_array($normalized, $allowed, true) ? $normalized : 'due_at';
+    }
+
+    protected function normalizedIndexSortDirection(mixed $direction): string
+    {
+        if (!is_string($direction)) {
+            return 'desc';
+        }
+
+        $normalized = strtolower(trim($direction));
+
+        return in_array($normalized, ['asc', 'desc'], true) ? $normalized : 'desc';
+    }
+
+    protected function applyReceiptsSorting(mixed $query): mixed
+    {
+        if (!is_object($query)) {
+            return $query;
+        }
+
+        if (!is_callable([$query, 'orderBy'])) {
+            if (is_callable([$query, 'latest'])) {
+                return $query->latest();
+            }
+
+            return $query;
+        }
+
+        $direction = $this->indexSortDirection;
+
+        return match ($this->indexSortBy) {
+            'status' => $query->orderBy('status', $direction),
+            'created_at' => $query->orderBy('created_at', $direction),
+            'document_number' => $query->orderBy(
+                Invoice::query()->select('document_number')->whereColumn('documents.id', 'nfse_receipts.invoice_id')->limit(1),
+                $direction,
+            ),
+            'issued_at' => $query->orderBy(
+                Invoice::query()->select('issued_at')->whereColumn('documents.id', 'nfse_receipts.invoice_id')->limit(1),
+                $direction,
+            ),
+            'due_at' => $query->orderBy(
+                Invoice::query()->select('due_at')->whereColumn('documents.id', 'nfse_receipts.invoice_id')->limit(1),
+                $direction,
+            ),
+            'customer' => $query->orderBy(
+                \App\Models\Common\Contact::query()
+                    ->select('name')
+                    ->join('documents', 'documents.contact_id', '=', 'contacts.id')
+                    ->whereColumn('documents.id', 'nfse_receipts.invoice_id')
+                    ->limit(1),
+                $direction,
+            ),
+            'amount' => $query->orderBy(
+                Invoice::query()->select('amount')->whereColumn('documents.id', 'nfse_receipts.invoice_id')->limit(1),
+                $direction,
+            ),
+            default => $query->orderBy('data_emissao', $direction),
+        };
+    }
+
     /**
      * @param array{status: ?string, per_page: ?int, search: ?string, date_emissao: ?array{operator: string, from: string, to: ?string}} $parsedFilters
      * @return array<string, array<string, mixed>>
@@ -996,7 +1108,11 @@ class InvoiceController extends Controller
             $operator = $dateFilter['operator'];
             $from = $dateFilter['from'];
             $to = $dateFilter['to'] ?? null;
-            $dateFormat = company_date_format();
+            try {
+                $dateFormat = company_date_format();
+            } catch (\Throwable) {
+                $dateFormat = 'Y-m-d';
+            }
 
             $key = $from;
             $value = \Illuminate\Support\Carbon::parse($from)->format($dateFormat);
@@ -1073,7 +1189,141 @@ class InvoiceController extends Controller
 
     protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
     {
-        return $this->pendingInvoicesQuery($search)->latest()->paginate($perPage);
+        $query = $this->pendingInvoicesQuery($search);
+        $query = $this->applyPendingInvoicesSorting($query);
+
+        return $query->paginate($perPage);
+    }
+
+    protected function applyPendingInvoicesSorting(mixed $query): mixed
+    {
+        if (!is_object($query)) {
+            return $query;
+        }
+
+        if (!is_callable([$query, 'orderBy'])) {
+            if (is_callable([$query, 'latest'])) {
+                return $query->latest();
+            }
+
+            return $query;
+        }
+
+        $direction = $this->indexSortDirection;
+
+        if ($this->indexSortBy === 'customer' && is_callable([$query, 'leftJoin']) && is_callable([$query, 'select'])) {
+            $query = $query->leftJoin('contacts', 'contacts.id', '=', 'documents.contact_id')
+                ->select('documents.*')
+                ->orderBy('contacts.name', $direction);
+
+            return $query;
+        }
+
+        return match ($this->indexSortBy) {
+            'document_number' => $query->orderBy('document_number', $direction),
+            'amount' => $query->orderBy('amount', $direction),
+            'issued_at' => $query->orderBy('issued_at', $direction)->orderBy('created_at', $direction),
+            'due_at' => $query->orderBy('due_at', $direction)->orderBy('created_at', $direction),
+            default => $query->orderBy('created_at', $direction),
+        };
+    }
+
+    protected function requestHasIndexState(?Request $request): bool
+    {
+        if (!$request instanceof Request) {
+            return false;
+        }
+
+        $keys = ['search', 'q', 'status', 'limit', 'per_page', 'sort', 'direction', 'sort_by', 'sort_direction'];
+
+        foreach ($keys as $key) {
+            if ($request->query($key) !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array{status: ?string, per_page: int, search: ?string, sort_by: string, sort_direction: string} $preferences
+     * @return array<string, string|int>
+     */
+    protected function indexRestoreQueryParams(array $preferences): array
+    {
+        return array_filter([
+            'status' => (string) ($preferences['status'] ?? 'all'),
+            'limit' => (int) ($preferences['per_page'] ?? 25),
+            'search' => (string) ($preferences['search'] ?? ''),
+            'sort' => (string) ($preferences['sort_by'] ?? 'due_at'),
+            'direction' => (string) ($preferences['sort_direction'] ?? 'desc'),
+        ], static fn (mixed $value): bool => $value !== '' && $value !== null);
+    }
+
+    /**
+     * @return array{status: ?string, per_page: int, search: ?string, sort_by: string, sort_direction: string}|array{}
+     */
+    protected function loadIndexPreferences(): array
+    {
+        $raw = setting($this->indexPreferencesSettingKey(), null);
+        $decoded = null;
+
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+        } elseif (is_array($raw)) {
+            $decoded = $raw;
+        }
+
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return [
+            'status' => isset($decoded['status']) ? $this->normalizedIndexStatus($decoded['status']) : null,
+            'per_page' => $this->normalizedIndexPerPage($decoded['per_page'] ?? null),
+            'search' => $this->normalizedIndexSearch($decoded['search'] ?? null),
+            'sort_by' => $this->normalizedIndexSortBy($decoded['sort_by'] ?? null),
+            'sort_direction' => $this->normalizedIndexSortDirection($decoded['sort_direction'] ?? null),
+        ];
+    }
+
+    /**
+     * @param array{status: string, per_page: int, search: ?string, sort_by: string, sort_direction: string} $preferences
+     */
+    protected function saveIndexPreferences(array $preferences): void
+    {
+        setting([$this->indexPreferencesSettingKey() => json_encode($preferences)]);
+
+        $settings = setting();
+
+        if (is_object($settings) && is_callable([$settings, 'save'])) {
+            $settings->save();
+        }
+    }
+
+    protected function indexPreferencesSettingKey(): string
+    {
+        $key = 'nfse.invoices.preferences';
+
+        if (!function_exists('user')) {
+            return $key;
+        }
+
+        try {
+            $currentUser = user();
+
+            if (is_object($currentUser)) {
+                $userId = (int) ($currentUser->id ?? 0);
+
+                if ($userId > 0) {
+                    return $key . '.' . $userId;
+                }
+            }
+        } catch (\Throwable) {
+            return $key;
+        }
+
+        return $key;
     }
 
     protected function pendingInvoicesQuery(?string $search = null): mixed
@@ -1456,6 +1706,18 @@ class InvoiceController extends Controller
 
     protected function projectRootPath(string $relativePath): string
     {
+        if (class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationState::class)) {
+            try {
+                $isolationRoot = \Modules\Nfse\Http\Controllers\ControllerIsolationState::$storageRoot ?? '';
+
+                if (is_string($isolationRoot) && $isolationRoot !== '') {
+                    return rtrim($isolationRoot, '/\\') . DIRECTORY_SEPARATOR . ltrim($relativePath, DIRECTORY_SEPARATOR);
+                }
+            } catch (\Throwable) {
+                // Ignore isolation fallback errors and continue with normal resolution.
+            }
+        }
+
         if (function_exists('app')) {
             try {
                 $application = app();
