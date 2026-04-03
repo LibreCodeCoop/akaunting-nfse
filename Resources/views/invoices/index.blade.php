@@ -52,12 +52,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             $visiblePending = (int) ($overviewCounts['pending'] ?? 0);
             $isReady = $pendingReadiness['isReady'] ?? true;
             $checklist = $pendingReadiness['checklist'] ?? [];
+            $searchStringFilters = [
+                [
+                    'key' => 'status',
+                    'value' => trans_choice('general.statuses', 1),
+                    'type' => 'select',
+                    'multiple' => true,
+                    'values' => [
+                        'all' => trans('nfse::general.invoices.filter_all'),
+                        'pending' => trans('nfse::general.invoices.filter_pending'),
+                        'emitted' => trans('nfse::general.invoices.filter_emitted'),
+                        'processing' => trans('nfse::general.invoices.filter_processing'),
+                        'cancelled' => trans('nfse::general.invoices.filter_cancelled'),
+                    ],
+                ],
+            ];
         @endphp
 
         <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">{{ trans('nfse::general.invoices.listing_overview') }}</h3>
-                <span class="text-xs text-gray-500">{{ trans('nfse::general.invoices.per_page') }}: {{ $perPage ?? 25 }}</span>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
@@ -98,37 +112,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
             <p class="text-sm font-semibold text-gray-700 mb-3">{{ trans('nfse::general.invoices.quick_filters') }}</p>
-            <form method="GET" action="{{ route($listingRouteName) }}">
-                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-                    <div class="md:col-span-4">
-                        <label for="q" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans('nfse::general.invoices.search_label') }}</label>
-                        <input id="q" name="q" type="text" value="{{ $search ?? '' }}" list="nfse-search-suggestions" placeholder="status:pending cliente nome chave NF-0001 per_page:50" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
-                        <datalist id="nfse-search-suggestions">
-                            <option value="status:all"></option>
-                            <option value="status:pending"></option>
-                            <option value="status:emitted"></option>
-                            <option value="status:processing"></option>
-                            <option value="status:cancelled"></option>
-                            <option value="per_page:10"></option>
-                            <option value="per_page:25"></option>
-                            <option value="per_page:50"></option>
-                            <option value="per_page:100"></option>
-                            <option value="NF-2026-0001"></option>
-                            <option value="CHAVE-"></option>
-                            <option value="ABC123"></option>
-                        </datalist>
-                    </div>
+            <x-form method="GET" action="{{ route($listingRouteName) }}">
+                <x-search-string :filters="$searchStringFilters" />
+            </x-form>
 
-                    <div class="flex gap-2 justify-end">
-                        <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
-                            {{ trans('general.apply') }}
-                        </button>
-                        <a href="{{ route($listingRouteName) }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
-                            {{ trans('nfse::general.invoices.clear_filters') }}
-                        </a>
-                    </div>
-                </div>
-            </form>
+            <div class="flex justify-end">
+                <a href="{{ route($listingRouteName) }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
+                    {{ trans('nfse::general.invoices.clear_filters') }}
+                </a>
+            </div>
         </div>
 
         @if($isPendingStatus && !$isReady)
@@ -290,13 +282,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         </div>
 
-        <div class="mt-4">
-            @if($isPendingStatus)
-                {{ $pendingInvoices->appends(request()->query())->links() }}
-            @else
-                {{ $receipts->appends(request()->query())->links() }}
-            @endif
-        </div>
+        <x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />
 
         <div
             id="nfse-cancel-modal"
@@ -475,4 +461,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             })();
         </script>
     </x-slot>
+
+    <x-script folder="common" file="documents" />
 </x-layouts.admin>
