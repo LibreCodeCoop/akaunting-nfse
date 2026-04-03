@@ -19,13 +19,13 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/invoices/show.blade.php');
         }
 
-        public function testInvoicesIndexViewKeepsFiltersInPaginationAndOffersClearAction(): void
+        public function testInvoicesIndexViewKeepsFiltersInPagination(): void
         {
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
             $content = (string) file_get_contents($indexPath);
 
             self::assertStringContainsString('<x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />', $content);
-            self::assertStringContainsString("trans('nfse::general.invoices.clear_filters')", $content);
+            self::assertStringNotContainsString("trans('nfse::general.invoices.clear_filters')", $content);
         }
 
         public function testInvoicesIndexViewOffersReemitActionForCancelledReceipts(): void
@@ -53,7 +53,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $content = (string) file_get_contents($indexPath);
 
             self::assertStringContainsString("trans('nfse::general.invoices.listing_overview')", $content);
-            self::assertStringContainsString("trans('nfse::general.invoices.quick_filters')", $content);
+            self::assertStringNotContainsString("trans('nfse::general.invoices.quick_filters')", $content);
             self::assertStringContainsString("trans('nfse::general.invoices.filter_pending')", $content);
             self::assertStringContainsString("trans('general.actions')", $content);
             self::assertStringContainsString('<x-search-string :filters="$searchStringFilters" />', $content);
