@@ -106,6 +106,7 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertStringNotContainsString('<x-form.group.', $editView);
         self::assertStringNotContainsString('<x-form.input.', $editView);
         self::assertStringContainsString('<input', $editView);
+        self::assertStringNotContainsString('name="item_lista_servico_display"', $editView);
         self::assertStringContainsString('<textarea', $editView);
         self::assertStringContainsString('name="codigo_tributacao_nacional"', $editView);
         self::assertStringContainsString('name="aliquota"', $editView);
@@ -143,6 +144,7 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertStringContainsString("route('nfse.settings.services.make-default'", $servicesPartial);
         self::assertStringContainsString("trans('general.enabled')", $servicesPartial);
         self::assertStringContainsString("trans('general.disabled')", $servicesPartial);
+        self::assertStringContainsString('{{ $service->display_name }}', $servicesPartial);
         self::assertStringContainsString('material-icons-outlined', $servicesPartial);
         self::assertStringContainsString('>edit<', $servicesPartial);
         self::assertStringContainsString('>delete<', $servicesPartial);
