@@ -56,8 +56,9 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.invoices.quick_filters')", $content);
             self::assertStringContainsString("trans('nfse::general.invoices.filter_pending')", $content);
             self::assertStringContainsString("trans('general.actions')", $content);
-            self::assertStringContainsString('$receipt->invoice?->document_number', $content);
-            self::assertStringContainsString('$receipt->nfse_number ?: ($receipt->codigo_verificacao ?: $receipt->chave_acesso)', $content);
+            self::assertStringContainsString('$invoice->number ?? $invoice->document_number', $content);
+            self::assertStringContainsString('$receipt->invoice?->number ?? $receipt->invoice?->document_number', $content);
+            self::assertStringNotContainsString('uppercase">NFS-e</th>', $content);
         }
 
         public function testSettingsViewShowsVaultStatusAndSensitiveFieldClearControls(): void

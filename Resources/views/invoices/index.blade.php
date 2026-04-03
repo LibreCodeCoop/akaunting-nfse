@@ -178,7 +178,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ trans('general.invoice') }}</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ trans('nfse::general.invoices.customer') }}</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ trans('general.amount') }}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NFS-e</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ trans('general.date') }}</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ trans('general.status') }}</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{{ trans('general.actions') }}</th>
@@ -188,10 +187,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     @if($isPendingStatus)
                         @forelse($pendingInvoices as $invoice)
                             <tr>
-                                <td class="px-6 py-4">{{ $invoice->document_number ?? $invoice->number ?? ('#' . $invoice->id) }}</td>
+                                <td class="px-6 py-4">{{ $invoice->number ?? $invoice->document_number ?? ('#' . $invoice->id) }}</td>
                                 <td class="px-6 py-4">{{ $invoice->contact?->name ?? '—' }}</td>
                                 <td class="px-6 py-4">{{ money($invoice->amount, default_currency(), true) }}</td>
-                                <td class="px-6 py-4">—</td>
                                 <td class="px-6 py-4">{{ optional($invoice->issued_at)->format('d/m/Y H:i') ?? optional($invoice->created_at)->format('d/m/Y H:i') ?? '—' }}</td>
                                 <td class="px-6 py-4">
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
@@ -217,7 +215,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-6 py-4 text-center text-gray-500">{{ trans('nfse::general.invoices.no_pending') }}</td>
+                                <td colspan="6" class="px-6 py-4 text-center text-gray-500">{{ trans('nfse::general.invoices.no_pending') }}</td>
                             </tr>
                         @endforelse
                     @else
@@ -238,10 +236,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 };
                             @endphp
                             <tr>
-                                <td class="px-6 py-4">{{ $receipt->invoice?->document_number ?? $receipt->invoice?->number ?? ('#' . $receipt->invoice_id) }}</td>
+                                <td class="px-6 py-4">{{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}</td>
                                 <td class="px-6 py-4">{{ $receipt->invoice?->contact?->name ?? '—' }}</td>
                                 <td class="px-6 py-4">{{ money($receipt->invoice?->amount ?? 0, default_currency(), true) }}</td>
-                                <td class="px-6 py-4">{{ $receipt->nfse_number ?: ($receipt->codigo_verificacao ?: $receipt->chave_acesso) ?: '—' }}</td>
                                 <td class="px-6 py-4">{{ $receipt->data_emissao ? $receipt->data_emissao->format('d/m/Y H:i') : '—' }}</td>
                                 <td class="px-6 py-4">
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
@@ -298,7 +295,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-6 py-4 text-center text-gray-500">{{ trans('general.no_records') }}</td>
+                                <td colspan="6" class="px-6 py-4 text-center text-gray-500">{{ trans('general.no_records') }}</td>
                             </tr>
                         @endforelse
                     @endif
