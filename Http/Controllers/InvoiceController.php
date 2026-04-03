@@ -298,10 +298,18 @@ class InvoiceController extends Controller
             return $request;
         }
 
-        if (function_exists('app') && app()->bound('request')) {
-            $resolvedRequest = app('request');
+        if (function_exists('app')) {
+            $application = app();
 
-            return $resolvedRequest instanceof Request ? $resolvedRequest : null;
+            if (is_object($application) && method_exists($application, 'bound') && $application->bound('request')) {
+                $resolvedRequest = app('request');
+
+                return $resolvedRequest instanceof Request ? $resolvedRequest : null;
+            }
+
+            if ($application instanceof Request) {
+                return $application;
+            }
         }
 
         return null;
