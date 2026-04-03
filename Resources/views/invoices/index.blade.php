@@ -66,6 +66,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         'cancelled' => trans('nfse::general.invoices.filter_cancelled'),
                     ],
                 ],
+                [
+                    'key' => 'data_emissao',
+                    'value' => trans('nfse::general.invoices.issue_date'),
+                    'type' => 'date',
+                    'values' => [],
+                ],
             ];
         @endphp
 
