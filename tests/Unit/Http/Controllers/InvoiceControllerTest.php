@@ -529,6 +529,66 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringNotContainsString('<cMun>3303302</cMun>', $normalizedXml);
         }
 
+        public function testEmitFallsBackToNoRetentionWhenTypeRequiresCsllButConfiguredValueIsZero(): void
+        {
+            ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] = '4';
+            ControllerIsolationState::$settings['nfse.federal_valor_csll'] = '0.00';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 204,
+                amount: 1000.00,
+                items: [
+                    ['name' => 'Servico fallback retencao'],
+                ],
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData(
+                        nfseNumber: 'NF-204',
+                        chaveAcesso: 'CHAVE-204',
+                        dataEmissao: '2026-04-03T12:00:00-03:00',
+                    );
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame('0', $client->capturedDps?->federalPiscofinsTipoRetencao);
+            self::assertSame('', $client->capturedDps?->federalValorCsll);
+        }
+
         public function testEmitPrefersDefaultCompanyServiceOverLegacyFiscalSettings(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
