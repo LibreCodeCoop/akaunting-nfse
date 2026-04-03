@@ -51,7 +51,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString("NfseReceipt::with('invoice.contact')", $content);
             self::assertStringContainsString("->orWhereHas('invoice'", $content);
             self::assertStringContainsString("->orWhereHas('contact'", $content);
-                        self::assertStringContainsString("'name', 'like', '%' . \$search . '%'", $content);
+            self::assertStringContainsString("'name', 'like', '%' . \$search . '%'", $content);
         }
 
         public function testReceiptsIndexSearchAlsoIncludesInvoiceNumberFields(): void
@@ -1119,6 +1119,87 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('all', $response->data['status'] ?? null);
             self::assertSame(25, $response->data['perPage'] ?? null);
             self::assertNull($response->data['search'] ?? null);
+            self::assertSame('due_at', $response->data['sortBy'] ?? null);
+            self::assertSame('desc', $response->data['sortDirection'] ?? null);
+        }
+
+        public function testIndexUsesRequestedSortingWhenAllowed(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSortBy = null;
+                public ?string $capturedSortDirection = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedSortBy = $this->indexSortBy;
+                    $this->capturedSortDirection = $this->indexSortDirection;
+
+                    return ['sorted'];
+                }
+            };
+
+            $response = $controller->index(new Request(['sort' => 'amount', 'direction' => 'asc']));
+
+            self::assertSame('amount', $controller->capturedSortBy);
+            self::assertSame('asc', $controller->capturedSortDirection);
+            self::assertSame('amount', $response->data['sortBy'] ?? null);
+            self::assertSame('asc', $response->data['sortDirection'] ?? null);
+            self::assertSame(['sorted'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexRestoresSavedListingPreferencesWhenNoQueryStateIsProvided(): void
+        {
+            ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
+                'status' => 'processing',
+                'per_page' => 50,
+                'search' => 'ACME NFSE',
+                'sort_by' => 'amount',
+                'sort_direction' => 'asc',
+            ]);
+
+            $response = (new InvoiceController())->index(new Request());
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([[
+                'status' => 'processing',
+                'limit' => 50,
+                'search' => 'ACME NFSE',
+                'sort' => 'amount',
+                'direction' => 'asc',
+            ]], $response->parameters);
+        }
+
+        public function testIndexPersistsListingPreferencesToSettingsStorage(): void
+        {
+            ControllerIsolationState::$savedCount = 0;
+
+            $controller = new class () extends InvoiceController {
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    return ['persisted'];
+                }
+            };
+
+            $controller->index(new Request([
+                'status' => 'cancelled',
+                'limit' => '100',
+                'search' => 'NFSE-22',
+                'sort_by' => 'document_number',
+                'sort_direction' => 'asc',
+            ]));
+
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+
+            $stored = json_decode((string) (ControllerIsolationState::$settings['nfse.invoices.preferences'] ?? ''), true);
+
+            self::assertSame([
+                'status' => 'cancelled',
+                'per_page' => 100,
+                'search' => 'NFSE-22',
+                'sort_by' => 'document_number',
+                'sort_direction' => 'asc',
+            ], $stored);
         }
 
         public function testIndexPassesStatusFilterFromRequestToReceiptQuery(): void
