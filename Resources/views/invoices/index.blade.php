@@ -188,7 +188,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     @if($isPendingStatus)
                         @forelse($pendingInvoices as $invoice)
                             <tr>
-                                <td class="px-6 py-4">{{ $invoice->number ?? ('#' . $invoice->id) }}</td>
+                                <td class="px-6 py-4">{{ $invoice->document_number ?? $invoice->number ?? ('#' . $invoice->id) }}</td>
                                 <td class="px-6 py-4">{{ $invoice->contact?->name ?? '—' }}</td>
                                 <td class="px-6 py-4">{{ money($invoice->amount, default_currency(), true) }}</td>
                                 <td class="px-6 py-4">—</td>
@@ -238,10 +238,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 };
                             @endphp
                             <tr>
-                                <td class="px-6 py-4">{{ $receipt->invoice?->number ?? '—' }}</td>
+                                <td class="px-6 py-4">{{ $receipt->invoice?->document_number ?? $receipt->invoice?->number ?? ('#' . $receipt->invoice_id) }}</td>
                                 <td class="px-6 py-4">{{ $receipt->invoice?->contact?->name ?? '—' }}</td>
                                 <td class="px-6 py-4">{{ money($receipt->invoice?->amount ?? 0, default_currency(), true) }}</td>
-                                <td class="px-6 py-4">{{ $receipt->nfse_number ?? '—' }}</td>
+                                <td class="px-6 py-4">{{ $receipt->nfse_number ?: ($receipt->codigo_verificacao ?: $receipt->chave_acesso) ?: '—' }}</td>
                                 <td class="px-6 py-4">{{ $receipt->data_emissao ? $receipt->data_emissao->format('d/m/Y H:i') : '—' }}</td>
                                 <td class="px-6 py-4">
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
