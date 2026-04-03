@@ -1217,7 +1217,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $response = $controller->index(new Request(['q' => '  NF-2026-001  ']));
+            $response = $controller->index(new Request(['search' => '  NF-2026-001  ']));
 
             self::assertSame('NF-2026-001', $controller->capturedSearch);
             self::assertSame('NF-2026-001', $response->data['search'] ?? null);
@@ -1237,11 +1237,55 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $response = $controller->index(new Request(['q' => '   ']));
+            $response = $controller->index(new Request(['search' => '   ']));
 
             self::assertNull($controller->capturedSearch);
             self::assertNull($response->data['search'] ?? null);
             self::assertSame(['empty-search'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexUsesQLegacyFallbackWhenSearchQueryIsMissing(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSearch = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                {
+                    $this->capturedSearch = $search;
+
+                    return ['legacy-q'];
+                }
+            };
+
+            $response = $controller->index(new Request(['q' => '  NF-LEGACY-1  ']));
+
+            self::assertSame('NF-LEGACY-1', $controller->capturedSearch);
+            self::assertSame('NF-LEGACY-1', $response->data['search'] ?? null);
+            self::assertSame(['legacy-q'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexParsesMultipleStatusTokenWithoutLeakingToSearchTerm(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedStatus = null;
+                public ?string $capturedSearch = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                {
+                    $this->capturedStatus = $status;
+                    $this->capturedSearch = $search;
+
+                    return ['multi-status'];
+                }
+            };
+
+            $response = $controller->index(new Request(['search' => 'status:emitted,cancelled']));
+
+            self::assertSame('emitted,cancelled', $controller->capturedStatus);
+            self::assertNull($controller->capturedSearch);
+            self::assertSame('emitted,cancelled', $response->data['status'] ?? null);
+            self::assertSame('status:emitted,cancelled', $response->data['search'] ?? null);
+            self::assertSame(['multi-status'], $response->data['receipts'] ?? null);
         }
 
         public function testShowReturnsInvoiceAndReceiptInView(): void
@@ -1291,7 +1335,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
+            self::assertSame([['status' => 'pending', 'limit' => 25]], $response->parameters);
         }
 
         public function testPendingPassesSearchAndPerPageToUnifiedListing(): void
@@ -1299,11 +1343,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
             };
 
-            $response = $controller->pending(new Request(['per_page' => '50', 'q' => '  ACME  ']));
+            $response = $controller->pending(new Request(['limit' => '50', 'search' => '  ACME  ']));
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending', 'per_page' => 50, 'q' => 'ACME']], $response->parameters);
+            self::assertSame([['status' => 'pending', 'limit' => 50, 'search' => 'ACME']], $response->parameters);
         }
 
         public function testPendingNormalizesInvalidFiltersBeforeRedirectingToUnifiedListing(): void
@@ -1311,11 +1355,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
             };
 
-            $response = $controller->pending(new Request(['per_page' => '13', 'q' => '   ']));
+            $response = $controller->pending(new Request(['limit' => '13', 'search' => '   ']));
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
+            self::assertSame([['status' => 'pending', 'limit' => 25]], $response->parameters);
+        }
+
+        public function testPendingUsesQLegacyFallbackWhenSearchQueryIsMissing(): void
+        {
+            $controller = new class () extends InvoiceController {
+            };
+
+            $response = $controller->pending(new Request(['limit' => '25', 'q' => '  LEGACY  ']));
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending', 'limit' => 25, 'search' => 'LEGACY']], $response->parameters);
         }
 
         public function testEmitRedirectsToPendingWhenEmissionReadinessIsNotSatisfied(): void
@@ -1374,7 +1430,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
+            self::assertSame([['status' => 'pending', 'limit' => 25]], $response->parameters);
         }
 
         public function testPendingIncludesTransportCertificateChecklistFlagWhenPemFilesAreMissing(): void
@@ -1395,7 +1451,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
+            self::assertSame([['status' => 'pending', 'limit' => 25]], $response->parameters);
         }
 
         public function testRefreshQueriesReceiptUpdatesStatusAndRedirectsToShowPage(): void
