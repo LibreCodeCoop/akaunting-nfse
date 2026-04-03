@@ -97,27 +97,67 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         </div>
 
         <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-            <p class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">{{ trans('nfse::general.invoices.quick_filters') }}</p>
-            <div class="flex flex-wrap gap-2">
-            <a href="{{ route($listingRouteName, ['status' => 'all', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center px-3 py-2 rounded text-sm {{ ($status ?? 'all') === 'all' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 hover:bg-gray-200' }}">
-                {{ trans('nfse::general.invoices.filter_all') }}
-            </a>
-            <a href="{{ route($listingRouteName, ['status' => 'emitted', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center px-3 py-2 rounded text-sm {{ ($status ?? 'all') === 'emitted' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 hover:bg-gray-200' }}">
-                {{ trans('nfse::general.invoices.filter_emitted') }}
-            </a>
-            <a href="{{ route($listingRouteName, ['status' => 'processing', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center px-3 py-2 rounded text-sm {{ ($status ?? 'all') === 'processing' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 hover:bg-gray-200' }}">
-                {{ trans('nfse::general.invoices.filter_processing') }}
-            </a>
-            <a href="{{ route($listingRouteName, ['status' => 'cancelled', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center px-3 py-2 rounded text-sm {{ ($status ?? 'all') === 'cancelled' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 hover:bg-gray-200' }}">
-                {{ trans('nfse::general.invoices.filter_cancelled') }}
-            </a>
-            <a href="{{ route($listingRouteName, ['status' => 'pending', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center px-3 py-2 rounded text-sm {{ ($status ?? 'all') === 'pending' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 hover:bg-gray-200' }}">
-                {{ trans('nfse::general.invoices.filter_pending') }}
-            </a>
-            <a href="{{ route($listingRouteName) }}" class="inline-flex items-center px-3 py-2 rounded text-sm bg-gray-100 hover:bg-gray-200">
-                {{ trans('nfse::general.invoices.clear_filters') }}
-            </a>
+            <p class="text-sm font-semibold text-gray-700 mb-3">{{ trans('nfse::general.invoices.quick_filters') }}</p>
+            <div class="flex flex-wrap gap-3 border-b border-gray-200 pb-3 mb-4 text-sm">
+                <a href="{{ route($listingRouteName, ['status' => 'all', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'all' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
+                    {{ trans('nfse::general.invoices.filter_all') }}
+                </a>
+                <a href="{{ route($listingRouteName, ['status' => 'emitted', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'emitted' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
+                    {{ trans('nfse::general.invoices.filter_emitted') }}
+                </a>
+                <a href="{{ route($listingRouteName, ['status' => 'processing', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'processing' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
+                    {{ trans('nfse::general.invoices.filter_processing') }}
+                </a>
+                <a href="{{ route($listingRouteName, ['status' => 'cancelled', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'cancelled' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
+                    {{ trans('nfse::general.invoices.filter_cancelled') }}
+                </a>
+                <a href="{{ route($listingRouteName, ['status' => 'pending', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'pending' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
+                    {{ trans('nfse::general.invoices.filter_pending') }}
+                </a>
             </div>
+
+            <form method="GET" action="{{ route($listingRouteName) }}">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                    <div class="md:col-span-2">
+                        <label for="q" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans('nfse::general.invoices.search_label') }}</label>
+                        <input id="q" name="q" type="text" value="{{ $search ?? '' }}" list="nfse-search-suggestions" placeholder="{{ trans('nfse::general.invoices.search_placeholder') }}" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
+                        <datalist id="nfse-search-suggestions">
+                            <option value="NF-2026-0001"></option>
+                            <option value="CHAVE-"></option>
+                            <option value="ABC123"></option>
+                        </datalist>
+                    </div>
+
+                    <div>
+                        <label for="nfse-status-filter" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans_choice('general.statuses', 1) }}</label>
+                        <select id="nfse-status-filter" name="status" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
+                            <option value="all" @selected(($status ?? 'all') === 'all')>{{ trans('nfse::general.invoices.filter_all') }}</option>
+                            <option value="emitted" @selected(($status ?? 'all') === 'emitted')>{{ trans('nfse::general.invoices.filter_emitted') }}</option>
+                            <option value="processing" @selected(($status ?? 'all') === 'processing')>{{ trans('nfse::general.invoices.filter_processing') }}</option>
+                            <option value="cancelled" @selected(($status ?? 'all') === 'cancelled')>{{ trans('nfse::general.invoices.filter_cancelled') }}</option>
+                            <option value="pending" @selected(($status ?? 'all') === 'pending')>{{ trans('nfse::general.invoices.filter_pending') }}</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="per_page" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans('nfse::general.invoices.per_page') }}</label>
+                        <select id="per_page" name="per_page" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
+                            @foreach([10, 25, 50, 100] as $option)
+                                <option value="{{ $option }}" @if(($perPage ?? 25) === $option) selected @endif>{{ $option }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="flex gap-2 md:col-span-4 justify-end">
+                        <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
+                            {{ trans('general.apply') }}
+                        </button>
+                        <a href="{{ route($listingRouteName) }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
+                            {{ trans('nfse::general.invoices.clear_filters') }}
+                        </a>
+                    </div>
+                </div>
+            </form>
         </div>
 
         @if($isPendingStatus && !$isReady)
@@ -137,70 +177,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         @endif
 
-        <form method="GET" action="{{ route($listingRouteName) }}" class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-            <input type="hidden" name="status" value="{{ $status ?? 'all' }}">
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                <div class="md:col-span-2">
-                    <label for="q" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans('nfse::general.invoices.search_label') }}</label>
-                    <input id="q" name="q" type="text" value="{{ $search ?? '' }}" list="nfse-search-suggestions" placeholder="{{ trans('nfse::general.invoices.search_placeholder') }}" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
-                    <datalist id="nfse-search-suggestions">
-                        <option value="NF-2026-0001"></option>
-                        <option value="CHAVE-"></option>
-                        <option value="ABC123"></option>
-                    </datalist>
-                </div>
-
-                <div>
-                    <label for="per_page" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans('nfse::general.invoices.per_page') }}</label>
-                    <select id="per_page" name="per_page" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
-                        @foreach([10, 25, 50, 100] as $option)
-                            <option value="{{ $option }}" @if(($perPage ?? 25) === $option) selected @endif>{{ $option }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="flex gap-2">
-                    <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
-                        {{ trans('general.apply') }}
-                    </button>
-                    <a href="{{ route($listingRouteName) }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
-                        {{ trans('nfse::general.invoices.clear_filters') }}
-                    </a>
-                </div>
-            </div>
-        </form>
-
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ trans('general.invoice') }}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ trans('nfse::general.invoices.customer') }}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ trans('general.amount') }}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ trans('general.date') }}</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ trans('general.status') }}</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{{ trans('general.actions') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.invoice') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('nfse::general.invoices.customer') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.amount') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.date') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.status') }}</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.actions') }}</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white divide-y divide-gray-100">
                     @if($isPendingStatus)
                         @forelse($pendingInvoices as $invoice)
-                            <tr>
-                                <td class="px-6 py-4">
+                            <tr class="group hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 whitespace-nowrap">
                                     <a href="{{ route('nfse.invoices.show', $invoice) }}" class="text-indigo-700 hover:underline">
                                         {{ $invoice->number ?? $invoice->document_number ?? ('#' . $invoice->id) }}
                                     </a>
                                 </td>
-                                <td class="px-6 py-4">{{ $invoice->contact?->name ?? '—' }}</td>
-                                <td class="px-6 py-4">{{ money($invoice->amount, default_currency(), true) }}</td>
-                                <td class="px-6 py-4">{{ optional($invoice->issued_at)->format('d/m/Y H:i') ?? optional($invoice->created_at)->format('d/m/Y H:i') ?? '—' }}</td>
-                                <td class="px-6 py-4">
+                                <td class="px-4 py-3">{{ $invoice->contact?->name ?? '—' }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">{{ money($invoice->amount, default_currency(), true) }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">{{ optional($invoice->issued_at)->format('d/m/Y H:i') ?? optional($invoice->created_at)->format('d/m/Y H:i') ?? '—' }}</td>
+                                <td class="px-4 py-3">
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
                                         {{ trans('nfse::general.invoices.filter_pending') }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 text-right">
+                                <td class="px-4 py-3 text-right">
                                     <form action="{{ route('nfse.invoices.emit', $invoice) }}" method="POST" class="inline-flex">
                                         @csrf
                                         <button
@@ -219,7 +226,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-4 text-center text-gray-500">{{ trans('nfse::general.invoices.no_pending') }}</td>
+                                <td colspan="6" class="px-4 py-6 text-center text-gray-500">{{ trans('nfse::general.invoices.no_pending') }}</td>
                             </tr>
                         @endforelse
                     @else
@@ -239,19 +246,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     default => (string) ($receipt->status ?? '—'),
                                 };
                             @endphp
-                            <tr>
-                                <td class="px-6 py-4">
+                            <tr class="group hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 whitespace-nowrap">
                                     <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="text-indigo-700 hover:underline">
                                         {{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}
                                     </a>
                                 </td>
-                                <td class="px-6 py-4">{{ $receipt->invoice?->contact?->name ?? '—' }}</td>
-                                <td class="px-6 py-4">{{ money($receipt->invoice?->amount ?? 0, default_currency(), true) }}</td>
-                                <td class="px-6 py-4">{{ $receipt->data_emissao ? $receipt->data_emissao->format('d/m/Y H:i') : '—' }}</td>
-                                <td class="px-6 py-4">
+                                <td class="px-4 py-3">{{ $receipt->invoice?->contact?->name ?? '—' }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">{{ money($receipt->invoice?->amount ?? 0, default_currency(), true) }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">{{ $receipt->data_emissao ? $receipt->data_emissao->format('d/m/Y H:i') : '—' }}</td>
+                                <td class="px-4 py-3">
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
                                 </td>
-                                <td class="px-6 py-4 text-right">
+                                <td class="px-4 py-3 text-right">
                                     <div class="inline-flex items-center gap-1">
                                         <form action="{{ route('nfse.invoices.refresh', $receipt->invoice_id) }}" method="POST" class="inline-flex">
                                             @csrf
@@ -303,12 +310,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-4 text-center text-gray-500">{{ trans('general.no_records') }}</td>
+                                <td colspan="6" class="px-4 py-6 text-center text-gray-500">{{ trans('general.no_records') }}</td>
                             </tr>
                         @endforelse
                     @endif
                 </tbody>
             </table>
+            </div>
         </div>
 
         <div class="mt-4">
