@@ -807,7 +807,7 @@ class InvoiceController extends Controller
 
     protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
     {
-        $query = NfseReceipt::with('invoice');
+        $query = NfseReceipt::with('invoice.contact');
 
         if ($status !== 'all') {
             if (str_contains($status, ',')) {
@@ -825,7 +825,10 @@ class InvoiceController extends Controller
             $query = $query->where(function ($innerQuery) use ($search) {
                 $innerQuery->where('nfse_number', 'like', '%' . $search . '%')
                     ->orWhere('chave_acesso', 'like', '%' . $search . '%')
-                    ->orWhere('codigo_verificacao', 'like', '%' . $search . '%');
+                    ->orWhere('codigo_verificacao', 'like', '%' . $search . '%')
+                    ->orWhereHas('invoice.contact', function ($contactQuery) use ($search) {
+                        $contactQuery->where('name', 'like', '%' . $search . '%');
+                    });
             });
         }
 
