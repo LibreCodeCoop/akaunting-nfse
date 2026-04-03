@@ -39,12 +39,14 @@ class InvoiceController extends Controller
     {
         $request = $this->currentRequest($request);
 
-        $status = $this->normalizedIndexStatus($request?->query('status'));
-        $perPage = $this->normalizedIndexPerPage($request?->query('per_page'));
         $search = $this->normalizedIndexSearch($request?->query('q'));
+        $parsedFilters = $this->parsedIndexSearchFilters($search);
+        $status = $parsedFilters['status'] ?? $this->normalizedIndexStatus($request?->query('status'));
+        $perPage = $parsedFilters['per_page'] ?? $this->normalizedIndexPerPage($request?->query('per_page'));
+        $searchTerm = $parsedFilters['search'];
         $overviewCounts = $this->listingOverviewCounts();
-        $receipts = $status === 'pending' ? null : $this->receiptsForIndex($status, $perPage, $search);
-        $pendingInvoices = $status === 'pending' ? $this->pendingInvoices($perPage, $search) : null;
+        $receipts = $status === 'pending' ? null : $this->receiptsForIndex($status, $perPage, $searchTerm);
+        $pendingInvoices = $status === 'pending' ? $this->pendingInvoices($perPage, $searchTerm) : null;
         $pendingReadiness = $status === 'pending' ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
 
         return view('nfse::invoices.index', compact('receipts', 'pendingInvoices', 'pendingReadiness', 'overviewCounts', 'status', 'perPage', 'search'));
@@ -901,6 +903,36 @@ class InvoiceController extends Controller
         $normalized = trim($search);
 
         return $normalized !== '' ? $normalized : null;
+    }
+
+    /**
+     * @return array{status: ?string, per_page: ?int, search: ?string}
+     */
+    protected function parsedIndexSearchFilters(?string $search): array
+    {
+        if ($search === null) {
+            return ['status' => null, 'per_page' => null, 'search' => null];
+        }
+
+        $status = null;
+        $perPage = null;
+
+        if (preg_match('/(?:^|\s)status:(all|emitted|cancelled|processing|pending)\b/i', $search, $statusMatch) === 1) {
+            $status = $this->normalizedIndexStatus($statusMatch[1]);
+        }
+
+        if (preg_match('/(?:^|\s)per_page:(10|25|50|100)\b/i', $search, $perPageMatch) === 1) {
+            $perPage = $this->normalizedIndexPerPage($perPageMatch[1]);
+        }
+
+        $searchWithoutTokens = preg_replace('/(?:^|\s)(status:(?:all|emitted|cancelled|processing|pending)|per_page:(?:10|25|50|100))\b/i', ' ', $search);
+        $searchWithoutTokens = is_string($searchWithoutTokens) ? preg_replace('/\s+/', ' ', trim($searchWithoutTokens)) : null;
+
+        return [
+            'status' => $status,
+            'per_page' => $perPage,
+            'search' => $this->normalizedIndexSearch($searchWithoutTokens),
+        ];
     }
 
     protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
