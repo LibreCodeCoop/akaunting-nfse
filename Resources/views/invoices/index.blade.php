@@ -98,57 +98,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
             <p class="text-sm font-semibold text-gray-700 mb-3">{{ trans('nfse::general.invoices.quick_filters') }}</p>
-            <div class="flex flex-wrap gap-3 border-b border-gray-200 pb-3 mb-4 text-sm">
-                <a href="{{ route($listingRouteName, ['status' => 'all', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'all' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
-                    {{ trans('nfse::general.invoices.filter_all') }}
-                </a>
-                <a href="{{ route($listingRouteName, ['status' => 'emitted', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'emitted' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
-                    {{ trans('nfse::general.invoices.filter_emitted') }}
-                </a>
-                <a href="{{ route($listingRouteName, ['status' => 'processing', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'processing' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
-                    {{ trans('nfse::general.invoices.filter_processing') }}
-                </a>
-                <a href="{{ route($listingRouteName, ['status' => 'cancelled', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'cancelled' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
-                    {{ trans('nfse::general.invoices.filter_cancelled') }}
-                </a>
-                <a href="{{ route($listingRouteName, ['status' => 'pending', 'per_page' => ($perPage ?? 25), 'q' => ($search ?? '')]) }}" class="inline-flex items-center {{ ($status ?? 'all') === 'pending' ? 'text-indigo-700 font-semibold' : 'text-gray-600 hover:text-gray-800' }}">
-                    {{ trans('nfse::general.invoices.filter_pending') }}
-                </a>
-            </div>
-
             <form method="GET" action="{{ route($listingRouteName) }}">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                    <div class="md:col-span-2">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                    <div class="md:col-span-4">
                         <label for="q" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans('nfse::general.invoices.search_label') }}</label>
-                        <input id="q" name="q" type="text" value="{{ $search ?? '' }}" list="nfse-search-suggestions" placeholder="{{ trans('nfse::general.invoices.search_placeholder') }}" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
+                        <input id="q" name="q" type="text" value="{{ $search ?? '' }}" list="nfse-search-suggestions" placeholder="status:pending cliente nome chave NF-0001 per_page:50" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
                         <datalist id="nfse-search-suggestions">
+                            <option value="status:all"></option>
+                            <option value="status:pending"></option>
+                            <option value="status:emitted"></option>
+                            <option value="status:processing"></option>
+                            <option value="status:cancelled"></option>
+                            <option value="per_page:10"></option>
+                            <option value="per_page:25"></option>
+                            <option value="per_page:50"></option>
+                            <option value="per_page:100"></option>
                             <option value="NF-2026-0001"></option>
                             <option value="CHAVE-"></option>
                             <option value="ABC123"></option>
                         </datalist>
                     </div>
 
-                    <div>
-                        <label for="nfse-status-filter" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans_choice('general.statuses', 1) }}</label>
-                        <select id="nfse-status-filter" name="status" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
-                            <option value="all" @selected(($status ?? 'all') === 'all')>{{ trans('nfse::general.invoices.filter_all') }}</option>
-                            <option value="emitted" @selected(($status ?? 'all') === 'emitted')>{{ trans('nfse::general.invoices.filter_emitted') }}</option>
-                            <option value="processing" @selected(($status ?? 'all') === 'processing')>{{ trans('nfse::general.invoices.filter_processing') }}</option>
-                            <option value="cancelled" @selected(($status ?? 'all') === 'cancelled')>{{ trans('nfse::general.invoices.filter_cancelled') }}</option>
-                            <option value="pending" @selected(($status ?? 'all') === 'pending')>{{ trans('nfse::general.invoices.filter_pending') }}</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label for="per_page" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans('nfse::general.invoices.per_page') }}</label>
-                        <select id="per_page" name="per_page" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
-                            @foreach([10, 25, 50, 100] as $option)
-                                <option value="{{ $option }}" @if(($perPage ?? 25) === $option) selected @endif>{{ $option }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="flex gap-2 md:col-span-4 justify-end">
+                    <div class="flex gap-2 justify-end">
                         <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
                             {{ trans('general.apply') }}
                         </button>
