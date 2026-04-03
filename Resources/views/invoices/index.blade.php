@@ -110,18 +110,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </a>
         </div>
 
-        <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-            <p class="text-sm font-semibold text-gray-700 mb-3">{{ trans('nfse::general.invoices.quick_filters') }}</p>
-            <x-form method="GET" action="{{ route($listingRouteName) }}">
-                <x-search-string :filters="$searchStringFilters" />
-            </x-form>
-
-            <div class="flex justify-end">
-                <a href="{{ route($listingRouteName) }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
-                    {{ trans('nfse::general.invoices.clear_filters') }}
-                </a>
-            </div>
-        </div>
+        <x-form method="GET" action="{{ route($listingRouteName) }}">
+            <x-search-string :filters="$searchStringFilters" />
+        </x-form>
 
         @if($isPendingStatus && !$isReady)
             <div class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded mb-4">
