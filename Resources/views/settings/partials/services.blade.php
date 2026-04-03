@@ -46,9 +46,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     </form>
 
     {{-- Services Table --}}
-    <div class="overflow-x-auto border border-gray-300 rounded-lg">
+    <div class="overflow-x-auto">
         <table class="w-full text-sm text-gray-900">
-            <thead class="border-b border-gray-300 bg-gray-100">
+            <thead class="border-b border-gray-200">
                 <tr>
                     <th class="px-4 py-2 text-left font-semibold">{{ trans('nfse::general.settings.services.lc116_code') }}</th>
                     <th class="px-4 py-2 text-left font-semibold">{{ trans('nfse::general.settings.services.national_tax_code') }}</th>
@@ -63,7 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 @forelse($companyServices as $service)
                     @php($rowDescription = $service->description ?: '-')
                     <tr class="border-b border-gray-200 hover:bg-gray-50" data-service-code="{{ $service->item_lista_servico }}">
-                        <td class="px-4 py-2 font-medium">{{ $service->item_lista_servico }}</td>
+                        <td class="px-4 py-2 font-medium">{{ $service->display_name }}</td>
                         <td class="px-4 py-2 font-medium">{{ $service->codigo_tributacao_nacional ?: '-' }}</td>
                         <td class="px-4 py-2 text-gray-700">{{ $rowDescription }}</td>
                         <td class="px-4 py-2 text-right">{{ number_format($service->aliquota, 2, ',', '.') }}%</td>
