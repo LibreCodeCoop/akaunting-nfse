@@ -56,6 +56,11 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.invoices.quick_filters')", $content);
             self::assertStringContainsString("trans('nfse::general.invoices.filter_pending')", $content);
             self::assertStringContainsString("trans('general.actions')", $content);
+            self::assertStringContainsString('id="nfse-status-filter"', $content);
+            self::assertStringContainsString('name="status"', $content);
+            self::assertStringContainsString('class="bg-white border border-gray-200 rounded-lg overflow-hidden"', $content);
+            self::assertStringContainsString('text-xs font-semibold uppercase tracking-wide text-gray-500', $content);
+            self::assertStringContainsString('class="group hover:bg-gray-50 transition-colors"', $content);
             self::assertStringContainsString('$invoice->number ?? $invoice->document_number ?? (\'#\' . $invoice->id)', $content);
             self::assertStringContainsString('route(\'nfse.invoices.show\', $invoice)', $content);
             self::assertStringContainsString('route(\'nfse.invoices.show\', $receipt->invoice_id)', $content);
