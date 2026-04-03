@@ -117,14 +117,16 @@ final class Lc116Catalog
      */
     public function search(?string $query = null, int $limit = 200): array
     {
-        $normalizedQuery = mb_strtolower(trim((string) $query));
+        $normalizedQuery = $this->normalizeForSearch((string) $query);
 
-        $items = array_filter(self::ITEMS, static function (array $item) use ($normalizedQuery): bool {
+        $items = array_filter(self::ITEMS, function (array $item) use ($normalizedQuery): bool {
             if ($normalizedQuery == '') {
                 return true;
             }
 
-            $haystack = mb_strtolower($item['display_code'] . ' ' . $item['description'] . ' ' . $item['code']);
+            $haystack = $this->normalizeForSearch(
+                $item['display_code'] . ' - ' . $item['description'] . ' ' . $item['code']
+            );
 
             return str_contains($haystack, $normalizedQuery);
         });
@@ -137,5 +139,23 @@ final class Lc116Catalog
             'description' => $item['description'],
             'label' => $item['display_code'] . ' - ' . $item['description'],
         ], $items);
+    }
+
+    private function normalizeForSearch(string $value): string
+    {
+        $normalized = mb_strtolower(trim($value));
+
+        $normalized = strtr($normalized, [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+            'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
+            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ç' => 'c',
+        ]);
+
+        $normalized = preg_replace('/[^a-z0-9]+/u', ' ', $normalized) ?: '';
+
+        return trim($normalized);
     }
 }

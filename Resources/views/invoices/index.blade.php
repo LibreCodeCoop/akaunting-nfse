@@ -52,12 +52,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             $visiblePending = (int) ($overviewCounts['pending'] ?? 0);
             $isReady = $pendingReadiness['isReady'] ?? true;
             $checklist = $pendingReadiness['checklist'] ?? [];
+            $searchStringFilters = [
+                [
+                    'key' => 'status',
+                    'value' => trans_choice('general.statuses', 1),
+                    'type' => 'select',
+                    'multiple' => true,
+                    'values' => [
+                        'all' => trans('nfse::general.invoices.filter_all'),
+                        'pending' => trans('nfse::general.invoices.filter_pending'),
+                        'emitted' => trans('nfse::general.invoices.filter_emitted'),
+                        'processing' => trans('nfse::general.invoices.filter_processing'),
+                        'cancelled' => trans('nfse::general.invoices.filter_cancelled'),
+                    ],
+                ],
+                [
+                    'key' => 'data_emissao',
+                    'value' => trans('nfse::general.invoices.issue_date'),
+                    'type' => 'date',
+                    'values' => [],
+                ],
+            ];
         @endphp
 
         <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">{{ trans('nfse::general.invoices.listing_overview') }}</h3>
-                <span class="text-xs text-gray-500">{{ trans('nfse::general.invoices.per_page') }}: {{ $perPage ?? 25 }}</span>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
@@ -96,40 +116,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </a>
         </div>
 
-        <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-            <p class="text-sm font-semibold text-gray-700 mb-3">{{ trans('nfse::general.invoices.quick_filters') }}</p>
-            <form method="GET" action="{{ route($listingRouteName) }}">
-                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-                    <div class="md:col-span-4">
-                        <label for="q" class="block text-xs font-semibold text-gray-600 uppercase mb-1">{{ trans('nfse::general.invoices.search_label') }}</label>
-                        <input id="q" name="q" type="text" value="{{ $search ?? '' }}" list="nfse-search-suggestions" placeholder="status:pending cliente nome chave NF-0001 per_page:50" class="w-full px-3 py-2 rounded border border-gray-300 text-sm">
-                        <datalist id="nfse-search-suggestions">
-                            <option value="status:all"></option>
-                            <option value="status:pending"></option>
-                            <option value="status:emitted"></option>
-                            <option value="status:processing"></option>
-                            <option value="status:cancelled"></option>
-                            <option value="per_page:10"></option>
-                            <option value="per_page:25"></option>
-                            <option value="per_page:50"></option>
-                            <option value="per_page:100"></option>
-                            <option value="NF-2026-0001"></option>
-                            <option value="CHAVE-"></option>
-                            <option value="ABC123"></option>
-                        </datalist>
-                    </div>
-
-                    <div class="flex gap-2 justify-end">
-                        <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
-                            {{ trans('general.apply') }}
-                        </button>
-                        <a href="{{ route($listingRouteName) }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
-                            {{ trans('nfse::general.invoices.clear_filters') }}
-                        </a>
-                    </div>
-                </div>
-            </form>
-        </div>
+        <x-form method="GET" action="{{ route($listingRouteName) }}">
+            <x-search-string :filters="$searchStringFilters" />
+        </x-form>
 
         @if($isPendingStatus && !$isReady)
             <div class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded mb-4">
@@ -148,56 +137,84 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         @endif
 
-        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div class="overflow-x-auto">
+        <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
-                <thead class="bg-gray-50">
+                <thead class="border-b border-gray-200">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.invoice') }}</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('nfse::general.invoices.customer') }}</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.amount') }}</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.date') }}</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.status') }}</th>
-                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.actions') }}</th>
+                        <th class="px-4 py-3 text-left text-sm text-gray-600">
+                            <div class="font-medium"><x-sortablelink column="due_at" title="{{ trans('invoices.due_date') }}" /></div>
+                            <div class="font-normal"><x-sortablelink column="issued_at" title="{{ trans('invoices.invoice_date') }}" /></div>
+                        </th>
+                        <th class="px-4 py-3 text-left text-sm text-gray-600">
+                            <div class="font-medium"><x-sortablelink column="customer" title="{{ trans('nfse::general.invoices.customer') }}" /></div>
+                            <div class="font-normal"><x-sortablelink column="document_number" title="{{ trans_choice('general.numbers', 1) }}" /></div>
+                        </th>
+                        <th class="px-4 py-3 text-left text-sm text-gray-600"><x-sortablelink column="amount" title="{{ trans('general.amount') }}" /></th>
+                        <th class="px-4 py-3 text-left text-sm text-gray-600"><x-sortablelink column="status" title="{{ trans_choice('general.statuses', 1) }}" /></th>
+                        <th class="px-4 py-3 text-right text-sm font-medium text-gray-600">{{ trans('general.actions') }}</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-100">
+                <tbody class="divide-y divide-gray-100">
                     @if($isPendingStatus)
                         @forelse($pendingInvoices as $invoice)
                             <tr class="group hover:bg-gray-50 transition-colors">
                                 <td class="px-4 py-3 whitespace-nowrap">
-                                    <a href="{{ route('nfse.invoices.show', $invoice) }}" class="text-indigo-700 hover:underline">
+                                    <div class="font-bold">
+                                        @if(!empty($invoice->due_at))
+                                            <x-date :date="$invoice->due_at" function="diffForHumans" />
+                                        @else
+                                            —
+                                        @endif
+                                    </div>
+                                    <div class="text-sm text-gray-500">
+                                        @if(!empty($invoice->issued_at))
+                                            <x-date :date="$invoice->issued_at" />
+                                        @else
+                                            —
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-gray-800">{{ $invoice->contact?->name ?? '—' }}</p>
+                                    <a href="{{ route('nfse.invoices.show', $invoice) }}" class="mt-1 block text-xs text-indigo-700 hover:underline">
                                         {{ $invoice->number ?? $invoice->document_number ?? ('#' . $invoice->id) }}
                                     </a>
                                 </td>
-                                <td class="px-4 py-3">{{ $invoice->contact?->name ?? '—' }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap">{{ money($invoice->amount, default_currency(), true) }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap">{{ optional($invoice->issued_at)->format('d/m/Y H:i') ?? optional($invoice->created_at)->format('d/m/Y H:i') ?? '—' }}</td>
                                 <td class="px-4 py-3">
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
                                         {{ trans('nfse::general.invoices.filter_pending') }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <form action="{{ route('nfse.invoices.emit', $invoice) }}" method="POST" class="inline-flex">
-                                        @csrf
-                                        <button
-                                            type="submit"
-                                            @if(!$isReady) disabled @endif
-                                            title="{{ trans('nfse::general.invoices.emit_now') }}"
-                                            class="inline-flex h-8 w-8 items-center justify-center rounded border @if($isReady) border-indigo-200 text-indigo-700 hover:bg-indigo-50 @else border-gray-300 text-gray-400 cursor-not-allowed @endif"
-                                        >
-                                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                <path d="M4 10h8.17l-2.58-2.59L11 6l5 5-5 5-1.41-1.41L12.17 12H4v-2z" />
-                                            </svg>
-                                            <span class="sr-only">{{ trans('nfse::general.invoices.emit_now') }}</span>
-                                        </button>
-                                    </form>
+                                    <div class="relative inline-flex items-center">
+                                        <div class="pointer-events-none absolute right-10 top-1/2 z-20 hidden w-72 -translate-y-1/2 rounded-lg border border-indigo-100 bg-white p-3 text-left text-xs text-gray-600 shadow-xl group-hover:block" data-row-quick-view="true">
+                                            <p class="font-semibold text-gray-800">{{ $invoice->number ?? $invoice->document_number ?? ('#' . $invoice->id) }}</p>
+                                            <p class="mt-1">{{ $invoice->contact?->name ?? '—' }}</p>
+                                            <p class="mt-2">{{ trans('general.amount') }}: {{ money($invoice->amount, default_currency(), true) }}</p>
+                                            <p>{{ trans('general.status') }}: {{ trans('nfse::general.invoices.filter_pending') }}</p>
+                                        </div>
+
+                                        <form action="{{ route('nfse.invoices.emit', $invoice) }}" method="POST" class="inline-flex">
+                                            @csrf
+                                            <button
+                                                type="submit"
+                                                @if(!$isReady) disabled @endif
+                                                title="{{ trans('nfse::general.invoices.emit_now') }}"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded border @if($isReady) border-indigo-200 text-indigo-700 hover:bg-indigo-50 @else border-gray-300 text-gray-400 cursor-not-allowed @endif"
+                                            >
+                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <path d="M4 10h8.17l-2.58-2.59L11 6l5 5-5 5-1.41-1.41L12.17 12H4v-2z" />
+                                                </svg>
+                                                <span class="sr-only">{{ trans('nfse::general.invoices.emit_now') }}</span>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-6 text-center text-gray-500">{{ trans('nfse::general.invoices.no_pending') }}</td>
+                                <td colspan="5" class="px-4 py-6 text-center text-gray-500">{{ trans('nfse::general.invoices.no_pending') }}</td>
                             </tr>
                         @endforelse
                     @else
@@ -219,18 +236,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             @endphp
                             <tr class="group hover:bg-gray-50 transition-colors">
                                 <td class="px-4 py-3 whitespace-nowrap">
-                                    <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="text-indigo-700 hover:underline">
+                                    <div class="font-bold">
+                                        @if(!empty($receipt->invoice?->due_at))
+                                            <x-date :date="$receipt->invoice->due_at" function="diffForHumans" />
+                                        @elseif(!empty($receipt->data_emissao))
+                                            <x-date :date="$receipt->data_emissao" function="diffForHumans" />
+                                        @else
+                                            —
+                                        @endif
+                                    </div>
+                                    <div class="text-sm text-gray-500">
+                                        @if(!empty($receipt->invoice?->issued_at))
+                                            <x-date :date="$receipt->invoice->issued_at" />
+                                        @elseif(!empty($receipt->data_emissao))
+                                            <x-date :date="$receipt->data_emissao" />
+                                        @else
+                                            —
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-gray-800">{{ $receipt->invoice?->contact?->name ?? '—' }}</p>
+                                    <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="mt-1 block text-xs text-indigo-700 hover:underline">
                                         {{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}
                                     </a>
                                 </td>
-                                <td class="px-4 py-3">{{ $receipt->invoice?->contact?->name ?? '—' }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap">{{ money($receipt->invoice?->amount ?? 0, default_currency(), true) }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap">{{ $receipt->data_emissao ? $receipt->data_emissao->format('d/m/Y H:i') : '—' }}</td>
                                 <td class="px-4 py-3">
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <div class="inline-flex items-center gap-1">
+                                    <div class="relative inline-flex items-center gap-1">
+                                        <div class="pointer-events-none absolute right-28 top-1/2 z-20 hidden w-72 -translate-y-1/2 rounded-lg border border-indigo-100 bg-white p-3 text-left text-xs text-gray-600 shadow-xl group-hover:block" data-row-quick-view="true">
+                                            <p class="font-semibold text-gray-800">{{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}</p>
+                                            <p class="mt-1">{{ $receipt->invoice?->contact?->name ?? '—' }}</p>
+                                            <p class="mt-2">{{ trans('general.amount') }}: {{ money($receipt->invoice?->amount ?? 0, default_currency(), true) }}</p>
+                                            <p>{{ trans('general.status') }}: {{ $statusLabel }}</p>
+                                        </div>
+
                                         <form action="{{ route('nfse.invoices.refresh', $receipt->invoice_id) }}" method="POST" class="inline-flex">
                                             @csrf
                                             <button type="submit" title="{{ trans('nfse::general.invoices.refresh_status') }}" class="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-100">
@@ -281,22 +324,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-6 text-center text-gray-500">{{ trans('general.no_records') }}</td>
+                                <td colspan="5" class="px-4 py-6 text-center text-gray-500">{{ trans('general.no_records') }}</td>
                             </tr>
                         @endforelse
                     @endif
                 </tbody>
             </table>
-            </div>
         </div>
 
-        <div class="mt-4">
-            @if($isPendingStatus)
-                {{ $pendingInvoices->appends(request()->query())->links() }}
-            @else
-                {{ $receipts->appends(request()->query())->links() }}
-            @endif
-        </div>
+        <x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />
 
         <div
             id="nfse-cancel-modal"
@@ -368,6 +404,58 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         <script>
             (() => {
+                const cookieFilters = @json($searchStringCookieFilters ?? []);
+
+                // Keep native AkauntingSearch visual chips in sync after page reload.
+                const hydrateSearchStringCookie = () => {
+                    if (!cookieFilters || Object.keys(cookieFilters).length === 0) {
+                        return;
+                    }
+
+                    const path = window.location.href.replace(window.location.search, '');
+                    let searchStringCookie = {};
+
+                    const readRawCookie = (name) => {
+                        const cookies = document.cookie ? document.cookie.split('; ') : [];
+
+                        for (const item of cookies) {
+                            const separatorIndex = item.indexOf('=');
+
+                            if (separatorIndex === -1) {
+                                continue;
+                            }
+
+                            const key = item.slice(0, separatorIndex);
+                            const value = item.slice(separatorIndex + 1);
+
+                            if (key === name) {
+                                return decodeURIComponent(value);
+                            }
+                        }
+
+                        return null;
+                    };
+
+                    try {
+                        const rawCookie = (typeof Cookies !== 'undefined' && typeof Cookies.get === 'function')
+                            ? Cookies.get('search-string')
+                            : readRawCookie('search-string');
+                        searchStringCookie = rawCookie ? JSON.parse(rawCookie) : {};
+                    } catch (error) {
+                        searchStringCookie = {};
+                    }
+
+                    searchStringCookie[path] = cookieFilters;
+
+                    if (typeof Cookies !== 'undefined' && typeof Cookies.set === 'function') {
+                        Cookies.set('search-string', searchStringCookie);
+                    } else {
+                        document.cookie = 'search-string=' + encodeURIComponent(JSON.stringify(searchStringCookie)) + '; path=/';
+                    }
+                };
+
+                hydrateSearchStringCookie();
+
                 const modal = document.getElementById('nfse-cancel-modal');
                 const form = document.getElementById('nfse-cancel-form');
                 const reasonSelect = document.getElementById('cancel_reason');
@@ -475,4 +563,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             })();
         </script>
     </x-slot>
+
+    <x-script folder="common" file="documents" />
 </x-layouts.admin>

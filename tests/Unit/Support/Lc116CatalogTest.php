@@ -34,6 +34,16 @@ class Lc116CatalogTest extends TestCase
         self::assertSame('1719', $result[0]['code']);
     }
 
+    public function testSearchCanFindByFullLabelTypedInAutocompleteField(): void
+    {
+        $catalog = new Lc116Catalog();
+
+        $result = $catalog->search('1.01 - Analise e desenvolvimento de sistemas');
+
+        self::assertNotEmpty($result);
+        self::assertSame('0101', $result[0]['code']);
+    }
+
     public function testSearchRespectsLimit(): void
     {
         $catalog = new Lc116Catalog();

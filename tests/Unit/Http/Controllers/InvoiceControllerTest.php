@@ -44,6 +44,24 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringNotContainsString("method_exists(CompanyService::class, 'where')", $content);
         }
 
+        public function testReceiptsIndexSearchIncludesCustomerNameRelation(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("NfseReceipt::with('invoice.contact')", $content);
+            self::assertStringContainsString("->orWhereHas('invoice'", $content);
+            self::assertStringContainsString("->orWhereHas('contact'", $content);
+            self::assertStringContainsString("'name', 'like', '%' . \$search . '%'", $content);
+        }
+
+        public function testReceiptsIndexSearchAlsoIncludesInvoiceNumberFields(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("->orWhereHas('invoice'", $content);
+            self::assertStringContainsString("->where('document_number', 'like', '%' . \$search . '%')", $content);
+        }
+
         public function testProjectRootPathUsesIsolationApplicationBasePath(): void
         {
             $controller = new class () extends InvoiceController {
@@ -1101,6 +1119,87 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('all', $response->data['status'] ?? null);
             self::assertSame(25, $response->data['perPage'] ?? null);
             self::assertNull($response->data['search'] ?? null);
+            self::assertSame('due_at', $response->data['sortBy'] ?? null);
+            self::assertSame('desc', $response->data['sortDirection'] ?? null);
+        }
+
+        public function testIndexUsesRequestedSortingWhenAllowed(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSortBy = null;
+                public ?string $capturedSortDirection = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedSortBy = $this->indexSortBy;
+                    $this->capturedSortDirection = $this->indexSortDirection;
+
+                    return ['sorted'];
+                }
+            };
+
+            $response = $controller->index(new Request(['sort' => 'amount', 'direction' => 'asc']));
+
+            self::assertSame('amount', $controller->capturedSortBy);
+            self::assertSame('asc', $controller->capturedSortDirection);
+            self::assertSame('amount', $response->data['sortBy'] ?? null);
+            self::assertSame('asc', $response->data['sortDirection'] ?? null);
+            self::assertSame(['sorted'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexRestoresSavedListingPreferencesWhenNoQueryStateIsProvided(): void
+        {
+            ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
+                'status' => 'processing',
+                'per_page' => 50,
+                'search' => 'ACME NFSE',
+                'sort_by' => 'amount',
+                'sort_direction' => 'asc',
+            ]);
+
+            $response = (new InvoiceController())->index(new Request());
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([[
+                'status' => 'processing',
+                'limit' => 50,
+                'search' => 'ACME NFSE',
+                'sort' => 'amount',
+                'direction' => 'asc',
+            ]], $response->parameters);
+        }
+
+        public function testIndexPersistsListingPreferencesToSettingsStorage(): void
+        {
+            ControllerIsolationState::$savedCount = 0;
+
+            $controller = new class () extends InvoiceController {
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    return ['persisted'];
+                }
+            };
+
+            $controller->index(new Request([
+                'status' => 'cancelled',
+                'limit' => '100',
+                'search' => 'NFSE-22',
+                'sort_by' => 'document_number',
+                'sort_direction' => 'asc',
+            ]));
+
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+
+            $stored = json_decode((string) (ControllerIsolationState::$settings['nfse.invoices.preferences'] ?? ''), true);
+
+            self::assertSame([
+                'status' => 'cancelled',
+                'per_page' => 100,
+                'search' => 'NFSE-22',
+                'sort_by' => 'document_number',
+                'sort_direction' => 'asc',
+            ], $stored);
         }
 
         public function testIndexPassesStatusFilterFromRequestToReceiptQuery(): void
@@ -1110,7 +1209,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedStatus = $status;
                     $this->capturedPerPage = $perPage;
@@ -1136,7 +1235,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedStatus = $status;
                     $this->capturedPerPage = $perPage;
@@ -1162,7 +1261,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedStatus = $status;
                     $this->capturedPerPage = $perPage;
@@ -1187,7 +1286,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedPerPage = $perPage;
                     $this->capturedSearch = $search;
@@ -1209,7 +1308,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
                 public ?string $capturedSearch = null;
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedSearch = $search;
 
@@ -1217,11 +1316,31 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $response = $controller->index(new Request(['q' => '  NF-2026-001  ']));
+            $response = $controller->index(new Request(['search' => '  NF-2026-001  ']));
 
             self::assertSame('NF-2026-001', $controller->capturedSearch);
             self::assertSame('NF-2026-001', $response->data['search'] ?? null);
             self::assertSame(['search'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexStripsWrappingQuotesFromSearchQuery(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSearch = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedSearch = $search;
+
+                    return ['quoted-search'];
+                }
+            };
+
+            $response = $controller->index(new Request(['search' => '  "Assessoria"  ']));
+
+            self::assertSame('Assessoria', $controller->capturedSearch);
+            self::assertSame('Assessoria', $response->data['search'] ?? null);
+            self::assertSame(['quoted-search'], $response->data['receipts'] ?? null);
         }
 
         public function testIndexConvertsEmptySearchToNull(): void
@@ -1229,7 +1348,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
                 public ?string $capturedSearch = 'marker';
 
-                protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     $this->capturedSearch = $search;
 
@@ -1237,11 +1356,151 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $response = $controller->index(new Request(['q' => '   ']));
+            $response = $controller->index(new Request(['search' => '   ']));
 
             self::assertNull($controller->capturedSearch);
             self::assertNull($response->data['search'] ?? null);
             self::assertSame(['empty-search'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexUsesQLegacyFallbackWhenSearchQueryIsMissing(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSearch = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedSearch = $search;
+
+                    return ['legacy-q'];
+                }
+            };
+
+            $response = $controller->index(new Request(['q' => '  NF-LEGACY-1  ']));
+
+            self::assertSame('NF-LEGACY-1', $controller->capturedSearch);
+            self::assertSame('NF-LEGACY-1', $response->data['search'] ?? null);
+            self::assertSame(['legacy-q'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexParsesMultipleStatusTokenWithoutLeakingToSearchTerm(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedStatus = null;
+                public ?string $capturedSearch = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedStatus = $status;
+                    $this->capturedSearch = $search;
+
+                    return ['multi-status'];
+                }
+            };
+
+            $response = $controller->index(new Request(['search' => 'status:emitted,cancelled']));
+
+            self::assertSame('emitted,cancelled', $controller->capturedStatus);
+            self::assertNull($controller->capturedSearch);
+            self::assertSame('emitted,cancelled', $response->data['status'] ?? null);
+            self::assertSame('status:emitted,cancelled', $response->data['search'] ?? null);
+            self::assertSame(['multi-status'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexParsesEqualDateFilterToken(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?array $capturedDateFilter = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedDateFilter = $dateFilter;
+
+                    return [];
+                }
+            };
+
+            $controller->index(new Request(['search' => 'data_emissao:2024-03-15']));
+
+            self::assertSame(['operator' => '=', 'from' => '2024-03-15', 'to' => null], $controller->capturedDateFilter);
+        }
+
+        public function testIndexParsesNotEqualDateFilterToken(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?array $capturedDateFilter = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedDateFilter = $dateFilter;
+
+                    return [];
+                }
+            };
+
+            $controller->index(new Request(['search' => 'not data_emissao:2024-03-15']));
+
+            self::assertSame(['operator' => '!=', 'from' => '2024-03-15', 'to' => null], $controller->capturedDateFilter);
+        }
+
+        public function testIndexParsesDateRangeFilterToken(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?array $capturedDateFilter = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedDateFilter = $dateFilter;
+
+                    return [];
+                }
+            };
+
+            $controller->index(new Request(['search' => 'data_emissao>=2024-01-01 data_emissao<=2024-01-31']));
+
+            self::assertSame(['operator' => 'range', 'from' => '2024-01-01', 'to' => '2024-01-31'], $controller->capturedDateFilter);
+        }
+
+        public function testIndexParsesDateFilterWithoutLeakingToSearchTerm(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSearch = null;
+                public ?array $capturedDateFilter = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedSearch  = $search;
+                    $this->capturedDateFilter = $dateFilter;
+
+                    return [];
+                }
+            };
+
+            $controller->index(new Request(['search' => 'ACME data_emissao:2024-03-15 foo']));
+
+            self::assertSame('ACME foo', $controller->capturedSearch);
+            self::assertSame(['operator' => '=', 'from' => '2024-03-15', 'to' => null], $controller->capturedDateFilter);
+        }
+
+        public function testIndexParsesDateRangeWithoutLeakingToSearchTerm(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSearch = null;
+                public ?array $capturedDateFilter = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedSearch  = $search;
+                    $this->capturedDateFilter = $dateFilter;
+
+                    return [];
+                }
+            };
+
+            $controller->index(new Request(['search' => 'data_emissao>=2024-01-01 data_emissao<=2024-01-31']));
+
+            self::assertNull($controller->capturedSearch);
+            self::assertSame(['operator' => 'range', 'from' => '2024-01-01', 'to' => '2024-01-31'], $controller->capturedDateFilter);
         }
 
         public function testShowReturnsInvoiceAndReceiptInView(): void
@@ -1291,7 +1550,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
+            self::assertSame([['status' => 'pending', 'limit' => 25]], $response->parameters);
         }
 
         public function testPendingPassesSearchAndPerPageToUnifiedListing(): void
@@ -1299,11 +1558,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
             };
 
-            $response = $controller->pending(new Request(['per_page' => '50', 'q' => '  ACME  ']));
+            $response = $controller->pending(new Request(['limit' => '50', 'search' => '  ACME  ']));
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending', 'per_page' => 50, 'q' => 'ACME']], $response->parameters);
+            self::assertSame([['status' => 'pending', 'limit' => 50, 'search' => 'ACME']], $response->parameters);
         }
 
         public function testPendingNormalizesInvalidFiltersBeforeRedirectingToUnifiedListing(): void
@@ -1311,11 +1570,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends InvoiceController {
             };
 
-            $response = $controller->pending(new Request(['per_page' => '13', 'q' => '   ']));
+            $response = $controller->pending(new Request(['limit' => '13', 'search' => '   ']));
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
+            self::assertSame([['status' => 'pending', 'limit' => 25]], $response->parameters);
+        }
+
+        public function testPendingUsesQLegacyFallbackWhenSearchQueryIsMissing(): void
+        {
+            $controller = new class () extends InvoiceController {
+            };
+
+            $response = $controller->pending(new Request(['limit' => '25', 'q' => '  LEGACY  ']));
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending', 'limit' => 25, 'search' => 'LEGACY']], $response->parameters);
         }
 
         public function testEmitRedirectsToPendingWhenEmissionReadinessIsNotSatisfied(): void
@@ -1374,7 +1645,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
+            self::assertSame([['status' => 'pending', 'limit' => 25]], $response->parameters);
         }
 
         public function testPendingIncludesTransportCertificateChecklistFlagWhenPemFilesAreMissing(): void
@@ -1395,7 +1666,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending', 'per_page' => 25]], $response->parameters);
+            self::assertSame([['status' => 'pending', 'limit' => 25]], $response->parameters);
         }
 
         public function testRefreshQueriesReceiptUpdatesStatusAndRedirectsToShowPage(): void

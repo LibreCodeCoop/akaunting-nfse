@@ -20,17 +20,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     <x-slot name="body">
                         <div class="relative sm:col-span-6">
-                            <label for="item_lista_servico_display" class="block text-sm font-medium mb-1">
+                            <label class="block text-sm font-medium mb-1">
                                 {{ trans('nfse::general.settings.services.lc116_code') }}
                             </label>
-                            <input
-                                type="text"
-                                name="item_lista_servico_display"
-                                id="item_lista_servico_display"
-                                value="{{ $service->display_name }}"
-                                class="w-full border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-500"
-                                disabled
-                            >
+                            <div class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                                {{ $service->display_name }}
+                            </div>
                         </div>
 
                         <div class="relative sm:col-span-3">

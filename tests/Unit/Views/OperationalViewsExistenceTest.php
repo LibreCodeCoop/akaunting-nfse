@@ -19,13 +19,13 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/invoices/show.blade.php');
         }
 
-        public function testInvoicesIndexViewKeepsFiltersInPaginationAndOffersClearAction(): void
+        public function testInvoicesIndexViewKeepsFiltersInPagination(): void
         {
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
             $content = (string) file_get_contents($indexPath);
 
-            self::assertStringContainsString('{{ $receipts->appends(request()->query())->links() }}', $content);
-            self::assertStringContainsString("trans('nfse::general.invoices.clear_filters')", $content);
+            self::assertStringContainsString('<x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />', $content);
+            self::assertStringNotContainsString("trans('nfse::general.invoices.clear_filters')", $content);
         }
 
         public function testInvoicesIndexViewOffersReemitActionForCancelledReceipts(): void
@@ -53,23 +53,36 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $content = (string) file_get_contents($indexPath);
 
             self::assertStringContainsString("trans('nfse::general.invoices.listing_overview')", $content);
-            self::assertStringContainsString("trans('nfse::general.invoices.quick_filters')", $content);
+            self::assertStringNotContainsString("trans('nfse::general.invoices.quick_filters')", $content);
             self::assertStringContainsString("trans('nfse::general.invoices.filter_pending')", $content);
             self::assertStringContainsString("trans('general.actions')", $content);
-            self::assertStringContainsString('id="q" name="q"', $content);
-            self::assertStringContainsString('list="nfse-search-suggestions"', $content);
-            self::assertStringContainsString('status:pending', $content);
-            self::assertStringContainsString('status:emitted', $content);
-            self::assertStringContainsString('per_page:50', $content);
+            self::assertStringContainsString('<x-search-string :filters="$searchStringFilters" />', $content);
+            self::assertStringContainsString('<x-sortablelink column="due_at"', $content);
+            self::assertStringContainsString('<x-sortablelink column="issued_at"', $content);
+            self::assertStringContainsString('<x-sortablelink column="customer"', $content);
+            self::assertStringContainsString('<x-sortablelink column="document_number"', $content);
+            self::assertStringContainsString('<x-sortablelink column="amount"', $content);
+            self::assertStringContainsString('<x-sortablelink column="status"', $content);
+            self::assertStringNotContainsString('name="sort_by"', $content);
+            self::assertStringNotContainsString('name="sort_direction"', $content);
+            self::assertStringNotContainsString('name="limit"', $content);
+            self::assertStringContainsString("'key' => 'status'", $content);
+            self::assertStringContainsString("'key' => 'data_emissao'", $content);
+            self::assertStringContainsString("'type' => 'date'", $content);
+            self::assertStringNotContainsString("'key' => 'per_page'", $content);
+            self::assertStringContainsString('<x-script folder="common" file="documents" />', $content);
+            self::assertStringContainsString("const cookieFilters = @json(\$searchStringCookieFilters ?? []);", $content);
+            self::assertStringContainsString("Cookies.set('search-string', searchStringCookie);", $content);
             self::assertStringNotContainsString('id="nfse-status-filter"', $content);
-            self::assertStringContainsString('class="bg-white border border-gray-200 rounded-lg overflow-hidden"', $content);
-            self::assertStringContainsString('text-xs font-semibold uppercase tracking-wide text-gray-500', $content);
+            self::assertStringNotContainsString('class="bg-white border border-gray-200 rounded-lg overflow-hidden"', $content);
+            self::assertStringContainsString('text-sm text-gray-600', $content);
             self::assertStringContainsString('class="group hover:bg-gray-50 transition-colors"', $content);
             self::assertStringContainsString('$invoice->number ?? $invoice->document_number ?? (\'#\' . $invoice->id)', $content);
             self::assertStringContainsString('route(\'nfse.invoices.show\', $invoice)', $content);
             self::assertStringContainsString('route(\'nfse.invoices.show\', $receipt->invoice_id)', $content);
             self::assertStringContainsString('$receipt->invoice?->number ?? $receipt->invoice?->document_number ?? (\'#\' . $receipt->invoice_id)', $content);
-            self::assertStringContainsString('class="text-indigo-700 hover:underline"', $content);
+            self::assertStringContainsString('text-indigo-700 hover:underline', $content);
+            self::assertStringContainsString('data-row-quick-view="true"', $content);
             self::assertStringNotContainsString('uppercase">NFS-e</th>', $content);
         }
 

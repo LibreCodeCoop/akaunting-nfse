@@ -28,6 +28,10 @@ use Modules\Nfse\Support\VaultConfig;
 
 class InvoiceController extends Controller
 {
+    protected string $indexSortBy = 'due_at';
+
+    protected string $indexSortDirection = 'desc';
+
     public function dashboard(): \Illuminate\View\View
     {
         $stats = $this->dashboardStats();
@@ -35,33 +39,70 @@ class InvoiceController extends Controller
         return view('nfse::dashboard.index', compact('stats'));
     }
 
-    public function index(?Request $request = null): \Illuminate\View\View
+    public function index(?Request $request = null): \Illuminate\View\View|RedirectResponse
     {
         $request = $this->currentRequest($request);
 
-        $search = $this->normalizedIndexSearch($request?->query('q'));
+        $hasExplicitState = $this->requestHasIndexState($request);
+        $savedPreferences = $this->loadIndexPreferences();
+
+        if (!$hasExplicitState && $savedPreferences !== []) {
+            return redirect()->route('nfse.invoices.index', $this->indexRestoreQueryParams($savedPreferences));
+        }
+
+        $search = $this->normalizedIndexSearch($request?->query('search', $request?->query('q')));
+        $requestedStatus = $request?->query('status');
+        $requestedPerPage = $request?->query('limit', $request?->query('per_page'));
+        $requestedSortBy = $request?->query('sort', $request?->query('sort_by'));
+        $requestedSortDirection = $request?->query('direction', $request?->query('sort_direction'));
+
+        if (!$hasExplicitState && $savedPreferences !== []) {
+            $search ??= $savedPreferences['search'];
+            $requestedStatus ??= $savedPreferences['status'];
+            $requestedPerPage ??= $savedPreferences['per_page'];
+            $requestedSortBy ??= $savedPreferences['sort_by'];
+            $requestedSortDirection ??= $savedPreferences['sort_direction'];
+        }
+
         $parsedFilters = $this->parsedIndexSearchFilters($search);
-        $status = $parsedFilters['status'] ?? $this->normalizedIndexStatus($request?->query('status'));
-        $perPage = $parsedFilters['per_page'] ?? $this->normalizedIndexPerPage($request?->query('per_page'));
+        $status = $requestedStatus !== null
+            ? $this->normalizedIndexStatus($requestedStatus)
+            : ($parsedFilters['status'] ?? 'all');
+        $perPage = $requestedPerPage !== null
+            ? $this->normalizedIndexPerPage($requestedPerPage)
+            : ($parsedFilters['per_page'] ?? 25);
+        $this->indexSortBy = $this->normalizedIndexSortBy($requestedSortBy);
+        $this->indexSortDirection = $this->normalizedIndexSortDirection($requestedSortDirection);
         $searchTerm = $parsedFilters['search'];
+        $searchStringCookieFilters = $this->searchStringCookieFilters($parsedFilters);
         $overviewCounts = $this->listingOverviewCounts();
-        $receipts = $status === 'pending' ? null : $this->receiptsForIndex($status, $perPage, $searchTerm);
+        $receipts = $status === 'pending' ? null : $this->receiptsForIndex($status, $perPage, $searchTerm, $parsedFilters['date_emissao'] ?? null);
         $pendingInvoices = $status === 'pending' ? $this->pendingInvoices($perPage, $searchTerm) : null;
         $pendingReadiness = $status === 'pending' ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
+        $sortBy = $this->indexSortBy;
+        $sortDirection = $this->indexSortDirection;
 
-        return view('nfse::invoices.index', compact('receipts', 'pendingInvoices', 'pendingReadiness', 'overviewCounts', 'status', 'perPage', 'search'));
+        $this->saveIndexPreferences([
+            'status' => $status,
+            'per_page' => $perPage,
+            'search' => $search,
+            'sort_by' => $sortBy,
+            'sort_direction' => $sortDirection,
+        ]);
+
+        return view('nfse::invoices.index', compact('receipts', 'pendingInvoices', 'pendingReadiness', 'overviewCounts', 'status', 'perPage', 'search', 'searchStringCookieFilters', 'sortBy', 'sortDirection'));
     }
 
     public function pending(?Request $request = null): RedirectResponse
     {
         $request = $this->currentRequest($request);
-        $perPage = $request?->query('per_page');
-        $search = $request?->query('q');
+        $perPage = $request?->query('limit', $request?->query('per_page'));
+        $search = $request?->query('search', $request?->query('q'));
 
         return redirect()->route('nfse.invoices.index', array_filter([
             'status' => 'pending',
-            'per_page' => $this->normalizedIndexPerPage($perPage),
-            'q' => $this->normalizedIndexSearch($search),
+            'limit' => $this->normalizedIndexPerPage($perPage),
+            'search' => $this->normalizedIndexSearch($search),
         ], static fn ($value): bool => $value !== null && $value !== ''));
     }
 
@@ -805,23 +846,54 @@ class InvoiceController extends Controller
         ];
     }
 
-    protected function receiptsForIndex(string $status, int $perPage, ?string $search): mixed
+    protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
     {
-        $query = NfseReceipt::with('invoice');
+        $query = NfseReceipt::with('invoice.contact');
 
         if ($status !== 'all') {
-            $query = $query->where('status', $status);
+            if (str_contains($status, ',')) {
+                $statuses = array_values(array_filter(array_map(static fn (string $item): string => trim($item), explode(',', $status))));
+
+                if ($statuses !== []) {
+                    $query = $query->whereIn('status', $statuses);
+                }
+            } else {
+                $query = $query->where('status', $status);
+            }
         }
 
         if ($search !== null) {
             $query = $query->where(function ($innerQuery) use ($search) {
                 $innerQuery->where('nfse_number', 'like', '%' . $search . '%')
                     ->orWhere('chave_acesso', 'like', '%' . $search . '%')
-                    ->orWhere('codigo_verificacao', 'like', '%' . $search . '%');
+                    ->orWhere('codigo_verificacao', 'like', '%' . $search . '%')
+                    ->orWhereHas('invoice', function ($invoiceQuery) use ($search) {
+                        $invoiceQuery->where('document_number', 'like', '%' . $search . '%')
+                            ->orWhereHas('contact', function ($contactQuery) use ($search) {
+                                $contactQuery->where('name', 'like', '%' . $search . '%');
+                            });
+                    });
             });
         }
 
-        return $query->latest()->paginate($perPage);
+        if ($dateFilter !== null) {
+            $operator = $dateFilter['operator'];
+            $from     = $dateFilter['from'];
+            $to       = $dateFilter['to'] ?? null;
+
+            if ($operator === 'range' && $to !== null) {
+                $query = $query->whereDate('data_emissao', '>=', $from)
+                               ->whereDate('data_emissao', '<=', $to);
+            } elseif ($operator === '!=') {
+                $query = $query->whereDate('data_emissao', '!=', $from);
+            } else {
+                $query = $query->whereDate('data_emissao', '=', $from);
+            }
+        }
+
+        $query = $this->applyReceiptsSorting($query);
+
+        return $query->paginate($perPage);
     }
 
     /**
@@ -900,44 +972,367 @@ class InvoiceController extends Controller
             return null;
         }
 
-        $normalized = trim($search);
+        $normalized = preg_replace('/\s+/', ' ', trim($search));
+
+        if (!is_string($normalized)) {
+            return null;
+        }
+
+        // Akaunting search input can submit free text wrapped in double quotes.
+        if (preg_match('/^"(.*)"$/', $normalized, $matches) === 1) {
+            $normalized = trim($matches[1]);
+        }
 
         return $normalized !== '' ? $normalized : null;
     }
 
+    protected function normalizedIndexSortBy(mixed $sortBy): string
+    {
+        if (!is_string($sortBy)) {
+            return 'due_at';
+        }
+
+        $normalized = strtolower(trim($sortBy));
+        $allowed = ['due_at', 'issued_at', 'status', 'document_number', 'customer', 'amount', 'created_at'];
+
+        return in_array($normalized, $allowed, true) ? $normalized : 'due_at';
+    }
+
+    protected function normalizedIndexSortDirection(mixed $direction): string
+    {
+        if (!is_string($direction)) {
+            return 'desc';
+        }
+
+        $normalized = strtolower(trim($direction));
+
+        return in_array($normalized, ['asc', 'desc'], true) ? $normalized : 'desc';
+    }
+
+    protected function applyReceiptsSorting(mixed $query): mixed
+    {
+        if (!is_object($query)) {
+            return $query;
+        }
+
+        if (!is_callable([$query, 'orderBy'])) {
+            if (is_callable([$query, 'latest'])) {
+                return $query->latest();
+            }
+
+            return $query;
+        }
+
+        $direction = $this->indexSortDirection;
+
+        return match ($this->indexSortBy) {
+            'status' => $query->orderBy('status', $direction),
+            'created_at' => $query->orderBy('created_at', $direction),
+            'document_number' => $query->orderBy(
+                Invoice::query()->select('document_number')->whereColumn('documents.id', 'nfse_receipts.invoice_id')->limit(1),
+                $direction,
+            ),
+            'issued_at' => $query->orderBy(
+                Invoice::query()->select('issued_at')->whereColumn('documents.id', 'nfse_receipts.invoice_id')->limit(1),
+                $direction,
+            ),
+            'due_at' => $query->orderBy(
+                Invoice::query()->select('due_at')->whereColumn('documents.id', 'nfse_receipts.invoice_id')->limit(1),
+                $direction,
+            ),
+            'customer' => $query->orderBy(
+                \App\Models\Common\Contact::query()
+                    ->select('name')
+                    ->join('documents', 'documents.contact_id', '=', 'contacts.id')
+                    ->whereColumn('documents.id', 'nfse_receipts.invoice_id')
+                    ->limit(1),
+                $direction,
+            ),
+            'amount' => $query->orderBy(
+                Invoice::query()->select('amount')->whereColumn('documents.id', 'nfse_receipts.invoice_id')->limit(1),
+                $direction,
+            ),
+            default => $query->orderBy('data_emissao', $direction),
+        };
+    }
+
     /**
-     * @return array{status: ?string, per_page: ?int, search: ?string}
+     * @param array{status: ?string, per_page: ?int, search: ?string, date_emissao: ?array{operator: string, from: string, to: ?string}} $parsedFilters
+     * @return array<string, array<string, mixed>>
+     */
+    protected function searchStringCookieFilters(array $parsedFilters): array
+    {
+        $filters = [];
+
+        if (!empty($parsedFilters['status'])) {
+            $statusLabels = [
+                'all' => trans('nfse::general.invoices.filter_all'),
+                'pending' => trans('nfse::general.invoices.filter_pending'),
+                'emitted' => trans('nfse::general.invoices.filter_emitted'),
+                'processing' => trans('nfse::general.invoices.filter_processing'),
+                'cancelled' => trans('nfse::general.invoices.filter_cancelled'),
+            ];
+
+            $statuses = array_values(array_filter(array_map(static fn (string $item): string => trim($item), explode(',', (string) $parsedFilters['status']))));
+
+            if (count($statuses) > 1) {
+                $multipleValues = [];
+
+                foreach ($statuses as $status) {
+                    $multipleValues[] = [
+                        'key' => $status,
+                        'value' => $statusLabels[$status] ?? $status,
+                    ];
+                }
+
+                $filters['status'] = [
+                    'key' => $multipleValues,
+                    'value' => $multipleValues,
+                    'operator' => '=',
+                ];
+            } else {
+                $status = $statuses[0] ?? null;
+
+                if ($status !== null) {
+                    $filters['status'] = [
+                        'key' => $status,
+                        'value' => $statusLabels[$status] ?? $status,
+                        'operator' => '=',
+                    ];
+                }
+            }
+        }
+
+        if (!empty($parsedFilters['date_emissao'])) {
+            $dateFilter = $parsedFilters['date_emissao'];
+            $operator = $dateFilter['operator'];
+            $from = $dateFilter['from'];
+            $to = $dateFilter['to'] ?? null;
+            try {
+                $dateFormat = company_date_format();
+            } catch (\Throwable) {
+                $dateFormat = 'Y-m-d';
+            }
+
+            $key = $from;
+            $value = $this->formatDateForSearchFilter($from, $dateFormat);
+
+            if ($operator === 'range' && $to !== null) {
+                $key = $from . '-to-' . $to;
+                $value = $this->formatDateForSearchFilter($from, $dateFormat)
+                    . ' to '
+                    . $this->formatDateForSearchFilter($to, $dateFormat);
+                $operator = '><';
+            }
+
+            $filters['data_emissao'] = [
+                'key' => $key,
+                'value' => $value,
+                'operator' => $operator,
+            ];
+        }
+
+        return $filters;
+    }
+
+    protected function formatDateForSearchFilter(string $date, string $dateFormat): string
+    {
+        try {
+            return (new \DateTimeImmutable($date))->format($dateFormat);
+        } catch (\Throwable) {
+            return $date;
+        }
+    }
+
+    /**
+     * @return array{status: ?string, per_page: ?int, search: ?string, date_emissao: ?array{operator: string, from: string, to: ?string}}
      */
     protected function parsedIndexSearchFilters(?string $search): array
     {
         if ($search === null) {
-            return ['status' => null, 'per_page' => null, 'search' => null];
+            return ['status' => null, 'per_page' => null, 'search' => null, 'date_emissao' => null];
         }
 
         $status = null;
         $perPage = null;
+        $dateFilter = null;
+        $datePattern = '[0-9]{4}-[0-9]{2}-[0-9]{2}';
 
-        if (preg_match('/(?:^|\s)status:(all|emitted|cancelled|processing|pending)\b/i', $search, $statusMatch) === 1) {
-            $status = $this->normalizedIndexStatus($statusMatch[1]);
+        if (preg_match('/(?:^|\s)status:([^\s]+)/i', $search, $statusMatch) === 1) {
+            $statusTokens = array_values(array_filter(array_map(static fn (string $item): string => trim(strtolower($item)), explode(',', $statusMatch[1]))));
+            $allowedStatuses = ['all', 'emitted', 'cancelled', 'processing', 'pending'];
+            $validStatuses = array_values(array_unique(array_filter($statusTokens, static fn (string $item): bool => in_array($item, $allowedStatuses, true))));
+
+            if ($validStatuses !== []) {
+                $status = in_array('all', $validStatuses, true) ? 'all' : implode(',', $validStatuses);
+            }
         }
 
         if (preg_match('/(?:^|\s)per_page:(10|25|50|100)\b/i', $search, $perPageMatch) === 1) {
             $perPage = $this->normalizedIndexPerPage($perPageMatch[1]);
         }
 
-        $searchWithoutTokens = preg_replace('/(?:^|\s)(status:(?:all|emitted|cancelled|processing|pending)|per_page:(?:10|25|50|100))\b/i', ' ', $search);
+        // Range: data_emissao>=YYYY-MM-DD data_emissao<=YYYY-MM-DD (order-independent)
+        if (preg_match('/(?:^|\s)data_emissao>=(' . $datePattern . ')/i', $search, $fromMatch) === 1
+            && preg_match('/(?:^|\s)data_emissao<=(' . $datePattern . ')/i', $search, $toMatch) === 1) {
+            $dateFilter = ['operator' => 'range', 'from' => $fromMatch[1], 'to' => $toMatch[1]];
+        } elseif (preg_match('/(?:^|\s)not\s+data_emissao:(' . $datePattern . ')(?:\s|$)/i', $search, $notMatch) === 1) {
+            // Not equal: not data_emissao:YYYY-MM-DD
+            $dateFilter = ['operator' => '!=', 'from' => $notMatch[1], 'to' => null];
+        } elseif (preg_match('/(?:^|\s)data_emissao:(' . $datePattern . ')(?:\s|$)/i', $search, $equalMatch) === 1) {
+            // Equal: data_emissao:YYYY-MM-DD
+            $dateFilter = ['operator' => '=', 'from' => $equalMatch[1], 'to' => null];
+        }
+
+        $searchWithoutTokens = preg_replace('/(?:^|\s)(status:[^\s]+|per_page:(?:10|25|50|100))\b/i', ' ', $search);
+        $searchWithoutTokens = preg_replace('/(?:^|\s)(?:not\s+data_emissao:[0-9]{4}-[0-9]{2}-[0-9]{2}|data_emissao(?:>=|<=|:)[0-9]{4}-[0-9]{2}-[0-9]{2})/i', ' ', (string) $searchWithoutTokens);
         $searchWithoutTokens = is_string($searchWithoutTokens) ? preg_replace('/\s+/', ' ', trim($searchWithoutTokens)) : null;
 
         return [
             'status' => $status,
             'per_page' => $perPage,
             'search' => $this->normalizedIndexSearch($searchWithoutTokens),
+            'date_emissao' => $dateFilter,
         ];
     }
 
     protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
     {
-        return $this->pendingInvoicesQuery($search)->latest()->paginate($perPage);
+        $query = $this->pendingInvoicesQuery($search);
+        $query = $this->applyPendingInvoicesSorting($query);
+
+        return $query->paginate($perPage);
+    }
+
+    protected function applyPendingInvoicesSorting(mixed $query): mixed
+    {
+        if (!is_object($query)) {
+            return $query;
+        }
+
+        if (!is_callable([$query, 'orderBy'])) {
+            if (is_callable([$query, 'latest'])) {
+                return $query->latest();
+            }
+
+            return $query;
+        }
+
+        $direction = $this->indexSortDirection;
+
+        if ($this->indexSortBy === 'customer' && is_callable([$query, 'leftJoin']) && is_callable([$query, 'select'])) {
+            $query = $query->leftJoin('contacts', 'contacts.id', '=', 'documents.contact_id')
+                ->select('documents.*')
+                ->orderBy('contacts.name', $direction);
+
+            return $query;
+        }
+
+        return match ($this->indexSortBy) {
+            'document_number' => $query->orderBy('document_number', $direction),
+            'amount' => $query->orderBy('amount', $direction),
+            'issued_at' => $query->orderBy('issued_at', $direction)->orderBy('created_at', $direction),
+            'due_at' => $query->orderBy('due_at', $direction)->orderBy('created_at', $direction),
+            default => $query->orderBy('created_at', $direction),
+        };
+    }
+
+    protected function requestHasIndexState(?Request $request): bool
+    {
+        if (!$request instanceof Request) {
+            return false;
+        }
+
+        $keys = ['search', 'q', 'status', 'limit', 'per_page', 'sort', 'direction', 'sort_by', 'sort_direction'];
+
+        foreach ($keys as $key) {
+            if ($request->query($key) !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array{status: ?string, per_page: int, search: ?string, sort_by: string, sort_direction: string} $preferences
+     * @return array<string, string|int>
+     */
+    protected function indexRestoreQueryParams(array $preferences): array
+    {
+        return array_filter([
+            'status' => (string) ($preferences['status'] ?? 'all'),
+            'limit' => (int) ($preferences['per_page'] ?? 25),
+            'search' => (string) ($preferences['search'] ?? ''),
+            'sort' => (string) ($preferences['sort_by'] ?? 'due_at'),
+            'direction' => (string) ($preferences['sort_direction'] ?? 'desc'),
+        ], static fn (mixed $value): bool => $value !== '' && $value !== null);
+    }
+
+    /**
+     * @return array{status: ?string, per_page: int, search: ?string, sort_by: string, sort_direction: string}|array{}
+     */
+    protected function loadIndexPreferences(): array
+    {
+        $raw = setting($this->indexPreferencesSettingKey(), null);
+        $decoded = null;
+
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+        } elseif (is_array($raw)) {
+            $decoded = $raw;
+        }
+
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return [
+            'status' => isset($decoded['status']) ? $this->normalizedIndexStatus($decoded['status']) : null,
+            'per_page' => $this->normalizedIndexPerPage($decoded['per_page'] ?? null),
+            'search' => $this->normalizedIndexSearch($decoded['search'] ?? null),
+            'sort_by' => $this->normalizedIndexSortBy($decoded['sort_by'] ?? null),
+            'sort_direction' => $this->normalizedIndexSortDirection($decoded['sort_direction'] ?? null),
+        ];
+    }
+
+    /**
+     * @param array{status: string, per_page: int, search: ?string, sort_by: string, sort_direction: string} $preferences
+     */
+    protected function saveIndexPreferences(array $preferences): void
+    {
+        setting([$this->indexPreferencesSettingKey() => json_encode($preferences)]);
+
+        $settings = setting();
+
+        if (is_object($settings) && is_callable([$settings, 'save'])) {
+            $settings->save();
+        }
+    }
+
+    protected function indexPreferencesSettingKey(): string
+    {
+        $key = 'nfse.invoices.preferences';
+
+        if (!function_exists('user')) {
+            return $key;
+        }
+
+        try {
+            $currentUser = user();
+
+            if (is_object($currentUser)) {
+                $userId = (int) ($currentUser->id ?? 0);
+
+                if ($userId > 0) {
+                    return $key . '.' . $userId;
+                }
+            }
+        } catch (\Throwable) {
+            return $key;
+        }
+
+        return $key;
     }
 
     protected function pendingInvoicesQuery(?string $search = null): mixed
@@ -1320,6 +1715,18 @@ class InvoiceController extends Controller
 
     protected function projectRootPath(string $relativePath): string
     {
+        if (class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationState::class)) {
+            try {
+                $isolationRoot = \Modules\Nfse\Http\Controllers\ControllerIsolationState::$storageRoot ?? '';
+
+                if (is_string($isolationRoot) && $isolationRoot !== '') {
+                    return rtrim($isolationRoot, '/\\') . DIRECTORY_SEPARATOR . ltrim($relativePath, DIRECTORY_SEPARATOR);
+                }
+            } catch (\Throwable) {
+                // Ignore isolation fallback errors and continue with normal resolution.
+            }
+        }
+
         if (function_exists('app')) {
             try {
                 $application = app();
