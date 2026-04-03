@@ -137,56 +137,84 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         @endif
 
-        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div class="overflow-x-auto">
+        <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
-                <thead class="bg-gray-50">
+                <thead class="border-b border-gray-200">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.invoice') }}</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('nfse::general.invoices.customer') }}</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.amount') }}</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.date') }}</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.status') }}</th>
-                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">{{ trans('general.actions') }}</th>
+                        <th class="px-4 py-3 text-left text-sm text-gray-600">
+                            <div class="font-medium"><x-sortablelink column="due_at" title="{{ trans('invoices.due_date') }}" /></div>
+                            <div class="font-normal"><x-sortablelink column="issued_at" title="{{ trans('invoices.invoice_date') }}" /></div>
+                        </th>
+                        <th class="px-4 py-3 text-left text-sm text-gray-600">
+                            <div class="font-medium"><x-sortablelink column="customer" title="{{ trans('nfse::general.invoices.customer') }}" /></div>
+                            <div class="font-normal"><x-sortablelink column="document_number" title="{{ trans_choice('general.numbers', 1) }}" /></div>
+                        </th>
+                        <th class="px-4 py-3 text-left text-sm text-gray-600"><x-sortablelink column="amount" title="{{ trans('general.amount') }}" /></th>
+                        <th class="px-4 py-3 text-left text-sm text-gray-600"><x-sortablelink column="status" title="{{ trans_choice('general.statuses', 1) }}" /></th>
+                        <th class="px-4 py-3 text-right text-sm font-medium text-gray-600">{{ trans('general.actions') }}</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-100">
+                <tbody class="divide-y divide-gray-100">
                     @if($isPendingStatus)
                         @forelse($pendingInvoices as $invoice)
                             <tr class="group hover:bg-gray-50 transition-colors">
                                 <td class="px-4 py-3 whitespace-nowrap">
-                                    <a href="{{ route('nfse.invoices.show', $invoice) }}" class="text-indigo-700 hover:underline">
+                                    <div class="font-bold">
+                                        @if(!empty($invoice->due_at))
+                                            <x-date :date="$invoice->due_at" function="diffForHumans" />
+                                        @else
+                                            —
+                                        @endif
+                                    </div>
+                                    <div class="text-sm text-gray-500">
+                                        @if(!empty($invoice->issued_at))
+                                            <x-date :date="$invoice->issued_at" />
+                                        @else
+                                            —
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-gray-800">{{ $invoice->contact?->name ?? '—' }}</p>
+                                    <a href="{{ route('nfse.invoices.show', $invoice) }}" class="mt-1 block text-xs text-indigo-700 hover:underline">
                                         {{ $invoice->number ?? $invoice->document_number ?? ('#' . $invoice->id) }}
                                     </a>
                                 </td>
-                                <td class="px-4 py-3">{{ $invoice->contact?->name ?? '—' }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap">{{ money($invoice->amount, default_currency(), true) }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap">{{ optional($invoice->issued_at)->format('d/m/Y H:i') ?? optional($invoice->created_at)->format('d/m/Y H:i') ?? '—' }}</td>
                                 <td class="px-4 py-3">
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
                                         {{ trans('nfse::general.invoices.filter_pending') }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <form action="{{ route('nfse.invoices.emit', $invoice) }}" method="POST" class="inline-flex">
-                                        @csrf
-                                        <button
-                                            type="submit"
-                                            @if(!$isReady) disabled @endif
-                                            title="{{ trans('nfse::general.invoices.emit_now') }}"
-                                            class="inline-flex h-8 w-8 items-center justify-center rounded border @if($isReady) border-indigo-200 text-indigo-700 hover:bg-indigo-50 @else border-gray-300 text-gray-400 cursor-not-allowed @endif"
-                                        >
-                                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                <path d="M4 10h8.17l-2.58-2.59L11 6l5 5-5 5-1.41-1.41L12.17 12H4v-2z" />
-                                            </svg>
-                                            <span class="sr-only">{{ trans('nfse::general.invoices.emit_now') }}</span>
-                                        </button>
-                                    </form>
+                                    <div class="relative inline-flex items-center">
+                                        <div class="pointer-events-none absolute right-10 top-1/2 z-20 hidden w-72 -translate-y-1/2 rounded-lg border border-indigo-100 bg-white p-3 text-left text-xs text-gray-600 shadow-xl group-hover:block" data-row-quick-view="true">
+                                            <p class="font-semibold text-gray-800">{{ $invoice->number ?? $invoice->document_number ?? ('#' . $invoice->id) }}</p>
+                                            <p class="mt-1">{{ $invoice->contact?->name ?? '—' }}</p>
+                                            <p class="mt-2">{{ trans('general.amount') }}: {{ money($invoice->amount, default_currency(), true) }}</p>
+                                            <p>{{ trans('general.status') }}: {{ trans('nfse::general.invoices.filter_pending') }}</p>
+                                        </div>
+
+                                        <form action="{{ route('nfse.invoices.emit', $invoice) }}" method="POST" class="inline-flex">
+                                            @csrf
+                                            <button
+                                                type="submit"
+                                                @if(!$isReady) disabled @endif
+                                                title="{{ trans('nfse::general.invoices.emit_now') }}"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded border @if($isReady) border-indigo-200 text-indigo-700 hover:bg-indigo-50 @else border-gray-300 text-gray-400 cursor-not-allowed @endif"
+                                            >
+                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <path d="M4 10h8.17l-2.58-2.59L11 6l5 5-5 5-1.41-1.41L12.17 12H4v-2z" />
+                                                </svg>
+                                                <span class="sr-only">{{ trans('nfse::general.invoices.emit_now') }}</span>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-6 text-center text-gray-500">{{ trans('nfse::general.invoices.no_pending') }}</td>
+                                <td colspan="5" class="px-4 py-6 text-center text-gray-500">{{ trans('nfse::general.invoices.no_pending') }}</td>
                             </tr>
                         @endforelse
                     @else
@@ -208,18 +236,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             @endphp
                             <tr class="group hover:bg-gray-50 transition-colors">
                                 <td class="px-4 py-3 whitespace-nowrap">
-                                    <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="text-indigo-700 hover:underline">
+                                    <div class="font-bold">
+                                        @if(!empty($receipt->invoice?->due_at))
+                                            <x-date :date="$receipt->invoice->due_at" function="diffForHumans" />
+                                        @elseif(!empty($receipt->data_emissao))
+                                            <x-date :date="$receipt->data_emissao" function="diffForHumans" />
+                                        @else
+                                            —
+                                        @endif
+                                    </div>
+                                    <div class="text-sm text-gray-500">
+                                        @if(!empty($receipt->invoice?->issued_at))
+                                            <x-date :date="$receipt->invoice->issued_at" />
+                                        @elseif(!empty($receipt->data_emissao))
+                                            <x-date :date="$receipt->data_emissao" />
+                                        @else
+                                            —
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-gray-800">{{ $receipt->invoice?->contact?->name ?? '—' }}</p>
+                                    <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="mt-1 block text-xs text-indigo-700 hover:underline">
                                         {{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}
                                     </a>
                                 </td>
-                                <td class="px-4 py-3">{{ $receipt->invoice?->contact?->name ?? '—' }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap">{{ money($receipt->invoice?->amount ?? 0, default_currency(), true) }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap">{{ $receipt->data_emissao ? $receipt->data_emissao->format('d/m/Y H:i') : '—' }}</td>
                                 <td class="px-4 py-3">
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <div class="inline-flex items-center gap-1">
+                                    <div class="relative inline-flex items-center gap-1">
+                                        <div class="pointer-events-none absolute right-28 top-1/2 z-20 hidden w-72 -translate-y-1/2 rounded-lg border border-indigo-100 bg-white p-3 text-left text-xs text-gray-600 shadow-xl group-hover:block" data-row-quick-view="true">
+                                            <p class="font-semibold text-gray-800">{{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}</p>
+                                            <p class="mt-1">{{ $receipt->invoice?->contact?->name ?? '—' }}</p>
+                                            <p class="mt-2">{{ trans('general.amount') }}: {{ money($receipt->invoice?->amount ?? 0, default_currency(), true) }}</p>
+                                            <p>{{ trans('general.status') }}: {{ $statusLabel }}</p>
+                                        </div>
+
                                         <form action="{{ route('nfse.invoices.refresh', $receipt->invoice_id) }}" method="POST" class="inline-flex">
                                             @csrf
                                             <button type="submit" title="{{ trans('nfse::general.invoices.refresh_status') }}" class="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-100">
@@ -270,13 +324,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-6 text-center text-gray-500">{{ trans('general.no_records') }}</td>
+                                <td colspan="5" class="px-4 py-6 text-center text-gray-500">{{ trans('general.no_records') }}</td>
                             </tr>
                         @endforelse
                     @endif
                 </tbody>
             </table>
-            </div>
         </div>
 
         <x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />
