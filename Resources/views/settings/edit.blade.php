@@ -316,7 +316,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
                     </div>
                 @else
-                    <form method="POST" action="{{ route('nfse.settings.fiscal') }}" class="space-y-4">
+                    <form id="fiscal-form" method="POST" action="{{ route('nfse.settings.fiscal') }}" class="space-y-4">
                         @csrf
                         @method('PATCH')
 
@@ -363,7 +363,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <p class="text-sm text-green-900 mb-2 md:mb-0">
                                 {{ trans('nfse::general.settings.federal.helper') }}
                             </p>
-                            <button id="federal-save-button" type="submit" class="inline-flex w-full md:w-auto justify-center items-center px-5 py-2.5 rounded bg-green-700 text-white hover:bg-green-800 font-semibold shadow-sm">
+                            <button id="federal-save-button" type="submit" class="inline-flex w-full md:w-auto justify-center items-center px-5 py-2.5 rounded font-semibold shadow-sm transition-colors duration-150 bg-gray-300 text-gray-500 cursor-not-allowed" disabled aria-disabled="true">
                                 {{ trans('general.save') }}
                             </button>
                         </div>
@@ -824,9 +824,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const municipalitySelect = document.getElementById('municipio_nome');
                 const ibgeHidden         = document.getElementById('municipio_ibge');
                 const ibgeDisplay        = document.getElementById('municipio_ibge_display');
+                const fiscalSaveButton   = document.getElementById('federal-save-button');
                 if (!ufSelect) {
                     return; // fiscal tab not rendered (no saved settings)
                 }
+
+                const syncFiscalSaveButton = () => {
+                    if (!(fiscalSaveButton instanceof HTMLButtonElement)) {
+                        return;
+                    }
+
+                    const canSubmit =
+                        ufSelect.value.trim() !== '' &&
+                        municipalitySelect.value.trim() !== '' &&
+                        ibgeHidden.value.trim() !== '';
+
+                    fiscalSaveButton.disabled = !canSubmit;
+                    fiscalSaveButton.setAttribute('aria-disabled', canSubmit ? 'false' : 'true');
+
+                    if (canSubmit) {
+                        fiscalSaveButton.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+                        fiscalSaveButton.classList.add('bg-green-700', 'text-white', 'hover:bg-green-800');
+
+                        return;
+                    }
+
+                    fiscalSaveButton.classList.remove('bg-green-700', 'text-white', 'hover:bg-green-800');
+                    fiscalSaveButton.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+                };
 
                 const selectedUf              = @json(old('nfse.uf', setting('nfse.uf', '')));
                 const selectedMunicipalityName = @json(old('nfse.municipio_nome', setting('nfse.municipio_nome', '')));
@@ -874,6 +899,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
 
                     municipalitySelect.disabled = false;
+                    syncFiscalSaveButton();
                 };
 
                 const loadMunicipalities = async (uf, preferredName = '', preferredCode = '') => {
@@ -882,6 +908,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         municipalitySelect.innerHTML = '<option value="">Selecione o estado primeiro...</option>';
                         ibgeHidden.value  = '';
                         ibgeDisplay.value = '';
+                        syncFiscalSaveButton();
                         return;
                     }
 
@@ -889,6 +916,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     municipalitySelect.innerHTML = '<option value="">Carregando municípios...</option>';
                     ibgeHidden.value  = '';
                     ibgeDisplay.value = '';
+                    syncFiscalSaveButton();
 
                     const url            = municipalitiesUrlTemplate.replace('__UF__', encodeURIComponent(uf));
                     const municipalities = await fetchJson(url);
@@ -897,6 +925,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 ufSelect.addEventListener('change', async () => {
                     await loadMunicipalities(ufSelect.value);
+                    syncFiscalSaveButton();
                 });
 
                 municipalitySelect.addEventListener('change', () => {
@@ -904,6 +933,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const ibgeCode       = selectedOption?.dataset?.ibge ?? '';
                     ibgeHidden.value     = ibgeCode;
                     ibgeDisplay.value    = ibgeCode;
+                    syncFiscalSaveButton();
                 });
 
                 const ufs = await fetchJson(ufsUrl);
@@ -925,6 +955,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 if (selectedUf) {
                     await loadMunicipalities(selectedUf, selectedMunicipalityName, selectedIbge);
                 }
+
+                syncFiscalSaveButton();
             });
         </script>
     </x-slot>

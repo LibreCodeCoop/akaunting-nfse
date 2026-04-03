@@ -12,7 +12,7 @@ use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 
 Route::admin('nfse', function () {
-    Route::get('/', [InvoiceController::class, 'dashboard'])->name('dashboard.index');
+    Route::get('/', [InvoiceController::class, 'index'])->name('dashboard.index');
 
     // Settings
     Route::group(['prefix' => 'settings', 'as' => 'settings.'], function () {
