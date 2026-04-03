@@ -44,12 +44,13 @@ class InvoiceController extends Controller
         $status = $parsedFilters['status'] ?? $this->normalizedIndexStatus($request?->query('status'));
         $perPage = $parsedFilters['per_page'] ?? $this->normalizedIndexPerPage($request?->query('limit', $request?->query('per_page')));
         $searchTerm = $parsedFilters['search'];
+        $searchStringCookieFilters = $this->searchStringCookieFilters($parsedFilters);
         $overviewCounts = $this->listingOverviewCounts();
         $receipts = $status === 'pending' ? null : $this->receiptsForIndex($status, $perPage, $searchTerm, $parsedFilters['date_emissao'] ?? null);
         $pendingInvoices = $status === 'pending' ? $this->pendingInvoices($perPage, $searchTerm) : null;
         $pendingReadiness = $status === 'pending' ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
 
-        return view('nfse::invoices.index', compact('receipts', 'pendingInvoices', 'pendingReadiness', 'overviewCounts', 'status', 'perPage', 'search'));
+        return view('nfse::invoices.index', compact('receipts', 'pendingInvoices', 'pendingReadiness', 'overviewCounts', 'status', 'perPage', 'search', 'searchStringCookieFilters'));
     }
 
     public function pending(?Request $request = null): RedirectResponse
@@ -826,8 +827,11 @@ class InvoiceController extends Controller
                 $innerQuery->where('nfse_number', 'like', '%' . $search . '%')
                     ->orWhere('chave_acesso', 'like', '%' . $search . '%')
                     ->orWhere('codigo_verificacao', 'like', '%' . $search . '%')
-                    ->orWhereHas('invoice.contact', function ($contactQuery) use ($search) {
-                        $contactQuery->where('name', 'like', '%' . $search . '%');
+                    ->orWhereHas('invoice', function ($invoiceQuery) use ($search) {
+                        $invoiceQuery->where('document_number', 'like', '%' . $search . '%')
+                            ->orWhereHas('contact', function ($contactQuery) use ($search) {
+                                $contactQuery->where('name', 'like', '%' . $search . '%');
+                            });
                     });
             });
         }
@@ -926,9 +930,93 @@ class InvoiceController extends Controller
             return null;
         }
 
-        $normalized = trim($search);
+        $normalized = preg_replace('/\s+/', ' ', trim($search));
+
+        if (!is_string($normalized)) {
+            return null;
+        }
+
+        // Akaunting search input can submit free text wrapped in double quotes.
+        if (preg_match('/^"(.*)"$/', $normalized, $matches) === 1) {
+            $normalized = trim($matches[1]);
+        }
 
         return $normalized !== '' ? $normalized : null;
+    }
+
+    /**
+     * @param array{status: ?string, per_page: ?int, search: ?string, date_emissao: ?array{operator: string, from: string, to: ?string}} $parsedFilters
+     * @return array<string, array<string, mixed>>
+     */
+    protected function searchStringCookieFilters(array $parsedFilters): array
+    {
+        $filters = [];
+
+        if (!empty($parsedFilters['status'])) {
+            $statusLabels = [
+                'all' => trans('nfse::general.invoices.filter_all'),
+                'pending' => trans('nfse::general.invoices.filter_pending'),
+                'emitted' => trans('nfse::general.invoices.filter_emitted'),
+                'processing' => trans('nfse::general.invoices.filter_processing'),
+                'cancelled' => trans('nfse::general.invoices.filter_cancelled'),
+            ];
+
+            $statuses = array_values(array_filter(array_map(static fn (string $item): string => trim($item), explode(',', (string) $parsedFilters['status']))));
+
+            if (count($statuses) > 1) {
+                $multipleValues = [];
+
+                foreach ($statuses as $status) {
+                    $multipleValues[] = [
+                        'key' => $status,
+                        'value' => $statusLabels[$status] ?? $status,
+                    ];
+                }
+
+                $filters['status'] = [
+                    'key' => $multipleValues,
+                    'value' => $multipleValues,
+                    'operator' => '=',
+                ];
+            } else {
+                $status = $statuses[0] ?? null;
+
+                if ($status !== null) {
+                    $filters['status'] = [
+                        'key' => $status,
+                        'value' => $statusLabels[$status] ?? $status,
+                        'operator' => '=',
+                    ];
+                }
+            }
+        }
+
+        if (!empty($parsedFilters['date_emissao'])) {
+            $dateFilter = $parsedFilters['date_emissao'];
+            $operator = $dateFilter['operator'];
+            $from = $dateFilter['from'];
+            $to = $dateFilter['to'] ?? null;
+            $dateFormat = company_date_format();
+
+            $key = $from;
+            $value = \Illuminate\Support\Carbon::parse($from)->format($dateFormat);
+
+            if ($operator === 'range' && $to !== null) {
+                $key = $from . '-to-' . $to;
+                $value = \Illuminate\Support\Carbon::parse($from)->format($dateFormat)
+                    . ' to '
+                    . \Illuminate\Support\Carbon::parse($to)->format($dateFormat);
+                $operator = '><';
+            }
+
+            $filters['data_emissao'] = [
+                'key' => $key,
+                'value' => $value,
+                'operator' => $operator,
+            ];
+        }
+
+        return $filters;
     }
 
     /**
