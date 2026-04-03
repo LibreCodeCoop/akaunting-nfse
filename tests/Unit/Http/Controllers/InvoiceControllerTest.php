@@ -49,8 +49,17 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString("NfseReceipt::with('invoice.contact')", $content);
-            self::assertStringContainsString("->orWhereHas('invoice.contact'", $content);
-            self::assertStringContainsString("'name', 'like', '%' . \$search . '%'", $content);
+            self::assertStringContainsString("->orWhereHas('invoice'", $content);
+            self::assertStringContainsString("->orWhereHas('contact'", $content);
+                        self::assertStringContainsString("'name', 'like', '%' . \$search . '%'", $content);
+        }
+
+        public function testReceiptsIndexSearchAlsoIncludesInvoiceNumberFields(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("->orWhereHas('invoice'", $content);
+            self::assertStringContainsString("->where('document_number', 'like', '%' . \$search . '%')", $content);
         }
 
         public function testProjectRootPathUsesIsolationApplicationBasePath(): void
@@ -1231,6 +1240,26 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('NF-2026-001', $controller->capturedSearch);
             self::assertSame('NF-2026-001', $response->data['search'] ?? null);
             self::assertSame(['search'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexStripsWrappingQuotesFromSearchQuery(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedSearch = null;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedSearch = $search;
+
+                    return ['quoted-search'];
+                }
+            };
+
+            $response = $controller->index(new Request(['search' => '  "Assessoria"  ']));
+
+            self::assertSame('Assessoria', $controller->capturedSearch);
+            self::assertSame('Assessoria', $response->data['search'] ?? null);
+            self::assertSame(['quoted-search'], $response->data['receipts'] ?? null);
         }
 
         public function testIndexConvertsEmptySearchToNull(): void
