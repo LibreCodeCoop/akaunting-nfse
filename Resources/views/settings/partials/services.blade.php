@@ -5,6 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <section class="space-y-4">
     <h3 class="text-lg font-semibold text-gray-900">{{ trans('nfse::general.settings.services.title') }}</h3>
     <p class="text-sm text-gray-600">{{ trans('nfse::general.settings.services.description') }}</p>
+    <div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        {{ trans('nfse::general.settings.services.item_tax_scope_notice') }}
+    </div>
     <p class="text-xs text-gray-500">
         <a href="https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp116.htm" target="_blank" rel="noopener noreferrer" class="text-blue-700 hover:text-blue-800 underline">
             {{ trans('nfse::general.settings.services.lc116_code') }}
@@ -141,5 +144,59 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         <a href="{{ route('nfse.settings.services.create') }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
             {{ trans('nfse::general.settings.services.add_service') }}
         </a>
+    </div>
+
+    <div class="pt-6 border-t border-gray-200">
+        <h4 class="text-base font-semibold text-gray-900">{{ trans('nfse::general.settings.services.item_mapping_title') }}</h4>
+        <p class="text-sm text-gray-600 mt-1">{{ trans('nfse::general.settings.services.item_mapping_description') }}</p>
+
+        @if(empty($companyItems))
+            <p class="mt-4 text-sm text-gray-500">{{ trans('nfse::general.settings.services.no_items_for_mapping') }}</p>
+        @else
+            <form method="POST" action="{{ route('nfse.settings.item-services.update') }}" class="mt-4 space-y-4">
+                @csrf
+                @method('PATCH')
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-gray-900">
+                        <thead class="border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-2 text-left font-semibold">{{ trans_choice('general.items', 1) }}</th>
+                                <th class="px-4 py-2 text-left font-semibold">{{ trans('general.type') }}</th>
+                                <th class="px-4 py-2 text-left font-semibold">{{ trans('nfse::general.settings.services.linked_service') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($companyItems as $item)
+                                @php($selectedServiceId = old('item_services.' . $item->id, $itemServiceMappings[$item->id]->company_service_id ?? ''))
+                                <tr class="border-b border-gray-100">
+                                    <td class="px-4 py-2 font-medium">{{ $item->name }}</td>
+                                    <td class="px-4 py-2 text-gray-600">{{ (string) ($item->type ?? 'item') }}</td>
+                                    <td class="px-4 py-2">
+                                        <select name="item_services[{{ $item->id }}]" class="w-full border rounded px-3 py-2">
+                                            <option value="">{{ trans('nfse::general.settings.services.no_linked_service') }}</option>
+                                            @foreach($companyServices as $service)
+                                                <option value="{{ $service->id }}" @selected((string) $selectedServiceId === (string) $service->id)>
+                                                    {{ $service->display_name }}
+                                                    @if($service->is_default)
+                                                        [default]
+                                                    @endif
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                        {{ trans('nfse::general.settings.services.save_item_mappings') }}
+                    </button>
+                </div>
+            </form>
+        @endif
     </div>
 </section>
