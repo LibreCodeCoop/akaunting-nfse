@@ -1544,6 +1544,55 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ]], $response->parameters);
         }
 
+        public function testIndexDoesNotRestorePreferencesWhenSavedPreferencesAreDefault(): void
+        {
+            // If only default ("all") prefs are saved, bare URL should never redirect back to them.
+            ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
+                'status' => 'all',
+                'per_page' => 25,
+                'search' => null,
+                'sort_by' => 'due_at',
+                'sort_direction' => 'desc',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    return ['default'];
+                }
+            };
+
+            $response = $controller->index(new Request());
+
+            self::assertNotSame('route', $response->target ?? null, 'Bare URL with default prefs should render the view, not redirect');
+        }
+
+        public function testIndexTreatsEmptySearchParamAsExplicitClearAndSkipsPreferenceRestore(): void
+        {
+            // When the JS clear button fires, it navigates to ?search= (empty).
+            // The controller must treat this as explicit state and NOT restore saved non-default prefs.
+            ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
+                'status' => 'cancelled,emitted',
+                'per_page' => 25,
+                'search' => 'status:cancelled,emitted',
+                'sort_by' => 'due_at',
+                'sort_direction' => 'desc',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    return ['cleared'];
+                }
+            };
+
+            // Request with empty search param (?search=) — from the JS clear intercept.
+            $response = $controller->index(new Request(['search' => '']));
+
+            self::assertNotSame('route', $response->target ?? null, '?search= should be treated as explicit state, not redirect to old prefs');
+            self::assertSame('all', $response->data['status'] ?? null, 'Status should fall back to "all" when search is cleared');
+        }
+
         public function testIndexPersistsListingPreferencesToSettingsStorage(): void
         {
             ControllerIsolationState::$savedCount = 0;
