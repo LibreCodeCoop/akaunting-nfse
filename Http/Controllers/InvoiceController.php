@@ -58,7 +58,7 @@ class InvoiceController extends Controller
         $requestedSortBy = $request?->query('sort', $request?->query('sort_by'));
         $requestedSortDirection = $request?->query('direction', $request?->query('sort_direction'));
 
-        if (!$hasExplicitState && $savedPreferences !== []) {
+        if (!$hasExplicitState && $savedPreferences !== [] && !$this->isNavigatingFromWithinListing($request)) {
             $search ??= $savedPreferences['search'];
             $requestedStatus ??= $savedPreferences['status'];
             $requestedPerPage ??= $savedPreferences['per_page'];
