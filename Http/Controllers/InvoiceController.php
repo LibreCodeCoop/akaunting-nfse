@@ -48,7 +48,7 @@ class InvoiceController extends Controller
         $hasExplicitState = $this->requestHasIndexState($request);
         $savedPreferences = $this->loadIndexPreferences();
 
-        if (!$hasExplicitState && $savedPreferences !== [] && !$this->isDefaultIndexPreferences($savedPreferences) && !$this->isNavigatingFromWithinListing($request)) {
+        if (!$hasExplicitState && $savedPreferences !== [] && $this->canRestoreIndexPreferences($savedPreferences)) {
             return redirect()->route('nfse.invoices.index', $this->indexRestoreQueryParams($savedPreferences));
         }
 
@@ -58,7 +58,7 @@ class InvoiceController extends Controller
         $requestedSortBy = $request?->query('sort', $request?->query('sort_by'));
         $requestedSortDirection = $request?->query('direction', $request?->query('sort_direction'));
 
-        if (!$hasExplicitState && $savedPreferences !== [] && !$this->isNavigatingFromWithinListing($request)) {
+        if (!$hasExplicitState && $savedPreferences !== [] && $this->canRestoreIndexPreferences($savedPreferences)) {
             $search ??= $savedPreferences['search'];
             $requestedStatus ??= $savedPreferences['status'];
             $requestedPerPage ??= $savedPreferences['per_page'];
@@ -1666,29 +1666,21 @@ class InvoiceController extends Controller
         }
     }
 
-    protected function isNavigatingFromWithinListing(Request $request): bool
+    protected function canRestoreIndexPreferences(array $preferences): bool
     {
-        $referer = $request->header('Referer', '');
-
-        if ($referer === '') {
-            return false;
-        }
-
-        try {
-            $listingUrl = route('nfse.invoices.index');
-
-            return str_starts_with($referer, $listingUrl);
-        } catch (\Throwable) {
-            return str_contains($referer, '/nfse/invoices');
-        }
-    }
-
-    protected function isDefaultIndexPreferences(array $preferences): bool
-    {
+        // Never auto-restore non-default filters from bare URL; this prevents
+        // stale search/status values from returning right after user clears filters.
         $status = $preferences['status'] ?? null;
         $search = $preferences['search'] ?? null;
+        $perPage = (int) ($preferences['per_page'] ?? 25);
+        $sortBy = (string) ($preferences['sort_by'] ?? 'due_at');
+        $sortDirection = (string) ($preferences['sort_direction'] ?? 'desc');
 
-        return ($status === null || $status === 'all') && ($search === null || $search === '');
+        $hasNonDefaultStatus = $status !== null && $status !== 'all';
+        $hasSearch = is_string($search) && trim($search) !== '';
+        $hasNeutralOverrides = $perPage !== 25 || $sortBy !== 'due_at' || $sortDirection !== 'desc';
+
+        return !$hasNonDefaultStatus && !$hasSearch && $hasNeutralOverrides;
     }
 
     protected function indexPreferencesSettingKey(): string
