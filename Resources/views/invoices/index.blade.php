@@ -453,6 +453,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             (() => {
                 const cookieFilters = @json($searchStringCookieFilters ?? []);
 
+                // When the AkauntingSearch "×" button is clicked, it normally navigates to the
+                // bare URL (no query params), which would trigger our server-side preference
+                // restore and bring back the old filter. Instead, intercept the click and
+                // navigate to ?search= (explicit empty search), which the server treats as
+                // "user explicitly cleared" — skipping the restore and saving default preferences.
+                document.addEventListener('click', function (e) {
+                    const clearBtn = e.target && e.target.closest('.clear');
+
+                    if (!clearBtn || !clearBtn.closest('.js-search')) {
+                        return;
+                    }
+
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+
+                    if (typeof Cookies !== 'undefined' && typeof Cookies.remove === 'function') {
+                        Cookies.remove('search-string');
+                    }
+
+                    const basePath = window.location.href.replace(window.location.search, '');
+                    window.location.href = basePath + '?search=';
+                }, true);
+
                 // Keep native AkauntingSearch visual chips in sync after page reload.
                 const hydrateSearchStringCookie = () => {
                     if (!cookieFilters || Object.keys(cookieFilters).length === 0) {
