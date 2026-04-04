@@ -183,8 +183,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </td>
                                 <td class="px-4 py-3">
                                     <p class="font-medium text-gray-800">{{ $invoice->contact?->name ?? '—' }}</p>
-                                    <a href="{{ route('nfse.invoices.show', $invoice) }}" class="mt-1 block text-xs text-indigo-700 hover:underline">
-                                        {{ $invoice->number ?? $invoice->document_number ?? ('#' . $invoice->id) }}
+                                    <a href="{{ route('nfse.invoices.show', $invoice) }}" class="mt-1 block">
+                                        <span class="border-black border-b border-dashed">
+                                            {{ $invoice->number ?? $invoice->document_number ?? ('#' . $invoice->id) }}
+                                        </span>
                                     </a>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">{{ money($invoice->amount, default_currency(), true) }}</td>
@@ -273,8 +275,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </td>
                                 <td class="px-4 py-3">
                                     <p class="font-medium text-gray-800">{{ $receipt->invoice?->contact?->name ?? '—' }}</p>
-                                    <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="mt-1 block text-xs text-indigo-700 hover:underline">
-                                        {{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}
+                                    <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="mt-1 block">
+                                        <span class="border-black border-b border-dashed">
+                                            {{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}
+                                        </span>
                                     </a>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">{{ money($receipt->invoice?->amount ?? 0, default_currency(), true) }}</td>
