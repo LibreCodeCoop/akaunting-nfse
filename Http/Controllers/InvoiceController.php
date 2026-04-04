@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Http\Controllers;
 
 use App\Models\Document\Document as Invoice;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use LibreCodeCoop\NfsePHP\Config\CertConfig;
@@ -23,6 +24,7 @@ use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 use Modules\Nfse\Models\CompanyService;
+use Modules\Nfse\Models\ItemServiceMapping;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\VaultConfig;
 
@@ -113,10 +115,32 @@ class InvoiceController extends Controller
         return view('nfse::invoices.show', compact('invoice', 'receipt'));
     }
 
-    public function emit(Invoice $invoice): RedirectResponse
+    public function servicePreview(Invoice $invoice): JsonResponse
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
         $defaultService = $this->resolveDefaultCompanyService($invoice);
+        $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, null, false);
+
+        return response()->json([
+            'missing_items' => $selection['missing_items'],
+            'available_services' => $this->availableInvoiceServices($invoice),
+            'default_service_id' => is_object($defaultService) ? (int) ($defaultService->id ?? 0) : 0,
+        ]);
+    }
+
+    public function emit(Invoice $invoice, ?Request $request = null): RedirectResponse
+    {
+        $request = $this->currentRequest($request);
+        $this->ensureInvoiceRelationsLoaded($invoice);
+        $defaultService = $this->resolveDefaultCompanyService($invoice);
+        $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
+
+        if (($selection['requires_confirmation'] ?? false) === true) {
+            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('warning', trans('nfse::general.invoices.default_service_confirmation_required'));
+        }
+
+        $serviceForIssuance = $selection['selected_service'] ?? $defaultService;
 
         $readiness = $this->emissionReadiness();
 
@@ -136,11 +160,11 @@ class InvoiceController extends Controller
         $dps = $this->makeDpsData([
             'cnpjPrestador' => $cnpj,
             'municipioIbge' => $ibge,
-            'itemListaServico' => $this->itemListaServico($defaultService),
-            'codigoTributacaoNacional' => $this->nationalTaxCode($defaultService),
+            'itemListaServico' => $this->itemListaServico($serviceForIssuance),
+            'codigoTributacaoNacional' => $this->nationalTaxCode($serviceForIssuance),
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
-            'aliquota' => $this->normalizedAliquota($defaultService),
-            'discriminacao' => $this->buildDiscriminacao($invoice),
+            'aliquota' => $this->normalizedAliquota($serviceForIssuance),
+            'discriminacao' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? []),
             'documentoTomador' => $tomadorDocument,
             'nomeTomador' => $invoice->contact?->name ?? '',
             'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
@@ -232,8 +256,11 @@ class InvoiceController extends Controller
 
         $this->storeEmittedReceipt($invoice, $receipt);
 
+        $taxPolicyMessage = $this->canonicalTaxPolicyMessage($invoice);
+
         return redirect()->route('nfse.invoices.show', $invoice)
-            ->with('success', trans('nfse::general.nfse_emitted', ['number' => $receipt->nfseNumber]));
+            ->with('success', trans('nfse::general.nfse_emitted', ['number' => $receipt->nfseNumber]))
+            ->with('info', $taxPolicyMessage);
     }
 
     public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse
@@ -546,11 +573,304 @@ class InvoiceController extends Controller
 
     // -------------------------------------------------------------------------
 
-    protected function buildDiscriminacao(Invoice $invoice): string
+    /**
+     * @param list<string> $lineItems
+     */
+    protected function buildDiscriminacao(Invoice $invoice, array $lineItems = []): string
     {
+        if ($lineItems !== []) {
+            return implode(' | ', $lineItems);
+        }
+
         return implode(' | ', $invoice->items->pluck('name')->toArray())
             ?: $invoice->description
             ?: trans('nfse::general.service_default');
+    }
+
+    /**
+     * @return array{selected_service: ?object, line_items: list<string>, missing_items: list<array{id:int,name:string}>, requires_confirmation: bool}
+     */
+    protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
+    {
+        $items = $this->invoiceItemsAsArray($invoice);
+        $itemIds = [];
+
+        foreach ($items as $item) {
+            $itemId = is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0;
+
+            if ($itemId > 0) {
+                $itemIds[] = $itemId;
+            }
+        }
+
+        $itemIds = array_values(array_unique($itemIds));
+
+        if ($itemIds === [] || ! $this->supportsItemServiceMapping()) {
+            return [
+                'selected_service' => $defaultService,
+                'line_items' => [],
+                'missing_items' => [],
+                'requires_confirmation' => false,
+            ];
+        }
+
+        $companyId = is_numeric($invoice->company_id ?? null) ? (int) $invoice->company_id : $this->resolveCompanyId();
+
+        if ($companyId <= 0) {
+            return [
+                'selected_service' => $defaultService,
+                'line_items' => [],
+                'missing_items' => [],
+                'requires_confirmation' => false,
+            ];
+        }
+
+        if ($persistAssignments && $request instanceof Request) {
+            $this->persistInvoiceItemAssignmentsFromRequest($companyId, $request);
+        }
+
+        $serviceMap = $this->invoiceItemServiceMap($companyId, $itemIds);
+        $lineItems = [];
+        $missingItems = [];
+        $selectedService = null;
+
+        foreach ($items as $item) {
+            $itemName = trim((string) ($item['name'] ?? ''));
+            $itemName = $itemName !== '' ? $itemName : trans('general.na');
+            $itemId = is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0;
+            $mappedService = $itemId > 0 ? ($serviceMap[$itemId] ?? null) : null;
+
+            if ($mappedService !== null) {
+                if ($selectedService === null) {
+                    $selectedService = $mappedService;
+                }
+
+                $lineItems[] = '[' . $this->itemListaServico($mappedService) . '] ' . $itemName;
+                continue;
+            }
+
+            if ($itemId > 0) {
+                $missingItems[] = ['id' => $itemId, 'name' => $itemName];
+            }
+
+            if ($defaultService !== null) {
+                if ($selectedService === null) {
+                    $selectedService = $defaultService;
+                }
+
+                $lineItems[] = '[' . $this->itemListaServico($defaultService) . '] ' . $itemName;
+                continue;
+            }
+
+            $lineItems[] = $itemName;
+        }
+
+        $confirmedFallback = $request instanceof Request
+            && (string) $request->input('nfse_confirm_default_service', '0') === '1';
+        $requiresConfirmation = $missingItems !== [] && $defaultService !== null && !$confirmedFallback;
+
+        return [
+            'selected_service' => $selectedService ?? $defaultService,
+            'line_items' => $lineItems,
+            'missing_items' => $missingItems,
+            'requires_confirmation' => $requiresConfirmation,
+        ];
+    }
+
+    /**
+     * @return list<array{id:int,label:string,is_default:bool}>
+     */
+    protected function availableInvoiceServices(Invoice $invoice): array
+    {
+        if (! $this->supportsCompanyServiceSelection()) {
+            return [];
+        }
+
+        $companyId = is_numeric($invoice->company_id ?? null) ? (int) $invoice->company_id : $this->resolveCompanyId();
+
+        if ($companyId <= 0) {
+            return [];
+        }
+
+        try {
+            return CompanyService::where('company_id', $companyId)
+                ->where('is_active', true)
+                ->orderBy('is_default', 'desc')
+                ->orderBy('item_lista_servico')
+                ->get()
+                ->map(function ($service): array {
+                    $displayName = trim((string) ($service->display_name ?? ''));
+                    $description = trim((string) ($service->description ?? ''));
+
+                    $label = $displayName;
+                    if ($description !== '') {
+                        $label .= ' - ' . $description;
+                    }
+
+                    return [
+                        'id' => (int) $service->id,
+                        'label' => $label,
+                        'is_default' => (bool) ($service->is_default ?? false),
+                    ];
+                })
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    protected function invoiceItemsAsArray(Invoice $invoice): array
+    {
+        $items = $invoice->items;
+
+        if (is_object($items) && method_exists($items, 'toArray')) {
+            $arrayItems = $items->toArray();
+
+            return is_array($arrayItems) ? $arrayItems : [];
+        }
+
+        if (is_array($items)) {
+            return $items;
+        }
+
+        return [];
+    }
+
+    protected function supportsItemServiceMapping(): bool
+    {
+        if (!class_exists(\Illuminate\Database\Eloquent\Model::class)) {
+            return false;
+        }
+
+        return is_subclass_of(ItemServiceMapping::class, \Illuminate\Database\Eloquent\Model::class)
+            && $this->supportsCompanyServiceSelection();
+    }
+
+    /**
+     * @param list<int> $itemIds
+     * @return array<int, object>
+     */
+    protected function invoiceItemServiceMap(int $companyId, array $itemIds): array
+    {
+        if ($itemIds === [] || ! $this->supportsItemServiceMapping()) {
+            return [];
+        }
+
+        try {
+            $mappings = ItemServiceMapping::where('company_id', $companyId)
+                ->whereIn('item_id', $itemIds)
+                ->get();
+
+            $serviceIds = $mappings
+                ->pluck('company_service_id')
+                ->map(static fn ($value): int => (int) $value)
+                ->filter(static fn (int $value): bool => $value > 0)
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($serviceIds === []) {
+                return [];
+            }
+
+            $services = CompanyService::where('company_id', $companyId)
+                ->where('is_active', true)
+                ->whereIn('id', $serviceIds)
+                ->get()
+                ->keyBy('id');
+
+            $map = [];
+
+            foreach ($mappings as $mapping) {
+                $itemId = (int) ($mapping->item_id ?? 0);
+                $serviceId = (int) ($mapping->company_service_id ?? 0);
+
+                if ($itemId <= 0 || $serviceId <= 0 || !isset($services[$serviceId])) {
+                    continue;
+                }
+
+                $map[$itemId] = $services[$serviceId];
+            }
+
+            return $map;
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    protected function persistInvoiceItemAssignmentsFromRequest(int $companyId, Request $request): void
+    {
+        if (! $this->supportsItemServiceMapping()) {
+            return;
+        }
+
+        $raw = $request->input('nfse_item_service_assignments', '');
+
+        if (!is_string($raw) || trim($raw) === '') {
+            return;
+        }
+
+        $decoded = json_decode($raw, true);
+
+        if (!is_array($decoded)) {
+            return;
+        }
+
+        $itemIds = [];
+        $serviceIds = [];
+
+        foreach ($decoded as $itemId => $serviceId) {
+            if (!is_numeric($itemId) || !is_numeric($serviceId)) {
+                continue;
+            }
+
+            $itemId = (int) $itemId;
+            $serviceId = (int) $serviceId;
+
+            if ($itemId <= 0 || $serviceId <= 0) {
+                continue;
+            }
+
+            $itemIds[] = $itemId;
+            $serviceIds[] = $serviceId;
+        }
+
+        if ($itemIds === [] || $serviceIds === []) {
+            return;
+        }
+
+        try {
+            $validServiceIds = CompanyService::where('company_id', $companyId)
+                ->where('is_active', true)
+                ->whereIn('id', array_values(array_unique($serviceIds)))
+                ->pluck('id')
+                ->map(static fn ($value): int => (int) $value)
+                ->all();
+
+            foreach ($decoded as $itemId => $serviceId) {
+                if (!is_numeric($itemId) || !is_numeric($serviceId)) {
+                    continue;
+                }
+
+                $itemId = (int) $itemId;
+                $serviceId = (int) $serviceId;
+
+                if ($itemId <= 0 || $serviceId <= 0 || !in_array($serviceId, $validServiceIds, true)) {
+                    continue;
+                }
+
+                ItemServiceMapping::updateOrCreate(
+                    ['company_id' => $companyId, 'item_id' => $itemId],
+                    ['company_service_id' => $serviceId],
+                );
+            }
+        } catch (\Throwable) {
+            // Keep issuance flow resilient when persistence fails.
+        }
     }
 
     protected function normalizedTomadorDocument(?string $document): string
@@ -681,6 +1001,42 @@ class InvoiceController extends Controller
         if (method_exists($invoice, 'loadMissing')) {
             $invoice->loadMissing(['contact', 'items']);
         }
+    }
+
+    protected function canonicalTaxPolicyMessage(Invoice $invoice): string
+    {
+        if ($this->invoiceHasNativeItemTaxes($invoice)) {
+            return trans('nfse::general.invoices.tax_policy_notice_with_item_taxes');
+        }
+
+        return trans('nfse::general.invoices.tax_policy_notice');
+    }
+
+    protected function invoiceHasNativeItemTaxes(Invoice $invoice): bool
+    {
+        $items = $this->invoiceItemsAsArray($invoice);
+
+        foreach ($items as $item) {
+            if (is_array($item) && !empty($item['tax_ids'])) {
+                return true;
+            }
+
+            if (is_array($item) && !empty($item['item_taxes'])) {
+                return true;
+            }
+
+            if (is_object($item)) {
+                if (isset($item->tax_ids) && !empty($item->tax_ids)) {
+                    return true;
+                }
+
+                if (isset($item->item_taxes) && !empty($item->item_taxes)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     protected function safeLogInfo(string $message, array $context = []): void
