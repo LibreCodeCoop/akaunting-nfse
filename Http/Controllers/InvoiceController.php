@@ -565,7 +565,7 @@ class InvoiceController extends Controller
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         }
 
-        $this->storeEmittedReceipt($invoice, $newReceipt);
+        $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
 
         return redirect()->route('nfse.invoices.show', $invoice)
             ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $newReceipt->nfseNumber]));
@@ -2115,8 +2115,20 @@ class InvoiceController extends Controller
         return dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . ltrim($relativePath, DIRECTORY_SEPARATOR);
     }
 
-    protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt): void
+    protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt, ?NfseReceipt $existingReceipt = null): void
     {
+        if ($existingReceipt instanceof NfseReceipt) {
+            $existingReceipt->update([
+                'nfse_number' => $receipt->nfseNumber,
+                'chave_acesso' => $receipt->chaveAcesso,
+                'data_emissao' => $receipt->dataEmissao,
+                'codigo_verificacao' => $receipt->codigoVerificacao,
+                'status' => 'emitted',
+            ]);
+
+            return;
+        }
+
         NfseReceipt::updateOrCreate(
             ['invoice_id' => $invoice->id],
             [
