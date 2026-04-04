@@ -1523,10 +1523,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexRestoresSavedListingPreferencesWhenNoQueryStateIsProvided(): void
         {
+            // Neutral preferences (sort/per-page) can still be restored.
             ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
-                'status' => 'processing',
+                'status' => 'all',
                 'per_page' => 50,
-                'search' => 'ACME NFSE',
+                'search' => null,
                 'sort_by' => 'amount',
                 'sort_direction' => 'asc',
             ]);
@@ -1536,9 +1537,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
             self::assertSame([[
-                'status' => 'processing',
+                'status' => 'all',
                 'limit' => 50,
-                'search' => 'ACME NFSE',
                 'sort' => 'amount',
                 'direction' => 'asc',
             ]], $response->parameters);
@@ -1593,10 +1593,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('all', $response->data['status'] ?? null, 'Status should fall back to "all" when search is cleared');
         }
 
-        public function testIndexSkipsPreferenceRestoreWhenRequestOriginatesFromWithinListing(): void
+        public function testIndexSkipsPreferenceRestoreWhenSavedPreferencesContainNonDefaultFilters(): void
         {
-            // User removes chip via chip-× and presses ENTER → onInputConfirm() navigates to bare URL.
-            // The Referer header is the listing itself → server must NOT restore old prefs.
+            // Bare URL should never restore non-default status/search filters.
             ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
                 'status' => 'cancelled,emitted',
                 'per_page' => 25,
@@ -1610,17 +1609,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     return ['cleared'];
                 }
-
-                protected function isNavigatingFromWithinListing(Request $request): bool
-                {
-                    return true;
-                }
             };
 
             $response = $controller->index(new Request());
 
-            self::assertNotSame('route', $response->target ?? null, 'Navigation from within the listing should skip preference restore');
-            self::assertSame('all', $response->data['status'] ?? null, 'Status should default to "all" when coming from within listing');
+            self::assertNotSame('route', $response->target ?? null, 'Bare URL should not restore non-default saved filters');
+            self::assertSame('all', $response->data['status'] ?? null, 'Status should default to "all" when saved filter state is non-default');
         }
 
         public function testIndexPersistsListingPreferencesToSettingsStorage(): void
