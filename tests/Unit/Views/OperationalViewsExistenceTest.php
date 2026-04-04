@@ -81,7 +81,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('route(\'nfse.invoices.show\', $invoice)', $content);
             self::assertStringContainsString('route(\'nfse.invoices.show\', $receipt->invoice_id)', $content);
             self::assertStringContainsString('$receipt->invoice?->number ?? $receipt->invoice?->document_number ?? (\'#\' . $receipt->invoice_id)', $content);
-            self::assertStringContainsString('text-indigo-700 hover:underline', $content);
+            self::assertStringContainsString('border-black border-b border-dashed', $content);
             self::assertStringContainsString('data-row-quick-view="true"', $content);
             self::assertStringNotContainsString('uppercase">NFS-e</th>', $content);
         }
