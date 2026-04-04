@@ -1593,6 +1593,36 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('all', $response->data['status'] ?? null, 'Status should fall back to "all" when search is cleared');
         }
 
+        public function testIndexSkipsPreferenceRestoreWhenRequestOriginatesFromWithinListing(): void
+        {
+            // User removes chip via chip-× and presses ENTER → onInputConfirm() navigates to bare URL.
+            // The Referer header is the listing itself → server must NOT restore old prefs.
+            ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
+                'status' => 'cancelled,emitted',
+                'per_page' => 25,
+                'search' => 'status:cancelled,emitted',
+                'sort_by' => 'due_at',
+                'sort_direction' => 'desc',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    return ['cleared'];
+                }
+
+                protected function isNavigatingFromWithinListing(Request $request): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->index(new Request());
+
+            self::assertNotSame('route', $response->target ?? null, 'Navigation from within the listing should skip preference restore');
+            self::assertSame('all', $response->data['status'] ?? null, 'Status should default to "all" when coming from within listing');
+        }
+
         public function testIndexPersistsListingPreferencesToSettingsStorage(): void
         {
             ControllerIsolationState::$savedCount = 0;
