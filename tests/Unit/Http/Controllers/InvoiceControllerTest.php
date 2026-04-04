@@ -2356,7 +2356,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 contactTaxNumber: '12312312300199',
             );
 
-            InvoiceControllerIsolationState::makeReceipt(301, 'CHAVE-301', 'cancelled');
+            $existingReceipt = InvoiceControllerIsolationState::makeReceipt(301, 'CHAVE-301', 'cancelled');
 
             $client = new class () implements NfseClientInterface {
                 public ?DpsData $capturedDps = null;
@@ -2411,18 +2411,17 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->reemit($invoice);
 
             self::assertSame('Servico Reemissao', $client->capturedDps?->discriminacao);
+            self::assertSame([], NfseReceipt::$updateOrCreateCalls);
+            self::assertSame('emitted', $existingReceipt->status);
             self::assertSame([
                 [
-                    'attributes' => ['invoice_id' => 301],
-                    'values' => [
-                        'nfse_number' => 'NF-RE-301',
-                        'chave_acesso' => 'CHAVE-RE-301',
-                        'data_emissao' => '2026-03-21T18:00:00-03:00',
-                        'codigo_verificacao' => 'RE301',
-                        'status' => 'emitted',
-                    ],
+                    'nfse_number' => 'NF-RE-301',
+                    'chave_acesso' => 'CHAVE-RE-301',
+                    'data_emissao' => '2026-03-21T18:00:00-03:00',
+                    'codigo_verificacao' => 'RE301',
+                    'status' => 'emitted',
                 ],
-            ], NfseReceipt::$updateOrCreateCalls);
+            ], $existingReceipt->updatedPayloads);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
