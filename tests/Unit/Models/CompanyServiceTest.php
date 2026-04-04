@@ -33,6 +33,9 @@ class CompanyServiceTest extends TestCase
         $this->assertContains('item_lista_servico', $fillable);
         $this->assertContains('codigo_tributacao_nacional', $fillable);
         $this->assertContains('aliquota', $fillable);
+        $this->assertNotContains('item_id', $fillable);
+        $this->assertNotContains('tax_mode', $fillable);
+        $this->assertNotContains('tax_id', $fillable);
         $this->assertContains('description', $fillable);
         $this->assertContains('is_default', $fillable);
         $this->assertContains('is_active', $fillable);
@@ -66,6 +69,8 @@ class CompanyServiceTest extends TestCase
         $this->assertArrayHasKey('is_active', $casts);
         $this->assertEquals('boolean', $casts['is_default']);
         $this->assertEquals('boolean', $casts['is_active']);
+        $this->assertArrayNotHasKey('item_id', $casts);
+        $this->assertArrayNotHasKey('tax_id', $casts);
     }
 
     /**
