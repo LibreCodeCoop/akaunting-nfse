@@ -48,7 +48,7 @@ class InvoiceController extends Controller
         $hasExplicitState = $this->requestHasIndexState($request);
         $savedPreferences = $this->loadIndexPreferences();
 
-        if (!$hasExplicitState && $savedPreferences !== []) {
+        if (!$hasExplicitState && $savedPreferences !== [] && !$this->isDefaultIndexPreferences($savedPreferences)) {
             return redirect()->route('nfse.invoices.index', $this->indexRestoreQueryParams($savedPreferences));
         }
 
@@ -1664,6 +1664,14 @@ class InvoiceController extends Controller
         if (is_object($settings) && is_callable([$settings, 'save'])) {
             $settings->save();
         }
+    }
+
+    protected function isDefaultIndexPreferences(array $preferences): bool
+    {
+        $status = $preferences['status'] ?? null;
+        $search = $preferences['search'] ?? null;
+
+        return ($status === null || $status === 'all') && ($search === null || $search === '');
     }
 
     protected function indexPreferencesSettingKey(): string
