@@ -96,6 +96,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.cancel_motivo_default' => 'Cancelamento padrao',
                 'nfse::general.service_default' => 'Servico padrao',
                 'nfse::general.invoices.emit_blocked_not_ready' => 'Existem configuracoes pendentes para liberar a emissao.',
+                'nfse::general.invoices.default_service_confirmation_required' => 'Existem itens sem servico vinculado. Revise e confirme o uso do servico padrao para emitir a NFS-e.',
+                'nfse::general.invoices.tax_policy_notice' => 'Para emissão da NFS-e, a fonte canônica de tributação é a aba 5. Tributação. Impostos do item no Akaunting permanecem para uso interno do documento.',
+                'nfse::general.invoices.tax_policy_notice_with_item_taxes' => 'Esta fatura possui impostos nativos de item no Akaunting. Na NFS-e emitida, prevaleceram as regras da aba 5. Tributação.',
             ];
             ControllerIsolationState::$settings = [
                 'nfse.cnpj_prestador' => '12345678000195',
@@ -247,6 +250,69 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('NFS-e emitida NF-2026-0001', $response->flash['success'] ?? null);
+            self::assertSame(
+                'Para emissão da NFS-e, a fonte canônica de tributação é a aba 5. Tributação. Impostos do item no Akaunting permanecem para uso interno do documento.',
+                $response->flash['info'] ?? null,
+            );
+        }
+
+        public function testEmitAddsTaxPolicyInfoWhenInvoiceContainsNativeItemTaxes(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 4242,
+                amount: 100.00,
+                items: [
+                    ['name' => 'Servico com imposto nativo', 'tax_ids' => [1]],
+                ],
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->issued_at = '2026-02-04 08:37:53';
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-4242', 'CHAVE-4242', '2026-03-21T10:30:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->emit($invoice);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame(
+                'Esta fatura possui impostos nativos de item no Akaunting. Na NFS-e emitida, prevaleceram as regras da aba 5. Tributação.',
+                $response->flash['info'] ?? null,
+            );
         }
 
         public function testEmitCalculatesValoresFromAliquotasInPercentageProfileMode(): void
@@ -672,6 +738,314 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('1401', $client->capturedDps?->itemListaServico);
             self::assertSame('140101', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('6.75', $client->capturedDps?->aliquota);
+        }
+
+        public function testEmitRedirectsToPendingWhenInvoiceItemHasNoServiceAssociationAndFallbackWasNotConfirmed(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 521,
+                amount: 300.0,
+                items: [
+                    ['item_id' => 10, 'name' => 'Servico sem vinculo'],
+                ],
+                description: 'Descricao teste',
+                contactName: 'Cliente sem vinculo',
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->company_id = 1;
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return (object) [
+                        'id' => 900,
+                        'item_lista_servico' => '1401',
+                        'codigo_tributacao_nacional' => '140101',
+                        'aliquota' => '5.00',
+                        'description' => 'Servico padrao',
+                        'is_default' => true,
+                        'is_active' => true,
+                    ];
+                }
+
+                protected function supportsCompanyServiceSelection(): bool
+                {
+                    return true;
+                }
+
+                protected function supportsItemServiceMapping(): bool
+                {
+                    return true;
+                }
+
+                /**
+                 * @param list<int> $itemIds
+                 * @return array<int, object>
+                 */
+                protected function invoiceItemServiceMap(int $companyId, array $itemIds): array
+                {
+                    return [];
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->emit($invoice, new Request());
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending']], $response->parameters);
+            self::assertSame(
+                'Existem itens sem servico vinculado. Revise e confirme o uso do servico padrao para emitir a NFS-e.',
+                $response->flash['warning'] ?? null,
+            );
+        }
+
+        public function testEmitUsesDefaultServiceWhenMissingAssociationsAreConfirmedByRequest(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 522,
+                amount: 300.0,
+                items: [
+                    ['item_id' => 10, 'name' => 'Servico sem vinculo'],
+                ],
+                description: 'Descricao teste',
+                contactName: 'Cliente confirmado',
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->company_id = 1;
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-522', 'CHAVE-522', '2026-03-23T15:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return (object) [
+                        'id' => 900,
+                        'item_lista_servico' => '1401',
+                        'codigo_tributacao_nacional' => '140101',
+                        'aliquota' => '5.00',
+                        'description' => 'Servico padrao',
+                        'is_default' => true,
+                        'is_active' => true,
+                    ];
+                }
+
+                protected function supportsCompanyServiceSelection(): bool
+                {
+                    return true;
+                }
+
+                protected function supportsItemServiceMapping(): bool
+                {
+                    return true;
+                }
+
+                /**
+                 * @param list<int> $itemIds
+                 * @return array<int, object>
+                 */
+                protected function invoiceItemServiceMap(int $companyId, array $itemIds): array
+                {
+                    return [];
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $request = new Request([
+                'nfse_confirm_default_service' => '1',
+            ]);
+
+            $response = $controller->emit($invoice, $request);
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame('1401', $client->capturedDps?->itemListaServico);
+            self::assertStringContainsString('Servico sem vinculo', $client->capturedDps?->discriminacao ?? '');
+            self::assertStringContainsString('1401', $client->capturedDps?->discriminacao ?? '');
+        }
+
+        public function testEmitUsesMappedItemServiceWhenAssociationExists(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 523,
+                amount: 420.0,
+                items: [
+                    ['item_id' => 10, 'name' => 'Servico vinculado'],
+                ],
+                description: 'Descricao teste',
+                contactName: 'Cliente mapeado',
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->company_id = 1;
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-523', 'CHAVE-523', '2026-03-23T15:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return (object) [
+                        'id' => 900,
+                        'item_lista_servico' => '1401',
+                        'codigo_tributacao_nacional' => '140101',
+                        'aliquota' => '5.00',
+                        'description' => 'Servico padrao',
+                        'is_default' => true,
+                        'is_active' => true,
+                    ];
+                }
+
+                protected function supportsCompanyServiceSelection(): bool
+                {
+                    return true;
+                }
+
+                protected function supportsItemServiceMapping(): bool
+                {
+                    return true;
+                }
+
+                /**
+                 * @param list<int> $itemIds
+                 * @return array<int, object>
+                 */
+                protected function invoiceItemServiceMap(int $companyId, array $itemIds): array
+                {
+                    return [
+                        10 => (object) [
+                            'id' => 901,
+                            'item_lista_servico' => '1502',
+                            'codigo_tributacao_nacional' => '150201',
+                            'aliquota' => '7.00',
+                            'description' => 'Servico vinculado',
+                            'is_default' => false,
+                            'is_active' => true,
+                        ],
+                    ];
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->emit($invoice, new Request());
+
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame('1502', $client->capturedDps?->itemListaServico);
+            self::assertSame('150201', $client->capturedDps?->codigoTributacaoNacional);
+            self::assertSame('7.00', $client->capturedDps?->aliquota);
+            self::assertStringContainsString('Servico vinculado', $client->capturedDps?->discriminacao ?? '');
+            self::assertStringContainsString('1502', $client->capturedDps?->discriminacao ?? '');
+        }
+
+        public function testServicePreviewReturnsMissingItemsAndAvailableServicesContract(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 524,
+                amount: 120.0,
+                items: [
+                    ['item_id' => 77, 'name' => 'Item sem servico'],
+                ],
+                description: 'Descricao preview',
+            );
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return (object) ['id' => 900, 'item_lista_servico' => '1401', 'is_default' => true, 'is_active' => true];
+                }
+
+                protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
+                {
+                    return [
+                        'selected_service' => $defaultService,
+                        'line_items' => ['[1401] Item sem servico'],
+                        'missing_items' => [['id' => 77, 'name' => 'Item sem servico']],
+                        'requires_confirmation' => true,
+                    ];
+                }
+
+                protected function availableInvoiceServices(Invoice $invoice): array
+                {
+                    return [
+                        ['id' => 900, 'label' => '14.01 - Servico padrao', 'is_default' => true],
+                    ];
+                }
+            };
+
+            $response = $controller->servicePreview($invoice);
+            $payload = $response->getData(true);
+
+            self::assertSame(200, $response->getStatusCode());
+            self::assertSame([['id' => 77, 'name' => 'Item sem servico']], $payload['missing_items'] ?? null);
+            self::assertSame([['id' => 900, 'label' => '14.01 - Servico padrao', 'is_default' => true]], $payload['available_services'] ?? null);
+            self::assertSame(900, $payload['default_service_id'] ?? null);
         }
 
         public function testNationalTaxCodeFallsBackToSettingWhenDefaultServiceCodeIsMissing(): void

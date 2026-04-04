@@ -28,6 +28,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
                         </div>
 
+                        <input id="item_lista_servico" name="item_lista_servico" type="hidden" value="{{ old('item_lista_servico', $service->item_lista_servico) }}">
+
+                        <div class="relative sm:col-span-6">
+                            <label for="item_ids_select" class="block text-sm font-medium mb-1">
+                                {{ trans('nfse::general.settings.services.linked_items') }}
+                            </label>
+                            <select id="item_ids_select" class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                                <option value="">{{ trans('general.select') }}</option>
+                                @foreach(($companyItems ?? collect()) as $companyItem)
+                                    <option value="{{ $companyItem->id }}">
+                                        {{ $companyItem->name }}
+                                        @if(!empty($companyItem->type))
+                                            ({{ $companyItem->type }})
+                                        @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.settings.services.linked_items_hint') }}</p>
+                            <div class="mt-3">
+                                <p class="mb-2 text-sm font-medium text-gray-700">{{ trans('nfse::general.settings.services.selected_items_label') }}</p>
+                                <div id="item_ids_selected_list" class="flex flex-wrap gap-2"></div>
+                            </div>
+                            <div id="item_ids_hidden_inputs">
+                                @foreach(array_map('intval', old('item_ids', $selectedItemIds ?? [])) as $selectedItemId)
+                                    <input type="hidden" name="item_ids[]" value="{{ $selectedItemId }}">
+                                @endforeach
+                            </div>
+                        </div>
+
                         <div class="relative sm:col-span-3">
                             <label for="codigo_tributacao_nacional" class="block text-sm font-medium mb-1">
                                 {{ trans('nfse::general.settings.services.national_tax_code') }}
@@ -140,5 +169,103 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </div>
             </div>
         </x-form.container>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const itemSelect = document.getElementById('item_ids_select');
+                const selectedList = document.getElementById('item_ids_selected_list');
+                const hiddenInputs = document.getElementById('item_ids_hidden_inputs');
+
+                if (!itemSelect || !selectedList || !hiddenInputs) {
+                    return;
+                }
+
+                const selectedIds = Array.from(new Set(Array.from(hiddenInputs.querySelectorAll('input[name="item_ids[]"]')).map((input) => String(input.value))));
+
+                const renderSelectedItems = () => {
+                    hiddenInputs.innerHTML = '';
+                    selectedList.innerHTML = '';
+
+                    for (const option of itemSelect.options) {
+                        if (option.value === '') {
+                            continue;
+                        }
+
+                        option.disabled = selectedIds.includes(option.value);
+                    }
+
+                    if (selectedIds.length === 0) {
+                        const emptyState = document.createElement('p');
+                        emptyState.className = 'rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-500';
+                        emptyState.textContent = @json(trans('nfse::general.settings.services.no_linked_items_selected'));
+                        selectedList.appendChild(emptyState);
+
+                        return;
+                    }
+
+                    selectedIds.forEach((itemId) => {
+                        const option = itemSelect.querySelector(`option[value="${itemId}"]`);
+                        const label = option ? option.textContent.trim() : itemId;
+
+                        const hidden = document.createElement('input');
+                        hidden.type = 'hidden';
+                        hidden.name = 'item_ids[]';
+                        hidden.value = itemId;
+                        hiddenInputs.appendChild(hidden);
+
+                        const chip = document.createElement('span');
+                        chip.className = 'inline-flex items-center gap-2 rounded-full border border-gray-300 bg-gray-200 px-3 py-1 text-xs font-medium text-gray-800';
+                        chip.textContent = label;
+
+                        const removeButton = document.createElement('button');
+                        removeButton.type = 'button';
+                        removeButton.className = 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-red-700 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-300';
+                        removeButton.setAttribute('aria-label', @json(trans('nfse::general.settings.services.remove_linked_item')));
+                        removeButton.dataset.removeId = itemId;
+                        removeButton.textContent = 'X';
+
+                        chip.appendChild(removeButton);
+                        selectedList.appendChild(chip);
+                    });
+                };
+
+                itemSelect.addEventListener('change', () => {
+                    const itemId = itemSelect.value;
+
+                    if (itemId === '' || selectedIds.includes(itemId)) {
+                        itemSelect.value = '';
+                        itemSelect.blur();
+
+                        return;
+                    }
+
+                    selectedIds.push(itemId);
+                    itemSelect.value = '';
+                    itemSelect.blur();
+                    renderSelectedItems();
+                });
+
+                selectedList.addEventListener('click', (event) => {
+                    const button = event.target.closest('button[data-remove-id]');
+
+                    if (!button) {
+                        return;
+                    }
+
+                    const removeId = String(button.dataset.removeId || '');
+                    const index = selectedIds.indexOf(removeId);
+
+                    if (index === -1) {
+                        return;
+                    }
+
+                    selectedIds.splice(index, 1);
+                    renderSelectedItems();
+                });
+
+                renderSelectedItems();
+            });
+        </script>
+
     </x-slot>
 </x-layouts.admin>

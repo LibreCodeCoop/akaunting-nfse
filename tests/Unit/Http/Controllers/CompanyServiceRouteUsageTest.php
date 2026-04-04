@@ -92,6 +92,12 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertStringContainsString('<textarea', $createView);
         self::assertStringContainsString('name="item_lista_servico_display"', $createView);
         self::assertStringContainsString('name="item_lista_servico"', $createView);
+        self::assertStringContainsString('id="item_ids_select"', $createView);
+        self::assertStringContainsString('id="item_ids_selected_list"', $createView);
+        self::assertStringContainsString('id="item_ids_hidden_inputs"', $createView);
+        self::assertStringNotContainsString('name="item_id"', $createView);
+        self::assertStringNotContainsString('name="tax_mode"', $createView);
+        self::assertStringNotContainsString('name="tax_id"', $createView);
         self::assertStringContainsString('name="codigo_tributacao_nacional"', $createView);
         self::assertStringContainsString('name="aliquota"', $createView);
         self::assertStringContainsString('name="is_active"', $createView);
@@ -108,6 +114,12 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertStringContainsString('<input', $editView);
         self::assertStringNotContainsString('name="item_lista_servico_display"', $editView);
         self::assertStringContainsString('<textarea', $editView);
+        self::assertStringContainsString('id="item_ids_select"', $editView);
+        self::assertStringContainsString('id="item_ids_selected_list"', $editView);
+        self::assertStringContainsString('id="item_ids_hidden_inputs"', $editView);
+        self::assertStringNotContainsString('name="item_id"', $editView);
+        self::assertStringNotContainsString('name="tax_mode"', $editView);
+        self::assertStringNotContainsString('name="tax_id"', $editView);
         self::assertStringContainsString('name="codigo_tributacao_nacional"', $editView);
         self::assertStringContainsString('name="aliquota"', $editView);
         self::assertStringNotContainsString('name="is_active"', $editView);
@@ -128,6 +140,12 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/<input[^>]*name="codigo_tributacao_nacional"[^>]*required[^>]*>/', $editView);
 
         self::assertStringContainsString("'codigo_tributacao_nacional' => ['nullable', 'string', 'size:6']", $controller);
+        self::assertStringContainsString("'item_ids' => ['nullable', 'array']", $controller);
+        self::assertStringContainsString("'item_ids.*' => ['integer', 'min:1']", $controller);
+        self::assertStringContainsString('syncServiceItemMappings', $controller);
+        self::assertStringNotContainsString("'item_id' => ['nullable', 'integer', 'min:1']", $controller);
+        self::assertStringNotContainsString("'tax_mode' => ['required', 'string', 'in:manual,item']", $controller);
+        self::assertStringNotContainsString("'tax_id' => ['nullable', 'integer', 'min:1']", $controller);
         self::assertStringNotContainsString('str_pad(substr($validated[\'item_lista_servico\'], 0, 4), 4, \'0\', STR_PAD_LEFT) . \'01\'', $controller);
         self::assertStringNotContainsString('str_pad(substr((string) $service->item_lista_servico, 0, 4), 4, \'0\', STR_PAD_LEFT) . \'01\'', $controller);
     }

@@ -7,10 +7,12 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
+use App\Models\Common\Item;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\Nfse\Models\CompanyService;
+use Modules\Nfse\Models\ItemServiceMapping;
 use Modules\Nfse\Support\Lc116Catalog;
 
 class CompanyServiceController extends Controller
@@ -21,10 +23,16 @@ class CompanyServiceController extends Controller
     public function create(): View
     {
         $catalog = new Lc116Catalog();
-        $items = $catalog->search(); // Get all items
+        $items = $catalog->search();
+        $companyId = $this->resolveCompanyId(request());
+        $companyItems = $companyId > 0
+            ? Item::where('company_id', $companyId)->orderBy('name')->get(['id', 'name', 'type'])
+            : collect();
 
         return view('nfse::services.create', [
             'items' => $items,
+            'companyItems' => $companyItems,
+            'selectedItemIds' => [],
         ]);
     }
 
@@ -36,6 +44,8 @@ class CompanyServiceController extends Controller
         $validated = $request->validate([
             'item_lista_servico' => ['required', 'string', 'max:10'],
             'codigo_tributacao_nacional' => ['nullable', 'string', 'size:6'],
+            'item_ids' => ['nullable', 'array'],
+            'item_ids.*' => ['integer', 'min:1'],
             'aliquota' => ['required', 'numeric', 'min:0', 'max:100'],
             'description' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
@@ -64,7 +74,7 @@ class CompanyServiceController extends Controller
 
         CompanyService::create([
             'company_id' => $companyId,
-            ...$validated,
+            ...$this->serviceAttributes($validated),
             'is_active' => $validated['is_active'] ?? true,
             'is_default' => !CompanyService::where('company_id', $companyId)->where('is_default', true)->exists(),
         ]);
@@ -76,6 +86,10 @@ class CompanyServiceController extends Controller
 
         if ($createdService !== null && $createdService->is_default) {
             $this->setDefaultService($createdService);
+        }
+
+        if ($createdService !== null) {
+            $this->syncServiceItemMappings($companyId, (int) $createdService->id, $validated['item_ids'] ?? []);
         }
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'services'])
@@ -91,10 +105,18 @@ class CompanyServiceController extends Controller
 
         $catalog = new Lc116Catalog();
         $items = $catalog->search();
+        $companyItems = Item::where('company_id', $service->company_id)->orderBy('name')->get(['id', 'name', 'type']);
+        $selectedItemIds = ItemServiceMapping::where('company_id', $service->company_id)
+            ->where('company_service_id', $service->id)
+            ->pluck('item_id')
+            ->map(static fn ($itemId): int => (int) $itemId)
+            ->all();
 
         return view('nfse::services.edit', [
             'service' => $service,
             'items' => $items,
+            'companyItems' => $companyItems,
+            'selectedItemIds' => $selectedItemIds,
         ]);
     }
 
@@ -107,6 +129,8 @@ class CompanyServiceController extends Controller
 
         $validated = $request->validate([
             'codigo_tributacao_nacional' => ['nullable', 'string', 'size:6'],
+            'item_ids' => ['nullable', 'array'],
+            'item_ids.*' => ['integer', 'min:1'],
             'aliquota' => ['required', 'numeric', 'min:0', 'max:100'],
             'description' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
@@ -117,7 +141,8 @@ class CompanyServiceController extends Controller
             ? $validated['codigo_tributacao_nacional']
             : null;
 
-        $service->update($validated);
+        $service->update($this->serviceAttributes($validated));
+        $this->syncServiceItemMappings((int) $service->company_id, (int) $service->id, $validated['item_ids'] ?? []);
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'services'])
             ->with('success', trans('nfse::general.settings.services.service_updated'));
@@ -241,4 +266,50 @@ class CompanyServiceController extends Controller
 
         $service->update(['is_default' => true]);
     }
+
+    /**
+     * @param array<string, mixed> $validated
+     * @return array<string, mixed>
+     */
+    private function serviceAttributes(array $validated): array
+    {
+        unset($validated['item_ids']);
+
+        return $validated;
+    }
+
+    /**
+     * @param array<int|string, mixed> $rawItemIds
+     */
+    private function syncServiceItemMappings(int $companyId, int $serviceId, array $rawItemIds): void
+    {
+        $itemIds = [];
+        foreach ($rawItemIds as $itemId) {
+            if (is_numeric($itemId) && (int) $itemId > 0) {
+                $itemIds[] = (int) $itemId;
+            }
+        }
+
+        $itemIds = array_values(array_unique($itemIds));
+        $validItemIds = $itemIds === []
+            ? []
+            : Item::where('company_id', $companyId)
+                ->whereIn('id', $itemIds)
+                ->pluck('id')
+                ->map(static fn ($itemId): int => (int) $itemId)
+                ->all();
+
+        ItemServiceMapping::where('company_id', $companyId)
+            ->where('company_service_id', $serviceId)
+            ->whereNotIn('item_id', $validItemIds === [] ? [0] : $validItemIds)
+            ->delete();
+
+        foreach ($validItemIds as $itemId) {
+            ItemServiceMapping::updateOrCreate(
+                ['company_id' => $companyId, 'item_id' => $itemId],
+                ['company_service_id' => $serviceId],
+            );
+        }
+    }
+
 }

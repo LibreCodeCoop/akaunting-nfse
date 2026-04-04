@@ -7,12 +7,14 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
+use App\Models\Common\Item;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Modules\Nfse\Models\CompanyService;
+use Modules\Nfse\Models\ItemServiceMapping;
 use Modules\Nfse\Support\BrazilianStates;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
@@ -79,6 +81,8 @@ class SettingsController extends Controller
 
         $companyServices = [];
         $defaultCompanyService = null;
+        $companyItems = [];
+        $itemServiceMappings = [];
 
         if ($companyId > 0 && method_exists(CompanyService::class, 'query')) {
             $query = CompanyService::where('company_id', $companyId);
@@ -111,6 +115,17 @@ class SettingsController extends Controller
                     break;
                 }
             }
+
+            if ($this->supportsItemServiceMappings()) {
+                $companyItems = Item::where('company_id', $companyId)
+                    ->orderBy('name')
+                    ->get();
+
+                $itemServiceMappings = ItemServiceMapping::where('company_id', $companyId)
+                    ->get()
+                    ->keyBy('item_id')
+                    ->all();
+            }
         }
 
         return view('nfse::settings.edit', [
@@ -120,6 +135,8 @@ class SettingsController extends Controller
             'activeTab' => $activeTab,
             'companyServices' => $companyServices,
             'defaultCompanyService' => $defaultCompanyService,
+            'companyItems' => $companyItems,
+            'itemServiceMappings' => $itemServiceMappings,
             'servicesSearch' => $servicesSearch,
             'servicesStatus' => $servicesStatus,
         ]);
@@ -269,6 +286,80 @@ class SettingsController extends Controller
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'federal'])
             ->with('success', trans('nfse::general.saved'));
+    }
+
+    public function updateItemServices(Request $request): RedirectResponse
+    {
+        if (!$this->supportsItemServiceMappings()) {
+            return redirect()->route('nfse.settings.edit', ['tab' => 'services'])
+                ->with('error', trans('nfse::general.settings.services.item_mapping_not_supported'));
+        }
+
+        $companyId = $this->resolveCompanyId($request);
+
+        if ($companyId <= 0) {
+            abort(403);
+        }
+
+        $rawMappings = $request->input('item_services', []);
+        $rawMappings = is_array($rawMappings) ? $rawMappings : [];
+
+        $itemIds = [];
+        foreach (array_keys($rawMappings) as $itemId) {
+            if (is_numeric($itemId) && (int) $itemId > 0) {
+                $itemIds[] = (int) $itemId;
+            }
+        }
+
+        $itemIds = array_values(array_unique($itemIds));
+
+        if ($itemIds === []) {
+            return redirect()->route('nfse.settings.edit', ['tab' => 'services'])
+                ->with('success', trans('nfse::general.settings.services.item_mappings_saved'));
+        }
+
+        $validItemIds = Item::where('company_id', $companyId)
+            ->whereIn('id', $itemIds)
+            ->pluck('id')
+            ->map(static fn ($value): int => (int) $value)
+            ->all();
+
+        $requestedServiceIds = [];
+        foreach ($rawMappings as $serviceId) {
+            if (is_numeric($serviceId) && (int) $serviceId > 0) {
+                $requestedServiceIds[] = (int) $serviceId;
+            }
+        }
+
+        $validServiceIds = CompanyService::where('company_id', $companyId)
+            ->whereIn('id', array_values(array_unique($requestedServiceIds)))
+            ->pluck('id')
+            ->map(static fn ($value): int => (int) $value)
+            ->all();
+
+        foreach ($validItemIds as $itemId) {
+            $rawServiceId = $rawMappings[(string) $itemId] ?? $rawMappings[$itemId] ?? null;
+            $serviceId = is_numeric($rawServiceId) ? (int) $rawServiceId : 0;
+
+            if ($serviceId <= 0) {
+                ItemServiceMapping::where('company_id', $companyId)
+                    ->where('item_id', $itemId)
+                    ->delete();
+                continue;
+            }
+
+            if (!in_array($serviceId, $validServiceIds, true)) {
+                continue;
+            }
+
+            ItemServiceMapping::updateOrCreate(
+                ['company_id' => $companyId, 'item_id' => $itemId],
+                ['company_service_id' => $serviceId],
+            );
+        }
+
+        return redirect()->route('nfse.settings.edit', ['tab' => 'services'])
+            ->with('success', trans('nfse::general.settings.services.item_mappings_saved'));
     }
 
     public function ufs(IbgeLocalities $ibgeLocalities): JsonResponse
@@ -619,6 +710,45 @@ class SettingsController extends Controller
         }
 
         return $normalizedRows;
+    }
+
+    protected function supportsItemServiceMappings(): bool
+    {
+        if (!class_exists(\Illuminate\Database\Eloquent\Model::class)) {
+            return false;
+        }
+
+        return is_subclass_of(Item::class, \Illuminate\Database\Eloquent\Model::class)
+            && is_subclass_of(ItemServiceMapping::class, \Illuminate\Database\Eloquent\Model::class)
+            && is_subclass_of(CompanyService::class, \Illuminate\Database\Eloquent\Model::class);
+    }
+
+    protected function resolveCompanyId(?Request $request = null): int
+    {
+        $companyId = 0;
+
+        if ($request !== null && method_exists($request, 'route')) {
+            $routeCompanyId = $request->route('company_id');
+            $companyId = is_numeric($routeCompanyId) ? (int) $routeCompanyId : 0;
+        }
+
+        if ($companyId <= 0 && function_exists('company_id')) {
+            $companyId = (int) (company_id() ?? 0);
+        }
+
+        if ($companyId <= 0 && function_exists('auth')) {
+            try {
+                $user = auth()->user();
+            } catch (Throwable) {
+                $user = null;
+            }
+
+            if ($user !== null && isset($user->company_id)) {
+                $companyId = (int) $user->company_id;
+            }
+        }
+
+        return $companyId;
     }
 
     protected function jsonResponse(array $payload, int $status = 200): JsonResponse

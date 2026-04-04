@@ -12,6 +12,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         @endif
 
+        @if(session('info'))
+            <div class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+                {{ session('info') }}
+            </div>
+        @endif
+
         @if($errors->has('cancel_reason') || $errors->has('cancel_justification'))
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                 @error('cancel_reason')
