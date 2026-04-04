@@ -22,7 +22,7 @@ namespace {
     }
 
     if (!class_exists(\Illuminate\Http\Request::class, false)) {
-        eval('namespace Illuminate\\Http; class Request { public function __construct(private array $inputs = [], private array $files = []) {} public function validate(array $rules): void {} public function input(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } public function file(string $key): mixed { return $this->files[$key] ?? null; } public function query(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } }');
+        eval('namespace Illuminate\\Http; class Request { public function __construct(private array $inputs = [], private array $files = [], private array $serverVars = []) {} public function validate(array $rules): void {} public function input(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } public function file(string $key): mixed { return $this->files[$key] ?? null; } public function query(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } public function header(string $key, mixed $default = null): mixed { $server = strtoupper(str_replace(\'-\', \'_\', $key)); return $this->serverVars[\'HTTP_\' . $server] ?? $this->serverVars[$server] ?? $default; } }');
     }
 
     if (!class_exists(\Illuminate\Http\UploadedFile::class, false)) {
