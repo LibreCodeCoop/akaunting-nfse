@@ -148,6 +148,14 @@ class SettingsController extends Controller
         $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
         $nfseInput = $this->prepareNfseInput($rawNfseInput);
 
+        $authModeUi = (string) $request->input('auth_mode_ui', '');
+        if ($authModeUi === 'token') {
+            $nfseInput['bao_role_id'] = '';
+            $nfseInput['bao_secret_id'] = '';
+        } elseif ($authModeUi === 'approle') {
+            $nfseInput['bao_token'] = '';
+        }
+
         $request->validate([
             'nfse.bao_addr'            => 'required|url',
             'nfse.bao_mount'           => 'required|string',
