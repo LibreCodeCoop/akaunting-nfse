@@ -48,7 +48,7 @@ class InvoiceController extends Controller
         $hasExplicitState = $this->requestHasIndexState($request);
         $savedPreferences = $this->loadIndexPreferences();
 
-        if (!$hasExplicitState && $savedPreferences !== [] && !$this->isDefaultIndexPreferences($savedPreferences)) {
+        if (!$hasExplicitState && $savedPreferences !== [] && !$this->isDefaultIndexPreferences($savedPreferences) && !$this->isNavigatingFromWithinListing($request)) {
             return redirect()->route('nfse.invoices.index', $this->indexRestoreQueryParams($savedPreferences));
         }
 
@@ -1663,6 +1663,23 @@ class InvoiceController extends Controller
 
         if (is_object($settings) && is_callable([$settings, 'save'])) {
             $settings->save();
+        }
+    }
+
+    protected function isNavigatingFromWithinListing(Request $request): bool
+    {
+        $referer = $request->header('Referer', '');
+
+        if ($referer === '') {
+            return false;
+        }
+
+        try {
+            $listingUrl = route('nfse.invoices.index');
+
+            return str_starts_with($referer, $listingUrl);
+        } catch (\Throwable) {
+            return str_contains($referer, '/nfse/invoices');
         }
     }
 
