@@ -31,6 +31,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         @endif
 
+        @if(session('info'))
+            <div class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+                {{ session('info') }}
+            </div>
+        @endif
+
         @if(session('error'))
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                 {{ session('error') }}
@@ -196,12 +202,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <p>{{ trans('general.status') }}: {{ trans('nfse::general.invoices.filter_pending') }}</p>
                                         </div>
 
-                                        <form action="{{ route('nfse.invoices.emit', $invoice) }}" method="POST" class="inline-flex">
+                                        <form
+                                            action="{{ route('nfse.invoices.emit', $invoice) }}"
+                                            method="POST"
+                                            class="inline-flex"
+                                            data-emit-form="true"
+                                            data-preview-url="{{ route('nfse.invoices.service-preview', $invoice) }}"
+                                        >
                                             @csrf
+                                            <input type="hidden" name="nfse_confirm_default_service" value="0" data-emit-confirm-default>
+                                            <input type="hidden" name="nfse_item_service_assignments" value="" data-emit-assignments>
                                             <button
-                                                type="submit"
+                                                type="button"
                                                 @if(!$isReady) disabled @endif
                                                 title="{{ trans('nfse::general.invoices.emit_now') }}"
+                                                data-emit-trigger="true"
                                                 class="inline-flex h-8 w-8 items-center justify-center rounded border @if($isReady) border-indigo-200 text-indigo-700 hover:bg-indigo-50 @else border-gray-300 text-gray-400 cursor-not-allowed @endif"
                                             >
                                                 <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -335,6 +350,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         <x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />
 
+        <div id="nfse-emit-modal" class="fixed inset-0 z-[100] hidden" aria-hidden="true">
+            <div class="absolute inset-0 bg-slate-500/55 backdrop-blur-[1px] backdrop-brightness-75" data-emit-close="true"></div>
+
+            <div class="relative flex min-h-full items-center justify-center overflow-y-auto p-4">
+                <div class="w-full max-w-2xl rounded-lg bg-white shadow-xl">
+                    <div class="flex items-center justify-between border-b px-5 py-4">
+                        <h3 class="text-lg font-semibold text-gray-800">{{ trans('nfse::general.settings.services.item_mapping_title') }}</h3>
+                        <button type="button" class="text-gray-500 hover:text-gray-700" data-emit-close="true">{{ trans('nfse::general.invoices.cancel_modal_close') }}</button>
+                    </div>
+
+                    <div class="p-5 space-y-4">
+                        <p class="text-sm text-gray-700">{{ trans('nfse::general.invoices.default_service_confirmation_required') }}</p>
+                        <div id="nfse-emit-missing-items" class="space-y-3"></div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
+                        <button type="button" class="inline-flex items-center px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100" data-emit-close="true">
+                            {{ trans('general.cancel') }}
+                        </button>
+                        <button type="button" id="nfse-emit-confirm-button" class="inline-flex items-center px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">
+                            {{ trans('nfse::general.invoices.emit_now') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div
             id="nfse-cancel-modal"
             class="fixed inset-0 z-[100] hidden"
@@ -456,6 +498,157 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 };
 
                 hydrateSearchStringCookie();
+
+                const emitModal = document.getElementById('nfse-emit-modal');
+                const emitModalMissingItems = document.getElementById('nfse-emit-missing-items');
+                const emitModalConfirmButton = document.getElementById('nfse-emit-confirm-button');
+                let currentEmitForm = null;
+
+                const closeEmitModal = () => {
+                    if (!emitModal) {
+                        return;
+                    }
+
+                    emitModal.classList.add('hidden');
+                    emitModal.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('overflow-hidden');
+                    currentEmitForm = null;
+
+                    if (emitModalMissingItems) {
+                        emitModalMissingItems.innerHTML = '';
+                    }
+                };
+
+                const openEmitModal = () => {
+                    if (!emitModal) {
+                        return;
+                    }
+
+                    emitModal.classList.remove('hidden');
+                    emitModal.setAttribute('aria-hidden', 'false');
+                    document.body.classList.add('overflow-hidden');
+                };
+
+                const renderMissingItemRows = (missingItems, availableServices, defaultServiceId) => {
+                    if (!emitModalMissingItems) {
+                        return;
+                    }
+
+                    emitModalMissingItems.innerHTML = '';
+
+                    missingItems.forEach((item) => {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'grid grid-cols-1 md:grid-cols-3 gap-2 items-center';
+
+                        const label = document.createElement('label');
+                        label.className = 'text-sm font-medium text-gray-700 md:col-span-1';
+                        label.textContent = item.name ?? 'Item';
+
+                        const select = document.createElement('select');
+                        select.className = 'md:col-span-2 w-full border rounded px-3 py-2 text-sm';
+                        select.setAttribute('data-item-id', String(item.id ?? '0'));
+
+                        availableServices.forEach((service) => {
+                            const option = document.createElement('option');
+                            option.value = String(service.id ?? '');
+                            option.textContent = String(service.label ?? '');
+                            if (String(service.id ?? '') === String(defaultServiceId ?? '')) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+
+                        wrapper.appendChild(label);
+                        wrapper.appendChild(select);
+                        emitModalMissingItems.appendChild(wrapper);
+                    });
+                };
+
+                document.querySelectorAll('[data-emit-form="true"]').forEach((form) => {
+                    const trigger = form.querySelector('[data-emit-trigger="true"]');
+                    const confirmInput = form.querySelector('[data-emit-confirm-default]');
+                    const assignmentsInput = form.querySelector('[data-emit-assignments]');
+                    const previewUrl = form.getAttribute('data-preview-url');
+
+                    if (!trigger || !confirmInput || !assignmentsInput) {
+                        return;
+                    }
+
+                    trigger.addEventListener('click', async () => {
+                        if (trigger.disabled) {
+                            return;
+                        }
+
+                        confirmInput.value = '0';
+                        assignmentsInput.value = '';
+
+                        if (!previewUrl) {
+                            form.submit();
+                            return;
+                        }
+
+                        try {
+                            const response = await fetch(previewUrl, { headers: { Accept: 'application/json' } });
+
+                            if (!response.ok) {
+                                form.submit();
+                                return;
+                            }
+
+                            const payload = await response.json();
+                            const missingItems = Array.isArray(payload.missing_items) ? payload.missing_items : [];
+                            const availableServices = Array.isArray(payload.available_services) ? payload.available_services : [];
+                            const defaultServiceId = payload.default_service_id ?? 0;
+
+                            if (missingItems.length === 0 || availableServices.length === 0) {
+                                form.submit();
+                                return;
+                            }
+
+                            currentEmitForm = form;
+                            renderMissingItemRows(missingItems, availableServices, defaultServiceId);
+                            openEmitModal();
+                        } catch {
+                            form.submit();
+                        }
+                    });
+                });
+
+                emitModal?.querySelectorAll('[data-emit-close="true"]').forEach((button) => {
+                    button.addEventListener('click', closeEmitModal);
+                });
+
+                emitModalConfirmButton?.addEventListener('click', () => {
+                    if (!currentEmitForm) {
+                        closeEmitModal();
+                        return;
+                    }
+
+                    const confirmInput = currentEmitForm.querySelector('[data-emit-confirm-default]');
+                    const assignmentsInput = currentEmitForm.querySelector('[data-emit-assignments]');
+                    const assignmentRows = emitModalMissingItems?.querySelectorAll('select[data-item-id]') ?? [];
+                    const assignments = {};
+
+                    assignmentRows.forEach((select) => {
+                        const itemId = select.getAttribute('data-item-id');
+                        const serviceId = select.value;
+
+                        if (itemId && serviceId) {
+                            assignments[itemId] = serviceId;
+                        }
+                    });
+
+                    if (confirmInput) {
+                        confirmInput.value = '1';
+                    }
+
+                    if (assignmentsInput) {
+                        assignmentsInput.value = JSON.stringify(assignments);
+                    }
+
+                    closeEmitModal();
+                    currentEmitForm.submit();
+                });
 
                 const modal = document.getElementById('nfse-cancel-modal');
                 const form = document.getElementById('nfse-cancel-form');
