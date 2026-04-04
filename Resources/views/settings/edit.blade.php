@@ -386,6 +386,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <h3 class="text-base font-semibold text-gray-900">{{ trans('nfse::general.settings.federal.heading') }}</h3>
 
                         <p class="text-sm text-gray-600">{{ trans('nfse::general.settings.federal.helper') }}</p>
+                        <div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                            {{ trans('nfse::general.settings.federal.canonical_source_notice') }}
+                        </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
