@@ -48,7 +48,7 @@ class InvoiceController extends Controller
         $hasExplicitState = $this->requestHasIndexState($request);
         $savedPreferences = $this->loadIndexPreferences();
 
-        if (!$hasExplicitState && $savedPreferences !== []) {
+        if (!$hasExplicitState && $savedPreferences !== [] && $this->canRestoreIndexPreferences($savedPreferences)) {
             return redirect()->route('nfse.invoices.index', $this->indexRestoreQueryParams($savedPreferences));
         }
 
@@ -58,7 +58,7 @@ class InvoiceController extends Controller
         $requestedSortBy = $request?->query('sort', $request?->query('sort_by'));
         $requestedSortDirection = $request?->query('direction', $request?->query('sort_direction'));
 
-        if (!$hasExplicitState && $savedPreferences !== []) {
+        if (!$hasExplicitState && $savedPreferences !== [] && $this->canRestoreIndexPreferences($savedPreferences)) {
             $search ??= $savedPreferences['search'];
             $requestedStatus ??= $savedPreferences['status'];
             $requestedPerPage ??= $savedPreferences['per_page'];
@@ -565,7 +565,7 @@ class InvoiceController extends Controller
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         }
 
-        $this->storeEmittedReceipt($invoice, $newReceipt);
+        $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
 
         return redirect()->route('nfse.invoices.show', $invoice)
             ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $newReceipt->nfseNumber]));
@@ -1666,6 +1666,23 @@ class InvoiceController extends Controller
         }
     }
 
+    protected function canRestoreIndexPreferences(array $preferences): bool
+    {
+        // Never auto-restore non-default filters from bare URL; this prevents
+        // stale search/status values from returning right after user clears filters.
+        $status = $preferences['status'] ?? null;
+        $search = $preferences['search'] ?? null;
+        $perPage = (int) ($preferences['per_page'] ?? 25);
+        $sortBy = (string) ($preferences['sort_by'] ?? 'due_at');
+        $sortDirection = (string) ($preferences['sort_direction'] ?? 'desc');
+
+        $hasNonDefaultStatus = $status !== null && $status !== 'all';
+        $hasSearch = is_string($search) && trim($search) !== '';
+        $hasNeutralOverrides = $perPage !== 25 || $sortBy !== 'due_at' || $sortDirection !== 'desc';
+
+        return !$hasNonDefaultStatus && !$hasSearch && $hasNeutralOverrides;
+    }
+
     protected function indexPreferencesSettingKey(): string
     {
         $key = 'nfse.invoices.preferences';
@@ -2098,8 +2115,20 @@ class InvoiceController extends Controller
         return dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . ltrim($relativePath, DIRECTORY_SEPARATOR);
     }
 
-    protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt): void
+    protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt, ?NfseReceipt $existingReceipt = null): void
     {
+        if ($existingReceipt instanceof NfseReceipt) {
+            $existingReceipt->update([
+                'nfse_number' => $receipt->nfseNumber,
+                'chave_acesso' => $receipt->chaveAcesso,
+                'data_emissao' => $receipt->dataEmissao,
+                'codigo_verificacao' => $receipt->codigoVerificacao,
+                'status' => 'emitted',
+            ]);
+
+            return;
+        }
+
         NfseReceipt::updateOrCreate(
             ['invoice_id' => $invoice->id],
             [

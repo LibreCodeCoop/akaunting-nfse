@@ -1523,10 +1523,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexRestoresSavedListingPreferencesWhenNoQueryStateIsProvided(): void
         {
+            // Neutral preferences (sort/per-page) can still be restored.
             ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
-                'status' => 'processing',
+                'status' => 'all',
                 'per_page' => 50,
-                'search' => 'ACME NFSE',
+                'search' => null,
                 'sort_by' => 'amount',
                 'sort_direction' => 'asc',
             ]);
@@ -1536,12 +1537,84 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
             self::assertSame([[
-                'status' => 'processing',
+                'status' => 'all',
                 'limit' => 50,
-                'search' => 'ACME NFSE',
                 'sort' => 'amount',
                 'direction' => 'asc',
             ]], $response->parameters);
+        }
+
+        public function testIndexDoesNotRestorePreferencesWhenSavedPreferencesAreDefault(): void
+        {
+            // If only default ("all") prefs are saved, bare URL should never redirect back to them.
+            ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
+                'status' => 'all',
+                'per_page' => 25,
+                'search' => null,
+                'sort_by' => 'due_at',
+                'sort_direction' => 'desc',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    return ['default'];
+                }
+            };
+
+            $response = $controller->index(new Request());
+
+            self::assertNotSame('route', $response->target ?? null, 'Bare URL with default prefs should render the view, not redirect');
+        }
+
+        public function testIndexTreatsEmptySearchParamAsExplicitClearAndSkipsPreferenceRestore(): void
+        {
+            // When the JS clear button fires, it navigates to ?search= (empty).
+            // The controller must treat this as explicit state and NOT restore saved non-default prefs.
+            ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
+                'status' => 'cancelled,emitted',
+                'per_page' => 25,
+                'search' => 'status:cancelled,emitted',
+                'sort_by' => 'due_at',
+                'sort_direction' => 'desc',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    return ['cleared'];
+                }
+            };
+
+            // Request with empty search param (?search=) — from the JS clear intercept.
+            $response = $controller->index(new Request(['search' => '']));
+
+            self::assertNotSame('route', $response->target ?? null, '?search= should be treated as explicit state, not redirect to old prefs');
+            self::assertSame('all', $response->data['status'] ?? null, 'Status should fall back to "all" when search is cleared');
+        }
+
+        public function testIndexSkipsPreferenceRestoreWhenSavedPreferencesContainNonDefaultFilters(): void
+        {
+            // Bare URL should never restore non-default status/search filters.
+            ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
+                'status' => 'cancelled,emitted',
+                'per_page' => 25,
+                'search' => 'status:cancelled,emitted',
+                'sort_by' => 'due_at',
+                'sort_direction' => 'desc',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    return ['cleared'];
+                }
+            };
+
+            $response = $controller->index(new Request());
+
+            self::assertNotSame('route', $response->target ?? null, 'Bare URL should not restore non-default saved filters');
+            self::assertSame('all', $response->data['status'] ?? null, 'Status should default to "all" when saved filter state is non-default');
         }
 
         public function testIndexPersistsListingPreferencesToSettingsStorage(): void
@@ -2283,7 +2356,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 contactTaxNumber: '12312312300199',
             );
 
-            InvoiceControllerIsolationState::makeReceipt(301, 'CHAVE-301', 'cancelled');
+            $existingReceipt = InvoiceControllerIsolationState::makeReceipt(301, 'CHAVE-301', 'cancelled');
 
             $client = new class () implements NfseClientInterface {
                 public ?DpsData $capturedDps = null;
@@ -2338,18 +2411,17 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->reemit($invoice);
 
             self::assertSame('Servico Reemissao', $client->capturedDps?->discriminacao);
+            self::assertSame([], NfseReceipt::$updateOrCreateCalls);
+            self::assertSame('emitted', $existingReceipt->status);
             self::assertSame([
                 [
-                    'attributes' => ['invoice_id' => 301],
-                    'values' => [
-                        'nfse_number' => 'NF-RE-301',
-                        'chave_acesso' => 'CHAVE-RE-301',
-                        'data_emissao' => '2026-03-21T18:00:00-03:00',
-                        'codigo_verificacao' => 'RE301',
-                        'status' => 'emitted',
-                    ],
+                    'nfse_number' => 'NF-RE-301',
+                    'chave_acesso' => 'CHAVE-RE-301',
+                    'data_emissao' => '2026-03-21T18:00:00-03:00',
+                    'codigo_verificacao' => 'RE301',
+                    'status' => 'emitted',
                 ],
-            ], NfseReceipt::$updateOrCreateCalls);
+            ], $existingReceipt->updatedPayloads);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);

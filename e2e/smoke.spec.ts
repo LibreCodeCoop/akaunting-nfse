@@ -16,8 +16,9 @@ test('login page is reachable', async ({ page }) => {
 test('pending invoices page is reachable after login', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
 
-  const response = await page.goto('/1/nfse/invoices/pending', { waitUntil: 'domcontentloaded' });
+  await page.goto('/1/nfse/invoices/pending', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('body')).toBeVisible();
 
-  await expect(page).toHaveURL(/\/1\/nfse\/invoices\/pending/);
-  expect(response?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/1\/nfse\/invoices(?:\/pending|\?status=pending.*)?$/);
+  await expect(page.locator('#index-more-actions-refresh-nfse-invoices')).toBeVisible();
 });
