@@ -21,6 +21,7 @@ Route::admin('nfse', function () {
         Route::patch('/vault', [SettingsController::class, 'updateVault'])->name('vault');
         Route::patch('/fiscal', [SettingsController::class, 'updateFiscal'])->name('fiscal');
         Route::patch('/federal', [SettingsController::class, 'updateFederal'])->name('federal');
+        Route::patch('/item-services', [SettingsController::class, 'updateItemServices'])->name('item-services.update');
 
         // Company Services CRUD
         Route::get('services/create', [CompanyServiceController::class, 'create'])->name('services.create');
@@ -46,6 +47,7 @@ Route::admin('nfse', function () {
     Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('invoices/pending', [InvoiceController::class, 'pending'])->name('invoices.pending');
     Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])->name('invoices.emit');
+    Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])->name('invoices.service-preview');
     Route::post('invoices/refresh-all', [InvoiceController::class, 'refreshAll'])->name('invoices.refresh-all');
     Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])->name('invoices.refresh');
     Route::post('invoices/{invoice}/reemit', [InvoiceController::class, 'reemit'])->name('invoices.reemit');
