@@ -2125,8 +2125,6 @@ class InvoiceController extends Controller
                 'codigo_verificacao' => $receipt->codigoVerificacao,
                 'status' => 'emitted',
             ]);
-
-            return;
         }
 
         NfseReceipt::updateOrCreate(
@@ -2143,7 +2141,17 @@ class InvoiceController extends Controller
 
     protected function findReceiptForInvoice(Invoice $invoice): NfseReceipt
     {
-        return NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $query = NfseReceipt::where('invoice_id', $invoice->id);
+
+        if (is_object($query) && method_exists($query, 'latest')) {
+            return $query->latest('id')->firstOrFail();
+        }
+
+        if (is_object($query) && method_exists($query, 'orderByDesc')) {
+            return $query->orderByDesc('id')->firstOrFail();
+        }
+
+        return $query->firstOrFail();
     }
 
     protected function refreshableReceipts(): iterable
