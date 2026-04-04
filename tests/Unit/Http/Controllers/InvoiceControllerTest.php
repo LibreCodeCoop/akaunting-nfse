@@ -2411,7 +2411,18 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->reemit($invoice);
 
             self::assertSame('Servico Reemissao', $client->capturedDps?->discriminacao);
-            self::assertSame([], NfseReceipt::$updateOrCreateCalls);
+            self::assertSame([
+                [
+                    'attributes' => ['invoice_id' => 301],
+                    'values' => [
+                        'nfse_number' => 'NF-RE-301',
+                        'chave_acesso' => 'CHAVE-RE-301',
+                        'data_emissao' => '2026-03-21T18:00:00-03:00',
+                        'codigo_verificacao' => 'RE301',
+                        'status' => 'emitted',
+                    ],
+                ],
+            ], NfseReceipt::$updateOrCreateCalls);
             self::assertSame('emitted', $existingReceipt->status);
             self::assertSame([
                 [
