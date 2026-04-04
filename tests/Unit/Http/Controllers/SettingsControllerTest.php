@@ -1174,6 +1174,67 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertArrayNotHasKey('nfse.bao_token', ControllerIsolationState::$settings);
         }
 
+        public function testUpdateVaultWithTokenModeClearsStaleAppRoleCredentials(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr'      => 'http://openbao:8200',
+                'nfse.bao_mount'     => '/nfse',
+                'nfse.bao_role_id'   => 'old-role',
+                'nfse.bao_secret_id' => 'old-secret',
+            ];
+
+            // The hidden AppRole DOM fields still submit their saved values when
+            // the user has the Token radio selected.
+            $request = new Request(
+                inputs: [
+                    'auth_mode_ui' => 'token',
+                    'nfse'         => [
+                        'bao_addr'    => 'http://openbao:8200',
+                        'bao_mount'   => '/nfse',
+                        'bao_token'   => 'my-new-token',
+                        'bao_role_id' => 'old-role',  // submitted by hidden DOM input
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->updateVault($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('my-new-token', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
+            self::assertSame('', ControllerIsolationState::$settings['nfse.bao_role_id'] ?? 'NOT_SET');
+            self::assertSame('', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? 'NOT_SET');
+        }
+
+        public function testUpdateVaultWithAppRoleModeClearsStaleTokenCredential(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr'  => 'http://openbao:8200',
+                'nfse.bao_mount' => '/nfse',
+                'nfse.bao_token' => 'old-token',
+            ];
+
+            $request = new Request(
+                inputs: [
+                    'auth_mode_ui' => 'approle',
+                    'nfse'         => [
+                        'bao_addr'      => 'http://openbao:8200',
+                        'bao_mount'     => '/nfse',
+                        'bao_role_id'   => 'my-role',
+                        'bao_secret_id' => 'my-secret',
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->updateVault($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('my-role', ControllerIsolationState::$settings['nfse.bao_role_id'] ?? null);
+            self::assertSame('my-secret', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? null);
+            self::assertSame('', ControllerIsolationState::$settings['nfse.bao_token'] ?? 'NOT_SET');
+        }
+
         // ── updateFiscal ─────────────────────────────────────────────────────
 
         public function testUpdateFiscalSavesFiscalSettingsAndRedirectsToFiscalTab(): void
