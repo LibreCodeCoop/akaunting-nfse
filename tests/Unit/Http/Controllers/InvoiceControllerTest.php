@@ -49,9 +49,20 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString("NfseReceipt::with('invoice.contact')", $content);
+            self::assertStringContainsString("if (is_object(\$query) && is_callable([\$query, 'whereHas']))", $content);
+            self::assertStringContainsString("\$query = \$query->whereHas('invoice', static fn (\$invoiceQuery) => \$invoiceQuery->where('type', Invoice::INVOICE_TYPE));", $content);
             self::assertStringContainsString("->orWhereHas('invoice'", $content);
             self::assertStringContainsString("->orWhereHas('contact'", $content);
             self::assertStringContainsString("'name', 'like', '%' . \$search . '%'", $content);
+        }
+
+        public function testListingOverviewCountsRestrictsReceiptsToSalesInvoices(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("if (is_object(\$totalReceiptsQuery) && is_callable([\$totalReceiptsQuery, 'whereHas']))", $content);
+            self::assertStringContainsString("\$totalReceiptsQuery = \$totalReceiptsQuery->whereHas('invoice', static fn (\$invoiceQuery) => \$invoiceQuery->where('type', Invoice::INVOICE_TYPE));", $content);
+            self::assertStringContainsString("\$emittedQuery = \$emittedQuery->whereHas('invoice', static fn (\$invoiceQuery) => \$invoiceQuery->where('type', Invoice::INVOICE_TYPE));", $content);
         }
 
         public function testReceiptsIndexSearchAlsoIncludesInvoiceNumberFields(): void
