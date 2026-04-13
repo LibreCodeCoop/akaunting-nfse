@@ -33,6 +33,7 @@ class CompanyServiceController extends Controller
             'items' => $items,
             'companyItems' => $companyItems,
             'selectedItemIds' => [],
+            'suggestedAliquota' => $this->suggestedAliquotaForCreate(),
         ]);
     }
 
@@ -56,6 +57,10 @@ class CompanyServiceController extends Controller
         $validated['codigo_tributacao_nacional'] = $validated['codigo_tributacao_nacional'] !== ''
             ? $validated['codigo_tributacao_nacional']
             : null;
+
+        if ($validated['item_lista_servico'] === '') {
+            return back()->withInput()->withErrors(['item_lista_servico' => trans('validation.required', ['attribute' => trans('nfse::general.settings.services.lc116_code')])]);
+        }
 
         $companyId = $this->resolveCompanyId($request);
 
@@ -128,6 +133,7 @@ class CompanyServiceController extends Controller
         $this->authorizeServiceOwnership($request, $service);
 
         $validated = $request->validate([
+            'item_lista_servico' => ['required', 'string', 'max:10'],
             'codigo_tributacao_nacional' => ['nullable', 'string', 'size:6'],
             'item_ids' => ['nullable', 'array'],
             'item_ids.*' => ['integer', 'min:1'],
@@ -136,10 +142,24 @@ class CompanyServiceController extends Controller
             'is_active' => ['boolean'],
         ]);
 
+        $validated['item_lista_servico'] = preg_replace('/\D+/', '', (string) $validated['item_lista_servico']) ?: '';
         $validated['codigo_tributacao_nacional'] = preg_replace('/\D+/', '', (string) ($validated['codigo_tributacao_nacional'] ?? '')) ?: '';
         $validated['codigo_tributacao_nacional'] = $validated['codigo_tributacao_nacional'] !== ''
             ? $validated['codigo_tributacao_nacional']
             : null;
+
+        if ($validated['item_lista_servico'] === '') {
+            return back()->withInput()->withErrors(['item_lista_servico' => trans('validation.required', ['attribute' => trans('nfse::general.settings.services.lc116_code')])]);
+        }
+
+        $duplicate = CompanyService::where('company_id', $service->company_id)
+            ->where('id', '!=', $service->id)
+            ->where('item_lista_servico', $validated['item_lista_servico'])
+            ->exists();
+
+        if ($duplicate) {
+            return back()->withInput()->with('error', trans('nfse::general.settings.services.service_duplicate'));
+        }
 
         $service->update($this->serviceAttributes($validated));
         $this->syncServiceItemMappings((int) $service->company_id, (int) $service->id, $validated['item_ids'] ?? []);
@@ -265,6 +285,26 @@ class CompanyServiceController extends Controller
             ->update(['is_default' => false]);
 
         $service->update(['is_default' => true]);
+    }
+
+    private function suggestedAliquotaForCreate(): string
+    {
+        $opcaoSimplesNacional = (int) setting('nfse.opcao_simples_nacional', 2);
+        $isSimplesNacionalOptant = $opcaoSimplesNacional === 2;
+        $municipalRateSettingKey = $isSimplesNacionalOptant ? 'nfse.tributos_mun_sn' : 'nfse.tributos_mun_p';
+        $configuredMunicipalRate = str_replace(',', '.', trim((string) setting($municipalRateSettingKey, '')));
+
+        if ($configuredMunicipalRate !== '' && is_numeric($configuredMunicipalRate)) {
+            return number_format((float) $configuredMunicipalRate, 2, '.', '');
+        }
+
+        $legacyAliquota = str_replace(',', '.', trim((string) setting('nfse.aliquota', '5.00')));
+
+        if ($legacyAliquota !== '' && is_numeric($legacyAliquota)) {
+            return number_format((float) $legacyAliquota, 2, '.', '');
+        }
+
+        return '5.00';
     }
 
     /**

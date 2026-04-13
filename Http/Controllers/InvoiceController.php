@@ -125,6 +125,7 @@ class InvoiceController extends Controller
             'missing_items' => $selection['missing_items'],
             'available_services' => $this->availableInvoiceServices($invoice),
             'default_service_id' => is_object($defaultService) ? (int) ($defaultService->id ?? 0) : 0,
+            'requires_split' => (bool) ($selection['requires_split'] ?? false),
         ]);
     }
 
@@ -134,6 +135,11 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
         $defaultService = $this->resolveDefaultCompanyService($invoice);
         $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
+
+        if (($selection['requires_split'] ?? false) === true) {
+            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('warning', trans('nfse::general.invoices.mixed_service_tax_profiles_not_supported'));
+        }
 
         if (($selection['requires_confirmation'] ?? false) === true) {
             return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
@@ -588,7 +594,7 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @return array{selected_service: ?object, line_items: list<string>, missing_items: list<array{id:int,name:string}>, requires_confirmation: bool}
+    * @return array{selected_service: ?object, line_items: list<string>, missing_items: list<array{id:int,name:string}>, requires_confirmation: bool, requires_split: bool}
      */
     protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
     {
@@ -611,6 +617,7 @@ class InvoiceController extends Controller
                 'line_items' => [],
                 'missing_items' => [],
                 'requires_confirmation' => false,
+                'requires_split' => false,
             ];
         }
 
@@ -622,6 +629,7 @@ class InvoiceController extends Controller
                 'line_items' => [],
                 'missing_items' => [],
                 'requires_confirmation' => false,
+                'requires_split' => false,
             ];
         }
 
@@ -633,6 +641,26 @@ class InvoiceController extends Controller
         $lineItems = [];
         $missingItems = [];
         $selectedService = null;
+        $appliedServiceProfiles = [];
+
+        $registerServiceProfile = static function (?object $service) use (&$appliedServiceProfiles): void {
+            if ($service === null) {
+                return;
+            }
+
+            $serviceId = is_numeric($service->id ?? null) ? (int) $service->id : 0;
+
+            if ($serviceId > 0) {
+                $appliedServiceProfiles['id:' . $serviceId] = true;
+
+                return;
+            }
+
+            $serviceCode = preg_replace('/\D+/', '', (string) ($service->item_lista_servico ?? '')) ?: '';
+            $serviceAliquota = str_replace(',', '.', trim((string) ($service->aliquota ?? '')));
+
+            $appliedServiceProfiles['fallback:' . $serviceCode . ':' . $serviceAliquota] = true;
+        };
 
         foreach ($items as $item) {
             $itemName = trim((string) ($item['name'] ?? ''));
@@ -645,6 +673,7 @@ class InvoiceController extends Controller
                     $selectedService = $mappedService;
                 }
 
+                $registerServiceProfile($mappedService);
                 $lineItems[] = '[' . $this->itemListaServico($mappedService) . '] ' . $itemName;
                 continue;
             }
@@ -658,6 +687,7 @@ class InvoiceController extends Controller
                     $selectedService = $defaultService;
                 }
 
+                $registerServiceProfile($defaultService);
                 $lineItems[] = '[' . $this->itemListaServico($defaultService) . '] ' . $itemName;
                 continue;
             }
@@ -668,12 +698,14 @@ class InvoiceController extends Controller
         $confirmedFallback = $request instanceof Request
             && (string) $request->input('nfse_confirm_default_service', '0') === '1';
         $requiresConfirmation = $missingItems !== [] && $defaultService !== null && !$confirmedFallback;
+        $requiresSplit = count($appliedServiceProfiles) > 1;
 
         return [
             'selected_service' => $selectedService ?? $defaultService,
             'line_items' => $lineItems,
             'missing_items' => $missingItems,
             'requires_confirmation' => $requiresConfirmation,
+            'requires_split' => $requiresSplit,
         ];
     }
 

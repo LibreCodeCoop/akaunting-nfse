@@ -45,6 +45,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('route(\'nfse.invoices.cancel\', $receipt->invoice_id)', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.cancel')", $content);
             self::assertStringContainsString("trans('nfse::general.invoices.cancel_modal_title')", $content);
+            self::assertStringContainsString('data-cancel-trigger="true"', $content);
+            self::assertStringContainsString('data-cancel-action="{{ route(\'nfse.invoices.cancel\', $receipt->invoice_id) }}"', $content);
         }
 
         public function testInvoicesIndexViewShowsMiniDashboardQuickFiltersAndRowDetails(): void
@@ -78,8 +80,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('text-sm text-gray-600', $content);
             self::assertStringContainsString('class="group hover:bg-gray-50 transition-colors"', $content);
             self::assertStringContainsString('$invoice->number ?? $invoice->document_number ?? (\'#\' . $invoice->id)', $content);
-            self::assertStringContainsString('route(\'nfse.invoices.show\', $invoice)', $content);
-            self::assertStringContainsString('route(\'nfse.invoices.show\', $receipt->invoice_id)', $content);
+            self::assertStringContainsString('route(\'invoices.show\', $invoice)', $content);
+            self::assertStringContainsString('route(\'invoices.show\', $receipt->invoice_id)', $content);
             self::assertStringContainsString('$receipt->invoice?->number ?? $receipt->invoice?->document_number ?? (\'#\' . $receipt->invoice_id)', $content);
             self::assertStringContainsString('border-black border-b border-dashed', $content);
             self::assertStringContainsString('data-row-quick-view="true"', $content);

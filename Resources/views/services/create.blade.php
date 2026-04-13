@@ -110,7 +110,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     step="0.01"
                                     min="0"
                                     max="100"
-                                    value="{{ old('aliquota', '5.00') }}"
+                                    value="{{ old('aliquota', $suggestedAliquota ?? '5.00') }}"
                                     required
                                     class="w-full border rounded-lg px-3 py-2 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                                 >
