@@ -43,7 +43,7 @@ class SettingsController extends Controller
         $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
 
         $rawTab = $request !== null ? $request->query('tab') : null;
-        $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'federal', 'services'], true))
+        $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'federal', 'services', 'artifacts'], true))
             ? $rawTab
             : 'vault';
 
@@ -293,6 +293,45 @@ class SettingsController extends Controller
         setting()->save();
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'federal'])
+            ->with('success', trans('nfse::general.saved'));
+    }
+
+    public function updateArtifacts(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'nfse.webdav_url' => 'nullable|url',
+            'nfse.webdav_username' => 'nullable|string',
+            'nfse.webdav_password' => 'nullable|string',
+            'nfse.webdav_path_template' => 'nullable|string|max:255',
+        ]);
+
+        $rawNfseInput = $request->input('nfse', []);
+        $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
+
+        $keys = [
+            'webdav_url',
+            'webdav_username',
+            'webdav_password',
+            'webdav_path_template',
+        ];
+
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $rawNfseInput)) {
+                continue;
+            }
+
+            $value = trim((string) $rawNfseInput[$key]);
+
+            if ($key === 'webdav_path_template' && $value === '') {
+                $value = 'nfse/{cnpj}/{year}/{month}';
+            }
+
+            setting(['nfse.' . $key => $value]);
+        }
+
+        setting()->save();
+
+        return redirect()->route('nfse.settings.edit', ['tab' => 'artifacts'])
             ->with('success', trans('nfse::general.saved'));
     }
 
