@@ -101,6 +101,7 @@ return [
         'emit_now' => 'Emit NFS-e now',
         'default_service_confirmation_required' => 'There are items without a linked service. Review and confirm using the default service before issuing NFS-e.',
         'mixed_service_tax_profiles_not_supported' => 'This invoice has items linked to services with different municipal taxation profiles. Issue separate NFS-e documents per service/ISS profile.',
+        'refresh_not_allowed_for_cancelled' => 'Cancelled NFS-e cannot be refreshed. Use reissue when applicable.',
         'emit_blocked_not_ready' => 'There are pending settings before issuance can continue.',
         'readiness_incomplete' => 'There are pending configuration items. Review settings before issuing.',
         'no_pending' => 'No pending invoices to emit.',
