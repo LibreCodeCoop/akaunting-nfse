@@ -47,9 +47,9 @@ final class CompanyServiceRouteUsageTest extends TestCase
 
         self::assertNotFalse($content);
         self::assertStringNotContainsString('syncDefaultServiceSettings', $content);
-        self::assertStringNotContainsString("'nfse.item_lista_servico'", $content);
-        self::assertStringNotContainsString("'nfse.codigo_tributacao_nacional'", $content);
-        self::assertStringNotContainsString("'nfse.aliquota'", $content);
+        self::assertStringNotContainsString("setting(['nfse.item_lista_servico'", $content);
+        self::assertStringNotContainsString("setting(['nfse.codigo_tributacao_nacional'", $content);
+        self::assertStringNotContainsString("setting(['nfse.aliquota'", $content);
     }
 
     public function testServiceViewsUseDefinedSettingsEditRouteForBackAndCancel(): void
@@ -112,7 +112,8 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertStringNotContainsString('<x-form.group.', $editView);
         self::assertStringNotContainsString('<x-form.input.', $editView);
         self::assertStringContainsString('<input', $editView);
-        self::assertStringNotContainsString('name="item_lista_servico_display"', $editView);
+        self::assertStringContainsString('name="item_lista_servico"', $editView);
+        self::assertStringNotContainsString('type="hidden" value="{{ old(\'item_lista_servico\'', $editView);
         self::assertStringContainsString('<textarea', $editView);
         self::assertStringContainsString('id="item_ids_select"', $editView);
         self::assertStringContainsString('id="item_ids_selected_list"', $editView);
@@ -148,6 +149,41 @@ final class CompanyServiceRouteUsageTest extends TestCase
         self::assertStringNotContainsString("'tax_id' => ['nullable', 'integer', 'min:1']", $controller);
         self::assertStringNotContainsString('str_pad(substr($validated[\'item_lista_servico\'], 0, 4), 4, \'0\', STR_PAD_LEFT) . \'01\'', $controller);
         self::assertStringNotContainsString('str_pad(substr((string) $service->item_lista_servico, 0, 4), 4, \'0\', STR_PAD_LEFT) . \'01\'', $controller);
+    }
+
+    public function testStoreValidatesSanitizedLc116CodeIsNotEmpty(): void
+    {
+        $controller = file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/CompanyServiceController.php');
+
+        self::assertNotFalse($controller);
+        self::assertStringContainsString("preg_replace('/\\D+/', '', (string) \$validated['item_lista_servico']) ?: ''", $controller);
+        self::assertStringContainsString("if (\$validated['item_lista_servico'] === '')", $controller);
+        self::assertStringContainsString("withErrors(['item_lista_servico' => trans('validation.required', ['attribute' => trans('nfse::general.settings.services.lc116_code')])])", $controller);
+    }
+
+    public function testCreatePrefillsIssRateFromMunicipalTaxProfileWhenAvailable(): void
+    {
+        $controller = file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/CompanyServiceController.php');
+        $createView = file_get_contents(dirname(__DIR__, 4) . '/Resources/views/services/create.blade.php');
+
+        self::assertNotFalse($controller);
+        self::assertNotFalse($createView);
+        self::assertStringContainsString("'suggestedAliquota' => \$this->suggestedAliquotaForCreate()", $controller);
+        self::assertStringContainsString("\$municipalRateSettingKey = \$isSimplesNacionalOptant ? 'nfse.tributos_mun_sn' : 'nfse.tributos_mun_p';", $controller);
+        self::assertStringContainsString("value=\"{{ old('aliquota', \$suggestedAliquota ?? '5.00') }}\"", $createView);
+        self::assertStringNotContainsString("value=\"{{ old('aliquota', '5.00') }}\"", $createView);
+    }
+
+    public function testUpdateAlsoValidatesAndNormalizesLc116CodeAndChecksDuplicate(): void
+    {
+        $controller = file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/CompanyServiceController.php');
+
+        self::assertNotFalse($controller);
+        self::assertStringContainsString("'item_lista_servico' => ['required', 'string', 'max:10']", $controller);
+        self::assertStringContainsString("preg_replace('/\\D+/', '', (string) \$validated['item_lista_servico']) ?: ''", $controller);
+        self::assertStringContainsString("if (\$validated['item_lista_servico'] === '')", $controller);
+        self::assertStringContainsString("->where('id', '!=', \$service->id)", $controller);
+        self::assertStringContainsString("->where('item_lista_servico', \$validated['item_lista_servico'])", $controller);
     }
 
     public function testServicesListingViewIncludesFilterAndToggleActiveControls(): void
