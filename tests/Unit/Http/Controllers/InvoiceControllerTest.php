@@ -1511,6 +1511,59 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('Descricao da nota', $client->capturedDps?->discriminacao);
         }
 
+        public function testEmitUsesCustomDescriptionFromRequestWhenProvided(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 81,
+                amount: 120.0,
+                items: [['name' => 'Servico Automatico']],
+                description: 'Descricao original',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-81', 'CHAVE-81', '2026-03-21T12:05:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice, new Request([
+                'nfse_discriminacao_custom' => '  Descricao manual ajustada da NFS-e  ',
+            ]));
+
+            self::assertSame('Descricao manual ajustada da NFS-e', $client->capturedDps?->discriminacao);
+        }
+
         public function testEmitFallsBackToDefaultServiceLabelWhenItemsAndDescriptionAreEmpty(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
@@ -2629,6 +2682,69 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('NFS-e reemitida NF-RE-301 com sucesso.', $response->flash['success'] ?? null);
+        }
+
+        public function testReemitUsesCustomDescriptionFromRequestWhenProvided(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 302,
+                amount: 450.0,
+                items: [['name' => 'Servico Reemissao Automatico']],
+                description: 'Descricao de reemissao original',
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(302, 'CHAVE-302', 'cancelled');
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-RE-302', 'CHAVE-RE-302', '2026-03-22T09:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function emissionReadiness(): array
+                {
+                    return [
+                        'isReady' => true,
+                        'checklist' => [
+                            'cnpj_prestador' => true,
+                            'municipio_ibge' => true,
+                            'item_lista_servico' => true,
+                            'certificate' => true,
+                        ],
+                    ];
+                }
+            };
+
+            $controller->reemit($invoice, new Request([
+                'nfse_discriminacao_custom' => 'Descricao manual para reemissao',
+            ]));
+
+            self::assertSame('Descricao manual para reemissao', $client->capturedDps?->discriminacao);
         }
 
         public function testEmitRedirectsToPendingWithErrorFlashWhenGatewayRejectsIssuance(): void

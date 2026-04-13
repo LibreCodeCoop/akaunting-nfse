@@ -127,6 +127,7 @@ class InvoiceController extends Controller
             'available_services' => $this->availableInvoiceServices($invoice),
             'default_service_id' => is_object($defaultService) ? (int) ($defaultService->id ?? 0) : 0,
             'requires_split' => (bool) ($selection['requires_split'] ?? false),
+            'suggested_description' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? []),
         ]);
     }
 
@@ -136,6 +137,7 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
         $defaultService = $this->resolveDefaultCompanyService($invoice);
         $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
+        $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
 
         if (($selection['requires_split'] ?? false) === true) {
             return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
@@ -171,7 +173,7 @@ class InvoiceController extends Controller
             'codigoTributacaoNacional' => $this->nationalTaxCode($serviceForIssuance),
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
             'aliquota' => $this->normalizedAliquota($serviceForIssuance),
-            'discriminacao' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? []),
+            'discriminacao' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? [], $customDiscriminacao),
             'documentoTomador' => $tomadorDocument,
             'nomeTomador' => $invoice->contact?->name ?? '',
             'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
@@ -478,16 +480,29 @@ class InvoiceController extends Controller
             ]));
     }
 
-    public function reemit(Invoice $invoice): RedirectResponse
+    public function reemit(Invoice $invoice, ?Request $request = null): RedirectResponse
     {
+        $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
         $defaultService = $this->resolveDefaultCompanyService($invoice);
+        $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
+        $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
 
         $receipt = $this->findReceiptForInvoice($invoice);
 
         if (($receipt->status ?? '') !== 'cancelled') {
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('warning', trans('nfse::general.nfse_reemit_not_cancelled'));
+        }
+
+        if (($selection['requires_split'] ?? false) === true) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.mixed_service_tax_profiles_not_supported'));
+        }
+
+        if (($selection['requires_confirmation'] ?? false) === true) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.default_service_confirmation_required'));
         }
 
         $readiness = $this->emissionReadiness();
@@ -502,15 +517,16 @@ class InvoiceController extends Controller
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
+        $serviceForIssuance = $selection['selected_service'] ?? $defaultService;
 
         $dps = $this->makeDpsData([
             'cnpjPrestador' => (string) setting('nfse.cnpj_prestador'),
             'municipioIbge' => (string) setting('nfse.municipio_ibge'),
-            'itemListaServico' => $this->itemListaServico($defaultService),
-            'codigoTributacaoNacional' => $this->nationalTaxCode($defaultService),
+            'itemListaServico' => $this->itemListaServico($serviceForIssuance),
+            'codigoTributacaoNacional' => $this->nationalTaxCode($serviceForIssuance),
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
-            'aliquota' => $this->normalizedAliquota($defaultService),
-            'discriminacao' => $this->buildDiscriminacao($invoice),
+            'aliquota' => $this->normalizedAliquota($serviceForIssuance),
+            'discriminacao' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? [], $customDiscriminacao),
             'documentoTomador' => $tomadorDocument,
             'nomeTomador' => $invoice->contact?->name ?? '',
             'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
@@ -589,8 +605,12 @@ class InvoiceController extends Controller
     /**
      * @param list<string> $lineItems
      */
-    protected function buildDiscriminacao(Invoice $invoice, array $lineItems = []): string
+    protected function buildDiscriminacao(Invoice $invoice, array $lineItems = [], ?string $customDescription = null): string
     {
+        if ($customDescription !== null) {
+            return $customDescription;
+        }
+
         if ($lineItems !== []) {
             return implode(' | ', $lineItems);
         }
@@ -598,6 +618,23 @@ class InvoiceController extends Controller
         return implode(' | ', $invoice->items->pluck('name')->toArray())
             ?: $invoice->description
             ?: trans('nfse::general.service_default');
+    }
+
+    protected function customDiscriminacaoFromRequest(?Request $request): ?string
+    {
+        if (!$request instanceof Request) {
+            return null;
+        }
+
+        $rawValue = $request->input('nfse_discriminacao_custom');
+
+        if (!is_string($rawValue)) {
+            return null;
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
+
+        return is_string($normalized) && $normalized !== '' ? $normalized : null;
     }
 
     /**

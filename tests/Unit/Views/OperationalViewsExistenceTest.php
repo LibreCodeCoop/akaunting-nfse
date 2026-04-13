@@ -31,6 +31,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.invoices.refresh_all_statuses_loading')", $content);
             self::assertStringContainsString("refreshAllForm.addEventListener('submit'", $content);
             self::assertStringContainsString("refreshAllButton.setAttribute('aria-busy', 'true')", $content);
+            self::assertStringContainsString('name="nfse_discriminacao_custom" value="" data-emit-description-input', $content);
+            self::assertStringContainsString('id="nfse_emit_description"', $content);
         }
 
         public function testInvoicesIndexViewOffersReemitActionForCancelledReceipts(): void
@@ -42,6 +44,9 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.invoices.reemit')", $content);
             self::assertStringContainsString("@if((\$receipt->status ?? '') !== 'cancelled')", $content);
             self::assertStringContainsString('route(\'nfse.invoices.refresh\', $receipt->invoice_id)', $content);
+            self::assertStringNotContainsString("onsubmit=\"return confirm('{{ trans('nfse::general.invoices.reemit_confirm') }}')\"", $content);
+            self::assertStringContainsString('data-emit-confirm-label="{{ trans(\'nfse::general.invoices.reemit\') }}"', $content);
+            self::assertStringContainsString('data-emit-trigger="true"', $content);
         }
 
         public function testInvoicesIndexViewOffersCancelActionForEmittedReceipts(): void
@@ -93,6 +98,10 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('border-black border-b border-dashed', $content);
             self::assertStringContainsString('data-row-quick-view="true"', $content);
             self::assertStringNotContainsString('uppercase">NFS-e</th>', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_title')", $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_description')", $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_description_help')", $content);
+            self::assertStringContainsString('const suggestedDescription = typeof payload.suggested_description === \'string\' ? payload.suggested_description : \'\';', $content);
         }
 
         public function testSettingsViewShowsVaultStatusAndSensitiveFieldClearControls(): void
