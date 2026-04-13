@@ -2275,7 +2275,7 @@ class InvoiceController extends Controller
 
         try {
             $webDavClient = $this->makeWebDavClientFromSettings();
-            $basePath = $this->buildWebDavArtifactBasePath($receipt->dataEmissao);
+            $basePath = $this->buildWebDavArtifactBasePath($invoice, $receipt);
             $xmlPath = null;
             $danfsePath = null;
 
@@ -2323,7 +2323,7 @@ class InvoiceController extends Controller
         );
     }
 
-    protected function buildWebDavArtifactBasePath(string $dataEmissao): string
+    protected function buildWebDavArtifactBasePath(Invoice $invoice, ReceiptData $receipt): string
     {
         $template = trim((string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}'));
         if ($template === '') {
@@ -2332,7 +2332,7 @@ class InvoiceController extends Controller
 
         $date = null;
         try {
-            $date = new \DateTimeImmutable($dataEmissao);
+            $date = new \DateTimeImmutable($receipt->dataEmissao);
         } catch (\Throwable) {
             $date = new \DateTimeImmutable('now');
         }
@@ -2341,9 +2341,41 @@ class InvoiceController extends Controller
             '{cnpj}' => (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
             '{year}' => $date->format('Y'),
             '{month}' => $date->format('m'),
+            '{month_name}' => $this->monthNameByNumber((int) $date->format('n')),
+            '{nfse_number}' => $this->sanitizePathSegment($receipt->nfseNumber !== '' ? $receipt->nfseNumber : 'sem-numero'),
+            '{customer_name}' => $this->sanitizePathSegment((string) ($invoice->contact?->name ?? 'sem-cliente')),
         ];
 
         return trim(strtr($template, $replacements), '/');
+    }
+
+    protected function monthNameByNumber(int $month): string
+    {
+        $months = [
+            1 => 'janeiro',
+            2 => 'fevereiro',
+            3 => 'marco',
+            4 => 'abril',
+            5 => 'maio',
+            6 => 'junho',
+            7 => 'julho',
+            8 => 'agosto',
+            9 => 'setembro',
+            10 => 'outubro',
+            11 => 'novembro',
+            12 => 'dezembro',
+        ];
+
+        return $months[$month] ?? 'mes-invalido';
+    }
+
+    protected function sanitizePathSegment(string $value): string
+    {
+        $normalized = mb_strtolower(trim($value));
+        $normalized = preg_replace('/[^\pL\pN]+/u', '-', $normalized);
+        $normalized = is_string($normalized) ? trim($normalized, '-') : '';
+
+        return $normalized !== '' ? $normalized : 'nao-informado';
     }
 
     protected function findReceiptForInvoice(Invoice $invoice): NfseReceipt
