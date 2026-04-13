@@ -20,6 +20,7 @@ use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
+use Modules\Nfse\Support\WebDavClient;
 use Throwable;
 
 class SettingsController extends Controller
@@ -299,6 +300,7 @@ class SettingsController extends Controller
     public function updateArtifacts(Request $request): RedirectResponse
     {
         $request->validate([
+            'nfse.webdav_enabled' => 'nullable|boolean',
             'nfse.webdav_url' => 'nullable|url',
             'nfse.webdav_username' => 'nullable|string',
             'nfse.webdav_password' => 'nullable|string',
@@ -308,31 +310,56 @@ class SettingsController extends Controller
         $rawNfseInput = $request->input('nfse', []);
         $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
 
-        $keys = [
-            'webdav_url',
-            'webdav_username',
-            'webdav_password',
-            'webdav_path_template',
-        ];
+        $webDavEnabled = filter_var($rawNfseInput['webdav_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $webDavUrl = trim((string) ($rawNfseInput['webdav_url'] ?? ''));
+        $webDavUsername = trim((string) ($rawNfseInput['webdav_username'] ?? ''));
+        $webDavPassword = trim((string) ($rawNfseInput['webdav_password'] ?? ''));
+        $webDavPathTemplate = trim((string) ($rawNfseInput['webdav_path_template'] ?? ''));
 
-        foreach ($keys as $key) {
-            if (!array_key_exists($key, $rawNfseInput)) {
-                continue;
-            }
-
-            $value = trim((string) $rawNfseInput[$key]);
-
-            if ($key === 'webdav_path_template' && $value === '') {
-                $value = 'nfse/{cnpj}/{year}/{month}';
-            }
-
-            setting(['nfse.' . $key => $value]);
+        if ($webDavPathTemplate === '') {
+            $webDavPathTemplate = 'nfse/{cnpj}/{year}/{month}';
         }
+
+        if ($webDavEnabled) {
+            if ($webDavUrl === '') {
+                return redirect()->route('nfse.settings.edit', ['tab' => 'artifacts'])
+                    ->withInput()
+                    ->with('error', trans('nfse::general.settings.artifacts.connection_failed', ['message' => 'WebDAV URL is required when integration is enabled.']));
+            }
+
+            try {
+                $this->assertWebDavConnection($webDavUrl, $webDavUsername, $webDavPassword);
+            } catch (Throwable $throwable) {
+                return redirect()->route('nfse.settings.edit', ['tab' => 'artifacts'])
+                    ->withInput()
+                    ->with('error', trans('nfse::general.settings.artifacts.connection_failed', ['message' => $throwable->getMessage()]));
+            }
+        }
+
+        setting(['nfse.webdav_enabled' => $webDavEnabled ? '1' : '0']);
+        setting(['nfse.webdav_url' => $webDavUrl]);
+        setting(['nfse.webdav_username' => $webDavUsername]);
+        setting(['nfse.webdav_password' => $webDavPassword]);
+        setting(['nfse.webdav_path_template' => $webDavPathTemplate]);
 
         setting()->save();
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'artifacts'])
             ->with('success', trans('nfse::general.saved'));
+    }
+
+    protected function assertWebDavConnection(string $url, string $username, string $password): void
+    {
+        $this->makeWebDavClient($url, $username, $password)->exists('');
+    }
+
+    protected function makeWebDavClient(string $url, string $username, string $password): WebDavClient
+    {
+        return new WebDavClient(
+            baseUrl: $url,
+            username: $username,
+            password: $password,
+        );
     }
 
     public function updateItemServices(Request $request): RedirectResponse
