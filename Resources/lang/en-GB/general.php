@@ -293,7 +293,15 @@ return [
             'webdav_username' => 'WebDAV username',
             'webdav_password' => 'WebDAV password',
             'webdav_path_template' => 'Path template',
-            'webdav_path_template_hint' => 'Use placeholders like {cnpj}, {year}, {month}, {month_name}, {nfse_number} and {customer_name}. Example: nfse/{cnpj}/{year}/{month_name}/{nfse_number}/{customer_name}',
+            'webdav_path_template_hint' => 'Available placeholders:',
+            'placeholders' => [
+                '{cnpj}'          => 'Service provider CNPJ',
+                '{year}'          => 'Emission year (e.g. 2026)',
+                '{month}'         => 'Month number zero-padded (e.g. 03)',
+                '{month_name}'    => 'Month name in Portuguese (e.g. março)',
+                '{nfse_number}'   => 'NFS-e number',
+                '{customer_name}' => 'Customer name (taker)',
+            ],
         ],
     ],
 ];
