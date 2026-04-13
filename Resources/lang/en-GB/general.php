@@ -285,5 +285,15 @@ return [
             'item_mapping_not_supported' => 'Item-service mapping is not supported in this environment.',
             'item_tax_scope_notice' => 'Native Akaunting item taxes remain available for internal document use. NFS-e fiscal taxation is defined in tab 5. Taxation.',
         ],
+        'artifacts' => [
+            'tab_title' => '6. Artifacts',
+            'heading' => 'Artifact storage',
+            'helper' => 'Configure the WebDAV destination used to store XML and DANFSE after NFS-e issuance.',
+            'webdav_url' => 'WebDAV base URL',
+            'webdav_username' => 'WebDAV username',
+            'webdav_password' => 'WebDAV password',
+            'webdav_path_template' => 'Path template',
+            'webdav_path_template_hint' => 'Use placeholders like {cnpj}, {year} and {month}. Example: nfse/{cnpj}/{year}/{month}',
+        ],
     ],
 ];
