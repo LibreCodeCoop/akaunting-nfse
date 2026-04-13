@@ -2311,7 +2311,9 @@ class InvoiceController extends Controller
 
     protected function webDavEnabled(): bool
     {
-        return trim((string) setting('nfse.webdav_url', '')) !== '';
+        $enabled = filter_var(setting('nfse.webdav_enabled', '0'), FILTER_VALIDATE_BOOLEAN);
+
+        return $enabled && trim((string) setting('nfse.webdav_url', '')) !== '';
     }
 
     protected function makeWebDavClientFromSettings(): WebDavClient
