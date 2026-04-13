@@ -19,16 +19,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </x-slot>
 
                     <x-slot name="body">
-                        <div class="relative sm:col-span-6">
-                            <label class="block text-sm font-medium mb-1">
+                        <div class="relative sm:col-span-6 required">
+                            <label for="item_lista_servico" class="block text-sm font-medium mb-1">
                                 {{ trans('nfse::general.settings.services.lc116_code') }}
+                                <span class="text-red-500 ml-0.5">*</span>
                             </label>
-                            <div class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                                {{ $service->display_name }}
-                            </div>
+                            <input
+                                type="text"
+                                name="item_lista_servico"
+                                id="item_lista_servico"
+                                inputmode="numeric"
+                                pattern="[0-9]{1,10}"
+                                maxlength="10"
+                                placeholder="Ex: 0107"
+                                value="{{ old('item_lista_servico', $service->item_lista_servico) }}"
+                                required
+                                class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                            >
+                            @error('item_lista_servico')
+                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
-
-                        <input id="item_lista_servico" name="item_lista_servico" type="hidden" value="{{ old('item_lista_servico', $service->item_lista_servico) }}">
 
                         <div class="relative sm:col-span-6">
                             <label for="item_ids_select" class="block text-sm font-medium mb-1">
