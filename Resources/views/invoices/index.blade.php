@@ -183,7 +183,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </td>
                                 <td class="px-4 py-3">
                                     <p class="font-medium text-gray-800">{{ $invoice->contact?->name ?? '—' }}</p>
-                                    <a href="{{ route('nfse.invoices.show', $invoice) }}" class="mt-1 block">
+                                    <a href="{{ route('invoices.show', $invoice) }}" class="mt-1 block">
                                         <span class="border-black border-b border-dashed">
                                             {{ $invoice->number ?? $invoice->document_number ?? ('#' . $invoice->id) }}
                                         </span>
@@ -275,7 +275,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </td>
                                 <td class="px-4 py-3">
                                     <p class="font-medium text-gray-800">{{ $receipt->invoice?->contact?->name ?? '—' }}</p>
-                                    <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" class="mt-1 block">
+                                    <a href="{{ route('invoices.show', $receipt->invoice_id) }}" class="mt-1 block">
                                         <span class="border-black border-b border-dashed">
                                             {{ $receipt->invoice?->number ?? $receipt->invoice?->document_number ?? ('#' . $receipt->invoice_id) }}
                                         </span>
@@ -449,6 +449,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         </div>
 
+        @push('body_end')
         <script>
             (() => {
                 const cookieFilters = @json($searchStringCookieFilters ?? []);
@@ -758,10 +759,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     document.body.classList.remove('overflow-hidden');
                 };
 
-                document.querySelectorAll('[data-cancel-trigger="true"]').forEach((button) => {
-                    button.addEventListener('click', () => {
-                        openModal(button.getAttribute('data-cancel-action'));
-                    });
+                document.addEventListener('click', (event) => {
+                    const target = event.target instanceof Element ? event.target : null;
+                    const trigger = target ? target.closest('[data-cancel-trigger="true"]') : null;
+
+                    if (!trigger) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    openModal(trigger.getAttribute('data-cancel-action'));
                 });
 
                 modal.querySelectorAll('[data-cancel-close="true"]').forEach((button) => {
@@ -783,6 +790,124 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 }
             })();
         </script>
+        <script>
+            (() => {
+                const initCancelModal = () => {
+                    const modal = document.getElementById('nfse-cancel-modal');
+                    const form = document.getElementById('nfse-cancel-form');
+                    const reasonSelect = document.getElementById('cancel_reason');
+                    const justificationInput = document.getElementById('cancel_justification');
+                    const submitButton = document.getElementById('cancel-submit-button');
+                    const submitSpinner = document.getElementById('cancel-submit-spinner');
+                    const submitLabel = document.getElementById('cancel-submit-label');
+                    const actionInput = document.getElementById('cancel_invoice_action');
+                    const submitDefaultLabel = @json((string) trans('nfse::general.invoices.cancel_modal_submit'));
+                    const submitLoadingLabel = @json((string) trans('nfse::general.invoices.cancel_modal_submitting'));
+
+                    if (!modal || !form || !reasonSelect || !justificationInput || !submitButton || !submitSpinner || !submitLabel || !actionInput) {
+                        return;
+                    }
+
+                    if (modal.dataset.cancelBound === '1') {
+                        return;
+                    }
+
+                    modal.dataset.cancelBound = '1';
+
+                    let isSubmitting = false;
+
+                    const updateSubmitState = () => {
+                        if (isSubmitting) {
+                            return;
+                        }
+
+                        const enabled = reasonSelect.value.trim() !== '' && justificationInput.value.trim() !== '';
+                        submitButton.disabled = !enabled;
+                        submitButton.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+
+                        if (enabled) {
+                            submitButton.classList.remove('bg-gray-300', 'bg-gray-400', 'text-gray-500', 'cursor-not-allowed', 'opacity-70');
+                            submitButton.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700', 'cursor-pointer', 'opacity-100');
+                        } else {
+                            submitButton.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700', 'cursor-pointer', 'opacity-100');
+                            submitButton.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed', 'opacity-70');
+                        }
+                    };
+
+                    const openModal = (actionUrl) => {
+                        if (!actionUrl) {
+                            return;
+                        }
+
+                        form.action = actionUrl;
+                        actionInput.value = actionUrl;
+                        modal.classList.remove('hidden');
+                        modal.setAttribute('aria-hidden', 'false');
+                        document.body.classList.add('overflow-hidden');
+                        updateSubmitState();
+                        reasonSelect.focus();
+                    };
+
+                    const closeModal = () => {
+                        if (isSubmitting) {
+                            return;
+                        }
+
+                        modal.classList.add('hidden');
+                        modal.setAttribute('aria-hidden', 'true');
+                        document.body.classList.remove('overflow-hidden');
+                    };
+
+                    document.addEventListener('click', (event) => {
+                        const target = event.target instanceof Element ? event.target : null;
+
+                        const trigger = target ? target.closest('[data-cancel-trigger="true"]') : null;
+                        if (trigger) {
+                            event.preventDefault();
+                            openModal(trigger.getAttribute('data-cancel-action'));
+                            return;
+                        }
+
+                        const closeTrigger = target ? target.closest('[data-cancel-close="true"]') : null;
+                        if (closeTrigger) {
+                            event.preventDefault();
+                            closeModal();
+                        }
+                    });
+
+                    reasonSelect.addEventListener('change', updateSubmitState);
+                    justificationInput.addEventListener('input', updateSubmitState);
+                    form.addEventListener('submit', () => {
+                        if (isSubmitting) {
+                            return;
+                        }
+
+                        isSubmitting = true;
+                        submitButton.disabled = true;
+                        submitButton.setAttribute('aria-disabled', 'true');
+                        submitButton.setAttribute('aria-busy', 'true');
+                        submitButton.classList.remove('bg-red-600', 'hover:bg-red-700', 'cursor-pointer', 'opacity-100');
+                        submitButton.classList.add('bg-gray-400', 'text-white', 'cursor-not-allowed', 'opacity-100');
+                        submitSpinner.classList.remove('hidden');
+                        submitLabel.textContent = submitLoadingLabel;
+                    });
+
+                    submitLabel.textContent = submitDefaultLabel;
+                    updateSubmitState();
+
+                    if (modal.getAttribute('data-old-action')) {
+                        openModal(modal.getAttribute('data-old-action'));
+                    }
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initCancelModal, { once: true });
+                } else {
+                    initCancelModal();
+                }
+            })();
+        </script>
+        @endpush
     </x-slot>
 
     <x-script folder="common" file="documents" />
