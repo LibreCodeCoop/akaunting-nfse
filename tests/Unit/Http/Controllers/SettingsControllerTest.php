@@ -1383,9 +1383,16 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             ControllerIsolationState::reset();
 
+            $controller = new class () extends SettingsController {
+                protected function assertWebDavConnection(string $url, string $username, string $password): void
+                {
+                }
+            };
+
             $request = new Request(
                 inputs: [
                     'nfse' => [
+                        'webdav_enabled' => '1',
                         'webdav_url' => 'https://webdav.example.com/storage',
                         'webdav_username' => 'nfse-user',
                         'webdav_password' => 'secret-pass',
@@ -1394,17 +1401,84 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new SettingsController())->updateArtifacts($request);
+            $response = $controller->updateArtifacts($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.settings.edit', $response->route);
             self::assertSame(['tab' => 'artifacts'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.saved', $response->flash['success'] ?? null);
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.webdav_enabled'] ?? null);
             self::assertSame('https://webdav.example.com/storage', ControllerIsolationState::$settings['nfse.webdav_url'] ?? null);
             self::assertSame('nfse-user', ControllerIsolationState::$settings['nfse.webdav_username'] ?? null);
             self::assertSame('secret-pass', ControllerIsolationState::$settings['nfse.webdav_password'] ?? null);
             self::assertSame('nfse/{cnpj}/{year}/{month}', ControllerIsolationState::$settings['nfse.webdav_path_template'] ?? null);
+        }
+
+        public function testUpdateArtifactsDoesNotSaveWhenEnabledAndWebDavConnectionFails(): void
+        {
+            ControllerIsolationState::reset();
+
+            $controller = new class () extends SettingsController {
+                protected function assertWebDavConnection(string $url, string $username, string $password): void
+                {
+                    throw new \RuntimeException('WebDAV unavailable');
+                }
+            };
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'webdav_enabled' => '1',
+                        'webdav_url' => 'https://webdav.example.com/storage',
+                        'webdav_username' => 'nfse-user',
+                        'webdav_password' => 'secret-pass',
+                        'webdav_path_template' => 'nfse/{cnpj}/{year}/{month}',
+                    ],
+                ],
+            );
+
+            $response = $controller->updateArtifacts($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'artifacts'], $response->parameters[0] ?? null);
+            self::assertSame('nfse::general.settings.artifacts.connection_failed', $response->flash['error'] ?? null);
+            self::assertArrayNotHasKey('nfse.webdav_url', ControllerIsolationState::$settings);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+        }
+
+        public function testUpdateArtifactsAllowsDisablingWithoutWebDavConnectionTest(): void
+        {
+            ControllerIsolationState::reset();
+
+            $controller = new class () extends SettingsController {
+                public bool $connectionCheckCalled = false;
+
+                protected function assertWebDavConnection(string $url, string $username, string $password): void
+                {
+                    $this->connectionCheckCalled = true;
+                }
+            };
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'webdav_enabled' => '0',
+                        'webdav_url' => 'https://webdav.example.com/storage',
+                        'webdav_username' => 'nfse-user',
+                        'webdav_password' => 'secret-pass',
+                    ],
+                ],
+            );
+
+            $response = $controller->updateArtifacts($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('nfse::general.saved', $response->flash['success'] ?? null);
+            self::assertFalse($controller->connectionCheckCalled);
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.webdav_enabled'] ?? null);
         }
 
         // ── edit() tab resolution ───────────────────────────────────────────
