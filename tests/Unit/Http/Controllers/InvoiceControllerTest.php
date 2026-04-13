@@ -112,6 +112,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
+            self::assertStringContainsString("setting('nfse.webdav_enabled', '0')", $content);
             self::assertStringContainsString("'nfse.webdav_path_template'", $content);
             self::assertStringContainsString("'{month_name}'", $content);
             self::assertStringContainsString("'{nfse_number}'", $content);
