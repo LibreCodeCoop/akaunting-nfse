@@ -300,7 +300,6 @@ class SettingsController extends Controller
     public function updateArtifacts(Request $request): RedirectResponse
     {
         $request->validate([
-            'nfse.webdav_enabled' => 'nullable|boolean',
             'nfse.webdav_url' => 'nullable|url',
             'nfse.webdav_username' => 'nullable|string',
             'nfse.webdav_password' => 'nullable|string',
@@ -310,7 +309,6 @@ class SettingsController extends Controller
         $rawNfseInput = $request->input('nfse', []);
         $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
 
-        $webDavEnabled = filter_var($rawNfseInput['webdav_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $webDavUrl = trim((string) ($rawNfseInput['webdav_url'] ?? ''));
         $webDavUsername = trim((string) ($rawNfseInput['webdav_username'] ?? ''));
         $webDavPassword = trim((string) ($rawNfseInput['webdav_password'] ?? ''));
@@ -320,13 +318,7 @@ class SettingsController extends Controller
             $webDavPathTemplate = 'nfse/{cnpj}/{year}/{month}';
         }
 
-        if ($webDavEnabled) {
-            if ($webDavUrl === '') {
-                return redirect()->route('nfse.settings.edit', ['tab' => 'artifacts'])
-                    ->withInput()
-                    ->with('error', trans('nfse::general.settings.artifacts.connection_failed', ['message' => 'WebDAV URL is required when integration is enabled.']));
-            }
-
+        if ($webDavUrl !== '') {
             try {
                 $this->assertWebDavConnection($webDavUrl, $webDavUsername, $webDavPassword);
             } catch (Throwable $throwable) {
@@ -336,7 +328,6 @@ class SettingsController extends Controller
             }
         }
 
-        setting(['nfse.webdav_enabled' => $webDavEnabled ? '1' : '0']);
         setting(['nfse.webdav_url' => $webDavUrl]);
         setting(['nfse.webdav_username' => $webDavUsername]);
         setting(['nfse.webdav_password' => $webDavPassword]);
@@ -350,7 +341,11 @@ class SettingsController extends Controller
 
     protected function assertWebDavConnection(string $url, string $username, string $password): void
     {
-        $this->makeWebDavClient($url, $username, $password)->exists('');
+        $client = $this->makeWebDavClient($url, $username, $password);
+
+        // Non-mutating probes: authenticate against the base endpoint and verify random path access.
+        $client->exists('');
+        $client->exists('.nfse-connection-probe-' . bin2hex(random_bytes(6)));
     }
 
     protected function makeWebDavClient(string $url, string $username, string $password): WebDavClient
