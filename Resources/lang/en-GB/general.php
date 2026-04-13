@@ -290,6 +290,8 @@ return [
             'heading' => 'Artifact storage',
             'helper' => 'Configure the WebDAV destination used to store XML and DANFSE after NFS-e issuance.',
             'connection_validation_help' => 'On save, configuration is persisted only if backend authentication and non-writing access probes succeed against WebDAV.',
+            'webdav_configured' => 'WebDAV configuration validated and saved successfully.',
+            'webdav_disabled' => 'WebDAV storage disabled. Fill in the URL to enable it.',
             'webdav_url' => 'WebDAV base URL',
             'webdav_username' => 'WebDAV username',
             'webdav_password' => 'WebDAV password',
