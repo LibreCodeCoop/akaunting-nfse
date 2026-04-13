@@ -28,6 +28,7 @@ use Modules\Nfse\Models\CompanyService;
 use Modules\Nfse\Models\ItemServiceMapping;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\VaultConfig;
+use Modules\Nfse\Support\WebDavClient;
 
 class InvoiceController extends Controller
 {
@@ -263,7 +264,8 @@ class InvoiceController extends Controller
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         }
 
-        $this->storeEmittedReceipt($invoice, $receipt);
+        $persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);
+        $this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);
 
         $taxPolicyMessage = $this->canonicalTaxPolicyMessage($invoice);
 
@@ -436,6 +438,8 @@ class InvoiceController extends Controller
                 'status' => 'emitted',
             ]);
 
+            $this->storeArtifacts($invoice, $updatedReceipt, $receipt, $client);
+
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('success', trans('nfse::general.nfse_refreshed', ['number' => $updatedReceipt->nfseNumber]));
         } catch (\Throwable) {
@@ -594,7 +598,8 @@ class InvoiceController extends Controller
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         }
 
-        $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
+        $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
+        $this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);
 
         return redirect()->route('nfse.invoices.show', $invoice)
             ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $newReceipt->nfseNumber]));
@@ -2238,7 +2243,7 @@ class InvoiceController extends Controller
         return dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . ltrim($relativePath, DIRECTORY_SEPARATOR);
     }
 
-    protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt, ?NfseReceipt $existingReceipt = null): void
+    protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt, ?NfseReceipt $existingReceipt = null): NfseReceipt
     {
         if ($existingReceipt instanceof NfseReceipt) {
             $existingReceipt->update([
@@ -2250,7 +2255,7 @@ class InvoiceController extends Controller
             ]);
         }
 
-        NfseReceipt::updateOrCreate(
+        return NfseReceipt::updateOrCreate(
             ['invoice_id' => $invoice->id],
             [
                 'nfse_number' => $receipt->nfseNumber,
@@ -2260,6 +2265,85 @@ class InvoiceController extends Controller
                 'status' => 'emitted',
             ]
         );
+    }
+
+    protected function storeArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
+    {
+        if (!$this->webDavEnabled() || $receipt->chaveAcesso === '') {
+            return;
+        }
+
+        try {
+            $webDavClient = $this->makeWebDavClientFromSettings();
+            $basePath = $this->buildWebDavArtifactBasePath($receipt->dataEmissao);
+            $xmlPath = null;
+            $danfsePath = null;
+
+            if ($receipt->rawXml !== null && trim($receipt->rawXml) !== '') {
+                $xmlPath = $basePath . '/' . $receipt->chaveAcesso . '.xml';
+                $webDavClient->put($xmlPath, $receipt->rawXml);
+            }
+
+            $danfseGetter = [$client, 'getDanfse'];
+            if (is_callable($danfseGetter)) {
+                $danfse = $danfseGetter($receipt->chaveAcesso);
+
+                if (is_string($danfse) && $danfse !== '') {
+                    $danfsePath = $basePath . '/' . $receipt->chaveAcesso . '.pdf';
+                    $webDavClient->put($danfsePath, $danfse);
+                }
+            }
+
+            if ($xmlPath !== null || $danfsePath !== null) {
+                $nfseReceipt->update([
+                    'xml_webdav_path' => $xmlPath,
+                    'danfse_webdav_path' => $danfsePath,
+                ]);
+            }
+        } catch (\Throwable $throwable) {
+            $this->safeLogError('NFS-e artifact storage failed', [
+                'invoice_id' => $invoice->id,
+                'chave_acesso' => $receipt->chaveAcesso,
+                'message' => $throwable->getMessage(),
+            ]);
+        }
+    }
+
+    protected function webDavEnabled(): bool
+    {
+        return trim((string) setting('nfse.webdav_url', '')) !== '';
+    }
+
+    protected function makeWebDavClientFromSettings(): WebDavClient
+    {
+        return new WebDavClient(
+            baseUrl: (string) setting('nfse.webdav_url', ''),
+            username: (string) setting('nfse.webdav_username', ''),
+            password: (string) setting('nfse.webdav_password', ''),
+        );
+    }
+
+    protected function buildWebDavArtifactBasePath(string $dataEmissao): string
+    {
+        $template = trim((string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}'));
+        if ($template === '') {
+            $template = 'nfse/{cnpj}/{year}/{month}';
+        }
+
+        $date = null;
+        try {
+            $date = new \DateTimeImmutable($dataEmissao);
+        } catch (\Throwable) {
+            $date = new \DateTimeImmutable('now');
+        }
+
+        $replacements = [
+            '{cnpj}' => (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
+            '{year}' => $date->format('Y'),
+            '{month}' => $date->format('m'),
+        ];
+
+        return trim(strtr($template, $replacements), '/');
     }
 
     protected function findReceiptForInvoice(Invoice $invoice): NfseReceipt
