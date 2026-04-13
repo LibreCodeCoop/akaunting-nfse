@@ -98,6 +98,56 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
+        public function testControllerStoresArtifactsAfterPersistingReceipt(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);', $content);
+            self::assertStringContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
+            self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);', $content);
+            self::assertStringContainsString('$this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);', $content);
+        }
+
+        public function testControllerBuildsWebDavArtifactPathsWithXmlAndDanfseFiles(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("setting('nfse.webdav_url', '')", $content);
+            self::assertStringContainsString("'nfse.webdav_path_template'", $content);
+            self::assertStringContainsString("'{month_name}'", $content);
+            self::assertStringContainsString("'{nfse_number}'", $content);
+            self::assertStringContainsString("'{customer_name}'", $content);
+            self::assertStringContainsString("\$receipt->chaveAcesso . '.xml'", $content);
+            self::assertStringContainsString("\$receipt->chaveAcesso . '.pdf'", $content);
+            self::assertStringContainsString("'xml_webdav_path'", $content);
+            self::assertStringContainsString("'danfse_webdav_path'", $content);
+        }
+
+        public function testBuildWebDavArtifactBasePathResolvesExtendedPlaceholders(): void
+        {
+            ControllerIsolationState::$settings['nfse.webdav_path_template'] = 'nfse/{month_name}/{nfse_number}/{customer_name}';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 901,
+                amount: 100.0,
+                items: [['name' => 'Servico']],
+                contactName: 'Cliente Exemplo LTDA',
+            );
+
+            $receipt = new ReceiptData('NF-2026/000123', 'CHAVE-901', '2026-03-21T10:00:00-03:00');
+
+            $controller = new class () extends InvoiceController {
+                public function resolveArtifactPath(Invoice $invoice, ReceiptData $receipt): string
+                {
+                    return $this->buildWebDavArtifactBasePath($invoice, $receipt);
+                }
+            };
+
+            $resolved = $controller->resolveArtifactPath($invoice, $receipt);
+
+            self::assertSame('nfse/marco/nf-2026-000123/cliente-exemplo-ltda', $resolved);
+        }
+
         protected function setUp(): void
         {
             parent::setUp();

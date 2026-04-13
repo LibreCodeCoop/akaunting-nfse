@@ -29,4 +29,14 @@ final class NfseReceiptsForeignKeyMigrationTest extends TestCase
         self::assertStringContainsString("->on('invoices')", $content);
         self::assertStringContainsString('information_schema.KEY_COLUMN_USAGE', $content);
     }
+
+    public function testArtifactPathsMigrationAddsXmlAndDanfseColumns(): void
+    {
+        $content = file_get_contents(__DIR__ . '/../../../../Database/Migrations/2026_04_13_000001_add_artifact_paths_to_nfse_receipts_table.php');
+
+        self::assertIsString($content);
+        self::assertStringContainsString("\$table->string('xml_webdav_path')->nullable();", $content);
+        self::assertStringContainsString("\$table->string('danfse_webdav_path')->nullable();", $content);
+        self::assertStringContainsString("\$table->dropColumn(['xml_webdav_path', 'danfse_webdav_path']);", $content);
+    }
 }

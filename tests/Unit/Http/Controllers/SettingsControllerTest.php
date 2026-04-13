@@ -1379,6 +1379,107 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::general.vault_required_before_certificate_and_settings', $response->flash['error'] ?? null);
         }
 
+        public function testUpdateArtifactsSavesWebDavSettingsAndRedirectsToArtifactsTab(): void
+        {
+            ControllerIsolationState::reset();
+
+            $controller = new class () extends SettingsController {
+                protected function assertWebDavConnection(string $url, string $username, string $password): void
+                {
+                }
+            };
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'webdav_url' => 'https://webdav.example.com/storage',
+                        'webdav_username' => 'nfse-user',
+                        'webdav_password' => 'secret-pass',
+                        'webdav_path_template' => 'nfse/{cnpj}/{year}/{month}',
+                    ],
+                ],
+            );
+
+            $response = $controller->updateArtifacts($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'artifacts'], $response->parameters[0] ?? null);
+            self::assertSame('nfse::general.settings.artifacts.webdav_configured', $response->flash['success'] ?? null);
+            self::assertSame('https://webdav.example.com/storage', ControllerIsolationState::$settings['nfse.webdav_url'] ?? null);
+            self::assertSame('nfse-user', ControllerIsolationState::$settings['nfse.webdav_username'] ?? null);
+            self::assertSame('secret-pass', ControllerIsolationState::$settings['nfse.webdav_password'] ?? null);
+            self::assertSame('nfse/{cnpj}/{year}/{month}', ControllerIsolationState::$settings['nfse.webdav_path_template'] ?? null);
+        }
+
+        public function testUpdateArtifactsDoesNotSaveWhenWebDavConnectionFails(): void
+        {
+            ControllerIsolationState::reset();
+
+            $controller = new class () extends SettingsController {
+                protected function assertWebDavConnection(string $url, string $username, string $password): void
+                {
+                    throw new \RuntimeException('WebDAV unavailable');
+                }
+            };
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'webdav_url' => 'https://webdav.example.com/storage',
+                        'webdav_username' => 'nfse-user',
+                        'webdav_password' => 'secret-pass',
+                        'webdav_path_template' => 'nfse/{cnpj}/{year}/{month}',
+                    ],
+                ],
+            );
+
+            $response = $controller->updateArtifacts($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'artifacts'], $response->parameters[0] ?? null);
+            self::assertSame('nfse::general.settings.artifacts.connection_failed', $response->flash['error'] ?? null);
+            self::assertArrayNotHasKey('nfse.webdav_url', ControllerIsolationState::$settings);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+        }
+
+        public function testUpdateArtifactsAllowsClearingWebDavConfigurationWithoutConnectionTest(): void
+        {
+            ControllerIsolationState::reset();
+
+            $controller = new class () extends SettingsController {
+                public bool $connectionCheckCalled = false;
+
+                protected function assertWebDavConnection(string $url, string $username, string $password): void
+                {
+                    $this->connectionCheckCalled = true;
+                }
+            };
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'webdav_url' => '',
+                        'webdav_username' => '',
+                        'webdav_password' => '',
+                    ],
+                ],
+            );
+
+            $response = $controller->updateArtifacts($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('nfse::general.settings.artifacts.webdav_disabled', $response->flash['info'] ?? null);
+            self::assertNull($response->flash['success'] ?? null);
+            self::assertFalse($controller->connectionCheckCalled);
+            self::assertSame('', ControllerIsolationState::$settings['nfse.webdav_url'] ?? null);
+            self::assertSame('', ControllerIsolationState::$settings['nfse.webdav_username'] ?? null);
+            self::assertSame('', ControllerIsolationState::$settings['nfse.webdav_password'] ?? null);
+        }
+
         // ── edit() tab resolution ───────────────────────────────────────────
 
         public function testEditDefaultsToVaultTabWhenNoRequestProvided(): void
@@ -1439,6 +1540,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = (new SettingsController())->edit($request);
 
             self::assertSame('federal', $response->data['activeTab'] ?? null);
+        }
+
+        public function testEditAcceptsArtifactsTabFromRequestQueryParameter(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr' => 'http://openbao:8200',
+                'nfse.bao_mount' => '/nfse',
+                'nfse.bao_token' => 'token',
+                'nfse.cnpj_prestador' => '12345678000190',
+            ];
+
+            $request = new Request(inputs: ['tab' => 'artifacts']);
+
+            $response = (new SettingsController())->edit($request);
+
+            self::assertSame('artifacts', $response->data['activeTab'] ?? null);
         }
 
         public function testEditFallsBackToVaultTabWhenTabValueIsInvalid(): void
