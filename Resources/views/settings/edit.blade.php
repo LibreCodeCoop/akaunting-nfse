@@ -32,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     'fiscal'      => ['label' => trans('nfse::general.step_settings'),                'enabled' => $hasSavedSettings],
                     'services'    => ['label' => trans('nfse::general.settings.services.tab_title'), 'enabled' => $hasSavedSettings],
                     'federal'     => ['label' => trans('nfse::general.settings.federal.tab_title'),  'enabled' => $hasSavedSettings],
+                    'artifacts'   => ['label' => trans('nfse::general.settings.artifacts.tab_title'),'enabled' => $hasSavedSettings],
                 ];
 
             @endphp
@@ -572,6 +573,52 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </div>
                 @else
                     @include('nfse::settings.partials.services')
+                @endif
+            </div>
+
+            {{-- ── Panel 6: Artifact Storage ────────────────────────────── --}}
+            <div id="tab-panel-artifacts" class="tab-panel @if($activeTab !== 'artifacts') hidden @endif">
+
+                @if(!$hasSavedSettings)
+                    <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
+                        {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
+                    </div>
+                @else
+                    <form method="POST" action="{{ route('nfse.settings.artifacts') }}" class="space-y-4">
+                        @csrf
+                        @method('PATCH')
+
+                        <h3 class="text-base font-semibold text-gray-900">{{ trans('nfse::general.settings.artifacts.heading') }}</h3>
+                        <p class="text-sm text-gray-600">{{ trans('nfse::general.settings.artifacts.helper') }}</p>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="webdav_url">{{ trans('nfse::general.settings.artifacts.webdav_url') }}</label>
+                            <input id="webdav_url" name="nfse[webdav_url]" type="url" class="w-full border rounded px-3 py-2" value="{{ old('nfse.webdav_url', setting('nfse.webdav_url', '')) }}" placeholder="https://storage.example.com/dav">
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="webdav_username">{{ trans('nfse::general.settings.artifacts.webdav_username') }}</label>
+                                <input id="webdav_username" name="nfse[webdav_username]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.webdav_username', setting('nfse.webdav_username', '')) }}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="webdav_password">{{ trans('nfse::general.settings.artifacts.webdav_password') }}</label>
+                                <input id="webdav_password" name="nfse[webdav_password]" type="password" class="w-full border rounded px-3 py-2" autocomplete="new-password" value="{{ old('nfse.webdav_password', setting('nfse.webdav_password', '')) }}">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="webdav_path_template">{{ trans('nfse::general.settings.artifacts.webdav_path_template') }}</label>
+                            <input id="webdav_path_template" name="nfse[webdav_path_template]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.webdav_path_template', setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}')) }}">
+                            <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.artifacts.webdav_path_template_hint') }}</p>
+                        </div>
+
+                        <div class="flex justify-end pt-2">
+                            <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                                {{ trans('general.save') }}
+                            </button>
+                        </div>
+                    </form>
                 @endif
             </div>
 
