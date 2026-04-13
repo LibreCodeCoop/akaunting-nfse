@@ -35,6 +35,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
 
             self::assertStringContainsString('route(\'nfse.invoices.reemit\', $receipt->invoice_id)', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.reemit')", $content);
+            self::assertStringContainsString("@if((\$receipt->status ?? '') !== 'cancelled')", $content);
+            self::assertStringContainsString('route(\'nfse.invoices.refresh\', $receipt->invoice_id)', $content);
         }
 
         public function testInvoicesIndexViewOffersCancelActionForEmittedReceipts(): void
