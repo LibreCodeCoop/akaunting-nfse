@@ -211,13 +211,119 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             data-emit-form="true"
                                             data-preview-url="{{ route('nfse.invoices.service-preview', $invoice) }}"
                                             data-emit-confirm-label="{{ trans('nfse::general.invoices.emit_now') }}"
+                                            onsubmit="
+                                                if (this.dataset.emitConfirmed === '1') {
+                                                    delete this.dataset.emitConfirmed;
+                                                    return true;
+                                                }
+                                                event.preventDefault();
+                                                (async (form) => {
+                                                    const modal = document.getElementById('nfse-emit-modal');
+                                                    const missingItemsContainer = document.getElementById('nfse-emit-missing-items');
+                                                    const missingItemsHint = document.getElementById('nfse-emit-missing-items-hint');
+                                                    const confirmButton = document.getElementById('nfse-emit-confirm-button');
+                                                    const descriptionField = document.getElementById('nfse_emit_description');
+                                                    const confirmInput = form.querySelector('[data-emit-confirm-default]');
+                                                    const assignmentsInput = form.querySelector('[data-emit-assignments]');
+                                                    const descriptionInput = form.querySelector('[data-emit-description-input]');
+                                                    const previewUrl = form.getAttribute('data-preview-url');
+                                                    const confirmLabel = form.getAttribute('data-emit-confirm-label') || '{{ trans('nfse::general.invoices.emit_now') }}';
+
+                                                    if (!modal || !missingItemsContainer || !confirmButton || !descriptionField || !confirmInput || !assignmentsInput || !descriptionInput) {
+                                                        form.dataset.emitConfirmed = '1';
+                                                        form.submit();
+                                                        return;
+                                                    }
+
+                                                    if (!form.id) {
+                                                        form.id = 'nfse-emit-form-' + Math.random().toString(36).slice(2);
+                                                    }
+
+                                                    confirmInput.value = '0';
+                                                    assignmentsInput.value = '';
+                                                    descriptionInput.value = '';
+                                                    missingItemsContainer.innerHTML = '';
+                                                    missingItemsHint?.classList.add('hidden');
+
+                                                    const openModal = (suggestedDescription, missingItems, availableServices, defaultServiceId) => {
+                                                        missingItemsContainer.innerHTML = '';
+                                                        missingItemsHint?.classList.toggle('hidden', missingItems.length === 0);
+
+                                                        missingItems.forEach((item) => {
+                                                            const wrapper = document.createElement('div');
+                                                            wrapper.className = 'grid grid-cols-1 md:grid-cols-3 gap-2 items-center';
+
+                                                            const label = document.createElement('label');
+                                                            label.className = 'text-sm font-medium text-gray-700 md:col-span-1';
+                                                            label.textContent = item.name ?? 'Item';
+
+                                                            const select = document.createElement('select');
+                                                            select.className = 'md:col-span-2 w-full border rounded px-3 py-2 text-sm';
+                                                            select.setAttribute('data-item-id', String(item.id ?? '0'));
+
+                                                            availableServices.forEach((service) => {
+                                                                const option = document.createElement('option');
+                                                                option.value = String(service.id ?? '');
+                                                                option.textContent = String(service.label ?? '');
+                                                                if (String(service.id ?? '') === String(defaultServiceId ?? '')) {
+                                                                    option.selected = true;
+                                                                }
+                                                                select.appendChild(option);
+                                                            });
+
+                                                            wrapper.appendChild(label);
+                                                            wrapper.appendChild(select);
+                                                            missingItemsContainer.appendChild(wrapper);
+                                                        });
+
+                                                        modal.dataset.currentFormId = form.id;
+                                                        confirmButton.textContent = confirmLabel;
+                                                        descriptionField.value = suggestedDescription || '';
+                                                        modal.classList.remove('hidden');
+                                                        modal.setAttribute('aria-hidden', 'false');
+                                                        document.body.classList.add('overflow-hidden');
+                                                    };
+
+                                                    if (!previewUrl) {
+                                                        openModal(descriptionInput.value || '', [], [], 0);
+                                                        return;
+                                                    }
+
+                                                    try {
+                                                        const response = await fetch(previewUrl, { headers: { Accept: 'application/json' } });
+                                                        if (!response.ok) {
+                                                            form.dataset.emitConfirmed = '1';
+                                                            form.submit();
+                                                            return;
+                                                        }
+
+                                                        const payload = await response.json();
+                                                        const missingItems = Array.isArray(payload.missing_items) ? payload.missing_items : [];
+                                                        const availableServices = Array.isArray(payload.available_services) ? payload.available_services : [];
+                                                        const defaultServiceId = payload.default_service_id ?? 0;
+                                                        const suggestedDescription = typeof payload.suggested_description === 'string' ? payload.suggested_description : '';
+
+                                                        if (missingItems.length > 0 && availableServices.length === 0) {
+                                                            form.dataset.emitConfirmed = '1';
+                                                            form.submit();
+                                                            return;
+                                                        }
+
+                                                        openModal(suggestedDescription, missingItems, availableServices, defaultServiceId);
+                                                    } catch {
+                                                        form.dataset.emitConfirmed = '1';
+                                                        form.submit();
+                                                    }
+                                                })(this);
+                                                return false;
+                                            "
                                         >
                                             @csrf
                                             <input type="hidden" name="nfse_confirm_default_service" value="0" data-emit-confirm-default>
                                             <input type="hidden" name="nfse_item_service_assignments" value="" data-emit-assignments>
                                             <input type="hidden" name="nfse_discriminacao_custom" value="" data-emit-description-input>
                                             <button
-                                                type="button"
+                                                type="submit"
                                                 @if(!$isReady) disabled @endif
                                                 title="{{ trans('nfse::general.invoices.emit_now') }}"
                                                 data-emit-trigger="true"
@@ -333,12 +439,118 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 data-emit-form="true"
                                                 data-preview-url="{{ route('nfse.invoices.service-preview', $receipt->invoice_id) }}"
                                                 data-emit-confirm-label="{{ trans('nfse::general.invoices.reemit') }}"
+                                                onsubmit="
+                                                    if (this.dataset.emitConfirmed === '1') {
+                                                        delete this.dataset.emitConfirmed;
+                                                        return true;
+                                                    }
+                                                    event.preventDefault();
+                                                    (async (form) => {
+                                                        const modal = document.getElementById('nfse-emit-modal');
+                                                        const missingItemsContainer = document.getElementById('nfse-emit-missing-items');
+                                                        const missingItemsHint = document.getElementById('nfse-emit-missing-items-hint');
+                                                        const confirmButton = document.getElementById('nfse-emit-confirm-button');
+                                                        const descriptionField = document.getElementById('nfse_emit_description');
+                                                        const confirmInput = form.querySelector('[data-emit-confirm-default]');
+                                                        const assignmentsInput = form.querySelector('[data-emit-assignments]');
+                                                        const descriptionInput = form.querySelector('[data-emit-description-input]');
+                                                        const previewUrl = form.getAttribute('data-preview-url');
+                                                        const confirmLabel = form.getAttribute('data-emit-confirm-label') || '{{ trans('nfse::general.invoices.reemit') }}';
+
+                                                        if (!modal || !missingItemsContainer || !confirmButton || !descriptionField || !confirmInput || !assignmentsInput || !descriptionInput) {
+                                                            form.dataset.emitConfirmed = '1';
+                                                            form.submit();
+                                                            return;
+                                                        }
+
+                                                        if (!form.id) {
+                                                            form.id = 'nfse-emit-form-' + Math.random().toString(36).slice(2);
+                                                        }
+
+                                                        confirmInput.value = '0';
+                                                        assignmentsInput.value = '';
+                                                        descriptionInput.value = '';
+                                                        missingItemsContainer.innerHTML = '';
+                                                        missingItemsHint?.classList.add('hidden');
+
+                                                        const openModal = (suggestedDescription, missingItems, availableServices, defaultServiceId) => {
+                                                            missingItemsContainer.innerHTML = '';
+                                                            missingItemsHint?.classList.toggle('hidden', missingItems.length === 0);
+
+                                                            missingItems.forEach((item) => {
+                                                                const wrapper = document.createElement('div');
+                                                                wrapper.className = 'grid grid-cols-1 md:grid-cols-3 gap-2 items-center';
+
+                                                                const label = document.createElement('label');
+                                                                label.className = 'text-sm font-medium text-gray-700 md:col-span-1';
+                                                                label.textContent = item.name ?? 'Item';
+
+                                                                const select = document.createElement('select');
+                                                                select.className = 'md:col-span-2 w-full border rounded px-3 py-2 text-sm';
+                                                                select.setAttribute('data-item-id', String(item.id ?? '0'));
+
+                                                                availableServices.forEach((service) => {
+                                                                    const option = document.createElement('option');
+                                                                    option.value = String(service.id ?? '');
+                                                                    option.textContent = String(service.label ?? '');
+                                                                    if (String(service.id ?? '') === String(defaultServiceId ?? '')) {
+                                                                        option.selected = true;
+                                                                    }
+                                                                    select.appendChild(option);
+                                                                });
+
+                                                                wrapper.appendChild(label);
+                                                                wrapper.appendChild(select);
+                                                                missingItemsContainer.appendChild(wrapper);
+                                                            });
+
+                                                            modal.dataset.currentFormId = form.id;
+                                                            confirmButton.textContent = confirmLabel;
+                                                            descriptionField.value = suggestedDescription || '';
+                                                            modal.classList.remove('hidden');
+                                                            modal.setAttribute('aria-hidden', 'false');
+                                                            document.body.classList.add('overflow-hidden');
+                                                        };
+
+                                                        if (!previewUrl) {
+                                                            openModal(descriptionInput.value || '', [], [], 0);
+                                                            return;
+                                                        }
+
+                                                        try {
+                                                            const response = await fetch(previewUrl, { headers: { Accept: 'application/json' } });
+                                                            if (!response.ok) {
+                                                                form.dataset.emitConfirmed = '1';
+                                                                form.submit();
+                                                                return;
+                                                            }
+
+                                                            const payload = await response.json();
+                                                            const missingItems = Array.isArray(payload.missing_items) ? payload.missing_items : [];
+                                                            const availableServices = Array.isArray(payload.available_services) ? payload.available_services : [];
+                                                            const defaultServiceId = payload.default_service_id ?? 0;
+                                                            const suggestedDescription = typeof payload.suggested_description === 'string' ? payload.suggested_description : '';
+
+                                                            if (missingItems.length > 0 && availableServices.length === 0) {
+                                                                form.dataset.emitConfirmed = '1';
+                                                                form.submit();
+                                                                return;
+                                                            }
+
+                                                            openModal(suggestedDescription, missingItems, availableServices, defaultServiceId);
+                                                        } catch {
+                                                            form.dataset.emitConfirmed = '1';
+                                                            form.submit();
+                                                        }
+                                                    })(this);
+                                                    return false;
+                                                "
                                             >
                                                 @csrf
                                                 <input type="hidden" name="nfse_confirm_default_service" value="0" data-emit-confirm-default>
                                                 <input type="hidden" name="nfse_item_service_assignments" value="" data-emit-assignments>
                                                 <input type="hidden" name="nfse_discriminacao_custom" value="" data-emit-description-input>
-                                                <button type="button" title="{{ trans('nfse::general.invoices.reemit') }}" data-emit-trigger="true" class="inline-flex h-8 w-8 items-center justify-center rounded border border-green-200 text-green-700 hover:bg-green-50">
+                                                <button type="submit" title="{{ trans('nfse::general.invoices.reemit') }}" data-emit-trigger="true" class="inline-flex h-8 w-8 items-center justify-center rounded border border-green-200 text-green-700 hover:bg-green-50">
                                                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                         <path d="M10 3a7 7 0 00-6.32 4H1l3 3 3-3H4.85A5 5 0 1110 15a1 1 0 100 2 7 7 0 000-14z" />
                                                     </svg>
@@ -368,14 +580,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         <x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />
 
-        <div id="nfse-emit-modal" class="fixed inset-0 z-[100] hidden" aria-hidden="true">
-            <div class="absolute inset-0 bg-slate-500/55 backdrop-blur-[1px] backdrop-brightness-75" data-emit-close="true"></div>
+        <div id="nfse-emit-modal" class="fixed inset-0 z-[100] hidden" aria-hidden="true" data-default-confirm-label="{{ trans('nfse::general.invoices.emit_now') }}">
+            <div class="absolute inset-0 bg-slate-500/55 backdrop-blur-[1px] backdrop-brightness-75" data-emit-close="true" onclick="const modal = document.getElementById('nfse-emit-modal'); const items = document.getElementById('nfse-emit-missing-items'); const hint = document.getElementById('nfse-emit-missing-items-hint'); const description = document.getElementById('nfse_emit_description'); const confirm = document.getElementById('nfse-emit-confirm-button'); if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (items) { items.innerHTML = ''; } if (hint) { hint.classList.add('hidden'); } if (description) { description.value = ''; } if (confirm && modal?.dataset.defaultConfirmLabel) { confirm.textContent = modal.dataset.defaultConfirmLabel; } return false;"></div>
 
             <div class="relative flex min-h-full items-center justify-center overflow-y-auto p-4">
                 <div class="w-full max-w-2xl rounded-lg bg-white shadow-xl">
                     <div class="flex items-center justify-between border-b px-5 py-4">
                         <h3 id="nfse-emit-modal-title" class="text-lg font-semibold text-gray-800">{{ trans('nfse::general.invoices.emit_modal_title') }}</h3>
-                        <button type="button" class="text-gray-500 hover:text-gray-700" data-emit-close="true">{{ trans('nfse::general.invoices.cancel_modal_close') }}</button>
+                        <button type="button" class="text-gray-500 hover:text-gray-700" data-emit-close="true" onclick="const modal = document.getElementById('nfse-emit-modal'); const items = document.getElementById('nfse-emit-missing-items'); const hint = document.getElementById('nfse-emit-missing-items-hint'); const description = document.getElementById('nfse_emit_description'); const confirm = document.getElementById('nfse-emit-confirm-button'); if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (items) { items.innerHTML = ''; } if (hint) { hint.classList.add('hidden'); } if (description) { description.value = ''; } if (confirm && modal?.dataset.defaultConfirmLabel) { confirm.textContent = modal.dataset.defaultConfirmLabel; } return false;">{{ trans('nfse::general.invoices.cancel_modal_close') }}</button>
                     </div>
 
                     <div class="p-5 space-y-4">
@@ -395,10 +607,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </div>
 
                     <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
-                        <button type="button" class="inline-flex items-center px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100" data-emit-close="true">
+                        <button type="button" class="inline-flex items-center px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100" data-emit-close="true" onclick="const modal = document.getElementById('nfse-emit-modal'); const items = document.getElementById('nfse-emit-missing-items'); const hint = document.getElementById('nfse-emit-missing-items-hint'); const description = document.getElementById('nfse_emit_description'); const confirm = document.getElementById('nfse-emit-confirm-button'); if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (items) { items.innerHTML = ''; } if (hint) { hint.classList.add('hidden'); } if (description) { description.value = ''; } if (confirm && modal?.dataset.defaultConfirmLabel) { confirm.textContent = modal.dataset.defaultConfirmLabel; } return false;">
                             {{ trans('general.cancel') }}
                         </button>
-                        <button type="button" id="nfse-emit-confirm-button" class="inline-flex items-center px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">
+                        <button type="button" id="nfse-emit-confirm-button" class="inline-flex items-center px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700" onclick="const modal = document.getElementById('nfse-emit-modal'); const formId = modal?.dataset.currentFormId || ''; const form = formId ? document.getElementById(formId) : null; const descriptionField = document.getElementById('nfse_emit_description'); const itemsContainer = document.getElementById('nfse-emit-missing-items'); const confirmInput = form?.querySelector('[data-emit-confirm-default]'); const assignmentsInput = form?.querySelector('[data-emit-assignments]'); const descriptionInput = form?.querySelector('[data-emit-description-input]'); if (!form || !confirmInput || !assignmentsInput || !descriptionInput) { return false; } const assignments = {}; itemsContainer?.querySelectorAll('select[data-item-id]').forEach((select) => { const itemId = select.getAttribute('data-item-id'); const serviceId = select.value; if (itemId && serviceId) { assignments[itemId] = serviceId; } }); confirmInput.value = '1'; assignmentsInput.value = JSON.stringify(assignments); descriptionInput.value = descriptionField?.value || ''; form.dataset.emitConfirmed = '1'; if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (itemsContainer) { itemsContainer.innerHTML = ''; } document.getElementById('nfse-emit-missing-items-hint')?.classList.add('hidden'); form.submit(); return false;">
                             {{ trans('nfse::general.invoices.emit_now') }}
                         </button>
                     </div>
@@ -474,7 +686,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         </div>
 
-        @push('body_end')
         <script>
             (() => {
                 const cookieFilters = @json($searchStringCookieFilters ?? []);
@@ -982,7 +1193,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 }
             })();
         </script>
-        @endpush
     </x-slot>
 
     <x-script folder="common" file="documents" />
