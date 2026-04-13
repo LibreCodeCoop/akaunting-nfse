@@ -1244,6 +1244,10 @@ class InvoiceController extends Controller
     {
         $query = NfseReceipt::with('invoice.contact');
 
+        if (is_object($query) && is_callable([$query, 'whereHas'])) {
+            $query = $query->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery->where('type', Invoice::INVOICE_TYPE));
+        }
+
         if ($status !== 'all') {
             if (str_contains($status, ',')) {
                 $statuses = array_values(array_filter(array_map(static fn (string $item): string => trim($item), explode(',', $status))));
@@ -1296,25 +1300,57 @@ class InvoiceController extends Controller
     protected function listingOverviewCounts(): array
     {
         try {
-            $totalReceipts = NfseReceipt::count();
+            $totalReceiptsQuery = NfseReceipt::query();
+
+            if (is_object($totalReceiptsQuery) && is_callable([$totalReceiptsQuery, 'whereHas'])) {
+                $totalReceiptsQuery = $totalReceiptsQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery->where('type', Invoice::INVOICE_TYPE));
+            }
+
+            $totalReceipts = (is_object($totalReceiptsQuery) && is_callable([$totalReceiptsQuery, 'count']))
+                ? $totalReceiptsQuery->count()
+                : 0;
         } catch (\Throwable) {
             $totalReceipts = 0;
         }
 
         try {
-            $emitted = NfseReceipt::where('status', 'emitted')->count();
+            $emittedQuery = NfseReceipt::where('status', 'emitted');
+
+            if (is_object($emittedQuery) && is_callable([$emittedQuery, 'whereHas'])) {
+                $emittedQuery = $emittedQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery->where('type', Invoice::INVOICE_TYPE));
+            }
+
+            $emitted = (is_object($emittedQuery) && is_callable([$emittedQuery, 'count']))
+                ? $emittedQuery->count()
+                : 0;
         } catch (\Throwable) {
             $emitted = 0;
         }
 
         try {
-            $processing = NfseReceipt::where('status', 'processing')->count();
+            $processingQuery = NfseReceipt::where('status', 'processing');
+
+            if (is_object($processingQuery) && is_callable([$processingQuery, 'whereHas'])) {
+                $processingQuery = $processingQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery->where('type', Invoice::INVOICE_TYPE));
+            }
+
+            $processing = (is_object($processingQuery) && is_callable([$processingQuery, 'count']))
+                ? $processingQuery->count()
+                : 0;
         } catch (\Throwable) {
             $processing = 0;
         }
 
         try {
-            $cancelled = NfseReceipt::where('status', 'cancelled')->count();
+            $cancelledQuery = NfseReceipt::where('status', 'cancelled');
+
+            if (is_object($cancelledQuery) && is_callable([$cancelledQuery, 'whereHas'])) {
+                $cancelledQuery = $cancelledQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery->where('type', Invoice::INVOICE_TYPE));
+            }
+
+            $cancelled = (is_object($cancelledQuery) && is_callable([$cancelledQuery, 'count']))
+                ? $cancelledQuery->count()
+                : 0;
         } catch (\Throwable) {
             $cancelled = 0;
         }
