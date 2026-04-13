@@ -590,21 +590,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         <h3 class="text-base font-semibold text-gray-900">{{ trans('nfse::general.settings.artifacts.heading') }}</h3>
                         <p class="text-sm text-gray-600">{{ trans('nfse::general.settings.artifacts.helper') }}</p>
-
-                        <div class="rounded border border-gray-200 bg-gray-50 px-3 py-2">
-                            <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-800">
-                                <input
-                                    id="webdav_enabled"
-                                    name="nfse[webdav_enabled]"
-                                    type="checkbox"
-                                    value="1"
-                                    class="rounded border-gray-300"
-                                    @checked((string) old('nfse.webdav_enabled', setting('nfse.webdav_enabled', '0')) === '1')
-                                >
-                                {{ trans('nfse::general.settings.artifacts.webdav_enabled') }}
-                            </label>
-                            <p class="mt-1 text-xs text-gray-600">{{ trans('nfse::general.settings.artifacts.webdav_enabled_help') }}</p>
-                        </div>
+                        <p class="text-xs text-gray-600 rounded border border-blue-200 bg-blue-50 px-3 py-2">
+                            {{ trans('nfse::general.settings.artifacts.connection_validation_help') }}
+                        </p>
 
                         <div>
                             <label class="block text-sm font-medium mb-1" for="webdav_url">{{ trans('nfse::general.settings.artifacts.webdav_url') }}</label>
