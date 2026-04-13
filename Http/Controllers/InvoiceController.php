@@ -414,6 +414,12 @@ class InvoiceController extends Controller
     public function refresh(Invoice $invoice): RedirectResponse
     {
         $receipt = $this->findReceiptForInvoice($invoice);
+
+        if (($receipt->status ?? '') === 'cancelled') {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.refresh_not_allowed_for_cancelled'));
+        }
+
         $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
 
         try {
