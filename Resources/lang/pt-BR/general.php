@@ -108,6 +108,7 @@ return [
         'cancel' => 'Cancelar NFS-e',
         'refresh_status' => 'Atualizar status',
         'refresh_all_statuses' => 'Atualizar status em lote',
+        'refresh_all_statuses_loading' => 'Atualizando...',
         'reemit' => 'Reemitir NFS-e',
         'reemit_confirm' => 'Deseja reemitir esta NFS-e cancelada?',
         'filter_all' => 'Todas',
