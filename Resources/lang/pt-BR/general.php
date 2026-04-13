@@ -290,6 +290,8 @@ return [
             'heading' => 'Armazenamento de artefatos',
             'helper' => 'Configure o destino WebDAV para armazenar XML e DANFSE após a emissão da NFS-e.',
             'connection_validation_help' => 'Ao salvar, o sistema só persiste esta configuração se conseguir autenticar no WebDAV e validar acesso com testes sem escrita.',
+            'webdav_configured' => 'Configuração WebDAV validada e salva com sucesso.',
+            'webdav_disabled' => 'Armazenamento WebDAV desativado. Preencha a URL para ativar.',
             'webdav_url' => 'URL base do WebDAV',
             'webdav_username' => 'Usuário WebDAV',
             'webdav_password' => 'Senha WebDAV',
