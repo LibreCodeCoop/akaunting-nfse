@@ -335,8 +335,12 @@ class SettingsController extends Controller
 
         setting()->save();
 
+        $successKey = $webDavUrl !== ''
+            ? 'nfse::general.settings.artifacts.webdav_configured'
+            : 'nfse::general.settings.artifacts.webdav_disabled';
+
         return redirect()->route('nfse.settings.edit', ['tab' => 'artifacts'])
-            ->with('success', trans('nfse::general.saved'));
+            ->with('success', trans($successKey));
     }
 
     protected function assertWebDavConnection(string $url, string $username, string $password): void
