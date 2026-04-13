@@ -1379,6 +1379,34 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::general.vault_required_before_certificate_and_settings', $response->flash['error'] ?? null);
         }
 
+        public function testUpdateArtifactsSavesWebDavSettingsAndRedirectsToArtifactsTab(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'webdav_url' => 'https://webdav.example.com/storage',
+                        'webdav_username' => 'nfse-user',
+                        'webdav_password' => 'secret-pass',
+                        'webdav_path_template' => 'nfse/{cnpj}/{year}/{month}',
+                    ],
+                ],
+            );
+
+            $response = (new SettingsController())->updateArtifacts($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'artifacts'], $response->parameters[0] ?? null);
+            self::assertSame('nfse::general.saved', $response->flash['success'] ?? null);
+            self::assertSame('https://webdav.example.com/storage', ControllerIsolationState::$settings['nfse.webdav_url'] ?? null);
+            self::assertSame('nfse-user', ControllerIsolationState::$settings['nfse.webdav_username'] ?? null);
+            self::assertSame('secret-pass', ControllerIsolationState::$settings['nfse.webdav_password'] ?? null);
+            self::assertSame('nfse/{cnpj}/{year}/{month}', ControllerIsolationState::$settings['nfse.webdav_path_template'] ?? null);
+        }
+
         // ── edit() tab resolution ───────────────────────────────────────────
 
         public function testEditDefaultsToVaultTabWhenNoRequestProvided(): void
@@ -1439,6 +1467,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = (new SettingsController())->edit($request);
 
             self::assertSame('federal', $response->data['activeTab'] ?? null);
+        }
+
+        public function testEditAcceptsArtifactsTabFromRequestQueryParameter(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr' => 'http://openbao:8200',
+                'nfse.bao_mount' => '/nfse',
+                'nfse.bao_token' => 'token',
+                'nfse.cnpj_prestador' => '12345678000190',
+            ];
+
+            $request = new Request(inputs: ['tab' => 'artifacts']);
+
+            $response = (new SettingsController())->edit($request);
+
+            self::assertSame('artifacts', $response->data['activeTab'] ?? null);
         }
 
         public function testEditFallsBackToVaultTabWhenTabValueIsInvalid(): void
