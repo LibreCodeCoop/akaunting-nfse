@@ -1392,7 +1392,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $request = new Request(
                 inputs: [
                     'nfse' => [
-                        'webdav_enabled' => '1',
                         'webdav_url' => 'https://webdav.example.com/storage',
                         'webdav_username' => 'nfse-user',
                         'webdav_password' => 'secret-pass',
@@ -1408,14 +1407,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.settings.edit', $response->route);
             self::assertSame(['tab' => 'artifacts'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.saved', $response->flash['success'] ?? null);
-            self::assertSame('1', ControllerIsolationState::$settings['nfse.webdav_enabled'] ?? null);
             self::assertSame('https://webdav.example.com/storage', ControllerIsolationState::$settings['nfse.webdav_url'] ?? null);
             self::assertSame('nfse-user', ControllerIsolationState::$settings['nfse.webdav_username'] ?? null);
             self::assertSame('secret-pass', ControllerIsolationState::$settings['nfse.webdav_password'] ?? null);
             self::assertSame('nfse/{cnpj}/{year}/{month}', ControllerIsolationState::$settings['nfse.webdav_path_template'] ?? null);
         }
 
-        public function testUpdateArtifactsDoesNotSaveWhenEnabledAndWebDavConnectionFails(): void
+        public function testUpdateArtifactsDoesNotSaveWhenWebDavConnectionFails(): void
         {
             ControllerIsolationState::reset();
 
@@ -1429,7 +1427,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $request = new Request(
                 inputs: [
                     'nfse' => [
-                        'webdav_enabled' => '1',
                         'webdav_url' => 'https://webdav.example.com/storage',
                         'webdav_username' => 'nfse-user',
                         'webdav_password' => 'secret-pass',
@@ -1449,7 +1446,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(0, ControllerIsolationState::$savedCount);
         }
 
-        public function testUpdateArtifactsAllowsDisablingWithoutWebDavConnectionTest(): void
+        public function testUpdateArtifactsAllowsClearingWebDavConfigurationWithoutConnectionTest(): void
         {
             ControllerIsolationState::reset();
 
@@ -1465,10 +1462,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $request = new Request(
                 inputs: [
                     'nfse' => [
-                        'webdav_enabled' => '0',
-                        'webdav_url' => 'https://webdav.example.com/storage',
-                        'webdav_username' => 'nfse-user',
-                        'webdav_password' => 'secret-pass',
+                        'webdav_url' => '',
+                        'webdav_username' => '',
+                        'webdav_password' => '',
                     ],
                 ],
             );
@@ -1478,7 +1474,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('nfse::general.saved', $response->flash['success'] ?? null);
             self::assertFalse($controller->connectionCheckCalled);
-            self::assertSame('0', ControllerIsolationState::$settings['nfse.webdav_enabled'] ?? null);
+            self::assertSame('', ControllerIsolationState::$settings['nfse.webdav_url'] ?? null);
+            self::assertSame('', ControllerIsolationState::$settings['nfse.webdav_username'] ?? null);
+            self::assertSame('', ControllerIsolationState::$settings['nfse.webdav_password'] ?? null);
         }
 
         // ── edit() tab resolution ───────────────────────────────────────────
