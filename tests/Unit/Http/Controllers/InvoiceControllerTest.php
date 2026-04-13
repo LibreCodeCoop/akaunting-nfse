@@ -247,6 +247,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -360,6 +365,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -420,6 +430,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -495,6 +510,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -552,6 +572,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -615,6 +640,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -722,6 +752,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -773,6 +808,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -910,6 +950,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -1003,6 +1048,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -1108,6 +1158,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -1353,6 +1408,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -1408,6 +1468,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -1487,6 +1552,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -1538,6 +1608,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -1586,6 +1661,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -1642,6 +1722,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -1691,6 +1776,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     ];
 
                     return true;
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
                 }
             };
 
@@ -2388,6 +2478,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -2444,6 +2539,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -2492,6 +2592,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -2552,6 +2657,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client, [$receiptA, $receiptB]) extends InvoiceController {
@@ -2608,6 +2718,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -2674,6 +2789,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -2764,6 +2884,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -2825,6 +2950,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -2872,6 +3002,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -2927,6 +3062,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         ['mensagem' => 'NFS-e não pode ser cancelada'],
                     );
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -2979,6 +3119,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         405,
                         ['message' => 'The requested resource does not support http method DELETE.'],
                     );
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
                 }
             };
 
@@ -3035,6 +3180,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         405,
                         ['unexpected' => 'shape'],
                     );
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
                 }
             };
 
@@ -3097,6 +3247,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                             ],
                         ],
                     );
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
                 }
             };
 
@@ -3161,6 +3316,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         ],
                     );
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -3224,6 +3384,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         ],
                     );
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -3281,6 +3446,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -3329,6 +3499,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -3382,6 +3557,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
@@ -3430,6 +3610,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
 
                 public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
