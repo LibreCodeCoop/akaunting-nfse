@@ -108,6 +108,7 @@ return [
         'cancel' => 'Cancel NFS-e',
         'refresh_status' => 'Refresh status',
         'refresh_all_statuses' => 'Refresh statuses in batch',
+        'refresh_all_statuses_loading' => 'Refreshing...',
         'reemit' => 'Reissue NFS-e',
         'reemit_confirm' => 'Do you want to reissue this cancelled NFS-e?',
         'filter_all' => 'All',
