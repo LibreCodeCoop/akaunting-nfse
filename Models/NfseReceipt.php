@@ -20,6 +20,8 @@ class NfseReceipt extends Model
         'chave_acesso',
         'data_emissao',
         'codigo_verificacao',
+        'xml_webdav_path',
+        'danfse_webdav_path',
         'status',
     ];
 
