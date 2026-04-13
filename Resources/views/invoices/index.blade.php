@@ -210,10 +210,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             class="inline-flex"
                                             data-emit-form="true"
                                             data-preview-url="{{ route('nfse.invoices.service-preview', $invoice) }}"
+                                            data-emit-confirm-label="{{ trans('nfse::general.invoices.emit_now') }}"
                                         >
                                             @csrf
                                             <input type="hidden" name="nfse_confirm_default_service" value="0" data-emit-confirm-default>
                                             <input type="hidden" name="nfse_item_service_assignments" value="" data-emit-assignments>
+                                            <input type="hidden" name="nfse_discriminacao_custom" value="" data-emit-description-input>
                                             <button
                                                 type="button"
                                                 @if(!$isReady) disabled @endif
@@ -324,9 +326,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                         @endif
 
                                         @if(($receipt->status ?? '') === 'cancelled')
-                                            <form action="{{ route('nfse.invoices.reemit', $receipt->invoice_id) }}" method="POST" onsubmit="return confirm('{{ trans('nfse::general.invoices.reemit_confirm') }}')" class="inline-flex">
+                                            <form
+                                                action="{{ route('nfse.invoices.reemit', $receipt->invoice_id) }}"
+                                                method="POST"
+                                                class="inline-flex"
+                                                data-emit-form="true"
+                                                data-preview-url="{{ route('nfse.invoices.service-preview', $receipt->invoice_id) }}"
+                                                data-emit-confirm-label="{{ trans('nfse::general.invoices.reemit') }}"
+                                            >
                                                 @csrf
-                                                <button type="submit" title="{{ trans('nfse::general.invoices.reemit') }}" class="inline-flex h-8 w-8 items-center justify-center rounded border border-green-200 text-green-700 hover:bg-green-50">
+                                                <input type="hidden" name="nfse_confirm_default_service" value="0" data-emit-confirm-default>
+                                                <input type="hidden" name="nfse_item_service_assignments" value="" data-emit-assignments>
+                                                <input type="hidden" name="nfse_discriminacao_custom" value="" data-emit-description-input>
+                                                <button type="button" title="{{ trans('nfse::general.invoices.reemit') }}" data-emit-trigger="true" class="inline-flex h-8 w-8 items-center justify-center rounded border border-green-200 text-green-700 hover:bg-green-50">
                                                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                         <path d="M10 3a7 7 0 00-6.32 4H1l3 3 3-3H4.85A5 5 0 1110 15a1 1 0 100 2 7 7 0 000-14z" />
                                                     </svg>
@@ -362,13 +374,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <div class="relative flex min-h-full items-center justify-center overflow-y-auto p-4">
                 <div class="w-full max-w-2xl rounded-lg bg-white shadow-xl">
                     <div class="flex items-center justify-between border-b px-5 py-4">
-                        <h3 class="text-lg font-semibold text-gray-800">{{ trans('nfse::general.settings.services.item_mapping_title') }}</h3>
+                        <h3 id="nfse-emit-modal-title" class="text-lg font-semibold text-gray-800">{{ trans('nfse::general.invoices.emit_modal_title') }}</h3>
                         <button type="button" class="text-gray-500 hover:text-gray-700" data-emit-close="true">{{ trans('nfse::general.invoices.cancel_modal_close') }}</button>
                     </div>
 
                     <div class="p-5 space-y-4">
-                        <p class="text-sm text-gray-700">{{ trans('nfse::general.invoices.default_service_confirmation_required') }}</p>
+                        <p id="nfse-emit-missing-items-hint" class="hidden text-sm text-amber-700">{{ trans('nfse::general.invoices.emit_modal_missing_items_hint') }}</p>
                         <div id="nfse-emit-missing-items" class="space-y-3"></div>
+
+                        <div>
+                            <label for="nfse_emit_description" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description') }}</label>
+                            <textarea
+                                id="nfse_emit_description"
+                                rows="5"
+                                class="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                                placeholder="{{ trans('nfse::general.invoices.emit_modal_description_placeholder') }}"
+                            ></textarea>
+                            <p class="mt-2 text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_description_help') }}</p>
+                        </div>
                     </div>
 
                     <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
@@ -531,7 +554,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 const emitModal = document.getElementById('nfse-emit-modal');
                 const emitModalMissingItems = document.getElementById('nfse-emit-missing-items');
+                const emitModalMissingItemsHint = document.getElementById('nfse-emit-missing-items-hint');
                 const emitModalConfirmButton = document.getElementById('nfse-emit-confirm-button');
+                const emitModalDescriptionInput = document.getElementById('nfse_emit_description');
+                const emitModalDefaultConfirmLabel = @json((string) trans('nfse::general.invoices.emit_now'));
                 let currentEmitForm = null;
 
                 const closeEmitModal = () => {
@@ -547,11 +573,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (emitModalMissingItems) {
                         emitModalMissingItems.innerHTML = '';
                     }
+
+                    if (emitModalMissingItemsHint) {
+                        emitModalMissingItemsHint.classList.add('hidden');
+                    }
+
+                    if (emitModalDescriptionInput) {
+                        emitModalDescriptionInput.value = '';
+                    }
+
+                    if (emitModalConfirmButton) {
+                        emitModalConfirmButton.textContent = emitModalDefaultConfirmLabel;
+                    }
                 };
 
-                const openEmitModal = () => {
+                const openEmitModal = (confirmLabel, descriptionValue) => {
                     if (!emitModal) {
                         return;
+                    }
+
+                    if (emitModalConfirmButton) {
+                        emitModalConfirmButton.textContent = confirmLabel || emitModalDefaultConfirmLabel;
+                    }
+
+                    if (emitModalDescriptionInput) {
+                        emitModalDescriptionInput.value = descriptionValue || '';
                     }
 
                     emitModal.classList.remove('hidden');
@@ -565,6 +611,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
 
                     emitModalMissingItems.innerHTML = '';
+
+                    if (emitModalMissingItemsHint) {
+                        emitModalMissingItemsHint.classList.toggle('hidden', missingItems.length === 0);
+                    }
 
                     missingItems.forEach((item) => {
                         const wrapper = document.createElement('div');
@@ -598,9 +648,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const trigger = form.querySelector('[data-emit-trigger="true"]');
                     const confirmInput = form.querySelector('[data-emit-confirm-default]');
                     const assignmentsInput = form.querySelector('[data-emit-assignments]');
+                    const descriptionInput = form.querySelector('[data-emit-description-input]');
                     const previewUrl = form.getAttribute('data-preview-url');
+                    const confirmLabel = form.getAttribute('data-emit-confirm-label') || emitModalDefaultConfirmLabel;
 
-                    if (!trigger || !confirmInput || !assignmentsInput) {
+                    if (!trigger || !confirmInput || !assignmentsInput || !descriptionInput) {
                         return;
                     }
 
@@ -611,6 +663,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         confirmInput.value = '0';
                         assignmentsInput.value = '';
+                        descriptionInput.value = '';
 
                         if (!previewUrl) {
                             form.submit();
@@ -629,15 +682,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             const missingItems = Array.isArray(payload.missing_items) ? payload.missing_items : [];
                             const availableServices = Array.isArray(payload.available_services) ? payload.available_services : [];
                             const defaultServiceId = payload.default_service_id ?? 0;
+                            const suggestedDescription = typeof payload.suggested_description === 'string' ? payload.suggested_description : '';
 
-                            if (missingItems.length === 0 || availableServices.length === 0) {
+                            if (missingItems.length > 0 && availableServices.length === 0) {
                                 form.submit();
                                 return;
                             }
 
                             currentEmitForm = form;
                             renderMissingItemRows(missingItems, availableServices, defaultServiceId);
-                            openEmitModal();
+                            openEmitModal(confirmLabel, suggestedDescription);
                         } catch {
                             form.submit();
                         }
@@ -656,6 +710,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     const confirmInput = currentEmitForm.querySelector('[data-emit-confirm-default]');
                     const assignmentsInput = currentEmitForm.querySelector('[data-emit-assignments]');
+                    const descriptionInput = currentEmitForm.querySelector('[data-emit-description-input]');
                     const assignmentRows = emitModalMissingItems?.querySelectorAll('select[data-item-id]') ?? [];
                     const assignments = {};
 
@@ -674,6 +729,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     if (assignmentsInput) {
                         assignmentsInput.value = JSON.stringify(assignments);
+                    }
+
+                    if (descriptionInput && emitModalDescriptionInput) {
+                        descriptionInput.value = emitModalDescriptionInput.value;
                     }
 
                     closeEmitModal();
