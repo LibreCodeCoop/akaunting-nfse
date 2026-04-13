@@ -285,5 +285,15 @@ return [
             'item_mapping_not_supported' => 'Não foi possível carregar o vínculo entre itens e serviços neste ambiente.',
             'item_tax_scope_notice' => 'Impostos dos itens no Akaunting continuam disponíveis para uso interno do documento. A tributação fiscal da NFS-e é definida na aba 5. Tributação.',
         ],
+        'artifacts' => [
+            'tab_title' => '6. Artefatos',
+            'heading' => 'Armazenamento de artefatos',
+            'helper' => 'Configure o destino WebDAV para armazenar XML e DANFSE após a emissão da NFS-e.',
+            'webdav_url' => 'URL base do WebDAV',
+            'webdav_username' => 'Usuário WebDAV',
+            'webdav_password' => 'Senha WebDAV',
+            'webdav_path_template' => 'Template de caminho',
+            'webdav_path_template_hint' => 'Use placeholders como {cnpj}, {year} e {month}. Exemplo: nfse/{cnpj}/{year}/{month}',
+        ],
     ],
 ];
