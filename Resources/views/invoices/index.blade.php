@@ -6,9 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     <x-slot name="title">{{ trans('nfse::general.invoices.title') }}</x-slot>
 
     <x-slot name="buttons">
-        <form action="{{ route('nfse.invoices.refresh-all') }}" method="POST" class="inline-block">
+        <form id="refresh-all-form" action="{{ route('nfse.invoices.refresh-all') }}" method="POST" class="inline-block" data-loading-label="{{ trans('nfse::general.invoices.refresh_all_statuses_loading') }}">
             @csrf
-            <x-button kind="primary" id="index-more-actions-refresh-nfse-invoices">
+            <x-button kind="primary" id="index-more-actions-refresh-nfse-invoices" type="submit">
                 {{ trans('nfse::general.invoices.refresh_all_statuses') }}
             </x-button>
         </form>
@@ -793,6 +793,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             })();
         </script>
         <script>
+                const refreshAllForm = document.getElementById('refresh-all-form');
+                const refreshAllButton = document.getElementById('index-more-actions-refresh-nfse-invoices');
+
+                if (refreshAllForm && refreshAllButton) {
+                    const defaultLabel = refreshAllButton.textContent;
+                    const loadingLabel = refreshAllForm.getAttribute('data-loading-label') || defaultLabel;
+
+                    refreshAllForm.addEventListener('submit', () => {
+                        refreshAllButton.setAttribute('disabled', 'disabled');
+                        refreshAllButton.setAttribute('aria-busy', 'true');
+                        refreshAllButton.textContent = loadingLabel;
+                    });
+                }
+
             (() => {
                 const initCancelModal = () => {
                     const modal = document.getElementById('nfse-cancel-modal');
