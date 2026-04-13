@@ -1472,7 +1472,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->updateArtifacts($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
-            self::assertSame('nfse::general.settings.artifacts.webdav_disabled', $response->flash['success'] ?? null);
+            self::assertSame('nfse::general.settings.artifacts.webdav_disabled', $response->flash['info'] ?? null);
+            self::assertNull($response->flash['success'] ?? null);
             self::assertFalse($controller->connectionCheckCalled);
             self::assertSame('', ControllerIsolationState::$settings['nfse.webdav_url'] ?? null);
             self::assertSame('', ControllerIsolationState::$settings['nfse.webdav_username'] ?? null);
