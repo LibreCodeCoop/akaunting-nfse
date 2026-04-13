@@ -6,9 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     <x-slot name="title">{{ trans('nfse::general.invoices.title') }}</x-slot>
 
     <x-slot name="buttons">
-        <form action="{{ route('nfse.invoices.refresh-all') }}" method="POST" class="inline-block">
+        <form id="refresh-all-form" action="{{ route('nfse.invoices.refresh-all') }}" method="POST" class="inline-block" data-loading-label="{{ trans('nfse::general.invoices.refresh_all_statuses_loading') }}">
             @csrf
-            <x-button kind="primary" id="index-more-actions-refresh-nfse-invoices">
+            <x-button kind="primary" id="index-more-actions-refresh-nfse-invoices" type="submit">
                 {{ trans('nfse::general.invoices.refresh_all_statuses') }}
             </x-button>
         </form>
@@ -294,15 +294,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <p>{{ trans('general.status') }}: {{ $statusLabel }}</p>
                                         </div>
 
-                                        <form action="{{ route('nfse.invoices.refresh', $receipt->invoice_id) }}" method="POST" class="inline-flex">
-                                            @csrf
-                                            <button type="submit" title="{{ trans('nfse::general.invoices.refresh_status') }}" class="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-100">
-                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                    <path d="M4 4v5h.58A6.5 6.5 0 1110 16.5a6.46 6.46 0 01-4.6-1.9l-1.42 1.42A8.46 8.46 0 0010 18.5a8.5 8.5 0 10-7.88-5.5H0l4-4z" />
-                                                </svg>
-                                                <span class="sr-only">{{ trans('nfse::general.invoices.refresh_status') }}</span>
-                                            </button>
-                                        </form>
+                                        @if(($receipt->status ?? '') !== 'cancelled')
+                                            <form action="{{ route('nfse.invoices.refresh', $receipt->invoice_id) }}" method="POST" class="inline-flex">
+                                                @csrf
+                                                <button type="submit" title="{{ trans('nfse::general.invoices.refresh_status') }}" class="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-100">
+                                                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                        <path d="M4 4v5h.58A6.5 6.5 0 1110 16.5a6.46 6.46 0 01-4.6-1.9l-1.42 1.42A8.46 8.46 0 0010 18.5a8.5 8.5 0 10-7.88-5.5H0l4-4z" />
+                                                    </svg>
+                                                    <span class="sr-only">{{ trans('nfse::general.invoices.refresh_status') }}</span>
+                                                </button>
+                                            </form>
+                                        @endif
 
                                         @if(($receipt->status ?? '') === 'emitted')
                                             <button
@@ -791,6 +793,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             })();
         </script>
         <script>
+                const refreshAllForm = document.getElementById('refresh-all-form');
+                const refreshAllButton = document.getElementById('index-more-actions-refresh-nfse-invoices');
+
+                if (refreshAllForm && refreshAllButton) {
+                    const defaultLabel = refreshAllButton.textContent;
+                    const loadingLabel = refreshAllForm.getAttribute('data-loading-label') || defaultLabel;
+
+                    refreshAllForm.addEventListener('submit', () => {
+                        refreshAllButton.setAttribute('disabled', 'disabled');
+                        refreshAllButton.setAttribute('aria-busy', 'true');
+                        refreshAllButton.textContent = loadingLabel;
+                    });
+                }
+
             (() => {
                 const initCancelModal = () => {
                     const modal = document.getElementById('nfse-cancel-modal');

@@ -26,6 +26,11 @@ namespace Modules\Nfse\Tests\Unit\Views {
 
             self::assertStringContainsString('<x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />', $content);
             self::assertStringNotContainsString("trans('nfse::general.invoices.clear_filters')", $content);
+            self::assertStringContainsString('id="refresh-all-form"', $content);
+            self::assertStringContainsString('id="index-more-actions-refresh-nfse-invoices" type="submit"', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.refresh_all_statuses_loading')", $content);
+            self::assertStringContainsString("refreshAllForm.addEventListener('submit'", $content);
+            self::assertStringContainsString("refreshAllButton.setAttribute('aria-busy', 'true')", $content);
         }
 
         public function testInvoicesIndexViewOffersReemitActionForCancelledReceipts(): void
@@ -35,6 +40,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
 
             self::assertStringContainsString('route(\'nfse.invoices.reemit\', $receipt->invoice_id)', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.reemit')", $content);
+            self::assertStringContainsString("@if((\$receipt->status ?? '') !== 'cancelled')", $content);
+            self::assertStringContainsString('route(\'nfse.invoices.refresh\', $receipt->invoice_id)', $content);
         }
 
         public function testInvoicesIndexViewOffersCancelActionForEmittedReceipts(): void

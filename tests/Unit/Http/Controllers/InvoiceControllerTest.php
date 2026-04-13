@@ -33,6 +33,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString('use App\\Models\\Document\\Document as Invoice;', $content);
+            self::assertStringContainsString('use App\\Models\\Common\\Contact;', $content);
             self::assertStringContainsString('Invoice::invoice()', $content);
         }
 
@@ -49,9 +50,29 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString("NfseReceipt::with('invoice.contact')", $content);
+            self::assertStringContainsString("if (is_object(\$query) && is_callable([\$query, 'whereHas']))", $content);
+            self::assertStringContainsString("\$query = \$query->whereHas('invoice', static fn (\$invoiceQuery) => \$invoiceQuery", $content);
+            self::assertStringContainsString('->whereHas(\'contact\', static fn ($contactQuery) => $contactQuery->where(\'type\', Contact::CUSTOMER_TYPE))', $content);
             self::assertStringContainsString("->orWhereHas('invoice'", $content);
             self::assertStringContainsString("->orWhereHas('contact'", $content);
             self::assertStringContainsString("'name', 'like', '%' . \$search . '%'", $content);
+        }
+
+        public function testListingOverviewCountsRestrictsReceiptsToSalesInvoices(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("if (is_object(\$totalReceiptsQuery) && is_callable([\$totalReceiptsQuery, 'whereHas']))", $content);
+            self::assertStringContainsString("\$totalReceiptsQuery = \$totalReceiptsQuery->whereHas('invoice', static fn (\$invoiceQuery) => \$invoiceQuery", $content);
+            self::assertStringContainsString("\$emittedQuery = \$emittedQuery->whereHas('invoice', static fn (\$invoiceQuery) => \$invoiceQuery", $content);
+            self::assertStringContainsString('->whereHas(\'contact\', static fn ($contactQuery) => $contactQuery->where(\'type\', Contact::CUSTOMER_TYPE))', $content);
+        }
+
+        public function testPendingInvoicesQueryRestrictsContactsToCustomers(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString('->whereHas(\'contact\', static fn ($contactQuery) => $contactQuery->where(\'type\', Contact::CUSTOMER_TYPE))', $content);
         }
 
         public function testReceiptsIndexSearchAlsoIncludesInvoiceNumberFields(): void
@@ -98,6 +119,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.invoices.emit_blocked_not_ready' => 'Existem configuracoes pendentes para liberar a emissao.',
                 'nfse::general.invoices.default_service_confirmation_required' => 'Existem itens sem servico vinculado. Revise e confirme o uso do servico padrao para emitir a NFS-e.',
                 'nfse::general.invoices.mixed_service_tax_profiles_not_supported' => 'A fatura possui itens vinculados a servicos com tributacao municipal diferente. Emita NFS-e separadas por perfil de servico/ISS.',
+                'nfse::general.invoices.refresh_not_allowed_for_cancelled' => 'NFS-e cancelada nao pode ser atualizada por refresh. Use a acao de reemissao quando aplicavel.',
                 'nfse::general.invoices.tax_policy_notice' => 'Para emissão da NFS-e, a fonte canônica de tributação é a aba 5. Tributação. Impostos do item no Akaunting permanecem para uso interno do documento.',
                 'nfse::general.invoices.tax_policy_notice_with_item_taxes' => 'Esta fatura possui impostos nativos de item no Akaunting. Na NFS-e emitida, prevaleceram as regras da aba 5. Tributação.',
             ];
@@ -2344,6 +2366,58 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('Nao foi possivel atualizar o status da NFS-e.', $response->flash['error'] ?? null);
+        }
+
+        public function testRefreshDoesNotQueryCancelledReceiptAndReturnsWarning(): void
+        {
+            $invoice = new Invoice(id: 93, amount: 440.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(93, 'CHAVE-93', 'cancelled');
+
+            $client = new class () implements NfseClientInterface {
+                public array $queryCalls = [];
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    $this->queryCalls[] = $chaveAcesso;
+
+                    throw new \RuntimeException('Query should not be called for cancelled receipts.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->refresh($invoice);
+
+            self::assertSame([], $client->queryCalls);
+            self::assertSame([], $receipt->updatedPayloads);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
+            self::assertSame('NFS-e cancelada nao pode ser atualizada por refresh. Use a acao de reemissao quando aplicavel.', $response->flash['warning'] ?? null);
         }
 
         public function testRefreshAllUpdatesReceiptsAndRedirectsWithSuccessMessage(): void

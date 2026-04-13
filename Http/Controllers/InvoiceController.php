@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
+use App\Models\Common\Contact;
 use App\Models\Document\Document as Invoice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -414,6 +415,12 @@ class InvoiceController extends Controller
     public function refresh(Invoice $invoice): RedirectResponse
     {
         $receipt = $this->findReceiptForInvoice($invoice);
+
+        if (($receipt->status ?? '') === 'cancelled') {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.refresh_not_allowed_for_cancelled'));
+        }
+
         $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
 
         try {
@@ -1238,6 +1245,12 @@ class InvoiceController extends Controller
     {
         $query = NfseReceipt::with('invoice.contact');
 
+        if (is_object($query) && is_callable([$query, 'whereHas'])) {
+            $query = $query->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery
+                ->where('type', Invoice::INVOICE_TYPE)
+                ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE)));
+        }
+
         if ($status !== 'all') {
             if (str_contains($status, ',')) {
                 $statuses = array_values(array_filter(array_map(static fn (string $item): string => trim($item), explode(',', $status))));
@@ -1290,25 +1303,65 @@ class InvoiceController extends Controller
     protected function listingOverviewCounts(): array
     {
         try {
-            $totalReceipts = NfseReceipt::count();
+            $totalReceiptsQuery = NfseReceipt::query();
+
+            if (is_object($totalReceiptsQuery) && is_callable([$totalReceiptsQuery, 'whereHas'])) {
+                $totalReceiptsQuery = $totalReceiptsQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery
+                    ->where('type', Invoice::INVOICE_TYPE)
+                    ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE)));
+            }
+
+            $totalReceipts = (is_object($totalReceiptsQuery) && is_callable([$totalReceiptsQuery, 'count']))
+                ? $totalReceiptsQuery->count()
+                : 0;
         } catch (\Throwable) {
             $totalReceipts = 0;
         }
 
         try {
-            $emitted = NfseReceipt::where('status', 'emitted')->count();
+            $emittedQuery = NfseReceipt::where('status', 'emitted');
+
+            if (is_object($emittedQuery) && is_callable([$emittedQuery, 'whereHas'])) {
+                $emittedQuery = $emittedQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery
+                    ->where('type', Invoice::INVOICE_TYPE)
+                    ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE)));
+            }
+
+            $emitted = (is_object($emittedQuery) && is_callable([$emittedQuery, 'count']))
+                ? $emittedQuery->count()
+                : 0;
         } catch (\Throwable) {
             $emitted = 0;
         }
 
         try {
-            $processing = NfseReceipt::where('status', 'processing')->count();
+            $processingQuery = NfseReceipt::where('status', 'processing');
+
+            if (is_object($processingQuery) && is_callable([$processingQuery, 'whereHas'])) {
+                $processingQuery = $processingQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery
+                    ->where('type', Invoice::INVOICE_TYPE)
+                    ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE)));
+            }
+
+            $processing = (is_object($processingQuery) && is_callable([$processingQuery, 'count']))
+                ? $processingQuery->count()
+                : 0;
         } catch (\Throwable) {
             $processing = 0;
         }
 
         try {
-            $cancelled = NfseReceipt::where('status', 'cancelled')->count();
+            $cancelledQuery = NfseReceipt::where('status', 'cancelled');
+
+            if (is_object($cancelledQuery) && is_callable([$cancelledQuery, 'whereHas'])) {
+                $cancelledQuery = $cancelledQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery
+                    ->where('type', Invoice::INVOICE_TYPE)
+                    ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE)));
+            }
+
+            $cancelled = (is_object($cancelledQuery) && is_callable([$cancelledQuery, 'count']))
+                ? $cancelledQuery->count()
+                : 0;
         } catch (\Throwable) {
             $cancelled = 0;
         }
@@ -1754,6 +1807,7 @@ class InvoiceController extends Controller
 
         $query = Invoice::invoice()
             ->with(['contact'])
+            ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE))
             ->when(
                 $processedInvoiceIds !== [],
                 static fn ($query) => $query->whereNotIn('id', $processedInvoiceIds)
