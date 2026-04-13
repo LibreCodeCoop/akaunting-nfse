@@ -101,6 +101,7 @@ return [
         'emit_now' => 'Emitir NFS-e agora',
         'default_service_confirmation_required' => 'Existem itens sem servico vinculado. Revise e confirme o uso do servico padrao para emitir a NFS-e.',
         'mixed_service_tax_profiles_not_supported' => 'A fatura possui itens vinculados a servicos com tributacao municipal diferente. Emita NFS-e separadas por perfil de servico/ISS.',
+        'refresh_not_allowed_for_cancelled' => 'NFS-e cancelada nao pode ser atualizada por refresh. Use a acao de reemissao quando aplicavel.',
         'emit_blocked_not_ready' => 'Existem configurações pendentes para liberar a emissão.',
         'readiness_incomplete' => 'Existem pendências de configuração. Revise as configurações antes de emitir.',
         'no_pending' => 'Nenhuma fatura pendente de emissão.',
