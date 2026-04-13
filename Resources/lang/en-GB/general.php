@@ -293,7 +293,7 @@ return [
             'webdav_username' => 'WebDAV username',
             'webdav_password' => 'WebDAV password',
             'webdav_path_template' => 'Path template',
-            'webdav_path_template_hint' => 'Use placeholders like {cnpj}, {year} and {month}. Example: nfse/{cnpj}/{year}/{month}',
+            'webdav_path_template_hint' => 'Use placeholders like {cnpj}, {year}, {month}, {month_name}, {nfse_number} and {customer_name}. Example: nfse/{cnpj}/{year}/{month_name}/{nfse_number}/{customer_name}',
         ],
     ],
 ];
