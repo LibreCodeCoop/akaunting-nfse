@@ -98,6 +98,27 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
+        public function testControllerStoresArtifactsAfterPersistingReceipt(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);', $content);
+            self::assertStringContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
+            self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);', $content);
+            self::assertStringContainsString('$this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);', $content);
+        }
+
+        public function testControllerBuildsWebDavArtifactPathsWithXmlAndDanfseFiles(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("'nfse.webdav_path_template'", $content);
+            self::assertStringContainsString("\$receipt->chaveAcesso . '.xml'", $content);
+            self::assertStringContainsString("\$receipt->chaveAcesso . '.pdf'", $content);
+            self::assertStringContainsString("'xml_webdav_path'", $content);
+            self::assertStringContainsString("'danfse_webdav_path'", $content);
+        }
+
         protected function setUp(): void
         {
             parent::setUp();
