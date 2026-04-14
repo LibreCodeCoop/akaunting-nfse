@@ -146,7 +146,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             }
 
             if (!class_exists(\Modules\Nfse\Models\NfseReceipt::class, false)) {
-                eval('namespace Modules\\Nfse\\Models; class NfseReceipt { public string $nfse_number = ""; public ?object $data_emissao = null; public ?string $danfse_webdav_path = null; public ?string $xml_webdav_path = null; }');
+                eval('namespace Modules\\Nfse\\Models; class NfseReceipt { public string $nfse_number = ""; public ?object $data_emissao = null; public ?string $chave_acesso = null; public ?string $danfse_webdav_path = null; public ?string $xml_webdav_path = null; }');
             }
         }
 
@@ -172,6 +172,24 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $invoice = new Invoice();
             $invoice->document_number = $docNumber;
             $invoice->contact_name = $contactName;
+            $invoice->company = (object) [
+                'name' => 'Empresa Matriz',
+                'tax_number' => '12345678000199',
+                'email' => 'empresa@example.com',
+                'phone' => '1133334444',
+                'contacts' => [
+                    (object) [
+                        'name' => 'Contato Primario',
+                        'email' => 'contato.primario@example.com',
+                        'phone' => '1199998888',
+                    ],
+                    (object) [
+                        'name' => 'Contato Secundario',
+                        'email' => 'contato.secundario@example.com',
+                        'phone' => '1188887777',
+                    ],
+                ],
+            ];
 
             return $invoice;
         }
@@ -186,16 +204,39 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             return $receipt;
         }
 
+        private function assignIssueDate(NfseReceipt $receipt, string $value): void
+        {
+            $property = new \ReflectionProperty($receipt, 'data_emissao');
+            $type = $property->getType();
+
+            if ($type instanceof \ReflectionNamedType && $type->getName() === 'string') {
+                $receipt->data_emissao = $value;
+
+                return;
+            }
+
+            $receipt->data_emissao = new \DateTimeImmutable($value);
+        }
+
         public function testGetTagsReturnsAllExpectedTags(): void
         {
             $this->makeTemplate();
             $notification = new NfseIssued($this->makeInvoice(), $this->makeReceipt());
             $tags = $notification->getTags();
 
+            self::assertContains('{cnpj}', $tags);
+            self::assertContains('{nfse_issue_year}', $tags);
+            self::assertContains('{nfse_issue_month}', $tags);
+            self::assertContains('{nfse_issue_day}', $tags);
+            self::assertContains('{nfse_issue_month_name}', $tags);
             self::assertContains('{invoice_number}', $tags);
             self::assertContains('{nfse_number}', $tags);
+            self::assertContains('{chave_acesso}', $tags);
             self::assertContains('{customer_name}', $tags);
             self::assertContains('{company_name}', $tags);
+            self::assertContains('{company_contact_name}', $tags);
+            self::assertContains('{company_contact_email}', $tags);
+            self::assertContains('{company_contact_phone}', $tags);
             self::assertContains('{nfse_issue_date}', $tags);
         }
 
@@ -204,12 +245,23 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $this->makeTemplate();
             $invoice = $this->makeInvoice('INV-123', 'Empresa ABC');
             $receipt = $this->makeReceipt('9988');
+            $receipt->chave_acesso = 'ACESSO-XYZ';
+            $this->assignIssueDate($receipt, '2026-04-14 10:15:00');
             $notification = new NfseIssued($invoice, $receipt);
             $replacements = $notification->getTagsReplacement();
 
             self::assertContains('INV-123', $replacements);
             self::assertContains('9988', $replacements);
+            self::assertContains('ACESSO-XYZ', $replacements);
             self::assertContains('Empresa ABC', $replacements);
+            self::assertContains('Contato Primario', $replacements);
+            self::assertContains('contato.primario@example.com', $replacements);
+            self::assertContains('1199998888', $replacements);
+            self::assertContains('2026', $replacements);
+            self::assertContains('04', $replacements);
+            self::assertContains('14', $replacements);
+            self::assertContains('abril', $replacements);
+            self::assertContains('14/04/2026', $replacements);
         }
 
         public function testToMailOverridesNotifiableEmailWhenCustomMailToProvided(): void
