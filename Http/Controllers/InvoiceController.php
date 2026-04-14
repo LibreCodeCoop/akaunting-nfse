@@ -131,11 +131,12 @@ class InvoiceController extends Controller
         $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, null, false);
 
         return response()->json([
-            'missing_items' => $selection['missing_items'],
+            'missing_items'    => $selection['missing_items'],
             'available_services' => $this->availableInvoiceServices($invoice),
             'default_service_id' => is_object($defaultService) ? (int) ($defaultService->id ?? 0) : 0,
-            'requires_split' => (bool) ($selection['requires_split'] ?? false),
+            'requires_split'   => (bool) ($selection['requires_split'] ?? false),
             'suggested_description' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? []),
+            'email_defaults'   => $this->servicePreviewEmailDefaults($invoice),
         ]);
     }
 
@@ -2771,5 +2772,27 @@ class InvoiceController extends Controller
             roleId: $config['roleId'],
             secretId: $config['secretId'],
         );
+    }
+
+    protected function servicePreviewEmailDefaults(Invoice $invoice): array
+    {
+        $sendEmail = (bool) (int) setting('nfse.send_email_on_emit', '0');
+        $recipient = $this->contactStringField($invoice->contact, ['email']);
+        $template  = null;
+
+        try {
+            $template = \App\Models\Setting\EmailTemplate::alias('nfse_issued_customer')->first();
+        } catch (\Throwable) {
+            // class not available in unit-test context
+        }
+
+        return [
+            'send_email'    => $sendEmail,
+            'recipient'     => $recipient,
+            'subject'       => $template !== null ? (string) ($template->subject ?? '') : '',
+            'body'          => $template !== null ? (string) ($template->body ?? '') : '',
+            'attach_danfse' => true,
+            'attach_xml'    => true,
+        ];
     }
 }
