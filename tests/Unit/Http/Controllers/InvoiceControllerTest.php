@@ -175,6 +175,90 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse/abril/33/cliente-exemplo-ltda', $resolved);
         }
 
+        public function testSandboxModeEnabledFallsBackToDefaultTrueWhenSettingIsEmptyString(): void
+        {
+            ControllerIsolationState::$settings['nfse.sandbox_mode'] = '';
+
+            $controller = new class () extends InvoiceController {
+                public function resolveSandboxMode(): bool
+                {
+                    return $this->sandboxModeEnabled();
+                }
+            };
+
+            self::assertTrue($controller->resolveSandboxMode());
+        }
+
+        public function testSandboxModeEnabledRespectsExplicitFalseValue(): void
+        {
+            ControllerIsolationState::$settings['nfse.sandbox_mode'] = '0';
+
+            $controller = new class () extends InvoiceController {
+                public function resolveSandboxMode(): bool
+                {
+                    return $this->sandboxModeEnabled();
+                }
+            };
+
+            self::assertFalse($controller->resolveSandboxMode());
+        }
+
+        public function testDanfseFallbackUrlsPreferPortalDownloadThenAdn(): void
+        {
+            $controller = new class () extends InvoiceController {
+                /** @return list<string> */
+                public function resolveFallbackUrls(string $chaveAcesso): array
+                {
+                    return $this->danfseFallbackUrls($chaveAcesso);
+                }
+            };
+
+            $urls = $controller->resolveFallbackUrls('CHAVE-903');
+
+            self::assertSame('https://www.producaorestrita.nfse.gov.br/EmissorNacional/Notas/Download/DANFSe/CHAVE-903', $urls[0] ?? null);
+            self::assertSame('https://www.nfse.gov.br/EmissorNacional/Notas/Download/DANFSe/CHAVE-903', $urls[1] ?? null);
+            self::assertSame('https://adn.producaorestrita.nfse.gov.br/danfse/CHAVE-903', $urls[2] ?? null);
+            self::assertSame('https://adn.nfse.gov.br/danfse/CHAVE-903', $urls[3] ?? null);
+        }
+
+        public function testParseHttpStatusCodeUsesFinalStatusAfterRedirects(): void
+        {
+            $controller = new class () extends InvoiceController {
+                /** @param list<string> $headers */
+                public function resolveStatusCode(array $headers): int
+                {
+                    return $this->parseHttpStatusCode($headers);
+                }
+            };
+
+            $headers = [
+                'HTTP/2 302 Found',
+                'location: /EmissorNacional/Login',
+                'HTTP/2 200 OK',
+            ];
+
+            self::assertSame(200, $controller->resolveStatusCode($headers));
+        }
+
+        public function testShowPassesSuggestedDiscriminacaoToView(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 904,
+                amount: 500.0,
+                items: [['name' => 'Consultoria'], ['name' => 'Suporte']],
+            );
+
+            $receipt = InvoiceControllerIsolationState::makeReceipt(904, 'CHAVE-904', 'cancelled');
+            NfseReceipt::$records[] = $receipt;
+
+            $controller = new class () extends InvoiceController {};
+
+            $view = $controller->show($invoice);
+
+            self::assertSame('nfse::invoices.show', $view->name);
+            self::assertSame('Consultoria | Suporte', $view->data['suggestedDiscriminacao'] ?? null);
+        }
+
         public function testStoreArtifactsPersistsXmlEvenWhenDanfseFails(): void
         {
             ControllerIsolationState::$settings['nfse.webdav_url'] = 'https://dav.example.com/root';
