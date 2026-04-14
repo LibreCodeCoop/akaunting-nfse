@@ -9,6 +9,7 @@ namespace Modules\Nfse\Listeners;
 
 use App\Events\Module\Enabled as Event;
 use App\Traits\Permissions;
+use Modules\Nfse\Support\EmailTemplateSynchronizer;
 
 class FinishEnabling
 {
@@ -23,6 +24,7 @@ class FinishEnabling
         }
 
         $this->updatePermissions();
+        $this->syncEmailTemplates();
     }
 
     protected function updatePermissions(): void
@@ -31,5 +33,10 @@ class FinishEnabling
         $this->attachPermissionsToAdminRoles([
             $this->alias . '-settings' => 'r,u,d',
         ]);
+    }
+
+    protected function syncEmailTemplates(): void
+    {
+        (new EmailTemplateSynchronizer())->sync();
     }
 }
