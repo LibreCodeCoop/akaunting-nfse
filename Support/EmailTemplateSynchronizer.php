@@ -83,9 +83,15 @@ class EmailTemplateSynchronizer
     {
         return [
             'pt-BR' => [
+                'settings.email.templates.subject' => 'Assunto',
+                'settings.email.templates.body' => 'Corpo',
+                'settings.email.templates.tags' => '<strong>Tags disponíveis:</strong> :tag_list',
                 self::NAME_KEY => 'Modelo de NFS-e Emitida (enviado ao cliente)',
             ],
             'en-GB' => [
+                'settings.email.templates.subject' => 'Subject',
+                'settings.email.templates.body' => 'Body',
+                'settings.email.templates.tags' => '<strong>Available Tags:</strong> :tag_list',
                 self::NAME_KEY => 'Issued NFS-e Template (sent to customer)',
             ],
         ];
