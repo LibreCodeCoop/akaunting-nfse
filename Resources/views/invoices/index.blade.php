@@ -1084,9 +1084,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     refreshEmitEmailSection();
                 });
                 
+                // Add label click handler to ensure refresh happens
+                // (native change event may not fire for sr-only checkboxes in some cases)
+                const emitEmailToggleLabel = document.querySelector('label[for="nfse_emit_send_email"]');
+                if (emitEmailToggleLabel && emitModalSendEmailInput) {
+                    emitEmailToggleLabel.addEventListener('click', () => {
+                        // Schedule dispatch after native checkbox toggle happens
+                        setTimeout(() => {
+                            console.log('[NFS-e Emit Modal] label clicked, manually dispatching change event');
+                            emitModalSendEmailInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        }, 0);
+                    });
+                }
+                
                 console.log('[NFS-e Emit Modal] Script initialized:', { 
                   sendEmailInputExists: !!emitModalSendEmailInput,
-                  emailFieldsExists: !!emitModalEmailFields
+                  emailFieldsExists: !!emitModalEmailFields,
+                  labelFound: !!emitEmailToggleLabel
                 });
 
                 emitModalConfirmButton?.addEventListener('click', () => {
