@@ -204,6 +204,20 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             return $receipt;
         }
 
+        private function assignIssueDate(NfseReceipt $receipt, string $value): void
+        {
+            $property = new \ReflectionProperty($receipt, 'data_emissao');
+            $type = $property->getType();
+
+            if ($type instanceof \ReflectionNamedType && $type->getName() === 'string') {
+                $receipt->data_emissao = $value;
+
+                return;
+            }
+
+            $receipt->data_emissao = new \DateTimeImmutable($value);
+        }
+
         public function testGetTagsReturnsAllExpectedTags(): void
         {
             $this->makeTemplate();
@@ -232,7 +246,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $invoice = $this->makeInvoice('INV-123', 'Empresa ABC');
             $receipt = $this->makeReceipt('9988');
             $receipt->chave_acesso = 'ACESSO-XYZ';
-            $receipt->data_emissao = '2026-04-14 10:15:00';
+            $this->assignIssueDate($receipt, '2026-04-14 10:15:00');
             $notification = new NfseIssued($invoice, $receipt);
             $replacements = $notification->getTagsReplacement();
 
