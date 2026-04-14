@@ -362,7 +362,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         const reemitDescriptionTextarea = document.getElementById('reemit-description-textarea');
                         const reemitDiscriminacaoInput = document.getElementById('reemit-discriminacao-input');
                     const reemitSendEmailCheckbox = document.getElementById('reemit-send-email-checkbox');
-                    const reemitEmailFields = document.getElementById('reemit-email-fields');
+                    const reemitEmailFields = document.getElementById('nfse_emit_email_fields') || document.getElementById('reemit-email-fields');
                     const reemitEmailToInput = document.getElementById('reemit-email-to-input');
                     const reemitEmailSubjectInput = document.getElementById('reemit-email-subject-input');
                     const reemitEmailBodyInput = document.getElementById('reemit-email-body-input');
@@ -399,6 +399,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     reemitTrigger.addEventListener('click', openReemitModal);
 
                     reemitSendEmailCheckbox?.addEventListener('change', refreshReemitEmailSection);
+    
 
                     refreshReemitEmailSection();
 
