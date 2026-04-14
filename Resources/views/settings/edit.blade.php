@@ -638,26 +638,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <div class="space-y-1 rounded border border-gray-200 bg-gray-50 p-3">
                             <div class="flex items-center justify-between py-1">
                                 <span class="text-sm text-gray-700">{{ trans('nfse::general.settings.artifacts.store_xml') }}</span>
-                                <button type="button"
-                                    aria-label="{{ trans('nfse::general.settings.artifacts.store_xml') }}"
-                                    onclick="(function(btn){var inp=document.getElementById('webdav_store_xml_val');var on=inp.value==='1';inp.value=on?'0':'1';btn.querySelector('[data-on]').classList.toggle('hidden',on);btn.querySelector('[data-off]').classList.toggle('hidden',!on);})(this)"
-                                    class="flex items-center focus:outline-none"
-                                >
-                                    <span class="material-icons-outlined text-green-600 text-2xl{{ $storeXmlOn ? '' : ' hidden' }}" data-on>toggle_on</span>
-                                    <span class="material-icons-outlined text-gray-400 text-2xl{{ $storeXmlOn ? ' hidden' : '' }}" data-off>toggle_off</span>
-                                </button>
+                                <div class="flex items-center">
+                                    <button
+                                        type="button"
+                                        id="webdav_store_xml_yes"
+                                        class="relative w-10 rounded-tl-lg rounded-bl-lg py-2 px-1 text-sm text-center transition-all {{ $storeXmlOn ? 'bg-green-500 text-white' : 'bg-black-100' }}"
+                                        onclick="(function(){var input=document.getElementById('webdav_store_xml_val');var yes=document.getElementById('webdav_store_xml_yes');var no=document.getElementById('webdav_store_xml_no');input.value='1';yes.classList.add('bg-green-500','text-white');yes.classList.remove('bg-black-100');no.classList.add('bg-black-100');no.classList.remove('bg-red-500','text-white');})()"
+                                    >{{ trans('general.yes') }}</button>
+                                    <button
+                                        type="button"
+                                        id="webdav_store_xml_no"
+                                        class="relative w-10 rounded-tr-lg rounded-br-lg py-2 px-1 text-sm text-center transition-all {{ $storeXmlOn ? 'bg-black-100' : 'bg-red-500 text-white' }}"
+                                        onclick="(function(){var input=document.getElementById('webdav_store_xml_val');var yes=document.getElementById('webdav_store_xml_yes');var no=document.getElementById('webdav_store_xml_no');input.value='0';no.classList.add('bg-red-500','text-white');no.classList.remove('bg-black-100');yes.classList.add('bg-black-100');yes.classList.remove('bg-green-500','text-white');})()"
+                                    >{{ trans('general.no') }}</button>
+                                </div>
                                 <input type="hidden" id="webdav_store_xml_val" name="nfse[webdav_store_xml]" value="{{ $storeXmlOn ? '1' : '0' }}">
                             </div>
                             <div class="flex items-center justify-between py-1">
                                 <span class="text-sm text-gray-700">{{ trans('nfse::general.settings.artifacts.store_pdf') }}</span>
-                                <button type="button"
-                                    aria-label="{{ trans('nfse::general.settings.artifacts.store_pdf') }}"
-                                    onclick="(function(btn){var inp=document.getElementById('webdav_store_pdf_val');var on=inp.value==='1';inp.value=on?'0':'1';btn.querySelector('[data-on]').classList.toggle('hidden',on);btn.querySelector('[data-off]').classList.toggle('hidden',!on);})(this)"
-                                    class="flex items-center focus:outline-none"
-                                >
-                                    <span class="material-icons-outlined text-green-600 text-2xl{{ $storePdfOn ? '' : ' hidden' }}" data-on>toggle_on</span>
-                                    <span class="material-icons-outlined text-gray-400 text-2xl{{ $storePdfOn ? ' hidden' : '' }}" data-off>toggle_off</span>
-                                </button>
+                                <div class="flex items-center">
+                                    <button
+                                        type="button"
+                                        id="webdav_store_pdf_yes"
+                                        class="relative w-10 rounded-tl-lg rounded-bl-lg py-2 px-1 text-sm text-center transition-all {{ $storePdfOn ? 'bg-green-500 text-white' : 'bg-black-100' }}"
+                                        onclick="(function(){var input=document.getElementById('webdav_store_pdf_val');var yes=document.getElementById('webdav_store_pdf_yes');var no=document.getElementById('webdav_store_pdf_no');input.value='1';yes.classList.add('bg-green-500','text-white');yes.classList.remove('bg-black-100');no.classList.add('bg-black-100');no.classList.remove('bg-red-500','text-white');})()"
+                                    >{{ trans('general.yes') }}</button>
+                                    <button
+                                        type="button"
+                                        id="webdav_store_pdf_no"
+                                        class="relative w-10 rounded-tr-lg rounded-br-lg py-2 px-1 text-sm text-center transition-all {{ $storePdfOn ? 'bg-black-100' : 'bg-red-500 text-white' }}"
+                                        onclick="(function(){var input=document.getElementById('webdav_store_pdf_val');var yes=document.getElementById('webdav_store_pdf_yes');var no=document.getElementById('webdav_store_pdf_no');input.value='0';no.classList.add('bg-red-500','text-white');no.classList.remove('bg-black-100');yes.classList.add('bg-black-100');yes.classList.remove('bg-green-500','text-white');})()"
+                                    >{{ trans('general.no') }}</button>
+                                </div>
                                 <input type="hidden" id="webdav_store_pdf_val" name="nfse[webdav_store_pdf]" value="{{ $storePdfOn ? '1' : '0' }}">
                             </div>
                         </div>
