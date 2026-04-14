@@ -657,9 +657,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <div class="rounded-lg border border-gray-200 p-4 space-y-3">
                             <div class="flex items-center gap-3">
                                 <label for="nfse_emit_send_email" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center" aria-label="{{ trans('nfse::general.invoices.emit_modal_send_email') }}">
-                                    <input id="nfse_emit_send_email" type="checkbox" class="sr-only peer">
-                                    <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
-                                    <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                    <input id="nfse_emit_send_email" type="checkbox" class="sr-only">
+                                    <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                    <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
                                 </label>
                                 <div>
                                     <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
@@ -687,27 +687,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <div class="space-y-3">
                                 <div class="flex items-center gap-3">
                                     <label for="nfse_emit_attach_danfse" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                        <input id="nfse_emit_attach_danfse" type="checkbox" class="sr-only peer" checked>
-                                        <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
-                                        <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                        <input id="nfse_emit_attach_danfse" type="checkbox" class="sr-only" checked>
+                                        <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green"></div>
+                                        <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 translate-x-5"></div>
                                     </label>
                                     <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
                                 </div>
 
                                 <div class="flex items-center gap-3">
                                     <label for="nfse_emit_attach_xml" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                        <input id="nfse_emit_attach_xml" type="checkbox" class="sr-only peer" checked>
-                                        <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
-                                        <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                        <input id="nfse_emit_attach_xml" type="checkbox" class="sr-only" checked>
+                                        <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green"></div>
+                                        <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 translate-x-5"></div>
                                     </label>
                                     <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
                                 </div>
 
                                 <div class="flex items-center gap-3">
                                     <label for="nfse_emit_save_default" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                        <input id="nfse_emit_save_default" type="checkbox" class="sr-only peer">
-                                        <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
-                                        <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                        <input id="nfse_emit_save_default" type="checkbox" class="sr-only">
+                                        <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                        <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
                                     </label>
                                     <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
                                 </div>
@@ -873,6 +873,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 hydrateSearchStringCookie();
 
+                const syncToggle = (input) => {
+                    const label = input.closest('label');
+                    if (!label) return;
+                    const track = label.querySelector('[data-toggle="track"]');
+                    const thumb = label.querySelector('[data-toggle="thumb"]');
+                    const checked = input.checked;
+                    if (track) {
+                        track.classList.toggle('bg-green', checked);
+                        track.classList.toggle('bg-green-200', !checked);
+                    }
+                    if (thumb) {
+                        thumb.classList.toggle('translate-x-5', checked);
+                    }
+                };
+
                 const emitModal = document.getElementById('nfse-emit-modal');
                 const emitModalMissingItems = document.getElementById('nfse-emit-missing-items');
                 const emitModalMissingItemsHint = document.getElementById('nfse-emit-missing-items-hint');
@@ -892,21 +907,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const refreshEmitEmailSection = () => {
                     if (emitModalEmailFields && emitModalSendEmailInput) {
                         const shouldShow = emitModalSendEmailInput.checked;
-                        
-                        // Toggle hidden class based on checkbox state
-                        if (shouldShow) {
-                            emitModalEmailFields.classList.remove('hidden');
-                        } else {
-                            emitModalEmailFields.classList.add('hidden');
-                        }
-                        
-                        console.log('[NFS-e Emit Modal] refreshEmitEmailSection:', { checked: shouldShow, hidden: emitModalEmailFields.classList.contains('hidden') });
+                        emitModalEmailFields.classList.toggle('hidden', !shouldShow);
+                        syncToggle(emitModalSendEmailInput);
                     }
                 };
 
                 const applyEmailDefaults = (emailDefaults = {}) => {
                     if (emitModalSendEmailInput) {
                         emitModalSendEmailInput.checked = Boolean(emailDefaults.send_email);
+                        syncToggle(emitModalSendEmailInput);
                     }
 
                     if (emitModalEmailToInput) {
@@ -923,14 +932,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     if (emitModalAttachDanfseInput) {
                         emitModalAttachDanfseInput.checked = emailDefaults.attach_danfse !== false;
+                        syncToggle(emitModalAttachDanfseInput);
                     }
 
                     if (emitModalAttachXmlInput) {
                         emitModalAttachXmlInput.checked = emailDefaults.attach_xml !== false;
+                        syncToggle(emitModalAttachXmlInput);
                     }
 
                     if (emitModalSaveDefaultInput) {
                         emitModalSaveDefaultInput.checked = false;
+                        syncToggle(emitModalSaveDefaultInput);
                     }
 
                     refreshEmitEmailSection();
@@ -1093,40 +1105,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     button.addEventListener('click', closeEmitModal);
                 });
 
-                emitModalSendEmailInput?.addEventListener('change', () => {
-                    console.log('[NFS-e Emit Modal] checkbox change event detected');
-                    refreshEmitEmailSection();
-                });
-                
-                // Add label click handler to directly refresh (fallback in case change event doesn't fire)
-                const emitEmailToggleLabel = document.querySelector('label[for="nfse_emit_send_email"]');
-                if (emitEmailToggleLabel) {
-                    emitEmailToggleLabel.addEventListener('click', (e) => {
-                        // Let native click happen first, then refresh
-                        setTimeout(() => {
-                            if (emitModalSendEmailInput && emitModalEmailFields) {
-                                const isChecked = emitModalSendEmailInput.checked;
-                                console.log('[NFS-e Emit Modal] Label clicked - checkbox is now:', isChecked);
-                                
-                                // Directly handle the visibility
-                                if (isChecked) {
-                                    emitModalEmailFields.classList.remove('hidden');
-                                    console.log('[NFS-e Emit Modal] Removed hidden class');
-                                } else {
-                                    emitModalEmailFields.classList.add('hidden');
-                                    console.log('[NFS-e Emit Modal] Added hidden class');
-                                }
-                            }
-                        }, 50);
-                    });
-                    console.log('[NFS-e Emit Modal] Label click handler attached successfully');
-                }
-                
-                console.log('[NFS-e Emit Modal] Script initialized:', { 
-                  sendEmailInputExists: !!emitModalSendEmailInput,
-                  emailFieldsExists: !!emitModalEmailFields,
-                  labelFound: !!emitEmailToggleLabel
-                });
+                emitModalSendEmailInput?.addEventListener('change', refreshEmitEmailSection);
+                emitModalAttachDanfseInput?.addEventListener('change', () => syncToggle(emitModalAttachDanfseInput));
+                emitModalAttachXmlInput?.addEventListener('change', () => syncToggle(emitModalAttachXmlInput));
+                emitModalSaveDefaultInput?.addEventListener('change', () => syncToggle(emitModalSaveDefaultInput));
 
                 emitModalConfirmButton?.addEventListener('click', () => {
                     if (!currentEmitForm) {
