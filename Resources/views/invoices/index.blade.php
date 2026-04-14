@@ -684,21 +684,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_email_body_help') }}</p>
                             </div>
 
-                            <div class="space-y-2">
-                                <label class="flex items-center gap-3 p-3 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition">
-                                    <input id="nfse_emit_attach_danfse" type="checkbox" class="w-5 h-5 rounded border-gray-300 accent-green-600" checked>
-                                    <span class="font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
-                                </label>
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-3">
+                                    <label for="nfse_emit_attach_danfse" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                        <input id="nfse_emit_attach_danfse" type="checkbox" class="sr-only peer" checked>
+                                        <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
+                                        <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                    </label>
+                                    <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
+                                </div>
 
-                                <label class="flex items-center gap-3 p-3 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition">
-                                    <input id="nfse_emit_attach_xml" type="checkbox" class="w-5 h-5 rounded border-gray-300 accent-green-600" checked>
-                                    <span class="font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
-                                </label>
+                                <div class="flex items-center gap-3">
+                                    <label for="nfse_emit_attach_xml" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                        <input id="nfse_emit_attach_xml" type="checkbox" class="sr-only peer" checked>
+                                        <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
+                                        <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                    </label>
+                                    <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
+                                </div>
 
-                                <label class="flex items-center gap-3 p-3 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition">
-                                    <input id="nfse_emit_save_default" type="checkbox" class="w-5 h-5 rounded border-gray-300 accent-green-600">
-                                    <span class="font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
-                                </label>
+                                <div class="flex items-center gap-3">
+                                    <label for="nfse_emit_save_default" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                        <input id="nfse_emit_save_default" type="checkbox" class="sr-only peer">
+                                        <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
+                                        <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                    </label>
+                                    <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
+                                </div>
                             </div>
                             </div>
                         </div>
