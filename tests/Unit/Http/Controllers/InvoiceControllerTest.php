@@ -114,18 +114,20 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertStringContainsString("setting('nfse.webdav_url', '')", $content);
             self::assertStringContainsString("'nfse.webdav_path_template'", $content);
+            self::assertStringContainsString("'nfse.webdav_filename_template'", $content);
+            self::assertStringContainsString("'{day}'", $content);
             self::assertStringContainsString("'{month_name}'", $content);
             self::assertStringContainsString("'{nfse_number}'", $content);
+            self::assertStringContainsString("'{chave_acesso}'", $content);
             self::assertStringContainsString("'{customer_name}'", $content);
-            self::assertStringContainsString("\$receipt->chaveAcesso . '.xml'", $content);
-            self::assertStringContainsString("\$receipt->chaveAcesso . '.pdf'", $content);
+            self::assertStringContainsString("buildWebDavArtifactFilePath", $content);
             self::assertStringContainsString("'xml_webdav_path'", $content);
             self::assertStringContainsString("'danfse_webdav_path'", $content);
         }
 
         public function testBuildWebDavArtifactBasePathResolvesExtendedPlaceholders(): void
         {
-            ControllerIsolationState::$settings['nfse.webdav_path_template'] = 'nfse/{month_name}/{nfse_number}/{customer_name}';
+            ControllerIsolationState::$settings['nfse.webdav_path_template'] = 'nfse/{month_name}/{day}/{nfse_number}/{customer_name}';
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 901,
@@ -145,7 +147,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $resolved = $controller->resolveArtifactPath($invoice, $receipt);
 
-            self::assertSame('nfse/marco/nf-2026-000123/cliente-exemplo-ltda', $resolved);
+            self::assertSame('nfse/marco/21/nf-2026-000123/cliente-exemplo-ltda', $resolved);
         }
 
         public function testBuildWebDavArtifactBasePathUsesNfseNumberFromXmlWhenGatewayFieldIsEmpty(): void
@@ -335,10 +337,87 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
 
             self::assertCount(1, $controller->writes);
-            self::assertStringEndsWith('/CHAVE-777.xml', $controller->writes[0][0]);
+            self::assertStringEndsWith('/chave-777.xml', $controller->writes[0][0]);
             self::assertSame('<xml>conteudo</xml>', $controller->writes[0][1]);
-            self::assertSame('nfse/12345678000195/2026/04/CHAVE-777.xml', $persistedReceipt->xml_webdav_path ?? null);
+            self::assertSame('nfse/12345678000195/2026/04/14/chave-777.xml', $persistedReceipt->xml_webdav_path ?? null);
             self::assertNull($persistedReceipt->danfse_webdav_path ?? null);
+        }
+
+        public function testStoreArtifactsBuildsFilenameFromTemplateUsingSequentialAndAccessKeyPlaceholders(): void
+        {
+            ControllerIsolationState::$settings['nfse.webdav_url'] = 'https://dav.example.com/root';
+            ControllerIsolationState::$settings['nfse.webdav_store_xml'] = true;
+            ControllerIsolationState::$settings['nfse.webdav_store_pdf'] = false;
+            ControllerIsolationState::$settings['nfse.webdav_path_template'] = 'nfse/{year}/{month}/{day}';
+            ControllerIsolationState::$settings['nfse.webdav_filename_template'] = '{nfse_number}-{chave_acesso}';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 780,
+                amount: 210.0,
+                items: [['name' => 'Servico X']],
+                contactName: 'Cliente X',
+            );
+            $persistedReceipt = InvoiceControllerIsolationState::makeReceipt(780, 'CHAVE-780', 'emitted');
+
+            $controller = new class () extends InvoiceController {
+                /** @var array<int, array{0: string, 1: string}> */
+                public array $writes = [];
+
+                protected function makeWebDavClientFromSettings(): \Modules\Nfse\Support\WebDavClient
+                {
+                    return new \Modules\Nfse\Support\WebDavClient(
+                        baseUrl: 'https://dav.example.com/root',
+                        request: function (string $method, string $url, array $headers, string $body): array {
+                            if ($method === 'PUT') {
+                                $this->writes[] = [$url, $body];
+                            }
+
+                            return [201, ''];
+                        },
+                    );
+                }
+
+                public function callStoreArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
+                {
+                    $this->storeArtifacts($invoice, $receipt, $nfseReceipt, $client);
+                }
+            };
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $receipt = new ReceiptData(
+                nfseNumber: 'NF-780/0001',
+                chaveAcesso: 'CHAVE-780',
+                dataEmissao: '2026-04-14T01:45:00-03:00',
+                codigoVerificacao: 'CV780',
+                rawXml: '<xml>conteudo</xml>',
+            );
+
+            $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
+
+            self::assertCount(1, $controller->writes);
+            self::assertStringEndsWith('/nf-780-0001-chave-780.xml', $controller->writes[0][0]);
+            self::assertSame('nfse/2026/04/14/nf-780-0001-chave-780.xml', $persistedReceipt->xml_webdav_path ?? null);
         }
 
         public function testStoreArtifactsDoesNotPersistXmlPathWhenXmlUploadFails(): void
@@ -496,10 +575,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame(2, $client->calls);
             self::assertCount(1, $controller->writes);
-            self::assertStringEndsWith('/CHAVE-779.pdf', $controller->writes[0][0]);
+            self::assertStringEndsWith('/chave-779.pdf', $controller->writes[0][0]);
             self::assertSame('%PDF-1.4', $controller->writes[0][1]);
             self::assertNull($persistedReceipt->xml_webdav_path ?? null);
-            self::assertSame('nfse/12345678000195/2026/04/CHAVE-779.pdf', $persistedReceipt->danfse_webdav_path ?? null);
+            self::assertSame('nfse/12345678000195/2026/04/14/chave-779.pdf', $persistedReceipt->danfse_webdav_path ?? null);
         }
 
         protected function setUp(): void
