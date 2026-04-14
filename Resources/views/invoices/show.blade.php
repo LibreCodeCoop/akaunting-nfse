@@ -69,6 +69,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <form action="{{ route('nfse.invoices.reemit', $invoice) }}" method="POST" data-reemit-form="true">
                     @csrf
                         <input type="hidden" name="nfse_discriminacao_custom" id="reemit-discriminacao-input" value="{{ $suggestedDiscriminacao }}">
+                        <input type="hidden" name="nfse_send_email" value="0" id="reemit-email-send-hidden">
+                        <input type="hidden" name="nfse_email_to" value="" id="reemit-email-to-hidden">
+                        <input type="hidden" name="nfse_email_subject" value="" id="reemit-email-subject-hidden">
+                        <input type="hidden" name="nfse_email_body" id="reemit-email-body-hidden" value="">
+                        <input type="hidden" name="nfse_email_attach_danfse" value="1" id="reemit-email-attach-danfse-hidden">
+                        <input type="hidden" name="nfse_email_attach_xml" value="1" id="reemit-email-attach-xml-hidden">
+                        <input type="hidden" name="nfse_email_save_default" value="0" id="reemit-email-save-default-hidden">
                     <button
                         type="button"
                         class="inline-flex items-center px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm"
@@ -172,6 +179,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 placeholder="{{ trans('nfse::general.invoices.emit_modal_description_placeholder') }}"
                             >{{ $suggestedDiscriminacao }}</textarea>
                             <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.invoices.reemit_modal_description_help') }}</p>
+                        </div>
+
+                        <div class="px-5 pb-4 space-y-3 border-t pt-4">
+                            <p class="text-sm font-semibold text-gray-800">{{ trans('nfse::general.invoices.emit_modal_email_section') }}</p>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="reemit-send-email-checkbox" type="checkbox" class="rounded border-gray-300" @checked((bool) ($emailDefaults['send_email'] ?? false))>
+                                <span>{{ trans('nfse::general.invoices.emit_modal_send_email') }}</span>
+                            </label>
+
+                            <div>
+                                <label for="reemit-email-to-input" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
+                                <input id="reemit-email-to-input" type="email" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="{{ $emailDefaults['recipient'] ?? '' }}">
+                            </div>
+
+                            <div>
+                                <label for="reemit-email-subject-input" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_subject') }}</label>
+                                <input id="reemit-email-subject-input" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="{{ $emailDefaults['subject'] ?? '' }}">
+                            </div>
+
+                            <div>
+                                <label for="reemit-email-body-input" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_body') }}</label>
+                                <textarea id="reemit-email-body-input" rows="4" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">{{ $emailDefaults['body'] ?? '' }}</textarea>
+                            </div>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="reemit-attach-danfse-checkbox" type="checkbox" class="rounded border-gray-300" checked>
+                                <span>{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
+                            </label>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="reemit-attach-xml-checkbox" type="checkbox" class="rounded border-gray-300" checked>
+                                <span>{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
+                            </label>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="reemit-save-default-checkbox" type="checkbox" class="rounded border-gray-300">
+                                <span>{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
+                            </label>
                         </div>
 
                     <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
@@ -308,6 +354,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 if (reemitModal && reemitForm && reemitTrigger && reemitConfirmButton) {
                         const reemitDescriptionTextarea = document.getElementById('reemit-description-textarea');
                         const reemitDiscriminacaoInput = document.getElementById('reemit-discriminacao-input');
+                    const reemitSendEmailCheckbox = document.getElementById('reemit-send-email-checkbox');
+                    const reemitEmailToInput = document.getElementById('reemit-email-to-input');
+                    const reemitEmailSubjectInput = document.getElementById('reemit-email-subject-input');
+                    const reemitEmailBodyInput = document.getElementById('reemit-email-body-input');
+                    const reemitAttachDanfseCheckbox = document.getElementById('reemit-attach-danfse-checkbox');
+                    const reemitAttachXmlCheckbox = document.getElementById('reemit-attach-xml-checkbox');
+                    const reemitSaveDefaultCheckbox = document.getElementById('reemit-save-default-checkbox');
+                    const reemitEmailSendHidden = document.getElementById('reemit-email-send-hidden');
+                    const reemitEmailToHidden = document.getElementById('reemit-email-to-hidden');
+                    const reemitEmailSubjectHidden = document.getElementById('reemit-email-subject-hidden');
+                    const reemitEmailBodyHidden = document.getElementById('reemit-email-body-hidden');
+                    const reemitEmailAttachDanfseHidden = document.getElementById('reemit-email-attach-danfse-hidden');
+                    const reemitEmailAttachXmlHidden = document.getElementById('reemit-email-attach-xml-hidden');
+                    const reemitEmailSaveDefaultHidden = document.getElementById('reemit-email-save-default-hidden');
 
                     const closeReemitModal = () => {
                         reemitModal.classList.add('hidden');
@@ -338,6 +398,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     reemitConfirmButton.addEventListener('click', () => {
                             if (reemitDiscriminacaoInput && reemitDescriptionTextarea) {
                                 reemitDiscriminacaoInput.value = reemitDescriptionTextarea.value;
+                            }
+
+                            if (reemitEmailSendHidden && reemitSendEmailCheckbox) {
+                                reemitEmailSendHidden.value = reemitSendEmailCheckbox.checked ? '1' : '0';
+                            }
+
+                            if (reemitEmailToHidden && reemitEmailToInput) {
+                                reemitEmailToHidden.value = reemitEmailToInput.value;
+                            }
+
+                            if (reemitEmailSubjectHidden && reemitEmailSubjectInput) {
+                                reemitEmailSubjectHidden.value = reemitEmailSubjectInput.value;
+                            }
+
+                            if (reemitEmailBodyHidden && reemitEmailBodyInput) {
+                                reemitEmailBodyHidden.value = reemitEmailBodyInput.value;
+                            }
+
+                            if (reemitEmailAttachDanfseHidden && reemitAttachDanfseCheckbox) {
+                                reemitEmailAttachDanfseHidden.value = reemitAttachDanfseCheckbox.checked ? '1' : '0';
+                            }
+
+                            if (reemitEmailAttachXmlHidden && reemitAttachXmlCheckbox) {
+                                reemitEmailAttachXmlHidden.value = reemitAttachXmlCheckbox.checked ? '1' : '0';
+                            }
+
+                            if (reemitEmailSaveDefaultHidden && reemitSaveDefaultCheckbox) {
+                                reemitEmailSaveDefaultHidden.value = reemitSaveDefaultCheckbox.checked ? '1' : '0';
                             }
 
                         reemitForm.dataset.reemitConfirmed = '1';
