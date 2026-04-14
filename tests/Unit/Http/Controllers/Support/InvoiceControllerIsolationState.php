@@ -21,9 +21,16 @@ namespace {
     }
 }
 
+namespace {
+    if (!class_exists(\App\Models\Setting\EmailTemplate::class, false)) {
+        eval('namespace App\\Models\\Setting; class EmailTemplate { public static ?self $stubInstance = null; public string $subject = ""; public string $body = ""; public static function alias(string $alias): object { return new class (self::$stubInstance) { public function __construct(private ?\\App\\Models\\Setting\\EmailTemplate $t) {} public function first(): ?\\App\\Models\\Setting\\EmailTemplate { return $this->t; } }; } }');
+    }
+}
+
 namespace Modules\Nfse\Tests\Unit\Http\Controllers\Support {
     use App\Models\Sale\FakeCollection;
     use App\Models\Sale\Invoice;
+    use App\Models\Setting\EmailTemplate;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Models\NfseReceipt;
 
@@ -35,6 +42,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers\Support {
             NfseReceipt::$records = [];
             NfseReceipt::$updateOrCreateCalls = [];
             NfseReceipt::$paginateItems = [];
+            EmailTemplate::$stubInstance = null;
         }
 
         /**
