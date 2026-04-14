@@ -2784,7 +2784,7 @@ class InvoiceController extends Controller
         $template  = null;
 
         try {
-            $template = \App\Models\Setting\EmailTemplate::alias('nfse_issued_customer')->first();
+            $template = \App\Models\Setting\EmailTemplate::alias('invoice_nfse_issued_customer')->first();
         } catch (\Throwable) {
             // class not available in unit-test context
         }

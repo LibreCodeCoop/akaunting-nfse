@@ -147,7 +147,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
         {
             $source = file_get_contents(__DIR__ . '/../../../Listeners/FinishInstallation.php');
 
-            self::assertStringContainsString("'nfse_issued_customer'", $source);
+            self::assertStringContainsString("'invoice_nfse_issued_customer'", $source);
         }
     }
 }

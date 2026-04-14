@@ -42,9 +42,10 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('name="nfse_email_save_default" value="0" data-emit-email-save-default-input', $content);
             self::assertStringContainsString('id="nfse_emit_description"', $content);
             self::assertStringContainsString('id="nfse_emit_send_email"', $content);
-            self::assertStringContainsString('class="sr-only peer"', $content);
-            self::assertStringContainsString('peer-checked:bg-green', $content);
-            self::assertStringContainsString('peer-checked:translate-x-5', $content);
+            self::assertStringContainsString('class="sr-only"', $content);
+            self::assertStringContainsString('data-toggle="track"', $content);
+            self::assertStringContainsString('data-toggle="thumb"', $content);
+            self::assertStringContainsString('syncToggle', $content);
             self::assertStringContainsString('id="nfse_emit_email_fields"', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_send_email_hint')", $content);
             self::assertStringContainsString('id="nfse_emit_email_to"', $content);
@@ -58,9 +59,10 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $content = (string) file_get_contents($showPath);
 
             self::assertStringContainsString('id="reemit-send-email-checkbox"', $content);
-            self::assertStringContainsString('class="sr-only peer"', $content);
-            self::assertStringContainsString('peer-checked:bg-green', $content);
-            self::assertStringContainsString('peer-checked:translate-x-5', $content);
+            self::assertStringContainsString('class="sr-only"', $content);
+            self::assertStringContainsString('data-toggle="track"', $content);
+            self::assertStringContainsString('data-toggle="thumb"', $content);
+            self::assertStringContainsString('syncToggle', $content);
             self::assertStringContainsString('id="reemit-email-fields"', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_send_email_hint')", $content);
         }

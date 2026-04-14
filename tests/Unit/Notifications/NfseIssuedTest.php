@@ -159,7 +159,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
         private function makeTemplate(string $subject = 'NFS-e {nfse_number} emitida', string $body = 'Prezado {customer_name}'): EmailTemplate
         {
             $template = new EmailTemplate();
-            $template->alias = 'nfse_issued_customer';
+            $template->alias = 'invoice_nfse_issued_customer';
             $template->subject = $subject;
             $template->body = $body;
             EmailTemplate::$stubInstance = $template;
@@ -322,7 +322,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
         public function testTemplateAliasIsCorrect(): void
         {
             $source = file_get_contents(__DIR__ . '/../../../Notifications/NfseIssued.php');
-            self::assertStringContainsString("'nfse_issued_customer'", $source);
+            self::assertStringContainsString("'invoice_nfse_issued_customer'", $source);
         }
     }
 }
