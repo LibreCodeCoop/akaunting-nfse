@@ -36,8 +36,14 @@ class NfseIssued extends Notification
     public function getTags(): array
     {
         return [
+            '{cnpj}',
+            '{nfse_issue_year}',
+            '{nfse_issue_month}',
+            '{nfse_issue_day}',
+            '{nfse_issue_month_name}',
             '{invoice_number}',
             '{nfse_number}',
+            '{chave_acesso}',
             '{customer_name}',
             '{company_name}',
             '{nfse_issue_date}',
@@ -49,21 +55,89 @@ class NfseIssued extends Notification
      */
     public function getTagsReplacement(): array
     {
+        $issueDateObject = $this->resolveIssueDate();
         $issueDate = '';
+        $issueYear = '';
+        $issueMonth = '';
+        $issueDay = '';
+        $issueMonthName = '';
 
-        if ($this->receipt->data_emissao instanceof \DateTimeInterface) {
-            $issueDate = $this->receipt->data_emissao->format('d/m/Y');
+        if ($issueDateObject instanceof \DateTimeInterface) {
+            $issueDate = $issueDateObject->format('d/m/Y');
+            $issueYear = $issueDateObject->format('Y');
+            $issueMonth = $issueDateObject->format('m');
+            $issueDay = $issueDateObject->format('d');
+            $issueMonthName = $this->monthNameByNumber((int) $issueDateObject->format('n'));
         } elseif ($this->receipt->data_emissao !== null) {
             $issueDate = (string) $this->receipt->data_emissao;
         }
 
         return [
+            $this->resolveCnpj(),
+            $issueYear,
+            $issueMonth,
+            $issueDay,
+            $issueMonthName,
             (string) ($this->invoice->document_number ?? ''),
             (string) ($this->receipt->nfse_number ?? ''),
+            (string) ($this->receipt->chave_acesso ?? ''),
             (string) ($this->invoice->contact_name ?? ''),
             (string) ($this->invoice->company?->name ?? ''),
             $issueDate,
         ];
+    }
+
+    protected function resolveIssueDate(): ?\DateTimeInterface
+    {
+        if ($this->receipt->data_emissao instanceof \DateTimeInterface) {
+            return $this->receipt->data_emissao;
+        }
+
+        if ($this->receipt->data_emissao === null || $this->receipt->data_emissao === '') {
+            return null;
+        }
+
+        try {
+            return new \DateTimeImmutable((string) $this->receipt->data_emissao);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    protected function monthNameByNumber(int $month): string
+    {
+        return match ($month) {
+            1 => 'janeiro',
+            2 => 'fevereiro',
+            3 => 'marco',
+            4 => 'abril',
+            5 => 'maio',
+            6 => 'junho',
+            7 => 'julho',
+            8 => 'agosto',
+            9 => 'setembro',
+            10 => 'outubro',
+            11 => 'novembro',
+            12 => 'dezembro',
+            default => '',
+        };
+    }
+
+    protected function resolveCnpj(): string
+    {
+        if (function_exists('setting')) {
+            try {
+                $providerCnpj = (string) setting('nfse.cnpj_prestador', '');
+
+                if ($providerCnpj !== '') {
+                    return $providerCnpj;
+                }
+            } catch (\Throwable) {
+                // In isolated unit tests the setting container may not be bootstrapped.
+            }
+        }
+
+        return (string) ($this->invoice->company?->tax_number ?? '');
     }
 
     public function toMail(mixed $notifiable): MailMessage
