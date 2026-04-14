@@ -2381,7 +2381,7 @@ class InvoiceController extends Controller
                 $danfseGetter = [$client, 'getDanfse'];
 
                 if (is_callable($danfseGetter)) {
-                    $danfse = $danfseGetter($receipt->chaveAcesso);
+                    $danfse = $this->fetchDanfseWithRetry($client, $receipt->chaveAcesso);
 
                     if (is_string($danfse) && $danfse !== '') {
                         $candidateDanfsePath = $basePath . '/' . $receipt->chaveAcesso . '.pdf';
@@ -2412,6 +2412,43 @@ class InvoiceController extends Controller
                 ]);
             }
         }
+    }
+
+    protected function fetchDanfseWithRetry(NfseClientInterface $client, string $chaveAcesso, int $maxAttempts = 2): string
+    {
+        $attempt = 0;
+        $lastError = null;
+
+        while ($attempt < $maxAttempts) {
+            $attempt++;
+
+            try {
+                return $client->getDanfse($chaveAcesso);
+            } catch (\Throwable $throwable) {
+                $lastError = $throwable;
+
+                if (!$this->shouldRetryDanfseRetrieval($throwable, $attempt, $maxAttempts)) {
+                    throw $throwable;
+                }
+            }
+        }
+
+        if ($lastError instanceof \Throwable) {
+            throw $lastError;
+        }
+
+        throw new \RuntimeException('Unexpected DANFSE retrieval retry flow termination.');
+    }
+
+    protected function shouldRetryDanfseRetrieval(\Throwable $throwable, int $attempt, int $maxAttempts): bool
+    {
+        if ($attempt >= $maxAttempts) {
+            return false;
+        }
+
+        $message = strtolower($throwable->getMessage());
+
+        return str_contains($message, 'http 496') || str_contains($message, 'http status 496');
     }
 
     protected function webDavEnabled(): bool
