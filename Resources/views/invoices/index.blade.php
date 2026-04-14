@@ -63,7 +63,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         @php
             $listingRouteName = request()->routeIs('nfse.dashboard.index') ? 'nfse.dashboard.index' : 'nfse.invoices.index';
             $currentStatus = $status ?? 'all';
-            $isPendingStatus = $currentStatus === 'pending';
+            $selectedStatuses = $currentStatus === 'all'
+                ? ['all']
+                : array_values(array_filter(array_map('trim', explode(',', (string) $currentStatus))));
+            $showsPendingRows = $currentStatus === 'pending' || in_array('pending', $selectedStatuses, true);
+            $showsReceiptRows = $currentStatus === 'all' || array_values(array_filter($selectedStatuses, fn ($item) => $item !== 'pending')) !== [];
+            $isPendingOnlyStatus = $showsPendingRows && !$showsReceiptRows;
+            $isMixedStatusListing = $showsPendingRows && $showsReceiptRows;
             $visibleTotal = (int) ($overviewCounts['total'] ?? 0);
             $visibleEmitted = (int) ($overviewCounts['emitted'] ?? 0);
             $visibleProcessing = (int) ($overviewCounts['processing'] ?? 0);
@@ -127,7 +133,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <x-search-string :filters="$searchStringFilters" />
         </x-form>
 
-        @if($isPendingStatus && !$isReady)
+        @if($showsPendingRows && !$isReady)
             <div class="bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded mb-4">
                 <p>{{ trans('nfse::general.invoices.readiness_incomplete') }}</p>
                 @php $missingItems = array_keys(array_filter($checklist, fn($value) => !$value)); @endphp
@@ -162,8 +168,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @if($isPendingStatus)
+                    @php
+                        $pendingRowsRendered = false;
+                        $receiptRowsRendered = false;
+                    @endphp
+                    @if($showsPendingRows)
                         @forelse($pendingInvoices as $invoice)
+                            @php $pendingRowsRendered = true; @endphp
                             <tr class="group hover:bg-gray-50 transition-colors">
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <div class="font-bold">
@@ -339,12 +350,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </td>
                             </tr>
                         @empty
-                            <tr>
-                                <td colspan="5" class="px-4 py-6 text-center text-gray-500">{{ trans('nfse::general.invoices.no_pending') }}</td>
-                            </tr>
                         @endforelse
-                    @else
+                    @endif
+
+                    @if($showsReceiptRows)
                         @forelse($receipts as $receipt)
+                            @php $receiptRowsRendered = true; @endphp
                             @php
                                 $statusClass = match ($receipt->status ?? '') {
                                     'emitted' => 'bg-green-100 text-green-700',
@@ -569,16 +580,40 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </td>
                             </tr>
                         @empty
-                            <tr>
-                                <td colspan="5" class="px-4 py-6 text-center text-gray-500">{{ trans('general.no_records') }}</td>
-                            </tr>
                         @endforelse
+                    @endif
+
+                    @if(!$pendingRowsRendered && !$receiptRowsRendered)
+                        <tr>
+                            <td colspan="5" class="px-4 py-6 text-center text-gray-500">
+                                {{ $showsPendingRows ? trans('nfse::general.invoices.no_pending') : trans('general.no_records') }}
+                            </td>
+                        </tr>
                     @endif
                 </tbody>
             </table>
         </div>
 
-        <x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />
+        @if($isPendingOnlyStatus)
+            <x-pagination :items="$pendingInvoices" />
+        @elseif($isMixedStatusListing)
+            <div class="space-y-4">
+                @if($pendingInvoices)
+                    <div>
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-indigo-700">{{ trans('nfse::general.invoices.filter_pending') }}</p>
+                        <x-pagination :items="$pendingInvoices" />
+                    </div>
+                @endif
+                @if($receipts)
+                    <div>
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600">{{ trans('general.results') }}</p>
+                        <x-pagination :items="$receipts" />
+                    </div>
+                @endif
+            </div>
+        @else
+            <x-pagination :items="$receipts" />
+        @endif
 
         <div id="nfse-emit-modal" class="fixed inset-0 z-[100] hidden" aria-hidden="true" data-default-confirm-label="{{ trans('nfse::general.invoices.emit_now') }}">
             <div class="absolute inset-0 bg-slate-500/55 backdrop-blur-[1px] backdrop-brightness-75" data-emit-close="true" onclick="const modal = document.getElementById('nfse-emit-modal'); const items = document.getElementById('nfse-emit-missing-items'); const hint = document.getElementById('nfse-emit-missing-items-hint'); const description = document.getElementById('nfse_emit_description'); const confirm = document.getElementById('nfse-emit-confirm-button'); if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (items) { items.innerHTML = ''; } if (hint) { hint.classList.add('hidden'); } if (description) { description.value = ''; } if (confirm && modal?.dataset.defaultConfirmLabel) { confirm.textContent = modal.dataset.defaultConfirmLabel; } return false;"></div>
