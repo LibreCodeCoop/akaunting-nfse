@@ -182,13 +182,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </div>
 
                         <div class="px-5 pb-4 space-y-3 border-t pt-4">
-                            <p class="text-sm font-semibold text-gray-800">{{ trans('nfse::general.invoices.emit_modal_email_section') }}</p>
+                            <div class="flex items-center gap-3">
+                                <label for="reemit-send-email-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center" aria-label="{{ trans('nfse::general.invoices.emit_modal_send_email') }}">
+                                    <input id="reemit-send-email-checkbox" type="checkbox" class="sr-only peer" @checked((bool) ($emailDefaults['send_email'] ?? false))>
+                                    <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
+                                    <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                </label>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
+                                    <p class="text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_send_email_hint') }}</p>
+                                </div>
+                            </div>
 
-                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                <input id="reemit-send-email-checkbox" type="checkbox" class="rounded border-gray-300" @checked((bool) ($emailDefaults['send_email'] ?? false))>
-                                <span>{{ trans('nfse::general.invoices.emit_modal_send_email') }}</span>
-                            </label>
-
+                            <div id="reemit-email-fields" class="space-y-3 {{ (bool) ($emailDefaults['send_email'] ?? false) ? '' : 'hidden' }}">
                             <div>
                                 <label for="reemit-email-to-input" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
                                 <input id="reemit-email-to-input" type="email" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="{{ $emailDefaults['recipient'] ?? '' }}">
@@ -218,6 +224,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <input id="reemit-save-default-checkbox" type="checkbox" class="rounded border-gray-300">
                                 <span>{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
                             </label>
+                            </div>
                         </div>
 
                     <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
@@ -355,6 +362,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         const reemitDescriptionTextarea = document.getElementById('reemit-description-textarea');
                         const reemitDiscriminacaoInput = document.getElementById('reemit-discriminacao-input');
                     const reemitSendEmailCheckbox = document.getElementById('reemit-send-email-checkbox');
+                    const reemitEmailFields = document.getElementById('reemit-email-fields');
                     const reemitEmailToInput = document.getElementById('reemit-email-to-input');
                     const reemitEmailSubjectInput = document.getElementById('reemit-email-subject-input');
                     const reemitEmailBodyInput = document.getElementById('reemit-email-body-input');
@@ -368,6 +376,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const reemitEmailAttachDanfseHidden = document.getElementById('reemit-email-attach-danfse-hidden');
                     const reemitEmailAttachXmlHidden = document.getElementById('reemit-email-attach-xml-hidden');
                     const reemitEmailSaveDefaultHidden = document.getElementById('reemit-email-save-default-hidden');
+
+                    const refreshReemitEmailSection = () => {
+                        if (reemitEmailFields) {
+                            reemitEmailFields.classList.toggle('hidden', !reemitSendEmailCheckbox?.checked);
+                        }
+                    };
 
                     const closeReemitModal = () => {
                         reemitModal.classList.add('hidden');
@@ -383,6 +397,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     };
 
                     reemitTrigger.addEventListener('click', openReemitModal);
+
+                    reemitSendEmailCheckbox?.addEventListener('change', refreshReemitEmailSection);
+
+                    refreshReemitEmailSection();
 
                     reemitForm.addEventListener('submit', (event) => {
                         if (reemitForm.dataset.reemitConfirmed === '1') {
