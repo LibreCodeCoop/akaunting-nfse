@@ -148,6 +148,190 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse/marco/nf-2026-000123/cliente-exemplo-ltda', $resolved);
         }
 
+        public function testBuildWebDavArtifactBasePathUsesNfseNumberFromXmlWhenGatewayFieldIsEmpty(): void
+        {
+            ControllerIsolationState::$settings['nfse.webdav_path_template'] = 'nfse/{month_name}/{nfse_number}/{customer_name}';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 902,
+                amount: 100.0,
+                items: [['name' => 'Servico']],
+                contactName: 'Cliente Exemplo LTDA',
+            );
+
+            $xmlWithNfseNumber = '<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe><nNFSe>33</nNFSe></infNFSe></NFSe>';
+
+            $receipt = new ReceiptData('', 'CHAVE-902', '2026-04-21T10:00:00-03:00', null, $xmlWithNfseNumber);
+
+            $controller = new class () extends InvoiceController {
+                public function resolveArtifactPath(Invoice $invoice, ReceiptData $receipt): string
+                {
+                    return $this->buildWebDavArtifactBasePath($invoice, $receipt);
+                }
+            };
+
+            $resolved = $controller->resolveArtifactPath($invoice, $receipt);
+
+            self::assertSame('nfse/abril/33/cliente-exemplo-ltda', $resolved);
+        }
+
+        public function testStoreArtifactsPersistsXmlEvenWhenDanfseFails(): void
+        {
+            ControllerIsolationState::$settings['nfse.webdav_url'] = 'https://dav.example.com/root';
+            ControllerIsolationState::$settings['nfse.webdav_store_xml'] = true;
+            ControllerIsolationState::$settings['nfse.webdav_store_pdf'] = true;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 777,
+                amount: 210.0,
+                items: [['name' => 'Servico X']],
+                contactName: 'Cliente X',
+            );
+            $persistedReceipt = InvoiceControllerIsolationState::makeReceipt(777, 'CHAVE-777', 'emitted');
+            $capturedWrites = [];
+
+            $controller = new class ($capturedWrites) extends InvoiceController {
+                public array $writes = [];
+
+                public function __construct(array $writes)
+                {
+                    $this->writes = $writes;
+                }
+
+                protected function makeWebDavClientFromSettings(): \Modules\Nfse\Support\WebDavClient
+                {
+                    return new \Modules\Nfse\Support\WebDavClient(
+                        baseUrl: 'https://dav.example.com/root',
+                        request: function (string $method, string $url, array $headers, string $body): array {
+                            if ($method === 'PUT') {
+                                $this->writes[] = [$url, $body];
+                            }
+
+                            return [201, ''];
+                        },
+                    );
+                }
+
+                public function callStoreArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
+                {
+                    $this->storeArtifacts($invoice, $receipt, $nfseReceipt, $client);
+                }
+            };
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \RuntimeException('DANFSE unavailable');
+                }
+            };
+
+            $receipt = new ReceiptData(
+                nfseNumber: 'NF-777',
+                chaveAcesso: 'CHAVE-777',
+                dataEmissao: '2026-04-14T01:45:00-03:00',
+                codigoVerificacao: 'CV777',
+                rawXml: '<xml>conteudo</xml>',
+            );
+
+            $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
+
+            self::assertCount(1, $controller->writes);
+            self::assertStringEndsWith('/CHAVE-777.xml', $controller->writes[0][0]);
+            self::assertSame('<xml>conteudo</xml>', $controller->writes[0][1]);
+            self::assertSame('nfse/12345678000195/2026/04/CHAVE-777.xml', $persistedReceipt->xml_webdav_path ?? null);
+            self::assertNull($persistedReceipt->danfse_webdav_path ?? null);
+        }
+
+        public function testStoreArtifactsDoesNotPersistXmlPathWhenXmlUploadFails(): void
+        {
+            ControllerIsolationState::$settings['nfse.webdav_url'] = 'https://dav.example.com/root';
+            ControllerIsolationState::$settings['nfse.webdav_store_xml'] = true;
+            ControllerIsolationState::$settings['nfse.webdav_store_pdf'] = false;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 778,
+                amount: 210.0,
+                items: [['name' => 'Servico X']],
+                contactName: 'Cliente X',
+            );
+            $persistedReceipt = InvoiceControllerIsolationState::makeReceipt(778, 'CHAVE-778', 'emitted');
+
+            $controller = new class () extends InvoiceController {
+                protected function makeWebDavClientFromSettings(): \Modules\Nfse\Support\WebDavClient
+                {
+                    return new \Modules\Nfse\Support\WebDavClient(
+                        baseUrl: 'https://dav.example.com/root',
+                        request: static function (string $method, string $url, array $headers, string $body): array {
+                            if ($method === 'MKCOL') {
+                                return [201, ''];
+                            }
+
+                            if ($method === 'PUT') {
+                                return [500, 'upload failed'];
+                            }
+
+                            return [500, 'unsupported'];
+                        },
+                    );
+                }
+
+                public function callStoreArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
+                {
+                    $this->storeArtifacts($invoice, $receipt, $nfseReceipt, $client);
+                }
+            };
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    return '';
+                }
+            };
+
+            $receipt = new ReceiptData(
+                nfseNumber: 'NF-778',
+                chaveAcesso: 'CHAVE-778',
+                dataEmissao: '2026-04-14T01:45:00-03:00',
+                codigoVerificacao: 'CV778',
+                rawXml: '<xml>conteudo</xml>',
+            );
+
+            $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
+
+            self::assertNull($persistedReceipt->xml_webdav_path ?? null);
+            self::assertNull($persistedReceipt->danfse_webdav_path ?? null);
+        }
+
         protected function setUp(): void
         {
             parent::setUp();
@@ -1316,6 +1500,31 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('010701', $controller->exposedNationalTaxCode($defaultService));
         }
 
+        public function testNationalTaxCodeDerivesFromServiceCodeWhenNoExplicitConfigIsPresent(): void
+        {
+            ControllerIsolationState::$settings['nfse.codigo_tributacao_nacional'] = '';
+
+            $controller = new class () extends InvoiceController {
+                public function exposedNationalTaxCode(?object $defaultService = null): string
+                {
+                    return $this->nationalTaxCode($defaultService);
+                }
+
+                protected function supportsCompanyServiceSelection(): bool
+                {
+                    return true;
+                }
+            };
+
+            $defaultService = (object) [
+                'item_lista_servico' => '0101',
+                'codigo_tributacao_nacional' => null,
+                'aliquota' => '5.00',
+            ];
+
+            self::assertSame('010101', $controller->exposedNationalTaxCode($defaultService));
+        }
+
         public function testItemListaServicoPreservesThreeDigitMunicipalCode(): void
         {
             $controller = new class () extends InvoiceController {
@@ -2006,6 +2215,42 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertNull($controller->capturedSearch);
             self::assertSame('cancelled', $response->data['status'] ?? null);
             self::assertSame(['filtered'], $response->data['receipts'] ?? null);
+        }
+
+        public function testIndexLoadsPendingAndReceiptDataWhenCombinedStatusIncludesPending(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public ?string $capturedStatus = null;
+                public ?int $capturedPerPage = null;
+                public ?string $capturedSearch = null;
+                public bool $pendingInvoicesCalled = false;
+
+                protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
+                {
+                    $this->capturedStatus = $status;
+                    $this->capturedPerPage = $perPage;
+                    $this->capturedSearch = $search;
+
+                    return ['cancelled-row'];
+                }
+
+                protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
+                {
+                    $this->pendingInvoicesCalled = true;
+
+                    return ['pending-row'];
+                }
+            };
+
+            $response = $controller->index(new Request(['status' => 'pending,cancelled']));
+
+            self::assertSame('cancelled', $controller->capturedStatus);
+            self::assertSame(25, $controller->capturedPerPage);
+            self::assertNull($controller->capturedSearch);
+            self::assertTrue($controller->pendingInvoicesCalled);
+            self::assertSame('pending,cancelled', $response->data['status'] ?? null);
+            self::assertSame(['cancelled-row'], $response->data['receipts'] ?? null);
+            self::assertSame(['pending-row'], $response->data['pendingInvoices'] ?? null);
         }
 
         public function testIndexFallsBackToAllWhenStatusFilterIsInvalid(): void
@@ -2826,6 +3071,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->reemit($invoice);
 
             self::assertSame('Servico Reemissao', $client->capturedDps?->discriminacao);
+            self::assertNotSame('301', $client->capturedDps?->numeroDps);
+            self::assertMatchesRegularExpression('/^[1-9]\d{0,14}$/', $client->capturedDps?->numeroDps ?? '');
             self::assertSame([
                 [
                     'attributes' => ['invoice_id' => 301],
