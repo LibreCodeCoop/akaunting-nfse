@@ -17,6 +17,16 @@ final class EmailTemplateSynchronizerTest extends TestCase
         $translations = EmailTemplateSynchronizer::buildTranslations();
 
         self::assertSame(
+            '<strong>Tags disponíveis:</strong> :tag_list',
+            $translations['pt-BR']['settings.email.templates.tags']
+        );
+
+        self::assertSame(
+            '<strong>Available Tags:</strong> :tag_list',
+            $translations['en-GB']['settings.email.templates.tags']
+        );
+
+        self::assertSame(
             'Modelo de NFS-e Emitida (enviado ao cliente)',
             $translations['pt-BR']['settings.email.templates.invoice_nfse_issued_customer']
         );
