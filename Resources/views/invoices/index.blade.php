@@ -1091,11 +1091,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         // Let native click happen first, then refresh
                         setTimeout(() => {
                             if (emitModalSendEmailInput && emitModalEmailFields) {
-                                console.log('[NFS-e Emit Modal] Label clicked - checkbox is now:', emitModalSendEmailInput.checked, '- calling refresh');
-                                refreshEmitEmailSection();
+                                const isChecked = emitModalSendEmailInput.checked;
+                                console.log('[NFS-e Emit Modal] Label clicked - checkbox is now:', isChecked);
+                                
+                                // Directly handle the visibility
+                                if (isChecked) {
+                                    emitModalEmailFields.classList.remove('hidden');
+                                    console.log('[NFS-e Emit Modal] Removed hidden class');
+                                } else {
+                                    emitModalEmailFields.classList.add('hidden');
+                                    console.log('[NFS-e Emit Modal] Added hidden class');
+                                }
                             }
-                        }, 0);
+                        }, 50);
                     });
+                    console.log('[NFS-e Emit Modal] Label click handler attached successfully');
                 }
                 
                 console.log('[NFS-e Emit Modal] Script initialized:', { 
