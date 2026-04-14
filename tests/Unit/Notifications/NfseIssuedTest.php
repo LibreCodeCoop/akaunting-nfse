@@ -172,6 +172,24 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $invoice = new Invoice();
             $invoice->document_number = $docNumber;
             $invoice->contact_name = $contactName;
+            $invoice->company = (object) [
+                'name' => 'Empresa Matriz',
+                'tax_number' => '12345678000199',
+                'email' => 'empresa@example.com',
+                'phone' => '1133334444',
+                'contacts' => [
+                    (object) [
+                        'name' => 'Contato Primario',
+                        'email' => 'contato.primario@example.com',
+                        'phone' => '1199998888',
+                    ],
+                    (object) [
+                        'name' => 'Contato Secundario',
+                        'email' => 'contato.secundario@example.com',
+                        'phone' => '1188887777',
+                    ],
+                ],
+            ];
 
             return $invoice;
         }
@@ -202,6 +220,9 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertContains('{chave_acesso}', $tags);
             self::assertContains('{customer_name}', $tags);
             self::assertContains('{company_name}', $tags);
+            self::assertContains('{company_contact_name}', $tags);
+            self::assertContains('{company_contact_email}', $tags);
+            self::assertContains('{company_contact_phone}', $tags);
             self::assertContains('{nfse_issue_date}', $tags);
         }
 
@@ -219,6 +240,9 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertContains('9988', $replacements);
             self::assertContains('ACESSO-XYZ', $replacements);
             self::assertContains('Empresa ABC', $replacements);
+            self::assertContains('Contato Primario', $replacements);
+            self::assertContains('contato.primario@example.com', $replacements);
+            self::assertContains('1199998888', $replacements);
             self::assertContains('2026', $replacements);
             self::assertContains('04', $replacements);
             self::assertContains('14', $replacements);
