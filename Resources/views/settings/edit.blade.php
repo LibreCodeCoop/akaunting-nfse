@@ -118,7 +118,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         {{-- Token fields --}}
                         <div id="vault-token-section" class="space-y-4 @if($selectedAuthMode === 'approle') hidden @endif" @if($selectedAuthMode === 'approle') hidden @endif>
-                        @php($showLocalTokenHint = app()->environment(['local', 'development']))
+                        @php
+                            $showLocalTokenHint = app()->environment(['local', 'development']);
+                        @endphp
                         <div>
                             <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
                             <div class="relative">
@@ -626,6 +628,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                         <li><code class="bg-gray-100 px-1 rounded">{{ $placeholder }}</code> — {{ $description }}</li>
                                     @endforeach
                                 </ul>
+                            </div>
+                        </div>
+
+                        @php
+                            $storeXmlOn = (bool) old('nfse.webdav_store_xml', setting('nfse.webdav_store_xml', true));
+                            $storePdfOn = (bool) old('nfse.webdav_store_pdf', setting('nfse.webdav_store_pdf', true));
+                        @endphp
+                        <div class="space-y-1 rounded border border-gray-200 bg-gray-50 p-3">
+                            <div class="flex items-center justify-between py-1">
+                                <span class="text-sm text-gray-700">{{ trans('nfse::general.settings.artifacts.store_xml') }}</span>
+                                <button type="button"
+                                    aria-label="{{ trans('nfse::general.settings.artifacts.store_xml') }}"
+                                    onclick="(function(btn){var inp=document.getElementById('webdav_store_xml_val');var on=inp.value==='1';inp.value=on?'0':'1';btn.querySelector('[data-on]').classList.toggle('hidden',on);btn.querySelector('[data-off]').classList.toggle('hidden',!on);})(this)"
+                                    class="flex items-center focus:outline-none"
+                                >
+                                    <span class="material-icons-outlined text-green-600 text-2xl{{ $storeXmlOn ? '' : ' hidden' }}" data-on>toggle_on</span>
+                                    <span class="material-icons-outlined text-gray-400 text-2xl{{ $storeXmlOn ? ' hidden' : '' }}" data-off>toggle_off</span>
+                                </button>
+                                <input type="hidden" id="webdav_store_xml_val" name="nfse[webdav_store_xml]" value="{{ $storeXmlOn ? '1' : '0' }}">
+                            </div>
+                            <div class="flex items-center justify-between py-1">
+                                <span class="text-sm text-gray-700">{{ trans('nfse::general.settings.artifacts.store_pdf') }}</span>
+                                <button type="button"
+                                    aria-label="{{ trans('nfse::general.settings.artifacts.store_pdf') }}"
+                                    onclick="(function(btn){var inp=document.getElementById('webdav_store_pdf_val');var on=inp.value==='1';inp.value=on?'0':'1';btn.querySelector('[data-on]').classList.toggle('hidden',on);btn.querySelector('[data-off]').classList.toggle('hidden',!on);})(this)"
+                                    class="flex items-center focus:outline-none"
+                                >
+                                    <span class="material-icons-outlined text-green-600 text-2xl{{ $storePdfOn ? '' : ' hidden' }}" data-on>toggle_on</span>
+                                    <span class="material-icons-outlined text-gray-400 text-2xl{{ $storePdfOn ? ' hidden' : '' }}" data-off>toggle_off</span>
+                                </button>
+                                <input type="hidden" id="webdav_store_pdf_val" name="nfse[webdav_store_pdf]" value="{{ $storePdfOn ? '1' : '0' }}">
                             </div>
                         </div>
 
