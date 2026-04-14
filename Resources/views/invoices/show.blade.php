@@ -210,20 +210,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <textarea id="reemit-email-body-input" rows="4" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">{{ $emailDefaults['body'] ?? '' }}</textarea>
                             </div>
 
-                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                <input id="reemit-attach-danfse-checkbox" type="checkbox" class="rounded border-gray-300" checked>
-                                <span>{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
-                            </label>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-3 p-3 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition">
+                                    <input id="reemit-attach-danfse-checkbox" type="checkbox" class="w-5 h-5 rounded border-gray-300 accent-green-600" checked>
+                                    <span class="font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
+                                </label>
 
-                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                <input id="reemit-attach-xml-checkbox" type="checkbox" class="rounded border-gray-300" checked>
-                                <span>{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
-                            </label>
+                                <label class="flex items-center gap-3 p-3 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition">
+                                    <input id="reemit-attach-xml-checkbox" type="checkbox" class="w-5 h-5 rounded border-gray-300 accent-green-600" checked>
+                                    <span class="font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
+                                </label>
 
-                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                <input id="reemit-save-default-checkbox" type="checkbox" class="rounded border-gray-300">
-                                <span>{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
-                            </label>
+                                <label class="flex items-center gap-3 p-3 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer transition">
+                                    <input id="reemit-save-default-checkbox" type="checkbox" class="w-5 h-5 rounded border-gray-300 accent-green-600">
+                                    <span class="font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
+                                </label>
+                            </div>
                             </div>
                         </div>
 
