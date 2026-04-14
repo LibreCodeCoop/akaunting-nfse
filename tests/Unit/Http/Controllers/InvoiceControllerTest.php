@@ -3435,6 +3435,91 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('NFS-e reemitida NF-RE-301 com sucesso.', $response->flash['success'] ?? null);
         }
 
+        public function testReemitSendsNotificationWhenEmailRequested(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 3301,
+                amount: 300.0,
+                items: [['name' => 'Servico Reemissao Email']],
+                contactEmail: 'cliente@reemissao.test',
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(3301, 'CHAVE-3301', 'cancelled');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    return new ReceiptData(
+                        nfseNumber: 'NF-RE-3301',
+                        chaveAcesso: 'CHAVE-RE-3301',
+                        dataEmissao: '2026-03-21T18:00:00-03:00',
+                        codigoVerificacao: 'RE3301',
+                    );
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $notificationCalls = [];
+
+            $controller = new class ($client, $notificationCalls) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client, private array &$notificationCalls)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function emissionReadiness(): array
+                {
+                    return ['isReady' => true, 'checklist' => []];
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    $this->notificationCalls[] = [
+                        'invoice_id' => $invoice->id,
+                        'attach_danfse' => $attachDanfse,
+                        'attach_xml' => $attachXml,
+                        'custom_mail' => $customMail,
+                    ];
+                }
+            };
+
+            $request = new Request([
+                'nfse_send_email' => '1',
+                'nfse_email_to' => 'destinatario@reemissao.test',
+                'nfse_email_subject' => 'Assunto reemissao',
+                'nfse_email_body' => 'Corpo reemissao',
+                'nfse_email_attach_danfse' => '1',
+                'nfse_email_attach_xml' => '0',
+            ]);
+
+            $controller->reemit($invoice, $request);
+
+            self::assertCount(1, $notificationCalls);
+            self::assertSame(3301, $notificationCalls[0]['invoice_id']);
+            self::assertTrue($notificationCalls[0]['attach_danfse']);
+            self::assertFalse($notificationCalls[0]['attach_xml']);
+            self::assertSame('destinatario@reemissao.test', $notificationCalls[0]['custom_mail']['to'][0]['email'] ?? null);
+            self::assertSame('Assunto reemissao', $notificationCalls[0]['custom_mail']['subject'] ?? null);
+        }
+
         public function testReemitUsesCustomDescriptionFromRequestWhenProvided(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
@@ -4246,5 +4331,162 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('A NFS-e precisa estar cancelada para reemissao manual.', $response->flash['warning'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
+
+        public function testHandlePostEmitEmailCallsSendNotificationWhenEnabledAndRecipientPresent(): void
+        {
+            InvoiceControllerIsolationState::reset();
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 55,
+                amount: 100.0,
+                contactEmail: 'cliente@example.com',
+            );
+
+            $receipt = InvoiceControllerIsolationState::makeReceipt(55, 'CHAVE-55');
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email'         => '1',
+                'nfse_email_to'           => 'destinatario@example.com',
+                'nfse_email_subject'      => 'NFS-e emitida',
+                'nfse_email_body'         => 'Prezado cliente',
+                'nfse_email_attach_danfse' => '1',
+                'nfse_email_attach_xml'   => '0',
+            ]);
+
+            $notificationCalls = [];
+
+            $controller = new class ($notificationCalls) extends InvoiceController {
+                public function __construct(private array &$notificationCalls)
+                {
+                }
+
+                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                {
+                    $this->handlePostEmitEmail($request, $invoice, $receipt);
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    $this->notificationCalls[] = [
+                        'invoice_id'   => $invoice->id,
+                        'attach_danfse' => $attachDanfse,
+                        'attach_xml'   => $attachXml,
+                        'custom_mail'  => $customMail,
+                    ];
+                }
+            };
+
+            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+
+            self::assertCount(1, $notificationCalls);
+            self::assertSame(55, $notificationCalls[0]['invoice_id']);
+            self::assertTrue($notificationCalls[0]['attach_danfse']);
+            self::assertFalse($notificationCalls[0]['attach_xml']);
+            self::assertSame('destinatario@example.com', $notificationCalls[0]['custom_mail']['to'][0]['email'] ?? null);
+            self::assertSame('NFS-e emitida', $notificationCalls[0]['custom_mail']['subject'] ?? null);
+        }
+
+        public function testHandlePostEmitEmailSkipsWhenSendEmailIsFalse(): void
+        {
+            InvoiceControllerIsolationState::reset();
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 56, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(56, 'CHAVE-56');
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email' => '0',
+                'nfse_email_to'   => 'alguem@example.com',
+            ]);
+
+            $notificationCalls = [];
+
+            $controller = new class ($notificationCalls) extends InvoiceController {
+                public function __construct(private array &$notificationCalls)
+                {
+                }
+
+                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                {
+                    $this->handlePostEmitEmail($request, $invoice, $receipt);
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    $this->notificationCalls[] = true;
+                }
+            };
+
+            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+
+            self::assertCount(0, $notificationCalls);
+        }
+
+        public function testHandlePostEmitEmailSkipsWhenRecipientIsEmpty(): void
+        {
+            InvoiceControllerIsolationState::reset();
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 57, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(57, 'CHAVE-57');
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email' => '1',
+                'nfse_email_to'   => '   ',
+            ]);
+
+            $notificationCalls = [];
+
+            $controller = new class ($notificationCalls) extends InvoiceController {
+                public function __construct(private array &$notificationCalls)
+                {
+                }
+
+                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                {
+                    $this->handlePostEmitEmail($request, $invoice, $receipt);
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    $this->notificationCalls[] = true;
+                }
+            };
+
+            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+
+            self::assertCount(0, $notificationCalls);
+        }
+
+        public function testHandlePostEmitEmailSavesDefaultSettingWhenFlagIsSet(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$savedCount = 0;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 58, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(58, 'CHAVE-58');
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email'          => '1',
+                'nfse_email_to'            => 'cli@example.com',
+                'nfse_email_save_default'  => '1',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                {
+                    $this->handlePostEmitEmail($request, $invoice, $receipt);
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    // suppress actual notification
+                }
+            };
+
+            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+        }
+
     }
 }
