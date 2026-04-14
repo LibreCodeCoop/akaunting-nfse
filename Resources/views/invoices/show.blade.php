@@ -66,9 +66,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     {{ trans('nfse::general.invoices.cancel') }}
                 </button>
             @else
-                <form action="{{ route('nfse.invoices.reemit', $invoice) }}" method="POST" onsubmit="return confirm('{{ trans('nfse::general.invoices.reemit_confirm') }}')">
+                <form action="{{ route('nfse.invoices.reemit', $invoice) }}" method="POST" data-reemit-form="true">
                     @csrf
-                    <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm">
+                        <input type="hidden" name="nfse_discriminacao_custom" id="reemit-discriminacao-input" value="{{ $suggestedDiscriminacao }}">
+                    <button
+                        type="button"
+                        class="inline-flex items-center px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm"
+                        data-reemit-trigger="true"
+                    >
                         {{ trans('nfse::general.invoices.reemit') }}
                     </button>
                 </form>
@@ -143,6 +148,52 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         </div>
 
+        <div id="nfse-reemit-modal" class="fixed inset-0 z-[100] hidden" aria-hidden="true">
+            <div class="absolute inset-0 bg-slate-500/55 backdrop-blur-[1px] backdrop-brightness-75" data-reemit-close="true"></div>
+
+            <div class="relative flex min-h-full items-center justify-center overflow-y-auto p-4">
+                <div class="w-full max-w-md rounded-lg bg-white shadow-xl">
+                    <div class="border-b px-5 py-4">
+                        <h3 class="text-lg font-semibold text-gray-800">{{ trans('nfse::general.invoices.reemit') }}</h3>
+                    </div>
+
+                    <div class="px-5 py-4 text-sm text-gray-700">
+                        {{ trans('nfse::general.invoices.reemit_confirm') }}
+                    </div>
+
+                        <div class="px-5 pb-4">
+                            <label for="reemit-description-textarea" class="mb-1 block text-sm font-medium text-gray-700">
+                                {{ trans('nfse::general.invoices.reemit_modal_description') }}
+                            </label>
+                            <textarea
+                                id="reemit-description-textarea"
+                                rows="4"
+                                class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                placeholder="{{ trans('nfse::general.invoices.emit_modal_description_placeholder') }}"
+                            >{{ $suggestedDiscriminacao }}</textarea>
+                            <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.invoices.reemit_modal_description_help') }}</p>
+                        </div>
+
+                    <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
+                        <button
+                            type="button"
+                            class="inline-flex items-center rounded bg-gray-100 px-3 py-2 text-sm hover:bg-gray-200"
+                            data-reemit-close="true"
+                        >
+                            {{ trans('nfse::general.invoices.cancel_modal_close') }}
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center rounded bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700"
+                            id="reemit-confirm-button"
+                        >
+                            {{ trans('nfse::general.invoices.reemit') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <script>
             (() => {
                 const modal = document.getElementById('nfse-cancel-modal');
@@ -155,6 +206,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const actionInput = document.getElementById('cancel_invoice_action');
                 const submitDefaultLabel = @json((string) trans('nfse::general.invoices.cancel_modal_submit'));
                 const submitLoadingLabel = @json((string) trans('nfse::general.invoices.cancel_modal_submitting'));
+                const reemitModal = document.getElementById('nfse-reemit-modal');
+                const reemitForm = document.querySelector('form[data-reemit-form="true"]');
+                const reemitTrigger = document.querySelector('[data-reemit-trigger="true"]');
+                const reemitConfirmButton = document.getElementById('reemit-confirm-button');
                 let isSubmitting = false;
 
                 if (!modal || !form || !reasonSelect || !justificationInput || !submitButton || !submitSpinner || !submitLabel || !actionInput) {
@@ -248,6 +303,58 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 if (modal.getAttribute('data-old-action')) {
                     openModal(modal.getAttribute('data-old-action'));
+                }
+
+                if (reemitModal && reemitForm && reemitTrigger && reemitConfirmButton) {
+                        const reemitDescriptionTextarea = document.getElementById('reemit-description-textarea');
+                        const reemitDiscriminacaoInput = document.getElementById('reemit-discriminacao-input');
+
+                    const closeReemitModal = () => {
+                        reemitModal.classList.add('hidden');
+                        reemitModal.setAttribute('aria-hidden', 'true');
+                        document.body.classList.remove('overflow-hidden');
+                    };
+
+                    const openReemitModal = () => {
+                        reemitModal.classList.remove('hidden');
+                        reemitModal.setAttribute('aria-hidden', 'false');
+                        document.body.classList.add('overflow-hidden');
+                        reemitConfirmButton.focus();
+                    };
+
+                    reemitTrigger.addEventListener('click', openReemitModal);
+
+                    reemitForm.addEventListener('submit', (event) => {
+                        if (reemitForm.dataset.reemitConfirmed === '1') {
+                            delete reemitForm.dataset.reemitConfirmed;
+
+                            return;
+                        }
+
+                        event.preventDefault();
+                        openReemitModal();
+                    });
+
+                    reemitConfirmButton.addEventListener('click', () => {
+                            if (reemitDiscriminacaoInput && reemitDescriptionTextarea) {
+                                reemitDiscriminacaoInput.value = reemitDescriptionTextarea.value;
+                            }
+
+                        reemitForm.dataset.reemitConfirmed = '1';
+                        closeReemitModal();
+
+                        if (typeof reemitForm.requestSubmit === 'function') {
+                            reemitForm.requestSubmit();
+
+                            return;
+                        }
+
+                        reemitForm.submit();
+                    });
+
+                    reemitModal.querySelectorAll('[data-reemit-close="true"]').forEach((button) => {
+                        button.addEventListener('click', closeReemitModal);
+                    });
                 }
             })();
         </script>
