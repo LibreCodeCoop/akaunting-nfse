@@ -304,7 +304,6 @@ return [
             'available_placeholders' => 'Available placeholders',
             'store_xml' => 'Store NFS-e XML',
             'store_pdf' => 'Store DANFSE PDF',
-            'store_selection_required' => 'Select at least one storage option (XML or DANFSE PDF) to enable saving.',
             'connection_failed' => 'Unable to validate WebDAV server access: :message',
             'placeholders' => [
                 '{cnpj}'          => 'Service provider CNPJ',

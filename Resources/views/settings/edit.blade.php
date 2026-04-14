@@ -683,10 +683,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between pt-2 gap-3">
-                            <p id="artifacts-save-disabled-hint" class="text-xs text-amber-700 {{ $canSaveArtifacts ? 'hidden' : '' }}">
-                                {{ trans('nfse::general.settings.artifacts.store_selection_required') }}
-                            </p>
+                        <div class="flex justify-end pt-2">
                             <button
                                 id="artifacts-save-button"
                                 type="submit"
@@ -730,7 +727,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 // ── Auth mode toggle (Token / AppRole) ──────────────────────
                 const artifactsForm = document.getElementById('artifacts-settings-form');
                 const artifactsSaveButton = document.getElementById('artifacts-save-button');
-                const artifactsSaveDisabledHint = document.getElementById('artifacts-save-disabled-hint');
                 const artifactsStoreXml = document.getElementById('webdav_store_xml_val');
                 const artifactsStorePdf = document.getElementById('webdav_store_pdf_val');
 
@@ -751,10 +747,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     artifactsSaveButton.classList.toggle('hover:bg-green-700', enabled);
                     artifactsSaveButton.classList.toggle('opacity-50', !enabled);
                     artifactsSaveButton.classList.toggle('cursor-not-allowed', !enabled);
-
-                    if (artifactsSaveDisabledHint) {
-                        artifactsSaveDisabledHint.classList.toggle('hidden', enabled);
-                    }
                 };
 
                 window.nfseSyncArtifactSaveState = syncArtifactsSaveState;
