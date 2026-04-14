@@ -274,6 +274,7 @@ class InvoiceController extends Controller
 
         $persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);
         $this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);
+        $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
         $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
 
         $taxPolicyMessage = $this->canonicalTaxPolicyMessage($invoice);
@@ -611,6 +612,7 @@ class InvoiceController extends Controller
 
         $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
         $this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);
+        $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
         $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
 
         return redirect()->route('nfse.invoices.show', $invoice)
@@ -2795,4 +2797,45 @@ class InvoiceController extends Controller
             'attach_xml'    => true,
         ];
     }
+    protected function handlePostEmitEmail(?Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+    {
+        if ($request === null) {
+            return;
+        }
+
+        if (!$request->boolean('nfse_send_email', false)) {
+            return;
+        }
+
+        if ($request->boolean('nfse_email_save_default', false)) {
+            setting(['nfse.send_email_on_emit' => '1']);
+            setting()->save();
+        }
+
+        $recipient = trim((string) $request->input('nfse_email_to', ''));
+
+        if ($recipient === '') {
+            return;
+        }
+
+        $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
+        $attachXml    = $request->boolean('nfse_email_attach_xml', true);
+        $customMail   = [
+            'to'      => [['email' => $recipient]],
+            'subject' => (string) $request->input('nfse_email_subject', ''),
+            'body'    => (string) $request->input('nfse_email_body', ''),
+        ];
+
+        $this->sendNfseIssuedNotification($invoice, $receipt, $attachDanfse, $attachXml, $customMail);
+    }
+
+    protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+    {
+        if ($invoice->contact === null) {
+            return;
+        }
+
+        $invoice->contact->notify(new \Modules\Nfse\Notifications\NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
+    }
+
 }
