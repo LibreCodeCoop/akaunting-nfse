@@ -43,15 +43,23 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                 /** @var array<string, string> */
                 public array $attachedPermissions = [];
 
+                public bool $templatesSynced = false;
+
                 public function attachPermissionsToAdminRoles(array $permissions): void
                 {
                     $this->attachedPermissions = $permissions;
+                }
+
+                protected function syncEmailTemplates(): void
+                {
+                    $this->templatesSynced = true;
                 }
             };
 
             $listener->handle(new Enabled('nfse'));
 
             self::assertSame(['nfse-settings' => 'r,u,d'], $listener->attachedPermissions);
+            self::assertTrue($listener->templatesSynced);
         }
 
         public function testHandleSkipsWhenEnabledAliasIsNotNfse(): void
@@ -60,15 +68,23 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                 /** @var array<string, string> */
                 public array $attachedPermissions = [];
 
+                public bool $templatesSynced = false;
+
                 public function attachPermissionsToAdminRoles(array $permissions): void
                 {
                     $this->attachedPermissions = $permissions;
+                }
+
+                protected function syncEmailTemplates(): void
+                {
+                    $this->templatesSynced = true;
                 }
             };
 
             $listener->handle(new Enabled('another-module'));
 
             self::assertSame([], $listener->attachedPermissions);
+            self::assertFalse($listener->templatesSynced);
         }
     }
 }
