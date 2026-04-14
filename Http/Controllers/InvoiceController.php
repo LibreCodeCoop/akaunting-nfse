@@ -117,9 +117,11 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice): \Illuminate\View\View
     {
+        $this->ensureInvoiceRelationsLoaded($invoice);
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $suggestedDiscriminacao = $this->buildDiscriminacao($invoice);
 
-        return view('nfse::invoices.show', compact('invoice', 'receipt'));
+        return view('nfse::invoices.show', compact('invoice', 'receipt', 'suggestedDiscriminacao'));
     }
 
     public function servicePreview(Invoice $invoice): JsonResponse
@@ -166,7 +168,7 @@ class InvoiceController extends Controller
 
         $cnpj    = setting('nfse.cnpj_prestador');
         $ibge    = setting('nfse.municipio_ibge');
-        $sandbox = (bool) setting('nfse.sandbox_mode', true);
+        $sandbox = $this->sandboxModeEnabled();
         $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
@@ -284,7 +286,7 @@ class InvoiceController extends Controller
     {
         $receipt = $this->findReceiptForInvoice($invoice);
 
-        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+        $client = $this->makeClient($this->sandboxModeEnabled());
         $cancelReason = $this->cancellationReasonForGateway($request);
 
         try {
@@ -431,7 +433,7 @@ class InvoiceController extends Controller
                 ->with('warning', trans('nfse::general.invoices.refresh_not_allowed_for_cancelled'));
         }
 
-        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+        $client = $this->makeClient($this->sandboxModeEnabled());
 
         try {
             $updatedReceipt = $client->query($receipt->chave_acesso);
@@ -457,7 +459,7 @@ class InvoiceController extends Controller
 
     public function refreshAll(): RedirectResponse
     {
-        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+        $client = $this->makeClient($this->sandboxModeEnabled());
         $updated = 0;
         $failed = 0;
 
@@ -524,7 +526,7 @@ class InvoiceController extends Controller
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'));
         }
 
-        $sandboxReemit = (bool) setting('nfse.sandbox_mode', true);
+        $sandboxReemit = $this->sandboxModeEnabled();
         $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
@@ -1288,7 +1290,7 @@ class InvoiceController extends Controller
             'total' => NfseReceipt::count(),
             'emitted' => NfseReceipt::where('status', 'emitted')->count(),
             'cancelled' => NfseReceipt::where('status', 'cancelled')->count(),
-            'sandbox_mode' => (bool) setting('nfse.sandbox_mode', true),
+            'sandbox_mode' => $this->sandboxModeEnabled(),
         ];
     }
 
@@ -2298,7 +2300,7 @@ class InvoiceController extends Controller
 
     protected function projectRootPath(string $relativePath): string
     {
-        if (class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationState::class)) {
+        if (class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationState::class, false)) {
             try {
                 $isolationRoot = \Modules\Nfse\Http\Controllers\ControllerIsolationState::$storageRoot ?? '';
 
@@ -2423,7 +2425,7 @@ class InvoiceController extends Controller
             $attempt++;
 
             try {
-                return $client->getDanfse($chaveAcesso);
+                return $this->fetchDanfseArtifact($client, $chaveAcesso);
             } catch (\Throwable $throwable) {
                 $lastError = $throwable;
 
@@ -2440,20 +2442,165 @@ class InvoiceController extends Controller
         throw new \RuntimeException('Unexpected DANFSE retrieval retry flow termination.');
     }
 
+    protected function fetchDanfseArtifact(NfseClientInterface $client, string $chaveAcesso): string
+    {
+        try {
+            return $client->getDanfse($chaveAcesso);
+        } catch (\Throwable $throwable) {
+            if (!$this->isDanfseHttp496($throwable)) {
+                throw $throwable;
+            }
+
+            // Controller-isolation unit tests must stay fully local and deterministic.
+            if (class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationState::class, false)) {
+                throw $throwable;
+            }
+
+            $lastError = $throwable;
+
+            foreach ($this->danfseFallbackUrls($chaveAcesso) as $fallbackUrl) {
+                try {
+                    return $this->downloadDanfseFromUrl($fallbackUrl);
+                } catch (\Throwable $fallbackError) {
+                    $lastError = $fallbackError;
+                }
+            }
+
+            throw $lastError;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function danfseFallbackUrls(string $chaveAcesso): array
+    {
+        return [
+            'https://www.producaorestrita.nfse.gov.br/EmissorNacional/Notas/Download/DANFSe/' . $chaveAcesso,
+            'https://www.nfse.gov.br/EmissorNacional/Notas/Download/DANFSe/' . $chaveAcesso,
+            'https://adn.producaorestrita.nfse.gov.br/danfse/' . $chaveAcesso,
+            'https://adn.nfse.gov.br/danfse/' . $chaveAcesso,
+        ];
+    }
+
+    protected function downloadDanfseFromUrl(string $url): string
+    {
+        $sslOptions = [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+        ];
+
+        $transportCertPath = $this->existingProjectRootPath('client.crt.pem');
+        $transportKeyPath = $this->existingProjectRootPath('client.key.pem');
+
+        if (is_string($transportCertPath) && $transportCertPath !== '' && is_string($transportKeyPath) && $transportKeyPath !== '') {
+            $sslOptions['local_cert'] = $transportCertPath;
+            $sslOptions['local_pk'] = $transportKeyPath;
+        }
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => "Accept: application/pdf\r\n",
+                'ignore_errors' => true,
+            ],
+            'ssl' => $sslOptions,
+        ]);
+
+        $http_response_header = [];
+        $body = file_get_contents($url, false, $context);
+        $status = $this->parseHttpStatusCode($http_response_header);
+
+        if ($body === false || $status >= 400 || $status === 0) {
+            throw new \RuntimeException('ADN gateway returned error for DANFSE retrieval (HTTP ' . $status . ')');
+        }
+
+        if ($body === '') {
+            throw new \RuntimeException('ADN gateway returned empty body for DANFSE retrieval');
+        }
+
+        return $body;
+    }
+
+    /**
+     * @param list<string> $headers
+     */
+    protected function parseHttpStatusCode(array $headers): int
+    {
+        for ($index = count($headers) - 1; $index >= 0; $index--) {
+            $headerLine = $headers[$index] ?? null;
+
+            if (!is_string($headerLine)) {
+                continue;
+            }
+
+            if (preg_match('/HTTP\/[\d.]+ (\d{3})/', $headerLine, $matches) === 1) {
+                return (int) ($matches[1] ?? 0);
+            }
+        }
+
+        return 0;
+    }
+
+    protected function isDanfseHttp496(\Throwable $throwable): bool
+    {
+        $message = strtolower($throwable->getMessage());
+
+        return str_contains($message, 'http 496') || str_contains($message, 'http status 496');
+    }
+
     protected function shouldRetryDanfseRetrieval(\Throwable $throwable, int $attempt, int $maxAttempts): bool
     {
         if ($attempt >= $maxAttempts) {
             return false;
         }
 
-        $message = strtolower($throwable->getMessage());
-
-        return str_contains($message, 'http 496') || str_contains($message, 'http status 496');
+        return $this->isDanfseHttp496($throwable);
     }
 
     protected function webDavEnabled(): bool
     {
         return trim((string) setting('nfse.webdav_url', '')) !== '';
+    }
+
+    protected function sandboxModeEnabled(): bool
+    {
+        return $this->booleanSetting('nfse.sandbox_mode', true);
+    }
+
+    protected function booleanSetting(string $key, bool $default): bool
+    {
+        $rawValue = setting($key, null);
+
+        if ($rawValue === null) {
+            return $default;
+        }
+
+        if (is_bool($rawValue)) {
+            return $rawValue;
+        }
+
+        if (is_numeric($rawValue)) {
+            return (int) $rawValue === 1;
+        }
+
+        if (is_string($rawValue)) {
+            $normalized = strtolower(trim($rawValue));
+
+            if ($normalized === '') {
+                return $default;
+            }
+
+            if (in_array($normalized, ['1', 'true', 'on', 'yes'], true)) {
+                return true;
+            }
+
+            if (in_array($normalized, ['0', 'false', 'off', 'no'], true)) {
+                return false;
+            }
+        }
+
+        return (bool) $rawValue;
     }
 
     protected function webDavStoreXmlEnabled(): bool
