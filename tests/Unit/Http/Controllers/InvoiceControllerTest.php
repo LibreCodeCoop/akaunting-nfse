@@ -332,6 +332,92 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertNull($persistedReceipt->danfse_webdav_path ?? null);
         }
 
+        public function testStoreArtifactsRetriesDanfseRetrievalAndPersistsPdfWhenRetrySucceeds(): void
+        {
+            ControllerIsolationState::$settings['nfse.webdav_url'] = 'https://dav.example.com/root';
+            ControllerIsolationState::$settings['nfse.webdav_store_xml'] = false;
+            ControllerIsolationState::$settings['nfse.webdav_store_pdf'] = true;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 779,
+                amount: 210.0,
+                items: [['name' => 'Servico X']],
+                contactName: 'Cliente X',
+            );
+            $persistedReceipt = InvoiceControllerIsolationState::makeReceipt(779, 'CHAVE-779', 'emitted');
+
+            $controller = new class () extends InvoiceController {
+                /** @var array<int, array{0: string, 1: string}> */
+                public array $writes = [];
+
+                protected function makeWebDavClientFromSettings(): \Modules\Nfse\Support\WebDavClient
+                {
+                    return new \Modules\Nfse\Support\WebDavClient(
+                        baseUrl: 'https://dav.example.com/root',
+                        request: function (string $method, string $url, array $headers, string $body): array {
+                            if ($method === 'PUT') {
+                                $this->writes[] = [$url, $body];
+                            }
+
+                            return [201, ''];
+                        },
+                    );
+                }
+
+                public function callStoreArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
+                {
+                    $this->storeArtifacts($invoice, $receipt, $nfseReceipt, $client);
+                }
+            };
+
+            $client = new class () implements NfseClientInterface {
+                public int $calls = 0;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    $this->calls++;
+
+                    if ($this->calls === 1) {
+                        throw new \RuntimeException('ADN gateway returned error for DANFSE retrieval (HTTP 496)');
+                    }
+
+                    return '%PDF-1.4';
+                }
+            };
+
+            $receipt = new ReceiptData(
+                nfseNumber: 'NF-779',
+                chaveAcesso: 'CHAVE-779',
+                dataEmissao: '2026-04-14T01:45:00-03:00',
+                codigoVerificacao: 'CV779',
+                rawXml: '<xml>conteudo</xml>',
+            );
+
+            $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
+
+            self::assertSame(2, $client->calls);
+            self::assertCount(1, $controller->writes);
+            self::assertStringEndsWith('/CHAVE-779.pdf', $controller->writes[0][0]);
+            self::assertSame('%PDF-1.4', $controller->writes[0][1]);
+            self::assertNull($persistedReceipt->xml_webdav_path ?? null);
+            self::assertSame('nfse/12345678000195/2026/04/CHAVE-779.pdf', $persistedReceipt->danfse_webdav_path ?? null);
+        }
+
         protected function setUp(): void
         {
             parent::setUp();
