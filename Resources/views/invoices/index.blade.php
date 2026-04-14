@@ -876,8 +876,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 let currentEmitForm = null;
 
                 const refreshEmitEmailSection = () => {
-                    if (emitModalEmailFields) {
-                        emitModalEmailFields.classList.toggle('hidden', !emitModalSendEmailInput?.checked);
+                    if (emitModalEmailFields && emitModalSendEmailInput) {
+                        const shouldShow = emitModalSendEmailInput.checked;
+                        
+                        // Toggle hidden class based on checkbox state
+                        if (shouldShow) {
+                            emitModalEmailFields.classList.remove('hidden');
+                        } else {
+                            emitModalEmailFields.classList.add('hidden');
+                        }
+                        
+                        console.log('[NFS-e Emit Modal] refreshEmitEmailSection:', { checked: shouldShow, hidden: emitModalEmailFields.classList.contains('hidden') });
                     }
                 };
 
@@ -1071,26 +1080,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 });
 
                 emitModalSendEmailInput?.addEventListener('change', () => {
-                    console.log('[NFS-e Emit Modal] Checkbox change event:', { checked: emitModalSendEmailInput?.checked, fields_hidden_before: emitModalEmailFields?.classList.contains('hidden') });
+                    console.log('[NFS-e Emit Modal] checkbox change event detected');
                     refreshEmitEmailSection();
-                    console.log('[NFS-e Emit Modal] Fields hidden after refresh:', emitModalEmailFields?.classList.contains('hidden'));
                 });
-
-                // Add explicit label click handler for robustness
-                const emitEmailToggleLabel = document.querySelector('label[for="nfse_emit_send_email"]');
-                if (emitEmailToggleLabel) {
-                    emitEmailToggleLabel.addEventListener('click', (e) => {
-                        // Don't prevent default - let native label-checkbox interaction work
-                        // Just schedule refresh after the checkbox state changes
-                        console.log('[NFS-e Emit Modal] Label clicked, scheduling refresh');
-                        
-                        // Use setTimeout to ensure checkbox state is updated first
-                        setTimeout(() => {
-                            refreshEmitEmailSection();
-                            console.log('[NFS-e Emit Modal] Fields visibility after refresh:', emitModalEmailFields?.classList.contains('hidden') ? 'hidden' : 'visible');
-                        }, 0);
-                    });
-                }
+                
+                console.log('[NFS-e Emit Modal] Script initialized:', { 
+                  sendEmailInputExists: !!emitModalSendEmailInput,
+                  emailFieldsExists: !!emitModalEmailFields
+                });
 
                 emitModalConfirmButton?.addEventListener('click', () => {
                     if (!currentEmitForm) {
