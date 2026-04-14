@@ -158,4 +158,41 @@ final class WebDavClientTest extends TestCase
 
         self::assertFalse($client->exists('nfse/2026/doc.xml'));
     }
+
+    public function testGetReturnsBodyOnSuccessfulResponse(): void
+    {
+        $captured = [];
+
+        $client = new WebDavClient(
+            baseUrl: 'https://dav.example.com/root',
+            username: 'alice',
+            password: 'secret',
+            request: static function (string $method, string $url, array $headers, string $body) use (&$captured): array {
+                $captured = ['method' => $method, 'url' => $url, 'headers' => $headers];
+
+                return [200, 'PDF_BINARY_CONTENT'];
+            },
+        );
+
+        $result = $client->get('nfse/2026/doc.pdf');
+
+        self::assertSame('GET', $captured['method'] ?? null);
+        self::assertSame('https://dav.example.com/root/nfse/2026/doc.pdf', $captured['url'] ?? null);
+        self::assertSame('Basic ' . base64_encode('alice:secret'), $captured['headers']['Authorization'] ?? null);
+        self::assertSame('PDF_BINARY_CONTENT', $result);
+    }
+
+    public function testGetThrowsRuntimeExceptionOnNon2xxResponse(): void
+    {
+        $client = new WebDavClient(
+            baseUrl: 'https://dav.example.com/root',
+            request: static function (string $method, string $url, array $headers, string $body): array {
+                return [404, 'not found'];
+            },
+        );
+
+        $this->expectException(\RuntimeException::class);
+
+        $client->get('nfse/2026/missing.pdf');
+    }
 }
