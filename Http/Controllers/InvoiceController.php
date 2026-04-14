@@ -2366,7 +2366,7 @@ class InvoiceController extends Controller
 
         if ($this->webDavStoreXmlEnabled() && $receipt->rawXml !== null && trim($receipt->rawXml) !== '') {
             try {
-                $candidateXmlPath = $basePath . '/' . $receipt->chaveAcesso . '.xml';
+                $candidateXmlPath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'xml');
                 $webDavClient->put($candidateXmlPath, $receipt->rawXml);
                 $xmlPath = $candidateXmlPath;
             } catch (\Throwable $throwable) {
@@ -2386,7 +2386,7 @@ class InvoiceController extends Controller
                     $danfse = $this->fetchDanfseWithRetry($client, $receipt->chaveAcesso);
 
                     if (is_string($danfse) && $danfse !== '') {
-                        $candidateDanfsePath = $basePath . '/' . $receipt->chaveAcesso . '.pdf';
+                        $candidateDanfsePath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'pdf');
                         $webDavClient->put($candidateDanfsePath, $danfse);
                         $danfsePath = $candidateDanfsePath;
                     }
@@ -2624,10 +2624,42 @@ class InvoiceController extends Controller
 
     protected function buildWebDavArtifactBasePath(Invoice $invoice, ReceiptData $receipt): string
     {
-        $template = trim((string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}'));
+        $template = trim((string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'));
         if ($template === '') {
-            $template = 'nfse/{cnpj}/{year}/{month}';
+            $template = 'nfse/{cnpj}/{year}/{month}/{day}';
         }
+
+        return trim(strtr($template, $this->buildWebDavArtifactTemplateReplacements($invoice, $receipt)), '/');
+    }
+
+    protected function buildWebDavArtifactFilePath(string $basePath, Invoice $invoice, ReceiptData $receipt, string $extension): string
+    {
+        $template = trim((string) setting('nfse.webdav_filename_template', '{chave_acesso}'));
+
+        if ($template === '') {
+            $template = '{chave_acesso}';
+        }
+
+        $fileName = trim(strtr($template, $this->buildWebDavArtifactTemplateReplacements($invoice, $receipt)), '/');
+        $fileName = trim($fileName, '.');
+
+        if ($fileName === '') {
+            $fileName = 'nao-informado';
+        }
+
+        if (!str_ends_with(strtolower($fileName), '.' . strtolower($extension))) {
+            $fileName .= '.' . $extension;
+        }
+
+        return $basePath . '/' . $fileName;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function buildWebDavArtifactTemplateReplacements(Invoice $invoice, ReceiptData $receipt): array
+    {
+        $resolvedNfseNumber = $this->resolveReceiptNfseNumber($receipt);
 
         $date = null;
         try {
@@ -2636,16 +2668,16 @@ class InvoiceController extends Controller
             $date = new \DateTimeImmutable('now');
         }
 
-        $replacements = [
+        return [
             '{cnpj}' => (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
             '{year}' => $date->format('Y'),
             '{month}' => $date->format('m'),
+            '{day}' => $date->format('d'),
             '{month_name}' => $this->monthNameByNumber((int) $date->format('n')),
-            '{nfse_number}' => $this->sanitizePathSegment($this->resolveReceiptNfseNumber($receipt) !== '' ? $this->resolveReceiptNfseNumber($receipt) : 'sem-numero'),
+            '{nfse_number}' => $this->sanitizePathSegment($resolvedNfseNumber !== '' ? $resolvedNfseNumber : 'sem-numero'),
+            '{chave_acesso}' => $this->sanitizePathSegment($receipt->chaveAcesso !== '' ? $receipt->chaveAcesso : 'sem-chave-acesso'),
             '{customer_name}' => $this->sanitizePathSegment((string) ($invoice->contact?->name ?? 'sem-cliente')),
         ];
-
-        return trim(strtr($template, $replacements), '/');
     }
 
     protected function resolveReceiptNfseNumber(ReceiptData $receipt): string
