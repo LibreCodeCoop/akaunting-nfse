@@ -46,6 +46,9 @@ class NfseIssued extends Notification
             '{chave_acesso}',
             '{customer_name}',
             '{company_name}',
+            '{company_contact_name}',
+            '{company_contact_email}',
+            '{company_contact_phone}',
             '{nfse_issue_date}',
         ];
     }
@@ -83,8 +86,63 @@ class NfseIssued extends Notification
             (string) ($this->receipt->chave_acesso ?? ''),
             (string) ($this->invoice->contact_name ?? ''),
             (string) ($this->invoice->company?->name ?? ''),
+            $this->resolveCompanyContactField('name', (string) ($this->invoice->company?->name ?? '')),
+            $this->resolveCompanyContactField('email', (string) ($this->invoice->company?->email ?? '')),
+            $this->resolveCompanyContactField('phone', (string) ($this->invoice->company?->phone ?? '')),
             $issueDate,
         ];
+    }
+
+    protected function resolveCompanyContactField(string $field, string $fallback = ''): string
+    {
+        $contact = $this->resolveFirstCompanyContact();
+
+        if ($contact === null) {
+            return $fallback;
+        }
+
+        $value = '';
+
+        if (is_object($contact) && isset($contact->{$field})) {
+            $value = (string) $contact->{$field};
+        } elseif (is_array($contact) && isset($contact[$field])) {
+            $value = (string) $contact[$field];
+        }
+
+        return $value !== '' ? $value : $fallback;
+    }
+
+    protected function resolveFirstCompanyContact(): mixed
+    {
+        $company = $this->invoice->company ?? null;
+
+        if (!is_object($company) || !isset($company->contacts)) {
+            return null;
+        }
+
+        $contacts = $company->contacts;
+
+        if ($contacts instanceof \Illuminate\Support\Collection) {
+            return $contacts->first();
+        }
+
+        if (is_array($contacts)) {
+            return $contacts[0] ?? null;
+        }
+
+        if ($contacts instanceof \Traversable) {
+            foreach ($contacts as $contact) {
+                return $contact;
+            }
+
+            return null;
+        }
+
+        if (is_object($contacts) && method_exists($contacts, 'first')) {
+            return $contacts->first();
+        }
+
+        return null;
     }
 
     protected function resolveIssueDate(): ?\DateTimeInterface
