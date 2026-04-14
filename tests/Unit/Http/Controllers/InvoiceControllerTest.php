@@ -1726,6 +1726,91 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertFalse((bool) ($payload['requires_split'] ?? true));
         }
 
+        public function testServicePreviewIncludesEmailDefaults(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['nfse.send_email_on_emit'] = '1';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 10,
+                amount: 50.0,
+                contactEmail: 'cliente@example.com',
+                contactName: 'João Silva',
+            );
+
+            $template = new \App\Models\Setting\EmailTemplate();
+            $template->subject = 'NFS-e {nfse_number} emitida';
+            $template->body = 'Prezado(a) {customer_name}';
+            \App\Models\Setting\EmailTemplate::$stubInstance = $template;
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return null;
+                }
+
+                protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
+                {
+                    return [
+                        'selected_service' => null,
+                        'line_items' => [],
+                        'missing_items' => [],
+                        'requires_confirmation' => false,
+                        'requires_split' => false,
+                    ];
+                }
+
+                protected function availableInvoiceServices(Invoice $invoice): array
+                {
+                    return [];
+                }
+            };
+
+            $response = $controller->servicePreview($invoice);
+            $payload = $response->getData(true);
+
+            self::assertArrayHasKey('email_defaults', $payload);
+            self::assertTrue($payload['email_defaults']['send_email']);
+            self::assertSame('cliente@example.com', $payload['email_defaults']['recipient']);
+            self::assertSame('NFS-e {nfse_number} emitida', $payload['email_defaults']['subject']);
+            self::assertSame('Prezado(a) {customer_name}', $payload['email_defaults']['body']);
+            self::assertTrue($payload['email_defaults']['attach_danfse']);
+            self::assertTrue($payload['email_defaults']['attach_xml']);
+        }
+
+        public function testServicePreviewEmailDefaultsFallsBackWhenNoTemplate(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            \App\Models\Setting\EmailTemplate::$stubInstance = null;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 11, amount: 50.0);
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return null;
+                }
+
+                protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
+                {
+                    return ['selected_service' => null, 'line_items' => [], 'missing_items' => [], 'requires_confirmation' => false, 'requires_split' => false];
+                }
+
+                protected function availableInvoiceServices(Invoice $invoice): array
+                {
+                    return [];
+                }
+            };
+
+            $response = $controller->servicePreview($invoice);
+            $payload = $response->getData(true);
+
+            self::assertArrayHasKey('email_defaults', $payload);
+            self::assertFalse($payload['email_defaults']['send_email']);
+            self::assertSame('', $payload['email_defaults']['subject']);
+            self::assertSame('', $payload['email_defaults']['body']);
+        }
+
         public function testNationalTaxCodeFallsBackToSettingWhenDefaultServiceCodeIsMissing(): void
         {
             $controller = new class () extends InvoiceController {
