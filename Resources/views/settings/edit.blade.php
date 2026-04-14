@@ -620,15 +620,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         <div>
                             <label class="block text-sm font-medium mb-1" for="webdav_path_template">{{ trans('nfse::general.settings.artifacts.webdav_path_template') }}</label>
-                            <input id="webdav_path_template" name="nfse[webdav_path_template]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.webdav_path_template', setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}')) }}">
-                            <div class="text-xs text-gray-500 mt-1">
-                                <span>{{ trans('nfse::general.settings.artifacts.webdav_path_template_hint') }}</span>
-                                <ul class="list-disc list-inside mt-1 space-y-0.5">
-                                    @foreach(trans('nfse::general.settings.artifacts.placeholders') as $placeholder => $description)
-                                        <li><code class="bg-gray-100 px-1 rounded">{{ $placeholder }}</code> — {{ $description }}</li>
-                                    @endforeach
-                                </ul>
-                            </div>
+                            <input id="webdav_path_template" name="nfse[webdav_path_template]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.webdav_path_template', setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}')) }}">
+                            <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.artifacts.webdav_path_template_hint') }}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="webdav_filename_template">{{ trans('nfse::general.settings.artifacts.webdav_filename_template') }}</label>
+                            <input id="webdav_filename_template" name="nfse[webdav_filename_template]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.webdav_filename_template', setting('nfse.webdav_filename_template', '{chave_acesso}')) }}">
+                            <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.artifacts.webdav_filename_template_hint') }}</p>
                         </div>
 
                         @php
@@ -672,6 +671,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </div>
                                 <input type="hidden" id="webdav_store_pdf_val" name="nfse[webdav_store_pdf]" value="{{ $storePdfOn ? '1' : '0' }}">
                             </div>
+                        </div>
+
+                        <div class="rounded border border-gray-200 bg-gray-50 p-4">
+                            <h4 class="text-sm font-semibold text-gray-900 mb-3">{{ trans('nfse::general.settings.artifacts.available_placeholders') }}</h4>
+                            <ul class="space-y-1">
+                                @foreach(trans('nfse::general.settings.artifacts.placeholders') as $placeholder => $description)
+                                    <li class="text-sm text-gray-700"><code class="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono">{{ $placeholder }}</code> — {{ $description }}</li>
+                                @endforeach
+                            </ul>
                         </div>
 
                         <div class="flex justify-end pt-2">
