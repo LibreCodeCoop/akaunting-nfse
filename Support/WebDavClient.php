@@ -37,6 +37,22 @@ final class WebDavClient
         }
     }
 
+    public function get(string $path): string
+    {
+        [$status, $body] = ($this->request)(
+            'GET',
+            $this->buildUrl($path),
+            $this->authHeaders(),
+            '',
+        );
+
+        if ($status < 200 || $status >= 300) {
+            throw new \RuntimeException('WebDAV GET failed with HTTP status ' . $status);
+        }
+
+        return $body;
+    }
+
     public function exists(string $path): bool
     {
         [$status] = ($this->request)(
