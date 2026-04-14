@@ -120,8 +120,9 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
         $suggestedDiscriminacao = $this->buildDiscriminacao($invoice);
+        $emailDefaults = $this->servicePreviewEmailDefaults($invoice);
 
-        return view('nfse::invoices.show', compact('invoice', 'receipt', 'suggestedDiscriminacao'));
+        return view('nfse::invoices.show', compact('invoice', 'receipt', 'suggestedDiscriminacao', 'emailDefaults'));
     }
 
     public function servicePreview(Invoice $invoice): JsonResponse
