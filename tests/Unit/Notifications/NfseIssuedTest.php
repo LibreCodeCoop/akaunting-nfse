@@ -232,7 +232,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $invoice = $this->makeInvoice('INV-123', 'Empresa ABC');
             $receipt = $this->makeReceipt('9988');
             $receipt->chave_acesso = 'ACESSO-XYZ';
-            $receipt->data_emissao = new \DateTimeImmutable('2026-04-14 10:15:00');
+            $receipt->data_emissao = '2026-04-14 10:15:00';
             $notification = new NfseIssued($invoice, $receipt);
             $replacements = $notification->getTagsReplacement();
 
