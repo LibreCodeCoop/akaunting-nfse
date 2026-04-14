@@ -1080,18 +1080,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const emitEmailToggleLabel = document.querySelector('label[for="nfse_emit_send_email"]');
                 if (emitEmailToggleLabel) {
                     emitEmailToggleLabel.addEventListener('click', (e) => {
-                        // Prevent default to handle manually
-                        e.preventDefault();
+                        // Don't prevent default - let native label-checkbox interaction work
+                        // Just schedule refresh after the checkbox state changes
+                        console.log('[NFS-e Emit Modal] Label clicked, scheduling refresh');
                         
-                        if (emitModalSendEmailInput) {
-                            console.log('[NFS-e Emit Modal] Label clicked, current checkbox state:', emitModalSendEmailInput.checked);
-                            emitModalSendEmailInput.checked = !emitModalSendEmailInput.checked;
-                            console.log('[NFS-e Emit Modal] Toggled checkbox to:', emitModalSendEmailInput.checked);
-                            
-                            // Manually trigger refresh
+                        // Use setTimeout to ensure checkbox state is updated first
+                        setTimeout(() => {
                             refreshEmitEmailSection();
-                            console.log('[NFS-e Emit Modal] Fields visibility after manual toggle:', emitModalEmailFields?.classList.contains('hidden') ? 'hidden' : 'visible');
-                        }
+                            console.log('[NFS-e Emit Modal] Fields visibility after refresh:', emitModalEmailFields?.classList.contains('hidden') ? 'hidden' : 'visible');
+                        }, 0);
                     });
                 }
 
