@@ -333,6 +333,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <input type="hidden" name="nfse_confirm_default_service" value="0" data-emit-confirm-default>
                                             <input type="hidden" name="nfse_item_service_assignments" value="" data-emit-assignments>
                                             <input type="hidden" name="nfse_discriminacao_custom" value="" data-emit-description-input>
+                                            <input type="hidden" name="nfse_send_email" value="0" data-emit-email-send-input>
+                                            <input type="hidden" name="nfse_email_to" value="" data-emit-email-to-input>
+                                            <input type="hidden" name="nfse_email_subject" value="" data-emit-email-subject-input>
+                                            <input type="hidden" name="nfse_email_body" value="" data-emit-email-body-input>
+                                            <input type="hidden" name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input>
+                                            <input type="hidden" name="nfse_email_attach_xml" value="1" data-emit-email-attach-xml-input>
+                                            <input type="hidden" name="nfse_email_save_default" value="0" data-emit-email-save-default-input>
                                             <button
                                                 type="submit"
                                                 @if(!$isReady) disabled @endif
@@ -561,6 +568,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 <input type="hidden" name="nfse_confirm_default_service" value="0" data-emit-confirm-default>
                                                 <input type="hidden" name="nfse_item_service_assignments" value="" data-emit-assignments>
                                                 <input type="hidden" name="nfse_discriminacao_custom" value="" data-emit-description-input>
+                                                <input type="hidden" name="nfse_send_email" value="0" data-emit-email-send-input>
+                                                <input type="hidden" name="nfse_email_to" value="" data-emit-email-to-input>
+                                                <input type="hidden" name="nfse_email_subject" value="" data-emit-email-subject-input>
+                                                <input type="hidden" name="nfse_email_body" value="" data-emit-email-body-input>
+                                                <input type="hidden" name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input>
+                                                <input type="hidden" name="nfse_email_attach_xml" value="1" data-emit-email-attach-xml-input>
+                                                <input type="hidden" name="nfse_email_save_default" value="0" data-emit-email-save-default-input>
                                                 <button type="submit" title="{{ trans('nfse::general.invoices.reemit') }}" data-emit-trigger="true" class="inline-flex h-8 w-8 items-center justify-center rounded border border-green-200 text-green-700 hover:bg-green-50">
                                                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                         <path d="M10 3a7 7 0 00-6.32 4H1l3 3 3-3H4.85A5 5 0 1110 15a1 1 0 100 2 7 7 0 000-14z" />
@@ -638,6 +652,46 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 placeholder="{{ trans('nfse::general.invoices.emit_modal_description_placeholder') }}"
                             ></textarea>
                             <p class="mt-2 text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_description_help') }}</p>
+                        </div>
+
+                        <div class="rounded-lg border border-gray-200 p-4 space-y-3">
+                            <p class="text-sm font-semibold text-gray-800">{{ trans('nfse::general.invoices.emit_modal_email_section') }}</p>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="nfse_emit_send_email" type="checkbox" class="rounded border-gray-300" checked>
+                                <span>{{ trans('nfse::general.invoices.emit_modal_send_email') }}</span>
+                            </label>
+
+                            <div>
+                                <label for="nfse_emit_email_to" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
+                                <input id="nfse_emit_email_to" type="email" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="">
+                            </div>
+
+                            <div>
+                                <label for="nfse_emit_email_subject" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_subject') }}</label>
+                                <input id="nfse_emit_email_subject" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="">
+                            </div>
+
+                            <div>
+                                <label for="nfse_emit_email_body" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_body') }}</label>
+                                <textarea id="nfse_emit_email_body" rows="4" class="w-full rounded border border-gray-300 px-3 py-2 text-sm"></textarea>
+                                <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_email_body_help') }}</p>
+                            </div>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="nfse_emit_attach_danfse" type="checkbox" class="rounded border-gray-300" checked>
+                                <span>{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
+                            </label>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="nfse_emit_attach_xml" type="checkbox" class="rounded border-gray-300" checked>
+                                <span>{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
+                            </label>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="nfse_emit_save_default" type="checkbox" class="rounded border-gray-300">
+                                <span>{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
+                            </label>
                         </div>
                     </div>
 
@@ -803,8 +857,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const emitModalMissingItemsHint = document.getElementById('nfse-emit-missing-items-hint');
                 const emitModalConfirmButton = document.getElementById('nfse-emit-confirm-button');
                 const emitModalDescriptionInput = document.getElementById('nfse_emit_description');
+                const emitModalSendEmailInput = document.getElementById('nfse_emit_send_email');
+                const emitModalEmailToInput = document.getElementById('nfse_emit_email_to');
+                const emitModalEmailSubjectInput = document.getElementById('nfse_emit_email_subject');
+                const emitModalEmailBodyInput = document.getElementById('nfse_emit_email_body');
+                const emitModalAttachDanfseInput = document.getElementById('nfse_emit_attach_danfse');
+                const emitModalAttachXmlInput = document.getElementById('nfse_emit_attach_xml');
+                const emitModalSaveDefaultInput = document.getElementById('nfse_emit_save_default');
                 const emitModalDefaultConfirmLabel = @json((string) trans('nfse::general.invoices.emit_now'));
                 let currentEmitForm = null;
+
+                const applyEmailDefaults = (emailDefaults = {}) => {
+                    if (emitModalSendEmailInput) {
+                        emitModalSendEmailInput.checked = Boolean(emailDefaults.send_email);
+                    }
+
+                    if (emitModalEmailToInput) {
+                        emitModalEmailToInput.value = typeof emailDefaults.recipient === 'string' ? emailDefaults.recipient : '';
+                    }
+
+                    if (emitModalEmailSubjectInput) {
+                        emitModalEmailSubjectInput.value = typeof emailDefaults.subject === 'string' ? emailDefaults.subject : '';
+                    }
+
+                    if (emitModalEmailBodyInput) {
+                        emitModalEmailBodyInput.value = typeof emailDefaults.body === 'string' ? emailDefaults.body : '';
+                    }
+
+                    if (emitModalAttachDanfseInput) {
+                        emitModalAttachDanfseInput.checked = emailDefaults.attach_danfse !== false;
+                    }
+
+                    if (emitModalAttachXmlInput) {
+                        emitModalAttachXmlInput.checked = emailDefaults.attach_xml !== false;
+                    }
+
+                    if (emitModalSaveDefaultInput) {
+                        emitModalSaveDefaultInput.checked = false;
+                    }
+                };
 
                 const closeEmitModal = () => {
                     if (!emitModal) {
@@ -828,12 +919,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         emitModalDescriptionInput.value = '';
                     }
 
+                    applyEmailDefaults({
+                        send_email: false,
+                        recipient: '',
+                        subject: '',
+                        body: '',
+                        attach_danfse: true,
+                        attach_xml: true,
+                    });
+
                     if (emitModalConfirmButton) {
                         emitModalConfirmButton.textContent = emitModalDefaultConfirmLabel;
                     }
                 };
 
-                const openEmitModal = (confirmLabel, descriptionValue) => {
+                const openEmitModal = (confirmLabel, descriptionValue, emailDefaults = {}) => {
                     if (!emitModal) {
                         return;
                     }
@@ -845,6 +945,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (emitModalDescriptionInput) {
                         emitModalDescriptionInput.value = descriptionValue || '';
                     }
+
+                    applyEmailDefaults(emailDefaults);
 
                     emitModal.classList.remove('hidden');
                     emitModal.setAttribute('aria-hidden', 'false');
@@ -929,6 +1031,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             const availableServices = Array.isArray(payload.available_services) ? payload.available_services : [];
                             const defaultServiceId = payload.default_service_id ?? 0;
                             const suggestedDescription = typeof payload.suggested_description === 'string' ? payload.suggested_description : '';
+                            const emailDefaults = typeof payload.email_defaults === 'object' && payload.email_defaults !== null
+                                ? payload.email_defaults
+                                : {};
 
                             if (missingItems.length > 0 && availableServices.length === 0) {
                                 form.submit();
@@ -937,7 +1042,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                             currentEmitForm = form;
                             renderMissingItemRows(missingItems, availableServices, defaultServiceId);
-                            openEmitModal(confirmLabel, suggestedDescription);
+                            openEmitModal(confirmLabel, suggestedDescription, emailDefaults);
                         } catch {
                             form.submit();
                         }
@@ -957,6 +1062,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const confirmInput = currentEmitForm.querySelector('[data-emit-confirm-default]');
                     const assignmentsInput = currentEmitForm.querySelector('[data-emit-assignments]');
                     const descriptionInput = currentEmitForm.querySelector('[data-emit-description-input]');
+                    const sendEmailInput = currentEmitForm.querySelector('[data-emit-email-send-input]');
+                    const emailToInput = currentEmitForm.querySelector('[data-emit-email-to-input]');
+                    const emailSubjectInput = currentEmitForm.querySelector('[data-emit-email-subject-input]');
+                    const emailBodyInput = currentEmitForm.querySelector('[data-emit-email-body-input]');
+                    const attachDanfseInput = currentEmitForm.querySelector('[data-emit-email-attach-danfse-input]');
+                    const attachXmlInput = currentEmitForm.querySelector('[data-emit-email-attach-xml-input]');
+                    const saveDefaultInput = currentEmitForm.querySelector('[data-emit-email-save-default-input]');
                     const assignmentRows = emitModalMissingItems?.querySelectorAll('select[data-item-id]') ?? [];
                     const assignments = {};
 
@@ -979,6 +1091,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     if (descriptionInput && emitModalDescriptionInput) {
                         descriptionInput.value = emitModalDescriptionInput.value;
+                    }
+
+                    if (sendEmailInput && emitModalSendEmailInput) {
+                        sendEmailInput.value = emitModalSendEmailInput.checked ? '1' : '0';
+                    }
+
+                    if (emailToInput && emitModalEmailToInput) {
+                        emailToInput.value = emitModalEmailToInput.value;
+                    }
+
+                    if (emailSubjectInput && emitModalEmailSubjectInput) {
+                        emailSubjectInput.value = emitModalEmailSubjectInput.value;
+                    }
+
+                    if (emailBodyInput && emitModalEmailBodyInput) {
+                        emailBodyInput.value = emitModalEmailBodyInput.value;
+                    }
+
+                    if (attachDanfseInput && emitModalAttachDanfseInput) {
+                        attachDanfseInput.value = emitModalAttachDanfseInput.checked ? '1' : '0';
+                    }
+
+                    if (attachXmlInput && emitModalAttachXmlInput) {
+                        attachXmlInput.value = emitModalAttachXmlInput.checked ? '1' : '0';
+                    }
+
+                    if (saveDefaultInput && emitModalSaveDefaultInput) {
+                        saveDefaultInput.value = emitModalSaveDefaultInput.checked ? '1' : '0';
                     }
 
                     closeEmitModal();
