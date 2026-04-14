@@ -116,6 +116,8 @@ return [
         'refresh_all_statuses_loading' => 'Refreshing...',
         'reemit' => 'Reissue NFS-e',
         'reemit_confirm' => 'Do you want to reissue this cancelled NFS-e?',
+        'reemit_modal_description' => 'NFS-e reissuance description',
+        'reemit_modal_description_help' => 'Review the description pre-filled from the cancelled invoice and adjust if needed.',
         'filter_all' => 'All',
         'filter_emitted' => 'Emitted',
         'filter_processing' => 'Processing',
@@ -297,6 +299,8 @@ return [
             'webdav_password' => 'WebDAV password',
             'webdav_path_template' => 'Path template',
             'webdav_path_template_hint' => 'Available placeholders:',
+            'store_xml' => 'Store NFS-e XML',
+            'store_pdf' => 'Store DANFSE PDF',
             'connection_failed' => 'Unable to validate WebDAV server access: :message',
             'placeholders' => [
                 '{cnpj}'          => 'Service provider CNPJ',
