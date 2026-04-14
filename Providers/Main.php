@@ -9,6 +9,7 @@ namespace Modules\Nfse\Providers;
 
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
+use Modules\Nfse\Support\EmailTemplateSynchronizer;
 
 class Main extends Provider
 {
@@ -20,6 +21,7 @@ class Main extends Provider
         $this->loadTranslations();
         $this->loadViews();
         $this->loadMigrations();
+        $this->syncEmailTemplates();
     }
 
     /**
@@ -58,5 +60,10 @@ class Main extends Provider
         }
 
         $this->loadRoutesFrom(__DIR__ . '/../Routes/admin.php');
+    }
+
+    protected function syncEmailTemplates(): void
+    {
+        (new EmailTemplateSynchronizer())->sync();
     }
 }
