@@ -42,9 +42,27 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('name="nfse_email_save_default" value="0" data-emit-email-save-default-input', $content);
             self::assertStringContainsString('id="nfse_emit_description"', $content);
             self::assertStringContainsString('id="nfse_emit_send_email"', $content);
+            self::assertStringContainsString('class="sr-only peer"', $content);
+            self::assertStringContainsString('peer-checked:bg-green', $content);
+            self::assertStringContainsString('peer-checked:translate-x-5', $content);
+            self::assertStringContainsString('id="nfse_emit_email_fields"', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_send_email_hint')", $content);
             self::assertStringContainsString('id="nfse_emit_email_to"', $content);
             self::assertStringContainsString('id="nfse_emit_email_subject"', $content);
             self::assertStringContainsString('id="nfse_emit_email_body"', $content);
+        }
+
+        public function testInvoicesShowViewHasEmailToggleAndConditionalSection(): void
+        {
+            $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
+            $content = (string) file_get_contents($showPath);
+
+            self::assertStringContainsString('id="reemit-send-email-checkbox"', $content);
+            self::assertStringContainsString('class="sr-only peer"', $content);
+            self::assertStringContainsString('peer-checked:bg-green', $content);
+            self::assertStringContainsString('peer-checked:translate-x-5', $content);
+            self::assertStringContainsString('id="reemit-email-fields"', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_send_email_hint')", $content);
         }
 
         public function testInvoicesIndexViewOffersReemitActionForCancelledReceipts(): void
@@ -256,6 +274,12 @@ namespace Modules\Nfse\Tests\Unit\Views {
 
             self::assertStringNotContainsString('opSimpNac', $ptBrContent);
             self::assertStringNotContainsString('opSimpNac', $enGbContent);
+            self::assertStringContainsString("'emit_modal_send_email_hint'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_send_email_yes'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_send_email_no'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_send_email_hint'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_send_email_yes'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_send_email_no'", $enGbContent);
             self::assertStringNotContainsString('prontidão operacional', $ptBrContent);
             self::assertStringNotContainsString('operational readiness', $enGbContent);
 
