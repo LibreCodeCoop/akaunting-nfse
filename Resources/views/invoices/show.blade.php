@@ -184,9 +184,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <div class="px-5 pb-4 space-y-3 border-t pt-4">
                             <div class="flex items-center gap-3">
                                 <label for="reemit-send-email-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center" aria-label="{{ trans('nfse::general.invoices.emit_modal_send_email') }}">
-                                    <input id="reemit-send-email-checkbox" type="checkbox" class="sr-only peer" @checked((bool) ($emailDefaults['send_email'] ?? false))>
-                                    <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
-                                    <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                    <input id="reemit-send-email-checkbox" type="checkbox" class="sr-only" @checked((bool) ($emailDefaults['send_email'] ?? false))>
+                                    <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 {{ (bool) ($emailDefaults['send_email'] ?? false) ? 'bg-green' : 'bg-green-200' }}"></div>
+                                    <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 {{ (bool) ($emailDefaults['send_email'] ?? false) ? 'translate-x-5' : '' }}"></div>
                                 </label>
                                 <div>
                                     <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
@@ -213,27 +213,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <div class="space-y-3">
                                 <div class="flex items-center gap-3">
                                     <label for="reemit-attach-danfse-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                        <input id="reemit-attach-danfse-checkbox" type="checkbox" class="sr-only peer" checked>
-                                        <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
-                                        <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                        <input id="reemit-attach-danfse-checkbox" type="checkbox" class="sr-only" checked>
+                                        <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green"></div>
+                                        <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 translate-x-5"></div>
                                     </label>
                                     <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
                                 </div>
 
                                 <div class="flex items-center gap-3">
                                     <label for="reemit-attach-xml-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                        <input id="reemit-attach-xml-checkbox" type="checkbox" class="sr-only peer" checked>
-                                        <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
-                                        <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                        <input id="reemit-attach-xml-checkbox" type="checkbox" class="sr-only" checked>
+                                        <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green"></div>
+                                        <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 translate-x-5"></div>
                                     </label>
                                     <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
                                 </div>
 
                                 <div class="flex items-center gap-3">
                                     <label for="reemit-save-default-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                        <input id="reemit-save-default-checkbox" type="checkbox" class="sr-only peer">
-                                        <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
-                                        <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                        <input id="reemit-save-default-checkbox" type="checkbox" class="sr-only">
+                                        <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                        <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
                                     </label>
                                     <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
                                 </div>
@@ -372,6 +372,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     openModal(modal.getAttribute('data-old-action'));
                 }
 
+                const syncToggle = (input) => {
+                    const label = input.closest('label');
+                    if (!label) return;
+                    const track = label.querySelector('[data-toggle="track"]');
+                    const thumb = label.querySelector('[data-toggle="thumb"]');
+                    const checked = input.checked;
+                    if (track) {
+                        track.classList.toggle('bg-green', checked);
+                        track.classList.toggle('bg-green-200', !checked);
+                    }
+                    if (thumb) {
+                        thumb.classList.toggle('translate-x-5', checked);
+                    }
+                };
+
                 if (reemitModal && reemitForm && reemitTrigger && reemitConfirmButton) {
                         const reemitDescriptionTextarea = document.getElementById('reemit-description-textarea');
                         const reemitDiscriminacaoInput = document.getElementById('reemit-discriminacao-input');
@@ -395,6 +410,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         if (reemitEmailFields) {
                             reemitEmailFields.classList.toggle('hidden', !reemitSendEmailCheckbox?.checked);
                         }
+                        if (reemitSendEmailCheckbox) {
+                            syncToggle(reemitSendEmailCheckbox);
+                        }
                     };
 
                     const closeReemitModal = () => {
@@ -413,7 +431,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     reemitTrigger.addEventListener('click', openReemitModal);
 
                     reemitSendEmailCheckbox?.addEventListener('change', refreshReemitEmailSection);
-    
+                    reemitAttachDanfseCheckbox?.addEventListener('change', () => syncToggle(reemitAttachDanfseCheckbox));
+                    reemitAttachXmlCheckbox?.addEventListener('change', () => syncToggle(reemitAttachXmlCheckbox));
+                    reemitSaveDefaultCheckbox?.addEventListener('change', () => syncToggle(reemitSaveDefaultCheckbox));
 
                     refreshReemitEmailSection();
 
