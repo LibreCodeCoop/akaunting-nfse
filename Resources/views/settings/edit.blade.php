@@ -118,7 +118,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         {{-- Token fields --}}
                         <div id="vault-token-section" class="space-y-4 @if($selectedAuthMode === 'approle') hidden @endif" @if($selectedAuthMode === 'approle') hidden @endif>
-                        @php($showLocalTokenHint = app()->environment(['local', 'development']))
+                        @php
+                            $showLocalTokenHint = app()->environment(['local', 'development']);
+                        @endphp
                         <div>
                             <label class="block text-sm font-medium mb-1" for="bao_token">{{ trans('nfse::general.settings.bao_token') }}</label>
                             <div class="relative">
@@ -590,7 +592,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
                     </div>
                 @else
-                    <form method="POST" action="{{ route('nfse.settings.artifacts') }}" class="space-y-4">
+                    <form id="artifacts-settings-form" method="POST" action="{{ route('nfse.settings.artifacts') }}" class="space-y-4">
                         @csrf
                         @method('PATCH')
 
@@ -618,19 +620,76 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         <div>
                             <label class="block text-sm font-medium mb-1" for="webdav_path_template">{{ trans('nfse::general.settings.artifacts.webdav_path_template') }}</label>
-                            <input id="webdav_path_template" name="nfse[webdav_path_template]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.webdav_path_template', setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}')) }}">
-                            <div class="text-xs text-gray-500 mt-1">
-                                <span>{{ trans('nfse::general.settings.artifacts.webdav_path_template_hint') }}</span>
-                                <ul class="list-disc list-inside mt-1 space-y-0.5">
-                                    @foreach(trans('nfse::general.settings.artifacts.placeholders') as $placeholder => $description)
-                                        <li><code class="bg-gray-100 px-1 rounded">{{ $placeholder }}</code> — {{ $description }}</li>
-                                    @endforeach
-                                </ul>
+                            <input id="webdav_path_template" name="nfse[webdav_path_template]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.webdav_path_template', setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}')) }}">
+                            <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.artifacts.webdav_path_template_hint') }}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="webdav_filename_template">{{ trans('nfse::general.settings.artifacts.webdav_filename_template') }}</label>
+                            <input id="webdav_filename_template" name="nfse[webdav_filename_template]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.webdav_filename_template', setting('nfse.webdav_filename_template', '{chave_acesso}')) }}">
+                            <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.artifacts.webdav_filename_template_hint') }}</p>
+                        </div>
+
+                        <div class="rounded border border-gray-200 bg-gray-50 p-4">
+                            <h4 class="text-sm font-semibold text-gray-900 mb-3">{{ trans('nfse::general.settings.artifacts.available_placeholders') }}</h4>
+                            <ul class="space-y-1">
+                                @foreach(trans('nfse::general.settings.artifacts.placeholders') as $placeholder => $description)
+                                    <li class="text-sm text-gray-700"><code class="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono">{{ $placeholder }}</code> — {{ $description }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+
+                        @php
+                            $storeXmlOn = (bool) old('nfse.webdav_store_xml', setting('nfse.webdav_store_xml', true));
+                            $storePdfOn = (bool) old('nfse.webdav_store_pdf', setting('nfse.webdav_store_pdf', true));
+                            $canSaveArtifacts = $storeXmlOn || $storePdfOn;
+                        @endphp
+                        <div class="space-y-1 rounded border border-gray-200 bg-gray-50 p-3">
+                            <div class="flex items-center justify-between py-1">
+                                <span class="text-sm text-gray-700">{{ trans('nfse::general.settings.artifacts.store_xml') }}</span>
+                                <div class="flex items-center">
+                                    <button
+                                        type="button"
+                                        id="webdav_store_xml_yes"
+                                        class="relative w-10 rounded-tl-lg rounded-bl-lg py-2 px-1 text-sm text-center transition-all {{ $storeXmlOn ? 'bg-green-500 text-white' : 'bg-black-100' }}"
+                                        onclick="(function(){var input=document.getElementById('webdav_store_xml_val');var yes=document.getElementById('webdav_store_xml_yes');var no=document.getElementById('webdav_store_xml_no');input.value='1';yes.classList.add('bg-green-500','text-white');yes.classList.remove('bg-black-100');no.classList.add('bg-black-100');no.classList.remove('bg-red-500','text-white');window.nfseSyncArtifactSaveState&&window.nfseSyncArtifactSaveState();})()"
+                                    >{{ trans('general.yes') }}</button>
+                                    <button
+                                        type="button"
+                                        id="webdav_store_xml_no"
+                                        class="relative w-10 rounded-tr-lg rounded-br-lg py-2 px-1 text-sm text-center transition-all {{ $storeXmlOn ? 'bg-black-100' : 'bg-red-500 text-white' }}"
+                                        onclick="(function(){var input=document.getElementById('webdav_store_xml_val');var yes=document.getElementById('webdav_store_xml_yes');var no=document.getElementById('webdav_store_xml_no');input.value='0';no.classList.add('bg-red-500','text-white');no.classList.remove('bg-black-100');yes.classList.add('bg-black-100');yes.classList.remove('bg-green-500','text-white');window.nfseSyncArtifactSaveState&&window.nfseSyncArtifactSaveState();})()"
+                                    >{{ trans('general.no') }}</button>
+                                </div>
+                                <input type="hidden" id="webdav_store_xml_val" name="nfse[webdav_store_xml]" value="{{ $storeXmlOn ? '1' : '0' }}">
+                            </div>
+                            <div class="flex items-center justify-between py-1">
+                                <span class="text-sm text-gray-700">{{ trans('nfse::general.settings.artifacts.store_pdf') }}</span>
+                                <div class="flex items-center">
+                                    <button
+                                        type="button"
+                                        id="webdav_store_pdf_yes"
+                                        class="relative w-10 rounded-tl-lg rounded-bl-lg py-2 px-1 text-sm text-center transition-all {{ $storePdfOn ? 'bg-green-500 text-white' : 'bg-black-100' }}"
+                                        onclick="(function(){var input=document.getElementById('webdav_store_pdf_val');var yes=document.getElementById('webdav_store_pdf_yes');var no=document.getElementById('webdav_store_pdf_no');input.value='1';yes.classList.add('bg-green-500','text-white');yes.classList.remove('bg-black-100');no.classList.add('bg-black-100');no.classList.remove('bg-red-500','text-white');window.nfseSyncArtifactSaveState&&window.nfseSyncArtifactSaveState();})()"
+                                    >{{ trans('general.yes') }}</button>
+                                    <button
+                                        type="button"
+                                        id="webdav_store_pdf_no"
+                                        class="relative w-10 rounded-tr-lg rounded-br-lg py-2 px-1 text-sm text-center transition-all {{ $storePdfOn ? 'bg-black-100' : 'bg-red-500 text-white' }}"
+                                        onclick="(function(){var input=document.getElementById('webdav_store_pdf_val');var yes=document.getElementById('webdav_store_pdf_yes');var no=document.getElementById('webdav_store_pdf_no');input.value='0';no.classList.add('bg-red-500','text-white');no.classList.remove('bg-black-100');yes.classList.add('bg-black-100');yes.classList.remove('bg-green-500','text-white');window.nfseSyncArtifactSaveState&&window.nfseSyncArtifactSaveState();})()"
+                                    >{{ trans('general.no') }}</button>
+                                </div>
+                                <input type="hidden" id="webdav_store_pdf_val" name="nfse[webdav_store_pdf]" value="{{ $storePdfOn ? '1' : '0' }}">
                             </div>
                         </div>
 
                         <div class="flex justify-end pt-2">
-                            <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+                            <button
+                                id="artifacts-save-button"
+                                type="submit"
+                                class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white {{ $canSaveArtifacts ? 'hover:bg-green-700' : 'opacity-50 cursor-not-allowed' }}"
+                                @disabled(!$canSaveArtifacts)
+                            >
                                 {{ trans('general.save') }}
                             </button>
                         </div>
@@ -666,6 +725,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 });
 
                 // ── Auth mode toggle (Token / AppRole) ──────────────────────
+                const artifactsForm = document.getElementById('artifacts-settings-form');
+                const artifactsSaveButton = document.getElementById('artifacts-save-button');
+                const artifactsStoreXml = document.getElementById('webdav_store_xml_val');
+                const artifactsStorePdf = document.getElementById('webdav_store_pdf_val');
+
+                const canSaveArtifacts = () => {
+                    const xmlEnabled = artifactsStoreXml instanceof HTMLInputElement && artifactsStoreXml.value === '1';
+                    const pdfEnabled = artifactsStorePdf instanceof HTMLInputElement && artifactsStorePdf.value === '1';
+
+                    return xmlEnabled || pdfEnabled;
+                };
+
+                const syncArtifactsSaveState = () => {
+                    if (!(artifactsSaveButton instanceof HTMLButtonElement)) {
+                        return;
+                    }
+
+                    const enabled = canSaveArtifacts();
+                    artifactsSaveButton.disabled = !enabled;
+                    artifactsSaveButton.classList.toggle('hover:bg-green-700', enabled);
+                    artifactsSaveButton.classList.toggle('opacity-50', !enabled);
+                    artifactsSaveButton.classList.toggle('cursor-not-allowed', !enabled);
+                };
+
+                window.nfseSyncArtifactSaveState = syncArtifactsSaveState;
+                syncArtifactsSaveState();
+
+                artifactsForm?.addEventListener('submit', (event) => {
+                    if (canSaveArtifacts()) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    syncArtifactsSaveState();
+                });
+
                 const vaultTokenSection   = document.getElementById('vault-token-section');
                 const vaultApproleSection = document.getElementById('vault-approle-section');
 

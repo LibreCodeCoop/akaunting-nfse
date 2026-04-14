@@ -79,10 +79,15 @@ class InvoiceController extends Controller
         $this->indexSortDirection = $this->normalizedIndexSortDirection($requestedSortDirection);
         $searchTerm = $parsedFilters['search'];
         $searchStringCookieFilters = $this->searchStringCookieFilters($parsedFilters);
+        $selectedStatuses = $this->selectedIndexStatuses($status);
+        $includesPendingStatus = in_array('pending', $selectedStatuses, true);
+        $receiptStatus = $this->receiptStatusForIndex($status);
         $overviewCounts = $this->listingOverviewCounts();
-        $receipts = $status === 'pending' ? null : $this->receiptsForIndex($status, $perPage, $searchTerm, $parsedFilters['date_emissao'] ?? null);
-        $pendingInvoices = $status === 'pending' ? $this->pendingInvoices($perPage, $searchTerm) : null;
-        $pendingReadiness = $status === 'pending' ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
+        $receipts = $receiptStatus !== null
+            ? $this->receiptsForIndex($receiptStatus, $perPage, $searchTerm, $parsedFilters['date_emissao'] ?? null)
+            : null;
+        $pendingInvoices = $includesPendingStatus ? $this->pendingInvoices($perPage, $searchTerm) : null;
+        $pendingReadiness = $includesPendingStatus ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
         $sortBy = $this->indexSortBy;
         $sortDirection = $this->indexSortDirection;
 
@@ -112,9 +117,12 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice): \Illuminate\View\View
     {
+        $this->ensureInvoiceRelationsLoaded($invoice);
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $suggestedDiscriminacao = $this->buildDiscriminacao($invoice);
+        $emailDefaults = $this->servicePreviewEmailDefaults($invoice);
 
-        return view('nfse::invoices.show', compact('invoice', 'receipt'));
+        return view('nfse::invoices.show', compact('invoice', 'receipt', 'suggestedDiscriminacao', 'emailDefaults'));
     }
 
     public function servicePreview(Invoice $invoice): JsonResponse
@@ -124,11 +132,12 @@ class InvoiceController extends Controller
         $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, null, false);
 
         return response()->json([
-            'missing_items' => $selection['missing_items'],
+            'missing_items'    => $selection['missing_items'],
             'available_services' => $this->availableInvoiceServices($invoice),
             'default_service_id' => is_object($defaultService) ? (int) ($defaultService->id ?? 0) : 0,
-            'requires_split' => (bool) ($selection['requires_split'] ?? false),
+            'requires_split'   => (bool) ($selection['requires_split'] ?? false),
             'suggested_description' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? []),
+            'email_defaults'   => $this->servicePreviewEmailDefaults($invoice),
         ]);
     }
 
@@ -161,7 +170,7 @@ class InvoiceController extends Controller
 
         $cnpj    = setting('nfse.cnpj_prestador');
         $ibge    = setting('nfse.municipio_ibge');
-        $sandbox = (bool) setting('nfse.sandbox_mode', true);
+        $sandbox = $this->sandboxModeEnabled();
         $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
@@ -266,11 +275,13 @@ class InvoiceController extends Controller
 
         $persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);
         $this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);
+        $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
+        $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
 
         $taxPolicyMessage = $this->canonicalTaxPolicyMessage($invoice);
 
         return redirect()->route('nfse.invoices.show', $invoice)
-            ->with('success', trans('nfse::general.nfse_emitted', ['number' => $receipt->nfseNumber]))
+            ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso]))
             ->with('info', $taxPolicyMessage);
     }
 
@@ -278,7 +289,7 @@ class InvoiceController extends Controller
     {
         $receipt = $this->findReceiptForInvoice($invoice);
 
-        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+        $client = $this->makeClient($this->sandboxModeEnabled());
         $cancelReason = $this->cancellationReasonForGateway($request);
 
         try {
@@ -425,13 +436,14 @@ class InvoiceController extends Controller
                 ->with('warning', trans('nfse::general.invoices.refresh_not_allowed_for_cancelled'));
         }
 
-        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+        $client = $this->makeClient($this->sandboxModeEnabled());
 
         try {
             $updatedReceipt = $client->query($receipt->chave_acesso);
+            $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($updatedReceipt);
 
             $receipt->update([
-                'nfse_number' => $updatedReceipt->nfseNumber,
+                'nfse_number' => $resolvedReceiptNumber,
                 'chave_acesso' => $updatedReceipt->chaveAcesso,
                 'data_emissao' => $updatedReceipt->dataEmissao,
                 'codigo_verificacao' => $updatedReceipt->codigoVerificacao,
@@ -441,7 +453,7 @@ class InvoiceController extends Controller
             $this->storeArtifacts($invoice, $updatedReceipt, $receipt, $client);
 
             return redirect()->route('nfse.invoices.show', $invoice)
-                ->with('success', trans('nfse::general.nfse_refreshed', ['number' => $updatedReceipt->nfseNumber]));
+                ->with('success', trans('nfse::general.nfse_refreshed', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $updatedReceipt->chaveAcesso]));
         } catch (\Throwable) {
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_refresh_failed'));
@@ -450,16 +462,17 @@ class InvoiceController extends Controller
 
     public function refreshAll(): RedirectResponse
     {
-        $client = $this->makeClient((bool) setting('nfse.sandbox_mode', true));
+        $client = $this->makeClient($this->sandboxModeEnabled());
         $updated = 0;
         $failed = 0;
 
         foreach ($this->refreshableReceipts() as $receipt) {
             try {
                 $updatedReceipt = $client->query($receipt->chave_acesso);
+                $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($updatedReceipt);
 
                 $receipt->update([
-                    'nfse_number' => $updatedReceipt->nfseNumber,
+                    'nfse_number' => $resolvedReceiptNumber,
                     'chave_acesso' => $updatedReceipt->chaveAcesso,
                     'data_emissao' => $updatedReceipt->dataEmissao,
                     'codigo_verificacao' => $updatedReceipt->codigoVerificacao,
@@ -516,7 +529,7 @@ class InvoiceController extends Controller
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'));
         }
 
-        $sandboxReemit = (bool) setting('nfse.sandbox_mode', true);
+        $sandboxReemit = $this->sandboxModeEnabled();
         $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
@@ -545,7 +558,7 @@ class InvoiceController extends Controller
             'opcaoSimplesNacional' => $opcaoSimplesNacional,
             'tipoAmbiente' => $sandboxReemit ? 2 : 1,
             'serie' => $this->dpsSerie($invoice),
-            'numeroDps' => $this->dpsNumber($invoice),
+            'numeroDps' => $this->dpsNumberForReemit($invoice),
             'dataCompetencia' => $this->competenceDate($invoice),
             'indicadorTributacao' => $federalPayload['indicadorTributacao'],
             'totalTributosPercentualFederal' => $federalPayload['totalTributosPercentualFederal'],
@@ -600,9 +613,11 @@ class InvoiceController extends Controller
 
         $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
         $this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);
+        $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
+        $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
 
         return redirect()->route('nfse.invoices.show', $invoice)
-            ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $newReceipt->nfseNumber]));
+            ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso]));
     }
 
     // -------------------------------------------------------------------------
@@ -1279,7 +1294,7 @@ class InvoiceController extends Controller
             'total' => NfseReceipt::count(),
             'emitted' => NfseReceipt::where('status', 'emitted')->count(),
             'cancelled' => NfseReceipt::where('status', 'cancelled')->count(),
-            'sandbox_mode' => (bool) setting('nfse.sandbox_mode', true),
+            'sandbox_mode' => $this->sandboxModeEnabled(),
         ];
     }
 
@@ -1436,9 +1451,60 @@ class InvoiceController extends Controller
         }
 
         $normalized = strtolower(trim($status));
-        $allowed = ['all', 'emitted', 'cancelled', 'processing', 'pending'];
 
-        return in_array($normalized, $allowed, true) ? $normalized : 'all';
+        if ($normalized === '') {
+            return 'all';
+        }
+
+        $statuses = $this->selectedIndexStatuses($normalized);
+
+        if ($statuses === [] || in_array('all', $statuses, true)) {
+            return 'all';
+        }
+
+        return implode(',', $statuses);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function selectedIndexStatuses(string $status): array
+    {
+        $allowed = ['all', 'emitted', 'cancelled', 'processing', 'pending'];
+        $items = array_map(
+            static fn (string $item): string => trim(strtolower($item)),
+            explode(',', $status),
+        );
+        $items = array_values(array_unique(array_filter(
+            $items,
+            static fn (string $item): bool => $item !== '' && in_array($item, $allowed, true),
+        )));
+
+        if (in_array('all', $items, true)) {
+            return ['all'];
+        }
+
+        return $items;
+    }
+
+    protected function receiptStatusForIndex(string $status): ?string
+    {
+        $selectedStatuses = $this->selectedIndexStatuses($status);
+
+        if ($selectedStatuses === ['all']) {
+            return 'all';
+        }
+
+        $receiptStatuses = array_values(array_filter(
+            $selectedStatuses,
+            static fn (string $item): bool => $item !== 'pending',
+        ));
+
+        if ($receiptStatuses === []) {
+            return null;
+        }
+
+        return implode(',', $receiptStatuses);
     }
 
     protected function normalizedIndexPerPage(mixed $perPage): int
@@ -1915,6 +1981,14 @@ class InvoiceController extends Controller
             $configured = preg_replace('/\D+/', '', (string) setting('nfse.codigo_tributacao_nacional', '')) ?: '';
         }
 
+        if ($configured === '') {
+            $municipalCode = $this->itemListaServico($defaultService);
+
+            if ($municipalCode !== '') {
+                $configured = str_pad(substr($municipalCode, 0, 4), 4, '0', STR_PAD_LEFT) . '01';
+            }
+        }
+
         if ($configured !== '') {
             return str_pad(substr($configured, 0, 6), 6, '0', STR_PAD_LEFT);
         }
@@ -1945,6 +2019,20 @@ class InvoiceController extends Controller
         $invoiceId = isset($invoice->id) ? (int) $invoice->id : 0;
 
         return (string) max($invoiceId, 1);
+    }
+
+    protected function dpsNumberForReemit(Invoice $invoice): string
+    {
+        $base = $this->dpsNumber($invoice);
+        $microtimeDigits = preg_replace('/\D+/', '', sprintf('%.6f', microtime(true))) ?: '';
+        $candidate = $base . substr($microtimeDigits, -8);
+        $digits = preg_replace('/\D+/', '', $candidate) ?: $base;
+
+        if (strlen($digits) > 15) {
+            $digits = substr($digits, -15);
+        }
+
+        return ltrim($digits, '0') !== '' ? ltrim($digits, '0') : '1';
     }
 
     protected function competenceDate(Invoice $invoice): ?string
@@ -2216,7 +2304,7 @@ class InvoiceController extends Controller
 
     protected function projectRootPath(string $relativePath): string
     {
-        if (class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationState::class)) {
+        if (class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationState::class, false)) {
             try {
                 $isolationRoot = \Modules\Nfse\Http\Controllers\ControllerIsolationState::$storageRoot ?? '';
 
@@ -2245,9 +2333,11 @@ class InvoiceController extends Controller
 
     protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt, ?NfseReceipt $existingReceipt = null): NfseReceipt
     {
+        $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
+
         if ($existingReceipt instanceof NfseReceipt) {
             $existingReceipt->update([
-                'nfse_number' => $receipt->nfseNumber,
+                'nfse_number' => $resolvedReceiptNumber,
                 'chave_acesso' => $receipt->chaveAcesso,
                 'data_emissao' => $receipt->dataEmissao,
                 'codigo_verificacao' => $receipt->codigoVerificacao,
@@ -2258,7 +2348,7 @@ class InvoiceController extends Controller
         return NfseReceipt::updateOrCreate(
             ['invoice_id' => $invoice->id],
             [
-                'nfse_number' => $receipt->nfseNumber,
+                'nfse_number' => $resolvedReceiptNumber,
                 'chave_acesso' => $receipt->chaveAcesso,
                 'data_emissao' => $receipt->dataEmissao,
                 'codigo_verificacao' => $receipt->codigoVerificacao,
@@ -2273,45 +2363,258 @@ class InvoiceController extends Controller
             return;
         }
 
-        try {
-            $webDavClient = $this->makeWebDavClientFromSettings();
-            $basePath = $this->buildWebDavArtifactBasePath($invoice, $receipt);
-            $xmlPath = null;
-            $danfsePath = null;
+        $webDavClient = $this->makeWebDavClientFromSettings();
+        $basePath = $this->buildWebDavArtifactBasePath($invoice, $receipt);
+        $xmlPath = null;
+        $danfsePath = null;
 
-            if ($receipt->rawXml !== null && trim($receipt->rawXml) !== '') {
-                $xmlPath = $basePath . '/' . $receipt->chaveAcesso . '.xml';
-                $webDavClient->put($xmlPath, $receipt->rawXml);
+        if ($this->webDavStoreXmlEnabled() && $receipt->rawXml !== null && trim($receipt->rawXml) !== '') {
+            try {
+                $candidateXmlPath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'xml');
+                $webDavClient->put($candidateXmlPath, $receipt->rawXml);
+                $xmlPath = $candidateXmlPath;
+            } catch (\Throwable $throwable) {
+                $this->safeLogError('NFS-e XML artifact storage failed', [
+                    'invoice_id' => $invoice->id,
+                    'chave_acesso' => $receipt->chaveAcesso,
+                    'message' => $throwable->getMessage(),
+                ]);
             }
+        }
 
-            $danfseGetter = [$client, 'getDanfse'];
-            if (is_callable($danfseGetter)) {
-                $danfse = $danfseGetter($receipt->chaveAcesso);
+        if ($this->webDavStorePdfEnabled()) {
+            try {
+                $danfseGetter = [$client, 'getDanfse'];
 
-                if (is_string($danfse) && $danfse !== '') {
-                    $danfsePath = $basePath . '/' . $receipt->chaveAcesso . '.pdf';
-                    $webDavClient->put($danfsePath, $danfse);
+                if (is_callable($danfseGetter)) {
+                    $danfse = $this->fetchDanfseWithRetry($client, $receipt->chaveAcesso);
+
+                    if (is_string($danfse) && $danfse !== '') {
+                        $candidateDanfsePath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'pdf');
+                        $webDavClient->put($candidateDanfsePath, $danfse);
+                        $danfsePath = $candidateDanfsePath;
+                    }
                 }
+            } catch (\Throwable $throwable) {
+                $this->safeLogError('NFS-e DANFSE artifact storage failed', [
+                    'invoice_id' => $invoice->id,
+                    'chave_acesso' => $receipt->chaveAcesso,
+                    'message' => $throwable->getMessage(),
+                ]);
             }
+        }
 
-            if ($xmlPath !== null || $danfsePath !== null) {
+        if ($xmlPath !== null || $danfsePath !== null) {
+            try {
                 $nfseReceipt->update([
                     'xml_webdav_path' => $xmlPath,
                     'danfse_webdav_path' => $danfsePath,
                 ]);
+            } catch (\Throwable $throwable) {
+                $this->safeLogError('NFS-e artifact path persistence failed', [
+                    'invoice_id' => $invoice->id,
+                    'chave_acesso' => $receipt->chaveAcesso,
+                    'message' => $throwable->getMessage(),
+                ]);
             }
-        } catch (\Throwable $throwable) {
-            $this->safeLogError('NFS-e artifact storage failed', [
-                'invoice_id' => $invoice->id,
-                'chave_acesso' => $receipt->chaveAcesso,
-                'message' => $throwable->getMessage(),
-            ]);
         }
+    }
+
+    protected function fetchDanfseWithRetry(NfseClientInterface $client, string $chaveAcesso, int $maxAttempts = 2): string
+    {
+        $attempt = 0;
+        $lastError = null;
+
+        while ($attempt < $maxAttempts) {
+            $attempt++;
+
+            try {
+                return $this->fetchDanfseArtifact($client, $chaveAcesso);
+            } catch (\Throwable $throwable) {
+                $lastError = $throwable;
+
+                if (!$this->shouldRetryDanfseRetrieval($throwable, $attempt, $maxAttempts)) {
+                    throw $throwable;
+                }
+            }
+        }
+
+        if ($lastError instanceof \Throwable) {
+            throw $lastError;
+        }
+
+        throw new \RuntimeException('Unexpected DANFSE retrieval retry flow termination.');
+    }
+
+    protected function fetchDanfseArtifact(NfseClientInterface $client, string $chaveAcesso): string
+    {
+        try {
+            return $client->getDanfse($chaveAcesso);
+        } catch (\Throwable $throwable) {
+            if (!$this->isDanfseHttp496($throwable)) {
+                throw $throwable;
+            }
+
+            // Controller-isolation unit tests must stay fully local and deterministic.
+            if (class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationState::class, false)) {
+                throw $throwable;
+            }
+
+            $lastError = $throwable;
+
+            foreach ($this->danfseFallbackUrls($chaveAcesso) as $fallbackUrl) {
+                try {
+                    return $this->downloadDanfseFromUrl($fallbackUrl);
+                } catch (\Throwable $fallbackError) {
+                    $lastError = $fallbackError;
+                }
+            }
+
+            throw $lastError;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function danfseFallbackUrls(string $chaveAcesso): array
+    {
+        return [
+            'https://www.producaorestrita.nfse.gov.br/EmissorNacional/Notas/Download/DANFSe/' . $chaveAcesso,
+            'https://www.nfse.gov.br/EmissorNacional/Notas/Download/DANFSe/' . $chaveAcesso,
+            'https://adn.producaorestrita.nfse.gov.br/danfse/' . $chaveAcesso,
+            'https://adn.nfse.gov.br/danfse/' . $chaveAcesso,
+        ];
+    }
+
+    protected function downloadDanfseFromUrl(string $url): string
+    {
+        $sslOptions = [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+        ];
+
+        $transportCertPath = $this->existingProjectRootPath('client.crt.pem');
+        $transportKeyPath = $this->existingProjectRootPath('client.key.pem');
+
+        if (is_string($transportCertPath) && $transportCertPath !== '' && is_string($transportKeyPath) && $transportKeyPath !== '') {
+            $sslOptions['local_cert'] = $transportCertPath;
+            $sslOptions['local_pk'] = $transportKeyPath;
+        }
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => "Accept: application/pdf\r\n",
+                'ignore_errors' => true,
+            ],
+            'ssl' => $sslOptions,
+        ]);
+
+        $http_response_header = [];
+        $body = file_get_contents($url, false, $context);
+        $status = $this->parseHttpStatusCode($http_response_header);
+
+        if ($body === false || $status >= 400 || $status === 0) {
+            throw new \RuntimeException('ADN gateway returned error for DANFSE retrieval (HTTP ' . $status . ')');
+        }
+
+        if ($body === '') {
+            throw new \RuntimeException('ADN gateway returned empty body for DANFSE retrieval');
+        }
+
+        return $body;
+    }
+
+    /**
+     * @param list<string> $headers
+     */
+    protected function parseHttpStatusCode(array $headers): int
+    {
+        for ($index = count($headers) - 1; $index >= 0; $index--) {
+            $headerLine = $headers[$index] ?? null;
+
+            if (!is_string($headerLine)) {
+                continue;
+            }
+
+            if (preg_match('/HTTP\/[\d.]+ (\d{3})/', $headerLine, $matches) === 1) {
+                return (int) ($matches[1] ?? 0);
+            }
+        }
+
+        return 0;
+    }
+
+    protected function isDanfseHttp496(\Throwable $throwable): bool
+    {
+        $message = strtolower($throwable->getMessage());
+
+        return str_contains($message, 'http 496') || str_contains($message, 'http status 496');
+    }
+
+    protected function shouldRetryDanfseRetrieval(\Throwable $throwable, int $attempt, int $maxAttempts): bool
+    {
+        if ($attempt >= $maxAttempts) {
+            return false;
+        }
+
+        return $this->isDanfseHttp496($throwable);
     }
 
     protected function webDavEnabled(): bool
     {
         return trim((string) setting('nfse.webdav_url', '')) !== '';
+    }
+
+    protected function sandboxModeEnabled(): bool
+    {
+        return $this->booleanSetting('nfse.sandbox_mode', true);
+    }
+
+    protected function booleanSetting(string $key, bool $default): bool
+    {
+        $rawValue = setting($key, null);
+
+        if ($rawValue === null) {
+            return $default;
+        }
+
+        if (is_bool($rawValue)) {
+            return $rawValue;
+        }
+
+        if (is_numeric($rawValue)) {
+            return (int) $rawValue === 1;
+        }
+
+        if (is_string($rawValue)) {
+            $normalized = strtolower(trim($rawValue));
+
+            if ($normalized === '') {
+                return $default;
+            }
+
+            if (in_array($normalized, ['1', 'true', 'on', 'yes'], true)) {
+                return true;
+            }
+
+            if (in_array($normalized, ['0', 'false', 'off', 'no'], true)) {
+                return false;
+            }
+        }
+
+        return (bool) $rawValue;
+    }
+
+    protected function webDavStoreXmlEnabled(): bool
+    {
+        return (bool) setting('nfse.webdav_store_xml', true);
+    }
+
+    protected function webDavStorePdfEnabled(): bool
+    {
+        return (bool) setting('nfse.webdav_store_pdf', true);
     }
 
     protected function makeWebDavClientFromSettings(): WebDavClient
@@ -2325,10 +2628,42 @@ class InvoiceController extends Controller
 
     protected function buildWebDavArtifactBasePath(Invoice $invoice, ReceiptData $receipt): string
     {
-        $template = trim((string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}'));
+        $template = trim((string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'));
         if ($template === '') {
-            $template = 'nfse/{cnpj}/{year}/{month}';
+            $template = 'nfse/{cnpj}/{year}/{month}/{day}';
         }
+
+        return trim(strtr($template, $this->buildWebDavArtifactTemplateReplacements($invoice, $receipt)), '/');
+    }
+
+    protected function buildWebDavArtifactFilePath(string $basePath, Invoice $invoice, ReceiptData $receipt, string $extension): string
+    {
+        $template = trim((string) setting('nfse.webdav_filename_template', '{chave_acesso}'));
+
+        if ($template === '') {
+            $template = '{chave_acesso}';
+        }
+
+        $fileName = trim(strtr($template, $this->buildWebDavArtifactTemplateReplacements($invoice, $receipt)), '/');
+        $fileName = trim($fileName, '.');
+
+        if ($fileName === '') {
+            $fileName = 'nao-informado';
+        }
+
+        if (!str_ends_with(strtolower($fileName), '.' . strtolower($extension))) {
+            $fileName .= '.' . $extension;
+        }
+
+        return $basePath . '/' . $fileName;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function buildWebDavArtifactTemplateReplacements(Invoice $invoice, ReceiptData $receipt): array
+    {
+        $resolvedNfseNumber = $this->resolveReceiptNfseNumber($receipt);
 
         $date = null;
         try {
@@ -2337,16 +2672,42 @@ class InvoiceController extends Controller
             $date = new \DateTimeImmutable('now');
         }
 
-        $replacements = [
+        return [
             '{cnpj}' => (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
             '{year}' => $date->format('Y'),
             '{month}' => $date->format('m'),
+            '{day}' => $date->format('d'),
             '{month_name}' => $this->monthNameByNumber((int) $date->format('n')),
-            '{nfse_number}' => $this->sanitizePathSegment($receipt->nfseNumber !== '' ? $receipt->nfseNumber : 'sem-numero'),
+            '{nfse_number}' => $this->sanitizePathSegment($resolvedNfseNumber !== '' ? $resolvedNfseNumber : 'sem-numero'),
+            '{chave_acesso}' => $this->sanitizePathSegment($receipt->chaveAcesso !== '' ? $receipt->chaveAcesso : 'sem-chave-acesso'),
             '{customer_name}' => $this->sanitizePathSegment((string) ($invoice->contact?->name ?? 'sem-cliente')),
         ];
+    }
 
-        return trim(strtr($template, $replacements), '/');
+    protected function resolveReceiptNfseNumber(ReceiptData $receipt): string
+    {
+        $numberFromGateway = trim($receipt->nfseNumber);
+
+        if ($numberFromGateway !== '') {
+            return $numberFromGateway;
+        }
+
+        return $this->extractNfseNumberFromRawXml($receipt->rawXml) ?? '';
+    }
+
+    protected function extractNfseNumberFromRawXml(?string $rawXml): ?string
+    {
+        if (!is_string($rawXml) || trim($rawXml) === '') {
+            return null;
+        }
+
+        if (preg_match('/<(?:\\w+:)?nNFSe>\\s*([^<]+?)\\s*<\\/(?:\\w+:)?nNFSe>/u', $rawXml, $matches) !== 1) {
+            return null;
+        }
+
+        $parsedNumber = trim((string) ($matches[1] ?? ''));
+
+        return $parsedNumber !== '' ? $parsedNumber : null;
     }
 
     protected function monthNameByNumber(int $month): string
@@ -2415,4 +2776,67 @@ class InvoiceController extends Controller
             secretId: $config['secretId'],
         );
     }
+
+    protected function servicePreviewEmailDefaults(Invoice $invoice): array
+    {
+        $sendEmail = (bool) (int) setting('nfse.send_email_on_emit', '0');
+        $recipient = $this->contactStringField($invoice->contact, ['email']);
+        $template  = null;
+
+        try {
+            $template = \App\Models\Setting\EmailTemplate::alias('nfse_issued_customer')->first();
+        } catch (\Throwable) {
+            // class not available in unit-test context
+        }
+
+        return [
+            'send_email'    => $sendEmail,
+            'recipient'     => $recipient,
+            'subject'       => $template !== null ? (string) ($template->subject ?? '') : '',
+            'body'          => $template !== null ? (string) ($template->body ?? '') : '',
+            'attach_danfse' => true,
+            'attach_xml'    => true,
+        ];
+    }
+    protected function handlePostEmitEmail(?Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+    {
+        if ($request === null) {
+            return;
+        }
+
+        if (!$request->boolean('nfse_send_email', false)) {
+            return;
+        }
+
+        if ($request->boolean('nfse_email_save_default', false)) {
+            setting(['nfse.send_email_on_emit' => '1']);
+            setting()->save();
+        }
+
+        $recipient = trim((string) $request->input('nfse_email_to', ''));
+
+        if ($recipient === '') {
+            return;
+        }
+
+        $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
+        $attachXml    = $request->boolean('nfse_email_attach_xml', true);
+        $customMail   = [
+            'to'      => [['email' => $recipient]],
+            'subject' => (string) $request->input('nfse_email_subject', ''),
+            'body'    => (string) $request->input('nfse_email_body', ''),
+        ];
+
+        $this->sendNfseIssuedNotification($invoice, $receipt, $attachDanfse, $attachXml, $customMail);
+    }
+
+    protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+    {
+        if ($invoice->contact === null) {
+            return;
+        }
+
+        $invoice->contact->notify(new \Modules\Nfse\Notifications\NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
+    }
+
 }

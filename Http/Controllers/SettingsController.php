@@ -304,6 +304,9 @@ class SettingsController extends Controller
             'nfse.webdav_username' => 'nullable|string',
             'nfse.webdav_password' => 'nullable|string',
             'nfse.webdav_path_template' => 'nullable|string|max:255',
+            'nfse.webdav_filename_template' => 'nullable|string|max:255',
+            'nfse.webdav_store_xml' => 'nullable',
+            'nfse.webdav_store_pdf' => 'nullable',
         ]);
 
         $rawNfseInput = $request->input('nfse', []);
@@ -313,9 +316,16 @@ class SettingsController extends Controller
         $webDavUsername = trim((string) ($rawNfseInput['webdav_username'] ?? ''));
         $webDavPassword = trim((string) ($rawNfseInput['webdav_password'] ?? ''));
         $webDavPathTemplate = trim((string) ($rawNfseInput['webdav_path_template'] ?? ''));
+        $webDavFileNameTemplate = trim((string) ($rawNfseInput['webdav_filename_template'] ?? ''));
+        $storeXmlArtifacts = $this->toBooleanInput($rawNfseInput, 'webdav_store_xml', true);
+        $storePdfArtifacts = $this->toBooleanInput($rawNfseInput, 'webdav_store_pdf', true);
 
         if ($webDavPathTemplate === '') {
-            $webDavPathTemplate = 'nfse/{cnpj}/{year}/{month}';
+            $webDavPathTemplate = 'nfse/{cnpj}/{year}/{month}/{day}';
+        }
+
+        if ($webDavFileNameTemplate === '') {
+            $webDavFileNameTemplate = '{chave_acesso}';
         }
 
         if ($webDavUrl !== '') {
@@ -332,6 +342,9 @@ class SettingsController extends Controller
         setting(['nfse.webdav_username' => $webDavUsername]);
         setting(['nfse.webdav_password' => $webDavPassword]);
         setting(['nfse.webdav_path_template' => $webDavPathTemplate]);
+        setting(['nfse.webdav_filename_template' => $webDavFileNameTemplate]);
+        setting(['nfse.webdav_store_xml' => $storeXmlArtifacts]);
+        setting(['nfse.webdav_store_pdf' => $storePdfArtifacts]);
 
         setting()->save();
 
@@ -351,6 +364,30 @@ class SettingsController extends Controller
         // Non-mutating probes: authenticate against the base endpoint and verify random path access.
         $client->exists('');
         $client->exists('.nfse-connection-probe-' . bin2hex(random_bytes(6)));
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     */
+    protected function toBooleanInput(array $input, string $key, bool $default): bool
+    {
+        if (!array_key_exists($key, $input)) {
+            return $default;
+        }
+
+        $rawValue = $input[$key];
+
+        if (is_bool($rawValue)) {
+            return $rawValue;
+        }
+
+        if (is_numeric($rawValue)) {
+            return (int) $rawValue === 1;
+        }
+
+        $normalized = strtolower(trim((string) $rawValue));
+
+        return in_array($normalized, ['1', 'true', 'on', 'yes'], true);
     }
 
     protected function makeWebDavClient(string $url, string $username, string $password): WebDavClient

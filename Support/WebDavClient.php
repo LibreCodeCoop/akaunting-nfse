@@ -23,6 +23,8 @@ final class WebDavClient
 
     public function put(string $path, string $content): void
     {
+        $this->ensureParentDirectories($path);
+
         [$status] = ($this->request)(
             'PUT',
             $this->buildUrl($path),
@@ -33,6 +35,22 @@ final class WebDavClient
         if ($status < 200 || $status >= 300) {
             throw new \RuntimeException('WebDAV PUT failed with HTTP status ' . $status);
         }
+    }
+
+    public function get(string $path): string
+    {
+        [$status, $body] = ($this->request)(
+            'GET',
+            $this->buildUrl($path),
+            $this->authHeaders(),
+            '',
+        );
+
+        if ($status < 200 || $status >= 300) {
+            throw new \RuntimeException('WebDAV GET failed with HTTP status ' . $status);
+        }
+
+        return $body;
     }
 
     public function exists(string $path): bool
@@ -104,6 +122,43 @@ final class WebDavClient
 
     private function buildUrl(string $path): string
     {
-        return rtrim($this->baseUrl, '/') . '/' . ltrim($path, '/');
+        $normalizedPath = ltrim(str_replace('\\', '/', $path), '/');
+        $segments = $normalizedPath === '' ? [] : explode('/', $normalizedPath);
+        $encodedPath = implode('/', array_map(static fn (string $segment): string => rawurlencode($segment), $segments));
+
+        return rtrim($this->baseUrl, '/') . '/' . $encodedPath;
+    }
+
+    private function ensureParentDirectories(string $path): void
+    {
+        $normalizedPath = trim(str_replace('\\', '/', $path), '/');
+        $segments = $normalizedPath === '' ? [] : explode('/', $normalizedPath);
+
+        if (count($segments) <= 1) {
+            return;
+        }
+
+        array_pop($segments);
+
+        $current = '';
+        foreach ($segments as $segment) {
+            $current = $current === '' ? $segment : $current . '/' . $segment;
+            [$status] = ($this->request)(
+                'MKCOL',
+                $this->buildUrl($current),
+                $this->authHeaders(),
+                '',
+            );
+
+            if (in_array($status, [200, 201, 204, 301, 302, 405], true)) {
+                continue;
+            }
+
+            if (in_array($status, [400, 409], true) && $this->exists($current)) {
+                continue;
+            }
+
+            throw new \RuntimeException('WebDAV MKCOL failed with HTTP status ' . $status);
+        }
     }
 }

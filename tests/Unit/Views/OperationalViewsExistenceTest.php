@@ -24,7 +24,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
             $content = (string) file_get_contents($indexPath);
 
-            self::assertStringContainsString('<x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />', $content);
+            self::assertStringContainsString('<x-pagination :items="$pendingInvoices" />', $content);
+            self::assertStringContainsString('<x-pagination :items="$receipts" />', $content);
             self::assertStringNotContainsString("trans('nfse::general.invoices.clear_filters')", $content);
             self::assertStringContainsString('id="refresh-all-form"', $content);
             self::assertStringContainsString('id="index-more-actions-refresh-nfse-invoices" type="submit"', $content);
@@ -32,7 +33,36 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("refreshAllForm.addEventListener('submit'", $content);
             self::assertStringContainsString("refreshAllButton.setAttribute('aria-busy', 'true')", $content);
             self::assertStringContainsString('name="nfse_discriminacao_custom" value="" data-emit-description-input', $content);
+            self::assertStringContainsString('name="nfse_send_email" value="0" data-emit-email-send-input', $content);
+            self::assertStringContainsString('name="nfse_email_to" value="" data-emit-email-to-input', $content);
+            self::assertStringContainsString('name="nfse_email_subject" value="" data-emit-email-subject-input', $content);
+            self::assertStringContainsString('name="nfse_email_body" value="" data-emit-email-body-input', $content);
+            self::assertStringContainsString('name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input', $content);
+            self::assertStringContainsString('name="nfse_email_attach_xml" value="1" data-emit-email-attach-xml-input', $content);
+            self::assertStringContainsString('name="nfse_email_save_default" value="0" data-emit-email-save-default-input', $content);
             self::assertStringContainsString('id="nfse_emit_description"', $content);
+            self::assertStringContainsString('id="nfse_emit_send_email"', $content);
+            self::assertStringContainsString('class="sr-only peer"', $content);
+            self::assertStringContainsString('peer-checked:bg-green', $content);
+            self::assertStringContainsString('peer-checked:translate-x-5', $content);
+            self::assertStringContainsString('id="nfse_emit_email_fields"', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_send_email_hint')", $content);
+            self::assertStringContainsString('id="nfse_emit_email_to"', $content);
+            self::assertStringContainsString('id="nfse_emit_email_subject"', $content);
+            self::assertStringContainsString('id="nfse_emit_email_body"', $content);
+        }
+
+        public function testInvoicesShowViewHasEmailToggleAndConditionalSection(): void
+        {
+            $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
+            $content = (string) file_get_contents($showPath);
+
+            self::assertStringContainsString('id="reemit-send-email-checkbox"', $content);
+            self::assertStringContainsString('class="sr-only peer"', $content);
+            self::assertStringContainsString('peer-checked:bg-green', $content);
+            self::assertStringContainsString('peer-checked:translate-x-5', $content);
+            self::assertStringContainsString('id="reemit-email-fields"', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_send_email_hint')", $content);
         }
 
         public function testInvoicesIndexViewOffersReemitActionForCancelledReceipts(): void
@@ -244,6 +274,12 @@ namespace Modules\Nfse\Tests\Unit\Views {
 
             self::assertStringNotContainsString('opSimpNac', $ptBrContent);
             self::assertStringNotContainsString('opSimpNac', $enGbContent);
+            self::assertStringContainsString("'emit_modal_send_email_hint'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_send_email_yes'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_send_email_no'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_send_email_hint'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_send_email_yes'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_send_email_no'", $enGbContent);
             self::assertStringNotContainsString('prontidão operacional', $ptBrContent);
             self::assertStringNotContainsString('operational readiness', $enGbContent);
 
@@ -251,6 +287,22 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("'opcao_simples_nacional_optant' => 'Optante'", $ptBrContent);
             self::assertStringContainsString("'go_to_settings'        => 'Ver configurações'", $ptBrContent);
             self::assertStringContainsString("'go_to_settings'        => 'View settings'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_email_section'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_send_email'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_email_to'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_email_subject'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_email_body'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_email_attach_danfse'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_email_attach_xml'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_email_save_default'", $ptBrContent);
+            self::assertStringContainsString("'emit_modal_email_section'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_send_email'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_email_to'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_email_subject'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_email_body'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_email_attach_danfse'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_email_attach_xml'", $enGbContent);
+            self::assertStringContainsString("'emit_modal_email_save_default'", $enGbContent);
         }
 
         public function testInvoiceShowViewOffersReemitActionForCancelledReceipts(): void
@@ -261,6 +313,14 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('route(\'nfse.invoices.reemit\', $invoice)', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.reemit')", $content);
             self::assertStringContainsString("trans('nfse::general.invoices.reemit_confirm')", $content);
+            self::assertStringContainsString('name="nfse_send_email" value="0" id="reemit-email-send-hidden"', $content);
+            self::assertStringContainsString('name="nfse_email_to" value="" id="reemit-email-to-hidden"', $content);
+            self::assertStringContainsString('name="nfse_email_subject" value="" id="reemit-email-subject-hidden"', $content);
+            self::assertStringContainsString('name="nfse_email_body" id="reemit-email-body-hidden"', $content);
+            self::assertStringContainsString('id="reemit-send-email-checkbox"', $content);
+            self::assertStringContainsString('id="reemit-email-to-input"', $content);
+            self::assertStringContainsString('id="reemit-email-subject-input"', $content);
+            self::assertStringContainsString('id="reemit-email-body-input"', $content);
         }
     }
 }

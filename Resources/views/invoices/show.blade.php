@@ -66,9 +66,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     {{ trans('nfse::general.invoices.cancel') }}
                 </button>
             @else
-                <form action="{{ route('nfse.invoices.reemit', $invoice) }}" method="POST" onsubmit="return confirm('{{ trans('nfse::general.invoices.reemit_confirm') }}')">
+                <form action="{{ route('nfse.invoices.reemit', $invoice) }}" method="POST" data-reemit-form="true">
                     @csrf
-                    <button type="submit" class="inline-flex items-center px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm">
+                        <input type="hidden" name="nfse_discriminacao_custom" id="reemit-discriminacao-input" value="{{ $suggestedDiscriminacao }}">
+                        <input type="hidden" name="nfse_send_email" value="0" id="reemit-email-send-hidden">
+                        <input type="hidden" name="nfse_email_to" value="" id="reemit-email-to-hidden">
+                        <input type="hidden" name="nfse_email_subject" value="" id="reemit-email-subject-hidden">
+                        <input type="hidden" name="nfse_email_body" id="reemit-email-body-hidden" value="">
+                        <input type="hidden" name="nfse_email_attach_danfse" value="1" id="reemit-email-attach-danfse-hidden">
+                        <input type="hidden" name="nfse_email_attach_xml" value="1" id="reemit-email-attach-xml-hidden">
+                        <input type="hidden" name="nfse_email_save_default" value="0" id="reemit-email-save-default-hidden">
+                    <button
+                        type="button"
+                        class="inline-flex items-center px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm"
+                        data-reemit-trigger="true"
+                    >
                         {{ trans('nfse::general.invoices.reemit') }}
                     </button>
                 </form>
@@ -143,6 +155,98 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         </div>
 
+        <div id="nfse-reemit-modal" class="fixed inset-0 z-[100] hidden" aria-hidden="true">
+            <div class="absolute inset-0 bg-slate-500/55 backdrop-blur-[1px] backdrop-brightness-75" data-reemit-close="true"></div>
+
+            <div class="relative flex min-h-full items-center justify-center overflow-y-auto p-4">
+                <div class="w-full max-w-md rounded-lg bg-white shadow-xl">
+                    <div class="border-b px-5 py-4">
+                        <h3 class="text-lg font-semibold text-gray-800">{{ trans('nfse::general.invoices.reemit') }}</h3>
+                    </div>
+
+                    <div class="px-5 py-4 text-sm text-gray-700">
+                        {{ trans('nfse::general.invoices.reemit_confirm') }}
+                    </div>
+
+                        <div class="px-5 pb-4">
+                            <label for="reemit-description-textarea" class="mb-1 block text-sm font-medium text-gray-700">
+                                {{ trans('nfse::general.invoices.reemit_modal_description') }}
+                            </label>
+                            <textarea
+                                id="reemit-description-textarea"
+                                rows="4"
+                                class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                placeholder="{{ trans('nfse::general.invoices.emit_modal_description_placeholder') }}"
+                            >{{ $suggestedDiscriminacao }}</textarea>
+                            <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.invoices.reemit_modal_description_help') }}</p>
+                        </div>
+
+                        <div class="px-5 pb-4 space-y-3 border-t pt-4">
+                            <div class="flex items-center gap-3">
+                                <label for="reemit-send-email-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center" aria-label="{{ trans('nfse::general.invoices.emit_modal_send_email') }}">
+                                    <input id="reemit-send-email-checkbox" type="checkbox" class="sr-only peer" @checked((bool) ($emailDefaults['send_email'] ?? false))>
+                                    <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
+                                    <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                </label>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
+                                    <p class="text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_send_email_hint') }}</p>
+                                </div>
+                            </div>
+
+                            <div id="reemit-email-fields" class="space-y-3 {{ (bool) ($emailDefaults['send_email'] ?? false) ? '' : 'hidden' }}">
+                            <div>
+                                <label for="reemit-email-to-input" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
+                                <input id="reemit-email-to-input" type="email" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="{{ $emailDefaults['recipient'] ?? '' }}">
+                            </div>
+
+                            <div>
+                                <label for="reemit-email-subject-input" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_subject') }}</label>
+                                <input id="reemit-email-subject-input" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="{{ $emailDefaults['subject'] ?? '' }}">
+                            </div>
+
+                            <div>
+                                <label for="reemit-email-body-input" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_body') }}</label>
+                                <textarea id="reemit-email-body-input" rows="4" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">{{ $emailDefaults['body'] ?? '' }}</textarea>
+                            </div>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="reemit-attach-danfse-checkbox" type="checkbox" class="rounded border-gray-300" checked>
+                                <span>{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
+                            </label>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="reemit-attach-xml-checkbox" type="checkbox" class="rounded border-gray-300" checked>
+                                <span>{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
+                            </label>
+
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <input id="reemit-save-default-checkbox" type="checkbox" class="rounded border-gray-300">
+                                <span>{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
+                            </label>
+                            </div>
+                        </div>
+
+                    <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
+                        <button
+                            type="button"
+                            class="inline-flex items-center rounded bg-gray-100 px-3 py-2 text-sm hover:bg-gray-200"
+                            data-reemit-close="true"
+                        >
+                            {{ trans('nfse::general.invoices.cancel_modal_close') }}
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center rounded bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700"
+                            id="reemit-confirm-button"
+                        >
+                            {{ trans('nfse::general.invoices.reemit') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <script>
             (() => {
                 const modal = document.getElementById('nfse-cancel-modal');
@@ -155,6 +259,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const actionInput = document.getElementById('cancel_invoice_action');
                 const submitDefaultLabel = @json((string) trans('nfse::general.invoices.cancel_modal_submit'));
                 const submitLoadingLabel = @json((string) trans('nfse::general.invoices.cancel_modal_submitting'));
+                const reemitModal = document.getElementById('nfse-reemit-modal');
+                const reemitForm = document.querySelector('form[data-reemit-form="true"]');
+                const reemitTrigger = document.querySelector('[data-reemit-trigger="true"]');
+                const reemitConfirmButton = document.getElementById('reemit-confirm-button');
                 let isSubmitting = false;
 
                 if (!modal || !form || !reasonSelect || !justificationInput || !submitButton || !submitSpinner || !submitLabel || !actionInput) {
@@ -248,6 +356,112 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 if (modal.getAttribute('data-old-action')) {
                     openModal(modal.getAttribute('data-old-action'));
+                }
+
+                if (reemitModal && reemitForm && reemitTrigger && reemitConfirmButton) {
+                        const reemitDescriptionTextarea = document.getElementById('reemit-description-textarea');
+                        const reemitDiscriminacaoInput = document.getElementById('reemit-discriminacao-input');
+                    const reemitSendEmailCheckbox = document.getElementById('reemit-send-email-checkbox');
+                    const reemitEmailFields = document.getElementById('nfse_emit_email_fields') || document.getElementById('reemit-email-fields');
+                    const reemitEmailToInput = document.getElementById('reemit-email-to-input');
+                    const reemitEmailSubjectInput = document.getElementById('reemit-email-subject-input');
+                    const reemitEmailBodyInput = document.getElementById('reemit-email-body-input');
+                    const reemitAttachDanfseCheckbox = document.getElementById('reemit-attach-danfse-checkbox');
+                    const reemitAttachXmlCheckbox = document.getElementById('reemit-attach-xml-checkbox');
+                    const reemitSaveDefaultCheckbox = document.getElementById('reemit-save-default-checkbox');
+                    const reemitEmailSendHidden = document.getElementById('reemit-email-send-hidden');
+                    const reemitEmailToHidden = document.getElementById('reemit-email-to-hidden');
+                    const reemitEmailSubjectHidden = document.getElementById('reemit-email-subject-hidden');
+                    const reemitEmailBodyHidden = document.getElementById('reemit-email-body-hidden');
+                    const reemitEmailAttachDanfseHidden = document.getElementById('reemit-email-attach-danfse-hidden');
+                    const reemitEmailAttachXmlHidden = document.getElementById('reemit-email-attach-xml-hidden');
+                    const reemitEmailSaveDefaultHidden = document.getElementById('reemit-email-save-default-hidden');
+
+                    const refreshReemitEmailSection = () => {
+                        if (reemitEmailFields) {
+                            reemitEmailFields.classList.toggle('hidden', !reemitSendEmailCheckbox?.checked);
+                        }
+                    };
+
+                    const closeReemitModal = () => {
+                        reemitModal.classList.add('hidden');
+                        reemitModal.setAttribute('aria-hidden', 'true');
+                        document.body.classList.remove('overflow-hidden');
+                    };
+
+                    const openReemitModal = () => {
+                        reemitModal.classList.remove('hidden');
+                        reemitModal.setAttribute('aria-hidden', 'false');
+                        document.body.classList.add('overflow-hidden');
+                        reemitConfirmButton.focus();
+                    };
+
+                    reemitTrigger.addEventListener('click', openReemitModal);
+
+                    reemitSendEmailCheckbox?.addEventListener('change', refreshReemitEmailSection);
+    
+
+                    refreshReemitEmailSection();
+
+                    reemitForm.addEventListener('submit', (event) => {
+                        if (reemitForm.dataset.reemitConfirmed === '1') {
+                            delete reemitForm.dataset.reemitConfirmed;
+
+                            return;
+                        }
+
+                        event.preventDefault();
+                        openReemitModal();
+                    });
+
+                    reemitConfirmButton.addEventListener('click', () => {
+                            if (reemitDiscriminacaoInput && reemitDescriptionTextarea) {
+                                reemitDiscriminacaoInput.value = reemitDescriptionTextarea.value;
+                            }
+
+                            if (reemitEmailSendHidden && reemitSendEmailCheckbox) {
+                                reemitEmailSendHidden.value = reemitSendEmailCheckbox.checked ? '1' : '0';
+                            }
+
+                            if (reemitEmailToHidden && reemitEmailToInput) {
+                                reemitEmailToHidden.value = reemitEmailToInput.value;
+                            }
+
+                            if (reemitEmailSubjectHidden && reemitEmailSubjectInput) {
+                                reemitEmailSubjectHidden.value = reemitEmailSubjectInput.value;
+                            }
+
+                            if (reemitEmailBodyHidden && reemitEmailBodyInput) {
+                                reemitEmailBodyHidden.value = reemitEmailBodyInput.value;
+                            }
+
+                            if (reemitEmailAttachDanfseHidden && reemitAttachDanfseCheckbox) {
+                                reemitEmailAttachDanfseHidden.value = reemitAttachDanfseCheckbox.checked ? '1' : '0';
+                            }
+
+                            if (reemitEmailAttachXmlHidden && reemitAttachXmlCheckbox) {
+                                reemitEmailAttachXmlHidden.value = reemitAttachXmlCheckbox.checked ? '1' : '0';
+                            }
+
+                            if (reemitEmailSaveDefaultHidden && reemitSaveDefaultCheckbox) {
+                                reemitEmailSaveDefaultHidden.value = reemitSaveDefaultCheckbox.checked ? '1' : '0';
+                            }
+
+                        reemitForm.dataset.reemitConfirmed = '1';
+                        closeReemitModal();
+
+                        if (typeof reemitForm.requestSubmit === 'function') {
+                            reemitForm.requestSubmit();
+
+                            return;
+                        }
+
+                        reemitForm.submit();
+                    });
+
+                    reemitModal.querySelectorAll('[data-reemit-close="true"]').forEach((button) => {
+                        button.addEventListener('click', closeReemitModal);
+                    });
                 }
             })();
         </script>

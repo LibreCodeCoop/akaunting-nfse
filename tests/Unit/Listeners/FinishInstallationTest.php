@@ -30,6 +30,18 @@ namespace App\Traits {
     }
 }
 
+namespace App\Traits {
+    if (!trait_exists(Jobs::class, false)) {
+        trait Jobs
+        {
+            public function dispatch(mixed $job): mixed
+            {
+                return null;
+            }
+        }
+    }
+}
+
 namespace Modules\Nfse\Tests\Unit\Listeners {
     use App\Events\Module\Installed;
     use Modules\Nfse\Listeners\FinishInstallation;
@@ -46,6 +58,11 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                 public function attachPermissionsToAdminRoles(array $permissions): void
                 {
                     $this->attachedPermissions = $permissions;
+                }
+
+                protected function createNfseEmailTemplates(\App\Events\Module\Installed $event): void
+                {
+                    // not under test here
                 }
             };
 
@@ -64,11 +81,73 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
                 {
                     $this->attachedPermissions = $permissions;
                 }
+
+                protected function createNfseEmailTemplates(\App\Events\Module\Installed $event): void
+                {
+                    // not under test here
+                }
             };
 
             $listener->handle(new Installed('another-module'));
 
             self::assertSame([], $listener->attachedPermissions);
+        }
+
+        public function testHandleCreatesEmailTemplateForNfseInstall(): void
+        {
+            $listener = new class () extends FinishInstallation {
+                /** @var array<string, string> */
+                public array $attachedPermissions = [];
+
+                public ?\App\Events\Module\Installed $emailTemplateEvent = null;
+
+                public function attachPermissionsToAdminRoles(array $permissions): void
+                {
+                    $this->attachedPermissions = $permissions;
+                }
+
+                protected function createNfseEmailTemplates(\App\Events\Module\Installed $event): void
+                {
+                    $this->emailTemplateEvent = $event;
+                }
+            };
+
+            $event = new Installed('nfse', 5);
+            $listener->handle($event);
+
+            self::assertNotNull($listener->emailTemplateEvent);
+            self::assertSame(5, $listener->emailTemplateEvent->company_id);
+        }
+
+        public function testHandleDoesNotCreateEmailTemplateForNonNfseInstall(): void
+        {
+            $listener = new class () extends FinishInstallation {
+                /** @var array<string, string> */
+                public array $attachedPermissions = [];
+
+                public bool $emailTemplateCreated = false;
+
+                public function attachPermissionsToAdminRoles(array $permissions): void
+                {
+                    $this->attachedPermissions = $permissions;
+                }
+
+                protected function createNfseEmailTemplates(\App\Events\Module\Installed $event): void
+                {
+                    $this->emailTemplateCreated = true;
+                }
+            };
+
+            $listener->handle(new Installed('another-module'));
+
+            self::assertFalse($listener->emailTemplateCreated);
+        }
+
+        public function testCreateNfseEmailTemplatesReferencesCorrectAlias(): void
+        {
+            $source = file_get_contents(__DIR__ . '/../../../Listeners/FinishInstallation.php');
+
+            self::assertStringContainsString("'nfse_issued_customer'", $source);
         }
     }
 }

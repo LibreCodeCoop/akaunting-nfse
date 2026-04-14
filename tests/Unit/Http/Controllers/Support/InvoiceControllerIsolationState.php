@@ -17,13 +17,20 @@ namespace {
     }
 
     if (!class_exists(\Modules\Nfse\Models\NfseReceipt::class, false)) {
-        eval('namespace Modules\\Nfse\\Models; class NfseReceipt { public static array $records = []; public static array $updateOrCreateCalls = []; public static array $paginateItems = []; public int $invoice_id = 0; public string $nfse_number = ""; public string $chave_acesso = ""; public string $data_emissao = ""; public ?string $codigo_verificacao = null; public string $status = ""; public array $updatedPayloads = []; public static function with(string $relation): object { return new class () { public function latest(): object { return $this; } public function paginate(int $perPage): array { return \\Modules\\Nfse\\Models\\NfseReceipt::$paginateItems; } }; } public static function where(string $field, mixed $value): object { return new class ($field, $value) { public function __construct(private string $field, private mixed $value) {} public function firstOrFail(): \\Modules\\Nfse\\Models\\NfseReceipt { foreach (\\Modules\\Nfse\\Models\\NfseReceipt::$records as $record) { if (($record->{$this->field} ?? null) === $this->value) { return $record; } } throw new \\RuntimeException("Receipt not found."); } }; } public static function updateOrCreate(array $attributes, array $values): self { self::$updateOrCreateCalls[] = ["attributes" => $attributes, "values" => $values]; $record = new self(); foreach (array_merge($attributes, $values) as $key => $value) { $record->{$key} = $value; } self::$records[] = $record; return $record; } public function update(array $values): void { $this->updatedPayloads[] = $values; foreach ($values as $key => $value) { $this->{$key} = $value; } } }');
+        eval('namespace Modules\\Nfse\\Models; class NfseReceipt { public static array $records = []; public static array $updateOrCreateCalls = []; public static array $paginateItems = []; public int $invoice_id = 0; public string $nfse_number = ""; public string $chave_acesso = ""; public string $data_emissao = ""; public ?string $codigo_verificacao = null; public string $status = ""; public ?string $danfse_webdav_path = null; public ?string $xml_webdav_path = null; public array $updatedPayloads = []; public static function with(string $relation): object { return new class () { public function latest(): object { return $this; } public function paginate(int $perPage): array { return \\Modules\\Nfse\\Models\\NfseReceipt::$paginateItems; } }; } public static function where(string $field, mixed $value): object { return new class ($field, $value) { public function __construct(private string $field, private mixed $value) {} public function firstOrFail(): \\Modules\\Nfse\\Models\\NfseReceipt { foreach (\\Modules\\Nfse\\Models\\NfseReceipt::$records as $record) { if (($record->{$this->field} ?? null) === $this->value) { return $record; } } throw new \\RuntimeException("Receipt not found."); } }; } public static function updateOrCreate(array $attributes, array $values): self { self::$updateOrCreateCalls[] = ["attributes" => $attributes, "values" => $values]; $record = new self(); foreach (array_merge($attributes, $values) as $key => $value) { $record->{$key} = $value; } self::$records[] = $record; return $record; } public function update(array $values): void { $this->updatedPayloads[] = $values; foreach ($values as $key => $value) { $this->{$key} = $value; } } }');
+    }
+}
+
+namespace {
+    if (!class_exists(\App\Models\Setting\EmailTemplate::class, false)) {
+        eval('namespace App\\Models\\Setting; class EmailTemplate { public static ?self $stubInstance = null; public string $subject = ""; public string $body = ""; public static function alias(string $alias): object { return new class (self::$stubInstance) { public function __construct(private ?\\App\\Models\\Setting\\EmailTemplate $t) {} public function first(): ?\\App\\Models\\Setting\\EmailTemplate { return $this->t; } }; } }');
     }
 }
 
 namespace Modules\Nfse\Tests\Unit\Http\Controllers\Support {
     use App\Models\Sale\FakeCollection;
     use App\Models\Sale\Invoice;
+    use App\Models\Setting\EmailTemplate;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Models\NfseReceipt;
 
@@ -35,6 +42,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers\Support {
             NfseReceipt::$records = [];
             NfseReceipt::$updateOrCreateCalls = [];
             NfseReceipt::$paginateItems = [];
+            EmailTemplate::$stubInstance = null;
         }
 
         /**
