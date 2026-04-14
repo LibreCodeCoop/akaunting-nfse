@@ -1395,7 +1395,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'webdav_url' => 'https://webdav.example.com/storage',
                         'webdav_username' => 'nfse-user',
                         'webdav_password' => 'secret-pass',
-                        'webdav_path_template' => 'nfse/{cnpj}/{year}/{month}',
+                        'webdav_path_template' => 'nfse/{cnpj}/{year}/{month}/{day}',
+                        'webdav_filename_template' => '{nfse_number}-{chave_acesso}',
                     ],
                 ],
             );
@@ -1410,7 +1411,69 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('https://webdav.example.com/storage', ControllerIsolationState::$settings['nfse.webdav_url'] ?? null);
             self::assertSame('nfse-user', ControllerIsolationState::$settings['nfse.webdav_username'] ?? null);
             self::assertSame('secret-pass', ControllerIsolationState::$settings['nfse.webdav_password'] ?? null);
-            self::assertSame('nfse/{cnpj}/{year}/{month}', ControllerIsolationState::$settings['nfse.webdav_path_template'] ?? null);
+            self::assertSame('nfse/{cnpj}/{year}/{month}/{day}', ControllerIsolationState::$settings['nfse.webdav_path_template'] ?? null);
+            self::assertSame('{nfse_number}-{chave_acesso}', ControllerIsolationState::$settings['nfse.webdav_filename_template'] ?? null);
+            self::assertTrue((bool) (ControllerIsolationState::$settings['nfse.webdav_store_xml'] ?? false));
+            self::assertTrue((bool) (ControllerIsolationState::$settings['nfse.webdav_store_pdf'] ?? false));
+        }
+
+        public function testUpdateArtifactsUsesDefaultPathWithDayAndDefaultFilenameTemplateWhenNotProvided(): void
+        {
+            ControllerIsolationState::reset();
+
+            $controller = new class () extends SettingsController {
+                protected function assertWebDavConnection(string $url, string $username, string $password): void
+                {
+                }
+            };
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'webdav_url' => 'https://webdav.example.com/storage',
+                        'webdav_username' => 'nfse-user',
+                        'webdav_password' => 'secret-pass',
+                    ],
+                ],
+            );
+
+            $response = $controller->updateArtifacts($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('nfse::general.settings.artifacts.webdav_configured', $response->flash['success'] ?? null);
+            self::assertSame('nfse/{cnpj}/{year}/{month}/{day}', ControllerIsolationState::$settings['nfse.webdav_path_template'] ?? null);
+            self::assertSame('{chave_acesso}', ControllerIsolationState::$settings['nfse.webdav_filename_template'] ?? null);
+        }
+
+        public function testUpdateArtifactsAllowsSelectingXmlAndPdfTogglesIndependently(): void
+        {
+            ControllerIsolationState::reset();
+
+            $controller = new class () extends SettingsController {
+                protected function assertWebDavConnection(string $url, string $username, string $password): void
+                {
+                }
+            };
+
+            $request = new Request(
+                inputs: [
+                    'nfse' => [
+                        'webdav_url' => 'https://webdav.example.com/storage',
+                        'webdav_username' => 'nfse-user',
+                        'webdav_password' => 'secret-pass',
+                        'webdav_path_template' => 'nfse/{cnpj}/{year}/{month}',
+                        'webdav_store_xml' => '0',
+                        'webdav_store_pdf' => '1',
+                    ],
+                ],
+            );
+
+            $response = $controller->updateArtifacts($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('nfse::general.settings.artifacts.webdav_configured', $response->flash['success'] ?? null);
+            self::assertFalse((bool) (ControllerIsolationState::$settings['nfse.webdav_store_xml'] ?? true));
+            self::assertTrue((bool) (ControllerIsolationState::$settings['nfse.webdav_store_pdf'] ?? false));
         }
 
         public function testUpdateArtifactsDoesNotSaveWhenWebDavConnectionFails(): void
