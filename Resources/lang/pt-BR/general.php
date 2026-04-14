@@ -116,6 +116,8 @@ return [
         'refresh_all_statuses_loading' => 'Atualizando...',
         'reemit' => 'Reemitir NFS-e',
         'reemit_confirm' => 'Deseja reemitir esta NFS-e cancelada?',
+        'reemit_modal_description' => 'Descricao da NFS-e reemitida',
+        'reemit_modal_description_help' => 'Revise a descricao preenchida automaticamente com os dados da nota cancelada e ajuste se necessario.',
         'filter_all' => 'Todas',
         'filter_emitted' => 'Emitidas',
         'filter_processing' => 'Processando',
@@ -297,6 +299,8 @@ return [
             'webdav_password' => 'Senha WebDAV',
             'webdav_path_template' => 'Template de caminho',
             'webdav_path_template_hint' => 'Variáveis disponíveis:',
+            'store_xml' => 'Salvar XML da NFS-e',
+            'store_pdf' => 'Salvar DANFSE em PDF',
             'connection_failed' => 'Não foi possível validar o acesso ao servidor WebDAV: :message',
             'placeholders' => [
                 '{cnpj}'          => 'CNPJ do prestador de serviço',
