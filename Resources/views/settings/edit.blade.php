@@ -630,6 +630,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.artifacts.webdav_filename_template_hint') }}</p>
                         </div>
 
+                        <div class="rounded border border-gray-200 bg-gray-50 p-4">
+                            <h4 class="text-sm font-semibold text-gray-900 mb-3">{{ trans('nfse::general.settings.artifacts.available_placeholders') }}</h4>
+                            <ul class="space-y-1">
+                                @foreach(trans('nfse::general.settings.artifacts.placeholders') as $placeholder => $description)
+                                    <li class="text-sm text-gray-700"><code class="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono">{{ $placeholder }}</code> — {{ $description }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+
                         @php
                             $storeXmlOn = (bool) old('nfse.webdav_store_xml', setting('nfse.webdav_store_xml', true));
                             $storePdfOn = (bool) old('nfse.webdav_store_pdf', setting('nfse.webdav_store_pdf', true));
@@ -671,15 +680,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </div>
                                 <input type="hidden" id="webdav_store_pdf_val" name="nfse[webdav_store_pdf]" value="{{ $storePdfOn ? '1' : '0' }}">
                             </div>
-                        </div>
-
-                        <div class="rounded border border-gray-200 bg-gray-50 p-4">
-                            <h4 class="text-sm font-semibold text-gray-900 mb-3">{{ trans('nfse::general.settings.artifacts.available_placeholders') }}</h4>
-                            <ul class="space-y-1">
-                                @foreach(trans('nfse::general.settings.artifacts.placeholders') as $placeholder => $description)
-                                    <li class="text-sm text-gray-700"><code class="bg-gray-100 px-2 py-0.5 rounded text-xs font-mono">{{ $placeholder }}</code> — {{ $description }}</li>
-                                @endforeach
-                            </ul>
                         </div>
 
                         <div class="flex justify-end pt-2">
