@@ -26,7 +26,7 @@ class NfseIssued extends Notification
     ) {
         parent::__construct();
 
-        $this->template = EmailTemplate::alias('nfse_issued_customer')->first();
+        $this->template = EmailTemplate::alias('invoice_nfse_issued_customer')->first();
         $this->custom_mail = $custom_mail;
     }
 
