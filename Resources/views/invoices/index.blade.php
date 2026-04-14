@@ -911,6 +911,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
 
                     refreshEmitEmailSection();
+                    console.log('[NFS-e Emit Modal] Applied email defaults:', { send_email: emitModalSendEmailInput?.checked, fields_hidden: emitModalEmailFields?.classList.contains('hidden') });
                 };
 
                 const closeEmitModal = () => {
@@ -1069,7 +1070,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     button.addEventListener('click', closeEmitModal);
                 });
 
-                emitModalSendEmailInput?.addEventListener('change', refreshEmitEmailSection);
+                emitModalSendEmailInput?.addEventListener('change', () => {
+                    console.log('[NFS-e Emit Modal] Checkbox change event:', { checked: emitModalSendEmailInput?.checked, fields_hidden_before: emitModalEmailFields?.classList.contains('hidden') });
+                    refreshEmitEmailSection();
+                    console.log('[NFS-e Emit Modal] Fields hidden after refresh:', emitModalEmailFields?.classList.contains('hidden'));
+                });
+
+                // Add explicit label click handler for robustness
+                const emitEmailToggleLabel = document.querySelector('label[for="nfse_emit_send_email"]');
+                if (emitEmailToggleLabel) {
+                    emitEmailToggleLabel.addEventListener('click', (e) => {
+                        // Prevent default to handle manually
+                        e.preventDefault();
+                        
+                        if (emitModalSendEmailInput) {
+                            console.log('[NFS-e Emit Modal] Label clicked, current checkbox state:', emitModalSendEmailInput.checked);
+                            emitModalSendEmailInput.checked = !emitModalSendEmailInput.checked;
+                            console.log('[NFS-e Emit Modal] Toggled checkbox to:', emitModalSendEmailInput.checked);
+                            
+                            // Manually trigger refresh
+                            refreshEmitEmailSection();
+                            console.log('[NFS-e Emit Modal] Fields visibility after manual toggle:', emitModalEmailFields?.classList.contains('hidden') ? 'hidden' : 'visible');
+                        }
+                    });
+                }
 
                 emitModalConfirmButton?.addEventListener('click', () => {
                     if (!currentEmitForm) {
