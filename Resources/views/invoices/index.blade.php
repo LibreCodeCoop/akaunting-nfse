@@ -1084,15 +1084,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     refreshEmitEmailSection();
                 });
                 
-                // Add label click handler to ensure refresh happens
-                // (native change event may not fire for sr-only checkboxes in some cases)
+                // Add label click handler to directly refresh (fallback in case change event doesn't fire)
                 const emitEmailToggleLabel = document.querySelector('label[for="nfse_emit_send_email"]');
-                if (emitEmailToggleLabel && emitModalSendEmailInput) {
-                    emitEmailToggleLabel.addEventListener('click', () => {
-                        // Schedule dispatch after native checkbox toggle happens
+                if (emitEmailToggleLabel) {
+                    emitEmailToggleLabel.addEventListener('click', (e) => {
+                        // Let native click happen first, then refresh
                         setTimeout(() => {
-                            console.log('[NFS-e Emit Modal] label clicked, manually dispatching change event');
-                            emitModalSendEmailInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            if (emitModalSendEmailInput && emitModalEmailFields) {
+                                console.log('[NFS-e Emit Modal] Label clicked - checkbox is now:', emitModalSendEmailInput.checked, '- calling refresh');
+                                refreshEmitEmailSection();
+                            }
                         }, 0);
                     });
                 }
