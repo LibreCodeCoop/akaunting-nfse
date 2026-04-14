@@ -24,7 +24,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
             $content = (string) file_get_contents($indexPath);
 
-            self::assertStringContainsString('<x-pagination :items="$isPendingStatus ? $pendingInvoices : $receipts" />', $content);
+            self::assertStringContainsString('<x-pagination :items="$pendingInvoices" />', $content);
+            self::assertStringContainsString('<x-pagination :items="$receipts" />', $content);
             self::assertStringNotContainsString("trans('nfse::general.invoices.clear_filters')", $content);
             self::assertStringContainsString('id="refresh-all-form"', $content);
             self::assertStringContainsString('id="index-more-actions-refresh-nfse-invoices" type="submit"', $content);
