@@ -655,13 +655,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </div>
 
                         <div class="rounded-lg border border-gray-200 p-4 space-y-3">
-                            <p class="text-sm font-semibold text-gray-800">{{ trans('nfse::general.invoices.emit_modal_email_section') }}</p>
+                            <div class="flex items-center gap-3">
+                                <label for="nfse_emit_send_email" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center" aria-label="{{ trans('nfse::general.invoices.emit_modal_send_email') }}">
+                                    <input id="nfse_emit_send_email" type="checkbox" class="sr-only peer">
+                                    <div class="block h-7 w-12 rounded-full bg-green-200 transition-colors duration-200 peer-checked:bg-green"></div>
+                                    <div class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                </label>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
+                                    <p class="text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_send_email_hint') }}</p>
+                                </div>
+                            </div>
 
-                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                <input id="nfse_emit_send_email" type="checkbox" class="rounded border-gray-300" checked>
-                                <span>{{ trans('nfse::general.invoices.emit_modal_send_email') }}</span>
-                            </label>
-
+                            <div id="nfse_emit_email_fields" class="hidden space-y-3">
                             <div>
                                 <label for="nfse_emit_email_to" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
                                 <input id="nfse_emit_email_to" type="email" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="">
@@ -692,6 +698,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <input id="nfse_emit_save_default" type="checkbox" class="rounded border-gray-300">
                                 <span>{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
                             </label>
+                            </div>
                         </div>
                     </div>
 
@@ -858,6 +865,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const emitModalConfirmButton = document.getElementById('nfse-emit-confirm-button');
                 const emitModalDescriptionInput = document.getElementById('nfse_emit_description');
                 const emitModalSendEmailInput = document.getElementById('nfse_emit_send_email');
+                const emitModalEmailFields = document.getElementById('nfse_emit_email_fields');
                 const emitModalEmailToInput = document.getElementById('nfse_emit_email_to');
                 const emitModalEmailSubjectInput = document.getElementById('nfse_emit_email_subject');
                 const emitModalEmailBodyInput = document.getElementById('nfse_emit_email_body');
@@ -866,6 +874,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const emitModalSaveDefaultInput = document.getElementById('nfse_emit_save_default');
                 const emitModalDefaultConfirmLabel = @json((string) trans('nfse::general.invoices.emit_now'));
                 let currentEmitForm = null;
+
+                const refreshEmitEmailSection = () => {
+                    if (emitModalEmailFields) {
+                        emitModalEmailFields.classList.toggle('hidden', !emitModalSendEmailInput?.checked);
+                    }
+                };
 
                 const applyEmailDefaults = (emailDefaults = {}) => {
                     if (emitModalSendEmailInput) {
@@ -895,6 +909,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (emitModalSaveDefaultInput) {
                         emitModalSaveDefaultInput.checked = false;
                     }
+
+                    refreshEmitEmailSection();
                 };
 
                 const closeEmitModal = () => {
@@ -1052,6 +1068,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 emitModal?.querySelectorAll('[data-emit-close="true"]').forEach((button) => {
                     button.addEventListener('click', closeEmitModal);
                 });
+
+                emitModalSendEmailInput?.addEventListener('change', refreshEmitEmailSection);
 
                 emitModalConfirmButton?.addEventListener('click', () => {
                     if (!currentEmitForm) {
