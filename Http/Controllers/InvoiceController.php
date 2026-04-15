@@ -2994,6 +2994,8 @@ class InvoiceController extends Controller
         $sendEmail = (bool) (int) setting('nfse.send_email_on_emit', '0');
         $recipient = $this->contactStringField($invoice->contact, ['email']);
         $template  = null;
+        $copyToSelf = (bool) (int) setting('nfse.email_copy_to_self_on_emit', '0');
+        $attachInvoicePdf = (bool) (int) setting('nfse.email_attach_invoice_pdf_on_emit', '1');
         $attachDanfse = (bool) (int) setting('nfse.email_attach_danfse_on_emit', '1');
         $attachXml = (bool) (int) setting('nfse.email_attach_xml_on_emit', '1');
 
@@ -3004,12 +3006,14 @@ class InvoiceController extends Controller
         }
 
         return [
-            'send_email'    => $sendEmail,
-            'recipient'     => $recipient,
-            'subject'       => $template !== null ? (string) ($template->subject ?? '') : '',
-            'body'          => $template !== null ? (string) ($template->body ?? '') : '',
-            'attach_danfse' => $attachDanfse,
-            'attach_xml'    => $attachXml,
+            'send_email'         => $sendEmail,
+            'recipient'          => $recipient,
+            'subject'            => $template !== null ? (string) ($template->subject ?? '') : '',
+            'body'               => $template !== null ? (string) ($template->body ?? '') : '',
+            'copy_to_self'       => $copyToSelf,
+            'attach_invoice_pdf' => $attachInvoicePdf,
+            'attach_danfse'      => $attachDanfse,
+            'attach_xml'         => $attachXml,
         ];
     }
     protected function handlePostEmitEmail(?Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
@@ -3018,31 +3022,32 @@ class InvoiceController extends Controller
             return;
         }
 
-        if (!$request->boolean('nfse_send_email', false)) {
+        $sendEmail = $request->boolean('nfse_send_email', false);
+        $attachInvoicePdf = $request->boolean('nfse_email_attach_invoice_pdf', true);
+        $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
+        $attachXml = $request->boolean('nfse_email_attach_xml', true);
+        $copyToSelf = $request->boolean('nfse_email_copy_to_self', false);
+        $saveDefault = $request->boolean('nfse_email_save_default', false);
+
+        setting([
+            'nfse.send_email_on_emit'               => $sendEmail ? '1' : '0',
+            'nfse.email_copy_to_self_on_emit'       => $copyToSelf ? '1' : '0',
+            'nfse.email_attach_invoice_pdf_on_emit' => $attachInvoicePdf ? '1' : '0',
+            'nfse.email_attach_danfse_on_emit'      => $attachDanfse ? '1' : '0',
+            'nfse.email_attach_xml_on_emit'         => $attachXml ? '1' : '0',
+        ]);
+        setting()->save();
+
+        if (!$sendEmail) {
             return;
         }
-
-        $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
-        $attachXml    = $request->boolean('nfse_email_attach_xml', true);
-        $saveDefault  = $request->boolean('nfse_email_save_default', false);
-        $settingsToPersist = [
-            'nfse.email_attach_danfse_on_emit' => $attachDanfse ? '1' : '0',
-            'nfse.email_attach_xml_on_emit' => $attachXml ? '1' : '0',
-        ];
-
-        if ($saveDefault) {
-            $settingsToPersist['nfse.send_email_on_emit'] = '1';
-        }
-
-        setting($settingsToPersist);
-        setting()->save();
 
         if ($saveDefault) {
             $template = \App\Models\Setting\EmailTemplate::alias('invoice_nfse_issued_customer')->first();
 
             if ($template) {
                 $subject = (string) $request->input('nfse_email_subject', '');
-                $body    = (string) $request->input('nfse_email_body', '');
+                $body = (string) $request->input('nfse_email_body', '');
 
                 if ($subject !== '') {
                     $template->subject = $subject;
@@ -3056,19 +3061,20 @@ class InvoiceController extends Controller
             }
         }
 
-        $recipient = trim((string) $request->input('nfse_email_to', ''));
+        $recipient = $this->normalizePostEmitRecipient($request->input('nfse_email_to'));
 
-        if ($recipient === '') {
+        if ($recipient === null) {
             return;
         }
 
         $customMail = [
-            'to'      => $recipient,
+            'to' => $recipient,
             'subject' => (string) $request->input('nfse_email_subject', ''),
-            'body'    => (string) $request->input('nfse_email_body', ''),
+            'body' => (string) $request->input('nfse_email_body', ''),
+            'attach_invoice_pdf' => $attachInvoicePdf,
         ];
 
-        if ($request->boolean('nfse_email_copy_to_self', false) && function_exists('user')) {
+        if ($copyToSelf && function_exists('user')) {
             $selfEmail = (string) (user()?->email ?? '');
 
             if ($selfEmail !== '') {
@@ -3077,6 +3083,45 @@ class InvoiceController extends Controller
         }
 
         $this->sendNfseIssuedNotification($invoice, $receipt, $attachDanfse, $attachXml, $customMail);
+    }
+
+    protected function normalizePostEmitRecipient(mixed $rawRecipient): mixed
+    {
+        if (is_string($rawRecipient)) {
+            $normalized = trim($rawRecipient);
+
+            return $normalized !== '' ? $normalized : null;
+        }
+
+        if (is_object($rawRecipient) && isset($rawRecipient->email)) {
+            $normalized = trim((string) $rawRecipient->email);
+
+            return $normalized !== '' ? $rawRecipient : null;
+        }
+
+        if (is_array($rawRecipient) && isset($rawRecipient['email']) && is_string($rawRecipient['email'])) {
+            $normalized = trim($rawRecipient['email']);
+
+            return $normalized !== '' ? $rawRecipient : null;
+        }
+
+        if (is_array($rawRecipient)) {
+            foreach ($rawRecipient as $item) {
+                if (is_string($item) && trim($item) !== '') {
+                    return $rawRecipient;
+                }
+
+                if (is_object($item) && isset($item->email) && trim((string) $item->email) !== '') {
+                    return $rawRecipient;
+                }
+
+                if (is_array($item) && isset($item['email']) && is_string($item['email']) && trim($item['email']) !== '') {
+                    return $rawRecipient;
+                }
+            }
+        }
+
+        return null;
     }
 
     protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
