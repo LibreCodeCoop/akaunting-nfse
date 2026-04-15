@@ -33,6 +33,8 @@ use Modules\Nfse\Support\WebDavClient;
 
 class InvoiceController extends Controller
 {
+    private const INVOICE_NOTES_SETTING_KEY = 'invoice.notes';
+
     protected string $indexSortBy = 'due_at';
 
     protected string $indexSortDirection = 'desc';
@@ -710,7 +712,7 @@ class InvoiceController extends Controller
 
     protected function defaultEmitDescription(): ?string
     {
-        $rawValue = setting('nfse.description_default_on_emit', '');
+        $rawValue = setting(self::INVOICE_NOTES_SETTING_KEY, '');
 
         if (!is_string($rawValue)) {
             return null;
@@ -740,7 +742,7 @@ class InvoiceController extends Controller
         $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
         $valueToPersist = is_string($normalized) ? $normalized : '';
 
-        setting(['nfse.description_default_on_emit' => $valueToPersist]);
+        setting([self::INVOICE_NOTES_SETTING_KEY => $valueToPersist]);
 
         $settings = setting();
 
