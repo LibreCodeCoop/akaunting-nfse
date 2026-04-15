@@ -122,6 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <input type="hidden" name="nfse_email_attach_danfse" value="1" id="reemit-email-attach-danfse-hidden">
                         <input type="hidden" name="nfse_email_attach_xml" value="1" id="reemit-email-attach-xml-hidden">
                         <input type="hidden" name="nfse_email_save_default" value="0" id="reemit-email-save-default-hidden">
+                            <input type="hidden" name="nfse_email_copy_to_self" value="0" id="reemit-email-copy-to-self-hidden">
                     <button
                         type="button"
                         class="inline-flex items-center px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm"
@@ -290,6 +291,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     </label>
                                     <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
                                 </div>
+
+                                    <div class="flex items-center gap-3">
+                                        <label for="reemit-copy-to-self-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                            <input id="reemit-copy-to-self-checkbox" type="checkbox" class="sr-only">
+                                            <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                            <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
+                                        </label>
+                                        <span class="text-sm text-gray-700">{{ trans('general.email_send_me', ['email' => auth()->user()?->email ?? '']) }}</span>
+                                    </div>
                             </div>
                             </div>
                         </div>
@@ -488,6 +498,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const reemitEmailAttachDanfseHidden = document.getElementById('reemit-email-attach-danfse-hidden');
                     const reemitEmailAttachXmlHidden = document.getElementById('reemit-email-attach-xml-hidden');
                     const reemitEmailSaveDefaultHidden = document.getElementById('reemit-email-save-default-hidden');
+                        const reemitEmailCopyToSelfHidden = document.getElementById('reemit-email-copy-to-self-hidden');
+                        const reemitCopyToSelfCheckbox = document.getElementById('reemit-copy-to-self-checkbox');
 
                     const refreshReemitEmailSection = () => {
                         if (reemitEmailFields) {
@@ -517,6 +529,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     reemitAttachDanfseCheckbox?.addEventListener('change', () => syncToggle(reemitAttachDanfseCheckbox));
                     reemitAttachXmlCheckbox?.addEventListener('change', () => syncToggle(reemitAttachXmlCheckbox));
                     reemitSaveDefaultCheckbox?.addEventListener('change', () => syncToggle(reemitSaveDefaultCheckbox));
+                        reemitCopyToSelfCheckbox?.addEventListener('change', () => syncToggle(reemitCopyToSelfCheckbox));
 
                     refreshReemitEmailSection();
 
@@ -569,6 +582,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             if (reemitEmailSaveDefaultHidden && reemitSaveDefaultCheckbox) {
                                 reemitEmailSaveDefaultHidden.value = reemitSaveDefaultCheckbox.checked ? '1' : '0';
                             }
+
+                                if (reemitEmailCopyToSelfHidden && reemitCopyToSelfCheckbox) {
+                                    reemitEmailCopyToSelfHidden.value = reemitCopyToSelfCheckbox.checked ? '1' : '0';
+                                }
 
                         reemitForm.dataset.reemitConfirmed = '1';
                         closeReemitModal();
