@@ -376,5 +376,35 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $source = file_get_contents(__DIR__ . '/../../../Notifications/NfseIssued.php');
             self::assertStringContainsString("'invoice_nfse_issued_customer'", $source);
         }
+
+        public function testNotificationDeclaresConcreteTemplateProperty(): void
+        {
+            $source = file_get_contents(__DIR__ . '/../../../Notifications/NfseIssued.php');
+
+            self::assertStringContainsString('public $template = null;', $source);
+            self::assertStringContainsString('protected function ensureTemplateLoaded(): void', $source);
+        }
+
+        public function testToMailWorksAfterSerializationRoundTrip(): void
+        {
+            $this->makeTemplate();
+
+            $notification = new NfseIssued(
+                $this->makeInvoice(),
+                $this->makeReceipt(),
+                true,
+                true,
+                ['to' => 'custom@example.com'],
+            );
+
+            $restored = unserialize(serialize($notification));
+            $notifiable = new class () {
+                public string $email = 'original@example.com';
+            };
+
+            $restored->toMail($notifiable);
+
+            self::assertSame('custom@example.com', $notifiable->email);
+        }
     }
 }
