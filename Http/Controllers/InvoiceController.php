@@ -1436,7 +1436,7 @@ class InvoiceController extends Controller
         }
 
         return [
-            'total' => $totalReceipts + $pending,
+            'total' => $totalReceipts,
             'emitted' => $emitted,
             'processing' => $processing,
             'cancelled' => $cancelled,
