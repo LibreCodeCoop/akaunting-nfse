@@ -115,6 +115,7 @@ return [
         'emit_modal_email_attach_danfse' => 'Anexar DANFSE (PDF)',
         'emit_modal_email_attach_xml' => 'Anexar XML',
         'emit_modal_email_save_default' => 'Salvar esta preferencia de envio como padrao',
+        'emit_modal_description_save_default' => 'Salvar esta descricao como padrao',
         'emit_modal_missing_items_hint' => 'Alguns itens ainda precisam de um servico fiscal vinculado antes da emissao.',
         'default_service_confirmation_required' => 'Existem itens sem servico vinculado. Revise e confirme o uso do servico padrao para emitir a NFS-e.',
         'mixed_service_tax_profiles_not_supported' => 'A fatura possui itens vinculados a servicos com tributacao municipal diferente. Emita NFS-e separadas por perfil de servico/ISS.',
