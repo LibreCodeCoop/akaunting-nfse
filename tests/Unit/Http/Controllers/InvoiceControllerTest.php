@@ -2609,9 +2609,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('all', $response->data['status'] ?? null, 'Status should fall back to "all" when search is cleared');
         }
 
-        public function testIndexSkipsPreferenceRestoreWhenSavedPreferencesContainNonDefaultFilters(): void
+        public function testIndexRestoresSavedNonDefaultFiltersOnBareUrl(): void
         {
-            // Bare URL should never restore non-default status/search filters.
+            // Bare URL should restore previously saved non-default status/search filters.
             ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
                 'status' => 'cancelled,emitted',
                 'per_page' => 25,
@@ -2629,8 +2629,17 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = $controller->index(new Request());
 
-            self::assertNotSame('route', $response->target ?? null, 'Bare URL should not restore non-default saved filters');
-            self::assertSame('all', $response->data['status'] ?? null, 'Status should default to "all" when saved filter state is non-default');
+            self::assertSame('route', $response->target ?? null, 'Bare URL should restore non-default saved filters');
+            self::assertSame('nfse.invoices.index', $response->route ?? null);
+            self::assertSame([
+                [
+                    'status' => 'cancelled,emitted',
+                    'limit' => 25,
+                    'search' => 'status:cancelled,emitted',
+                    'sort' => 'due_at',
+                    'direction' => 'desc',
+                ],
+            ], $response->parameters ?? null);
         }
 
         public function testIndexPersistsListingPreferencesToSettingsStorage(): void
