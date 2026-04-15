@@ -68,6 +68,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('->whereHas(\'contact\', static fn ($contactQuery) => $contactQuery->where(\'type\', Contact::CUSTOMER_TYPE))', $content);
         }
 
+        public function testListingOverviewTotalMatchesAllReceiptRowsInsteadOfAddingPendingInvoices(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("'total' => \$totalReceipts,", $content);
+            self::assertStringNotContainsString("'total' => \$totalReceipts + \$pending,", $content);
+        }
+
         public function testPendingInvoicesQueryRestrictsContactsToCustomers(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
