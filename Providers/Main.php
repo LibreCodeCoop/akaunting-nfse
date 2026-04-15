@@ -9,6 +9,7 @@ namespace Modules\Nfse\Providers;
 
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
+use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 
 class Main extends Provider
@@ -21,8 +22,8 @@ class Main extends Provider
         $this->loadTranslations();
         $this->loadViews();
         $this->loadMigrations();
+        $this->registerInvoiceSendFlowOverride();
         $this->syncEmailTemplates();
-        $this->overrideEmailRoute();
     }
 
     /**
@@ -68,12 +69,12 @@ class Main extends Provider
         (new EmailTemplateSynchronizer())->sync();
     }
 
-    /**
-     * Override the default Akaunting invoice email modal route so the NFS-e
-     * enriched form (with DANFSE/XML attachment options) is used instead.
-     */
-    protected function overrideEmailRoute(): void
+    protected function registerInvoiceSendFlowOverride(): void
     {
-        config(['type.document.invoice.route.emails.create' => 'nfse.modals.invoices.emails.create']);
+        $this->app->make('view')->composer('sales.invoices.show', function ($view): void {
+            $this->app->make(OverrideInvoiceEmailRoute::class)->overrideForInvoice(
+                $view->getData()['invoice'] ?? null
+            );
+        });
     }
 }
