@@ -828,7 +828,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <button type="button" class="inline-flex items-center px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100" data-emit-close="true" onclick="const modal = document.getElementById('nfse-emit-modal'); const items = document.getElementById('nfse-emit-missing-items'); const hint = document.getElementById('nfse-emit-missing-items-hint'); const description = document.getElementById('nfse_emit_description'); const confirm = document.getElementById('nfse-emit-confirm-button'); if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (items) { items.innerHTML = ''; } if (hint) { hint.classList.add('hidden'); } if (description) { description.value = ''; } if (confirm && modal?.dataset.defaultConfirmLabel) { confirm.textContent = modal.dataset.defaultConfirmLabel; } return false;">
                             {{ trans('general.cancel') }}
                         </button>
-                        <button type="button" id="nfse-emit-confirm-button" class="inline-flex items-center px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700" onclick="const modal = document.getElementById('nfse-emit-modal'); const formId = modal?.dataset.currentFormId || ''; const form = formId ? document.getElementById(formId) : null; const descriptionField = document.getElementById('nfse_emit_description'); const itemsContainer = document.getElementById('nfse-emit-missing-items'); const confirmInput = form?.querySelector('[data-emit-confirm-default]'); const assignmentsInput = form?.querySelector('[data-emit-assignments]'); const descriptionInput = form?.querySelector('[data-emit-description-input]'); if (!form || !confirmInput || !assignmentsInput || !descriptionInput) { return false; } const assignments = {}; itemsContainer?.querySelectorAll('select[data-item-id]').forEach((select) => { const itemId = select.getAttribute('data-item-id'); const serviceId = select.value; if (itemId && serviceId) { assignments[itemId] = serviceId; } }); confirmInput.value = '1'; assignmentsInput.value = JSON.stringify(assignments); descriptionInput.value = descriptionField?.value || ''; form.dataset.emitConfirmed = '1';">
+                        <button type="button" id="nfse-emit-confirm-button" class="inline-flex items-center px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700" onclick="const modal = document.getElementById('nfse-emit-modal'); const formId = modal?.dataset.currentFormId || ''; const form = formId ? document.getElementById(formId) : null; const descriptionField = document.getElementById('nfse_emit_description'); const sendEmailToggle = document.getElementById('nfse_emit_send_email'); const emailToField = document.getElementById('nfse_emit_email_to'); const emailSubjectField = document.getElementById('nfse_emit_email_subject'); const emailBodyField = document.getElementById('nfse_emit_email_body'); const attachDanfseField = document.getElementById('nfse_emit_attach_danfse'); const attachXmlField = document.getElementById('nfse_emit_attach_xml'); const saveDefaultField = document.getElementById('nfse_emit_save_default'); const itemsContainer = document.getElementById('nfse-emit-missing-items'); const confirmInput = form?.querySelector('[data-emit-confirm-default]'); const assignmentsInput = form?.querySelector('[data-emit-assignments]'); const descriptionInput = form?.querySelector('[data-emit-description-input]'); const sendEmailInput = form?.querySelector('[data-emit-email-send-input]'); const emailToInput = form?.querySelector('[data-emit-email-to-input]'); const emailSubjectInput = form?.querySelector('[data-emit-email-subject-input]'); const emailBodyInput = form?.querySelector('[data-emit-email-body-input]'); const attachDanfseInput = form?.querySelector('[data-emit-email-attach-danfse-input]'); const attachXmlInput = form?.querySelector('[data-emit-email-attach-xml-input]'); const saveDefaultInput = form?.querySelector('[data-emit-email-save-default-input]'); if (!form || !confirmInput || !assignmentsInput || !descriptionInput) { return false; } const assignments = {}; itemsContainer?.querySelectorAll('select[data-item-id]').forEach((select) => { const itemId = select.getAttribute('data-item-id'); const serviceId = select.value; if (itemId && serviceId) { assignments[itemId] = serviceId; } }); confirmInput.value = '1'; assignmentsInput.value = JSON.stringify(assignments); descriptionInput.value = descriptionField?.value || ''; if (sendEmailInput) { sendEmailInput.value = sendEmailToggle?.checked ? '1' : '0'; } if (emailToInput) { emailToInput.value = emailToField?.value || ''; } if (emailSubjectInput) { emailSubjectInput.value = emailSubjectField?.value || ''; } if (emailBodyInput) { emailBodyInput.value = emailBodyField?.value || ''; } if (attachDanfseInput) { attachDanfseInput.value = attachDanfseField?.checked ? '1' : '0'; } if (attachXmlInput) { attachXmlInput.value = attachXmlField?.checked ? '1' : '0'; } if (saveDefaultInput) { saveDefaultInput.value = saveDefaultField?.checked ? '1' : '0'; } form.dataset.emitConfirmed = '1'; if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (itemsContainer) { itemsContainer.innerHTML = ''; } document.getElementById('nfse-emit-missing-items-hint')?.classList.add('hidden'); form.submit(); return false;">
                             {{ trans('nfse::general.invoices.emit_now') }}
                         </button>
                     </div>
@@ -1253,79 +1253,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 emitModalAttachDanfseInput?.addEventListener('change', () => syncToggle(emitModalAttachDanfseInput));
                 emitModalAttachXmlInput?.addEventListener('change', () => syncToggle(emitModalAttachXmlInput));
                 emitModalSaveDefaultInput?.addEventListener('change', () => syncToggle(emitModalSaveDefaultInput));
-
-                emitModalConfirmButton?.addEventListener('click', () => {
-                    if (!currentEmitForm) {
-                        closeEmitModal();
-                        return;
-                    }
-
-                    const confirmInput = currentEmitForm.querySelector('[data-emit-confirm-default]');
-                    const assignmentsInput = currentEmitForm.querySelector('[data-emit-assignments]');
-                    const descriptionInput = currentEmitForm.querySelector('[data-emit-description-input]');
-                    const sendEmailInput = currentEmitForm.querySelector('[data-emit-email-send-input]');
-                    const emailToInput = currentEmitForm.querySelector('[data-emit-email-to-input]');
-                    const emailSubjectInput = currentEmitForm.querySelector('[data-emit-email-subject-input]');
-                    const emailBodyInput = currentEmitForm.querySelector('[data-emit-email-body-input]');
-                    const attachDanfseInput = currentEmitForm.querySelector('[data-emit-email-attach-danfse-input]');
-                    const attachXmlInput = currentEmitForm.querySelector('[data-emit-email-attach-xml-input]');
-                    const saveDefaultInput = currentEmitForm.querySelector('[data-emit-email-save-default-input]');
-                    const assignmentRows = emitModalMissingItems?.querySelectorAll('select[data-item-id]') ?? [];
-                    const assignments = {};
-
-                    assignmentRows.forEach((select) => {
-                        const itemId = select.getAttribute('data-item-id');
-                        const serviceId = select.value;
-
-                        if (itemId && serviceId) {
-                            assignments[itemId] = serviceId;
-                        }
-                    });
-
-                    if (confirmInput) {
-                        confirmInput.value = '1';
-                    }
-
-                    if (assignmentsInput) {
-                        assignmentsInput.value = JSON.stringify(assignments);
-                    }
-
-                    if (descriptionInput && emitModalDescriptionInput) {
-                        descriptionInput.value = emitModalDescriptionInput.value;
-                    }
-
-                    if (sendEmailInput && emitModalSendEmailInput) {
-                        sendEmailInput.value = emitModalSendEmailInput.checked ? '1' : '0';
-                    }
-
-                    if (emailToInput && emitModalEmailToInput) {
-                        emailToInput.value = emitModalEmailToInput.value;
-                    }
-
-                    if (emailSubjectInput && emitModalEmailSubjectInput) {
-                        emailSubjectInput.value = emitModalEmailSubjectInput.value;
-                    }
-
-                    if (emailBodyInput && emitModalEmailBodyInput) {
-                        emailBodyInput.value = emitModalEmailBodyInput.value;
-                    }
-
-                    if (attachDanfseInput && emitModalAttachDanfseInput) {
-                        attachDanfseInput.value = emitModalAttachDanfseInput.checked ? '1' : '0';
-                    }
-
-                    if (attachXmlInput && emitModalAttachXmlInput) {
-                        attachXmlInput.value = emitModalAttachXmlInput.checked ? '1' : '0';
-                    }
-
-                    if (saveDefaultInput && emitModalSaveDefaultInput) {
-                        saveDefaultInput.value = emitModalSaveDefaultInput.checked ? '1' : '0';
-                    }
-
-                    const formToSubmit = currentEmitForm;
-                    closeEmitModal();
-                    formToSubmit.submit();
-                });
 
                 const modal = document.getElementById('nfse-cancel-modal');
                 const form = document.getElementById('nfse-cancel-form');
