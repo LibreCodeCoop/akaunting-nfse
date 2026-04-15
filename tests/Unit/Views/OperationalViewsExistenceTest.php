@@ -54,6 +54,9 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="nfse_emit_email_to"', $content);
             self::assertStringContainsString('id="nfse_emit_email_subject"', $content);
             self::assertStringContainsString('id="nfse_emit_email_body"', $content);
+            self::assertStringContainsString('id="nfse-emit-confirm-button"', $content);
+            self::assertStringContainsString('form.submit(); return false;', $content);
+            self::assertStringContainsString("sendEmailInput.value = sendEmailToggle?.checked ? '1' : '0';", $content);
         }
 
         public function testInvoicesIndexViewHasRichTextEditorForEmailBody(): void
