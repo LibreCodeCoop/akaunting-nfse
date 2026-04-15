@@ -441,6 +441,56 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertCount(2, $message->attachments);
         }
 
+        public function testToMailAttachesUsingTemplatePathWhenPersistedPathsAreMissing(): void
+        {
+            $this->makeTemplate();
+            $receipt = $this->makeReceipt('12345', null, null);
+            $receipt->chave_acesso = 'CHAVE-XYZ';
+            $this->assignIssueDate($receipt, '2026-04-15 10:15:00');
+
+            $requestedPaths = [];
+
+            $notification = new class ($this->makeInvoice(), $receipt, true, true, []) extends NfseIssued {
+                /** @var list<string> */
+                public array $requestedPaths = [];
+
+                protected function makeWebDavClient(): WebDavClient
+                {
+                    return new WebDavClient('http://nowhere', request: function (string $method, string $url): array {
+                        $parts = parse_url($url);
+                        $path = isset($parts['path']) ? ltrim((string) $parts['path'], '/') : '';
+                        $this->requestedPaths[] = $path;
+
+                        return [200, 'CONTENT'];
+                    });
+                }
+
+                protected function settingString(string $key, string $default = ''): string
+                {
+                    return match ($key) {
+                        'nfse.webdav_path_template' => 'nfse/{cnpj}/{year}/{month}/{day}',
+                        'nfse.webdav_filename_template' => '{chave_acesso}',
+                        default => $default,
+                    };
+                }
+
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $notifiable = new class () {
+                public string $email = 'a@b.com';
+            };
+
+            $message = $notification->toMail($notifiable);
+
+            self::assertCount(2, $message->attachments);
+            self::assertContains('nfse/12345678000199/2026/04/15/CHAVE-XYZ.pdf', $notification->requestedPaths);
+            self::assertContains('nfse/12345678000199/2026/04/15/CHAVE-XYZ.xml', $notification->requestedPaths);
+        }
+
         public function testClassExtendsAkauntingNotification(): void
         {
             $source = file_get_contents(__DIR__ . '/../../../Notifications/NfseIssued.php');
