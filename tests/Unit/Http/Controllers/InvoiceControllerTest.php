@@ -3646,7 +3646,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(3301, $notificationCalls[0]['invoice_id']);
             self::assertTrue($notificationCalls[0]['attach_danfse']);
             self::assertFalse($notificationCalls[0]['attach_xml']);
-            self::assertSame('destinatario@reemissao.test', $notificationCalls[0]['custom_mail']['to'][0]['email'] ?? null);
+            self::assertSame('destinatario@reemissao.test', $notificationCalls[0]['custom_mail']['to'] ?? null);
             self::assertSame('Assunto reemissao', $notificationCalls[0]['custom_mail']['subject'] ?? null);
         }
 
@@ -4512,7 +4512,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(55, $notificationCalls[0]['invoice_id']);
             self::assertTrue($notificationCalls[0]['attach_danfse']);
             self::assertFalse($notificationCalls[0]['attach_xml']);
-            self::assertSame('destinatario@example.com', $notificationCalls[0]['custom_mail']['to'][0]['email'] ?? null);
+            self::assertSame('destinatario@example.com', $notificationCalls[0]['custom_mail']['to'] ?? null);
             self::assertSame('NFS-e emitida', $notificationCalls[0]['custom_mail']['subject'] ?? null);
         }
 
