@@ -120,11 +120,31 @@ class InvoiceController extends Controller
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $receiptStatusLabel = $this->translateReceiptStatus((string) ($receipt->status ?? ''));
         $suggestedDiscriminacao = $this->buildDiscriminacao($invoice);
         $emailDefaults = $this->servicePreviewEmailDefaults($invoice);
         $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
 
-        return view('nfse::invoices.show', compact('invoice', 'receipt', 'suggestedDiscriminacao', 'emailDefaults', 'artifacts'));
+        return view('nfse::invoices.show', compact('invoice', 'receipt', 'receiptStatusLabel', 'suggestedDiscriminacao', 'emailDefaults', 'artifacts'));
+    }
+
+    protected function translateReceiptStatus(string $status): string
+    {
+        $normalized = strtolower(trim($status));
+
+        $key = match ($normalized) {
+            'emitted' => 'nfse::general.invoices.status_emitted',
+            'cancelled' => 'nfse::general.invoices.status_cancelled',
+            'processing' => 'nfse::general.invoices.status_processing',
+            'pending' => 'nfse::general.invoices.status_pending',
+            default => null,
+        };
+
+        if ($key === null) {
+            return $status;
+        }
+
+        return (string) trans($key);
     }
 
     public function downloadArtifact(Invoice $invoice, string $artifact): Response|RedirectResponse
