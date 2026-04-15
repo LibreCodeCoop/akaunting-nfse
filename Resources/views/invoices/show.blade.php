@@ -122,6 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <input type="hidden" name="nfse_email_attach_danfse" value="1" id="reemit-email-attach-danfse-hidden">
                         <input type="hidden" name="nfse_email_attach_xml" value="1" id="reemit-email-attach-xml-hidden">
                         <input type="hidden" name="nfse_email_save_default" value="0" id="reemit-email-save-default-hidden">
+                        <input type="hidden" name="nfse_save_default_description" value="0" id="reemit-description-save-default-hidden">
                             <input type="hidden" name="nfse_email_copy_to_self" value="0" id="reemit-email-copy-to-self-hidden">
                     <button
                         type="button"
@@ -226,6 +227,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 placeholder="{{ trans('nfse::general.invoices.emit_modal_description_placeholder') }}"
                             >{{ $suggestedDiscriminacao }}</textarea>
                             <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.invoices.reemit_modal_description_help') }}</p>
+
+                            <div class="mt-3 flex items-center gap-3">
+                                <label for="reemit-save-description-default-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                    <input id="reemit-save-description-default-checkbox" type="checkbox" class="sr-only">
+                                    <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                    <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
+                                </label>
+                                <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_save_default') }}</span>
+                            </div>
                         </div>
 
                         <div class="px-5 pb-4 space-y-3 border-t pt-4">
@@ -483,6 +493,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 if (reemitModal && reemitForm && reemitTrigger && reemitConfirmButton) {
                         const reemitDescriptionTextarea = document.getElementById('reemit-description-textarea');
                         const reemitDiscriminacaoInput = document.getElementById('reemit-discriminacao-input');
+                    const reemitSaveDescriptionDefaultCheckbox = document.getElementById('reemit-save-description-default-checkbox');
                     const reemitSendEmailCheckbox = document.getElementById('reemit-send-email-checkbox');
                     const reemitEmailFields = document.getElementById('nfse_emit_email_fields') || document.getElementById('reemit-email-fields');
                     const reemitEmailToInput = document.getElementById('reemit-email-to-input');
@@ -498,6 +509,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const reemitEmailAttachDanfseHidden = document.getElementById('reemit-email-attach-danfse-hidden');
                     const reemitEmailAttachXmlHidden = document.getElementById('reemit-email-attach-xml-hidden');
                     const reemitEmailSaveDefaultHidden = document.getElementById('reemit-email-save-default-hidden');
+                        const reemitDescriptionSaveDefaultHidden = document.getElementById('reemit-description-save-default-hidden');
                         const reemitEmailCopyToSelfHidden = document.getElementById('reemit-email-copy-to-self-hidden');
                         const reemitCopyToSelfCheckbox = document.getElementById('reemit-copy-to-self-checkbox');
 
@@ -525,6 +537,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     reemitTrigger.addEventListener('click', openReemitModal);
 
+                        reemitSaveDescriptionDefaultCheckbox?.addEventListener('change', () => syncToggle(reemitSaveDescriptionDefaultCheckbox));
                     reemitSendEmailCheckbox?.addEventListener('change', refreshReemitEmailSection);
                     reemitAttachDanfseCheckbox?.addEventListener('change', () => syncToggle(reemitAttachDanfseCheckbox));
                     reemitAttachXmlCheckbox?.addEventListener('change', () => syncToggle(reemitAttachXmlCheckbox));
@@ -547,6 +560,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     reemitConfirmButton.addEventListener('click', () => {
                             if (reemitDiscriminacaoInput && reemitDescriptionTextarea) {
                                 reemitDiscriminacaoInput.value = reemitDescriptionTextarea.value;
+                            }
+
+                            if (reemitDescriptionSaveDefaultHidden && reemitSaveDescriptionDefaultCheckbox) {
+                                reemitDescriptionSaveDefaultHidden.value = reemitSaveDescriptionDefaultCheckbox.checked ? '1' : '0';
                             }
 
                             if (reemitEmailSendHidden && reemitSendEmailCheckbox) {
