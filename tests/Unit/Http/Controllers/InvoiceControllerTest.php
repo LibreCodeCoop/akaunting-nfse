@@ -2060,6 +2060,26 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('reemitDescriptionSaveDefaultHidden.value = reemitSaveDescriptionDefaultCheckbox.checked ? \'1\' : \'0\';', $content);
         }
 
+        public function testEmitModalHasSubmittingStateSpinnerAndHandler(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/views/invoices/index.blade.php');
+
+            self::assertStringContainsString('id="emit-submit-spinner"', $content);
+            self::assertStringContainsString('data-loading-label="{{ trans(\'nfse::general.invoices.emit_modal_submitting\') }}"', $content);
+            self::assertStringContainsString('window.nfseConfirmEmit = () => {', $content);
+            self::assertStringContainsString('setEmitSubmittingState(true);', $content);
+        }
+
+        public function testReemitModalHasSubmittingStateSpinnerAndNoEarlyCloseOnSubmit(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/views/invoices/show.blade.php');
+
+            self::assertStringContainsString('id="reemit-submit-spinner"', $content);
+            self::assertStringContainsString('data-loading-label="{{ trans(\'nfse::general.invoices.reemit_modal_submitting\') }}"', $content);
+            self::assertStringContainsString('setReemitSubmittingState(true);', $content);
+            self::assertStringNotContainsString('reemitForm.dataset.reemitConfirmed = \'1\';\n                        closeReemitModal();', $content);
+        }
+
         public function testNationalTaxCodeFallsBackToSettingWhenDefaultServiceCodeIsMissing(): void
         {
             $controller = new class () extends InvoiceController {
