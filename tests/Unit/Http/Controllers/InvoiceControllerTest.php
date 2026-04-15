@@ -1818,6 +1818,49 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertTrue($payload['email_defaults']['attach_xml']);
         }
 
+        public function testServicePreviewUsesSavedDefaultDescriptionWhenAvailable(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['nfse.description_default_on_emit'] = 'Descricao padrao generica';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 13,
+                amount: 50.0,
+                items: [
+                    ['item_id' => 99, 'name' => 'Texto de item que nao deve ir para descricao'],
+                ],
+                description: 'Descricao da fatura',
+            );
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return null;
+                }
+
+                protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
+                {
+                    return [
+                        'selected_service' => null,
+                        'line_items' => ['Replica de item 01', 'Replica de item 02'],
+                        'missing_items' => [],
+                        'requires_confirmation' => false,
+                        'requires_split' => false,
+                    ];
+                }
+
+                protected function availableInvoiceServices(Invoice $invoice): array
+                {
+                    return [];
+                }
+            };
+
+            $response = $controller->servicePreview($invoice);
+            $payload = $response->getData(true);
+
+            self::assertSame('Descricao padrao generica', $payload['suggested_description'] ?? null);
+        }
+
         public function testServicePreviewEmailDefaultsFallsBackWhenNoTemplate(): void
         {
             InvoiceControllerIsolationState::reset();
@@ -1849,6 +1892,53 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertFalse($payload['email_defaults']['send_email']);
             self::assertSame('', $payload['email_defaults']['subject']);
             self::assertSame('', $payload['email_defaults']['body']);
+        }
+
+        public function testPersistDefaultDescriptionFromRequestSavesWhenFlagEnabled(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$savedCount = 0;
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_save_default_description' => '1',
+                'nfse_discriminacao_custom' => '  Nova descricao padrao   da NFS-e  ',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposePersistDefaultDescriptionFromRequest(?\Illuminate\Http\Request $request): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request);
+                }
+            };
+
+            $controller->exposePersistDefaultDescriptionFromRequest($request);
+
+            self::assertSame('Nova descricao padrao da NFS-e', ControllerIsolationState::$settings['nfse.description_default_on_emit'] ?? null);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+        }
+
+        public function testPersistDefaultDescriptionFromRequestSkipsWhenFlagDisabled(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$savedCount = 0;
+            ControllerIsolationState::$settings['nfse.description_default_on_emit'] = 'Descricao antiga';
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_save_default_description' => '0',
+                'nfse_discriminacao_custom' => 'Descricao nova nao persistida',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposePersistDefaultDescriptionFromRequest(?\Illuminate\Http\Request $request): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request);
+                }
+            };
+
+            $controller->exposePersistDefaultDescriptionFromRequest($request);
+
+            self::assertSame('Descricao antiga', ControllerIsolationState::$settings['nfse.description_default_on_emit'] ?? null);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
         }
 
         public function testNationalTaxCodeFallsBackToSettingWhenDefaultServiceCodeIsMissing(): void
