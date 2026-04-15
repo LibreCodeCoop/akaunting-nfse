@@ -20,12 +20,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         @if($errors->has('cancel_reason') || $errors->has('cancel_justification'))
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                @error('cancel_reason')
-                    <p>{{ $message }}</p>
-                @enderror
-                @error('cancel_justification')
-                    <p>{{ $message }}</p>
-                @enderror
+                    @error('cancel_reason')
+                        <p>{{ $message }}</p>
+                    @enderror
+                    @error('cancel_justification')
+                        <p>{{ $message }}</p>
+                    @enderror
             </div>
         @endif
 
@@ -184,7 +184,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <div class="px-5 pb-4 space-y-3 border-t pt-4">
                             <div class="flex items-center gap-3">
                                 <label for="reemit-send-email-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center" aria-label="{{ trans('nfse::general.invoices.emit_modal_send_email') }}">
-                                    <input id="reemit-send-email-checkbox" type="checkbox" class="sr-only" @checked((bool) ($emailDefaults['send_email'] ?? false))>
+                                     <input id="reemit-send-email-checkbox" type="checkbox" class="sr-only" data-email-fields-target="reemit-email-fields" onchange="window.nfseSyncEmailToggle?.(this)" @checked((bool) ($emailDefaults['send_email'] ?? false))>
                                     <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 {{ (bool) ($emailDefaults['send_email'] ?? false) ? 'bg-green' : 'bg-green-200' }}"></div>
                                     <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 {{ (bool) ($emailDefaults['send_email'] ?? false) ? 'translate-x-5' : '' }}"></div>
                                 </label>
@@ -206,8 +206,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
 
                             <div>
-                                <label for="reemit-email-body-input" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_body') }}</label>
-                                <textarea id="reemit-email-body-input" rows="4" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">{{ $emailDefaults['body'] ?? '' }}</textarea>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_body') }}</label>
+                                <textarea id="nfse_reemit_email_body" class="sr-only" aria-hidden="true"></textarea>
+                                <div id="nfse-reemit-body-editor">
+                                    <akaunting-html-editor :value='@json($emailDefaults['body'] ?? '')' @input="$root.$emit('nfse:reemit-email-body', $event)"></akaunting-html-editor>
+                                </div>
+                            </div>
+
+                            <div class="rounded-md bg-gray-100 p-3 text-xs text-gray-600">
+                                {!! trans('settings.email.templates.tags', ['tag_list' => implode(', ', app(\Modules\Nfse\Notifications\NfseIssued::class)->getTags())]) !!}
                             </div>
 
                             <div class="space-y-3">
@@ -263,6 +270,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         <script>
             (() => {
+                // documents.min.js mounts Vue on #app and recreates DOM nodes, which removes any
+                // event listeners attached before Vue runs. Deferring to window 'load' ensures we
+                // attach listeners to the DOM nodes Vue has already created.
+                const init = () => {
+                // Wire the akaunting-html-editor $emit event into the hidden textarea so the body
+                // value is collected when the confirm button is clicked.
+                const rootApp = document.getElementById('main-body')?.__vue__;
+                if (rootApp) {
+                    rootApp.$on('nfse:reemit-email-body', (val) => {
+                        const el = document.getElementById('nfse_reemit_email_body');
+                        if (el) {
+                            el.value = typeof val === 'string' ? val : '';
+                        }
+                    });
+                }
+
                 const modal = document.getElementById('nfse-cancel-modal');
                 const form = document.getElementById('nfse-cancel-form');
                 const reasonSelect = document.getElementById('cancel_reason');
@@ -387,6 +410,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
                 };
 
+                window.nfseSyncEmailToggle = (input) => {
+                    syncToggle(input);
+
+                    const targetId = input?.dataset?.emailFieldsTarget;
+                    if (!targetId) {
+                        return;
+                    }
+
+                    const target = document.getElementById(targetId);
+                    if (target) {
+                        target.classList.toggle('hidden', !input.checked);
+                    }
+                };
+
                 if (reemitModal && reemitForm && reemitTrigger && reemitConfirmButton) {
                         const reemitDescriptionTextarea = document.getElementById('reemit-description-textarea');
                         const reemitDiscriminacaoInput = document.getElementById('reemit-discriminacao-input');
@@ -469,6 +506,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 reemitEmailBodyHidden.value = reemitEmailBodyInput.value;
                             }
 
+                                // Prefer value from the rich text editor hidden field if present.
+                                const richBodyEl = document.getElementById('nfse_reemit_email_body');
+                                if (reemitEmailBodyHidden && richBodyEl && richBodyEl.value) {
+                                    reemitEmailBodyHidden.value = richBodyEl.value;
+                                }
+
                             if (reemitEmailAttachDanfseHidden && reemitAttachDanfseCheckbox) {
                                 reemitEmailAttachDanfseHidden.value = reemitAttachDanfseCheckbox.checked ? '1' : '0';
                             }
@@ -497,7 +540,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         button.addEventListener('click', closeReemitModal);
                     });
                 }
+                }; // end init()
+
+                if (document.readyState === 'complete') {
+                    init();
+                } else {
+                    window.addEventListener('load', init, { once: true });
+                }
             })();
         </script>
     </x-slot>
+
+    <x-script folder="common" file="documents" />
 </x-layouts.admin>
