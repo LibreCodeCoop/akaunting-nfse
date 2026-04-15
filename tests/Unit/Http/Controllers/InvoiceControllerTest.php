@@ -4842,5 +4842,140 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(1, ControllerIsolationState::$savedCount);
         }
 
+        public function testHandlePostEmitEmailAlwaysSavesAllPreferencesEvenWhenSendEmailFalse(): void
+        {
+            InvoiceControllerIsolationState::reset();
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 62, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(62, 'CHAVE-62');
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email'              => '0',
+                'nfse_email_attach_invoice_pdf' => '0',
+                'nfse_email_attach_danfse'     => '0',
+                'nfse_email_attach_xml'        => '1',
+                'nfse_email_copy_to_self'      => '1',
+            ]);
+
+            $notificationCalls = [];
+
+            $controller = new class ($notificationCalls) extends InvoiceController {
+                public function __construct(private array &$notificationCalls)
+                {
+                }
+
+                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                {
+                    $this->handlePostEmitEmail($request, $invoice, $receipt);
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    $this->notificationCalls[] = true;
+                }
+            };
+
+            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+
+            self::assertCount(0, $notificationCalls, 'No email should be sent when nfse_send_email is false');
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null, 'send_email pref should be saved as 0');
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.email_attach_invoice_pdf_on_emit'] ?? null);
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.email_attach_danfse_on_emit'] ?? null);
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.email_attach_xml_on_emit'] ?? null);
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.email_copy_to_self_on_emit'] ?? null, 'copy_to_self pref should be saved');
+            self::assertGreaterThanOrEqual(1, ControllerIsolationState::$savedCount, 'settings()->save() should be called');
+        }
+
+        public function testHandlePostEmitEmailSavesCopyToSelfPreferenceWhenEnabled(): void
+        {
+            InvoiceControllerIsolationState::reset();
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 63, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(63, 'CHAVE-63');
+
+            // Omit nfse_email_to so the method returns early after persisting settings,
+            // before reaching the user() call in the copy_to_self BCC block.
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email'         => '1',
+                'nfse_email_copy_to_self' => '1',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                {
+                    $this->handlePostEmitEmail($request, $invoice, $receipt);
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    // suppress
+                }
+            };
+
+            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.email_copy_to_self_on_emit'] ?? null);
+        }
+
+        public function testServicePreviewEmailDefaultsReturnsCopyToSelfFromSetting(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['nfse.email_copy_to_self_on_emit'] = '1';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 64, amount: 50.0);
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return null;
+                }
+
+                protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
+                {
+                    return ['selected_service' => null, 'line_items' => [], 'missing_items' => [], 'requires_confirmation' => false, 'requires_split' => false];
+                }
+
+                protected function availableInvoiceServices(Invoice $invoice): array
+                {
+                    return [];
+                }
+            };
+
+            $response = $controller->servicePreview($invoice);
+            $payload = $response->getData(true);
+
+            self::assertArrayHasKey('email_defaults', $payload);
+            self::assertTrue($payload['email_defaults']['copy_to_self']);
+        }
+
+        public function testServicePreviewEmailDefaultsCopyToSelfDefaultsFalse(): void
+        {
+            InvoiceControllerIsolationState::reset();
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 65, amount: 50.0);
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return null;
+                }
+
+                protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
+                {
+                    return ['selected_service' => null, 'line_items' => [], 'missing_items' => [], 'requires_confirmation' => false, 'requires_split' => false];
+                }
+
+                protected function availableInvoiceServices(Invoice $invoice): array
+                {
+                    return [];
+                }
+            };
+
+            $response = $controller->servicePreview($invoice);
+            $payload = $response->getData(true);
+
+            self::assertFalse($payload['email_defaults']['copy_to_self']);
+        }
+
     }
 }
