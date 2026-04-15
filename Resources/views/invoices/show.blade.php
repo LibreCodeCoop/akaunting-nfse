@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div><dt class="text-gray-500">{{ trans('nfse::general.invoices.access_key') }}</dt><dd class="break-all">{{ $receipt->chave_acesso ?? '—' }}</dd></div>
                     <div><dt class="text-gray-500">{{ trans('nfse::general.invoices.verification_code') }}</dt><dd>{{ $receipt->codigo_verificacao ?? '—' }}</dd></div>
                     <div><dt class="text-gray-500">{{ trans('nfse::general.invoices.issue_date') }}</dt><dd>{{ $receipt->data_emissao ? $receipt->data_emissao->format('d/m/Y H:i') : '—' }}</dd></div>
-                    <div><dt class="text-gray-500">{{ trans('general.status') }}</dt><dd>{{ $receipt->status }}</dd></div>
+                    <div><dt class="text-gray-500">{{ trans('general.status') }}</dt><dd>{{ $receiptStatusLabel ?? ($receipt->status ?? '—') }}</dd></div>
                 </dl>
             </div>
 
