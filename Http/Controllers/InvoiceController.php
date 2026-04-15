@@ -1910,8 +1910,9 @@ class InvoiceController extends Controller
 
     protected function canRestoreIndexPreferences(array $preferences): bool
     {
-        // Never auto-restore non-default filters from bare URL; this prevents
-        // stale search/status values from returning right after user clears filters.
+        // Restore saved non-default listing state only on bare URL requests.
+        // Explicit request parameters (including ?search= from clear action) are
+        // handled before this method and always take precedence.
         $status = $preferences['status'] ?? null;
         $search = $preferences['search'] ?? null;
         $perPage = (int) ($preferences['per_page'] ?? 25);
@@ -1922,7 +1923,7 @@ class InvoiceController extends Controller
         $hasSearch = is_string($search) && trim($search) !== '';
         $hasNeutralOverrides = $perPage !== 25 || $sortBy !== 'due_at' || $sortDirection !== 'desc';
 
-        return !$hasNonDefaultStatus && !$hasSearch && $hasNeutralOverrides;
+        return $hasNonDefaultStatus || $hasSearch || $hasNeutralOverrides;
     }
 
     protected function indexPreferencesSettingKey(): string
