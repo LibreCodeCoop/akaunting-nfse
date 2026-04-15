@@ -326,8 +326,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             type="button"
                             class="inline-flex items-center rounded bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700"
                             id="reemit-confirm-button"
+                            data-default-label="{{ trans('nfse::general.invoices.reemit') }}"
+                            data-loading-label="{{ trans('nfse::general.invoices.reemit_modal_submitting') }}"
+                            aria-busy="false"
                         >
-                            {{ trans('nfse::general.invoices.reemit') }}
+                            <svg id="reemit-submit-spinner" class="mr-2 hidden h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                            <span id="reemit-submit-label">{{ trans('nfse::general.invoices.reemit') }}</span>
                         </button>
                     </div>
                 </div>
@@ -512,6 +519,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         const reemitDescriptionSaveDefaultHidden = document.getElementById('reemit-description-save-default-hidden');
                         const reemitEmailCopyToSelfHidden = document.getElementById('reemit-email-copy-to-self-hidden');
                         const reemitCopyToSelfCheckbox = document.getElementById('reemit-copy-to-self-checkbox');
+                        const reemitSubmitSpinner = document.getElementById('reemit-submit-spinner');
+                        const reemitSubmitLabel = document.getElementById('reemit-submit-label');
+                        const reemitDefaultConfirmLabel = reemitConfirmButton.getAttribute('data-default-label') || @json((string) trans('nfse::general.invoices.reemit'));
+                        const reemitLoadingConfirmLabel = reemitConfirmButton.getAttribute('data-loading-label') || @json((string) trans('nfse::general.invoices.reemit_modal_submitting'));
+                        let reemitSubmitting = false;
+
+                        const setReemitSubmittingState = (submitting) => {
+                            reemitSubmitting = submitting;
+                            reemitModal.dataset.submitting = submitting ? '1' : '0';
+
+                            reemitConfirmButton.disabled = submitting;
+                            reemitConfirmButton.setAttribute('aria-disabled', submitting ? 'true' : 'false');
+                            reemitConfirmButton.setAttribute('aria-busy', submitting ? 'true' : 'false');
+
+                            if (!reemitSubmitSpinner || !reemitSubmitLabel) {
+                                return;
+                            }
+
+                            if (submitting) {
+                                reemitConfirmButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                                reemitConfirmButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+                                reemitSubmitSpinner.classList.remove('hidden');
+                                reemitSubmitLabel.textContent = reemitLoadingConfirmLabel;
+
+                                return;
+                            }
+
+                            reemitConfirmButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                            reemitConfirmButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                            reemitSubmitSpinner.classList.add('hidden');
+                            reemitSubmitLabel.textContent = reemitDefaultConfirmLabel;
+                        };
 
                     const refreshReemitEmailSection = () => {
                         if (reemitEmailFields) {
@@ -523,12 +562,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     };
 
                     const closeReemitModal = () => {
+                        if (reemitModal.dataset.submitting === '1') {
+                            return;
+                        }
+
                         reemitModal.classList.add('hidden');
                         reemitModal.setAttribute('aria-hidden', 'true');
                         document.body.classList.remove('overflow-hidden');
                     };
 
                     const openReemitModal = () => {
+                        setReemitSubmittingState(false);
                         reemitModal.classList.remove('hidden');
                         reemitModal.setAttribute('aria-hidden', 'false');
                         document.body.classList.add('overflow-hidden');
@@ -558,6 +602,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     });
 
                     reemitConfirmButton.addEventListener('click', () => {
+                            if (reemitSubmitting) {
+                                return;
+                            }
+
                             if (reemitDiscriminacaoInput && reemitDescriptionTextarea) {
                                 reemitDiscriminacaoInput.value = reemitDescriptionTextarea.value;
                             }
@@ -605,7 +653,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 }
 
                         reemitForm.dataset.reemitConfirmed = '1';
-                        closeReemitModal();
+                        setReemitSubmittingState(true);
 
                         if (typeof reemitForm.requestSubmit === 'function') {
                             reemitForm.requestSubmit();
