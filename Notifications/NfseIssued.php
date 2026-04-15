@@ -354,9 +354,11 @@ class NfseIssued extends Notification
 
     protected function attachArtifacts(MailMessage $message): void
     {
-        if ($this->attachDanfse && !empty($this->receipt->danfse_webdav_path)) {
+        $danfsePath = $this->resolveArtifactPath('pdf', $this->receipt->danfse_webdav_path ?? null);
+
+        if ($this->attachDanfse && $danfsePath !== null) {
             try {
-                $content = $this->makeWebDavClient()->get((string) $this->receipt->danfse_webdav_path);
+                $content = $this->makeWebDavClient()->get($danfsePath);
 
                 if ($content !== '') {
                     $nfseNumber = (string) ($this->receipt->nfse_number ?? '');
@@ -371,9 +373,11 @@ class NfseIssued extends Notification
             }
         }
 
-        if ($this->attachXml && !empty($this->receipt->xml_webdav_path)) {
+        $xmlPath = $this->resolveArtifactPath('xml', $this->receipt->xml_webdav_path ?? null);
+
+        if ($this->attachXml && $xmlPath !== null) {
             try {
-                $content = $this->makeWebDavClient()->get((string) $this->receipt->xml_webdav_path);
+            $content = $this->makeWebDavClient()->get($xmlPath);
 
                 if ($content !== '') {
                     $nfseNumber = (string) ($this->receipt->nfse_number ?? '');
@@ -392,9 +396,63 @@ class NfseIssued extends Notification
     protected function makeWebDavClient(): WebDavClient
     {
         return new WebDavClient(
-            baseUrl: (string) setting('nfse.webdav_url', ''),
-            username: (string) setting('nfse.webdav_username'),
-            password: (string) setting('nfse.webdav_password'),
+            baseUrl: $this->settingString('nfse.webdav_url', ''),
+            username: $this->settingString('nfse.webdav_username', ''),
+            password: $this->settingString('nfse.webdav_password', ''),
         );
+    }
+
+    protected function resolveArtifactPath(string $extension, mixed $persistedPath): ?string
+    {
+        if (is_string($persistedPath)) {
+            $normalizedPersistedPath = trim($persistedPath);
+
+            if ($normalizedPersistedPath !== '') {
+                return $normalizedPersistedPath;
+            }
+        }
+
+        $issueDate = $this->resolveIssueDate();
+        $cnpj = preg_replace('/\D+/', '', $this->resolveCnpj());
+
+        $replacements = [
+            '{cnpj}' => is_string($cnpj) ? $cnpj : '',
+            '{year}' => $issueDate?->format('Y') ?? '',
+            '{month}' => $issueDate?->format('m') ?? '',
+            '{day}' => $issueDate?->format('d') ?? '',
+            '{invoice_number}' => (string) ($this->invoice->document_number ?? ''),
+            '{nfse_number}' => (string) ($this->receipt->nfse_number ?? ''),
+            '{chave_acesso}' => (string) ($this->receipt->chave_acesso ?? ''),
+        ];
+
+        $pathTemplate = trim($this->settingString('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'));
+        $filenameTemplate = trim($this->settingString('nfse.webdav_filename_template', '{chave_acesso}'));
+
+        $basePath = trim(strtr($pathTemplate, $replacements), " \t\n\r\0\x0B/");
+        $filenameBase = trim(strtr($filenameTemplate, $replacements));
+
+        if ($filenameBase === '') {
+            return null;
+        }
+
+        $filename = $filenameBase . '.' . trim($extension, '.');
+        $joinedPath = $basePath !== '' ? ($basePath . '/' . $filename) : $filename;
+
+        return trim(preg_replace('#/+#', '/', str_replace('\\\\', '/', $joinedPath)) ?? '');
+    }
+
+    protected function settingString(string $key, string $default = ''): string
+    {
+        try {
+            if (function_exists('setting')) {
+                $value = setting($key, $default);
+
+                return is_scalar($value) ? (string) $value : $default;
+            }
+        } catch (\Throwable) {
+            // Keep default value in isolated contexts.
+        }
+
+        return $default;
     }
 }
