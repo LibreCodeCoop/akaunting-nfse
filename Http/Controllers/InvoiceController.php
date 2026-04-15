@@ -1952,23 +1952,16 @@ class InvoiceController extends Controller
 
     protected function pendingInvoicesQuery(?string $search = null): mixed
     {
-        try {
-            $processedInvoiceIds = NfseReceipt::query()
-                ->pluck('invoice_id')
-                ->filter()
-                ->values()
-                ->all();
-        } catch (\Throwable) {
-            $processedInvoiceIds = [];
-        }
+        $receiptTable = (new NfseReceipt())->getTable();
 
         $query = Invoice::invoice()
             ->with(['contact'])
             ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE))
-            ->when(
-                $processedInvoiceIds !== [],
-                static fn ($query) => $query->whereNotIn('id', $processedInvoiceIds)
-            );
+            ->whereNotExists(static function ($subQuery) use ($receiptTable): void {
+                $subQuery->selectRaw('1')
+                    ->from($receiptTable)
+                    ->whereColumn($receiptTable . '.invoice_id', 'documents.id');
+            });
 
         if ($search !== null) {
             $query = $query->where(function ($innerQuery) use ($search) {
