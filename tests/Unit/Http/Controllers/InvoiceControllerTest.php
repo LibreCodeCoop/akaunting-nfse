@@ -1778,6 +1778,38 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertTrue($payload['email_defaults']['attach_xml']);
         }
 
+        public function testServicePreviewUsesSavedAttachmentDefaults(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['nfse.email_attach_danfse_on_emit'] = '0';
+            ControllerIsolationState::$settings['nfse.email_attach_xml_on_emit'] = '1';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 12, amount: 50.0);
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return null;
+                }
+
+                protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
+                {
+                    return ['selected_service' => null, 'line_items' => [], 'missing_items' => [], 'requires_confirmation' => false, 'requires_split' => false];
+                }
+
+                protected function availableInvoiceServices(Invoice $invoice): array
+                {
+                    return [];
+                }
+            };
+
+            $response = $controller->servicePreview($invoice);
+            $payload = $response->getData(true);
+
+            self::assertFalse($payload['email_defaults']['attach_danfse']);
+            self::assertTrue($payload['email_defaults']['attach_xml']);
+        }
+
         public function testServicePreviewEmailDefaultsFallsBackWhenNoTemplate(): void
         {
             InvoiceControllerIsolationState::reset();
@@ -4485,6 +4517,82 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
 
             self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+        }
+
+        public function testHandlePostEmitEmailSavesTemplateSubjectAndBodyWhenFlagIsSet(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$savedCount = 0;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 60, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(60, 'CHAVE-60');
+
+            $template = new \App\Models\Setting\EmailTemplate();
+            $template->subject = 'Original subject';
+            $template->body    = 'Original body';
+            \App\Models\Setting\EmailTemplate::$stubInstance = $template;
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email'          => '1',
+                'nfse_email_to'            => 'cli@example.com',
+                'nfse_email_subject'       => 'Novo assunto',
+                'nfse_email_body'          => '<p>Novo corpo</p>',
+                'nfse_email_save_default'  => '1',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                {
+                    $this->handlePostEmitEmail($request, $invoice, $receipt);
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    // suppress actual notification
+                }
+            };
+
+            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+
+            self::assertSame('Novo assunto', $template->subject);
+            self::assertSame('<p>Novo corpo</p>', $template->body);
+
+            \App\Models\Setting\EmailTemplate::$stubInstance = null;
+        }
+
+        public function testHandlePostEmitEmailPersistsAttachmentDefaults(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$savedCount = 0;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 61, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(61, 'CHAVE-61');
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email' => '1',
+                'nfse_email_to' => 'cli@example.com',
+                'nfse_email_attach_danfse' => '0',
+                'nfse_email_attach_xml' => '1',
+                'nfse_email_save_default' => '0',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                {
+                    $this->handlePostEmitEmail($request, $invoice, $receipt);
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    // suppress actual notification
+                }
+            };
+
+            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.email_attach_danfse_on_emit'] ?? null);
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.email_attach_xml_on_emit'] ?? null);
             self::assertSame(1, ControllerIsolationState::$savedCount);
         }
 
