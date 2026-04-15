@@ -2782,6 +2782,8 @@ class InvoiceController extends Controller
         $sendEmail = (bool) (int) setting('nfse.send_email_on_emit', '0');
         $recipient = $this->contactStringField($invoice->contact, ['email']);
         $template  = null;
+        $attachDanfse = (bool) (int) setting('nfse.email_attach_danfse_on_emit', '1');
+        $attachXml = (bool) (int) setting('nfse.email_attach_xml_on_emit', '1');
 
         try {
             $template = \App\Models\Setting\EmailTemplate::alias('invoice_nfse_issued_customer')->first();
@@ -2794,8 +2796,8 @@ class InvoiceController extends Controller
             'recipient'     => $recipient,
             'subject'       => $template !== null ? (string) ($template->subject ?? '') : '',
             'body'          => $template !== null ? (string) ($template->body ?? '') : '',
-            'attach_danfse' => true,
-            'attach_xml'    => true,
+            'attach_danfse' => $attachDanfse,
+            'attach_xml'    => $attachXml,
         ];
     }
     protected function handlePostEmitEmail(?Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
@@ -2808,9 +2810,38 @@ class InvoiceController extends Controller
             return;
         }
 
-        if ($request->boolean('nfse_email_save_default', false)) {
-            setting(['nfse.send_email_on_emit' => '1']);
-            setting()->save();
+        $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
+        $attachXml    = $request->boolean('nfse_email_attach_xml', true);
+        $saveDefault  = $request->boolean('nfse_email_save_default', false);
+        $settingsToPersist = [
+            'nfse.email_attach_danfse_on_emit' => $attachDanfse ? '1' : '0',
+            'nfse.email_attach_xml_on_emit' => $attachXml ? '1' : '0',
+        ];
+
+        if ($saveDefault) {
+            $settingsToPersist['nfse.send_email_on_emit'] = '1';
+        }
+
+        setting($settingsToPersist);
+        setting()->save();
+
+        if ($saveDefault) {
+            $template = \App\Models\Setting\EmailTemplate::alias('invoice_nfse_issued_customer')->first();
+
+            if ($template) {
+                $subject = (string) $request->input('nfse_email_subject', '');
+                $body    = (string) $request->input('nfse_email_body', '');
+
+                if ($subject !== '') {
+                    $template->subject = $subject;
+                }
+
+                if ($body !== '') {
+                    $template->body = $body;
+                }
+
+                $template->save();
+            }
         }
 
         $recipient = trim((string) $request->input('nfse_email_to', ''));
@@ -2819,8 +2850,6 @@ class InvoiceController extends Controller
             return;
         }
 
-        $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
-        $attachXml    = $request->boolean('nfse_email_attach_xml', true);
         $customMail   = [
             'to'      => [['email' => $recipient]],
             'subject' => (string) $request->input('nfse_email_subject', ''),
