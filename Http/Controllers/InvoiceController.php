@@ -148,6 +148,7 @@ class InvoiceController extends Controller
         $defaultService = $this->resolveDefaultCompanyService($invoice);
         $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
+        $this->persistDefaultDescriptionFromRequest($request);
 
         if (($selection['requires_split'] ?? false) === true) {
             return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
@@ -504,6 +505,7 @@ class InvoiceController extends Controller
         $defaultService = $this->resolveDefaultCompanyService($invoice);
         $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
+        $this->persistDefaultDescriptionFromRequest($request);
 
         $receipt = $this->findReceiptForInvoice($invoice);
 
@@ -631,6 +633,12 @@ class InvoiceController extends Controller
             return $customDescription;
         }
 
+        $defaultDescription = $this->defaultEmitDescription();
+
+        if ($defaultDescription !== null) {
+            return $defaultDescription;
+        }
+
         if ($lineItems !== []) {
             return implode(' | ', $lineItems);
         }
@@ -638,6 +646,47 @@ class InvoiceController extends Controller
         return implode(' | ', $invoice->items->pluck('name')->toArray())
             ?: $invoice->description
             ?: trans('nfse::general.service_default');
+    }
+
+    protected function defaultEmitDescription(): ?string
+    {
+        $rawValue = setting('nfse.description_default_on_emit', '');
+
+        if (!is_string($rawValue)) {
+            return null;
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
+
+        return is_string($normalized) && $normalized !== '' ? $normalized : null;
+    }
+
+    protected function persistDefaultDescriptionFromRequest(?Request $request): void
+    {
+        if (!$request instanceof Request) {
+            return;
+        }
+
+        if (!$request->boolean('nfse_save_default_description', false)) {
+            return;
+        }
+
+        $rawValue = $request->input('nfse_discriminacao_custom', '');
+
+        if (!is_string($rawValue)) {
+            return;
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
+        $valueToPersist = is_string($normalized) ? $normalized : '';
+
+        setting(['nfse.description_default_on_emit' => $valueToPersist]);
+
+        $settings = setting();
+
+        if (is_object($settings) && is_callable([$settings, 'save'])) {
+            $settings->save();
+        }
     }
 
     protected function customDiscriminacaoFromRequest(?Request $request): ?string
