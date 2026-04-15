@@ -1924,7 +1924,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         public function testServicePreviewUsesSavedDefaultDescriptionWhenAvailable(): void
         {
             InvoiceControllerIsolationState::reset();
-            ControllerIsolationState::$settings['nfse.description_default_on_emit'] = 'Descricao padrao generica';
+            ControllerIsolationState::$settings['invoice.notes'] = 'Descricao padrao generica';
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 13,
@@ -2016,7 +2016,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->exposePersistDefaultDescriptionFromRequest($request);
 
-            self::assertSame('Nova descricao padrao da NFS-e', ControllerIsolationState::$settings['nfse.description_default_on_emit'] ?? null);
+            self::assertSame('Nova descricao padrao da NFS-e', ControllerIsolationState::$settings['invoice.notes'] ?? null);
             self::assertSame(1, ControllerIsolationState::$savedCount);
         }
 
@@ -2024,7 +2024,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             InvoiceControllerIsolationState::reset();
             ControllerIsolationState::$savedCount = 0;
-            ControllerIsolationState::$settings['nfse.description_default_on_emit'] = 'Descricao antiga';
+            ControllerIsolationState::$settings['invoice.notes'] = 'Descricao antiga';
 
             $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
                 'nfse_save_default_description' => '0',
@@ -2040,7 +2040,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->exposePersistDefaultDescriptionFromRequest($request);
 
-            self::assertSame('Descricao antiga', ControllerIsolationState::$settings['nfse.description_default_on_emit'] ?? null);
+            self::assertSame('Descricao antiga', ControllerIsolationState::$settings['invoice.notes'] ?? null);
             self::assertSame(0, ControllerIsolationState::$savedCount);
         }
 
