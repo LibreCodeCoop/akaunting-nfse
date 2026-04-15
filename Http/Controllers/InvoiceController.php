@@ -2900,7 +2900,7 @@ class InvoiceController extends Controller
         }
 
         $customMail   = [
-            'to'      => [['email' => $recipient]],
+            'to'      => $recipient,
             'subject' => (string) $request->input('nfse_email_subject', ''),
             'body'    => (string) $request->input('nfse_email_body', ''),
         ];
@@ -2910,11 +2910,20 @@ class InvoiceController extends Controller
 
     protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
     {
-        if ($invoice->contact === null) {
+        $notifiable = $invoice->contact;
+
+        if ($notifiable === null) {
+            if (empty($customMail['to'])) {
+                return;
+            }
+
+            \Illuminate\Support\Facades\Notification::route('mail', (string) $customMail['to'])
+                ->notify(new \Modules\Nfse\Notifications\NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
+
             return;
         }
 
-        $invoice->contact->notify(new \Modules\Nfse\Notifications\NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
+        $notifiable->notify(new \Modules\Nfse\Notifications\NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
     }
 
 }
