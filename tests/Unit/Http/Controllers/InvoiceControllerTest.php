@@ -315,6 +315,26 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('template', $view->data['artifacts']['danfse']['source'] ?? null);
         }
 
+        public function testShowPassesTranslatedReceiptStatusLabelToView(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 9051,
+                amount: 750.0,
+                items: [['name' => 'Implantacao']],
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(9051, 'CHAVE-9051', 'cancelled');
+
+            $controller = new class () extends InvoiceController {};
+
+            $view = $controller->show($invoice);
+
+            $label = (string) ($view->data['receiptStatusLabel'] ?? '');
+
+            self::assertNotSame('cancelled', $label);
+            self::assertNotSame('', $label);
+        }
+
         public function testDownloadArtifactRedirectsToShowWhenArtifactIsUnavailable(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
