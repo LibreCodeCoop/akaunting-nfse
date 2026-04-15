@@ -12,6 +12,7 @@ use App\Models\Document\Document as Invoice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use LibreCodeCoop\NfsePHP\Config\CertConfig;
 use LibreCodeCoop\NfsePHP\Config\EnvironmentConfig;
 use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
@@ -121,8 +122,47 @@ class InvoiceController extends Controller
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
         $suggestedDiscriminacao = $this->buildDiscriminacao($invoice);
         $emailDefaults = $this->servicePreviewEmailDefaults($invoice);
+        $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
 
-        return view('nfse::invoices.show', compact('invoice', 'receipt', 'suggestedDiscriminacao', 'emailDefaults'));
+        return view('nfse::invoices.show', compact('invoice', 'receipt', 'suggestedDiscriminacao', 'emailDefaults', 'artifacts'));
+    }
+
+    public function downloadArtifact(Invoice $invoice, string $artifact): Response|RedirectResponse
+    {
+        $this->ensureInvoiceRelationsLoaded($invoice);
+        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
+
+        if (!isset($artifacts[$artifact]) || !is_array($artifacts[$artifact])) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.artifact_invalid_type'));
+        }
+
+        $artifactData = $artifacts[$artifact];
+        $path = isset($artifactData['path']) && is_string($artifactData['path']) ? trim($artifactData['path']) : '';
+
+        if ($path === '' || !($artifactData['exists'] ?? false)) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.artifact_not_found'));
+        }
+
+        try {
+            $content = $this->makeWebDavClientFromSettings()->get($path);
+        } catch (\Throwable) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.artifact_not_found'));
+        }
+
+        $mimeType = $artifact === 'xml' ? 'application/xml' : 'application/pdf';
+        $extension = $artifact === 'xml' ? 'xml' : 'pdf';
+        $resolvedNfseNumber = trim((string) ($receipt->nfse_number ?? ''));
+        $suffix = $resolvedNfseNumber !== '' ? '-' . preg_replace('/[^a-zA-Z0-9_-]+/', '-', $resolvedNfseNumber) : '';
+        $fileName = 'nfse' . $suffix . '.' . $extension;
+
+        return response($content, 200, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
     }
 
     public function servicePreview(Invoice $invoice): JsonResponse
@@ -2603,6 +2643,113 @@ class InvoiceController extends Controller
         }
 
         return $this->isDanfseHttp496($throwable);
+    }
+
+    /**
+     * @return array{
+     *   danfse: array{path: ?string, exists: bool, source: ?string, download_url: ?string},
+     *   xml: array{path: ?string, exists: bool, source: ?string, download_url: ?string}
+     * }
+     */
+    protected function resolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
+    {
+        $receiptData = $this->receiptDataFromModel($receipt);
+        $basePath = $this->buildWebDavArtifactBasePath($invoice, $receiptData);
+
+        return [
+            'danfse' => $this->resolveSingleReceiptArtifact($invoice, $receipt, $receiptData, $basePath, 'danfse', 'danfse_webdav_path', 'pdf'),
+            'xml' => $this->resolveSingleReceiptArtifact($invoice, $receipt, $receiptData, $basePath, 'xml', 'xml_webdav_path', 'xml'),
+        ];
+    }
+
+    /**
+     * @return array{path: ?string, exists: bool, source: ?string, download_url: ?string}
+     */
+    protected function resolveSingleReceiptArtifact(
+        Invoice $invoice,
+        NfseReceipt $receipt,
+        ReceiptData $receiptData,
+        string $basePath,
+        string $artifact,
+        string $pathField,
+        string $extension,
+    ): array {
+        $path = trim((string) ($receipt->{$pathField} ?? ''));
+        $source = $path !== '' ? 'persisted' : null;
+
+        if ($path === '' && $this->webDavEnabled() && $this->artifactStorageEnabledByExtension($extension)) {
+            $candidate = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receiptData, $extension);
+            $candidate = trim($candidate);
+
+            if ($candidate !== '') {
+                $path = $candidate;
+                $source = 'template';
+            }
+        }
+
+        if ($path === '') {
+            return [
+                'path' => null,
+                'exists' => false,
+                'source' => null,
+                'download_url' => null,
+            ];
+        }
+
+        $exists = $this->webDavEnabled() ? $this->webDavPathExists($path) : false;
+
+        $downloadUrl = null;
+
+        if ($exists && function_exists('route')) {
+            try {
+                $downloadUrl = route('nfse.invoices.artifacts.download', ['invoice' => $invoice->id, 'artifact' => $artifact]);
+            } catch (\Throwable) {
+                $downloadUrl = null;
+            }
+        }
+
+        return [
+            'path' => $path,
+            'exists' => $exists,
+            'source' => $source,
+            'download_url' => $downloadUrl,
+        ];
+    }
+
+    protected function receiptDataFromModel(NfseReceipt $receipt): ReceiptData
+    {
+        $issueDate = $receipt->data_emissao ?? null;
+        $issueDateString = '';
+
+        if ($issueDate instanceof \DateTimeInterface) {
+            $issueDateString = $issueDate->format(DATE_ATOM);
+        } elseif (is_string($issueDate)) {
+            $issueDateString = trim($issueDate);
+        }
+
+        return new ReceiptData(
+            nfseNumber: (string) ($receipt->nfse_number ?? ''),
+            chaveAcesso: (string) ($receipt->chave_acesso ?? ''),
+            dataEmissao: $issueDateString,
+            codigoVerificacao: (string) ($receipt->codigo_verificacao ?? ''),
+            rawXml: null,
+        );
+    }
+
+    protected function artifactStorageEnabledByExtension(string $extension): bool
+    {
+        return $extension === 'xml'
+            ? $this->webDavStoreXmlEnabled()
+            : $this->webDavStorePdfEnabled();
+    }
+
+    protected function webDavPathExists(string $path): bool
+    {
+        try {
+            return $this->makeWebDavClientFromSettings()->exists($path);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     protected function webDavEnabled(): bool
