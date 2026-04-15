@@ -288,6 +288,83 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertSame('custom@example.com', $notifiable->email);
         }
 
+        public function testViaReturnsMailOnlyWhenCustomRecipientProvided(): void
+        {
+            $notification = new NfseIssued(
+                $this->makeInvoice(),
+                $this->makeReceipt(),
+                true,
+                true,
+                ['to' => 'custom@example.com']
+            );
+
+            $channels = $notification->via(new class () {
+                public string $email = '';
+            });
+
+            self::assertSame(['mail'], $channels);
+        }
+
+        public function testGetSubjectReplacesPlaceholdersWhenCustomSubjectProvided(): void
+        {
+            $this->makeTemplate();
+
+            $notification = new NfseIssued(
+                $this->makeInvoice('INV-777', 'Cliente XPTO'),
+                $this->makeReceipt('778899'),
+                true,
+                true,
+                ['subject' => 'NFS-e {nfse_number} para {customer_name}']
+            );
+
+            self::assertSame('NFS-e 778899 para Cliente XPTO', $notification->getSubject());
+        }
+
+        public function testGetBodyReplacesPlaceholdersWhenCustomBodyProvided(): void
+        {
+            $this->makeTemplate();
+
+            $notification = new NfseIssued(
+                $this->makeInvoice('INV-123', 'Cliente ABC'),
+                $this->makeReceipt('12345'),
+                true,
+                true,
+                ['body' => 'Documento {invoice_number} / NFS-e {nfse_number} para {customer_name}']
+            );
+
+            $body = (string) $notification->getBody();
+
+            self::assertStringContainsString('Documento INV-123 / NFS-e 12345 para Cliente ABC', $body);
+            self::assertStringNotContainsString('{invoice_number}', $body);
+            self::assertStringNotContainsString('{nfse_number}', $body);
+            self::assertStringNotContainsString('{customer_name}', $body);
+        }
+
+        public function testToMailNormalizesLegacyArrayRecipientPayload(): void
+        {
+            $this->makeTemplate();
+
+            $notification = new class ($this->makeInvoice(), $this->makeReceipt(), true, true, ['to' => [['email' => 'legacy@example.com']]]) extends NfseIssued {
+                protected function makeWebDavClient(): WebDavClient
+                {
+                    return new WebDavClient('http://nowhere', request: static fn (): array => [200, '']);
+                }
+
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $notifiable = new class () {
+                public string $email = '';
+            };
+
+            $notification->toMail($notifiable);
+
+            self::assertSame('legacy@example.com', $notifiable->email);
+        }
+
         public function testToMailAttachesDanfseWhenAttachDanfseTrueAndPathSet(): void
         {
             $this->makeTemplate();

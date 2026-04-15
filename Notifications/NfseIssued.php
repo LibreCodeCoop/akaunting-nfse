@@ -19,6 +19,19 @@ class NfseIssued extends Notification
 {
     public $template = null;
 
+    /**
+     * @param  mixed  $notifiable
+     * @return array<int, string>
+     */
+    public function via($notifiable): array
+    {
+        if (!empty($this->custom_mail['to'])) {
+            return ['mail'];
+        }
+
+        return parent::via($notifiable);
+    }
+
     public function __construct(
         public readonly Invoice $invoice,
         public readonly NfseReceipt $receipt,
@@ -30,6 +43,40 @@ class NfseIssued extends Notification
 
         $this->ensureTemplateLoaded();
         $this->custom_mail = $custom_mail;
+    }
+
+    public function getSubject(): string
+    {
+        $customSubject = $this->custom_mail['subject'] ?? null;
+
+        if (is_string($customSubject) && trim($customSubject) !== '') {
+            return $this->replaceNotificationPlaceholders($customSubject);
+        }
+
+        $templateSubject = (string) ($this->template?->subject ?? '');
+
+        return $this->replaceNotificationPlaceholders($templateSubject);
+    }
+
+    public function getBody()
+    {
+        $customBody = $this->custom_mail['body'] ?? null;
+
+        if (is_string($customBody) && trim($customBody) !== '') {
+            $footer = method_exists($this, 'getFooter') ? $this->getFooter() : '';
+
+            return $this->replaceNotificationPlaceholders($customBody) . $footer;
+        }
+
+        $templateBody = (string) ($this->template?->body ?? '');
+        $footer = method_exists($this, 'getFooter') ? $this->getFooter() : '';
+
+        return $this->replaceNotificationPlaceholders($templateBody) . $footer;
+    }
+
+    protected function replaceNotificationPlaceholders(string $content): string
+    {
+        return str_replace($this->getTags(), $this->getTagsReplacement(), $content);
     }
 
     /**
@@ -204,14 +251,73 @@ class NfseIssued extends Notification
     {
         $this->ensureTemplateLoaded();
 
-        if (!empty($this->custom_mail['to'])) {
-            $notifiable->email = $this->custom_mail['to'];
+        $recipientEmail = $this->resolveCustomRecipientEmail();
+
+        if ($recipientEmail !== null) {
+            $notifiable->email = $recipientEmail;
         }
 
         $message = $this->initMailMessage();
         $this->attachArtifacts($message);
 
         return $message;
+    }
+
+    protected function resolveCustomRecipientEmail(): ?string
+    {
+        $rawRecipient = $this->custom_mail['to'] ?? null;
+
+        if (is_string($rawRecipient)) {
+            $normalized = trim($rawRecipient);
+
+            return $normalized !== '' ? $normalized : null;
+        }
+
+        if (is_object($rawRecipient) && isset($rawRecipient->email)) {
+            $normalized = trim((string) $rawRecipient->email);
+
+            return $normalized !== '' ? $normalized : null;
+        }
+
+        if (is_array($rawRecipient)) {
+            if (isset($rawRecipient['email']) && is_string($rawRecipient['email'])) {
+                $normalized = trim($rawRecipient['email']);
+
+                return $normalized !== '' ? $normalized : null;
+            }
+
+            foreach ($rawRecipient as $item) {
+                if (is_string($item)) {
+                    $normalized = trim($item);
+
+                    if ($normalized !== '') {
+                        return $normalized;
+                    }
+
+                    continue;
+                }
+
+                if (is_object($item) && isset($item->email)) {
+                    $normalized = trim((string) $item->email);
+
+                    if ($normalized !== '') {
+                        return $normalized;
+                    }
+
+                    continue;
+                }
+
+                if (is_array($item) && isset($item['email']) && is_string($item['email'])) {
+                    $normalized = trim($item['email']);
+
+                    if ($normalized !== '') {
+                        return $normalized;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     protected function ensureTemplateLoaded(): void
