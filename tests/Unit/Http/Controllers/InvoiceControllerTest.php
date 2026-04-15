@@ -2044,6 +2044,22 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(0, ControllerIsolationState::$savedCount);
         }
 
+        public function testReemitDetailsViewContainsSaveDefaultDescriptionField(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/views/invoices/show.blade.php');
+
+            self::assertStringContainsString('name="nfse_save_default_description"', $content);
+            self::assertStringContainsString('id="reemit-description-save-default-hidden"', $content);
+            self::assertStringContainsString('id="reemit-save-description-default-checkbox"', $content);
+        }
+
+        public function testReemitDetailsViewSerializesSaveDefaultDescriptionOnConfirm(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/views/invoices/show.blade.php');
+
+            self::assertStringContainsString('reemitDescriptionSaveDefaultHidden.value = reemitSaveDescriptionDefaultCheckbox.checked ? \'1\' : \'0\';', $content);
+        }
+
         public function testNationalTaxCodeFallsBackToSettingWhenDefaultServiceCodeIsMissing(): void
         {
             $controller = new class () extends InvoiceController {
