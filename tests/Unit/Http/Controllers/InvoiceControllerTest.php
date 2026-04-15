@@ -268,8 +268,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 items: [['name' => 'Consultoria'], ['name' => 'Suporte']],
             );
 
-            $receipt = InvoiceControllerIsolationState::makeReceipt(904, 'CHAVE-904', 'cancelled');
-            NfseReceipt::$records[] = $receipt;
+            InvoiceControllerIsolationState::makeReceipt(904, 'CHAVE-904', 'cancelled');
 
             $controller = new class () extends InvoiceController {};
 
@@ -277,6 +276,80 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('nfse::invoices.show', $view->name);
             self::assertSame('Consultoria | Suporte', $view->data['suggestedDiscriminacao'] ?? null);
+        }
+
+        public function testShowIncludesResolvedArtifactsInViewData(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 905,
+                amount: 750.0,
+                items: [['name' => 'Implantacao']],
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(905, 'CHAVE-905', 'emitted');
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
+                {
+                    return [
+                        'danfse' => [
+                            'path' => 'nfse/2026/04/15/CHAVE-905.pdf',
+                            'exists' => true,
+                            'source' => 'template',
+                            'download_url' => '/fake/danfse',
+                        ],
+                        'xml' => [
+                            'path' => 'nfse/2026/04/15/CHAVE-905.xml',
+                            'exists' => false,
+                            'source' => 'persisted',
+                            'download_url' => null,
+                        ],
+                    ];
+                }
+            };
+
+            $view = $controller->show($invoice);
+
+            self::assertSame('/fake/danfse', $view->data['artifacts']['danfse']['download_url'] ?? null);
+            self::assertFalse((bool) ($view->data['artifacts']['xml']['exists'] ?? true));
+            self::assertSame('template', $view->data['artifacts']['danfse']['source'] ?? null);
+        }
+
+        public function testDownloadArtifactRedirectsToShowWhenArtifactIsUnavailable(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 906,
+                amount: 120.0,
+                items: [['name' => 'Servico']],
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(906, 'CHAVE-906', 'emitted');
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
+                {
+                    return [
+                        'danfse' => [
+                            'path' => null,
+                            'exists' => false,
+                            'source' => null,
+                            'download_url' => null,
+                        ],
+                        'xml' => [
+                            'path' => null,
+                            'exists' => false,
+                            'source' => null,
+                            'download_url' => null,
+                        ],
+                    ];
+                }
+            };
+
+            $response = $controller->downloadArtifact($invoice, 'danfse');
+
+            self::assertSame('route', $response->target ?? null);
+            self::assertSame('nfse.invoices.show', $response->route ?? null);
+            self::assertSame([$invoice], $response->parameters ?? null);
         }
 
         public function testStoreArtifactsPersistsXmlEvenWhenDanfseFails(): void
