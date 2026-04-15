@@ -115,6 +115,7 @@ return [
         'emit_modal_email_attach_danfse' => 'Attach DANFSE (PDF)',
         'emit_modal_email_attach_xml' => 'Attach XML',
         'emit_modal_email_save_default' => 'Save this send-email choice as default',
+        'emit_modal_description_save_default' => 'Save this description as default',
         'emit_modal_missing_items_hint' => 'Some items still need a linked fiscal service before issuance.',
         'default_service_confirmation_required' => 'There are items without a linked service. Review and confirm using the default service before issuing NFS-e.',
         'mixed_service_tax_profiles_not_supported' => 'This invoice has items linked to services with different municipal taxation profiles. Issue separate NFS-e documents per service/ISS profile.',
