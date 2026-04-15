@@ -51,6 +51,52 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         </div>
 
+        <div class="bg-white rounded border p-4 mb-4">
+            <h2 class="font-semibold mb-3">{{ trans('nfse::general.invoices.artifacts_title') }}</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                @foreach(['danfse' => 'pdf', 'xml' => 'xml'] as $artifactKey => $artifactExtension)
+                    @php($artifactData = is_array($artifacts[$artifactKey] ?? null) ? $artifacts[$artifactKey] : ['path' => null, 'exists' => false, 'source' => null, 'download_url' => null])
+                    <div class="rounded border border-gray-200 p-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <h3 class="font-medium text-gray-800">
+                                {{ $artifactKey === 'danfse' ? trans('nfse::general.invoices.artifact_danfse_label') : trans('nfse::general.invoices.artifact_xml_label') }}
+                            </h3>
+                            @if(($artifactData['exists'] ?? false) === true && is_string($artifactData['download_url'] ?? null) && ($artifactData['download_url'] ?? '') !== '')
+                                <a href="{{ $artifactData['download_url'] }}" class="inline-flex items-center rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
+                                    {{ trans('nfse::general.invoices.artifact_download') }}
+                                </a>
+                            @else
+                                <span class="inline-flex items-center rounded bg-gray-100 px-2 py-1 text-xs text-gray-600">{{ trans('nfse::general.invoices.artifact_missing') }}</span>
+                            @endif
+                        </div>
+
+                        <dl class="mt-2 grid grid-cols-1 gap-1 text-xs">
+                            <div>
+                                <dt class="text-gray-500">{{ trans('nfse::general.invoices.artifact_status') }}</dt>
+                                <dd class="text-gray-800">{{ ($artifactData['exists'] ?? false) === true ? trans('nfse::general.invoices.artifact_status_available') : trans('nfse::general.invoices.artifact_status_not_found') }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-gray-500">{{ trans('nfse::general.invoices.artifact_source') }}</dt>
+                                <dd class="text-gray-800">
+                                    @if(($artifactData['source'] ?? null) === 'persisted')
+                                        {{ trans('nfse::general.invoices.artifact_source_persisted') }}
+                                    @elseif(($artifactData['source'] ?? null) === 'template')
+                                        {{ trans('nfse::general.invoices.artifact_source_template') }}
+                                    @else
+                                        {{ trans('nfse::general.invoices.artifact_source_unresolved') }}
+                                    @endif
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-gray-500">{{ trans('nfse::general.invoices.artifact_path') }}</dt>
+                                <dd class="break-all text-gray-800">{{ $artifactData['path'] ?? '—' }}</dd>
+                            </div>
+                        </dl>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('nfse.invoices.index') }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
                 {{ trans('nfse::general.invoices.back_to_list') }}
