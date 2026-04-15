@@ -17,6 +17,8 @@ use Modules\Nfse\Support\WebDavClient;
 
 class NfseIssued extends Notification
 {
+    public $template = null;
+
     public function __construct(
         public readonly Invoice $invoice,
         public readonly NfseReceipt $receipt,
@@ -26,7 +28,7 @@ class NfseIssued extends Notification
     ) {
         parent::__construct();
 
-        $this->template = EmailTemplate::alias('invoice_nfse_issued_customer')->first();
+        $this->ensureTemplateLoaded();
         $this->custom_mail = $custom_mail;
     }
 
@@ -200,6 +202,8 @@ class NfseIssued extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
+        $this->ensureTemplateLoaded();
+
         if (!empty($this->custom_mail['to'])) {
             $notifiable->email = $this->custom_mail['to'];
         }
@@ -208,6 +212,27 @@ class NfseIssued extends Notification
         $this->attachArtifacts($message);
 
         return $message;
+    }
+
+    protected function ensureTemplateLoaded(): void
+    {
+        if ($this->template instanceof EmailTemplate) {
+            return;
+        }
+
+        $template = EmailTemplate::alias('invoice_nfse_issued_customer')->first();
+
+        if ($template instanceof EmailTemplate) {
+            $this->template = $template;
+
+            return;
+        }
+
+        $fallbackTemplate = new EmailTemplate();
+        $fallbackTemplate->alias = 'invoice_nfse_issued_customer';
+        $fallbackTemplate->subject = '';
+        $fallbackTemplate->body = '';
+        $this->template = $fallbackTemplate;
     }
 
     /**
