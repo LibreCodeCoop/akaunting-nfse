@@ -3040,11 +3040,19 @@ class InvoiceController extends Controller
             return;
         }
 
-        $customMail   = [
+        $customMail = [
             'to'      => $recipient,
             'subject' => (string) $request->input('nfse_email_subject', ''),
             'body'    => (string) $request->input('nfse_email_body', ''),
         ];
+
+        if ($request->boolean('nfse_email_copy_to_self', false) && function_exists('user')) {
+            $selfEmail = (string) (user()?->email ?? '');
+
+            if ($selfEmail !== '') {
+                $customMail['bcc'] = $selfEmail;
+            }
+        }
 
         $this->sendNfseIssuedNotification($invoice, $receipt, $attachDanfse, $attachXml, $customMail);
     }
