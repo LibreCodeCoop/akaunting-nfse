@@ -25,6 +25,20 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
+    private function issueViewContent(): string
+    {
+        return (string) file_get_contents(
+            dirname(__DIR__, 5) . '/Resources/views/modals/invoices/issue.blade.php'
+        );
+    }
+
+    private function issueSwitchPartialContent(): string
+    {
+        return (string) file_get_contents(
+            dirname(__DIR__, 5) . '/Resources/views/modals/invoices/partials/switch.blade.php'
+        );
+    }
+
     private function routesContent(): string
     {
         return (string) file_get_contents(
@@ -97,6 +111,42 @@ final class InvoiceEmailsTest extends TestCase
     {
         self::assertStringContainsString(
             'NfseIssued',
+            $this->controllerContent()
+        );
+    }
+
+    public function testControllerMirrorsCoreSalesInvoicePermissions(): void
+    {
+        self::assertStringContainsString(
+            "permission:create-sales-invoices",
+            $this->controllerContent()
+        );
+        self::assertStringContainsString(
+            "permission:read-sales-invoices",
+            $this->controllerContent()
+        );
+        self::assertStringContainsString(
+            "permission:update-sales-invoices",
+            $this->controllerContent()
+        );
+        self::assertStringContainsString(
+            "permission:delete-sales-invoices",
+            $this->controllerContent()
+        );
+    }
+
+    public function testControllerCreateUsesDecisionFlowForIssueOrEmailModal(): void
+    {
+        self::assertStringContainsString(
+            'isEmitted',
+            $this->controllerContent()
+        );
+        self::assertStringContainsString(
+            "nfse::modals.invoices.issue",
+            $this->controllerContent()
+        );
+        self::assertStringContainsString(
+            'issuePreviewData',
             $this->controllerContent()
         );
     }
@@ -174,6 +224,62 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString('id="attachments"', $view);
     }
 
+    public function testIssueViewPostsToEmitOrReemitFlowWithCustomEmailFields(): void
+    {
+        $view = $this->issueViewContent();
+
+        self::assertStringContainsString('nfse_discriminacao_custom', $view);
+        self::assertStringContainsString('nfse_send_email', $view);
+        self::assertStringContainsString('nfse_email_to', $view);
+        self::assertStringContainsString('nfse_email_subject', $view);
+        self::assertStringContainsString('nfse_email_body', $view);
+        self::assertStringContainsString('nfse_email_attach_invoice_pdf', $view);
+        self::assertStringContainsString('nfse_email_attach_danfse', $view);
+        self::assertStringContainsString('nfse_email_attach_xml', $view);
+        self::assertStringContainsString('nfse_email_copy_to_self', $view);
+        self::assertStringContainsString('nfse_email_save_default', $view);
+        self::assertStringContainsString('x-form.group.contact', $view);
+        self::assertStringContainsString("'key' => 'email'", $view);
+        self::assertStringContainsString("'value' => 'email'", $view);
+    }
+
+    public function testInvoiceControllerNormalizesRecipientForEmitEmailModalPayloads(): void
+    {
+        $invoiceController = (string) file_get_contents(
+            dirname(__DIR__, 5) . '/Http/Controllers/InvoiceController.php'
+        );
+
+        self::assertStringContainsString('normalizePostEmitRecipient', $invoiceController);
+        self::assertStringContainsString("request->input('nfse_email_to')", $invoiceController);
+    }
+
+    public function testIssueViewUsesTabbedWizardLikeLayout(): void
+    {
+        $view = $this->issueViewContent();
+
+        self::assertStringContainsString('x-tabs', $view);
+        self::assertStringContainsString('id="issuance"', $view);
+        self::assertStringContainsString('id="email"', $view);
+        self::assertStringContainsString('id="attachments"', $view);
+    }
+
+    public function testIssueViewUsesSwitchTogglesInsteadOfPlainCheckboxRows(): void
+    {
+        $view = $this->issueViewContent();
+        $partial = $this->issueSwitchPartialContent();
+
+        self::assertStringContainsString("@include('nfse::modals.invoices.partials.switch'", $view);
+        self::assertStringContainsString("'name' => 'nfse_send_email'", $view);
+        self::assertStringContainsString('data-toggle="track"', $partial);
+        self::assertStringContainsString('data-toggle="thumb"', $partial);
+        self::assertStringContainsString('data-nfse-switch', $partial);
+        self::assertStringContainsString('class="peer sr-only"', $partial);
+        self::assertStringContainsString("track.style.backgroundColor = cb.checked ? '#5e9f4d' : '#dbe8d4'", $partial);
+        self::assertStringContainsString("thumb.style.left = cb.checked ? '1.5rem' : '0.25rem'", $partial);
+        self::assertStringContainsString('name="{{ $switchName }}" value="0"', $partial);
+        self::assertStringContainsString('name="{{ $switchName }}"', $partial);
+    }
+
     // --- Routes ---
 
     public function testCreateRouteRegisteredForNfseEmailModal(): void
@@ -182,11 +288,6 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString(
             "modals.invoices.emails.create",
             $this->routesContent()
-        );
-        // Full runtime name 'nfse.modals.invoices.emails.create' is referenced in controller + SP.
-        self::assertStringContainsString(
-            "nfse.modals.invoices.emails.create",
-            $this->controllerContent() . $this->serviceProviderContent()
         );
     }
 
@@ -204,15 +305,15 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
-    // --- ServiceProvider config override ---
+    // --- ServiceProvider safety ---
 
-    public function testServiceProviderOverridesEmailRouteInTypeConfig(): void
+    public function testServiceProviderDoesNotOverrideCoreInvoiceEmailRouteGlobally(): void
     {
-        self::assertStringContainsString(
+        self::assertStringNotContainsString(
             "type.document.invoice.route.emails.create",
             $this->serviceProviderContent()
         );
-        self::assertStringContainsString(
+        self::assertStringNotContainsString(
             "nfse.modals.invoices.emails.create",
             $this->serviceProviderContent()
         );
