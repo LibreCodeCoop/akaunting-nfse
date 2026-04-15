@@ -734,13 +734,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         @endif
 
         <div id="nfse-emit-modal" class="fixed inset-0 z-[100] hidden" aria-hidden="true" data-default-confirm-label="{{ trans('nfse::general.invoices.emit_now') }}">
-            <div class="absolute inset-0 bg-slate-500/55 backdrop-blur-[1px] backdrop-brightness-75" data-emit-close="true" onclick="const modal = document.getElementById('nfse-emit-modal'); const items = document.getElementById('nfse-emit-missing-items'); const hint = document.getElementById('nfse-emit-missing-items-hint'); const description = document.getElementById('nfse_emit_description'); const confirm = document.getElementById('nfse-emit-confirm-button'); if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (items) { items.innerHTML = ''; } if (hint) { hint.classList.add('hidden'); } if (description) { description.value = ''; } if (confirm && modal?.dataset.defaultConfirmLabel) { confirm.textContent = modal.dataset.defaultConfirmLabel; } return false;"></div>
+            <div class="absolute inset-0 bg-slate-500/55 backdrop-blur-[1px] backdrop-brightness-75" data-emit-close="true"></div>
 
             <div class="relative flex min-h-full items-center justify-center overflow-y-auto p-4">
                 <div class="w-full max-w-2xl rounded-lg bg-white shadow-xl">
                     <div class="flex items-center justify-between border-b px-5 py-4">
                         <h3 id="nfse-emit-modal-title" class="text-lg font-semibold text-gray-800">{{ trans('nfse::general.invoices.emit_modal_title') }}</h3>
-                        <button type="button" class="text-gray-500 hover:text-gray-700" data-emit-close="true" onclick="const modal = document.getElementById('nfse-emit-modal'); const items = document.getElementById('nfse-emit-missing-items'); const hint = document.getElementById('nfse-emit-missing-items-hint'); const description = document.getElementById('nfse_emit_description'); const confirm = document.getElementById('nfse-emit-confirm-button'); if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (items) { items.innerHTML = ''; } if (hint) { hint.classList.add('hidden'); } if (description) { description.value = ''; } if (confirm && modal?.dataset.defaultConfirmLabel) { confirm.textContent = modal.dataset.defaultConfirmLabel; } return false;">{{ trans('nfse::general.invoices.cancel_modal_close') }}</button>
+                        <button type="button" class="text-gray-500 hover:text-gray-700" data-emit-close="true">{{ trans('nfse::general.invoices.cancel_modal_close') }}</button>
                     </div>
 
                     <div class="p-5 space-y-4">
@@ -836,11 +836,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </div>
 
                     <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
-                        <button type="button" class="inline-flex items-center px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100" data-emit-close="true" onclick="const modal = document.getElementById('nfse-emit-modal'); const items = document.getElementById('nfse-emit-missing-items'); const hint = document.getElementById('nfse-emit-missing-items-hint'); const description = document.getElementById('nfse_emit_description'); const confirm = document.getElementById('nfse-emit-confirm-button'); if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (items) { items.innerHTML = ''; } if (hint) { hint.classList.add('hidden'); } if (description) { description.value = ''; } if (confirm && modal?.dataset.defaultConfirmLabel) { confirm.textContent = modal.dataset.defaultConfirmLabel; } return false;">
+                        <button type="button" class="inline-flex items-center px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100" data-emit-close="true">
                             {{ trans('general.cancel') }}
                         </button>
-                        <button type="button" id="nfse-emit-confirm-button" class="inline-flex items-center px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700" onclick="const modal = document.getElementById('nfse-emit-modal'); const formId = modal?.dataset.currentFormId || ''; const form = formId ? document.getElementById(formId) : null; const descriptionField = document.getElementById('nfse_emit_description'); const saveDescriptionDefaultField = document.getElementById('nfse_emit_save_description_default'); const sendEmailToggle = document.getElementById('nfse_emit_send_email'); const emailToField = document.getElementById('nfse_emit_email_to'); const emailSubjectField = document.getElementById('nfse_emit_email_subject'); const emailBodyField = document.getElementById('nfse_emit_email_body'); const attachDanfseField = document.getElementById('nfse_emit_attach_danfse'); const attachXmlField = document.getElementById('nfse_emit_attach_xml'); const saveDefaultField = document.getElementById('nfse_emit_save_default'); const itemsContainer = document.getElementById('nfse-emit-missing-items'); const confirmInput = form?.querySelector('[data-emit-confirm-default]'); const assignmentsInput = form?.querySelector('[data-emit-assignments]'); const descriptionInput = form?.querySelector('[data-emit-description-input]'); const saveDescriptionDefaultInput = form?.querySelector('[data-emit-description-save-default-input]'); const sendEmailInput = form?.querySelector('[data-emit-email-send-input]'); const emailToInput = form?.querySelector('[data-emit-email-to-input]'); const emailSubjectInput = form?.querySelector('[data-emit-email-subject-input]'); const emailBodyInput = form?.querySelector('[data-emit-email-body-input]'); const attachDanfseInput = form?.querySelector('[data-emit-email-attach-danfse-input]'); const attachXmlInput = form?.querySelector('[data-emit-email-attach-xml-input]'); const saveDefaultInput = form?.querySelector('[data-emit-email-save-default-input]'); if (!form || !confirmInput || !assignmentsInput || !descriptionInput) { return false; } const assignments = {}; itemsContainer?.querySelectorAll('select[data-item-id]').forEach((select) => { const itemId = select.getAttribute('data-item-id'); const serviceId = select.value; if (itemId && serviceId) { assignments[itemId] = serviceId; } }); confirmInput.value = '1'; assignmentsInput.value = JSON.stringify(assignments); descriptionInput.value = descriptionField?.value || ''; if (saveDescriptionDefaultInput) { saveDescriptionDefaultInput.value = saveDescriptionDefaultField?.checked ? '1' : '0'; } if (sendEmailInput) { sendEmailInput.value = sendEmailToggle?.checked ? '1' : '0'; } if (emailToInput) { emailToInput.value = emailToField?.value || ''; } if (emailSubjectInput) { emailSubjectInput.value = emailSubjectField?.value || ''; } if (emailBodyInput) { emailBodyInput.value = emailBodyField?.value || ''; } if (attachDanfseInput) { attachDanfseInput.value = attachDanfseField?.checked ? '1' : '0'; } if (attachXmlInput) { attachXmlInput.value = attachXmlField?.checked ? '1' : '0'; } if (saveDefaultInput) { saveDefaultInput.value = saveDefaultField?.checked ? '1' : '0'; } form.dataset.emitConfirmed = '1'; if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); modal.dataset.currentFormId = ''; document.body.classList.remove('overflow-hidden'); } if (itemsContainer) { itemsContainer.innerHTML = ''; } document.getElementById('nfse-emit-missing-items-hint')?.classList.add('hidden'); form.submit(); return false;">
-                            {{ trans('nfse::general.invoices.emit_now') }}
+                        <button type="button" id="nfse-emit-confirm-button" class="inline-flex items-center px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700" data-default-label="{{ trans('nfse::general.invoices.emit_now') }}" data-loading-label="{{ trans('nfse::general.invoices.emit_modal_submitting') }}" aria-busy="false" onclick="return window.nfseConfirmEmit?.() ?? false;">
+                            <svg id="emit-submit-spinner" class="mr-2 hidden h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                            <span id="emit-submit-label">{{ trans('nfse::general.invoices.emit_now') }}</span>
                         </button>
                     </div>
                 </div>
@@ -1049,8 +1053,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const emitModalAttachXmlInput = document.getElementById('nfse_emit_attach_xml');
                 const emitModalSaveDefaultInput = document.getElementById('nfse_emit_save_default');
                 const emitModalSaveDescriptionDefaultInput = document.getElementById('nfse_emit_save_description_default');
+                const emitSubmitSpinner = document.getElementById('emit-submit-spinner');
+                const emitSubmitLabel = document.getElementById('emit-submit-label');
                 const emitModalDefaultConfirmLabel = @json((string) trans('nfse::general.invoices.emit_now'));
+                const emitModalLoadingConfirmLabel = @json((string) trans('nfse::general.invoices.emit_modal_submitting'));
                 let currentEmitForm = null;
+                let emitSubmitting = false;
+
+                const setEmitSubmittingState = (submitting) => {
+                    emitSubmitting = submitting;
+
+                    if (emitModal) {
+                        emitModal.dataset.submitting = submitting ? '1' : '0';
+                    }
+
+                    if (!emitModalConfirmButton || !emitSubmitLabel || !emitSubmitSpinner) {
+                        return;
+                    }
+
+                    emitModalConfirmButton.disabled = submitting;
+                    emitModalConfirmButton.setAttribute('aria-disabled', submitting ? 'true' : 'false');
+                    emitModalConfirmButton.setAttribute('aria-busy', submitting ? 'true' : 'false');
+
+                    if (submitting) {
+                        emitModalConfirmButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                        emitModalConfirmButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+                        emitSubmitSpinner.classList.remove('hidden');
+                        emitSubmitLabel.textContent = emitModalLoadingConfirmLabel;
+
+                        return;
+                    }
+
+                    emitModalConfirmButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                    emitModalConfirmButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    emitSubmitSpinner.classList.add('hidden');
+                    emitSubmitLabel.textContent = emitModalDefaultConfirmLabel;
+                };
 
                 const refreshEmitEmailSection = () => {
                     if (emitModalEmailFields && emitModalSendEmailInput) {
@@ -1113,6 +1151,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         return;
                     }
 
+                    if (emitModal.dataset.submitting === '1') {
+                        return;
+                    }
+
                     emitModal.classList.add('hidden');
                     emitModal.setAttribute('aria-hidden', 'true');
                     document.body.classList.remove('overflow-hidden');
@@ -1140,7 +1182,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     });
 
                     if (emitModalConfirmButton) {
-                        emitModalConfirmButton.textContent = emitModalDefaultConfirmLabel;
+                        setEmitSubmittingState(false);
                     }
                 };
 
@@ -1149,8 +1191,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         return;
                     }
 
-                    if (emitModalConfirmButton) {
-                        emitModalConfirmButton.textContent = confirmLabel || emitModalDefaultConfirmLabel;
+                    setEmitSubmittingState(false);
+
+                    if (emitSubmitLabel) {
+                        emitSubmitLabel.textContent = confirmLabel || emitModalDefaultConfirmLabel;
                     }
 
                     if (emitModalDescriptionInput) {
@@ -1265,6 +1309,94 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 emitModal?.querySelectorAll('[data-emit-close="true"]').forEach((button) => {
                     button.addEventListener('click', closeEmitModal);
                 });
+
+                window.nfseConfirmEmit = () => {
+                    const form = currentEmitForm;
+                    const descriptionField = emitModalDescriptionInput;
+                    const saveDescriptionDefaultField = emitModalSaveDescriptionDefaultInput;
+                    const sendEmailToggle = emitModalSendEmailInput;
+                    const emailToField = emitModalEmailToInput;
+                    const emailSubjectField = emitModalEmailSubjectInput;
+                    const emailBodyField = emitModalEmailBodyInput;
+                    const attachDanfseField = emitModalAttachDanfseInput;
+                    const attachXmlField = emitModalAttachXmlInput;
+                    const saveDefaultField = emitModalSaveDefaultInput;
+                    const itemsContainer = emitModalMissingItems;
+                    const confirmInput = form?.querySelector('[data-emit-confirm-default]');
+                    const assignmentsInput = form?.querySelector('[data-emit-assignments]');
+                    const descriptionInput = form?.querySelector('[data-emit-description-input]');
+                    const saveDescriptionDefaultInput = form?.querySelector('[data-emit-description-save-default-input]');
+                    const sendEmailInput = form?.querySelector('[data-emit-email-send-input]');
+                    const emailToInput = form?.querySelector('[data-emit-email-to-input]');
+                    const emailSubjectInput = form?.querySelector('[data-emit-email-subject-input]');
+                    const emailBodyInput = form?.querySelector('[data-emit-email-body-input]');
+                    const attachDanfseInput = form?.querySelector('[data-emit-email-attach-danfse-input]');
+                    const attachXmlInput = form?.querySelector('[data-emit-email-attach-xml-input]');
+                    const saveDefaultInput = form?.querySelector('[data-emit-email-save-default-input]');
+
+                    if (!form || !confirmInput || !assignmentsInput || !descriptionInput || emitSubmitting) {
+                        return false;
+                    }
+
+                    const assignments = {};
+                    itemsContainer?.querySelectorAll('select[data-item-id]').forEach((select) => {
+                        const itemId = select.getAttribute('data-item-id');
+                        const serviceId = select.value;
+
+                        if (itemId && serviceId) {
+                            assignments[itemId] = serviceId;
+                        }
+                    });
+
+                    confirmInput.value = '1';
+                    assignmentsInput.value = JSON.stringify(assignments);
+                    descriptionInput.value = descriptionField?.value || '';
+
+                    if (saveDescriptionDefaultInput) {
+                        saveDescriptionDefaultInput.value = saveDescriptionDefaultField?.checked ? '1' : '0';
+                    }
+
+                    if (sendEmailInput) {
+                        sendEmailInput.value = sendEmailToggle?.checked ? '1' : '0';
+                    }
+
+                    if (emailToInput) {
+                        emailToInput.value = emailToField?.value || '';
+                    }
+
+                    if (emailSubjectInput) {
+                        emailSubjectInput.value = emailSubjectField?.value || '';
+                    }
+
+                    if (emailBodyInput) {
+                        emailBodyInput.value = emailBodyField?.value || '';
+                    }
+
+                    if (attachDanfseInput) {
+                        attachDanfseInput.value = attachDanfseField?.checked ? '1' : '0';
+                    }
+
+                    if (attachXmlInput) {
+                        attachXmlInput.value = attachXmlField?.checked ? '1' : '0';
+                    }
+
+                    if (saveDefaultInput) {
+                        saveDefaultInput.value = saveDefaultField?.checked ? '1' : '0';
+                    }
+
+                    form.dataset.emitConfirmed = '1';
+                    setEmitSubmittingState(true);
+
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+
+                        return false;
+                    }
+
+                    form.submit();
+
+                    return false;
+                };
 
                 emitModalSendEmailInput?.addEventListener('change', refreshEmitEmailSection);
                 emitModalAttachDanfseInput?.addEventListener('change', () => syncToggle(emitModalAttachDanfseInput));
