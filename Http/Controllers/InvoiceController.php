@@ -718,9 +718,7 @@ class InvoiceController extends Controller
             return null;
         }
 
-        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
-
-        return is_string($normalized) && $normalized !== '' ? $normalized : null;
+        return $this->normalizeDescriptionText($rawValue);
     }
 
     protected function persistDefaultDescriptionFromRequest(?Request $request): void
@@ -739,8 +737,7 @@ class InvoiceController extends Controller
             return;
         }
 
-        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
-        $valueToPersist = is_string($normalized) ? $normalized : '';
+        $valueToPersist = $this->normalizeDescriptionText($rawValue) ?? '';
 
         setting([self::INVOICE_NOTES_SETTING_KEY => $valueToPersist]);
 
@@ -763,9 +760,34 @@ class InvoiceController extends Controller
             return null;
         }
 
-        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
+        return $this->normalizeDescriptionText($rawValue);
+    }
 
-        return is_string($normalized) && $normalized !== '' ? $normalized : null;
+    protected function normalizeDescriptionText(string $value): ?string
+    {
+        $normalizedLineBreaks = str_replace(["\r\n", "\r"], "\n", $value);
+        $lines = explode("\n", $normalizedLineBreaks);
+        $normalizedLines = [];
+
+        foreach ($lines as $line) {
+            $trimmedLine = trim($line);
+            $collapsedSpaces = preg_replace('/[ \t]+/', ' ', $trimmedLine);
+            $normalizedLines[] = is_string($collapsedSpaces) ? $collapsedSpaces : $trimmedLine;
+        }
+
+        while ($normalizedLines !== [] && $normalizedLines[0] === '') {
+            array_shift($normalizedLines);
+        }
+
+        while ($normalizedLines !== [] && $normalizedLines[array_key_last($normalizedLines)] === '') {
+            array_pop($normalizedLines);
+        }
+
+        if ($normalizedLines === []) {
+            return null;
+        }
+
+        return implode("\n", $normalizedLines);
     }
 
     /**
