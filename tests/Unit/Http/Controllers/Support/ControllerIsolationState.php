@@ -40,6 +40,10 @@ namespace {
     if (!class_exists(\Illuminate\View\View::class, false)) {
         eval('namespace Illuminate\\View; class View { public function __construct(public string $name, public array $data = []) {} }');
     }
+
+    if (!class_exists(\App\Events\Document\DocumentMarkedSent::class, false)) {
+        eval('namespace App\\Events\\Document; class DocumentMarkedSent { public function __construct(public mixed $document) {} }');
+    }
 }
 
 namespace Modules\Nfse\Http\Controllers {
@@ -179,6 +183,17 @@ namespace Modules\Nfse\Http\Controllers {
         function response(): ControllerIsolationResponseFactory
         {
             return new ControllerIsolationResponseFactory();
+        }
+    }
+
+    if (!function_exists(__NAMESPACE__ . '\\event')) {
+        function event(object $event): object
+        {
+            if ($event instanceof \App\Events\Document\DocumentMarkedSent && isset($event->document)) {
+                $event->document->status = 'sent';
+            }
+
+            return $event;
         }
     }
 
