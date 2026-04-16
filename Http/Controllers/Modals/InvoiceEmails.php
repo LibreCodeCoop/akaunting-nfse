@@ -46,18 +46,14 @@ class InvoiceEmails extends Controller
         $preview      = $this->issuePreviewData($invoice);
 
         $store_route = 'nfse.modals.invoices.emails.store';
+        $cancel_route = 'nfse.invoices.cancel';
         $issue_route = $isCancelled ? 'nfse.invoices.reemit' : 'nfse.invoices.emit';
         $submit_text = $isCancelled ? trans('nfse::general.invoices.reemit') : trans('nfse::general.invoices.emit_now');
 
         $html = $isEmitted
-            ? view('nfse::modals.invoices.email', compact(
+            ? view('nfse::modals.invoices.cancel', compact(
                 'invoice',
-                'contacts',
-                'notification',
-                'store_route',
-                'hasReceipt',
-                'hasDanfse',
-                'hasXml',
+                'cancel_route',
             ))->render()
             : view('nfse::modals.invoices.issue', compact(
                 'invoice',
@@ -75,7 +71,7 @@ class InvoiceEmails extends Controller
             'html'    => $html,
             'data'    => [
                 'title'   => $isEmitted
-                    ? trans('general.title.new', ['type' => trans_choice('general.email', 1)])
+                    ? trans('nfse::general.invoices.cancel_modal_title')
                     : trans('nfse::general.invoices.emit_modal_title'),
                 'buttons' => [
                     'cancel'  => [
@@ -83,7 +79,7 @@ class InvoiceEmails extends Controller
                         'class' => 'btn-outline-secondary',
                     ],
                     'confirm' => [
-                        'text'  => $isEmitted ? trans('general.send') : $submit_text,
+                        'text'  => $isEmitted ? trans('nfse::general.invoices.cancel_modal_submit') : $submit_text,
                         'class' => 'disabled:bg-green-100',
                     ],
                 ],
