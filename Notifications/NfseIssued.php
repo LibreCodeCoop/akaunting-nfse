@@ -17,6 +17,21 @@ use Modules\Nfse\Support\WebDavClient;
 
 class NfseIssued extends Notification
 {
+    public $template = null;
+
+    /**
+     * @param  mixed  $notifiable
+     * @return array<int, string>
+     */
+    public function via($notifiable): array
+    {
+        if (!empty($this->custom_mail['to'])) {
+            return ['mail'];
+        }
+
+        return parent::via($notifiable);
+    }
+
     public function __construct(
         public readonly Invoice $invoice,
         public readonly NfseReceipt $receipt,
@@ -26,8 +41,42 @@ class NfseIssued extends Notification
     ) {
         parent::__construct();
 
-        $this->template = EmailTemplate::alias('invoice_nfse_issued_customer')->first();
+        $this->ensureTemplateLoaded();
         $this->custom_mail = $custom_mail;
+    }
+
+    public function getSubject(): string
+    {
+        $customSubject = $this->custom_mail['subject'] ?? null;
+
+        if (is_string($customSubject) && trim($customSubject) !== '') {
+            return $this->replaceNotificationPlaceholders($customSubject);
+        }
+
+        $templateSubject = (string) ($this->template?->subject ?? '');
+
+        return $this->replaceNotificationPlaceholders($templateSubject);
+    }
+
+    public function getBody()
+    {
+        $customBody = $this->custom_mail['body'] ?? null;
+
+        if (is_string($customBody) && trim($customBody) !== '') {
+            $footer = method_exists($this, 'getFooter') ? $this->getFooter() : '';
+
+            return $this->replaceNotificationPlaceholders($customBody) . $footer;
+        }
+
+        $templateBody = (string) ($this->template?->body ?? '');
+        $footer = method_exists($this, 'getFooter') ? $this->getFooter() : '';
+
+        return $this->replaceNotificationPlaceholders($templateBody) . $footer;
+    }
+
+    protected function replaceNotificationPlaceholders(string $content): string
+    {
+        return str_replace($this->getTags(), $this->getTagsReplacement(), $content);
     }
 
     /**
@@ -200,14 +249,96 @@ class NfseIssued extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
-        if (!empty($this->custom_mail['to'])) {
-            $notifiable->email = $this->custom_mail['to'];
+        $this->ensureTemplateLoaded();
+
+        $recipientEmail = $this->resolveCustomRecipientEmail();
+
+        if ($recipientEmail !== null) {
+            $notifiable->email = $recipientEmail;
         }
 
         $message = $this->initMailMessage();
         $this->attachArtifacts($message);
 
         return $message;
+    }
+
+    protected function resolveCustomRecipientEmail(): ?string
+    {
+        $rawRecipient = $this->custom_mail['to'] ?? null;
+
+        if (is_string($rawRecipient)) {
+            $normalized = trim($rawRecipient);
+
+            return $normalized !== '' ? $normalized : null;
+        }
+
+        if (is_object($rawRecipient) && isset($rawRecipient->email)) {
+            $normalized = trim((string) $rawRecipient->email);
+
+            return $normalized !== '' ? $normalized : null;
+        }
+
+        if (is_array($rawRecipient)) {
+            if (isset($rawRecipient['email']) && is_string($rawRecipient['email'])) {
+                $normalized = trim($rawRecipient['email']);
+
+                return $normalized !== '' ? $normalized : null;
+            }
+
+            foreach ($rawRecipient as $item) {
+                if (is_string($item)) {
+                    $normalized = trim($item);
+
+                    if ($normalized !== '') {
+                        return $normalized;
+                    }
+
+                    continue;
+                }
+
+                if (is_object($item) && isset($item->email)) {
+                    $normalized = trim((string) $item->email);
+
+                    if ($normalized !== '') {
+                        return $normalized;
+                    }
+
+                    continue;
+                }
+
+                if (is_array($item) && isset($item['email']) && is_string($item['email'])) {
+                    $normalized = trim($item['email']);
+
+                    if ($normalized !== '') {
+                        return $normalized;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    protected function ensureTemplateLoaded(): void
+    {
+        if ($this->template instanceof EmailTemplate) {
+            return;
+        }
+
+        $template = EmailTemplate::alias('invoice_nfse_issued_customer')->first();
+
+        if ($template instanceof EmailTemplate) {
+            $this->template = $template;
+
+            return;
+        }
+
+        $fallbackTemplate = new EmailTemplate();
+        $fallbackTemplate->alias = 'invoice_nfse_issued_customer';
+        $fallbackTemplate->subject = '';
+        $fallbackTemplate->body = '';
+        $this->template = $fallbackTemplate;
     }
 
     /**
@@ -223,9 +354,11 @@ class NfseIssued extends Notification
 
     protected function attachArtifacts(MailMessage $message): void
     {
-        if ($this->attachDanfse && !empty($this->receipt->danfse_webdav_path)) {
+        $danfsePath = $this->resolveArtifactPath('pdf', $this->receipt->danfse_webdav_path ?? null);
+
+        if ($this->attachDanfse && $danfsePath !== null) {
             try {
-                $content = $this->makeWebDavClient()->get((string) $this->receipt->danfse_webdav_path);
+                $content = $this->makeWebDavClient()->get($danfsePath);
 
                 if ($content !== '') {
                     $nfseNumber = (string) ($this->receipt->nfse_number ?? '');
@@ -240,9 +373,11 @@ class NfseIssued extends Notification
             }
         }
 
-        if ($this->attachXml && !empty($this->receipt->xml_webdav_path)) {
+        $xmlPath = $this->resolveArtifactPath('xml', $this->receipt->xml_webdav_path ?? null);
+
+        if ($this->attachXml && $xmlPath !== null) {
             try {
-                $content = $this->makeWebDavClient()->get((string) $this->receipt->xml_webdav_path);
+            $content = $this->makeWebDavClient()->get($xmlPath);
 
                 if ($content !== '') {
                     $nfseNumber = (string) ($this->receipt->nfse_number ?? '');
@@ -261,9 +396,63 @@ class NfseIssued extends Notification
     protected function makeWebDavClient(): WebDavClient
     {
         return new WebDavClient(
-            baseUrl: (string) setting('nfse.webdav_url', ''),
-            username: (string) setting('nfse.webdav_username'),
-            password: (string) setting('nfse.webdav_password'),
+            baseUrl: $this->settingString('nfse.webdav_url', ''),
+            username: $this->settingString('nfse.webdav_username', ''),
+            password: $this->settingString('nfse.webdav_password', ''),
         );
+    }
+
+    protected function resolveArtifactPath(string $extension, mixed $persistedPath): ?string
+    {
+        if (is_string($persistedPath)) {
+            $normalizedPersistedPath = trim($persistedPath);
+
+            if ($normalizedPersistedPath !== '') {
+                return $normalizedPersistedPath;
+            }
+        }
+
+        $issueDate = $this->resolveIssueDate();
+        $cnpj = preg_replace('/\D+/', '', $this->resolveCnpj());
+
+        $replacements = [
+            '{cnpj}' => is_string($cnpj) ? $cnpj : '',
+            '{year}' => $issueDate?->format('Y') ?? '',
+            '{month}' => $issueDate?->format('m') ?? '',
+            '{day}' => $issueDate?->format('d') ?? '',
+            '{invoice_number}' => (string) ($this->invoice->document_number ?? ''),
+            '{nfse_number}' => (string) ($this->receipt->nfse_number ?? ''),
+            '{chave_acesso}' => (string) ($this->receipt->chave_acesso ?? ''),
+        ];
+
+        $pathTemplate = trim($this->settingString('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'));
+        $filenameTemplate = trim($this->settingString('nfse.webdav_filename_template', '{chave_acesso}'));
+
+        $basePath = trim(strtr($pathTemplate, $replacements), " \t\n\r\0\x0B/");
+        $filenameBase = trim(strtr($filenameTemplate, $replacements));
+
+        if ($filenameBase === '') {
+            return null;
+        }
+
+        $filename = $filenameBase . '.' . trim($extension, '.');
+        $joinedPath = $basePath !== '' ? ($basePath . '/' . $filename) : $filename;
+
+        return trim(preg_replace('#/+#', '/', str_replace('\\\\', '/', $joinedPath)) ?? '');
+    }
+
+    protected function settingString(string $key, string $default = ''): string
+    {
+        try {
+            if (function_exists('setting')) {
+                $value = setting($key, $default);
+
+                return is_scalar($value) ? (string) $value : $default;
+            }
+        } catch (\Throwable) {
+            // Keep default value in isolated contexts.
+        }
+
+        return $default;
     }
 }

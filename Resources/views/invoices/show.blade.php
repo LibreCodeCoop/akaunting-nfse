@@ -20,12 +20,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         @if($errors->has('cancel_reason') || $errors->has('cancel_justification'))
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                @error('cancel_reason')
-                    <p>{{ $message }}</p>
-                @enderror
-                @error('cancel_justification')
-                    <p>{{ $message }}</p>
-                @enderror
+                    @error('cancel_reason')
+                        <p>{{ $message }}</p>
+                    @enderror
+                    @error('cancel_justification')
+                        <p>{{ $message }}</p>
+                    @enderror
             </div>
         @endif
 
@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div><dt class="text-gray-500">{{ trans('nfse::general.invoices.access_key') }}</dt><dd class="break-all">{{ $receipt->chave_acesso ?? '—' }}</dd></div>
                     <div><dt class="text-gray-500">{{ trans('nfse::general.invoices.verification_code') }}</dt><dd>{{ $receipt->codigo_verificacao ?? '—' }}</dd></div>
                     <div><dt class="text-gray-500">{{ trans('nfse::general.invoices.issue_date') }}</dt><dd>{{ $receipt->data_emissao ? $receipt->data_emissao->format('d/m/Y H:i') : '—' }}</dd></div>
-                    <div><dt class="text-gray-500">{{ trans('general.status') }}</dt><dd>{{ $receipt->status }}</dd></div>
+                    <div><dt class="text-gray-500">{{ trans('general.status') }}</dt><dd>{{ $receiptStatusLabel ?? ($receipt->status ?? '—') }}</dd></div>
                 </dl>
             </div>
 
@@ -48,6 +48,52 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div><dt class="text-gray-500">{{ trans('nfse::general.invoices.customer') }}</dt><dd>{{ $invoice->contact?->name ?? '—' }}</dd></div>
                     <div><dt class="text-gray-500">{{ trans('general.amount') }}</dt><dd>{{ $invoice->amount ?? '—' }}</dd></div>
                 </dl>
+            </div>
+        </div>
+
+        <div class="bg-white rounded border p-4 mb-4">
+            <h2 class="font-semibold mb-3">{{ trans('nfse::general.invoices.artifacts_title') }}</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                @foreach(['danfse' => 'pdf', 'xml' => 'xml'] as $artifactKey => $artifactExtension)
+                    @php($artifactData = is_array($artifacts[$artifactKey] ?? null) ? $artifacts[$artifactKey] : ['path' => null, 'exists' => false, 'source' => null, 'download_url' => null])
+                    <div class="rounded border border-gray-200 p-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <h3 class="font-medium text-gray-800">
+                                {{ $artifactKey === 'danfse' ? trans('nfse::general.invoices.artifact_danfse_label') : trans('nfse::general.invoices.artifact_xml_label') }}
+                            </h3>
+                            @if(($artifactData['exists'] ?? false) === true && is_string($artifactData['download_url'] ?? null) && ($artifactData['download_url'] ?? '') !== '')
+                                <a href="{{ $artifactData['download_url'] }}" class="inline-flex items-center rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
+                                    {{ trans('nfse::general.invoices.artifact_download') }}
+                                </a>
+                            @else
+                                <span class="inline-flex items-center rounded bg-gray-100 px-2 py-1 text-xs text-gray-600">{{ trans('nfse::general.invoices.artifact_missing') }}</span>
+                            @endif
+                        </div>
+
+                        <dl class="mt-2 grid grid-cols-1 gap-1 text-xs">
+                            <div>
+                                <dt class="text-gray-500">{{ trans('nfse::general.invoices.artifact_status') }}</dt>
+                                <dd class="text-gray-800">{{ ($artifactData['exists'] ?? false) === true ? trans('nfse::general.invoices.artifact_status_available') : trans('nfse::general.invoices.artifact_status_not_found') }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-gray-500">{{ trans('nfse::general.invoices.artifact_source') }}</dt>
+                                <dd class="text-gray-800">
+                                    @if(($artifactData['source'] ?? null) === 'persisted')
+                                        {{ trans('nfse::general.invoices.artifact_source_persisted') }}
+                                    @elseif(($artifactData['source'] ?? null) === 'template')
+                                        {{ trans('nfse::general.invoices.artifact_source_template') }}
+                                    @else
+                                        {{ trans('nfse::general.invoices.artifact_source_unresolved') }}
+                                    @endif
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-gray-500">{{ trans('nfse::general.invoices.artifact_path') }}</dt>
+                                <dd class="break-all text-gray-800">{{ $artifactData['path'] ?? '—' }}</dd>
+                            </div>
+                        </dl>
+                    </div>
+                @endforeach
             </div>
         </div>
 
@@ -76,6 +122,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <input type="hidden" name="nfse_email_attach_danfse" value="1" id="reemit-email-attach-danfse-hidden">
                         <input type="hidden" name="nfse_email_attach_xml" value="1" id="reemit-email-attach-xml-hidden">
                         <input type="hidden" name="nfse_email_save_default" value="0" id="reemit-email-save-default-hidden">
+                        <input type="hidden" name="nfse_save_default_description" value="0" id="reemit-description-save-default-hidden">
+                            <input type="hidden" name="nfse_email_copy_to_self" value="0" id="reemit-email-copy-to-self-hidden">
                     <button
                         type="button"
                         class="inline-flex items-center px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm"
@@ -179,12 +227,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 placeholder="{{ trans('nfse::general.invoices.emit_modal_description_placeholder') }}"
                             >{{ $suggestedDiscriminacao }}</textarea>
                             <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.invoices.reemit_modal_description_help') }}</p>
+
+                            <div class="mt-3 flex items-center gap-3">
+                                <label for="reemit-save-description-default-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                    <input id="reemit-save-description-default-checkbox" type="checkbox" class="sr-only">
+                                    <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                    <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
+                                </label>
+                                <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_save_default') }}</span>
+                            </div>
                         </div>
 
                         <div class="px-5 pb-4 space-y-3 border-t pt-4">
                             <div class="flex items-center gap-3">
                                 <label for="reemit-send-email-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center" aria-label="{{ trans('nfse::general.invoices.emit_modal_send_email') }}">
-                                    <input id="reemit-send-email-checkbox" type="checkbox" class="sr-only" @checked((bool) ($emailDefaults['send_email'] ?? false))>
+                                     <input id="reemit-send-email-checkbox" type="checkbox" class="sr-only" data-email-fields-target="reemit-email-fields" onchange="window.nfseSyncEmailToggle?.(this)" @checked((bool) ($emailDefaults['send_email'] ?? false))>
                                     <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 {{ (bool) ($emailDefaults['send_email'] ?? false) ? 'bg-green' : 'bg-green-200' }}"></div>
                                     <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 {{ (bool) ($emailDefaults['send_email'] ?? false) ? 'translate-x-5' : '' }}"></div>
                                 </label>
@@ -206,8 +263,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
 
                             <div>
-                                <label for="reemit-email-body-input" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_body') }}</label>
-                                <textarea id="reemit-email-body-input" rows="4" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">{{ $emailDefaults['body'] ?? '' }}</textarea>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_body') }}</label>
+                                <textarea id="nfse_reemit_email_body" class="sr-only" aria-hidden="true"></textarea>
+                                <div id="nfse-reemit-body-editor">
+                                    <akaunting-html-editor :value='@json($emailDefaults['body'] ?? '')' @input="$root.$emit('nfse:reemit-email-body', $event)"></akaunting-html-editor>
+                                </div>
+                            </div>
+
+                            <div class="rounded-md bg-gray-100 p-3 text-xs text-gray-600">
+                                {!! trans('settings.email.templates.tags', ['tag_list' => implode(', ', app(\Modules\Nfse\Notifications\NfseIssued::class)->getTags())]) !!}
                             </div>
 
                             <div class="space-y-3">
@@ -237,6 +301,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     </label>
                                     <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
                                 </div>
+
+                                    <div class="flex items-center gap-3">
+                                        <label for="reemit-copy-to-self-checkbox" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                            <input id="reemit-copy-to-self-checkbox" type="checkbox" class="sr-only">
+                                            <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                            <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
+                                        </label>
+                                        <span class="text-sm text-gray-700">{{ trans('general.email_send_me', ['email' => auth()->user()?->email ?? '']) }}</span>
+                                    </div>
                             </div>
                             </div>
                         </div>
@@ -253,8 +326,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             type="button"
                             class="inline-flex items-center rounded bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700"
                             id="reemit-confirm-button"
+                            data-default-label="{{ trans('nfse::general.invoices.reemit') }}"
+                            data-loading-label="{{ trans('nfse::general.invoices.reemit_modal_submitting') }}"
+                            aria-busy="false"
                         >
-                            {{ trans('nfse::general.invoices.reemit') }}
+                            <svg id="reemit-submit-spinner" class="mr-2 hidden h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                            <span id="reemit-submit-label">{{ trans('nfse::general.invoices.reemit') }}</span>
                         </button>
                     </div>
                 </div>
@@ -263,6 +343,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         <script>
             (() => {
+                // documents.min.js mounts Vue on #app and recreates DOM nodes, which removes any
+                // event listeners attached before Vue runs. Deferring to window 'load' ensures we
+                // attach listeners to the DOM nodes Vue has already created.
+                const init = () => {
+                // Wire the akaunting-html-editor $emit event into the hidden textarea so the body
+                // value is collected when the confirm button is clicked.
+                const rootApp = document.getElementById('main-body')?.__vue__;
+                if (rootApp) {
+                    rootApp.$on('nfse:reemit-email-body', (val) => {
+                        const el = document.getElementById('nfse_reemit_email_body');
+                        if (el) {
+                            el.value = typeof val === 'string' ? val : '';
+                        }
+                    });
+                }
+
                 const modal = document.getElementById('nfse-cancel-modal');
                 const form = document.getElementById('nfse-cancel-form');
                 const reasonSelect = document.getElementById('cancel_reason');
@@ -387,9 +483,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
                 };
 
+                window.nfseSyncEmailToggle = (input) => {
+                    syncToggle(input);
+
+                    const targetId = input?.dataset?.emailFieldsTarget;
+                    if (!targetId) {
+                        return;
+                    }
+
+                    const target = document.getElementById(targetId);
+                    if (target) {
+                        target.classList.toggle('hidden', !input.checked);
+                    }
+                };
+
                 if (reemitModal && reemitForm && reemitTrigger && reemitConfirmButton) {
                         const reemitDescriptionTextarea = document.getElementById('reemit-description-textarea');
                         const reemitDiscriminacaoInput = document.getElementById('reemit-discriminacao-input');
+                    const reemitSaveDescriptionDefaultCheckbox = document.getElementById('reemit-save-description-default-checkbox');
                     const reemitSendEmailCheckbox = document.getElementById('reemit-send-email-checkbox');
                     const reemitEmailFields = document.getElementById('nfse_emit_email_fields') || document.getElementById('reemit-email-fields');
                     const reemitEmailToInput = document.getElementById('reemit-email-to-input');
@@ -405,6 +516,41 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const reemitEmailAttachDanfseHidden = document.getElementById('reemit-email-attach-danfse-hidden');
                     const reemitEmailAttachXmlHidden = document.getElementById('reemit-email-attach-xml-hidden');
                     const reemitEmailSaveDefaultHidden = document.getElementById('reemit-email-save-default-hidden');
+                        const reemitDescriptionSaveDefaultHidden = document.getElementById('reemit-description-save-default-hidden');
+                        const reemitEmailCopyToSelfHidden = document.getElementById('reemit-email-copy-to-self-hidden');
+                        const reemitCopyToSelfCheckbox = document.getElementById('reemit-copy-to-self-checkbox');
+                        const reemitSubmitSpinner = document.getElementById('reemit-submit-spinner');
+                        const reemitSubmitLabel = document.getElementById('reemit-submit-label');
+                        const reemitDefaultConfirmLabel = reemitConfirmButton.getAttribute('data-default-label') || @json((string) trans('nfse::general.invoices.reemit'));
+                        const reemitLoadingConfirmLabel = reemitConfirmButton.getAttribute('data-loading-label') || @json((string) trans('nfse::general.invoices.reemit_modal_submitting'));
+                        let reemitSubmitting = false;
+
+                        const setReemitSubmittingState = (submitting) => {
+                            reemitSubmitting = submitting;
+                            reemitModal.dataset.submitting = submitting ? '1' : '0';
+
+                            reemitConfirmButton.disabled = submitting;
+                            reemitConfirmButton.setAttribute('aria-disabled', submitting ? 'true' : 'false');
+                            reemitConfirmButton.setAttribute('aria-busy', submitting ? 'true' : 'false');
+
+                            if (!reemitSubmitSpinner || !reemitSubmitLabel) {
+                                return;
+                            }
+
+                            if (submitting) {
+                                reemitConfirmButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                                reemitConfirmButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+                                reemitSubmitSpinner.classList.remove('hidden');
+                                reemitSubmitLabel.textContent = reemitLoadingConfirmLabel;
+
+                                return;
+                            }
+
+                            reemitConfirmButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                            reemitConfirmButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                            reemitSubmitSpinner.classList.add('hidden');
+                            reemitSubmitLabel.textContent = reemitDefaultConfirmLabel;
+                        };
 
                     const refreshReemitEmailSection = () => {
                         if (reemitEmailFields) {
@@ -416,12 +562,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     };
 
                     const closeReemitModal = () => {
+                        if (reemitModal.dataset.submitting === '1') {
+                            return;
+                        }
+
                         reemitModal.classList.add('hidden');
                         reemitModal.setAttribute('aria-hidden', 'true');
                         document.body.classList.remove('overflow-hidden');
                     };
 
                     const openReemitModal = () => {
+                        setReemitSubmittingState(false);
                         reemitModal.classList.remove('hidden');
                         reemitModal.setAttribute('aria-hidden', 'false');
                         document.body.classList.add('overflow-hidden');
@@ -430,10 +581,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     reemitTrigger.addEventListener('click', openReemitModal);
 
+                        reemitSaveDescriptionDefaultCheckbox?.addEventListener('change', () => syncToggle(reemitSaveDescriptionDefaultCheckbox));
                     reemitSendEmailCheckbox?.addEventListener('change', refreshReemitEmailSection);
                     reemitAttachDanfseCheckbox?.addEventListener('change', () => syncToggle(reemitAttachDanfseCheckbox));
                     reemitAttachXmlCheckbox?.addEventListener('change', () => syncToggle(reemitAttachXmlCheckbox));
                     reemitSaveDefaultCheckbox?.addEventListener('change', () => syncToggle(reemitSaveDefaultCheckbox));
+                        reemitCopyToSelfCheckbox?.addEventListener('change', () => syncToggle(reemitCopyToSelfCheckbox));
 
                     refreshReemitEmailSection();
 
@@ -449,8 +602,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     });
 
                     reemitConfirmButton.addEventListener('click', () => {
+                            if (reemitSubmitting) {
+                                return;
+                            }
+
                             if (reemitDiscriminacaoInput && reemitDescriptionTextarea) {
                                 reemitDiscriminacaoInput.value = reemitDescriptionTextarea.value;
+                            }
+
+                            if (reemitDescriptionSaveDefaultHidden && reemitSaveDescriptionDefaultCheckbox) {
+                                reemitDescriptionSaveDefaultHidden.value = reemitSaveDescriptionDefaultCheckbox.checked ? '1' : '0';
                             }
 
                             if (reemitEmailSendHidden && reemitSendEmailCheckbox) {
@@ -469,6 +630,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 reemitEmailBodyHidden.value = reemitEmailBodyInput.value;
                             }
 
+                                // Prefer value from the rich text editor hidden field if present.
+                                const richBodyEl = document.getElementById('nfse_reemit_email_body');
+                                if (reemitEmailBodyHidden && richBodyEl && richBodyEl.value) {
+                                    reemitEmailBodyHidden.value = richBodyEl.value;
+                                }
+
                             if (reemitEmailAttachDanfseHidden && reemitAttachDanfseCheckbox) {
                                 reemitEmailAttachDanfseHidden.value = reemitAttachDanfseCheckbox.checked ? '1' : '0';
                             }
@@ -481,8 +648,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 reemitEmailSaveDefaultHidden.value = reemitSaveDefaultCheckbox.checked ? '1' : '0';
                             }
 
+                                if (reemitEmailCopyToSelfHidden && reemitCopyToSelfCheckbox) {
+                                    reemitEmailCopyToSelfHidden.value = reemitCopyToSelfCheckbox.checked ? '1' : '0';
+                                }
+
                         reemitForm.dataset.reemitConfirmed = '1';
-                        closeReemitModal();
+                        setReemitSubmittingState(true);
 
                         if (typeof reemitForm.requestSubmit === 'function') {
                             reemitForm.requestSubmit();
@@ -497,7 +668,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         button.addEventListener('click', closeReemitModal);
                     });
                 }
+                }; // end init()
+
+                if (document.readyState === 'complete') {
+                    init();
+                } else {
+                    window.addEventListener('load', init, { once: true });
+                }
             })();
         </script>
     </x-slot>
+
+    <x-script folder="common" file="documents" />
 </x-layouts.admin>

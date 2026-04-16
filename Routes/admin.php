@@ -10,6 +10,7 @@ use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\CompanyServiceController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\SettingsController;
+use Modules\Nfse\Http\Controllers\Modals\InvoiceEmails;
 
 Route::admin('nfse', function () {
     Route::get('/', [InvoiceController::class, 'index'])->name('dashboard.index');
@@ -53,5 +54,10 @@ Route::admin('nfse', function () {
     Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])->name('invoices.refresh');
     Route::post('invoices/{invoice}/reemit', [InvoiceController::class, 'reemit'])->name('invoices.reemit');
     Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::get('invoices/{invoice}/artifacts/{artifact}', [InvoiceController::class, 'downloadArtifact'])->name('invoices.artifacts.download');
     Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
+
+        // Email modal — replaces the Akaunting core email modal for NFS-e invoices
+        Route::get('modals/invoices/{invoice}/emails/create', [InvoiceEmails::class, 'create'])->name('modals.invoices.emails.create');
+        Route::post('modals/invoices/{invoice}/emails', [InvoiceEmails::class, 'store'])->name('modals.invoices.emails.store');
 });

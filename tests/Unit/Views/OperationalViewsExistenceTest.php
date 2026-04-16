@@ -33,6 +33,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("refreshAllForm.addEventListener('submit'", $content);
             self::assertStringContainsString("refreshAllButton.setAttribute('aria-busy', 'true')", $content);
             self::assertStringContainsString('name="nfse_discriminacao_custom" value="" data-emit-description-input', $content);
+            self::assertStringContainsString('name="nfse_save_default_description" value="0" data-emit-description-save-default-input', $content);
             self::assertStringContainsString('name="nfse_send_email" value="0" data-emit-email-send-input', $content);
             self::assertStringContainsString('name="nfse_email_to" value="" data-emit-email-to-input', $content);
             self::assertStringContainsString('name="nfse_email_subject" value="" data-emit-email-subject-input', $content);
@@ -41,16 +42,36 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('name="nfse_email_attach_xml" value="1" data-emit-email-attach-xml-input', $content);
             self::assertStringContainsString('name="nfse_email_save_default" value="0" data-emit-email-save-default-input', $content);
             self::assertStringContainsString('id="nfse_emit_description"', $content);
+            self::assertStringContainsString('id="nfse_emit_save_description_default"', $content);
             self::assertStringContainsString('id="nfse_emit_send_email"', $content);
+            self::assertStringContainsString('data-email-fields-target="nfse_emit_email_fields"', $content);
+            self::assertStringContainsString('window.nfseSyncEmailToggle?.(this)', $content);
             self::assertStringContainsString('class="sr-only"', $content);
             self::assertStringContainsString('data-toggle="track"', $content);
             self::assertStringContainsString('data-toggle="thumb"', $content);
             self::assertStringContainsString('syncToggle', $content);
+            self::assertStringContainsString('window.nfseSyncEmailToggle = (input) => {', $content);
             self::assertStringContainsString('id="nfse_emit_email_fields"', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_send_email_hint')", $content);
             self::assertStringContainsString('id="nfse_emit_email_to"', $content);
             self::assertStringContainsString('id="nfse_emit_email_subject"', $content);
             self::assertStringContainsString('id="nfse_emit_email_body"', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_description_save_default')", $content);
+            self::assertStringContainsString('id="nfse-emit-confirm-button"', $content);
+            self::assertStringContainsString('form.submit(); return false;', $content);
+            self::assertStringContainsString("sendEmailInput.value = sendEmailToggle?.checked ? '1' : '0';", $content);
+        }
+
+        public function testInvoicesIndexViewHasRichTextEditorForEmailBody(): void
+        {
+            $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
+            $content   = (string) file_get_contents($indexPath);
+
+            self::assertStringContainsString('id="nfse-emit-body-editor"', $content);
+            self::assertStringContainsString('nfse:emit-email-body', $content);
+            self::assertStringContainsString("'settings.email.templates.tags'", $content);
+            self::assertStringContainsString("NfseIssued::class)->getTags()", $content);
+            self::assertStringContainsString("rootApp.\$on('nfse:emit-email-body'", $content);
         }
 
         public function testInvoicesShowViewHasEmailToggleAndConditionalSection(): void
@@ -59,12 +80,28 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $content = (string) file_get_contents($showPath);
 
             self::assertStringContainsString('id="reemit-send-email-checkbox"', $content);
+            self::assertStringContainsString('data-email-fields-target="reemit-email-fields"', $content);
+            self::assertStringContainsString('window.nfseSyncEmailToggle?.(this)', $content);
             self::assertStringContainsString('class="sr-only"', $content);
             self::assertStringContainsString('data-toggle="track"', $content);
             self::assertStringContainsString('data-toggle="thumb"', $content);
             self::assertStringContainsString('syncToggle', $content);
+            self::assertStringContainsString('window.nfseSyncEmailToggle = (input) => {', $content);
             self::assertStringContainsString('id="reemit-email-fields"', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_send_email_hint')", $content);
+        }
+
+        public function testInvoicesShowViewHasRichTextEditorForEmailBody(): void
+        {
+            $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
+            $content  = (string) file_get_contents($showPath);
+
+            self::assertStringContainsString('id="nfse-reemit-body-editor"', $content);
+            self::assertStringContainsString('nfse:reemit-email-body', $content);
+            self::assertStringContainsString("'settings.email.templates.tags'", $content);
+            self::assertStringContainsString("NfseIssued::class)->getTags()", $content);
+            self::assertStringContainsString("rootApp.\$on('nfse:reemit-email-body'", $content);
+            self::assertStringContainsString('<x-script folder="common" file="documents" />', $content);
         }
 
         public function testInvoicesIndexViewOffersReemitActionForCancelledReceipts(): void
@@ -322,7 +359,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="reemit-send-email-checkbox"', $content);
             self::assertStringContainsString('id="reemit-email-to-input"', $content);
             self::assertStringContainsString('id="reemit-email-subject-input"', $content);
-            self::assertStringContainsString('id="reemit-email-body-input"', $content);
+            self::assertStringContainsString('id="nfse_reemit_email_body"', $content);
         }
     }
 }

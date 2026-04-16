@@ -68,11 +68,29 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('->whereHas(\'contact\', static fn ($contactQuery) => $contactQuery->where(\'type\', Contact::CUSTOMER_TYPE))', $content);
         }
 
+        public function testListingOverviewTotalMatchesAllReceiptRowsInsteadOfAddingPendingInvoices(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("'total' => \$totalReceipts,", $content);
+            self::assertStringNotContainsString("'total' => \$totalReceipts + \$pending,", $content);
+        }
+
         public function testPendingInvoicesQueryRestrictsContactsToCustomers(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString('->whereHas(\'contact\', static fn ($contactQuery) => $contactQuery->where(\'type\', Contact::CUSTOMER_TYPE))', $content);
+        }
+
+        public function testPendingInvoicesQueryExcludesInvoicesAlreadyPresentInNfseReceipts(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString('$receiptTable = (new NfseReceipt())->getTable();', $content);
+            self::assertStringContainsString('->whereNotExists(static function ($subQuery) use ($receiptTable): void {', $content);
+            self::assertStringContainsString("->whereColumn(", $content);
+            self::assertStringContainsString("invoice_id', 'documents.id'", $content);
         }
 
         public function testReceiptsIndexSearchAlsoIncludesInvoiceNumberFields(): void
@@ -250,8 +268,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 items: [['name' => 'Consultoria'], ['name' => 'Suporte']],
             );
 
-            $receipt = InvoiceControllerIsolationState::makeReceipt(904, 'CHAVE-904', 'cancelled');
-            NfseReceipt::$records[] = $receipt;
+            InvoiceControllerIsolationState::makeReceipt(904, 'CHAVE-904', 'cancelled');
 
             $controller = new class () extends InvoiceController {};
 
@@ -259,6 +276,100 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('nfse::invoices.show', $view->name);
             self::assertSame('Consultoria | Suporte', $view->data['suggestedDiscriminacao'] ?? null);
+        }
+
+        public function testShowIncludesResolvedArtifactsInViewData(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 905,
+                amount: 750.0,
+                items: [['name' => 'Implantacao']],
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(905, 'CHAVE-905', 'emitted');
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
+                {
+                    return [
+                        'danfse' => [
+                            'path' => 'nfse/2026/04/15/CHAVE-905.pdf',
+                            'exists' => true,
+                            'source' => 'template',
+                            'download_url' => '/fake/danfse',
+                        ],
+                        'xml' => [
+                            'path' => 'nfse/2026/04/15/CHAVE-905.xml',
+                            'exists' => false,
+                            'source' => 'persisted',
+                            'download_url' => null,
+                        ],
+                    ];
+                }
+            };
+
+            $view = $controller->show($invoice);
+
+            self::assertSame('/fake/danfse', $view->data['artifacts']['danfse']['download_url'] ?? null);
+            self::assertFalse((bool) ($view->data['artifacts']['xml']['exists'] ?? true));
+            self::assertSame('template', $view->data['artifacts']['danfse']['source'] ?? null);
+        }
+
+        public function testShowPassesTranslatedReceiptStatusLabelToView(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 9051,
+                amount: 750.0,
+                items: [['name' => 'Implantacao']],
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(9051, 'CHAVE-9051', 'cancelled');
+
+            $controller = new class () extends InvoiceController {};
+
+            $view = $controller->show($invoice);
+
+            $label = (string) ($view->data['receiptStatusLabel'] ?? '');
+
+            self::assertNotSame('cancelled', $label);
+            self::assertNotSame('', $label);
+        }
+
+        public function testDownloadArtifactRedirectsToShowWhenArtifactIsUnavailable(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 906,
+                amount: 120.0,
+                items: [['name' => 'Servico']],
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(906, 'CHAVE-906', 'emitted');
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
+                {
+                    return [
+                        'danfse' => [
+                            'path' => null,
+                            'exists' => false,
+                            'source' => null,
+                            'download_url' => null,
+                        ],
+                        'xml' => [
+                            'path' => null,
+                            'exists' => false,
+                            'source' => null,
+                            'download_url' => null,
+                        ],
+                    ];
+                }
+            };
+
+            $response = $controller->downloadArtifact($invoice, 'danfse');
+
+            self::assertSame('route', $response->target ?? null);
+            self::assertSame('nfse.invoices.show', $response->route ?? null);
+            self::assertSame([$invoice], $response->parameters ?? null);
         }
 
         public function testStoreArtifactsPersistsXmlEvenWhenDanfseFails(): void
@@ -1778,6 +1889,81 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertTrue($payload['email_defaults']['attach_xml']);
         }
 
+        public function testServicePreviewUsesSavedAttachmentDefaults(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['nfse.email_attach_danfse_on_emit'] = '0';
+            ControllerIsolationState::$settings['nfse.email_attach_xml_on_emit'] = '1';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 12, amount: 50.0);
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return null;
+                }
+
+                protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
+                {
+                    return ['selected_service' => null, 'line_items' => [], 'missing_items' => [], 'requires_confirmation' => false, 'requires_split' => false];
+                }
+
+                protected function availableInvoiceServices(Invoice $invoice): array
+                {
+                    return [];
+                }
+            };
+
+            $response = $controller->servicePreview($invoice);
+            $payload = $response->getData(true);
+
+            self::assertFalse($payload['email_defaults']['attach_danfse']);
+            self::assertTrue($payload['email_defaults']['attach_xml']);
+        }
+
+        public function testServicePreviewUsesSavedDefaultDescriptionWhenAvailable(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Descricao padrao generica';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 13,
+                amount: 50.0,
+                items: [
+                    ['item_id' => 99, 'name' => 'Texto de item que nao deve ir para descricao'],
+                ],
+                description: 'Descricao da fatura',
+            );
+
+            $controller = new class () extends InvoiceController {
+                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
+                {
+                    return null;
+                }
+
+                protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
+                {
+                    return [
+                        'selected_service' => null,
+                        'line_items' => ['Replica de item 01', 'Replica de item 02'],
+                        'missing_items' => [],
+                        'requires_confirmation' => false,
+                        'requires_split' => false,
+                    ];
+                }
+
+                protected function availableInvoiceServices(Invoice $invoice): array
+                {
+                    return [];
+                }
+            };
+
+            $response = $controller->servicePreview($invoice);
+            $payload = $response->getData(true);
+
+            self::assertSame('Descricao padrao generica', $payload['suggested_description'] ?? null);
+        }
+
         public function testServicePreviewEmailDefaultsFallsBackWhenNoTemplate(): void
         {
             InvoiceControllerIsolationState::reset();
@@ -1809,6 +1995,89 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertFalse($payload['email_defaults']['send_email']);
             self::assertSame('', $payload['email_defaults']['subject']);
             self::assertSame('', $payload['email_defaults']['body']);
+        }
+
+        public function testPersistDefaultDescriptionFromRequestSavesWhenFlagEnabled(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$savedCount = 0;
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_save_default_description' => '1',
+                'nfse_discriminacao_custom' => '  Nova descricao padrao   da NFS-e  ',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposePersistDefaultDescriptionFromRequest(?\Illuminate\Http\Request $request): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request);
+                }
+            };
+
+            $controller->exposePersistDefaultDescriptionFromRequest($request);
+
+            self::assertSame('Nova descricao padrao da NFS-e', ControllerIsolationState::$settings['invoice.notes'] ?? null);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+        }
+
+        public function testPersistDefaultDescriptionFromRequestSkipsWhenFlagDisabled(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$savedCount = 0;
+            ControllerIsolationState::$settings['invoice.notes'] = 'Descricao antiga';
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_save_default_description' => '0',
+                'nfse_discriminacao_custom' => 'Descricao nova nao persistida',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposePersistDefaultDescriptionFromRequest(?\Illuminate\Http\Request $request): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request);
+                }
+            };
+
+            $controller->exposePersistDefaultDescriptionFromRequest($request);
+
+            self::assertSame('Descricao antiga', ControllerIsolationState::$settings['invoice.notes'] ?? null);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+        }
+
+        public function testReemitDetailsViewContainsSaveDefaultDescriptionField(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/views/invoices/show.blade.php');
+
+            self::assertStringContainsString('name="nfse_save_default_description"', $content);
+            self::assertStringContainsString('id="reemit-description-save-default-hidden"', $content);
+            self::assertStringContainsString('id="reemit-save-description-default-checkbox"', $content);
+        }
+
+        public function testReemitDetailsViewSerializesSaveDefaultDescriptionOnConfirm(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/views/invoices/show.blade.php');
+
+            self::assertStringContainsString('reemitDescriptionSaveDefaultHidden.value = reemitSaveDescriptionDefaultCheckbox.checked ? \'1\' : \'0\';', $content);
+        }
+
+        public function testEmitModalHasSubmittingStateSpinnerAndHandler(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/views/invoices/index.blade.php');
+
+            self::assertStringContainsString('id="emit-submit-spinner"', $content);
+            self::assertStringContainsString('data-loading-label="{{ trans(\'nfse::general.invoices.emit_modal_submitting\') }}"', $content);
+            self::assertStringContainsString('window.nfseConfirmEmit = () => {', $content);
+            self::assertStringContainsString('setEmitSubmittingState(true);', $content);
+        }
+
+        public function testReemitModalHasSubmittingStateSpinnerAndNoEarlyCloseOnSubmit(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/views/invoices/show.blade.php');
+
+            self::assertStringContainsString('id="reemit-submit-spinner"', $content);
+            self::assertStringContainsString('data-loading-label="{{ trans(\'nfse::general.invoices.reemit_modal_submitting\') }}"', $content);
+            self::assertStringContainsString('setReemitSubmittingState(true);', $content);
+            self::assertStringNotContainsString('reemitForm.dataset.reemitConfirmed = \'1\';\n                        closeReemitModal();', $content);
         }
 
         public function testNationalTaxCodeFallsBackToSettingWhenDefaultServiceCodeIsMissing(): void
@@ -2469,9 +2738,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('all', $response->data['status'] ?? null, 'Status should fall back to "all" when search is cleared');
         }
 
-        public function testIndexSkipsPreferenceRestoreWhenSavedPreferencesContainNonDefaultFilters(): void
+        public function testIndexRestoresSavedNonDefaultFiltersOnBareUrl(): void
         {
-            // Bare URL should never restore non-default status/search filters.
+            // Bare URL should restore previously saved non-default status/search filters.
             ControllerIsolationState::$settings['nfse.invoices.preferences'] = json_encode([
                 'status' => 'cancelled,emitted',
                 'per_page' => 25,
@@ -2489,8 +2758,17 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = $controller->index(new Request());
 
-            self::assertNotSame('route', $response->target ?? null, 'Bare URL should not restore non-default saved filters');
-            self::assertSame('all', $response->data['status'] ?? null, 'Status should default to "all" when saved filter state is non-default');
+            self::assertSame('route', $response->target ?? null, 'Bare URL should restore non-default saved filters');
+            self::assertSame('nfse.invoices.index', $response->route ?? null);
+            self::assertSame([
+                [
+                    'status' => 'cancelled,emitted',
+                    'limit' => 25,
+                    'search' => 'status:cancelled,emitted',
+                    'sort' => 'due_at',
+                    'direction' => 'desc',
+                ],
+            ], $response->parameters ?? null);
         }
 
         public function testIndexPersistsListingPreferencesToSettingsStorage(): void
@@ -3516,7 +3794,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(3301, $notificationCalls[0]['invoice_id']);
             self::assertTrue($notificationCalls[0]['attach_danfse']);
             self::assertFalse($notificationCalls[0]['attach_xml']);
-            self::assertSame('destinatario@reemissao.test', $notificationCalls[0]['custom_mail']['to'][0]['email'] ?? null);
+            self::assertSame('destinatario@reemissao.test', $notificationCalls[0]['custom_mail']['to'] ?? null);
             self::assertSame('Assunto reemissao', $notificationCalls[0]['custom_mail']['subject'] ?? null);
         }
 
@@ -4382,7 +4660,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(55, $notificationCalls[0]['invoice_id']);
             self::assertTrue($notificationCalls[0]['attach_danfse']);
             self::assertFalse($notificationCalls[0]['attach_xml']);
-            self::assertSame('destinatario@example.com', $notificationCalls[0]['custom_mail']['to'][0]['email'] ?? null);
+            self::assertSame('destinatario@example.com', $notificationCalls[0]['custom_mail']['to'] ?? null);
             self::assertSame('NFS-e emitida', $notificationCalls[0]['custom_mail']['subject'] ?? null);
         }
 
@@ -4485,6 +4763,82 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
 
             self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+        }
+
+        public function testHandlePostEmitEmailSavesTemplateSubjectAndBodyWhenFlagIsSet(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$savedCount = 0;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 60, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(60, 'CHAVE-60');
+
+            $template = new \App\Models\Setting\EmailTemplate();
+            $template->subject = 'Original subject';
+            $template->body    = 'Original body';
+            \App\Models\Setting\EmailTemplate::$stubInstance = $template;
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email'          => '1',
+                'nfse_email_to'            => 'cli@example.com',
+                'nfse_email_subject'       => 'Novo assunto',
+                'nfse_email_body'          => '<p>Novo corpo</p>',
+                'nfse_email_save_default'  => '1',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                {
+                    $this->handlePostEmitEmail($request, $invoice, $receipt);
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    // suppress actual notification
+                }
+            };
+
+            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+
+            self::assertSame('Novo assunto', $template->subject);
+            self::assertSame('<p>Novo corpo</p>', $template->body);
+
+            \App\Models\Setting\EmailTemplate::$stubInstance = null;
+        }
+
+        public function testHandlePostEmitEmailPersistsAttachmentDefaults(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$savedCount = 0;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 61, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(61, 'CHAVE-61');
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email' => '1',
+                'nfse_email_to' => 'cli@example.com',
+                'nfse_email_attach_danfse' => '0',
+                'nfse_email_attach_xml' => '1',
+                'nfse_email_save_default' => '0',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                {
+                    $this->handlePostEmitEmail($request, $invoice, $receipt);
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    // suppress actual notification
+                }
+            };
+
+            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.email_attach_danfse_on_emit'] ?? null);
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.email_attach_xml_on_emit'] ?? null);
             self::assertSame(1, ControllerIsolationState::$savedCount);
         }
 

@@ -12,6 +12,7 @@ use App\Models\Document\Document as Invoice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use LibreCodeCoop\NfsePHP\Config\CertConfig;
 use LibreCodeCoop\NfsePHP\Config\EnvironmentConfig;
 use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
@@ -32,6 +33,8 @@ use Modules\Nfse\Support\WebDavClient;
 
 class InvoiceController extends Controller
 {
+    private const INVOICE_NOTES_SETTING_KEY = 'invoice.notes';
+
     protected string $indexSortBy = 'due_at';
 
     protected string $indexSortDirection = 'desc';
@@ -119,10 +122,69 @@ class InvoiceController extends Controller
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $receiptStatusLabel = $this->translateReceiptStatus((string) ($receipt->status ?? ''));
         $suggestedDiscriminacao = $this->buildDiscriminacao($invoice);
         $emailDefaults = $this->servicePreviewEmailDefaults($invoice);
+        $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
 
-        return view('nfse::invoices.show', compact('invoice', 'receipt', 'suggestedDiscriminacao', 'emailDefaults'));
+        return view('nfse::invoices.show', compact('invoice', 'receipt', 'receiptStatusLabel', 'suggestedDiscriminacao', 'emailDefaults', 'artifacts'));
+    }
+
+    protected function translateReceiptStatus(string $status): string
+    {
+        $normalized = strtolower(trim($status));
+
+        $key = match ($normalized) {
+            'emitted' => 'nfse::general.invoices.status_emitted',
+            'cancelled' => 'nfse::general.invoices.status_cancelled',
+            'processing' => 'nfse::general.invoices.status_processing',
+            'pending' => 'nfse::general.invoices.status_pending',
+            default => null,
+        };
+
+        if ($key === null) {
+            return $status;
+        }
+
+        return (string) trans($key);
+    }
+
+    public function downloadArtifact(Invoice $invoice, string $artifact): Response|RedirectResponse
+    {
+        $this->ensureInvoiceRelationsLoaded($invoice);
+        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
+
+        if (!isset($artifacts[$artifact]) || !is_array($artifacts[$artifact])) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.artifact_invalid_type'));
+        }
+
+        $artifactData = $artifacts[$artifact];
+        $path = isset($artifactData['path']) && is_string($artifactData['path']) ? trim($artifactData['path']) : '';
+
+        if ($path === '' || !($artifactData['exists'] ?? false)) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.artifact_not_found'));
+        }
+
+        try {
+            $content = $this->makeWebDavClientFromSettings()->get($path);
+        } catch (\Throwable) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.artifact_not_found'));
+        }
+
+        $mimeType = $artifact === 'xml' ? 'application/xml' : 'application/pdf';
+        $extension = $artifact === 'xml' ? 'xml' : 'pdf';
+        $resolvedNfseNumber = trim((string) ($receipt->nfse_number ?? ''));
+        $suffix = $resolvedNfseNumber !== '' ? '-' . preg_replace('/[^a-zA-Z0-9_-]+/', '-', $resolvedNfseNumber) : '';
+        $fileName = 'nfse' . $suffix . '.' . $extension;
+
+        return response($content, 200, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
     }
 
     public function servicePreview(Invoice $invoice): JsonResponse
@@ -148,6 +210,7 @@ class InvoiceController extends Controller
         $defaultService = $this->resolveDefaultCompanyService($invoice);
         $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
+        $this->persistDefaultDescriptionFromRequest($request);
 
         if (($selection['requires_split'] ?? false) === true) {
             return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
@@ -504,6 +567,7 @@ class InvoiceController extends Controller
         $defaultService = $this->resolveDefaultCompanyService($invoice);
         $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
+        $this->persistDefaultDescriptionFromRequest($request);
 
         $receipt = $this->findReceiptForInvoice($invoice);
 
@@ -631,6 +695,12 @@ class InvoiceController extends Controller
             return $customDescription;
         }
 
+        $defaultDescription = $this->defaultEmitDescription();
+
+        if ($defaultDescription !== null) {
+            return $defaultDescription;
+        }
+
         if ($lineItems !== []) {
             return implode(' | ', $lineItems);
         }
@@ -638,6 +708,47 @@ class InvoiceController extends Controller
         return implode(' | ', $invoice->items->pluck('name')->toArray())
             ?: $invoice->description
             ?: trans('nfse::general.service_default');
+    }
+
+    protected function defaultEmitDescription(): ?string
+    {
+        $rawValue = setting(self::INVOICE_NOTES_SETTING_KEY, '');
+
+        if (!is_string($rawValue)) {
+            return null;
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
+
+        return is_string($normalized) && $normalized !== '' ? $normalized : null;
+    }
+
+    protected function persistDefaultDescriptionFromRequest(?Request $request): void
+    {
+        if (!$request instanceof Request) {
+            return;
+        }
+
+        if (!$request->boolean('nfse_save_default_description', false)) {
+            return;
+        }
+
+        $rawValue = $request->input('nfse_discriminacao_custom', '');
+
+        if (!is_string($rawValue)) {
+            return;
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
+        $valueToPersist = is_string($normalized) ? $normalized : '';
+
+        setting([self::INVOICE_NOTES_SETTING_KEY => $valueToPersist]);
+
+        $settings = setting();
+
+        if (is_object($settings) && is_callable([$settings, 'save'])) {
+            $settings->save();
+        }
     }
 
     protected function customDiscriminacaoFromRequest(?Request $request): ?string
@@ -1436,7 +1547,7 @@ class InvoiceController extends Controller
         }
 
         return [
-            'total' => $totalReceipts + $pending,
+            'total' => $totalReceipts,
             'emitted' => $emitted,
             'processing' => $processing,
             'cancelled' => $cancelled,
@@ -1861,8 +1972,9 @@ class InvoiceController extends Controller
 
     protected function canRestoreIndexPreferences(array $preferences): bool
     {
-        // Never auto-restore non-default filters from bare URL; this prevents
-        // stale search/status values from returning right after user clears filters.
+        // Restore saved non-default listing state only on bare URL requests.
+        // Explicit request parameters (including ?search= from clear action) are
+        // handled before this method and always take precedence.
         $status = $preferences['status'] ?? null;
         $search = $preferences['search'] ?? null;
         $perPage = (int) ($preferences['per_page'] ?? 25);
@@ -1873,7 +1985,7 @@ class InvoiceController extends Controller
         $hasSearch = is_string($search) && trim($search) !== '';
         $hasNeutralOverrides = $perPage !== 25 || $sortBy !== 'due_at' || $sortDirection !== 'desc';
 
-        return !$hasNonDefaultStatus && !$hasSearch && $hasNeutralOverrides;
+        return $hasNonDefaultStatus || $hasSearch || $hasNeutralOverrides;
     }
 
     protected function indexPreferencesSettingKey(): string
@@ -1903,23 +2015,16 @@ class InvoiceController extends Controller
 
     protected function pendingInvoicesQuery(?string $search = null): mixed
     {
-        try {
-            $processedInvoiceIds = NfseReceipt::query()
-                ->pluck('invoice_id')
-                ->filter()
-                ->values()
-                ->all();
-        } catch (\Throwable) {
-            $processedInvoiceIds = [];
-        }
+        $receiptTable = (new NfseReceipt())->getTable();
 
         $query = Invoice::invoice()
             ->with(['contact'])
             ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE))
-            ->when(
-                $processedInvoiceIds !== [],
-                static fn ($query) => $query->whereNotIn('id', $processedInvoiceIds)
-            );
+            ->whereNotExists(static function ($subQuery) use ($receiptTable): void {
+                $subQuery->selectRaw('1')
+                    ->from($receiptTable)
+                    ->whereColumn($receiptTable . '.invoice_id', 'documents.id');
+            });
 
         if ($search !== null) {
             $query = $query->where(function ($innerQuery) use ($search) {
@@ -2562,6 +2667,113 @@ class InvoiceController extends Controller
         return $this->isDanfseHttp496($throwable);
     }
 
+    /**
+     * @return array{
+     *   danfse: array{path: ?string, exists: bool, source: ?string, download_url: ?string},
+     *   xml: array{path: ?string, exists: bool, source: ?string, download_url: ?string}
+     * }
+     */
+    protected function resolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
+    {
+        $receiptData = $this->receiptDataFromModel($receipt);
+        $basePath = $this->buildWebDavArtifactBasePath($invoice, $receiptData);
+
+        return [
+            'danfse' => $this->resolveSingleReceiptArtifact($invoice, $receipt, $receiptData, $basePath, 'danfse', 'danfse_webdav_path', 'pdf'),
+            'xml' => $this->resolveSingleReceiptArtifact($invoice, $receipt, $receiptData, $basePath, 'xml', 'xml_webdav_path', 'xml'),
+        ];
+    }
+
+    /**
+     * @return array{path: ?string, exists: bool, source: ?string, download_url: ?string}
+     */
+    protected function resolveSingleReceiptArtifact(
+        Invoice $invoice,
+        NfseReceipt $receipt,
+        ReceiptData $receiptData,
+        string $basePath,
+        string $artifact,
+        string $pathField,
+        string $extension,
+    ): array {
+        $path = trim((string) ($receipt->{$pathField} ?? ''));
+        $source = $path !== '' ? 'persisted' : null;
+
+        if ($path === '' && $this->webDavEnabled() && $this->artifactStorageEnabledByExtension($extension)) {
+            $candidate = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receiptData, $extension);
+            $candidate = trim($candidate);
+
+            if ($candidate !== '') {
+                $path = $candidate;
+                $source = 'template';
+            }
+        }
+
+        if ($path === '') {
+            return [
+                'path' => null,
+                'exists' => false,
+                'source' => null,
+                'download_url' => null,
+            ];
+        }
+
+        $exists = $this->webDavEnabled() ? $this->webDavPathExists($path) : false;
+
+        $downloadUrl = null;
+
+        if ($exists && function_exists('route')) {
+            try {
+                $downloadUrl = route('nfse.invoices.artifacts.download', ['invoice' => $invoice->id, 'artifact' => $artifact]);
+            } catch (\Throwable) {
+                $downloadUrl = null;
+            }
+        }
+
+        return [
+            'path' => $path,
+            'exists' => $exists,
+            'source' => $source,
+            'download_url' => $downloadUrl,
+        ];
+    }
+
+    protected function receiptDataFromModel(NfseReceipt $receipt): ReceiptData
+    {
+        $issueDate = $receipt->data_emissao ?? null;
+        $issueDateString = '';
+
+        if ($issueDate instanceof \DateTimeInterface) {
+            $issueDateString = $issueDate->format(DATE_ATOM);
+        } elseif (is_string($issueDate)) {
+            $issueDateString = trim($issueDate);
+        }
+
+        return new ReceiptData(
+            nfseNumber: (string) ($receipt->nfse_number ?? ''),
+            chaveAcesso: (string) ($receipt->chave_acesso ?? ''),
+            dataEmissao: $issueDateString,
+            codigoVerificacao: (string) ($receipt->codigo_verificacao ?? ''),
+            rawXml: null,
+        );
+    }
+
+    protected function artifactStorageEnabledByExtension(string $extension): bool
+    {
+        return $extension === 'xml'
+            ? $this->webDavStoreXmlEnabled()
+            : $this->webDavStorePdfEnabled();
+    }
+
+    protected function webDavPathExists(string $path): bool
+    {
+        try {
+            return $this->makeWebDavClientFromSettings()->exists($path);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     protected function webDavEnabled(): bool
     {
         return trim((string) setting('nfse.webdav_url', '')) !== '';
@@ -2782,6 +2994,8 @@ class InvoiceController extends Controller
         $sendEmail = (bool) (int) setting('nfse.send_email_on_emit', '0');
         $recipient = $this->contactStringField($invoice->contact, ['email']);
         $template  = null;
+        $attachDanfse = (bool) (int) setting('nfse.email_attach_danfse_on_emit', '1');
+        $attachXml = (bool) (int) setting('nfse.email_attach_xml_on_emit', '1');
 
         try {
             $template = \App\Models\Setting\EmailTemplate::alias('invoice_nfse_issued_customer')->first();
@@ -2794,8 +3008,8 @@ class InvoiceController extends Controller
             'recipient'     => $recipient,
             'subject'       => $template !== null ? (string) ($template->subject ?? '') : '',
             'body'          => $template !== null ? (string) ($template->body ?? '') : '',
-            'attach_danfse' => true,
-            'attach_xml'    => true,
+            'attach_danfse' => $attachDanfse,
+            'attach_xml'    => $attachXml,
         ];
     }
     protected function handlePostEmitEmail(?Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
@@ -2808,9 +3022,38 @@ class InvoiceController extends Controller
             return;
         }
 
-        if ($request->boolean('nfse_email_save_default', false)) {
-            setting(['nfse.send_email_on_emit' => '1']);
-            setting()->save();
+        $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
+        $attachXml    = $request->boolean('nfse_email_attach_xml', true);
+        $saveDefault  = $request->boolean('nfse_email_save_default', false);
+        $settingsToPersist = [
+            'nfse.email_attach_danfse_on_emit' => $attachDanfse ? '1' : '0',
+            'nfse.email_attach_xml_on_emit' => $attachXml ? '1' : '0',
+        ];
+
+        if ($saveDefault) {
+            $settingsToPersist['nfse.send_email_on_emit'] = '1';
+        }
+
+        setting($settingsToPersist);
+        setting()->save();
+
+        if ($saveDefault) {
+            $template = \App\Models\Setting\EmailTemplate::alias('invoice_nfse_issued_customer')->first();
+
+            if ($template) {
+                $subject = (string) $request->input('nfse_email_subject', '');
+                $body    = (string) $request->input('nfse_email_body', '');
+
+                if ($subject !== '') {
+                    $template->subject = $subject;
+                }
+
+                if ($body !== '') {
+                    $template->body = $body;
+                }
+
+                $template->save();
+            }
         }
 
         $recipient = trim((string) $request->input('nfse_email_to', ''));
@@ -2819,24 +3062,39 @@ class InvoiceController extends Controller
             return;
         }
 
-        $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
-        $attachXml    = $request->boolean('nfse_email_attach_xml', true);
-        $customMail   = [
-            'to'      => [['email' => $recipient]],
+        $customMail = [
+            'to'      => $recipient,
             'subject' => (string) $request->input('nfse_email_subject', ''),
             'body'    => (string) $request->input('nfse_email_body', ''),
         ];
+
+        if ($request->boolean('nfse_email_copy_to_self', false) && function_exists('user')) {
+            $selfEmail = (string) (user()?->email ?? '');
+
+            if ($selfEmail !== '') {
+                $customMail['bcc'] = $selfEmail;
+            }
+        }
 
         $this->sendNfseIssuedNotification($invoice, $receipt, $attachDanfse, $attachXml, $customMail);
     }
 
     protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
     {
-        if ($invoice->contact === null) {
+        $notifiable = $invoice->contact;
+
+        if ($notifiable === null) {
+            if (empty($customMail['to'])) {
+                return;
+            }
+
+            \Illuminate\Support\Facades\Notification::route('mail', (string) $customMail['to'])
+                ->notify(new \Modules\Nfse\Notifications\NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
+
             return;
         }
 
-        $invoice->contact->notify(new \Modules\Nfse\Notifications\NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
+        $notifiable->notify(new \Modules\Nfse\Notifications\NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
     }
 
 }

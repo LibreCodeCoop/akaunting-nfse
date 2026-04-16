@@ -22,6 +22,7 @@ class Main extends Provider
         $this->loadViews();
         $this->loadMigrations();
         $this->syncEmailTemplates();
+        $this->overrideEmailRoute();
     }
 
     /**
@@ -65,5 +66,14 @@ class Main extends Provider
     protected function syncEmailTemplates(): void
     {
         (new EmailTemplateSynchronizer())->sync();
+    }
+
+    /**
+     * Override the default Akaunting invoice email modal route so the NFS-e
+     * enriched form (with DANFSE/XML attachment options) is used instead.
+     */
+    protected function overrideEmailRoute(): void
+    {
+        config(['type.document.invoice.route.emails.create' => 'nfse.modals.invoices.emails.create']);
     }
 }
