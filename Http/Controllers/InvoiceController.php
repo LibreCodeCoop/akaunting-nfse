@@ -766,7 +766,19 @@ class InvoiceController extends Controller
 
     protected function ajaxAwareRedirect(?Request $request, RedirectResponse $redirect): RedirectResponse|JsonResponse
     {
-        if ($request === null || !$request->isXmlHttpRequest()) {
+        if ($request === null && function_exists('request')) {
+            try {
+                $currentRequest = request();
+
+                if ($currentRequest instanceof Request) {
+                    $request = $currentRequest;
+                }
+            } catch (\Throwable) {
+                // Ignore container-less contexts used by isolated unit tests.
+            }
+        }
+
+        if (!$request instanceof Request || !$request->isXmlHttpRequest()) {
             return $redirect;
         }
 
