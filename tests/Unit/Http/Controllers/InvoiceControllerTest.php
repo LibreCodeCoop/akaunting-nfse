@@ -122,8 +122,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);', $content);
             self::assertStringContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
+            self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
             self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);', $content);
             self::assertStringContainsString('$this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);', $content);
+            self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
         }
 
         public function testControllerBuildsWebDavArtifactPathsWithXmlAndDanfseFiles(): void
@@ -800,6 +802,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller = new class ($client) extends InvoiceController {
                 public array $clientCalls = [];
+                public array $markedSentInvoiceIds = [];
 
                 public function __construct(private readonly NfseClientInterface $client)
                 {
@@ -812,6 +815,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return $this->client;
                 }
 
+                protected function markInvoiceSentAfterEmission(Invoice $invoice): void
+                {
+                    $invoice->status = 'sent';
+                    $this->markedSentInvoiceIds[] = $invoice->id;
+                }
+
                 protected function hasCertificateSecret(string $cnpj): bool
                 {
                     return true;
@@ -821,6 +830,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->emit($invoice);
 
             self::assertSame([['sandbox' => false]], $controller->clientCalls);
+            self::assertSame([42], $controller->markedSentInvoiceIds);
+            self::assertSame('sent', $invoice->status);
             self::assertSame('12345678000195', $client->capturedDps?->cnpjPrestador);
             self::assertSame('3303302', $client->capturedDps?->municipioIbge);
             self::assertSame('0107', $client->capturedDps?->itemListaServico);
