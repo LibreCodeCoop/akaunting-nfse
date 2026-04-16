@@ -48,7 +48,7 @@ final class OverrideInvoiceEmailRoute
 
         config([
             'type.document.invoice.route.emails.create' => 'nfse.modals.invoices.emails.create',
-            'type.document.invoice.translation.send_mail' => 'nfse::general.invoices.emit_now',
+            'type.document.invoice.translation.send_mail' => $this->sendButtonTranslationKey($invoice),
         ]);
     }
 
@@ -64,15 +64,22 @@ final class OverrideInvoiceEmailRoute
 
         $receiptStatus = $this->latestReceiptStatus($invoice);
 
+        return $receiptStatus !== null || $this->hasActiveCompanyService($invoice);
+    }
+
+    protected function sendButtonTranslationKey(object $invoice): string
+    {
+        $receiptStatus = $this->latestReceiptStatus($invoice);
+
         if ($receiptStatus === 'emitted') {
-            return false;
+            return 'nfse::general.invoices.cancel';
         }
 
-        if ($receiptStatus !== null) {
-            return true;
+        if ($receiptStatus === 'cancelled') {
+            return 'nfse::general.invoices.reemit';
         }
 
-        return $this->hasActiveCompanyService($invoice);
+        return 'nfse::general.invoices.emit_now';
     }
 
     protected function latestReceiptStatus(object $invoice): ?string
