@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     $switchChecked = (bool) ($checked ?? false);
     $switchExtraOnChange = trim((string) ($extraOnChange ?? ''));
 
-    $switchOnChange = "(function(cb){const track=cb.nextElementSibling; const thumb=track ? track.nextElementSibling : null; if(track){track.style.backgroundColor = cb.checked ? '#5e9f4d' : '#dbe8d4';} if(thumb){thumb.style.left = cb.checked ? '1.5rem' : '0.25rem';}";
+    $switchOnChange = "(function(cb){const fallback=cb.previousElementSibling; if(fallback && fallback.type === 'hidden'){fallback.value = cb.checked ? '1' : '0';} const track=cb.nextElementSibling; const thumb=track ? track.nextElementSibling : null; if(track){track.style.backgroundColor = cb.checked ? '#5e9f4d' : '#dbe8d4';} if(thumb){thumb.style.left = cb.checked ? '1.5rem' : '0.25rem';}";
 
     if ($switchExtraOnChange !== '') {
         $switchOnChange .= ' ' . $switchExtraOnChange;
@@ -19,11 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 @endphp
 
 <label for="{{ $switchId }}" data-nfse-switch class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center" aria-label="{{ $switchLabel }}">
-    <input type="hidden" name="{{ $switchName }}" value="0">
+    <input type="hidden" name="{{ $switchName }}" value="{{ $switchChecked ? '1' : '0' }}">
     <input
         id="{{ $switchId }}"
-        name="{{ $switchName }}"
-        value="1"
         type="checkbox"
         class="peer sr-only"
         {{ $switchChecked ? 'checked' : '' }}
