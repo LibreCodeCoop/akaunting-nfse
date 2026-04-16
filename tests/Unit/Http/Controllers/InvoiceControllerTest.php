@@ -4544,6 +4544,111 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([['status' => 'cancelled']], $receipt->updatedPayloads);
         }
 
+        public function testCancelReturnsJsonWithRedirectWhenRequestIsAjax(): void
+        {
+            $invoice = new Invoice(id: 210, amount: 100.0);
+            InvoiceControllerIsolationState::makeReceipt(210, 'CHAVE-210', 'emitted');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    return true;
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $request = new \Illuminate\Http\Request([], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+            $response = $controller->cancel($invoice, $request);
+
+            self::assertInstanceOf(\Illuminate\Http\JsonResponse::class, $response);
+            self::assertTrue($response->payload['success'] ?? false);
+            self::assertFalse($response->payload['error'] ?? true);
+            self::assertNotEmpty($response->payload['redirect'] ?? '');
+        }
+
+        public function testCancelReturnsJsonErrorOnGatewayExceptionWhenRequestIsAjax(): void
+        {
+            $invoice = new Invoice(id: 211, amount: 100.0);
+            InvoiceControllerIsolationState::makeReceipt(211, 'CHAVE-211', 'emitted');
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new CancellationException('Gateway rejected', NfseErrorCode::CancellationRejected, 422, ['detail' => 'NFS-e não pode ser cancelada']);
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $request = new \Illuminate\Http\Request([], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+            $response = $controller->cancel($invoice, $request);
+
+            self::assertInstanceOf(\Illuminate\Http\JsonResponse::class, $response);
+            self::assertFalse($response->payload['success'] ?? true);
+            self::assertTrue($response->payload['error'] ?? false);
+        }
+
         public function testReemitRedirectsToShowWithErrorFlashWhenGatewayRejectsIssuance(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
