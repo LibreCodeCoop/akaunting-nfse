@@ -37,8 +37,31 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
         self::assertStringContainsString("if (!\$this->moduleIsEnabled('nfse'))", $content);
         self::assertStringContainsString('public function overrideForInvoice', $content);
         self::assertStringContainsString('shouldManageInvoiceSendFlow', $content);
-        self::assertStringContainsString('hasExistingReceipt($invoice) || $this->hasActiveCompanyService($invoice)', $content);
+        self::assertStringContainsString('latestReceiptStatus', $content);
         self::assertStringContainsString("if ((\$invoice->type ?? '') !== 'invoice')", $content);
+    }
+
+    public function testEmittedReceiptDoesNotUseEmitOverrideFlow(): void
+    {
+        $content = $this->listenerContent();
+
+        self::assertStringContainsString("if (\$receiptStatus === 'emitted')", $content);
+        self::assertStringContainsString('return false;', $content);
+    }
+
+    public function testNonEmittedReceiptStillUsesNfseFlow(): void
+    {
+        $content = $this->listenerContent();
+
+        self::assertStringContainsString('if ($receiptStatus !== null)', $content);
+        self::assertStringContainsString('return true;', $content);
+    }
+
+    public function testPendingInvoiceWithActiveServiceStillUsesNfseFlow(): void
+    {
+        $content = $this->listenerContent();
+
+        self::assertStringContainsString('return $this->hasActiveCompanyService($invoice);', $content);
     }
 
     /**
@@ -78,5 +101,18 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
             "'type.document.invoice.translation.send_mail' => 'nfse::general.invoices.emit_now'",
             $content
         );
+    }
+
+    public function testOverrideDoesNotUseUnconditionalExistingReceiptShortcut(): void
+    {
+        self::assertStringNotContainsString(
+            'hasExistingReceipt($invoice) || $this->hasActiveCompanyService($invoice)',
+            $this->listenerContent()
+        );
+    }
+
+    public function testListenerReadsLatestReceiptStatusBeforeChoosingTheOverride(): void
+    {
+        self::assertStringContainsString('protected function latestReceiptStatus(object $invoice): ?string', $this->listenerContent());
     }
 }
