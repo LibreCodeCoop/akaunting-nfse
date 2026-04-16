@@ -18,6 +18,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/invoices/index.blade.php');
             self::assertFileExists($basePath . '/invoices/show.blade.php');
             self::assertFileExists($basePath . '/modals/invoices/email.blade.php');
+            self::assertFileExists($basePath . '/modals/invoices/cancel.blade.php');
             self::assertFileExists($basePath . '/modals/invoices/issue.blade.php');
         }
 
