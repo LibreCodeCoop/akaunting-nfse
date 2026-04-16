@@ -878,6 +878,178 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
+
+        public function testEmitReturnsJsonWithRedirectWhenRequestIsAjax(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 77,
+                amount: 500.00,
+                items: [['name' => 'Servico Ajax']],
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->issued_at = '2026-01-15 10:00:00';
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    return new ReceiptData('NF-0077', 'CHAVE-77', '2026-01-15T10:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $request = new \Illuminate\Http\Request(['nfse_confirm_default_service' => '1'], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+            $response = $controller->emit($invoice, $request);
+
+            self::assertInstanceOf(\Illuminate\Http\JsonResponse::class, $response);
+            self::assertTrue($response->payload['success'] ?? false);
+            self::assertFalse($response->payload['error'] ?? true);
+            self::assertStringContainsString('nfse.invoices.show', (string) ($response->payload['redirect'] ?? ''));
+        }
+
+        public function testEmitReturnsJsonErrorOnGatewayExceptionWhenRequestIsAjax(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 78,
+                amount: 200.00,
+                items: [['name' => 'Servico Fail']],
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->issued_at = '2026-01-15 10:00:00';
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new IssuanceException('Rejected', NfseErrorCode::IssuanceRejected, 422, ['mensagem' => 'invalid']);
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $request = new \Illuminate\Http\Request(['nfse_confirm_default_service' => '1'], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+            ControllerIsolationState::$translations['nfse::general.nfse_emit_failed'] = 'Falha na emissao';
+
+            $response = $controller->emit($invoice, $request);
+
+            self::assertInstanceOf(\Illuminate\Http\JsonResponse::class, $response);
+            self::assertFalse($response->payload['success'] ?? true);
+            self::assertTrue($response->payload['error'] ?? false);
+            self::assertStringContainsString('Falha na emissao', (string) ($response->payload['message'] ?? ''));
+        }
+
+        public function testEmitNonAjaxRequestStillReturnsRedirectResponse(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 79,
+                amount: 300.00,
+                items: [['name' => 'Servico Normal']],
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->issued_at = '2026-01-15 10:00:00';
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    return new ReceiptData('NF-0079', 'CHAVE-79', '2026-01-15T10:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->emit($invoice);
+
+            self::assertInstanceOf(\Illuminate\Http\RedirectResponse::class, $response);
+            self::assertSame('nfse.invoices.show', $response->route);
+        }
         public function testEmitAddsTaxPolicyInfoWhenInvoiceContainsNativeItemTaxes(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
