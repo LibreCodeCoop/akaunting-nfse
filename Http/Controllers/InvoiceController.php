@@ -355,7 +355,7 @@ class InvoiceController extends Controller
         event(new DocumentMarkedSent($invoice));
     }
 
-    public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse
+    public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
         $receipt = $this->findReceiptForInvoice($invoice);
 
@@ -377,8 +377,11 @@ class InvoiceController extends Controller
                     'gateway_detail' => $gatewayDetail,
                 ]);
 
-                return redirect()->route('nfse.invoices.index')
-                    ->with('success', trans('nfse::general.nfse_cancelled'));
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('nfse.invoices.index')
+                        ->with('success', trans('nfse::general.nfse_cancelled')),
+                );
             }
 
             $this->safeLogError('NFS-e cancellation rejected by SEFIN', [
@@ -388,15 +391,21 @@ class InvoiceController extends Controller
                 'gateway_detail' => $gatewayDetail,
             ]);
 
-            return redirect()->route('nfse.invoices.index')
-                ->with('error', trans('nfse::general.nfse_cancel_failed'))
-                ->with('nfse_gateway_error_detail', $gatewayDetail);
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.index')
+                    ->with('error', trans('nfse::general.nfse_cancel_failed'))
+                    ->with('nfse_gateway_error_detail', $gatewayDetail),
+            );
         }
 
         $receipt->update(['status' => 'cancelled']);
 
-        return redirect()->route('nfse.invoices.index')
-            ->with('success', trans('nfse::general.nfse_cancelled'));
+        return $this->ajaxAwareRedirect(
+            $request,
+            redirect()->route('nfse.invoices.index')
+                ->with('success', trans('nfse::general.nfse_cancelled')),
+        );
     }
 
     protected function cancellationReasonForGateway(?Request $request = null): string
