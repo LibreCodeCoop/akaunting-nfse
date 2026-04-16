@@ -62,21 +62,35 @@ final class OverrideInvoiceEmailRoute
             return false;
         }
 
-        return $this->hasExistingReceipt($invoice) || $this->hasActiveCompanyService($invoice);
+        $receiptStatus = $this->latestReceiptStatus($invoice);
+
+        if ($receiptStatus === 'emitted') {
+            return false;
+        }
+
+        if ($receiptStatus !== null) {
+            return true;
+        }
+
+        return $this->hasActiveCompanyService($invoice);
     }
 
-    protected function hasExistingReceipt(object $invoice): bool
+    protected function latestReceiptStatus(object $invoice): ?string
     {
         $invoiceId = (int) ($invoice->id ?? 0);
 
         if ($invoiceId <= 0) {
-            return false;
+            return null;
         }
 
         try {
-            return NfseReceipt::where('invoice_id', $invoiceId)->exists();
+            $status = NfseReceipt::where('invoice_id', $invoiceId)
+                ->latest('id')
+                ->value('status');
+
+            return is_string($status) && $status !== '' ? $status : null;
         } catch (\Throwable) {
-            return false;
+            return null;
         }
     }
 
