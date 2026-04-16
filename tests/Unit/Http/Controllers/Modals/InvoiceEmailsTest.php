@@ -32,6 +32,13 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
+    private function cancelViewContent(): string
+    {
+        return (string) file_get_contents(
+            dirname(__DIR__, 5) . '/Resources/views/modals/invoices/cancel.blade.php'
+        );
+    }
+
     private function issueSwitchPartialContent(): string
     {
         return (string) file_get_contents(
@@ -142,11 +149,27 @@ final class InvoiceEmailsTest extends TestCase
             $this->controllerContent()
         );
         self::assertStringContainsString(
+            "nfse::modals.invoices.cancel",
+            $this->controllerContent()
+        );
+        self::assertStringContainsString(
             "nfse::modals.invoices.issue",
             $this->controllerContent()
         );
         self::assertStringContainsString(
             'issuePreviewData',
+            $this->controllerContent()
+        );
+    }
+
+    public function testControllerCreateUsesCancelTitleAndConfirmButtonForEmittedReceipts(): void
+    {
+        self::assertStringContainsString(
+            "trans('nfse::general.invoices.cancel_modal_title')",
+            $this->controllerContent()
+        );
+        self::assertStringContainsString(
+            "trans('nfse::general.invoices.cancel_modal_submit')",
             $this->controllerContent()
         );
     }
@@ -241,6 +264,18 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString('x-form.group.contact', $view);
         self::assertStringContainsString("'key' => 'email'", $view);
         self::assertStringContainsString("'value' => 'email'", $view);
+    }
+
+    public function testCancelViewPostsToCancelRouteWithStructuredCancellationFields(): void
+    {
+        $view = $this->cancelViewContent();
+
+        self::assertStringContainsString('method="DELETE"', $view);
+        self::assertStringContainsString('cancel_reason', $view);
+        self::assertStringContainsString('cancel_justification', $view);
+        self::assertStringContainsString("trans('nfse::general.invoices.cancel_modal_reason')", $view);
+        self::assertStringContainsString("trans('nfse::general.invoices.cancel_modal_justification')", $view);
+        self::assertStringContainsString('nfse::general.invoices.cancel_reason_options', $view);
     }
 
     public function testInvoiceControllerNormalizesRecipientForEmitEmailModalPayloads(): void
