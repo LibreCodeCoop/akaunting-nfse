@@ -27,7 +27,7 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
         self::assertStringContainsString('overrideForInvoice($invoice);', $content);
         self::assertStringContainsString('config([', $content);
         self::assertStringContainsString("'type.document.invoice.route.emails.create' => 'nfse.modals.invoices.emails.create'", $content);
-        self::assertStringContainsString("'type.document.invoice.translation.send_mail' => 'nfse::general.invoices.emit_now'", $content);
+        self::assertStringContainsString("'type.document.invoice.translation.send_mail' => \$this->sendButtonTranslationKey(\$invoice)", $content);
     }
 
     public function testListenerGuardsTheOverrideBehindNfseEligibility(): void
@@ -41,27 +41,28 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
         self::assertStringContainsString("if ((\$invoice->type ?? '') !== 'invoice')", $content);
     }
 
-    public function testEmittedReceiptDoesNotUseEmitOverrideFlow(): void
+    public function testEmittedReceiptUsesCancelLabelInsteadOfEmitLabel(): void
     {
         $content = $this->listenerContent();
 
         self::assertStringContainsString("if (\$receiptStatus === 'emitted')", $content);
-        self::assertStringContainsString('return false;', $content);
+        self::assertStringContainsString("return 'nfse::general.invoices.cancel';", $content);
     }
 
-    public function testNonEmittedReceiptStillUsesNfseFlow(): void
+    public function testCancelledReceiptUsesReemitLabel(): void
     {
         $content = $this->listenerContent();
 
-        self::assertStringContainsString('if ($receiptStatus !== null)', $content);
-        self::assertStringContainsString('return true;', $content);
+        self::assertStringContainsString("if (\$receiptStatus === 'cancelled')", $content);
+        self::assertStringContainsString("return 'nfse::general.invoices.reemit';", $content);
     }
 
     public function testPendingInvoiceWithActiveServiceStillUsesNfseFlow(): void
     {
         $content = $this->listenerContent();
 
-        self::assertStringContainsString('return $this->hasActiveCompanyService($invoice);', $content);
+        self::assertStringContainsString('return $receiptStatus !== null || $this->hasActiveCompanyService($invoice);', $content);
+        self::assertStringContainsString("return 'nfse::general.invoices.emit_now';", $content);
     }
 
     /**
@@ -98,15 +99,15 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
             $content
         );
         self::assertStringContainsString(
-            "'type.document.invoice.translation.send_mail' => 'nfse::general.invoices.emit_now'",
+            "'type.document.invoice.translation.send_mail' => \$this->sendButtonTranslationKey(\$invoice)",
             $content
         );
     }
 
-    public function testOverrideDoesNotUseUnconditionalExistingReceiptShortcut(): void
+    public function testOverrideKeepsModuleRouteForEmittedReceipt(): void
     {
-        self::assertStringNotContainsString(
-            'hasExistingReceipt($invoice) || $this->hasActiveCompanyService($invoice)',
+        self::assertStringContainsString(
+            'return $receiptStatus !== null || $this->hasActiveCompanyService($invoice);',
             $this->listenerContent()
         );
     }
@@ -114,5 +115,6 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
     public function testListenerReadsLatestReceiptStatusBeforeChoosingTheOverride(): void
     {
         self::assertStringContainsString('protected function latestReceiptStatus(object $invoice): ?string', $this->listenerContent());
+        self::assertStringContainsString('protected function sendButtonTranslationKey(object $invoice): string', $this->listenerContent());
     }
 }
