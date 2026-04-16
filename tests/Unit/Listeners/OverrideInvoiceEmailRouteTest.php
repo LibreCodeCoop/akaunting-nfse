@@ -37,11 +37,46 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
         self::assertStringContainsString("if (!\$this->moduleIsEnabled('nfse'))", $content);
         self::assertStringContainsString('public function overrideForInvoice', $content);
         self::assertStringContainsString('shouldManageInvoiceSendFlow', $content);
-        self::assertStringContainsString('isOperationalSetupReadyForInvoice', $content);
-        self::assertStringContainsString('if (!$this->isOperationalSetupReadyForInvoice($invoice))', $content);
         self::assertStringContainsString('hasExistingReceipt($invoice) || $this->hasActiveCompanyService($invoice)', $content);
-        self::assertStringContainsString("->where('is_default', true)", $content);
-        self::assertStringContainsString('hasCertificateSecret', $content);
         self::assertStringContainsString("if ((\$invoice->type ?? '') !== 'invoice')", $content);
+    }
+
+    /**
+     * The route override must NOT depend on vault availability.
+     * hasCertificateSecret performs a network call; if vault is down the button
+     * must still be overridden so the user reaches the NFS-e modal instead of
+     * the default Akaunting send-email modal.
+     */
+    public function testRouteOverrideDoesNotDependOnOperationalSetupOrVault(): void
+    {
+        $content = $this->listenerContent();
+
+        // shouldManageInvoiceSendFlow must NOT call isOperationalSetupReadyForInvoice.
+        // The operational-readiness check belongs inside the emit flow, not here.
+        self::assertStringNotContainsString(
+            'if (!$this->isOperationalSetupReadyForInvoice($invoice))',
+            $content,
+            'shouldManageInvoiceSendFlow must not gate the override on operational setup; ' .
+            'vault connectivity is checked at emit time, not at button render time.'
+        );
+    }
+
+    /**
+     * Once shouldManageInvoiceSendFlow returns true, overrideForInvoice must
+     * set both config keys so the button label AND the modal URL are replaced.
+     */
+    public function testOverrideSetsBothConfigKeys(): void
+    {
+        $content = $this->listenerContent();
+
+        self::assertStringContainsString('config([', $content);
+        self::assertStringContainsString(
+            "'type.document.invoice.route.emails.create' => 'nfse.modals.invoices.emails.create'",
+            $content
+        );
+        self::assertStringContainsString(
+            "'type.document.invoice.translation.send_mail' => 'nfse::general.invoices.emit_now'",
+            $content
+        );
     }
 }
