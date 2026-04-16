@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
+use App\Events\Document\DocumentMarkedSent;
 use App\Models\Common\Contact;
 use App\Models\Document\Document as Invoice;
 use Illuminate\Http\JsonResponse;
@@ -338,6 +339,7 @@ class InvoiceController extends Controller
 
         $persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);
         $this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);
+        $this->markInvoiceSentAfterEmission($invoice);
         $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
         $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
 
@@ -346,6 +348,11 @@ class InvoiceController extends Controller
         return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
             ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso]))
             ->with('info', $taxPolicyMessage));
+    }
+
+    protected function markInvoiceSentAfterEmission(Invoice $invoice): void
+    {
+        event(new DocumentMarkedSent($invoice));
     }
 
     public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse
