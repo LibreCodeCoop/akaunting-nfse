@@ -141,30 +141,22 @@ class SettingsController extends Controller
         }
 
         $request->validate([
-            'nfse.tributacao_federal_mode' => 'nullable|in:percentage_profile',
             'nfse.federal_piscofins_situacao_tributaria' => 'nullable|regex:/^\d+$/',
             'nfse.federal_piscofins_tipo_retencao' => 'nullable|regex:/^\d+$/',
-            'nfse.federal_piscofins_aliquota_pis' => 'nullable|numeric|min:0|max:100',
-            'nfse.federal_piscofins_aliquota_cofins' => 'nullable|numeric|min:0|max:100',
-            'nfse.federal_valor_irrf' => 'nullable|numeric|min:0|max:100',
-            'nfse.federal_valor_csll' => 'nullable|numeric|min:0|max:100',
-            'nfse.federal_valor_cp' => 'nullable|numeric|min:0|max:100',
-            'nfse.tributos_fed_p' => 'nullable|numeric|min:0|max:100',
-            'nfse.tributos_est_p' => 'nullable|numeric|min:0|max:100',
-            'nfse.tributos_mun_p' => 'nullable|numeric|min:0|max:100',
-            'nfse.tributos_fed_sn' => 'nullable|numeric|min:0|max:100',
-            'nfse.tributos_est_sn' => 'nullable|numeric|min:0|max:100',
-            'nfse.tributos_mun_sn' => 'nullable|numeric|min:0|max:100',
         ]);
 
         $rawNfseInput = $request->input('nfse', []);
         $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
-        $rawNfseInput['tributacao_federal_mode'] = 'percentage_profile';
+        $situacaoTributaria = trim((string) ($rawNfseInput['federal_piscofins_situacao_tributaria'] ?? ''));
+        $tipoRetencao = trim((string) ($rawNfseInput['federal_piscofins_tipo_retencao'] ?? ''));
 
-        $keys = [
+        setting([
+            'nfse.federal_piscofins_situacao_tributaria' => preg_match('/^\d+$/', $situacaoTributaria) === 1 ? $situacaoTributaria : null,
+            'nfse.federal_piscofins_tipo_retencao' => preg_match('/^\d+$/', $tipoRetencao) === 1 ? $tipoRetencao : null,
+        ]);
+
+        foreach ([
             'tributacao_federal_mode',
-            'federal_piscofins_situacao_tributaria',
-            'federal_piscofins_tipo_retencao',
             'federal_piscofins_aliquota_pis',
             'federal_piscofins_aliquota_cofins',
             'federal_valor_irrf',
@@ -176,32 +168,10 @@ class SettingsController extends Controller
             'tributos_fed_sn',
             'tributos_est_sn',
             'tributos_mun_sn',
-        ];
-
-        foreach ($keys as $key) {
-            if (!array_key_exists($key, $rawNfseInput)) {
-                continue;
-            }
-
-            $value = $rawNfseInput[$key];
-
-            if (in_array($key, ['federal_piscofins_situacao_tributaria', 'federal_piscofins_tipo_retencao'], true)) {
-                $value = trim((string) $value);
-                $value = preg_match('/^\d+$/', $value) === 1 ? $value : null;
-            } elseif ($key !== 'tributacao_federal_mode') {
-                $value = is_string($value) ? str_replace(',', '.', trim($value)) : $value;
-
-                if ($value === '' || $value === null) {
-                    $value = null;
-                } elseif (is_numeric($value)) {
-                    $value = number_format((float) $value, 2, '.', '');
-                }
-            }
-
-            setting(['nfse.' . $key => $value]);
-        }
-
-        foreach (['federal_piscofins_base_calculo', 'federal_piscofins_valor_pis', 'federal_piscofins_valor_cofins'] as $deprecatedKey) {
+            'federal_piscofins_base_calculo',
+            'federal_piscofins_valor_pis',
+            'federal_piscofins_valor_cofins',
+        ] as $deprecatedKey) {
             setting()->forget('nfse.' . $deprecatedKey);
         }
 

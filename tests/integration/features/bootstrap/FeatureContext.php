@@ -248,7 +248,7 @@ final class FeatureContext implements Context
         $body = (string) $response->getBody();
         $this->csrfToken = $this->extractCsrfToken($body);
 
-        if (str_contains($body, 'nfse[cnpj_prestador]') && str_contains($body, 'nfse[item_lista_servico]')) {
+        if (str_contains($body, 'nfse[cnpj_prestador]') && str_contains($body, 'nfse[opcao_simples_nacional]')) {
             return;
         }
 
@@ -259,8 +259,7 @@ final class FeatureContext implements Context
                 'nfse[uf]' => 'SP',
                 'nfse[municipio_nome]' => 'Sao Paulo',
                 'nfse[municipio_ibge]' => '3550308',
-                'nfse[item_lista_servico]' => '0107',
-                'nfse[aliquota]' => '5.00',
+                'nfse[opcao_simples_nacional]' => '2',
                 'nfse[sandbox_mode]' => '1',
                 'nfse[bao_addr]' => 'https://vault.local.test',
                 'nfse[bao_mount]' => 'nfse',
@@ -284,7 +283,7 @@ final class FeatureContext implements Context
         );
 
         $this->ensure(
-            str_contains($confirmedBody, 'nfse[cnpj_prestador]') && str_contains($confirmedBody, 'nfse[item_lista_servico]'),
+            str_contains($confirmedBody, 'nfse[cnpj_prestador]') && str_contains($confirmedBody, 'nfse[opcao_simples_nacional]'),
             'Baseline NFS-e settings seed did not unlock the fiscal settings form.'
         );
 
