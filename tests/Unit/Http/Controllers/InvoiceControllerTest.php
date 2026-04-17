@@ -96,6 +96,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('->whereHas(\'contact\', static fn ($contactQuery) => $contactQuery->where(\'type\', Contact::CUSTOMER_TYPE))', $content);
         }
 
+        public function testPendingInvoicesQueryRequiresAtLeastOneItem(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString('->whereHas(\'items\')', $content);
+        }
+
         public function testPendingInvoicesQueryExcludesInvoicesAlreadyPresentInNfseReceipts(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
@@ -847,7 +854,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('sent', $invoice->status);
             self::assertSame('12345678000195', $client->capturedDps?->cnpjPrestador);
             self::assertSame('3303302', $client->capturedDps?->municipioIbge);
-            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('107', $client->capturedDps?->itemListaServico);
             self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('1500.25', $client->capturedDps?->valorServico);
             self::assertSame('4.50', $client->capturedDps?->aliquota);
@@ -1588,7 +1595,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('107', $client->capturedDps?->itemListaServico);
             self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('4.50', $client->capturedDps?->aliquota);
         }
@@ -1696,7 +1703,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // Items sem perfil fiscal usam fallback de settings.
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('107', $client->capturedDps?->itemListaServico);
             self::assertSame('[0107] Servico sem vinculo', $client->capturedDps?->discriminacao);
         }
 
@@ -1796,7 +1803,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('107', $client->capturedDps?->itemListaServico);
             self::assertStringContainsString('Servico sem vinculo', $client->capturedDps?->discriminacao ?? '');
             self::assertStringContainsString('0107', $client->capturedDps?->discriminacao ?? '');
         }
@@ -1909,7 +1916,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('1502', $client->capturedDps?->itemListaServico);
+            self::assertSame('502', $client->capturedDps?->itemListaServico);
             self::assertSame('150201', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('7.00', $client->capturedDps?->aliquota);
             self::assertStringContainsString('[1502] Servico vinculado', $client->capturedDps?->discriminacao ?? '');
@@ -2032,7 +2039,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
             // When multiple profiles exist, the first one is selected (highest priority)
-            self::assertSame('1502', $client->capturedDps?->itemListaServico);
+            self::assertSame('502', $client->capturedDps?->itemListaServico);
             self::assertStringContainsString('[1502] Servico A', $client->capturedDps?->discriminacao ?? '');
         }
 

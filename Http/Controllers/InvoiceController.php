@@ -226,11 +226,12 @@ class InvoiceController extends Controller
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
+        $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
         $dps = $this->makeDpsData([
             'cnpjPrestador' => $cnpj,
             'municipioIbge' => $ibge,
-            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
+            'itemListaServico' => $municipalTaxationCode,
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
@@ -590,11 +591,12 @@ class InvoiceController extends Controller
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
+        $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
         $dps = $this->makeDpsData([
             'cnpjPrestador' => (string) setting('nfse.cnpj_prestador'),
             'municipioIbge' => (string) setting('nfse.municipio_ibge'),
-            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
+            'itemListaServico' => $municipalTaxationCode,
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
@@ -1971,6 +1973,7 @@ class InvoiceController extends Controller
         $query = Invoice::invoice()
             ->with(['contact'])
             ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE))
+            ->whereHas('items')
             ->whereNotExists(static function ($subQuery) use ($receiptTable): void {
                 $subQuery->selectRaw('1')
                     ->from($receiptTable)
@@ -2241,6 +2244,19 @@ class InvoiceController extends Controller
         $calculatedValue = $invoiceAmount * $percentage / 100;
 
         return number_format($calculatedValue, 2, '.', '');
+    }
+
+    protected function normalizedMunicipalTaxationCode(string $value): string
+    {
+        $digits = preg_replace('/\D+/', '', $value) ?: '';
+
+        if ($digits === '') {
+            return '';
+        }
+
+        // SEFIN schema for cTribMun rejects 4-digit LC116-like values such as 0107.
+        // Keep the municipal code in up to 3 digits to satisfy TCCodTribMun.
+        return substr($digits, -3);
     }
 
     protected function normalizedFederalSelectValue(mixed $value): string
