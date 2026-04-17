@@ -3370,7 +3370,7 @@ class InvoiceController extends Controller
 
     protected function defaultPostEmitRecipient(Invoice $invoice): ?string
     {
-        $documentContactEmail = trim((string) data_get($invoice, 'contact_email', ''));
+        $documentContactEmail = trim((string) ($invoice->contact_email ?? ''));
 
         $candidates = [
             $this->contactStringField($invoice->contact, ['email']),

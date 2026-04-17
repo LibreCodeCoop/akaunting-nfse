@@ -2053,17 +2053,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return (object) ['id' => 900, 'item_lista_servico' => '1401', 'is_default' => true, 'is_active' => true];
                 }
 
-                protected function resolveInvoiceServiceSelection(Invoice $invoice, ?object $defaultService, ?Request $request = null, bool $persistAssignments = false): array
-                {
-                    return [
-                        'selected_service' => $defaultService,
-                        'line_items' => ['[1401] Item sem servico'],
-                        'missing_items' => [['id' => 77, 'name' => 'Item sem servico']],
-                        'requires_confirmation' => true,
-                        'requires_split' => false,
-                    ];
-                }
-
                 protected function availableInvoiceServices(Invoice $invoice): array
                 {
                     return [
@@ -2076,7 +2065,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $payload = $response->getData(true);
 
             self::assertSame(200, $response->getStatusCode());
-            self::assertSame([['id' => 77, 'name' => 'Item sem servico']], $payload['missing_items'] ?? null);
+            // Item-native model: items without a fiscal profile use the default service automatically,
+            // so missing_items is always empty.
+            self::assertSame([], $payload['missing_items'] ?? null);
             self::assertSame([['id' => 900, 'label' => '14.01 - Servico padrao', 'is_default' => true]], $payload['available_services'] ?? null);
             self::assertSame(900, $payload['default_service_id'] ?? null);
             self::assertFalse((bool) ($payload['requires_split'] ?? true));
