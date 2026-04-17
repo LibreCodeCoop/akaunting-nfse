@@ -86,6 +86,17 @@ return [
         'no_recent_receipts' => 'No NFS-e issued yet.',
     ],
 
+    'items' => [
+        'fiscal_title' => 'NFS-e fiscal data',
+        'fiscal_description' => 'Configure LC116 and national tax code (NBS) directly on the item.',
+        'item_lista_servico' => 'Service list item (LC116)',
+        'item_lista_servico_placeholder' => 'Example: 1.07 - Technical IT support',
+        'item_lista_servico_hint' => 'Use the official LC116 code. Only 4 digits are stored.',
+        'codigo_tributacao_nacional' => 'National tax code (NBS)',
+        'codigo_tributacao_nacional_placeholder' => 'Example: 010701',
+        'codigo_tributacao_nacional_hint' => 'Optional. If empty, NBS is derived from LC116.',
+    ],
+
     'invoices' => [
         'title' => 'Service tax receipts',
         'pending_title' => 'Pending invoices for issuance',
@@ -116,6 +127,7 @@ return [
         'status_processing' => 'Processing',
         'status_pending' => 'Pending',
         'customer' => 'Customer',
+        'back' => 'Back',
         'back_to_list' => 'Back to list',
         'emit_now' => 'Emit NFS-e now',
         'emit_modal_submitting' => 'Emitting...',
