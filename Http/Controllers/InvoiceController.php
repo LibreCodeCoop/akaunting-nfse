@@ -9,6 +9,7 @@ namespace Modules\Nfse\Http\Controllers;
 
 use App\Events\Document\DocumentMarkedSent;
 use App\Models\Common\Contact;
+use App\Models\Common\Item as CommonItem;
 use App\Models\Document\Document as Invoice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +28,7 @@ use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 use Modules\Nfse\Models\CompanyService;
+use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\ItemServiceMapping;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\VaultConfig;
@@ -192,14 +194,14 @@ class InvoiceController extends Controller
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
         $defaultService = $this->resolveDefaultCompanyService($invoice);
-        $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, null, false);
+        $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice, $defaultService);
 
         return response()->json([
-            'missing_items'    => $selection['missing_items'],
+            'missing_items'    => [],
             'available_services' => $this->availableInvoiceServices($invoice),
             'default_service_id' => is_object($defaultService) ? (int) ($defaultService->id ?? 0) : 0,
-            'requires_split'   => (bool) ($selection['requires_split'] ?? false),
-            'suggested_description' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? []),
+            'requires_split'   => (bool) ($itemFiscalProfile['requires_split'] ?? false),
+            'suggested_description' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? []),
             'email_defaults'   => $this->servicePreviewEmailDefaults($invoice),
         ]);
     }
@@ -209,21 +211,10 @@ class InvoiceController extends Controller
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
         $defaultService = $this->resolveDefaultCompanyService($invoice);
-        $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
         $this->persistDefaultDescriptionFromRequest($request);
 
-        if (($selection['requires_split'] ?? false) === true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('warning', trans('nfse::general.invoices.mixed_service_tax_profiles_not_supported')));
-        }
-
-        if (($selection['requires_confirmation'] ?? false) === true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('warning', trans('nfse::general.invoices.default_service_confirmation_required')));
-        }
-
-        $serviceForIssuance = $selection['selected_service'] ?? $defaultService;
+        $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice, $defaultService);
 
         $readiness = $this->emissionReadiness();
 
@@ -243,11 +234,11 @@ class InvoiceController extends Controller
         $dps = $this->makeDpsData([
             'cnpjPrestador' => $cnpj,
             'municipioIbge' => $ibge,
-            'itemListaServico' => $this->itemListaServico($serviceForIssuance),
-            'codigoTributacaoNacional' => $this->nationalTaxCode($serviceForIssuance),
+            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
+            'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
-            'aliquota' => $this->normalizedAliquota($serviceForIssuance),
-            'discriminacao' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? [], $customDiscriminacao),
+            'aliquota' => (string) $itemFiscalProfile['aliquota'],
+            'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
             'documentoTomador' => $tomadorDocument,
             'nomeTomador' => $invoice->contact?->name ?? '',
             'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
@@ -581,7 +572,6 @@ class InvoiceController extends Controller
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
         $defaultService = $this->resolveDefaultCompanyService($invoice);
-        $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
         $this->persistDefaultDescriptionFromRequest($request);
 
@@ -590,16 +580,6 @@ class InvoiceController extends Controller
         if (($receipt->status ?? '') !== 'cancelled') {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('warning', trans('nfse::general.nfse_reemit_not_cancelled')));
-        }
-
-        if (($selection['requires_split'] ?? false) === true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
-                ->with('warning', trans('nfse::general.invoices.mixed_service_tax_profiles_not_supported')));
-        }
-
-        if (($selection['requires_confirmation'] ?? false) === true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
-                ->with('warning', trans('nfse::general.invoices.default_service_confirmation_required')));
         }
 
         $readiness = $this->emissionReadiness();
@@ -614,16 +594,16 @@ class InvoiceController extends Controller
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
-        $serviceForIssuance = $selection['selected_service'] ?? $defaultService;
+        $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice, $defaultService);
 
         $dps = $this->makeDpsData([
             'cnpjPrestador' => (string) setting('nfse.cnpj_prestador'),
             'municipioIbge' => (string) setting('nfse.municipio_ibge'),
-            'itemListaServico' => $this->itemListaServico($serviceForIssuance),
-            'codigoTributacaoNacional' => $this->nationalTaxCode($serviceForIssuance),
+            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
+            'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
-            'aliquota' => $this->normalizedAliquota($serviceForIssuance),
-            'discriminacao' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? [], $customDiscriminacao),
+            'aliquota' => (string) $itemFiscalProfile['aliquota'],
+            'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
             'documentoTomador' => $tomadorDocument,
             'nomeTomador' => $invoice->contact?->name ?? '',
             'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
@@ -967,6 +947,181 @@ class InvoiceController extends Controller
             'requires_confirmation' => $requiresConfirmation,
             'requires_split' => $requiresSplit,
         ];
+    }
+
+    /**
+     * @return array{item_lista_servico:string,codigo_tributacao_nacional:string,aliquota:string,line_items:list<string>,requires_split:bool}
+     */
+    protected function resolveInvoiceFiscalProfileFromItems(Invoice $invoice, ?object $defaultService = null): array
+    {
+        $items = $this->invoiceItemsAsArray($invoice);
+        $itemIds = [];
+
+        foreach ($items as $item) {
+            $itemId = is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0;
+
+            if ($itemId > 0) {
+                $itemIds[] = $itemId;
+            }
+        }
+
+        $itemIds = array_values(array_unique($itemIds));
+        $companyId = is_numeric($invoice->company_id ?? null) ? (int) $invoice->company_id : $this->resolveCompanyId();
+
+        $profileMap = $this->invoiceItemFiscalProfileMap($companyId, $itemIds);
+        $taxRateMap = $this->invoiceItemTaxRateMap($itemIds);
+
+        $lineItems = [];
+        $signatures = [];
+        $selected = [
+            'item_lista_servico' => $this->itemListaServico($defaultService),
+            'codigo_tributacao_nacional' => $this->nationalTaxCode($defaultService),
+            'aliquota' => $this->normalizedAliquota($defaultService),
+        ];
+
+        foreach ($items as $item) {
+            $itemId = is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0;
+            $itemName = trim((string) ($item['name'] ?? ''));
+            $itemName = $itemName !== '' ? $itemName : trans('general.na');
+
+            $profile = $itemId > 0 ? ($profileMap[$itemId] ?? null) : null;
+            $serviceCode = preg_replace('/\D+/', '', (string) ($profile['item_lista_servico'] ?? '')) ?: '';
+
+            if ($serviceCode === '') {
+                $serviceCode = $this->itemListaServico($defaultService);
+            }
+
+            $serviceCode = substr($serviceCode, 0, 4);
+
+            $nationalCode = preg_replace('/\D+/', '', (string) ($profile['codigo_tributacao_nacional'] ?? '')) ?: '';
+            if ($nationalCode === '') {
+                $nationalCode = $this->nationalTaxCode((object) [
+                    'item_lista_servico' => $serviceCode,
+                ]);
+            }
+
+            $aliquota = $itemId > 0 ? ($taxRateMap[$itemId] ?? '') : '';
+            if ($aliquota === '') {
+                $aliquota = $this->normalizedAliquota($defaultService);
+            }
+
+            if ($serviceCode !== '') {
+                $lineItems[] = '[' . $serviceCode . '] ' . $itemName;
+            } else {
+                $lineItems[] = $itemName;
+            }
+
+            $signature = $serviceCode . '|' . $nationalCode . '|' . $aliquota;
+
+            if ($signature !== '||') {
+                $signatures[$signature] = true;
+
+                if ($selected['item_lista_servico'] === '' || $selected['item_lista_servico'] === $this->itemListaServico($defaultService)) {
+                    $selected = [
+                        'item_lista_servico' => $serviceCode,
+                        'codigo_tributacao_nacional' => $nationalCode,
+                        'aliquota' => $aliquota,
+                    ];
+                }
+            }
+        }
+
+        return [
+            'item_lista_servico' => $selected['item_lista_servico'] !== '' ? $selected['item_lista_servico'] : $this->itemListaServico($defaultService),
+            'codigo_tributacao_nacional' => $selected['codigo_tributacao_nacional'] !== '' ? $selected['codigo_tributacao_nacional'] : $this->nationalTaxCode($defaultService),
+            'aliquota' => $selected['aliquota'] !== '' ? $selected['aliquota'] : $this->normalizedAliquota($defaultService),
+            'line_items' => $lineItems,
+            'requires_split' => count($signatures) > 1,
+        ];
+    }
+
+    /**
+     * @param list<int> $itemIds
+     * @return array<int, array{item_lista_servico:string,codigo_tributacao_nacional:string}>
+     */
+    protected function invoiceItemFiscalProfileMap(int $companyId, array $itemIds): array
+    {
+        if ($companyId <= 0 || $itemIds === []) {
+            return [];
+        }
+
+        try {
+            return ItemFiscalProfile::query()
+                ->where('company_id', $companyId)
+                ->whereIn('item_id', $itemIds)
+                ->get()
+                ->mapWithKeys(static function (ItemFiscalProfile $profile): array {
+                    $itemId = (int) ($profile->item_id ?? 0);
+
+                    if ($itemId <= 0) {
+                        return [];
+                    }
+
+                    return [
+                        $itemId => [
+                            'item_lista_servico' => preg_replace('/\D+/', '', (string) ($profile->item_lista_servico ?? '')) ?: '',
+                            'codigo_tributacao_nacional' => preg_replace('/\D+/', '', (string) ($profile->codigo_tributacao_nacional ?? '')) ?: '',
+                        ],
+                    ];
+                })
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param list<int> $itemIds
+     * @return array<int, string>
+     */
+    protected function invoiceItemTaxRateMap(array $itemIds): array
+    {
+        if ($itemIds === []) {
+            return [];
+        }
+
+        try {
+            $items = CommonItem::query()
+                ->whereIn('id', $itemIds)
+                ->with(['taxes.tax'])
+                ->get();
+
+            $rates = [];
+
+            foreach ($items as $item) {
+                $itemId = (int) ($item->id ?? 0);
+
+                if ($itemId <= 0) {
+                    continue;
+                }
+
+                $rate = 0.0;
+
+                foreach ($item->taxes ?? [] as $itemTax) {
+                    $tax = $itemTax->tax ?? null;
+
+                    if (!is_object($tax) || !is_numeric($tax->rate ?? null)) {
+                        continue;
+                    }
+
+                    $type = strtolower((string) ($tax->type ?? 'normal'));
+
+                    if (in_array($type, ['fixed', 'withholding'], true)) {
+                        continue;
+                    }
+
+                    $rate += (float) $tax->rate;
+                }
+
+                if ($rate > 0) {
+                    $rates[$itemId] = number_format($rate, 2, '.', '');
+                }
+            }
+
+            return $rates;
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     /**
@@ -3077,7 +3232,7 @@ class InvoiceController extends Controller
     protected function servicePreviewEmailDefaults(Invoice $invoice): array
     {
         $sendEmail = (bool) (int) setting('nfse.send_email_on_emit', '0');
-        $recipient = $this->contactStringField($invoice->contact, ['email']);
+        $recipient = $this->defaultPostEmitRecipient($invoice) ?? '';
         $template  = null;
         $copyToSelf = (bool) (int) setting('nfse.email_copy_to_self_on_emit', '0');
         $attachInvoicePdf = (bool) (int) setting('nfse.email_attach_invoice_pdf_on_emit', '1');
@@ -3149,6 +3304,10 @@ class InvoiceController extends Controller
         $recipient = $this->normalizePostEmitRecipient($request->input('nfse_email_to'));
 
         if ($recipient === null) {
+            $recipient = $this->defaultPostEmitRecipient($invoice);
+        }
+
+        if ($recipient === null) {
             return;
         }
 
@@ -3203,6 +3362,26 @@ class InvoiceController extends Controller
                 if (is_array($item) && isset($item['email']) && is_string($item['email']) && trim($item['email']) !== '') {
                     return $rawRecipient;
                 }
+            }
+        }
+
+        return null;
+    }
+
+    protected function defaultPostEmitRecipient(Invoice $invoice): ?string
+    {
+        $documentContactEmail = trim((string) data_get($invoice, 'contact_email', ''));
+
+        $candidates = [
+            $this->contactStringField($invoice->contact, ['email']),
+            $documentContactEmail,
+        ];
+
+        foreach ($candidates as $candidate) {
+            $normalized = trim($candidate);
+
+            if ($normalized !== '') {
+                return $normalized;
             }
         }
 
