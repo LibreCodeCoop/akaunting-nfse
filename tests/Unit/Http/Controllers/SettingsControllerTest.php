@@ -1294,6 +1294,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.bao_addr'  => 'http://openbao:8200',
                 'nfse.bao_mount' => '/nfse',
                 'nfse.bao_token' => 'dev-only-root-token',
+                'nfse.tributos_fed_p' => '8.55',
+                'nfse.federal_valor_irrf' => '15.00',
             ];
 
             $request = new Request(
@@ -1301,17 +1303,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     'nfse' => [
                         'federal_piscofins_situacao_tributaria' => '4',
                         'federal_piscofins_tipo_retencao' => '3',
-                        'federal_piscofins_aliquota_pis' => '1,65',
-                        'federal_piscofins_aliquota_cofins' => '7,60',
-                        'federal_valor_irrf' => '15,00',
-                        'federal_valor_csll' => '12,50',
-                        'federal_valor_cp' => '5,00',
-                        'tributos_fed_p' => '8,55',
-                        'tributos_est_p' => '2.10',
-                        'tributos_mun_p' => '1.35',
-                        'tributos_fed_sn' => '4.00',
-                        'tributos_est_sn' => '1.20',
-                        'tributos_mun_sn' => '0.80',
                     ],
                 ],
             );
@@ -1323,23 +1314,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.settings.edit', $response->route);
             self::assertSame(['tab' => 'federal'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.saved', $response->flash['success'] ?? null);
-            self::assertSame('percentage_profile', ControllerIsolationState::$settings['nfse.tributacao_federal_mode'] ?? null);
             self::assertSame('4', ControllerIsolationState::$settings['nfse.federal_piscofins_situacao_tributaria'] ?? null);
             self::assertSame('3', ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] ?? null);
-            self::assertSame('1.65', ControllerIsolationState::$settings['nfse.federal_piscofins_aliquota_pis'] ?? null);
-            self::assertSame('7.60', ControllerIsolationState::$settings['nfse.federal_piscofins_aliquota_cofins'] ?? null);
-            self::assertSame('15.00', ControllerIsolationState::$settings['nfse.federal_valor_irrf'] ?? null);
-            self::assertSame('12.50', ControllerIsolationState::$settings['nfse.federal_valor_csll'] ?? null);
-            self::assertSame('5.00', ControllerIsolationState::$settings['nfse.federal_valor_cp'] ?? null);
+            self::assertArrayNotHasKey('nfse.tributacao_federal_mode', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.federal_piscofins_aliquota_pis', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.federal_piscofins_aliquota_cofins', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.federal_valor_irrf', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.federal_valor_csll', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.federal_valor_cp', ControllerIsolationState::$settings);
             self::assertArrayNotHasKey('nfse.federal_piscofins_base_calculo', ControllerIsolationState::$settings);
             self::assertArrayNotHasKey('nfse.federal_piscofins_valor_pis', ControllerIsolationState::$settings);
             self::assertArrayNotHasKey('nfse.federal_piscofins_valor_cofins', ControllerIsolationState::$settings);
-            self::assertSame('8.55', ControllerIsolationState::$settings['nfse.tributos_fed_p'] ?? null);
-            self::assertSame('2.10', ControllerIsolationState::$settings['nfse.tributos_est_p'] ?? null);
-            self::assertSame('1.35', ControllerIsolationState::$settings['nfse.tributos_mun_p'] ?? null);
-            self::assertSame('4.00', ControllerIsolationState::$settings['nfse.tributos_fed_sn'] ?? null);
-            self::assertSame('1.20', ControllerIsolationState::$settings['nfse.tributos_est_sn'] ?? null);
-            self::assertSame('0.80', ControllerIsolationState::$settings['nfse.tributos_mun_sn'] ?? null);
+            self::assertArrayNotHasKey('nfse.tributos_fed_p', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.tributos_est_p', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.tributos_mun_p', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.tributos_fed_sn', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.tributos_est_sn', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.tributos_mun_sn', ControllerIsolationState::$settings);
         }
 
         public function testUpdateFederalRedirectsWithErrorWhenVaultIsNotReady(): void
