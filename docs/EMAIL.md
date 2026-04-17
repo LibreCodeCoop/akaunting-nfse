@@ -1,7 +1,12 @@
+<!--
+SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # Email Attachment Contract (NFS-e Module)
 
-**Last Updated:** 2026-04-15  
-**Status:** Implemented (Cycle 1)  
+**Last Updated:** 2026-04-15
+**Status:** Implemented (Cycle 1)
 **PR:** LibreCodeCoop/akaunting-nfse#114
 
 ## Overview
@@ -13,7 +18,7 @@ Defines how DANFSE artifacts (PDF and XML) are attached to invoice emails after 
 1. **Manual Issuance Complete** — User submits emission, NFS-e issued successfully
    - UI shows email preferences modal (toggles + custom recipient/subject/body)
    - User confirms → `InvoiceController::handlePostEmitEmail()` called
-   
+
 2. **Reissuance (Reemit)** — User reissues after correction
    - Same flow as manual issuance
    - Attachments respect current settings + request overrides

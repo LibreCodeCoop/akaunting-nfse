@@ -1,10 +1,137 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- SPDX-FileCopyrightText: 2026 LibreCode coop and contributors -->
-<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <files psalm-version="6.16.1@f1f5de594dc76faf8784e02d3dc4716c91c6f6ac">
+  <file src="Http/Controllers/Modals/InvoiceEmails.php">
+    <MissingDependency>
+      <code><![CDATA[NfseIssued]]></code>
+    </MissingDependency>
+    <TooManyArguments>
+      <code><![CDATA[new NfseReceipt(['invoice_id' => $invoice->id])]]></code>
+    </TooManyArguments>
+    <UndefinedClass>
+      <code><![CDATA[JsonResponse]]></code>
+      <code><![CDATA[JsonResponse]]></code>
+      <code><![CDATA[Request]]></code>
+    </UndefinedClass>
+    <UndefinedFunction>
+      <code><![CDATA[app(NfseInvoiceController::class)]]></code>
+      <code><![CDATA[response()]]></code>
+      <code><![CDATA[setting('nfse.webdav_password', '')]]></code>
+      <code><![CDATA[setting('nfse.webdav_url', '')]]></code>
+      <code><![CDATA[setting('nfse.webdav_username', '')]]></code>
+      <code><![CDATA[trans('general.cancel')]]></code>
+      <code><![CDATA[trans('nfse::general.invoices.cancel_modal_submit')]]></code>
+      <code><![CDATA[trans('nfse::general.invoices.cancel_modal_title')]]></code>
+      <code><![CDATA[trans('nfse::general.invoices.emit_modal_title')]]></code>
+      <code><![CDATA[trans('nfse::general.invoices.emit_now')]]></code>
+      <code><![CDATA[trans('nfse::general.invoices.reemit')]]></code>
+      <code><![CDATA[view('nfse::modals.invoices.cancel', compact(
+                'invoice',
+                'cancel_route',
+            ))]]></code>
+      <code><![CDATA[view('nfse::modals.invoices.issue', compact(
+                'invoice',
+                'contacts',
+                'notification',
+                'preview',
+                'issue_route',
+                'isCancelled',
+            ))]]></code>
+    </UndefinedFunction>
+    <UndefinedMagicPropertyFetch>
+      <code><![CDATA[$receipt->exists]]></code>
+    </UndefinedMagicPropertyFetch>
+    <UndefinedMethod>
+      <code><![CDATA[NfseReceipt::where('invoice_id', $invoice->id)]]></code>
+      <code><![CDATA[middleware]]></code>
+      <code><![CDATA[middleware]]></code>
+      <code><![CDATA[middleware]]></code>
+      <code><![CDATA[middleware]]></code>
+    </UndefinedMethod>
+    <UndefinedPropertyFetch>
+      <code><![CDATA[$invoice->contact]]></code>
+    </UndefinedPropertyFetch>
+  </file>
   <file src="Providers/Main.php">
+    <ArgumentTypeCoercion>
+      <code><![CDATA[function (CoreItem $item): void {
+            $request = request();
+
+            if (!is_object($request) || !method_exists($request, 'input')) {
+                return;
+            }
+
+            $rawServiceCode = $request->input('nfse_item_lista_servico', null);
+            $rawNationalCode = $request->input('nfse_codigo_tributacao_nacional', null);
+
+            if ($rawServiceCode === null && $rawNationalCode === null) {
+                return;
+            }
+
+            $companyId = is_numeric($item->company_id ?? null) ? (int) $item->company_id : 0;
+            $itemId = is_numeric($item->id ?? null) ? (int) $item->id : 0;
+
+            if ($companyId <= 0 || $itemId <= 0) {
+                return;
+            }
+
+            $serviceDigits = preg_replace('/\D+/', '', (string) $rawServiceCode) ?: '';
+            $serviceCode = preg_match('/(\d{4})$/', $serviceDigits, $serviceCodeMatch)
+                ? (string) $serviceCodeMatch[1]
+                : substr($serviceDigits, 0, 4);
+
+            $nationalCode = preg_replace('/\D+/', '', (string) $rawNationalCode) ?: '';
+            $nationalCode = $nationalCode !== ''
+                ? str_pad(substr($nationalCode, 0, 6), 6, '0', STR_PAD_LEFT)
+                : null;
+
+            if ($serviceCode === '' && $nationalCode === null) {
+                try {
+                    ItemFiscalProfile::query()
+                        ->where('company_id', $companyId)
+                        ->where('item_id', $itemId)
+                        ->delete();
+                } catch (\Throwable) {
+                    // Keep item save flow resilient.
+                }
+
+                return;
+            }
+
+            try {
+                ItemFiscalProfile::updateOrCreate(
+                    [
+                        'company_id' => $companyId,
+                        'item_id' => $itemId,
+                    ],
+                    [
+                        'item_lista_servico' => $serviceCode !== '' ? $serviceCode : null,
+                        'codigo_tributacao_nacional' => $nationalCode,
+                    ]
+                );
+            } catch (\Throwable) {
+                // Keep item save flow resilient.
+            }
+        }]]></code>
+    </ArgumentTypeCoercion>
+    <RedundantCast>
+      <code><![CDATA[(string) $serviceCodeMatch[1]]]></code>
+    </RedundantCast>
     <UndefinedFunction>
       <code><![CDATA[app()]]></code>
+      <code><![CDATA[request()]]></code>
     </UndefinedFunction>
+    <UndefinedMethod>
+      <code><![CDATA[ItemFiscalProfile::updateOrCreate(
+                    [
+                        'company_id' => $companyId,
+                        'item_id' => $itemId,
+                    ],
+                    [
+                        'item_lista_servico' => $serviceCode !== '' ? $serviceCode : null,
+                        'codigo_tributacao_nacional' => $nationalCode,
+                    ]
+                )]]></code>
+      <code><![CDATA[delete]]></code>
+    </UndefinedMethod>
   </file>
 </files>
