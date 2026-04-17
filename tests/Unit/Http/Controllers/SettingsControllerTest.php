@@ -202,23 +202,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertArrayNotHasKey('clear_bao_secret_id', $prepared);
         }
 
-        public function testUpdateItemServicesReturnsErrorWhenMappingIsNotSupported(): void
-        {
-            $controller = new class () extends SettingsController {
-                protected function supportsItemServiceMappings(): bool
-                {
-                    return false;
-                }
-            };
-
-            $response = $controller->updateItemServices(new Request());
-
-            self::assertSame('route', $response->target);
-            self::assertSame('nfse.settings.edit', $response->route);
-            self::assertSame([['tab' => 'services']], $response->parameters);
-            self::assertSame('nfse::general.settings.services.item_mapping_not_supported', $response->flash['error'] ?? null);
-        }
-
         public function testUfsReturnsMappedAndSortedDataWhenIbgeRowsAreAvailable(): void
         {
             $controller = new class () extends SettingsController {

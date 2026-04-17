@@ -23,7 +23,6 @@ Route::admin('nfse', function () {
         Route::patch('/fiscal', [SettingsController::class, 'updateFiscal'])->name('fiscal');
         Route::patch('/federal', [SettingsController::class, 'updateFederal'])->name('federal');
         Route::patch('/artifacts', [SettingsController::class, 'updateArtifacts'])->name('artifacts');
-        Route::patch('/item-services', [SettingsController::class, 'updateItemServices'])->name('item-services.update');
 
         // Company Services CRUD
         Route::get('services/create', [CompanyServiceController::class, 'create'])->name('services.create');
