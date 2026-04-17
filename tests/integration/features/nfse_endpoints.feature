@@ -155,12 +155,11 @@ Feature: NFS-e endpoints contract
     When I send "GET" request to "/<company_id>/nfse/invoices/999999/service-preview"
     Then the response status should be 404
 
-  Scenario: Services tab renders mapping section and accepts mapping update endpoint
+  Scenario: Legacy services mapping tab and endpoint are no longer available
     When I send "GET" request to "/<company_id>/nfse/settings?tab=services"
     Then the response status should be 200
-    And the response body should contain "settings/item-services"
+    And the response body should not contain "settings/item-services"
 
     When I send "PATCH" request to "/<company_id>/nfse/settings/item-services" with form data:
       | item_services[0] | 0 |
-    Then the response status should be 302
-    And the response should redirect to "/<company_id>/nfse/settings?tab=services"
+    Then the response status should be 404

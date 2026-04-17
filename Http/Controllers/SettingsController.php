@@ -28,10 +28,14 @@ class SettingsController extends Controller
     public function edit(?Request $request = null): \Illuminate\View\View
     {
         if ($request === null && function_exists('request')) {
-            $resolvedRequest = request();
+            try {
+                $resolvedRequest = request();
 
-            if ($resolvedRequest instanceof Request) {
-                $request = $resolvedRequest;
+                if ($resolvedRequest instanceof Request) {
+                    $request = $resolvedRequest;
+                }
+            } catch (\Throwable) {
+                // Keep deterministic behavior in isolated unit tests without a bound request instance.
             }
         }
 
