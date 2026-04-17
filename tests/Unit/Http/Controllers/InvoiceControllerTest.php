@@ -49,12 +49,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('itemFiscalProfile[\'aliquota\']', $content);
         }
 
-        public function testCompanyServiceSelectionSupportRecognizesEloquentModelWithoutMethodExistsWhereCheck(): void
+        public function testItemNativeFlowRemovesCompanyServiceSelectionHelpers(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
-            self::assertStringContainsString('is_subclass_of(CompanyService::class', $content);
-            self::assertStringNotContainsString("method_exists(CompanyService::class, 'where')", $content);
+            self::assertStringNotContainsString('CompanyService::class', $content);
+            self::assertStringNotContainsString('resolveDefaultCompanyService', $content);
+            self::assertStringNotContainsString('supportsCompanyServiceSelection', $content);
         }
 
         public function testReceiptsIndexSearchIncludesCustomerNameRelation(): void
@@ -1520,7 +1521,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('', $client->capturedDps?->federalValorCsll);
         }
 
-        public function testEmitPrefersDefaultCompanyServiceOverLegacyFiscalSettings(): void
+        public function testEmitUsesFiscalSettingsFallbackWhenItemHasNoFiscalProfile(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 52,
@@ -1587,15 +1588,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame('1401', $client->capturedDps?->itemListaServico);
-            self::assertSame('140101', $client->capturedDps?->codigoTributacaoNacional);
-            self::assertSame('6.75', $client->capturedDps?->aliquota);
+            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
+            self::assertSame('4.50', $client->capturedDps?->aliquota);
         }
 
         public function testEmitRedirectsToPendingWhenInvoiceItemHasNoServiceAssociationAndFallbackWasNotConfirmed(): void
         {
-            // This test behavior changed in POC: items without profiles now use default service automatically
-            // The test is updated to verify items without fiscal profiles use the default service
+            // Item-native fallback now comes from nfse.* settings, not CompanyService mapping.
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 521,
                 amount: 300.0,
@@ -1693,11 +1693,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = $controller->emit($invoice, new Request());
 
-            // In POC model, items without fiscal profiles automatically use default service
+            // Items sem perfil fiscal usam fallback de settings.
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('1401', $client->capturedDps?->itemListaServico);
-            self::assertSame('[1401] Servico sem vinculo', $client->capturedDps?->discriminacao);
+            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('[0107] Servico sem vinculo', $client->capturedDps?->discriminacao);
         }
 
         public function testEmitUsesDefaultServiceWhenMissingAssociationsAreConfirmedByRequest(): void
@@ -1796,9 +1796,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('1401', $client->capturedDps?->itemListaServico);
+            self::assertSame('0107', $client->capturedDps?->itemListaServico);
             self::assertStringContainsString('Servico sem vinculo', $client->capturedDps?->discriminacao ?? '');
-            self::assertStringContainsString('1401', $client->capturedDps?->discriminacao ?? '');
+            self::assertStringContainsString('0107', $client->capturedDps?->discriminacao ?? '');
         }
 
         public function testEmitUsesMappedItemServiceWhenAssociationExists(): void
@@ -2069,7 +2069,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // so missing_items is always empty.
             self::assertSame([], $payload['missing_items'] ?? null);
             self::assertSame([['id' => 900, 'label' => '14.01 - Servico padrao', 'is_default' => true]], $payload['available_services'] ?? null);
-            self::assertSame(900, $payload['default_service_id'] ?? null);
+            self::assertSame(0, $payload['default_service_id'] ?? null);
             self::assertFalse((bool) ($payload['requires_split'] ?? true));
         }
 
