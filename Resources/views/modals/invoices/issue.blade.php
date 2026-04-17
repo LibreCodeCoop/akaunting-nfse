@@ -50,7 +50,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <div class="sm:col-span-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                                 {{ trans('nfse::general.invoices.default_service_confirmation_required') }}
                             </div>
-                            <x-form.input.hidden name="nfse_confirm_default_service" value="1" />
                         @endif
 
                         <x-form.group.textarea
