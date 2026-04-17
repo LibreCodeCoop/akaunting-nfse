@@ -14,16 +14,24 @@ final class ItemFiscalFieldsInjectionTest extends TestCase
     public function testNativeItemCreateViewIncludesNfseFiscalFieldsPartial(): void
     {
         $createPath = dirname(__DIR__, 5) . '/resources/views/common/items/create.blade.php';
-        $content = (string) file_get_contents($createPath);
 
+        if (!file_exists($createPath)) {
+            self::markTestSkipped('Akaunting core item create view not available in standalone module environment.');
+        }
+
+        $content = (string) file_get_contents($createPath);
         self::assertStringContainsString("@includeIf('nfse::items.partials.fiscal-fields')", $content);
     }
 
     public function testNativeItemEditViewIncludesNfseFiscalFieldsPartial(): void
     {
         $editPath = dirname(__DIR__, 5) . '/resources/views/common/items/edit.blade.php';
-        $content = (string) file_get_contents($editPath);
 
+        if (!file_exists($editPath)) {
+            self::markTestSkipped('Akaunting core item edit view not available in standalone module environment.');
+        }
+
+        $content = (string) file_get_contents($editPath);
         self::assertStringContainsString("@includeIf('nfse::items.partials.fiscal-fields')", $content);
     }
 
