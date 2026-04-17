@@ -320,53 +320,18 @@ test('full dependent setup flow covers vault, certificate, fiscal and services s
   await page.waitForLoadState('networkidle');
   await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=fiscal/);
 
-  // Step 4: Services tab becomes part of the same guided setup flow.
-  await openTab(page, '#tab-btn-services', '#tab-panel-services');
-  await expect(page.locator('#services-filter-form')).toBeVisible();
-  await expect(page.locator('a[href*="/nfse/settings/services/create"]')).toBeVisible();
+  // Step 4: Legacy services tab is retired in the item-native flow.
+  await expect(page.locator('#tab-btn-services')).toHaveCount(0);
+  await expect(page.locator('#tab-panel-services')).toHaveCount(0);
 });
 
-test('service create LC116 selection does not navigate to JSON endpoint', async ({ page }, testInfo) => {
+test('settings no longer expose legacy services create route', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
 
-  const generatedCode = String(Date.now()).slice(-4).padStart(4, '0');
-  const generatedNbs = `${generatedCode}01`;
-  const generatedLabel = `${generatedCode} - Servico E2E ${generatedCode}`;
-
-  await page.route('**/nfse/lc116/services**', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          {
-            code: generatedCode,
-            display_code: generatedCode,
-            description: `Servico E2E ${generatedCode}`,
-            label: generatedLabel,
-          },
-        ],
-      }),
-    });
-  });
-
-  await page.goto('/1/nfse/settings/services/create', { waitUntil: 'domcontentloaded' });
+  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
-  const lcDisplay = page.locator('#item_lista_servico_display');
-  await lcDisplay.fill('servico e2e');
-  await page.waitForTimeout(400);
-  await lcDisplay.fill(generatedLabel);
-  await lcDisplay.press('Tab');
-
-  await expect(page.locator('#item_lista_servico')).toHaveValue(generatedCode);
-  await expect(page).not.toHaveURL(/\/1\/nfse\/lc116\/services/);
-  await expect(page.locator('body')).not.toContainText('{"data":[');
-
-  await lcDisplay.focus();
-  await lcDisplay.press('Enter');
-  await expect(page).toHaveURL(/\/1\/nfse\/settings\/services\/create/);
-  await expect(page).not.toHaveURL(/\/1\/nfse\/lc116\/services/);
-  await expect(page.locator('body')).not.toContainText('{"data":[');
+  await expect(page.locator('#tab-btn-services')).toHaveCount(0);
+  await expect(page.locator('a[href*="/nfse/settings/services/create"]')).toHaveCount(0);
 });
 

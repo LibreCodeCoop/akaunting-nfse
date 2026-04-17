@@ -284,17 +284,14 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("trans('nfse::general.settings.federal.canonical_source_notice')", $content);
         }
 
-        public function testServicesAndInvoiceViewsExposeTaxPolicyNotices(): void
+        public function testInvoiceViewsExposeTaxPolicyNotices(): void
         {
-            $servicesPath = dirname(__DIR__, 3) . '/Resources/views/settings/partials/services.blade.php';
             $invoiceIndexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
             $invoiceShowPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
 
-            $servicesContent = (string) file_get_contents($servicesPath);
             $invoiceIndexContent = (string) file_get_contents($invoiceIndexPath);
             $invoiceShowContent = (string) file_get_contents($invoiceShowPath);
 
-            self::assertStringContainsString("trans('nfse::general.settings.services.item_tax_scope_notice')", $servicesContent);
             self::assertStringContainsString("session('info')", $invoiceIndexContent);
             self::assertStringContainsString("session('info')", $invoiceShowContent);
         }

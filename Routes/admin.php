@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\CertificateController;
-use Modules\Nfse\Http\Controllers\CompanyServiceController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 use Modules\Nfse\Http\Controllers\Modals\InvoiceEmails;
@@ -23,15 +22,6 @@ Route::admin('nfse', function () {
         Route::patch('/fiscal', [SettingsController::class, 'updateFiscal'])->name('fiscal');
         Route::patch('/federal', [SettingsController::class, 'updateFederal'])->name('federal');
         Route::patch('/artifacts', [SettingsController::class, 'updateArtifacts'])->name('artifacts');
-
-        // Company Services CRUD
-        Route::get('services/create', [CompanyServiceController::class, 'create'])->name('services.create');
-        Route::post('services', [CompanyServiceController::class, 'store'])->name('services.store');
-        Route::get('services/{service}/edit', [CompanyServiceController::class, 'edit'])->name('services.edit');
-        Route::patch('services/{service}', [CompanyServiceController::class, 'update'])->name('services.update');
-        Route::delete('services/{service}', [CompanyServiceController::class, 'destroy'])->name('services.destroy');
-        Route::post('services/{service}/toggle-active', [CompanyServiceController::class, 'toggleActive'])->name('services.toggle-active');
-        Route::post('services/{service}/make-default', [CompanyServiceController::class, 'makeDefault'])->name('services.make-default');
     });
 
     // IBGE localities lookup
