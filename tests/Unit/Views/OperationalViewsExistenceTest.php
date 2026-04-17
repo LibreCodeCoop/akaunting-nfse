@@ -17,6 +17,9 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/dashboard/index.blade.php');
             self::assertFileExists($basePath . '/invoices/index.blade.php');
             self::assertFileExists($basePath . '/invoices/show.blade.php');
+            self::assertFileExists($basePath . '/modals/invoices/email.blade.php');
+            self::assertFileExists($basePath . '/modals/invoices/cancel.blade.php');
+            self::assertFileExists($basePath . '/modals/invoices/issue.blade.php');
         }
 
         public function testInvoicesIndexViewKeepsFiltersInPagination(): void
@@ -58,7 +61,9 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="nfse_emit_email_body"', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_description_save_default')", $content);
             self::assertStringContainsString('id="nfse-emit-confirm-button"', $content);
-            self::assertStringContainsString('form.submit(); return false;', $content);
+            self::assertStringContainsString("if (typeof form.requestSubmit === 'function') {", $content);
+            self::assertStringContainsString('form.requestSubmit();', $content);
+            self::assertStringContainsString('form.submit();', $content);
             self::assertStringContainsString("sendEmailInput.value = sendEmailToggle?.checked ? '1' : '0';", $content);
         }
 
@@ -79,16 +84,13 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
             $content = (string) file_get_contents($showPath);
 
-            self::assertStringContainsString('id="reemit-send-email-checkbox"', $content);
-            self::assertStringContainsString('data-email-fields-target="reemit-email-fields"', $content);
-            self::assertStringContainsString('window.nfseSyncEmailToggle?.(this)', $content);
-            self::assertStringContainsString('class="sr-only"', $content);
-            self::assertStringContainsString('data-toggle="track"', $content);
-            self::assertStringContainsString('data-toggle="thumb"', $content);
-            self::assertStringContainsString('syncToggle', $content);
-            self::assertStringContainsString('window.nfseSyncEmailToggle = (input) => {', $content);
-            self::assertStringContainsString('id="reemit-email-fields"', $content);
-            self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_send_email_hint')", $content);
+            self::assertStringContainsString('data-smart-back="true"', $content);
+            self::assertStringContainsString('data-fallback-url="{{ route(\'nfse.invoices.index\') }}"', $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.back')", $content);
+            self::assertStringContainsString('window.history.back();', $content);
+            self::assertStringContainsString('window.location.assign(fallbackUrl);', $content);
+            self::assertStringContainsString("@click=\"onSendEmail('{{ route('nfse.modals.invoices.emails.create', \$invoice->id) }}')\"", $content);
+            self::assertStringContainsString("trans('nfse::general.invoices.reemit')", $content);
         }
 
         public function testInvoicesShowViewHasRichTextEditorForEmailBody(): void
@@ -96,11 +98,6 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
             $content  = (string) file_get_contents($showPath);
 
-            self::assertStringContainsString('id="nfse-reemit-body-editor"', $content);
-            self::assertStringContainsString('nfse:reemit-email-body', $content);
-            self::assertStringContainsString("'settings.email.templates.tags'", $content);
-            self::assertStringContainsString("NfseIssued::class)->getTags()", $content);
-            self::assertStringContainsString("rootApp.\$on('nfse:reemit-email-body'", $content);
             self::assertStringContainsString('<x-script folder="common" file="documents" />', $content);
         }
 
@@ -243,16 +240,15 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("setting('nfse.bao_mount', '/nfse')", $content);
         }
 
-        public function testSettingsViewKeepsServiceSelectionOnlyInServicesTab(): void
+        public function testSettingsViewDoesNotExposeLegacyServicesTabAndKeepsFiscalControls(): void
         {
             $settingsPath = dirname(__DIR__, 3) . '/Resources/views/settings/edit.blade.php';
             $content = (string) file_get_contents($settingsPath);
 
-            $servicesTabPos = strpos($content, "trans('nfse::general.settings.services.tab_title')");
             $federalTabPos = strpos($content, "trans('nfse::general.settings.federal.tab_title')");
-            self::assertIsInt($servicesTabPos);
             self::assertIsInt($federalTabPos);
-            self::assertLessThan($federalTabPos, $servicesTabPos);
+            self::assertStringNotContainsString("trans('nfse::general.settings.services.tab_title')", $content);
+            self::assertStringNotContainsString('id="tab-panel-services"', $content);
 
             self::assertStringContainsString('name="nfse[opcao_simples_nacional]"', $content);
             self::assertStringNotContainsString('name="nfse[item_lista_servico_display]"', $content);
@@ -349,17 +345,10 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
             $content = (string) file_get_contents($showPath);
 
-            self::assertStringContainsString('route(\'nfse.invoices.reemit\', $invoice)', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.reemit')", $content);
-            self::assertStringContainsString("trans('nfse::general.invoices.reemit_confirm')", $content);
-            self::assertStringContainsString('name="nfse_send_email" value="0" id="reemit-email-send-hidden"', $content);
-            self::assertStringContainsString('name="nfse_email_to" value="" id="reemit-email-to-hidden"', $content);
-            self::assertStringContainsString('name="nfse_email_subject" value="" id="reemit-email-subject-hidden"', $content);
-            self::assertStringContainsString('name="nfse_email_body" id="reemit-email-body-hidden"', $content);
-            self::assertStringContainsString('id="reemit-send-email-checkbox"', $content);
-            self::assertStringContainsString('id="reemit-email-to-input"', $content);
-            self::assertStringContainsString('id="reemit-email-subject-input"', $content);
-            self::assertStringContainsString('id="nfse_reemit_email_body"', $content);
+            self::assertStringContainsString("route('nfse.modals.invoices.emails.create', \$invoice->id)", $content);
+            self::assertStringContainsString('onSendEmail', $content);
+            self::assertStringNotContainsString('id="nfse-reemit-modal"', $content);
         }
     }
 }

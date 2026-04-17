@@ -8,9 +8,16 @@ declare(strict_types=1);
 namespace Modules\Nfse\Providers;
 
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as Provider;
+use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
 
 class Event extends Provider
 {
+    protected $listen = [
+        'Illuminate\\Routing\\Events\\RouteMatched' => [
+            OverrideInvoiceEmailRoute::class,
+        ],
+    ];
+
     public function shouldDiscoverEvents(): bool
     {
         return true;

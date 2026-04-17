@@ -127,6 +127,18 @@ namespace Illuminate\Mail {
     }
 }
 
+namespace App\Traits {
+    if (!trait_exists(\App\Traits\Documents::class, false)) {
+        trait Documents
+        {
+            public function storeDocumentPdfAndGetPath($document): string
+            {
+                return '';
+            }
+        }
+    }
+}
+
 namespace Modules\Nfse\Tests\Unit\Notifications {
     use App\Models\Document\Document as Invoice;
     use App\Models\Setting\EmailTemplate;

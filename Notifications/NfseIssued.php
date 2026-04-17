@@ -10,6 +10,7 @@ namespace Modules\Nfse\Notifications;
 use App\Abstracts\Notification;
 use App\Models\Document\Document as Invoice;
 use App\Models\Setting\EmailTemplate;
+use App\Traits\Documents;
 use Illuminate\Mail\Attachment;
 use Illuminate\Notifications\Messages\MailMessage;
 use Modules\Nfse\Models\NfseReceipt;
@@ -17,6 +18,8 @@ use Modules\Nfse\Support\WebDavClient;
 
 class NfseIssued extends Notification
 {
+    use Documents;
+
     public $template = null;
 
     /**
@@ -354,6 +357,20 @@ class NfseIssued extends Notification
 
     protected function attachArtifacts(MailMessage $message): void
     {
+        if ($this->shouldAttachInvoicePdf()) {
+            try {
+                $path = $this->storeDocumentPdfAndGetPath($this->invoice);
+
+                if ($path !== '') {
+                    $message->attach(
+                        Attachment::fromPath($path)->withMime('application/pdf'),
+                    );
+                }
+            } catch (\Throwable) {
+                // Attachment failure must never block email delivery.
+            }
+        }
+
         $danfsePath = $this->resolveArtifactPath('pdf', $this->receipt->danfse_webdav_path ?? null);
 
         if ($this->attachDanfse && $danfsePath !== null) {
@@ -391,6 +408,25 @@ class NfseIssued extends Notification
                 // Attachment failure must never block email delivery.
             }
         }
+    }
+
+    protected function shouldAttachInvoicePdf(): bool
+    {
+        $raw = $this->custom_mail['attach_invoice_pdf'] ?? false;
+
+        if (is_bool($raw)) {
+            return $raw;
+        }
+
+        if (is_int($raw)) {
+            return $raw === 1;
+        }
+
+        if (is_string($raw)) {
+            return in_array(strtolower(trim($raw)), ['1', 'true', 'on', 'yes'], true);
+        }
+
+        return false;
     }
 
     protected function makeWebDavClient(): WebDavClient

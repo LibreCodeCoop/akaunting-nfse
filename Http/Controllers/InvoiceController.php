@@ -7,7 +7,9 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
+use App\Events\Document\DocumentMarkedSent;
 use App\Models\Common\Contact;
+use App\Models\Common\Item as CommonItem;
 use App\Models\Document\Document as Invoice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -26,6 +28,7 @@ use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 use Modules\Nfse\Models\CompanyService;
+use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\ItemServiceMapping;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\VaultConfig;
@@ -191,44 +194,33 @@ class InvoiceController extends Controller
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
         $defaultService = $this->resolveDefaultCompanyService($invoice);
-        $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, null, false);
+        $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice, $defaultService);
 
         return response()->json([
-            'missing_items'    => $selection['missing_items'],
+            'missing_items'    => [],
             'available_services' => $this->availableInvoiceServices($invoice),
             'default_service_id' => is_object($defaultService) ? (int) ($defaultService->id ?? 0) : 0,
-            'requires_split'   => (bool) ($selection['requires_split'] ?? false),
-            'suggested_description' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? []),
+            'requires_split'   => (bool) ($itemFiscalProfile['requires_split'] ?? false),
+            'suggested_description' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? []),
             'email_defaults'   => $this->servicePreviewEmailDefaults($invoice),
         ]);
     }
 
-    public function emit(Invoice $invoice, ?Request $request = null): RedirectResponse
+    public function emit(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
         $defaultService = $this->resolveDefaultCompanyService($invoice);
-        $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
         $this->persistDefaultDescriptionFromRequest($request);
 
-        if (($selection['requires_split'] ?? false) === true) {
-            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('warning', trans('nfse::general.invoices.mixed_service_tax_profiles_not_supported'));
-        }
-
-        if (($selection['requires_confirmation'] ?? false) === true) {
-            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('warning', trans('nfse::general.invoices.default_service_confirmation_required'));
-        }
-
-        $serviceForIssuance = $selection['selected_service'] ?? $defaultService;
+        $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice, $defaultService);
 
         $readiness = $this->emissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
-            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'));
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
         }
 
         $cnpj    = setting('nfse.cnpj_prestador');
@@ -242,11 +234,11 @@ class InvoiceController extends Controller
         $dps = $this->makeDpsData([
             'cnpjPrestador' => $cnpj,
             'municipioIbge' => $ibge,
-            'itemListaServico' => $this->itemListaServico($serviceForIssuance),
-            'codigoTributacaoNacional' => $this->nationalTaxCode($serviceForIssuance),
+            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
+            'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
-            'aliquota' => $this->normalizedAliquota($serviceForIssuance),
-            'discriminacao' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? [], $customDiscriminacao),
+            'aliquota' => (string) $itemFiscalProfile['aliquota'],
+            'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
             'documentoTomador' => $tomadorDocument,
             'nomeTomador' => $invoice->contact?->name ?? '',
             'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
@@ -306,8 +298,8 @@ class InvoiceController extends Controller
         try {
             $receipt = $client->emit($dps);
         } catch (SecretStoreException) {
-            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('error', trans('nfse::general.nfse_secret_store_failed'));
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', trans('nfse::general.nfse_secret_store_failed')));
         } catch (GatewayException $e) {
             $gatewayDetail = $this->gatewayErrorDetail($e);
             $xmlOrderDebug = $this->dpsXmlOrderDebug($dps);
@@ -320,35 +312,41 @@ class InvoiceController extends Controller
                 'xml_order_debug' => $xmlOrderDebug,
             ]);
 
-            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed'))
-                ->with('nfse_gateway_error_detail', $gatewayDetail);
+                ->with('nfse_gateway_error_detail', $gatewayDetail));
         } catch (NetworkException $e) {
             $this->safeLogError('NFS-e issuance failed due network/transport error', [
                 'invoice_id' => $invoice->id,
                 'message' => $e->getMessage(),
             ]);
 
-            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('error', trans('nfse::general.nfse_emit_failed'));
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (PfxImportException) {
-            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
         }
 
         $persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);
         $this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);
+        $this->markInvoiceSentAfterEmission($invoice);
         $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
         $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
 
         $taxPolicyMessage = $this->canonicalTaxPolicyMessage($invoice);
 
-        return redirect()->route('nfse.invoices.show', $invoice)
+        return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
             ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso]))
-            ->with('info', $taxPolicyMessage);
+            ->with('info', $taxPolicyMessage));
     }
 
-    public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse
+    protected function markInvoiceSentAfterEmission(Invoice $invoice): void
+    {
+        event(new DocumentMarkedSent($invoice));
+    }
+
+    public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
         $receipt = $this->findReceiptForInvoice($invoice);
 
@@ -370,8 +368,11 @@ class InvoiceController extends Controller
                     'gateway_detail' => $gatewayDetail,
                 ]);
 
-                return redirect()->route('nfse.invoices.index')
-                    ->with('success', trans('nfse::general.nfse_cancelled'));
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('nfse.invoices.index')
+                        ->with('success', trans('nfse::general.nfse_cancelled')),
+                );
             }
 
             $this->safeLogError('NFS-e cancellation rejected by SEFIN', [
@@ -381,15 +382,21 @@ class InvoiceController extends Controller
                 'gateway_detail' => $gatewayDetail,
             ]);
 
-            return redirect()->route('nfse.invoices.index')
-                ->with('error', trans('nfse::general.nfse_cancel_failed'))
-                ->with('nfse_gateway_error_detail', $gatewayDetail);
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.index')
+                    ->with('error', trans('nfse::general.nfse_cancel_failed'))
+                    ->with('nfse_gateway_error_detail', $gatewayDetail),
+            );
         }
 
         $receipt->update(['status' => 'cancelled']);
 
-        return redirect()->route('nfse.invoices.index')
-            ->with('success', trans('nfse::general.nfse_cancelled'));
+        return $this->ajaxAwareRedirect(
+            $request,
+            redirect()->route('nfse.invoices.index')
+                ->with('success', trans('nfse::general.nfse_cancelled')),
+        );
     }
 
     protected function cancellationReasonForGateway(?Request $request = null): string
@@ -560,37 +567,26 @@ class InvoiceController extends Controller
             ]));
     }
 
-    public function reemit(Invoice $invoice, ?Request $request = null): RedirectResponse
+    public function reemit(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
         $defaultService = $this->resolveDefaultCompanyService($invoice);
-        $selection = $this->resolveInvoiceServiceSelection($invoice, $defaultService, $request, true);
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
         $this->persistDefaultDescriptionFromRequest($request);
 
         $receipt = $this->findReceiptForInvoice($invoice);
 
         if (($receipt->status ?? '') !== 'cancelled') {
-            return redirect()->route('nfse.invoices.show', $invoice)
-                ->with('warning', trans('nfse::general.nfse_reemit_not_cancelled'));
-        }
-
-        if (($selection['requires_split'] ?? false) === true) {
-            return redirect()->route('nfse.invoices.show', $invoice)
-                ->with('warning', trans('nfse::general.invoices.mixed_service_tax_profiles_not_supported'));
-        }
-
-        if (($selection['requires_confirmation'] ?? false) === true) {
-            return redirect()->route('nfse.invoices.show', $invoice)
-                ->with('warning', trans('nfse::general.invoices.default_service_confirmation_required'));
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.nfse_reemit_not_cancelled')));
         }
 
         $readiness = $this->emissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
-            return redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'));
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
         }
 
         $sandboxReemit = $this->sandboxModeEnabled();
@@ -598,16 +594,16 @@ class InvoiceController extends Controller
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
-        $serviceForIssuance = $selection['selected_service'] ?? $defaultService;
+        $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice, $defaultService);
 
         $dps = $this->makeDpsData([
             'cnpjPrestador' => (string) setting('nfse.cnpj_prestador'),
             'municipioIbge' => (string) setting('nfse.municipio_ibge'),
-            'itemListaServico' => $this->itemListaServico($serviceForIssuance),
-            'codigoTributacaoNacional' => $this->nationalTaxCode($serviceForIssuance),
+            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
+            'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
-            'aliquota' => $this->normalizedAliquota($serviceForIssuance),
-            'discriminacao' => $this->buildDiscriminacao($invoice, $selection['line_items'] ?? [], $customDiscriminacao),
+            'aliquota' => (string) $itemFiscalProfile['aliquota'],
+            'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
             'documentoTomador' => $tomadorDocument,
             'nomeTomador' => $invoice->contact?->name ?? '',
             'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
@@ -645,8 +641,8 @@ class InvoiceController extends Controller
         try {
             $newReceipt = $client->emit($dps);
         } catch (SecretStoreException) {
-            return redirect()->route('nfse.invoices.show', $invoice)
-                ->with('error', trans('nfse::general.nfse_secret_store_failed'));
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_secret_store_failed')));
         } catch (GatewayException $e) {
             $gatewayDetail = $this->gatewayErrorDetail($e);
             $xmlOrderDebug = $this->dpsXmlOrderDebug($dps);
@@ -659,20 +655,20 @@ class InvoiceController extends Controller
                 'xml_order_debug' => $xmlOrderDebug,
             ]);
 
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_reemit_failed'))
-                ->with('nfse_gateway_error_detail', $gatewayDetail);
+                ->with('nfse_gateway_error_detail', $gatewayDetail));
         } catch (NetworkException $e) {
             $this->safeLogError('NFS-e reissuance failed due network/transport error', [
                 'invoice_id' => $invoice->id,
                 'message' => $e->getMessage(),
             ]);
 
-            return redirect()->route('nfse.invoices.show', $invoice)
-                ->with('error', trans('nfse::general.nfse_reemit_failed'));
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_reemit_failed')));
         } catch (PfxImportException) {
-            return redirect()->route('nfse.invoices.show', $invoice)
-                ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
         }
 
         $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
@@ -680,8 +676,8 @@ class InvoiceController extends Controller
         $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
         $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
 
-        return redirect()->route('nfse.invoices.show', $invoice)
-            ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso]));
+        return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+            ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso])));
     }
 
     // -------------------------------------------------------------------------
@@ -718,9 +714,7 @@ class InvoiceController extends Controller
             return null;
         }
 
-        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
-
-        return is_string($normalized) && $normalized !== '' ? $normalized : null;
+        return $this->normalizeDescriptionText($rawValue);
     }
 
     protected function persistDefaultDescriptionFromRequest(?Request $request): void
@@ -739,8 +733,7 @@ class InvoiceController extends Controller
             return;
         }
 
-        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
-        $valueToPersist = is_string($normalized) ? $normalized : '';
+        $valueToPersist = $this->normalizeDescriptionText($rawValue) ?? '';
 
         setting([self::INVOICE_NOTES_SETTING_KEY => $valueToPersist]);
 
@@ -763,9 +756,81 @@ class InvoiceController extends Controller
             return null;
         }
 
-        $normalized = preg_replace('/\s+/', ' ', trim($rawValue));
+        return $this->normalizeDescriptionText($rawValue);
+    }
 
-        return is_string($normalized) && $normalized !== '' ? $normalized : null;
+
+    protected function ajaxAwareRedirect(?Request $request, RedirectResponse $redirect): RedirectResponse|JsonResponse
+    {
+        if ($request === null && function_exists('request')) {
+            try {
+                $currentRequest = request();
+
+                if ($currentRequest instanceof Request) {
+                    $request = $currentRequest;
+                }
+            } catch (\Throwable) {
+                // Ignore container-less contexts used by isolated unit tests.
+            }
+        }
+
+        if (!$request instanceof Request || !$request->isXmlHttpRequest()) {
+            return $redirect;
+        }
+
+        $hasError = isset($redirect->flash['error']) || isset($redirect->flash['warning']);
+
+        if ($hasError) {
+            return response()->json([
+                'success' => false,
+                'error' => true,
+                'message' => $redirect->flash['error'] ?? $redirect->flash['warning'] ?? '',
+                'redirect' => false,
+                'data' => null,
+            ]);
+        }
+
+        if (isset($redirect->flash['success'])) {
+            session()->flash('success', $redirect->flash['success']);
+        }
+
+        if (isset($redirect->flash['info'])) {
+            session()->flash('info', $redirect->flash['info']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'error' => false,
+            'message' => '',
+            'redirect' => $redirect->getTargetUrl(),
+            'data' => null,
+        ]);
+    }
+    protected function normalizeDescriptionText(string $value): ?string
+    {
+        $normalizedLineBreaks = str_replace(["\r\n", "\r"], "\n", $value);
+        $lines = explode("\n", $normalizedLineBreaks);
+        $normalizedLines = [];
+
+        foreach ($lines as $line) {
+            $trimmedLine = trim($line);
+            $collapsedSpaces = preg_replace('/[ \t]+/', ' ', $trimmedLine);
+            $normalizedLines[] = is_string($collapsedSpaces) ? $collapsedSpaces : $trimmedLine;
+        }
+
+        while ($normalizedLines !== [] && $normalizedLines[0] === '') {
+            array_shift($normalizedLines);
+        }
+
+        while ($normalizedLines !== [] && $normalizedLines[array_key_last($normalizedLines)] === '') {
+            array_pop($normalizedLines);
+        }
+
+        if ($normalizedLines === []) {
+            return null;
+        }
+
+        return implode("\n", $normalizedLines);
     }
 
     /**
@@ -882,6 +947,181 @@ class InvoiceController extends Controller
             'requires_confirmation' => $requiresConfirmation,
             'requires_split' => $requiresSplit,
         ];
+    }
+
+    /**
+     * @return array{item_lista_servico:string,codigo_tributacao_nacional:string,aliquota:string,line_items:list<string>,requires_split:bool}
+     */
+    protected function resolveInvoiceFiscalProfileFromItems(Invoice $invoice, ?object $defaultService = null): array
+    {
+        $items = $this->invoiceItemsAsArray($invoice);
+        $itemIds = [];
+
+        foreach ($items as $item) {
+            $itemId = is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0;
+
+            if ($itemId > 0) {
+                $itemIds[] = $itemId;
+            }
+        }
+
+        $itemIds = array_values(array_unique($itemIds));
+        $companyId = is_numeric($invoice->company_id ?? null) ? (int) $invoice->company_id : $this->resolveCompanyId();
+
+        $profileMap = $this->invoiceItemFiscalProfileMap($companyId, $itemIds);
+        $taxRateMap = $this->invoiceItemTaxRateMap($itemIds);
+
+        $lineItems = [];
+        $signatures = [];
+        $selected = [
+            'item_lista_servico' => $this->itemListaServico($defaultService),
+            'codigo_tributacao_nacional' => $this->nationalTaxCode($defaultService),
+            'aliquota' => $this->normalizedAliquota($defaultService),
+        ];
+
+        foreach ($items as $item) {
+            $itemId = is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0;
+            $itemName = trim((string) ($item['name'] ?? ''));
+            $itemName = $itemName !== '' ? $itemName : trans('general.na');
+
+            $profile = $itemId > 0 ? ($profileMap[$itemId] ?? null) : null;
+            $serviceCode = preg_replace('/\D+/', '', (string) ($profile['item_lista_servico'] ?? '')) ?: '';
+
+            if ($serviceCode === '') {
+                $serviceCode = $this->itemListaServico($defaultService);
+            }
+
+            $serviceCode = substr($serviceCode, 0, 4);
+
+            $nationalCode = preg_replace('/\D+/', '', (string) ($profile['codigo_tributacao_nacional'] ?? '')) ?: '';
+            if ($nationalCode === '') {
+                $nationalCode = $this->nationalTaxCode((object) [
+                    'item_lista_servico' => $serviceCode,
+                ]);
+            }
+
+            $aliquota = $itemId > 0 ? ($taxRateMap[$itemId] ?? '') : '';
+            if ($aliquota === '') {
+                $aliquota = $this->normalizedAliquota($defaultService);
+            }
+
+            if ($serviceCode !== '') {
+                $lineItems[] = '[' . $serviceCode . '] ' . $itemName;
+            } else {
+                $lineItems[] = $itemName;
+            }
+
+            $signature = $serviceCode . '|' . $nationalCode . '|' . $aliquota;
+
+            if ($signature !== '||') {
+                $signatures[$signature] = true;
+
+                if ($selected['item_lista_servico'] === '' || $selected['item_lista_servico'] === $this->itemListaServico($defaultService)) {
+                    $selected = [
+                        'item_lista_servico' => $serviceCode,
+                        'codigo_tributacao_nacional' => $nationalCode,
+                        'aliquota' => $aliquota,
+                    ];
+                }
+            }
+        }
+
+        return [
+            'item_lista_servico' => $selected['item_lista_servico'] !== '' ? $selected['item_lista_servico'] : $this->itemListaServico($defaultService),
+            'codigo_tributacao_nacional' => $selected['codigo_tributacao_nacional'] !== '' ? $selected['codigo_tributacao_nacional'] : $this->nationalTaxCode($defaultService),
+            'aliquota' => $selected['aliquota'] !== '' ? $selected['aliquota'] : $this->normalizedAliquota($defaultService),
+            'line_items' => $lineItems,
+            'requires_split' => count($signatures) > 1,
+        ];
+    }
+
+    /**
+     * @param list<int> $itemIds
+     * @return array<int, array{item_lista_servico:string,codigo_tributacao_nacional:string}>
+     */
+    protected function invoiceItemFiscalProfileMap(int $companyId, array $itemIds): array
+    {
+        if ($companyId <= 0 || $itemIds === []) {
+            return [];
+        }
+
+        try {
+            return ItemFiscalProfile::query()
+                ->where('company_id', $companyId)
+                ->whereIn('item_id', $itemIds)
+                ->get()
+                ->mapWithKeys(static function (ItemFiscalProfile $profile): array {
+                    $itemId = (int) ($profile->item_id ?? 0);
+
+                    if ($itemId <= 0) {
+                        return [];
+                    }
+
+                    return [
+                        $itemId => [
+                            'item_lista_servico' => preg_replace('/\D+/', '', (string) ($profile->item_lista_servico ?? '')) ?: '',
+                            'codigo_tributacao_nacional' => preg_replace('/\D+/', '', (string) ($profile->codigo_tributacao_nacional ?? '')) ?: '',
+                        ],
+                    ];
+                })
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param list<int> $itemIds
+     * @return array<int, string>
+     */
+    protected function invoiceItemTaxRateMap(array $itemIds): array
+    {
+        if ($itemIds === []) {
+            return [];
+        }
+
+        try {
+            $items = CommonItem::query()
+                ->whereIn('id', $itemIds)
+                ->with(['taxes.tax'])
+                ->get();
+
+            $rates = [];
+
+            foreach ($items as $item) {
+                $itemId = (int) ($item->id ?? 0);
+
+                if ($itemId <= 0) {
+                    continue;
+                }
+
+                $rate = 0.0;
+
+                foreach ($item->taxes ?? [] as $itemTax) {
+                    $tax = $itemTax->tax ?? null;
+
+                    if (!is_object($tax) || !is_numeric($tax->rate ?? null)) {
+                        continue;
+                    }
+
+                    $type = strtolower((string) ($tax->type ?? 'normal'));
+
+                    if (in_array($type, ['fixed', 'withholding'], true)) {
+                        continue;
+                    }
+
+                    $rate += (float) $tax->rate;
+                }
+
+                if ($rate > 0) {
+                    $rates[$itemId] = number_format($rate, 2, '.', '');
+                }
+            }
+
+            return $rates;
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     /**
@@ -2992,8 +3232,10 @@ class InvoiceController extends Controller
     protected function servicePreviewEmailDefaults(Invoice $invoice): array
     {
         $sendEmail = (bool) (int) setting('nfse.send_email_on_emit', '0');
-        $recipient = $this->contactStringField($invoice->contact, ['email']);
+        $recipient = $this->defaultPostEmitRecipient($invoice) ?? '';
         $template  = null;
+        $copyToSelf = (bool) (int) setting('nfse.email_copy_to_self_on_emit', '0');
+        $attachInvoicePdf = (bool) (int) setting('nfse.email_attach_invoice_pdf_on_emit', '1');
         $attachDanfse = (bool) (int) setting('nfse.email_attach_danfse_on_emit', '1');
         $attachXml = (bool) (int) setting('nfse.email_attach_xml_on_emit', '1');
 
@@ -3004,12 +3246,14 @@ class InvoiceController extends Controller
         }
 
         return [
-            'send_email'    => $sendEmail,
-            'recipient'     => $recipient,
-            'subject'       => $template !== null ? (string) ($template->subject ?? '') : '',
-            'body'          => $template !== null ? (string) ($template->body ?? '') : '',
-            'attach_danfse' => $attachDanfse,
-            'attach_xml'    => $attachXml,
+            'send_email'         => $sendEmail,
+            'recipient'          => $recipient,
+            'subject'            => $template !== null ? (string) ($template->subject ?? '') : '',
+            'body'               => $template !== null ? (string) ($template->body ?? '') : '',
+            'copy_to_self'       => $copyToSelf,
+            'attach_invoice_pdf' => $attachInvoicePdf,
+            'attach_danfse'      => $attachDanfse,
+            'attach_xml'         => $attachXml,
         ];
     }
     protected function handlePostEmitEmail(?Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
@@ -3018,31 +3262,32 @@ class InvoiceController extends Controller
             return;
         }
 
-        if (!$request->boolean('nfse_send_email', false)) {
+        $sendEmail = $request->boolean('nfse_send_email', false);
+        $attachInvoicePdf = $request->boolean('nfse_email_attach_invoice_pdf', true);
+        $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
+        $attachXml = $request->boolean('nfse_email_attach_xml', true);
+        $copyToSelf = $request->boolean('nfse_email_copy_to_self', false);
+        $saveDefault = $request->boolean('nfse_email_save_default', false);
+
+        setting([
+            'nfse.send_email_on_emit'               => $sendEmail ? '1' : '0',
+            'nfse.email_copy_to_self_on_emit'       => $copyToSelf ? '1' : '0',
+            'nfse.email_attach_invoice_pdf_on_emit' => $attachInvoicePdf ? '1' : '0',
+            'nfse.email_attach_danfse_on_emit'      => $attachDanfse ? '1' : '0',
+            'nfse.email_attach_xml_on_emit'         => $attachXml ? '1' : '0',
+        ]);
+        setting()->save();
+
+        if (!$sendEmail) {
             return;
         }
-
-        $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
-        $attachXml    = $request->boolean('nfse_email_attach_xml', true);
-        $saveDefault  = $request->boolean('nfse_email_save_default', false);
-        $settingsToPersist = [
-            'nfse.email_attach_danfse_on_emit' => $attachDanfse ? '1' : '0',
-            'nfse.email_attach_xml_on_emit' => $attachXml ? '1' : '0',
-        ];
-
-        if ($saveDefault) {
-            $settingsToPersist['nfse.send_email_on_emit'] = '1';
-        }
-
-        setting($settingsToPersist);
-        setting()->save();
 
         if ($saveDefault) {
             $template = \App\Models\Setting\EmailTemplate::alias('invoice_nfse_issued_customer')->first();
 
             if ($template) {
                 $subject = (string) $request->input('nfse_email_subject', '');
-                $body    = (string) $request->input('nfse_email_body', '');
+                $body = (string) $request->input('nfse_email_body', '');
 
                 if ($subject !== '') {
                     $template->subject = $subject;
@@ -3056,19 +3301,24 @@ class InvoiceController extends Controller
             }
         }
 
-        $recipient = trim((string) $request->input('nfse_email_to', ''));
+        $recipient = $this->normalizePostEmitRecipient($request->input('nfse_email_to'));
 
-        if ($recipient === '') {
+        if ($recipient === null) {
+            $recipient = $this->defaultPostEmitRecipient($invoice);
+        }
+
+        if ($recipient === null) {
             return;
         }
 
         $customMail = [
-            'to'      => $recipient,
+            'to' => $recipient,
             'subject' => (string) $request->input('nfse_email_subject', ''),
-            'body'    => (string) $request->input('nfse_email_body', ''),
+            'body' => (string) $request->input('nfse_email_body', ''),
+            'attach_invoice_pdf' => $attachInvoicePdf,
         ];
 
-        if ($request->boolean('nfse_email_copy_to_self', false) && function_exists('user')) {
+        if ($copyToSelf && function_exists('user')) {
             $selfEmail = (string) (user()?->email ?? '');
 
             if ($selfEmail !== '') {
@@ -3077,6 +3327,65 @@ class InvoiceController extends Controller
         }
 
         $this->sendNfseIssuedNotification($invoice, $receipt, $attachDanfse, $attachXml, $customMail);
+    }
+
+    protected function normalizePostEmitRecipient(mixed $rawRecipient): mixed
+    {
+        if (is_string($rawRecipient)) {
+            $normalized = trim($rawRecipient);
+
+            return $normalized !== '' ? $normalized : null;
+        }
+
+        if (is_object($rawRecipient) && isset($rawRecipient->email)) {
+            $normalized = trim((string) $rawRecipient->email);
+
+            return $normalized !== '' ? $rawRecipient : null;
+        }
+
+        if (is_array($rawRecipient) && isset($rawRecipient['email']) && is_string($rawRecipient['email'])) {
+            $normalized = trim($rawRecipient['email']);
+
+            return $normalized !== '' ? $rawRecipient : null;
+        }
+
+        if (is_array($rawRecipient)) {
+            foreach ($rawRecipient as $item) {
+                if (is_string($item) && trim($item) !== '') {
+                    return $rawRecipient;
+                }
+
+                if (is_object($item) && isset($item->email) && trim((string) $item->email) !== '') {
+                    return $rawRecipient;
+                }
+
+                if (is_array($item) && isset($item['email']) && is_string($item['email']) && trim($item['email']) !== '') {
+                    return $rawRecipient;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    protected function defaultPostEmitRecipient(Invoice $invoice): ?string
+    {
+        $documentContactEmail = trim((string) ($invoice->contact_email ?? ''));
+
+        $candidates = [
+            $this->contactStringField($invoice->contact, ['email']),
+            $documentContactEmail,
+        ];
+
+        foreach ($candidates as $candidate) {
+            $normalized = trim($candidate);
+
+            if ($normalized !== '') {
+                return $normalized;
+            }
+        }
+
+        return null;
     }
 
     protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void

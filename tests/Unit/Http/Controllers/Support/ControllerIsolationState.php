@@ -22,7 +22,7 @@ namespace {
     }
 
     if (!class_exists(\Illuminate\Http\Request::class, false)) {
-        eval('namespace Illuminate\\Http; class Request { public function __construct(private array $inputs = [], private array $files = [], private array $serverVars = []) {} public static function create(string $uri, string $method = \'GET\', array $parameters = []): static { return new static($parameters); } public function validate(array $rules): void {} public function input(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } public function has(string $key): bool { return array_key_exists($key, $this->inputs); } public function boolean(string $key, bool $default = false): bool { if (!array_key_exists($key, $this->inputs)) { return $default; } return (bool)(int)$this->inputs[$key]; } public function file(string $key): mixed { return $this->files[$key] ?? null; } public function query(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } public function header(string $key, mixed $default = null): mixed { $server = strtoupper(str_replace(\'-\', \'_\', $key)); return $this->serverVars[\'HTTP_\' . $server] ?? $this->serverVars[$server] ?? $default; } }');
+        eval('namespace Illuminate\\Http; class Request { public function __construct(private array $inputs = [], private array $files = [], private array $serverVars = []) {} public static function create(string $uri, string $method = \'GET\', array $parameters = []): static { return new static($parameters); } public function validate(array $rules): void {} public function input(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } public function has(string $key): bool { return array_key_exists($key, $this->inputs); } public function boolean(string $key, bool $default = false): bool { if (!array_key_exists($key, $this->inputs)) { return $default; } return (bool)(int)$this->inputs[$key]; } public function file(string $key): mixed { return $this->files[$key] ?? null; } public function query(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } public function header(string $key, mixed $default = null): mixed { $server = strtoupper(str_replace(\'-\', \'_\', $key)); return $this->serverVars[\'HTTP_\' . $server] ?? $this->serverVars[$server] ?? $default; } public function isXmlHttpRequest(): bool { return ($this->serverVars[\'HTTP_X_REQUESTED_WITH\'] ?? \'\') === \'XMLHttpRequest\'; } }');
     }
 
     if (!class_exists(\Illuminate\Http\UploadedFile::class, false)) {
@@ -30,7 +30,7 @@ namespace {
     }
 
     if (!class_exists(\Illuminate\Http\RedirectResponse::class, false)) {
-        eval('namespace Illuminate\\Http; class RedirectResponse { public bool $withInputCalled = false; public array $flash = []; public ?string $route = null; public ?string $target = null; public array $parameters = []; public function withInput(): self { $this->withInputCalled = true; return $this; } public function with(string $key, mixed $value): self { $this->flash[$key] = $value; return $this; } }');
+        eval('namespace Illuminate\\Http; class RedirectResponse { public bool $withInputCalled = false; public array $flash = []; public ?string $route = null; public ?string $target = null; public array $parameters = []; public function withInput(): self { $this->withInputCalled = true; return $this; } public function with(string $key, mixed $value): self { $this->flash[$key] = $value; return $this; } public function getTargetUrl(): string { if ($this->route !== null) { return \'route://\' . $this->route; } return \'back://\'; } }');
     }
 
     if (!class_exists(\Illuminate\Http\JsonResponse::class, false)) {
@@ -39,6 +39,10 @@ namespace {
 
     if (!class_exists(\Illuminate\View\View::class, false)) {
         eval('namespace Illuminate\\View; class View { public function __construct(public string $name, public array $data = []) {} }');
+    }
+
+    if (!class_exists(\App\Events\Document\DocumentMarkedSent::class, false)) {
+        eval('namespace App\\Events\\Document; class DocumentMarkedSent { public function __construct(public mixed $document) {} }');
     }
 }
 
@@ -53,6 +57,9 @@ namespace Modules\Nfse\Http\Controllers {
 
         public static int $savedCount = 0;
 
+        /** @var array<string, mixed> */
+        public static array $sessionFlash = [];
+
         public static string $storageRoot = '';
 
         public static function reset(): void
@@ -60,6 +67,7 @@ namespace Modules\Nfse\Http\Controllers {
             self::$settings = [];
             self::$translations = [];
             self::$savedCount = 0;
+            self::$sessionFlash = [];
             self::$storageRoot = sys_get_temp_dir() . '/nfse-controller-isolation-test-' . uniqid('', true);
 
             if (!is_dir(self::$storageRoot)) {
@@ -99,6 +107,14 @@ namespace Modules\Nfse\Http\Controllers {
         public function save(): void
         {
             ControllerIsolationState::$savedCount++;
+        }
+    }
+
+    final class ControllerIsolationFakeSession
+    {
+        public function flash(string $key, mixed $value): void
+        {
+            ControllerIsolationState::$sessionFlash[$key] = $value;
         }
     }
 
@@ -142,6 +158,13 @@ namespace Modules\Nfse\Http\Controllers {
         }
     }
 
+    if (!function_exists(__NAMESPACE__ . '\\session')) {
+        function session(): ControllerIsolationFakeSession
+        {
+            return new ControllerIsolationFakeSession();
+        }
+    }
+
     if (!function_exists(__NAMESPACE__ . '\\redirect')) {
         function redirect(): ControllerIsolationRedirector
         {
@@ -160,6 +183,17 @@ namespace Modules\Nfse\Http\Controllers {
         function response(): ControllerIsolationResponseFactory
         {
             return new ControllerIsolationResponseFactory();
+        }
+    }
+
+    if (!function_exists(__NAMESPACE__ . '\\event')) {
+        function event(object $event): object
+        {
+            if ($event instanceof \App\Events\Document\DocumentMarkedSent && isset($event->document)) {
+                $event->document->status = 'sent';
+            }
+
+            return $event;
         }
     }
 

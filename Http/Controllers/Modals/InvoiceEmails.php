@@ -12,6 +12,7 @@ use App\Models\Document\Document as Invoice;
 use App\Traits\Emails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Nfse\Http\Controllers\InvoiceController as NfseInvoiceController;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Notifications\NfseIssued;
 use Modules\Nfse\Support\WebDavClient;
@@ -19,6 +20,14 @@ use Modules\Nfse\Support\WebDavClient;
 class InvoiceEmails extends Controller
 {
     use Emails;
+
+    public function __construct()
+    {
+        $this->middleware('permission:create-sales-invoices')->only('create', 'store', 'duplicate', 'import');
+        $this->middleware('permission:read-sales-invoices')->only('index', 'show', 'edit', 'export');
+        $this->middleware('permission:update-sales-invoices')->only('update', 'enable', 'disable');
+        $this->middleware('permission:delete-sales-invoices')->only('destroy');
+    }
 
     public function create(Invoice $invoice): JsonResponse
     {
@@ -30,20 +39,30 @@ class InvoiceEmails extends Controller
         $notification = new NfseIssued($invoice, $receipt);
 
         $hasReceipt   = $receipt->exists;
+        $isEmitted    = $hasReceipt && (string) ($receipt->status ?? '') === 'emitted';
+        $isCancelled  = $hasReceipt && (string) ($receipt->status ?? '') === 'cancelled';
         $hasDanfse    = $hasReceipt && $this->artifactAvailable($receipt, 'danfse');
         $hasXml       = $hasReceipt && $this->artifactAvailable($receipt, 'xml');
+        $preview      = $this->issuePreviewData($invoice);
 
         $store_route = 'nfse.modals.invoices.emails.store';
+        $cancel_route = 'nfse.invoices.cancel';
+        $issue_route = $isCancelled ? 'nfse.invoices.reemit' : 'nfse.invoices.emit';
+        $submit_text = $isCancelled ? trans('nfse::general.invoices.reemit') : trans('nfse::general.invoices.emit_now');
 
-        $html = view('nfse::modals.invoices.email', compact(
-            'invoice',
-            'contacts',
-            'notification',
-            'store_route',
-            'hasReceipt',
-            'hasDanfse',
-            'hasXml',
-        ))->render();
+        $html = $isEmitted
+            ? view('nfse::modals.invoices.cancel', compact(
+                'invoice',
+                'cancel_route',
+            ))->render()
+            : view('nfse::modals.invoices.issue', compact(
+                'invoice',
+                'contacts',
+                'notification',
+                'preview',
+                'issue_route',
+                'isCancelled',
+            ))->render();
 
         return response()->json([
             'success' => true,
@@ -51,14 +70,16 @@ class InvoiceEmails extends Controller
             'message' => 'null',
             'html'    => $html,
             'data'    => [
-                'title'   => trans('general.title.new', ['type' => trans_choice('general.email', 1)]),
+                'title'   => $isEmitted
+                    ? trans('nfse::general.invoices.cancel_modal_title')
+                    : trans('nfse::general.invoices.emit_modal_title'),
                 'buttons' => [
                     'cancel'  => [
                         'text'  => trans('general.cancel'),
                         'class' => 'btn-outline-secondary',
                     ],
                     'confirm' => [
-                        'text'  => trans('general.send'),
+                        'text'  => $isEmitted ? trans('nfse::general.invoices.cancel_modal_submit') : $submit_text,
                         'class' => 'disabled:bg-green-100',
                     ],
                 ],
@@ -72,13 +93,15 @@ class InvoiceEmails extends Controller
 
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->first();
 
+        $attachInvoicePdf = (bool) $request->input('pdf', 1);
         $attachDanfse = (bool) $request->input('nfse_attach_danfse', 0);
         $attachXml    = (bool) $request->input('nfse_attach_xml', 0);
 
         $customMail = [
-            'to'      => $request->input('to', []),
-            'subject' => (string) $request->input('subject', ''),
-            'body'    => (string) $request->input('body', ''),
+            'to'                 => $request->input('to', []),
+            'subject'            => (string) $request->input('subject', ''),
+            'body'               => (string) $request->input('body', ''),
+            'attach_invoice_pdf' => $attachInvoicePdf,
         ];
 
         if ($request->input('user_email')) {
@@ -124,9 +147,28 @@ class InvoiceEmails extends Controller
         }
 
         try {
-            return (new WebDavClient())->exists($path);
+            return (new WebDavClient(
+                baseUrl: (string) setting('nfse.webdav_url', ''),
+                username: (string) setting('nfse.webdav_username', ''),
+                password: (string) setting('nfse.webdav_password', ''),
+            ))->exists($path);
         } catch (\Throwable) {
             return false;
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function issuePreviewData(Invoice $invoice): array
+    {
+        try {
+            $response = app(NfseInvoiceController::class)->servicePreview($invoice);
+            $data = $response->getData(true);
+
+            return is_array($data) ? $data : [];
+        } catch (\Throwable) {
+            return [];
         }
     }
 }

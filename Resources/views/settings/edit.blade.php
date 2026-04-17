@@ -36,7 +36,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     'vault'       => ['label' => trans('nfse::general.settings.vault_section_title'), 'enabled' => true],
                     'certificate' => ['label' => trans('nfse::general.step_certificate'),             'enabled' => $vaultReady],
                     'fiscal'      => ['label' => trans('nfse::general.step_settings'),                'enabled' => $hasSavedSettings],
-                    'services'    => ['label' => trans('nfse::general.settings.services.tab_title'), 'enabled' => $hasSavedSettings],
                     'federal'     => ['label' => trans('nfse::general.settings.federal.tab_title'),  'enabled' => $hasSavedSettings],
                     'artifacts'   => ['label' => trans('nfse::general.settings.artifacts.tab_title'),'enabled' => $hasSavedSettings],
                 ];
@@ -376,6 +375,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 {{ trans('general.save') }}
                             </button>
                         </div>
+
                     </form>
                 @endif
             </div>
@@ -572,19 +572,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 @endif
             </div>
 
-            {{-- ── Panel 5: Services ─────────────────────────────────────── --}}
-            <div id="tab-panel-services" class="tab-panel @if($activeTab !== 'services') hidden @endif">
-
-                @if(!$hasSavedSettings)
-                    <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
-                        {{ trans('nfse::general.settings.vault_gate_locked_notice') }}
-                    </div>
-                @else
-                    @include('nfse::settings.partials.services')
-                @endif
-            </div>
-
-            {{-- ── Panel 6: Artifact Storage ────────────────────────────── --}}
+            {{-- ── Panel 5: Artifact Storage ────────────────────────────── --}}
             <div id="tab-panel-artifacts" class="tab-panel @if($activeTab !== 'artifacts') hidden @endif">
 
                 @if(!$hasSavedSettings)

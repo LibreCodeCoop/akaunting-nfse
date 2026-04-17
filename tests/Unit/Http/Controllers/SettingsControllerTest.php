@@ -1571,7 +1571,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('fiscal', $response->data['activeTab'] ?? null);
         }
 
-        public function testEditAcceptsServicesTabFromRequestQueryParameter(): void
+        public function testEditFallsBackToVaultWhenServicesTabIsRequested(): void
         {
             ControllerIsolationState::reset();
             ControllerIsolationState::$settings = [
@@ -1585,7 +1585,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = (new SettingsController())->edit($request);
 
-            self::assertSame('services', $response->data['activeTab'] ?? null);
+            self::assertSame('vault', $response->data['activeTab'] ?? null);
         }
 
         public function testEditAcceptsFederalTabFromRequestQueryParameter(): void
