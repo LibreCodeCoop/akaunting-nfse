@@ -44,7 +44,7 @@ class SettingsController extends Controller
         $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
 
         $rawTab = $request !== null ? $request->query('tab') : null;
-        $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'federal', 'services', 'artifacts'], true))
+        $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'federal', 'artifacts'], true))
             ? $rawTab
             : 'vault';
 

@@ -309,11 +309,13 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString('data-toggle="thumb"', $partial);
         self::assertStringContainsString('data-nfse-switch', $partial);
         self::assertStringContainsString('class="peer sr-only"', $partial);
+        self::assertStringContainsString("type=\"checkbox\"", $partial);
+        self::assertStringContainsString('name="{{ $switchName }}"', $partial);
+        self::assertStringContainsString("value=\"1\"", $partial);
         self::assertStringContainsString("track.style.backgroundColor = cb.checked ? '#5e9f4d' : '#dbe8d4'", $partial);
         self::assertStringContainsString("thumb.style.left = cb.checked ? '1.5rem' : '0.25rem'", $partial);
         // Hidden input must carry the initial state and always submit (the value-sync strategy).
         self::assertStringContainsString("name=\"{{ \$switchName }}\" value=\"{{ \$switchChecked ? '1' : '0' }}\"", $partial);
-        self::assertStringContainsString('name="{{ $switchName }}"', $partial);
     }
 
     // --- Routes ---

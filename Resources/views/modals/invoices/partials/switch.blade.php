@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     $switchChecked = (bool) ($checked ?? false);
     $switchExtraOnChange = trim((string) ($extraOnChange ?? ''));
 
-    $switchOnChange = "(function(cb){const fallback=cb.previousElementSibling; if(fallback && fallback.type === 'hidden'){fallback.value = cb.checked ? '1' : '0';} const track=cb.nextElementSibling; const thumb=track ? track.nextElementSibling : null; if(track){track.style.backgroundColor = cb.checked ? '#5e9f4d' : '#dbe8d4';} if(thumb){thumb.style.left = cb.checked ? '1.5rem' : '0.25rem';}";
+    $switchOnChange = "(function(cb){const fallback=cb.previousElementSibling; if(fallback && fallback.type === 'hidden'){const newVal=cb.checked ? '1' : '0'; fallback.value = newVal; let n=cb.parentElement; while(n){if(n.__vue__){const f=n.__vue__.form; if(f && typeof f==='object' && fallback.name in f){f[fallback.name]=newVal; break;}} n=n.parentElement;}} const track=cb.nextElementSibling; const thumb=track ? track.nextElementSibling : null; if(track){track.style.backgroundColor = cb.checked ? '#5e9f4d' : '#dbe8d4';} if(thumb){thumb.style.left = cb.checked ? '1.5rem' : '0.25rem';}";
 
     if ($switchExtraOnChange !== '') {
         $switchOnChange .= ' ' . $switchExtraOnChange;
@@ -23,6 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     <input
         id="{{ $switchId }}"
         type="checkbox"
+        value="1"
         class="peer sr-only"
         {{ $switchChecked ? 'checked' : '' }}
         onchange="{!! $switchOnChange !!}"
