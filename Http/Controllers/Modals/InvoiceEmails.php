@@ -29,8 +29,10 @@ class InvoiceEmails extends Controller
         $this->middleware('permission:delete-sales-invoices')->only('destroy');
     }
 
-    public function create(Invoice $invoice): JsonResponse
+    public function create(Invoice $invoice, ?Request $request = null): JsonResponse
     {
+        $request ??= request();
+
         $contacts = $invoice->contact->withPersons();
 
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->first()
@@ -49,11 +51,13 @@ class InvoiceEmails extends Controller
         $cancel_route = 'nfse.invoices.cancel';
         $issue_route = $isCancelled ? 'nfse.invoices.reemit' : 'nfse.invoices.emit';
         $submit_text = $isCancelled ? trans('nfse::general.invoices.reemit') : trans('nfse::general.invoices.emit_now');
+        $redirect_after_cancel = $this->cancelRedirectTarget($invoice, $request);
 
         $html = $isEmitted
             ? view('nfse::modals.invoices.cancel', compact(
                 'invoice',
                 'cancel_route',
+                'redirect_after_cancel',
             ))->render()
             : view('nfse::modals.invoices.issue', compact(
                 'invoice',
@@ -85,6 +89,41 @@ class InvoiceEmails extends Controller
                 ],
             ],
         ]);
+    }
+
+    private function cancelRedirectTarget(Invoice $invoice, ?Request $request = null): string
+    {
+        $request ??= request();
+
+        $requestedTarget = trim((string) ($request?->query('redirect_after_cancel', '') ?? ''));
+
+        if (in_array($requestedTarget, ['invoice_show', 'nfse_show', 'nfse_index'], true)) {
+            return $requestedTarget;
+        }
+
+        $referer = trim((string) ($request?->header('referer', '') ?? ''));
+
+        if ($referer === '') {
+            return 'nfse_index';
+        }
+
+        $invoiceShowUrl = route('invoices.show', $invoice);
+        $nfseShowUrl = route('nfse.invoices.show', $invoice);
+        $nfseIndexUrl = route('nfse.invoices.index');
+
+        if ($referer === $invoiceShowUrl || str_starts_with($referer, $invoiceShowUrl . '?')) {
+            return 'invoice_show';
+        }
+
+        if ($referer === $nfseShowUrl || str_starts_with($referer, $nfseShowUrl . '?')) {
+            return 'nfse_show';
+        }
+
+        if ($referer === $nfseIndexUrl || str_starts_with($referer, $nfseIndexUrl . '?')) {
+            return 'nfse_index';
+        }
+
+        return 'nfse_index';
     }
 
     public function store(Request $request): JsonResponse
