@@ -175,6 +175,7 @@ return [
         'quick_filters' => 'Quick filters',
         'more_details' => 'View more details',
         'view' => 'View',
+        'view_nfse' => 'View NFS-e',
         'pending_summary' => 'Pending invoices summary',
         'search_in_field' => 'Search in field',
         'search_field_all' => 'All fields',

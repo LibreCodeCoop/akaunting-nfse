@@ -175,6 +175,7 @@ return [
         'quick_filters' => 'Filtros rápidos',
         'more_details' => 'Ver mais detalhes',
         'view' => 'Ver',
+        'view_nfse' => 'Ver NFS-e',
         'pending_summary' => 'Resumo das faturas pendentes',
         'search_in_field' => 'Buscar no campo',
         'search_field_all' => 'Todos os campos',
