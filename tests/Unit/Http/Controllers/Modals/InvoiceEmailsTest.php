@@ -276,6 +276,21 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString("trans('nfse::general.invoices.cancel_modal_reason')", $view);
         self::assertStringContainsString("trans('nfse::general.invoices.cancel_modal_justification')", $view);
         self::assertStringContainsString('nfse::general.invoices.cancel_reason_options', $view);
+        self::assertStringContainsString('redirect_after_cancel', $view);
+    }
+
+    public function testControllerCreateClassifiesCancelRedirectTargetFromQueryOrReferer(): void
+    {
+        $content = $this->controllerContent();
+
+        self::assertStringContainsString('cancelRedirectTarget', $content);
+        self::assertStringContainsString('$request ??= request();', $content);
+        self::assertStringContainsString("request?->query('redirect_after_cancel', '')", $content);
+        self::assertStringContainsString("in_array(", $content);
+        self::assertStringContainsString("request?->header('referer', '')", $content);
+        self::assertStringContainsString("return 'invoice_show';", $content);
+        self::assertStringContainsString("return 'nfse_show';", $content);
+        self::assertStringContainsString("return 'nfse_index';", $content);
     }
 
     public function testInvoiceControllerNormalizesRecipientForEmitEmailModalPayloads(): void

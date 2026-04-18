@@ -2867,6 +2867,68 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('NFS-e cancelada', $response->flash['success'] ?? null);
         }
 
+        public function testCancelRedirectsBackToSalesInvoiceShowWhenRequested(): void
+        {
+            $invoice = new Invoice(id: 902, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(902, 'CHAVE-CANCELAR-902', 'emitted');
+
+            $client = new class () implements NfseClientInterface {
+                public array $cancelCalls = [];
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    $this->cancelCalls[] = [
+                        'chaveAcesso' => $chaveAcesso,
+                        'motivo' => $motivo,
+                    ];
+
+                    return true;
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $request = new Request(['redirect_after_cancel' => 'invoice_show']);
+
+            $response = $controller->cancel($invoice, $request);
+
+            self::assertSame([['status' => 'cancelled']], $receipt->updatedPayloads);
+            self::assertSame('cancelled', $receipt->status);
+            self::assertSame('route', $response->target);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
+            self::assertSame('NFS-e cancelada', $response->flash['success'] ?? null);
+        }
+
         public function testIndexReturnsInvoicesViewWithPaginatedReceipts(): void
         {
             NfseReceipt::$paginateItems = ['receipt-a', 'receipt-b'];
