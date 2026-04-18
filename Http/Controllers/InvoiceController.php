@@ -345,10 +345,12 @@ class InvoiceController extends Controller
 
     public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
+        $request = $this->currentRequest($request);
         $receipt = $this->findReceiptForInvoice($invoice);
 
         $client = $this->makeClient($this->sandboxModeEnabled());
         $cancelReason = $this->cancellationReasonForGateway($request);
+        $redirect = $this->cancellationRedirect($invoice, $request);
 
         try {
             $client->cancel($receipt->chave_acesso, $cancelReason);
@@ -367,7 +369,7 @@ class InvoiceController extends Controller
 
                 return $this->ajaxAwareRedirect(
                     $request,
-                    redirect()->route('nfse.invoices.index')
+                    $redirect
                         ->with('success', trans('nfse::general.nfse_cancelled')),
                 );
             }
@@ -381,7 +383,7 @@ class InvoiceController extends Controller
 
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('nfse.invoices.index')
+                $redirect
                     ->with('error', trans('nfse::general.nfse_cancel_failed'))
                     ->with('nfse_gateway_error_detail', $gatewayDetail),
             );
@@ -391,9 +393,21 @@ class InvoiceController extends Controller
 
         return $this->ajaxAwareRedirect(
             $request,
-            redirect()->route('nfse.invoices.index')
+            $redirect
                 ->with('success', trans('nfse::general.nfse_cancelled')),
         );
+    }
+
+    protected function cancellationRedirect(Invoice $invoice, ?Request $request = null): RedirectResponse
+    {
+        $request = $this->currentRequest($request);
+        $target = trim((string) ($request?->input('redirect_after_cancel', '') ?? ''));
+
+        return match ($target) {
+            'invoice_show' => redirect()->route('invoices.show', $invoice),
+            'nfse_show' => redirect()->route('nfse.invoices.show', $invoice),
+            default => redirect()->route('nfse.invoices.index'),
+        };
     }
 
     protected function cancellationReasonForGateway(?Request $request = null): string
