@@ -392,9 +392,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <h3 class="text-base font-semibold text-gray-900">{{ trans('nfse::general.settings.federal.heading') }}</h3>
 
                         <div class="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                            {{ trans('nfse::general.settings.federal.scope_notice') }}
+                            {{ trans('nfse::general.settings.federal.canonical_source_notice') }}
                         </div>
 
+                        <input name="nfse[tributacao_federal_mode]" type="hidden" value="percentage_profile">
+
+                        <div id="federal-piscofins-panel">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="federal-piscofins-situacao">{{ trans('nfse::general.settings.federal.piscofins_situacao_tributaria') }}</label>
@@ -450,6 +453,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     <option value="8" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '8')>PIS/COFINS Nao Retidos, CSLL Retido</option>
                                     <option value="9" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '9')>COFINS Nao Retido, PIS/CSLL Retidos</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <p id="federal-piscofins-preview-note" class="text-xs text-gray-500 mt-1">
+                            {{ trans('nfse::general.settings.federal.piscofins_preview_note') }}
+                        </p>
+
+                        <div id="federal-valor-csll-row">
+                            <label class="block text-sm font-medium mb-1">{{ trans('nfse::general.settings.federal.valor_csll') }}</label>
+                            <div class="relative">
+                                <input name="nfse[federal_valor_csll]" type="text" data-tax-affix="percent" class="w-full border rounded px-3 py-2 pr-8 federal-piscofins-field" value="{{ old('nfse.federal_valor_csll', setting('nfse.federal_valor_csll', '')) }}" placeholder="0.00">
+                                <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 text-sm">%</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.federal.valor_csll_hint') }}</p>
+                        </div>
+
+                        </div>{{-- /#federal-piscofins-panel --}}
+
+                        <div id="federal-tributos-profile-p">
+                            <label class="block text-sm font-medium mb-1">{{ trans('nfse::general.settings.federal.tributos_fed_p') }}</label>
+                            <div class="relative">
+                                <input name="nfse[tributos_fed_p]" type="text" data-tax-affix="percent" class="w-full border rounded px-3 py-2 pr-8" value="{{ old('nfse.tributos_fed_p', setting('nfse.tributos_fed_p', '')) }}" placeholder="0.00">
+                                <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 text-sm">%</span>
+                            </div>
+                        </div>
+
+                        <div id="federal-tributos-profile-sn">
+                            <label class="block text-sm font-medium mb-1">{{ trans('nfse::general.settings.federal.tributos_mun_sn') }}</label>
+                            <div class="relative">
+                                <input name="nfse[tributos_mun_sn]" type="text" data-tax-affix="percent" class="w-full border rounded px-3 py-2 pr-8" value="{{ old('nfse.tributos_mun_sn', setting('nfse.tributos_mun_sn', '')) }}" placeholder="0.00">
+                                <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 text-sm">%</span>
                             </div>
                         </div>
 
