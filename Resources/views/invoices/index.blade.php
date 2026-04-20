@@ -864,6 +864,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </x-tabs>
                     </div>
 
+                    <div id="nfse-emit-error-msg" class="hidden mx-5 mb-0 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+
                     <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
                         <button type="button" class="inline-flex items-center px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100" data-emit-close="true">
                             {{ trans('general.cancel') }}
@@ -1209,6 +1211,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     document.body.classList.remove('overflow-hidden');
                     currentEmitForm = null;
 
+                    const emitErrMsg = document.getElementById('nfse-emit-error-msg');
+                    if (emitErrMsg) {
+                        emitErrMsg.textContent = '';
+                        emitErrMsg.classList.add('hidden');
+                    }
+
                     if (emitModalMissingItems) {
                         emitModalMissingItems.innerHTML = '';
                     }
@@ -1433,16 +1441,46 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         saveDefaultInput.value = saveDefaultField?.checked ? '1' : '0';
                     }
 
-                    form.dataset.emitConfirmed = '1';
                     setEmitSubmittingState(true);
 
-                    if (typeof form.requestSubmit === 'function') {
-                        form.requestSubmit();
+                    const nfseEmitFormData = new FormData(form);
+                    const nfseEmitSuccessTitle = @json((string) trans('nfse::general.invoices.emit_success_modal_title'));
+                    const nfseEmitErrorTitle   = @json((string) trans('nfse::general.invoices.result_modal_error_title'));
+                    const nfseEmitErrorDefault = @json((string) trans('nfse::general.nfse_emit_failed'));
 
-                        return false;
-                    }
-
-                    form.submit();
+                    fetch(form.action, {
+                        method: 'POST',
+                        body: nfseEmitFormData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    })
+                    .then(async (response) => {
+                        let data = null;
+                        try { data = await response.json(); } catch { /* ignore */ }
+                        closeEmitModal();
+                        if (data && data.success) {
+                            window.nfseOpenResultModal(
+                                nfseEmitSuccessTitle,
+                                data.message ?? '',
+                                data.partial_url ?? null,
+                                data.redirect ?? null,
+                                false,
+                                true,
+                            );
+                        } else {
+                            const errMsg = (data && data.message) ? data.message : nfseEmitErrorDefault;
+                            window.nfseOpenResultModal(nfseEmitErrorTitle, errMsg, null, null, false, false);
+                        }
+                    })
+                    .catch(() => {
+                        setEmitSubmittingState(false);
+                        // Network error fallback: regular submit
+                        form.dataset.emitConfirmed = '1';
+                        if (typeof form.requestSubmit === 'function') {
+                            form.requestSubmit();
+                        } else {
+                            form.submit();
+                        }
+                    });
 
                     return false;
                 };
@@ -1664,9 +1702,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         }
                     });
 
+                    const nfseCancelSuccessTitle = @json((string) trans('nfse::general.invoices.cancel_success_modal_title'));
+                    const nfseCancelErrorTitle   = @json((string) trans('nfse::general.invoices.result_modal_error_title'));
+                    const nfseCancelErrorDefault = @json((string) trans('nfse::general.nfse_cancel_failed'));
+
                     reasonSelect.addEventListener('change', updateSubmitState);
                     justificationInput.addEventListener('input', updateSubmitState);
-                    form.addEventListener('submit', () => {
+                    form.addEventListener('submit', (event) => {
+                        event.preventDefault();
                         if (isSubmitting) {
                             return;
                         }
@@ -1679,6 +1722,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         submitButton.classList.add('bg-gray-400', 'text-white', 'cursor-not-allowed', 'opacity-100');
                         submitSpinner.classList.remove('hidden');
                         submitLabel.textContent = submitLoadingLabel;
+
+                        const cancelFormData = new FormData(form);
+                        fetch(form.action, {
+                            method: 'POST',
+                            body: cancelFormData,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        })
+                        .then(async (response) => {
+                            let data = null;
+                            try { data = await response.json(); } catch { /* ignore */ }
+                            closeModal();
+                            if (data && data.success) {
+                                window.nfseOpenResultModal(
+                                    nfseCancelSuccessTitle,
+                                    data.message ?? '',
+                                    null,
+                                    null,
+                                    true,
+                                    true,
+                                );
+                            } else {
+                                const errMsg = (data && data.message) ? data.message : nfseCancelErrorDefault;
+                                window.nfseOpenResultModal(nfseCancelErrorTitle, errMsg, null, null, false, false);
+                            }
+                        })
+                        .catch(() => {
+                            isSubmitting = false;
+                            submitButton.setAttribute('aria-busy', 'false');
+                            submitSpinner.classList.add('hidden');
+                            submitLabel.textContent = submitDefaultLabel;
+                            updateSubmitState();
+                            form.submit();
+                        });
                     });
 
                     submitLabel.textContent = submitDefaultLabel;
@@ -1696,6 +1772,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 }
             })();
         </script>
+
+        @include('nfse::modals.nfse-result-modal')
     </x-slot>
 
     <x-documents.script type="invoice" />
