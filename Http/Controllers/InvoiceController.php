@@ -331,11 +331,8 @@ class InvoiceController extends Controller
         $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
         $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
 
-        $taxPolicyMessage = $this->canonicalTaxPolicyMessage($invoice);
-
         return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
-            ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso]))
-            ->with('info', $taxPolicyMessage));
+            ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])));
     }
 
     protected function markInvoiceSentAfterEmission(Invoice $invoice): void
@@ -785,11 +782,14 @@ class InvoiceController extends Controller
             }
         }
 
-        if (!$request instanceof Request || !$request->isXmlHttpRequest()) {
+        $forcedAjax = $request instanceof Request && $request->boolean('nfse_force_ajax', false);
+
+        if (!$request instanceof Request || (!$request->isXmlHttpRequest() && !$forcedAjax)) {
             return $redirect;
         }
 
-        $hasError = isset($redirect->flash['error']) || isset($redirect->flash['warning']);
+        $hasSuccess = isset($redirect->flash['success']);
+        $hasError = !$hasSuccess && (isset($redirect->flash['error']) || isset($redirect->flash['warning']));
 
         if ($hasError) {
             return response()->json([
@@ -809,10 +809,14 @@ class InvoiceController extends Controller
             session()->flash('info', $redirect->flash['info']);
         }
 
+        if (isset($redirect->flash['warning'])) {
+            session()->flash('warning', $redirect->flash['warning']);
+        }
+
         return response()->json([
             'success' => true,
             'error' => false,
-            'message' => '',
+            'message' => (string) ($redirect->flash['success'] ?? ''),
             'redirect' => $redirect->getTargetUrl(),
             'data' => null,
         ]);
@@ -2192,7 +2196,7 @@ class InvoiceController extends Controller
         }
 
         if ($situacaoTributaria === '' || $situacaoTributaria === '0') {
-            return [
+            return $this->finalizeFederalPayload([
                 'federalPiscofinsSituacaoTributaria' => '',
                 'federalPiscofinsTipoRetencao' => '',
                 'federalPiscofinsBaseCalculo' => '',
@@ -2208,13 +2212,13 @@ class InvoiceController extends Controller
                 'totalTributosPercentualFederal' => $totalTributosPercentualFederal,
                 'totalTributosPercentualEstadual' => $totalTributosPercentualEstadual,
                 'totalTributosPercentualMunicipal' => $totalTributosPercentualMunicipal,
-            ];
+            ]);
         }
 
         $aliquotaPis = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_pis', ''));
         $aliquotaCofins = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_cofins', ''));
 
-        return [
+        return $this->finalizeFederalPayload([
             'federalPiscofinsSituacaoTributaria' => $situacaoTributaria,
             'federalPiscofinsTipoRetencao' => $tipoRetencao,
             'federalPiscofinsBaseCalculo' => number_format($invoiceAmount, 2, '.', ''),
@@ -2236,7 +2240,39 @@ class InvoiceController extends Controller
             'totalTributosPercentualFederal' => $totalTributosPercentualFederal,
             'totalTributosPercentualEstadual' => $totalTributosPercentualEstadual,
             'totalTributosPercentualMunicipal' => $totalTributosPercentualMunicipal,
-        ];
+        ]);
+    }
+
+    private function finalizeFederalPayload(array $payload): array
+    {
+        $hasConfiguredTotalTributos = $payload['totalTributosPercentualFederal'] !== ''
+            || $payload['totalTributosPercentualEstadual'] !== ''
+            || $payload['totalTributosPercentualMunicipal'] !== '';
+
+        if ($hasConfiguredTotalTributos || !$this->hasFederalTaxationPayload($payload)) {
+            return $payload;
+        }
+
+        $payload['indicadorTributacao'] = 2;
+        $payload['totalTributosPercentualFederal'] = '0.00';
+        $payload['totalTributosPercentualEstadual'] = '0.00';
+        $payload['totalTributosPercentualMunicipal'] = '0.00';
+
+        return $payload;
+    }
+
+    private function hasFederalTaxationPayload(array $payload): bool
+    {
+        return $payload['federalPiscofinsSituacaoTributaria'] !== ''
+            || $payload['federalPiscofinsTipoRetencao'] !== ''
+            || $payload['federalPiscofinsBaseCalculo'] !== ''
+            || $payload['federalPiscofinsAliquotaPis'] !== ''
+            || $payload['federalPiscofinsValorPis'] !== ''
+            || $payload['federalPiscofinsAliquotaCofins'] !== ''
+            || $payload['federalPiscofinsValorCofins'] !== ''
+            || $this->hasNonZeroDecimalValue($payload['federalValorIrrf'])
+            || $this->hasNonZeroDecimalValue($payload['federalValorCsll'])
+            || $this->hasNonZeroDecimalValue($payload['federalValorCp']);
     }
 
     /**

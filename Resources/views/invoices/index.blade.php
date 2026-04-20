@@ -755,7 +755,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     {{ trans_choice('general.email', 1) }}
                                 </x-tabs.nav>
 
-                                <x-tabs.nav id="attachments">
+                                <x-tabs.nav id="attachments" style="display:none;" data-nfse-attachments-nav="true">
                                     {{ trans_choice('general.attachments', 2) }}
                                 </x-tabs.nav>
                             </x-slot>
@@ -830,8 +830,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     </div>
                                 </x-tabs.tab>
 
-                                <x-tabs.tab id="attachments">
-                                    <div class="space-y-3 px-1">
+                                <x-tabs.tab id="attachments" style="display:none;" data-nfse-attachments-tab="true">
+                                    <div class="space-y-4 px-1 pt-1">
                                         <div class="flex items-center gap-3">
                                             <label for="nfse_emit_attach_danfse" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
                                                 <input id="nfse_emit_attach_danfse" type="checkbox" class="sr-only" checked>
@@ -1057,6 +1057,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 window.nfseSyncEmailToggle = (input) => {
                     syncToggle(input);
 
+                    const attachmentTabs = document.querySelectorAll('#tab-attachments');
+                    attachmentTabs.forEach((tab) => {
+                        tab.style.display = input.checked ? '' : 'none';
+                    });
+
+                    if (!input.checked) {
+                        const emailTab = document.querySelector('#tab-email[data-tabs="email"]');
+                        if (emailTab instanceof HTMLElement) {
+                            emailTab.click();
+                        }
+                    }
+
                     const targetId = input?.dataset?.emailFieldsTarget;
                     if (!targetId) {
                         return;
@@ -1123,14 +1135,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (emitModalEmailFields && emitModalSendEmailInput) {
                         const shouldShow = emitModalSendEmailInput.checked;
                         emitModalEmailFields.classList.toggle('hidden', !shouldShow);
-                        syncToggle(emitModalSendEmailInput);
+                        if (typeof window.nfseSyncEmailToggle === 'function') {
+                            window.nfseSyncEmailToggle(emitModalSendEmailInput);
+                        } else {
+                            syncToggle(emitModalSendEmailInput);
+                        }
                     }
                 };
 
                 const applyEmailDefaults = (emailDefaults = {}) => {
                     if (emitModalSendEmailInput) {
                         emitModalSendEmailInput.checked = Boolean(emailDefaults.send_email);
-                        syncToggle(emitModalSendEmailInput);
+                        if (typeof window.nfseSyncEmailToggle === 'function') {
+                            window.nfseSyncEmailToggle(emitModalSendEmailInput);
+                        } else {
+                            syncToggle(emitModalSendEmailInput);
+                        }
                     }
 
                     if (emitModalEmailToInput) {

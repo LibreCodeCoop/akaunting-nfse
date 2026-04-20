@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <x-form id="form-email" :route="[$issue_route, $invoice->id]">
     <x-form.input.hidden name="document_id" :value="$invoice->id" />
+    <x-form.input.hidden name="nfse_force_ajax" value="1" />
 
     <x-tabs active="issuance" class="grid grid-cols-3 auto-rows-max" override="class" ignore-hash>
         <x-slot name="navs">
@@ -29,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 {{ trans_choice('general.email', 1) }}
             </x-tabs.nav>
 
-            <x-tabs.nav id="attachments">
+            <x-tabs.nav id="attachments" style="{{ $sendEmailDefault ? '' : 'display:none;' }}" data-nfse-attachments-nav="true">
                 {{ trans_choice('general.attachments', 2) }}
             </x-tabs.nav>
         </x-slot>
@@ -91,7 +92,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 'name' => 'nfse_send_email',
                                 'label' => trans('nfse::general.invoices.emit_modal_send_email'),
                                 'checked' => $sendEmailDefault,
-                                'extraOnChange' => "const target=document.getElementById('nfse-email-fields'); if(target){target.classList.toggle('hidden', !cb.checked);}",
+                                'extraOnChange' => "const target=document.getElementById('nfse-email-fields'); if(target){target.classList.toggle('hidden', !cb.checked);} document.querySelectorAll('#tab-attachments').forEach((el) => {el.style.display = cb.checked ? '' : 'none';}); if(!cb.checked){const emailTab=document.querySelector('#tab-email[data-tabs=email]'); if(emailTab){emailTab.click();}}",
                             ])
                             <div>
                                 <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
@@ -163,38 +164,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </x-form.section>
             </x-tabs.tab>
 
-            <x-tabs.tab id="attachments">
-                <div class="space-y-3 px-1">
-                    <div class="flex items-center gap-3">
-                        @include('nfse::modals.invoices.partials.switch', [
-                            'id' => 'nfse_email_attach_invoice_pdf_toggle',
-                            'name' => 'nfse_email_attach_invoice_pdf',
-                            'label' => trans('nfse::general.invoices.emit_modal_email_attach_invoice_pdf'),
-                            'checked' => $attachInvoicePdfDefault,
-                        ])
-                        <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_invoice_pdf') }}</span>
-                    </div>
+            <x-tabs.tab id="attachments" style="{{ $sendEmailDefault ? '' : 'display:none;' }}" data-nfse-attachments-tab="true">
+                <x-form.section>
+                    <x-slot name="body">
+                        <div class="sm:col-span-6 space-y-3">
+                            <div class="flex items-center gap-3">
+                                @include('nfse::modals.invoices.partials.switch', [
+                                    'id' => 'nfse_email_attach_invoice_pdf_toggle',
+                                    'name' => 'nfse_email_attach_invoice_pdf',
+                                    'label' => trans('nfse::general.invoices.emit_modal_email_attach_invoice_pdf'),
+                                    'checked' => $attachInvoicePdfDefault,
+                                ])
+                                <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_invoice_pdf') }}</span>
+                            </div>
 
-                    <div class="flex items-center gap-3">
-                        @include('nfse::modals.invoices.partials.switch', [
-                            'id' => 'nfse_email_attach_danfse_toggle',
-                            'name' => 'nfse_email_attach_danfse',
-                            'label' => trans('nfse::general.invoices.emit_modal_email_attach_danfse'),
-                            'checked' => $attachDanfseDefault,
-                        ])
-                        <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
-                    </div>
+                            <div class="flex items-center gap-3">
+                                @include('nfse::modals.invoices.partials.switch', [
+                                    'id' => 'nfse_email_attach_danfse_toggle',
+                                    'name' => 'nfse_email_attach_danfse',
+                                    'label' => trans('nfse::general.invoices.emit_modal_email_attach_danfse'),
+                                    'checked' => $attachDanfseDefault,
+                                ])
+                                <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
+                            </div>
 
-                    <div class="flex items-center gap-3">
-                        @include('nfse::modals.invoices.partials.switch', [
-                            'id' => 'nfse_email_attach_xml_toggle',
-                            'name' => 'nfse_email_attach_xml',
-                            'label' => trans('nfse::general.invoices.emit_modal_email_attach_xml'),
-                            'checked' => $attachXmlDefault,
-                        ])
-                        <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
-                    </div>
-                </div>
+                            <div class="flex items-center gap-3">
+                                @include('nfse::modals.invoices.partials.switch', [
+                                    'id' => 'nfse_email_attach_xml_toggle',
+                                    'name' => 'nfse_email_attach_xml',
+                                    'label' => trans('nfse::general.invoices.emit_modal_email_attach_xml'),
+                                    'checked' => $attachXmlDefault,
+                                ])
+                                <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
+                            </div>
+                        </div>
+                    </x-slot>
+                </x-form.section>
             </x-tabs.tab>
         </x-slot>
     </x-tabs>

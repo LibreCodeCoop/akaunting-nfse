@@ -5,6 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <x-layouts.admin>
     <x-slot name="title">{{ trans('nfse::general.invoices.details_title') }}</x-slot>
 
+    @push('scripts_start')
+        <script>
+            if (typeof window.document_app_env === 'undefined') {
+                window.document_app_env = @json((string) app()->environment());
+            }
+        </script>
+    @endpush
+
     <x-slot name="content">
         @if(session('success'))
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
