@@ -267,6 +267,7 @@ return [
             'tab_title' => '5. Taxation',
             'heading' => 'Taxation',
             'helper' => 'Configure behavior and approximate federal, state and municipal tax percentages used for NFS-e issuance.',
+            'scope_notice' => 'In this tab, define only the two federal parameters used at issuance. All other taxes continue to come from invoice items.',
             'canonical_source_notice' => 'Canonical source for NFS-e: fields in this tab define taxation sent to the government portal. Native Akaunting item taxes do not override the NFS-e fiscal payload.',
             'current_simples_status' => 'Current Simples Nacional status',
             'behavior_label' => 'Fill behavior',

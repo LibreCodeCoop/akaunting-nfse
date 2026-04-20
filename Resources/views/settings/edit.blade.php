@@ -367,11 +367,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
                         </label>
 
-                        <div class="rounded-md border border-green-200 bg-green-50 px-4 py-3 md:flex md:items-center md:justify-between">
-                            <p class="text-sm text-green-900 mb-2 md:mb-0">
-                                {{ trans('nfse::general.settings.federal.helper') }}
-                            </p>
-                            <button id="federal-save-button" type="submit" class="inline-flex w-full md:w-auto justify-center items-center px-5 py-2.5 rounded font-semibold shadow-sm transition-colors duration-150 bg-gray-300 text-gray-500 cursor-not-allowed" disabled aria-disabled="true">
+                        <div class="flex justify-end pt-2">
+                            <button id="federal-save-button" type="submit" class="inline-flex justify-center items-center px-4 py-2 rounded font-semibold shadow-sm transition-colors duration-150 bg-gray-300 text-gray-500 cursor-not-allowed" disabled aria-disabled="true">
                                 {{ trans('general.save') }}
                             </button>
                         </div>
@@ -394,9 +391,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         <h3 class="text-base font-semibold text-gray-900">{{ trans('nfse::general.settings.federal.heading') }}</h3>
 
-                        <p class="text-sm text-gray-600">{{ trans('nfse::general.settings.federal.helper') }}</p>
-                        <div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                            {{ trans('nfse::general.settings.federal.canonical_source_notice') }}
+                        <div class="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                            {{ trans('nfse::general.settings.federal.scope_notice') }}
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -454,112 +450,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     <option value="8" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '8')>PIS/COFINS Nao Retidos, CSLL Retido</option>
                                     <option value="9" @selected((string) old('nfse.federal_piscofins_tipo_retencao', setting('nfse.federal_piscofins_tipo_retencao', '')) === '9')>COFINS Nao Retido, PIS/CSLL Retidos</option>
                                 </select>
-                            </div>
-                        </div>
-
-                        <div id="federal-piscofins-panel" class="rounded-md border border-gray-200 p-3 space-y-4 hidden">
-                            <p id="federal-piscofins-preview-note" class="text-xs text-gray-500">
-                                {{ trans('nfse::general.settings.federal.piscofins_preview_note') }}
-                            </p>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-1" for="federal_piscofins_aliquota_cofins">{{ trans('nfse::general.settings.federal.piscofins_aliquota_cofins') }}</label>
-                                    <div class="relative">
-                                        <input id="federal_piscofins_aliquota_cofins" name="nfse[federal_piscofins_aliquota_cofins]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_aliquota_cofins', setting('nfse.federal_piscofins_aliquota_cofins', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1" for="federal_piscofins_aliquota_pis">{{ trans('nfse::general.settings.federal.piscofins_aliquota_pis') }}</label>
-                                    <div class="relative">
-                                        <input id="federal_piscofins_aliquota_pis" name="nfse[federal_piscofins_aliquota_pis]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12 federal-piscofins-field" value="{{ old('nfse.federal_piscofins_aliquota_pis', setting('nfse.federal_piscofins_aliquota_pis', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium mb-1" for="federal_valor_irrf">{{ trans('nfse::general.settings.federal.valor_irrf') }}</label>
-                                <div class="relative">
-                                    <input id="federal_valor_irrf" name="nfse[federal_valor_irrf]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.federal_valor_irrf', setting('nfse.federal_valor_irrf', '')) }}" placeholder="0.00">
-                                    <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.federal.valor_irrf_hint') }}</p>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1" for="federal_valor_cp">{{ trans('nfse::general.settings.federal.valor_cp') }}</label>
-                                <div class="relative">
-                                    <input id="federal_valor_cp" name="nfse[federal_valor_cp]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.federal_valor_cp', setting('nfse.federal_valor_cp', '')) }}" placeholder="0.00">
-                                    <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.federal.valor_cp_hint') }}</p>
-                            </div>
-                        </div>
-
-                        <div id="federal-valor-csll-row" class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden">
-                            <div>
-                                <label class="block text-sm font-medium mb-1" for="federal_valor_csll">{{ trans('nfse::general.settings.federal.valor_csll') }}</label>
-                                <div class="relative">
-                                    <input id="federal_valor_csll" name="nfse[federal_valor_csll]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.federal_valor_csll', setting('nfse.federal_valor_csll', '')) }}" placeholder="0.00">
-                                    <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.federal.valor_csll_hint') }}</p>
-                            </div>
-                            <div></div>
-                        </div>
-
-                        <input name="nfse[tributacao_federal_mode]" type="hidden" value="percentage_profile">
-
-                        <div id="federal-tributos-percent-rows" class="space-y-4">
-                            <div id="federal-tributos-profile-p" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-1" for="tributos_fed_p">{{ trans('nfse::general.settings.federal.tributos_fed_p') }}</label>
-                                    <div class="relative">
-                                        <input id="tributos_fed_p" name="nfse[tributos_fed_p]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.tributos_fed_p', setting('nfse.tributos_fed_p', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1" for="tributos_est_p">{{ trans('nfse::general.settings.federal.tributos_est_p') }}</label>
-                                    <div class="relative">
-                                        <input id="tributos_est_p" name="nfse[tributos_est_p]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.tributos_est_p', setting('nfse.tributos_est_p', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1" for="tributos_mun_p">{{ trans('nfse::general.settings.federal.tributos_mun_p') }}</label>
-                                    <div class="relative">
-                                        <input id="tributos_mun_p" name="nfse[tributos_mun_p]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.tributos_mun_p', setting('nfse.tributos_mun_p', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div id="federal-tributos-profile-sn" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-1" for="tributos_fed_sn">{{ trans('nfse::general.settings.federal.tributos_fed_sn') }}</label>
-                                    <div class="relative">
-                                        <input id="tributos_fed_sn" name="nfse[tributos_fed_sn]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.tributos_fed_sn', setting('nfse.tributos_fed_sn', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1" for="tributos_est_sn">{{ trans('nfse::general.settings.federal.tributos_est_sn') }}</label>
-                                    <div class="relative">
-                                        <input id="tributos_est_sn" name="nfse[tributos_est_sn]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.tributos_est_sn', setting('nfse.tributos_est_sn', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1" for="tributos_mun_sn">{{ trans('nfse::general.settings.federal.tributos_mun_sn') }}</label>
-                                    <div class="relative">
-                                        <input id="tributos_mun_sn" name="nfse[tributos_mun_sn]" type="text" inputmode="decimal" class="w-full border rounded px-3 py-2 pr-12" value="{{ old('nfse.tributos_mun_sn', setting('nfse.tributos_mun_sn', '')) }}" placeholder="0.00">
-                                        <span data-tax-affix="percent" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-sm text-gray-400">%</span>
-                                    </div>
-                                </div>
                             </div>
                         </div>
 

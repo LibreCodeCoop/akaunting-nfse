@@ -267,6 +267,7 @@ return [
             'tab_title' => '5. Tributação',
             'heading' => 'Tributação',
             'helper' => 'Configure o comportamento e os percentuais aproximados de tributos federais, estaduais e municipais para emissão da NFS-e.',
+            'scope_notice' => 'Nesta aba você define apenas os dois parâmetros federais usados na emissão. Os demais impostos continuam vindo dos itens da fatura.',
             'canonical_source_notice' => 'Fonte canônica para NFS-e: os campos desta aba definem a tributação enviada ao portal do governo. Impostos dos itens nativos do Akaunting não alteram o payload fiscal da NFS-e.',
             'current_simples_status' => 'Opção atual no Simples Nacional',
             'behavior_label' => 'Comportamento de preenchimento',
