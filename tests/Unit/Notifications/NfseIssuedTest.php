@@ -545,5 +545,22 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
 
             self::assertSame('custom@example.com', $notifiable->email);
         }
+
+        public function testMissingTemplateUsesNonModelFallbackForQueuedNotifications(): void
+        {
+            EmailTemplate::$stubInstance = null;
+
+            $notification = new NfseIssued(
+                $this->makeInvoice(),
+                $this->makeReceipt(),
+                true,
+                true,
+                ['to' => 'custom@example.com'],
+            );
+
+            self::assertIsObject($notification->template);
+            self::assertNotInstanceOf(EmailTemplate::class, $notification->template);
+            self::assertSame('invoice_nfse_issued_customer', (string) ($notification->template->alias ?? ''));
+        }
     }
 }

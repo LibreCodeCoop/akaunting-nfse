@@ -329,6 +329,10 @@ class NfseIssued extends Notification
             return;
         }
 
+        if (is_object($this->template) && isset($this->template->alias)) {
+            return;
+        }
+
         $template = EmailTemplate::alias('invoice_nfse_issued_customer')->first();
 
         if ($template instanceof EmailTemplate) {
@@ -337,11 +341,14 @@ class NfseIssued extends Notification
             return;
         }
 
-        $fallbackTemplate = new EmailTemplate();
-        $fallbackTemplate->alias = 'invoice_nfse_issued_customer';
-        $fallbackTemplate->subject = '';
-        $fallbackTemplate->body = '';
-        $this->template = $fallbackTemplate;
+        // Avoid using a non-persisted Eloquent model as fallback because queued
+        // notifications serialize model properties and try to restore them via
+        // firstOrFail(), which triggers ModelNotFoundException when no template exists.
+        $this->template = (object) [
+            'alias' => 'invoice_nfse_issued_customer',
+            'subject' => '',
+            'body' => '',
+        ];
     }
 
     /**
