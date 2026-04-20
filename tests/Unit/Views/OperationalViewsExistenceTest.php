@@ -150,7 +150,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("'key' => 'data_emissao'", $content);
             self::assertStringContainsString("'type' => 'date'", $content);
             self::assertStringNotContainsString("'key' => 'per_page'", $content);
-            self::assertStringContainsString('<x-script folder="common" file="documents" />', $content);
+            self::assertStringContainsString('<x-documents.script type="invoice" />', $content);
             self::assertStringContainsString("const cookieFilters = @json(\$searchStringCookieFilters ?? []);", $content);
             self::assertStringContainsString("Cookies.set('search-string', searchStringCookie);", $content);
             self::assertStringNotContainsString('id="nfse-status-filter"', $content);
