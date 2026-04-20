@@ -331,8 +331,12 @@ class InvoiceController extends Controller
         $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
         $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
 
-        return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
-            ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])));
+        return $this->ajaxAwareRedirect(
+            $request,
+            redirect()->route('nfse.invoices.show', $invoice)
+                ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])),
+            ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
+        );
     }
 
     protected function markInvoiceSentAfterEmission(Invoice $invoice): void
@@ -684,8 +688,12 @@ class InvoiceController extends Controller
         $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
         $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
 
-        return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
-            ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso])));
+        return $this->ajaxAwareRedirect(
+            $request,
+            redirect()->route('nfse.invoices.show', $invoice)
+                ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso])),
+            ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -768,7 +776,7 @@ class InvoiceController extends Controller
     }
 
 
-    protected function ajaxAwareRedirect(?Request $request, RedirectResponse $redirect): RedirectResponse|JsonResponse
+    protected function ajaxAwareRedirect(?Request $request, RedirectResponse $redirect, array $extra = []): RedirectResponse|JsonResponse
     {
         if ($request === null && function_exists('request')) {
             try {
@@ -813,13 +821,13 @@ class InvoiceController extends Controller
             session()->flash('warning', $redirect->flash['warning']);
         }
 
-        return response()->json([
+        return response()->json(array_merge([
             'success' => true,
             'error' => false,
             'message' => (string) ($redirect->flash['success'] ?? ''),
             'redirect' => $redirect->getTargetUrl(),
             'data' => null,
-        ]);
+        ], $extra));
     }
     protected function normalizeDescriptionText(string $value): ?string
     {
@@ -3155,3 +3163,4 @@ class InvoiceController extends Controller
     }
 
 }
+
