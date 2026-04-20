@@ -966,6 +966,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertFalse($response->payload['error'] ?? true);
             self::assertNotSame('', (string) ($response->payload['message'] ?? ''));
             self::assertStringContainsString('nfse.invoices.show', (string) ($response->payload['redirect'] ?? ''));
+            self::assertStringContainsString('nfse.invoices.emit-success', (string) ($response->payload['partial_url'] ?? ''));
         }
 
         public function testEmitReturnsJsonWithRedirectWhenForceAjaxFlagIsProvided(): void
@@ -1025,6 +1026,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertFalse($response->payload['error'] ?? true);
             self::assertNotSame('', (string) ($response->payload['message'] ?? ''));
             self::assertStringContainsString('nfse.invoices.show', (string) ($response->payload['redirect'] ?? ''));
+            self::assertStringContainsString('nfse.invoices.emit-success', (string) ($response->payload['partial_url'] ?? ''));
         }
 
         public function testEmitReturnsJsonErrorOnGatewayExceptionWhenRequestIsAjax(): void
