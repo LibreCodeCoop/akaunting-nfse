@@ -38,6 +38,10 @@ class InvoiceEmails extends Controller
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->first()
             ?? new NfseReceipt(['invoice_id' => $invoice->id]);
 
+        if (!$receipt instanceof NfseReceipt) {
+            $receipt = new NfseReceipt(['invoice_id' => $invoice->id]);
+        }
+
         $notification = new NfseIssued($invoice, $receipt);
 
         $hasReceipt   = $receipt->exists;
@@ -95,13 +99,13 @@ class InvoiceEmails extends Controller
     {
         $request ??= request();
 
-        $requestedTarget = trim((string) ($request?->query('redirect_after_cancel', '') ?? ''));
+        $requestedTarget = trim((string) $request->query('redirect_after_cancel', ''));
 
         if (in_array($requestedTarget, ['invoice_show', 'nfse_show', 'nfse_index'], true)) {
             return $requestedTarget;
         }
 
-        $referer = trim((string) ($request?->header('referer', '') ?? ''));
+        $referer = trim((string) $request->header('referer', ''));
 
         if ($referer === '') {
             return 'nfse_index';
@@ -131,6 +135,10 @@ class InvoiceEmails extends Controller
         $invoice = Invoice::findOrFail($request->input('document_id'));
 
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->first();
+
+        if (!$receipt instanceof NfseReceipt) {
+            $receipt = null;
+        }
 
         $attachInvoicePdf = (bool) $request->input('pdf', 1);
         $attachDanfse = (bool) $request->input('nfse_attach_danfse', 0);

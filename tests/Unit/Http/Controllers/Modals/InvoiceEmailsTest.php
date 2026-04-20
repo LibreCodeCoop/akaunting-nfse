@@ -285,9 +285,9 @@ final class InvoiceEmailsTest extends TestCase
 
         self::assertStringContainsString('cancelRedirectTarget', $content);
         self::assertStringContainsString('$request ??= request();', $content);
-        self::assertStringContainsString("request?->query('redirect_after_cancel', '')", $content);
+        self::assertStringContainsString("request->query('redirect_after_cancel', '')", $content);
         self::assertStringContainsString("in_array(", $content);
-        self::assertStringContainsString("request?->header('referer', '')", $content);
+        self::assertStringContainsString("request->header('referer', '')", $content);
         self::assertStringContainsString("return 'invoice_show';", $content);
         self::assertStringContainsString("return 'nfse_show';", $content);
         self::assertStringContainsString("return 'nfse_index';", $content);
