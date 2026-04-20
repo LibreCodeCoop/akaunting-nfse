@@ -204,4 +204,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         </x-slot>
     </x-tabs>
 
+    <div
+        v-if="form.response && form.response.error"
+        class="mx-5 mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        role="alert"
+    >
+        @{{ (form.response && form.response.message) ? form.response.message : @json((string) trans('nfse::general.nfse_emit_failed')) }}
+    </div>
+
 </x-form>
