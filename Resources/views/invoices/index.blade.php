@@ -1678,5 +1678,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         </script>
     </x-slot>
 
-    <x-script folder="common" file="documents" />
+    <x-documents.script type="invoice" />
 </x-layouts.admin>
