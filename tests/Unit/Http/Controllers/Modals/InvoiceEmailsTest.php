@@ -309,6 +309,8 @@ final class InvoiceEmailsTest extends TestCase
 
         // Plain-JS tabs (no Alpine.js x-tabs) so they work in AJAX-loaded modal context.
         self::assertStringContainsString('data-nfse-tabs', $view);
+        self::assertStringContainsString('id="nfse-tab-nav-list"', $view);
+        self::assertStringContainsString('class="grid w-full auto-rows-max', $view);
         self::assertStringContainsString('data-nfse-tab-nav="nfse-tab-pane-issuance"', $view);
         self::assertStringContainsString('data-nfse-tab-nav="nfse-tab-pane-email"', $view);
         self::assertStringContainsString('data-nfse-tab-nav="nfse-tab-pane-attachments"', $view);
@@ -349,8 +351,11 @@ final class InvoiceEmailsTest extends TestCase
         $view = $this->issueViewContent();
 
         // The send-email toggle extraOnChange must target the new Alpine-free tab IDs.
+        self::assertStringContainsString('nfse-tab-nav-list', $view);
         self::assertStringContainsString('nfse-tab-nav-attachments', $view);
         self::assertStringContainsString('nfse-tab-nav-email', $view);
+        self::assertStringContainsString("navList.classList.toggle('grid-cols-3',cb.checked)", $view);
+        self::assertStringContainsString("navList.classList.toggle('grid-cols-2',!cb.checked)", $view);
         // Must NOT reference the old x-tabs duplicate-id pattern.
         self::assertStringNotContainsString("querySelectorAll('#tab-attachments')", $view);
         self::assertStringNotContainsString("querySelector('#tab-email[data-tabs=email]')", $view);

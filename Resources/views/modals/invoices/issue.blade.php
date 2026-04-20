@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
     <div data-nfse-tabs="true">
         <div data-tabs-swiper>
-            <ul class="inline-flex overflow-x-scroll large-overflow-unset">
+            <ul id="nfse-tab-nav-list" class="grid w-full auto-rows-max {{ $sendEmailDefault ? 'grid-cols-3' : 'grid-cols-2' }}">
                 <li id="nfse-tab-nav-issuance"
                     data-nfse-tab-nav="nfse-tab-pane-issuance"
                     class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link active-tabs text-purple border-purple after:absolute after:w-full after:h-0.5 after:left-0 after:right-0 after:bottom-0 after:bg-purple after:rounded-tl-md after:rounded-tr-md"
@@ -111,7 +111,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 'name' => 'nfse_send_email',
                                 'label' => trans('nfse::general.invoices.emit_modal_send_email'),
                                 'checked' => $sendEmailDefault,
-                                'extraOnChange' => "const target=document.getElementById('nfse-email-fields'); if(target){target.classList.toggle('hidden',!cb.checked);} const attNav=document.getElementById('nfse-tab-nav-attachments'); if(attNav){attNav.style.display=cb.checked?'':'none';} if(!cb.checked){const attPane=document.getElementById('nfse-tab-pane-attachments'); if(attPane&&attPane.style.display!=='none'){const emailNav=document.getElementById('nfse-tab-nav-email'); if(emailNav){emailNav.click();}} if(attPane){attPane.style.display='none';}}",
+                                'extraOnChange' => "const target=document.getElementById('nfse-email-fields'); if(target){target.classList.toggle('hidden',!cb.checked);} const navList=document.getElementById('nfse-tab-nav-list'); if(navList){navList.classList.toggle('grid-cols-3',cb.checked); navList.classList.toggle('grid-cols-2',!cb.checked);} const attNav=document.getElementById('nfse-tab-nav-attachments'); if(attNav){attNav.style.display=cb.checked?'':'none';} if(!cb.checked){const attPane=document.getElementById('nfse-tab-pane-attachments'); if(attPane&&attPane.style.display!=='none'){const emailNav=document.getElementById('nfse-tab-nav-email'); if(emailNav){emailNav.click();}} if(attPane){attPane.style.display='none';}}",
                             ])
                             <div>
                                 <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
