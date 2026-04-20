@@ -3,6 +3,11 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 --}}
 @php
+    // Tab switching JS is inlined because x-tabs uses Alpine.js (x-show, x-on:click,
+    // x-bind:class) which is NOT initialized when HTML is injected via AJAX into the
+    // Akaunting modal. This plain-JS implementation works in any DOM context.
+    $nfseTabOnclick = "(function(nav){var c=nav.closest('[data-nfse-tabs]');var t=nav.getAttribute('data-nfse-tab-nav');c.querySelectorAll('[data-nfse-tab-nav]').forEach(function(n){var a=n===nav;n.classList.toggle('active-tabs',a);n.classList.toggle('text-purple',a);n.classList.toggle('border-purple',a);['after:absolute','after:w-full','after:h-0.5','after:left-0','after:right-0','after:bottom-0','after:bg-purple','after:rounded-tl-md','after:rounded-tr-md'].forEach(function(cls){n.classList.toggle(cls,a);});n.classList.toggle('text-black',!a);});c.querySelectorAll('[data-nfse-tab-pane]').forEach(function(p){p.style.display=p.id===t?'':'none';});})(this)";
+
     $missingItems = is_array($preview['missing_items'] ?? null) ? $preview['missing_items'] : [];
     $defaultServiceId = (int) ($preview['default_service_id'] ?? 0);
     $requiresSplit = (bool) ($preview['requires_split'] ?? false);
@@ -20,23 +25,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     <x-form.input.hidden name="document_id" :value="$invoice->id" />
     <x-form.input.hidden name="nfse_force_ajax" value="1" />
 
-    <x-tabs active="issuance" class="grid grid-cols-3 auto-rows-max" override="class" ignore-hash>
-        <x-slot name="navs">
-            <x-tabs.nav id="issuance">
-                {{ trans('general.general') }}
-            </x-tabs.nav>
+    <div data-nfse-tabs="true">
+        <div data-tabs-swiper>
+            <ul class="inline-flex overflow-x-scroll large-overflow-unset">
+                <li id="nfse-tab-nav-issuance"
+                    data-nfse-tab-nav="nfse-tab-pane-issuance"
+                    class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link active-tabs text-purple border-purple after:absolute after:w-full after:h-0.5 after:left-0 after:right-0 after:bottom-0 after:bg-purple after:rounded-tl-md after:rounded-tr-md"
+                    onclick="{!! $nfseTabOnclick !!}"
+                >
+                    {{ trans('general.general') }}
+                </li>
 
-            <x-tabs.nav id="email">
-                {{ trans_choice('general.email', 1) }}
-            </x-tabs.nav>
+                <li id="nfse-tab-nav-email"
+                    data-nfse-tab-nav="nfse-tab-pane-email"
+                    class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link text-black"
+                    onclick="{!! $nfseTabOnclick !!}"
+                >
+                    {{ trans_choice('general.email', 1) }}
+                </li>
 
-            <x-tabs.nav id="attachments" style="{{ $sendEmailDefault ? '' : 'display:none;' }}" data-nfse-attachments-nav="true">
-                {{ trans_choice('general.attachments', 2) }}
-            </x-tabs.nav>
-        </x-slot>
+                <li id="nfse-tab-nav-attachments"
+                    data-nfse-tab-nav="nfse-tab-pane-attachments"
+                    class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link text-black"
+                    style="{{ $sendEmailDefault ? '' : 'display:none;' }}"
+                    onclick="{!! $nfseTabOnclick !!}"
+                >
+                    {{ trans_choice('general.attachments', 2) }}
+                </li>
+            </ul>
+        </div>
 
-        <x-slot name="content">
-            <x-tabs.tab id="issuance">
+        <div id="nfse-tab-pane-issuance" data-nfse-tab-pane="true">
                 <x-form.section>
                     <x-slot name="body">
                         @if ($requiresSplit)
@@ -81,9 +100,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </div>
                     </x-slot>
                 </x-form.section>
-            </x-tabs.tab>
+        </div>
 
-            <x-tabs.tab id="email">
+        <div id="nfse-tab-pane-email" data-nfse-tab-pane="true" style="display:none;">
                 <x-form.section>
                     <x-slot name="body">
                         <div class="sm:col-span-6 flex items-center gap-3">
@@ -92,7 +111,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 'name' => 'nfse_send_email',
                                 'label' => trans('nfse::general.invoices.emit_modal_send_email'),
                                 'checked' => $sendEmailDefault,
-                                'extraOnChange' => "const target=document.getElementById('nfse-email-fields'); if(target){target.classList.toggle('hidden', !cb.checked);} document.querySelectorAll('#tab-attachments').forEach((el) => {el.style.display = cb.checked ? '' : 'none';}); if(!cb.checked){const emailTab=document.querySelector('#tab-email[data-tabs=email]'); if(emailTab){emailTab.click();}}",
+                                'extraOnChange' => "const target=document.getElementById('nfse-email-fields'); if(target){target.classList.toggle('hidden',!cb.checked);} const attNav=document.getElementById('nfse-tab-nav-attachments'); if(attNav){attNav.style.display=cb.checked?'':'none';} if(!cb.checked){const attPane=document.getElementById('nfse-tab-pane-attachments'); if(attPane&&attPane.style.display!=='none'){const emailNav=document.getElementById('nfse-tab-nav-email'); if(emailNav){emailNav.click();}} if(attPane){attPane.style.display='none';}}",
                             ])
                             <div>
                                 <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
@@ -162,9 +181,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </div>
                     </x-slot>
                 </x-form.section>
-            </x-tabs.tab>
+        </div>
 
-            <x-tabs.tab id="attachments" style="{{ $sendEmailDefault ? '' : 'display:none;' }}" data-nfse-attachments-tab="true">
+        <div id="nfse-tab-pane-attachments" data-nfse-tab-pane="true" style="display:none;">
                 <x-form.section>
                     <x-slot name="body">
                         <div class="sm:col-span-6 space-y-3">
@@ -200,9 +219,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         </div>
                     </x-slot>
                 </x-form.section>
-            </x-tabs.tab>
-        </x-slot>
-    </x-tabs>
+        </div>
+    </div>
 
     <div
         v-if="form.response && form.response.error"
