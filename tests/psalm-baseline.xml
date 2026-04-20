@@ -3,55 +3,25 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <files psalm-version="6.16.1@f1f5de594dc76faf8784e02d3dc4716c91c6f6ac">
   <file src="Http/Controllers/Modals/InvoiceEmails.php">
-    <MissingDependency>
-      <code><![CDATA[NfseIssued]]></code>
-    </MissingDependency>
-    <TooManyArguments>
-      <code><![CDATA[new NfseReceipt(['invoice_id' => $invoice->id])]]></code>
-    </TooManyArguments>
     <UndefinedClass>
+      <code><![CDATA[?Request]]></code>
+      <code><![CDATA[?Request]]></code>
       <code><![CDATA[JsonResponse]]></code>
       <code><![CDATA[JsonResponse]]></code>
       <code><![CDATA[Request]]></code>
     </UndefinedClass>
     <UndefinedFunction>
       <code><![CDATA[app(NfseInvoiceController::class)]]></code>
-      <code><![CDATA[response()]]></code>
       <code><![CDATA[setting('nfse.webdav_password', '')]]></code>
       <code><![CDATA[setting('nfse.webdav_url', '')]]></code>
       <code><![CDATA[setting('nfse.webdav_username', '')]]></code>
-      <code><![CDATA[trans('general.cancel')]]></code>
-      <code><![CDATA[trans('nfse::general.invoices.cancel_modal_submit')]]></code>
-      <code><![CDATA[trans('nfse::general.invoices.cancel_modal_title')]]></code>
-      <code><![CDATA[trans('nfse::general.invoices.emit_modal_title')]]></code>
-      <code><![CDATA[trans('nfse::general.invoices.emit_now')]]></code>
-      <code><![CDATA[trans('nfse::general.invoices.reemit')]]></code>
-      <code><![CDATA[view('nfse::modals.invoices.cancel', compact(
-                'invoice',
-                'cancel_route',
-            ))]]></code>
-      <code><![CDATA[view('nfse::modals.invoices.issue', compact(
-                'invoice',
-                'contacts',
-                'notification',
-                'preview',
-                'issue_route',
-                'isCancelled',
-            ))]]></code>
     </UndefinedFunction>
-    <UndefinedMagicPropertyFetch>
-      <code><![CDATA[$receipt->exists]]></code>
-    </UndefinedMagicPropertyFetch>
     <UndefinedMethod>
-      <code><![CDATA[NfseReceipt::where('invoice_id', $invoice->id)]]></code>
       <code><![CDATA[middleware]]></code>
       <code><![CDATA[middleware]]></code>
       <code><![CDATA[middleware]]></code>
       <code><![CDATA[middleware]]></code>
     </UndefinedMethod>
-    <UndefinedPropertyFetch>
-      <code><![CDATA[$invoice->contact]]></code>
-    </UndefinedPropertyFetch>
   </file>
   <file src="Providers/Main.php">
     <ArgumentTypeCoercion>
