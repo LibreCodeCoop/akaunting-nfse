@@ -11,26 +11,20 @@ use Modules\Nfse\Tests\TestCase;
 
 final class ItemFiscalFieldsInjectionTest extends TestCase
 {
-    public function testNativeItemCreateViewIncludesNfseFiscalFieldsPartial(): void
+    public function testModuleItemCreateOverrideIncludesNfseFiscalFieldsPartial(): void
     {
-        $createPath = dirname(__DIR__, 5) . '/resources/views/common/items/create.blade.php';
+        $createPath = dirname(__DIR__, 3) . '/Resources/overrides/common/items/create.blade.php';
 
-        if (!file_exists($createPath)) {
-            self::markTestSkipped('Akaunting core item create view not available in standalone module environment.');
-        }
-
+        self::assertFileExists($createPath);
         $content = (string) file_get_contents($createPath);
         self::assertStringContainsString("@includeIf('nfse::items.partials.fiscal-fields')", $content);
     }
 
-    public function testNativeItemEditViewIncludesNfseFiscalFieldsPartial(): void
+    public function testModuleItemEditOverrideIncludesNfseFiscalFieldsPartial(): void
     {
-        $editPath = dirname(__DIR__, 5) . '/resources/views/common/items/edit.blade.php';
+        $editPath = dirname(__DIR__, 3) . '/Resources/overrides/common/items/edit.blade.php';
 
-        if (!file_exists($editPath)) {
-            self::markTestSkipped('Akaunting core item edit view not available in standalone module environment.');
-        }
-
+        self::assertFileExists($editPath);
         $content = (string) file_get_contents($editPath);
         self::assertStringContainsString("@includeIf('nfse::items.partials.fiscal-fields')", $content);
     }

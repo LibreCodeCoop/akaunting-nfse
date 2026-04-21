@@ -61,7 +61,52 @@ final class OverrideInvoiceEmailRoute
             return false;
         }
 
+        $receiptStatus = $this->latestReceiptStatus($invoice);
+
+        if ($receiptStatus !== null) {
+            return true;
+        }
+
+        if (!$this->invoiceHasLineItems($invoice)) {
+            return false;
+        }
+
         return true;
+    }
+
+    protected function invoiceHasLineItems(object $invoice): bool
+    {
+        if (method_exists($invoice, 'loadMissing')) {
+            try {
+                $invoice->loadMissing(['items']);
+            } catch (\Throwable) {
+                // Ignore relation loading failures in degraded contexts.
+            }
+        }
+
+        $items = $invoice->items ?? null;
+
+        if (is_array($items)) {
+            return count($items) > 0;
+        }
+
+        if (is_object($items) && method_exists($items, 'count')) {
+            return (int) $items->count() > 0;
+        }
+
+        if (method_exists($invoice, 'items')) {
+            try {
+                $relation = $invoice->items();
+
+                if (is_object($relation) && method_exists($relation, 'exists')) {
+                    return (bool) $relation->exists();
+                }
+            } catch (\Throwable) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     protected function sendButtonTranslationKey(object $invoice): string
