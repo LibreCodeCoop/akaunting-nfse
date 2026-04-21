@@ -53,10 +53,18 @@ class Main extends Provider
 
     protected function registerCoreItemViewOverrides(): void
     {
-        /** @var \Illuminate\View\Factory $viewFactory */
         $viewFactory = $this->app->make('view');
-        /** @var \Illuminate\View\FileViewFinder $finder */
+
+        if (!is_object($viewFactory) || !method_exists($viewFactory, 'getFinder')) {
+            return;
+        }
+
         $finder = $viewFactory->getFinder();
+
+        if (!is_object($finder) || !method_exists($finder, 'getPaths') || !method_exists($finder, 'setPaths')) {
+            return;
+        }
+
         $overridePath = __DIR__ . '/../Resources/overrides';
         $paths = $finder->getPaths();
 
