@@ -231,7 +231,7 @@ class InvoiceController extends Controller
         $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
-        $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
+        $federalPayload = $this->federalPayloadValues($invoice);
         $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
         $dps = $this->makeDpsData([
@@ -291,9 +291,9 @@ class InvoiceController extends Controller
             'federal_valor_irrf' => $dps->federalValorIrrf,
             'federal_valor_csll' => $dps->federalValorCsll,
             'federal_valor_cp' => $dps->federalValorCp,
-            'tributos_fed_p' => (string) setting('nfse.tributos_fed_p', ''),
-            'tributos_est_p' => (string) setting('nfse.tributos_est_p', ''),
-            'tributos_mun_p' => (string) setting('nfse.tributos_mun_p', ''),
+            'tributos_fed_p' => $dps->totalTributosPercentualFederal,
+            'tributos_est_p' => $dps->totalTributosPercentualEstadual,
+            'tributos_mun_p' => $dps->totalTributosPercentualMunicipal,
         ]);
 
         $client = $this->makeClient($sandbox);
@@ -616,7 +616,7 @@ class InvoiceController extends Controller
         $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
-        $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
+        $federalPayload = $this->federalPayloadValues($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
         $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
@@ -2207,11 +2207,18 @@ class InvoiceController extends Controller
         return in_array($configured, [1, 2], true) ? $configured : 2;
     }
 
-    protected function federalPayloadValues(float $invoiceAmount): array
+    protected function federalPayloadValues(Invoice $invoice): array
     {
+        $invoiceAmount = (float) ($invoice->amount ?? 0.0);
+        $federalMode = strtolower((string) setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
+        $invoiceFederalTaxes = $this->invoiceFederalTaxSnapshot($invoice, $invoiceAmount);
         $situacaoTributaria = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_situacao_tributaria', ''));
         $tipoRetencao = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_tipo_retencao', ''));
         $valorCsllRetencao = $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_csll');
+
+        if ($valorCsllRetencao === '' && $invoiceFederalTaxes['csll_value'] !== '') {
+            $valorCsllRetencao = $invoiceFederalTaxes['csll_value'];
+        }
 
         if (in_array($tipoRetencao, ['4', '5', '6'], true) && $valorCsllRetencao === '') {
             // Gateway currently rejects tpRetPisCofins != 0 without vRetCSLL.
@@ -2224,6 +2231,10 @@ class InvoiceController extends Controller
         $totalTributosPercentualFederal = $this->normalizedFederalDecimal(setting($isSimplesNacionalOptant ? 'nfse.tributos_fed_sn' : 'nfse.tributos_fed_p', ''));
         $totalTributosPercentualEstadual = $this->normalizedFederalDecimal(setting($isSimplesNacionalOptant ? 'nfse.tributos_est_sn' : 'nfse.tributos_est_p', ''));
         $totalTributosPercentualMunicipal = $this->normalizedFederalDecimal(setting($isSimplesNacionalOptant ? 'nfse.tributos_mun_sn' : 'nfse.tributos_mun_p', ''));
+
+        if ($totalTributosPercentualFederal === '' && $invoiceFederalTaxes['federal_percent'] !== '') {
+            $totalTributosPercentualFederal = $invoiceFederalTaxes['federal_percent'];
+        }
 
         $indicadorTributacao = (
             $totalTributosPercentualFederal !== '' ||
@@ -2238,6 +2249,11 @@ class InvoiceController extends Controller
             $totalTributosPercentualMunicipal = $totalTributosPercentualMunicipal !== '' ? $totalTributosPercentualMunicipal : '0.00';
         }
 
+        $valorIrrf = $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_irrf');
+        if ($valorIrrf === '' && $invoiceFederalTaxes['irrf_value'] !== '') {
+            $valorIrrf = $invoiceFederalTaxes['irrf_value'];
+        }
+
         if ($situacaoTributaria === '' || $situacaoTributaria === '0') {
             return $this->finalizeFederalPayload([
                 'federalPiscofinsSituacaoTributaria' => '',
@@ -2247,8 +2263,8 @@ class InvoiceController extends Controller
                 'federalPiscofinsValorPis' => '',
                 'federalPiscofinsAliquotaCofins' => '',
                 'federalPiscofinsValorCofins' => '',
-                'federalValorIrrf' => $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_irrf'),
-                'federalValorCsll' => $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_csll'),
+                'federalValorIrrf' => $valorIrrf,
+                'federalValorCsll' => $valorCsllRetencao,
                 // Produção restrita currently rejects vRetCP (RNG6110), so keep CP as UI/config only.
                 'federalValorCp' => '',
                 'indicadorTributacao' => $indicadorTributacao,
@@ -2261,19 +2277,39 @@ class InvoiceController extends Controller
         $aliquotaPis = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_pis', ''));
         $aliquotaCofins = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_cofins', ''));
 
+        if (($federalMode === 'per_invoice_amounts' || $aliquotaPis === '') && $invoiceFederalTaxes['pis_rate'] !== '') {
+            $aliquotaPis = $invoiceFederalTaxes['pis_rate'];
+        }
+
+        if (($federalMode === 'per_invoice_amounts' || $aliquotaCofins === '') && $invoiceFederalTaxes['cofins_rate'] !== '') {
+            $aliquotaCofins = $invoiceFederalTaxes['cofins_rate'];
+        }
+
+        $valorPis = $aliquotaPis !== ''
+            ? number_format($invoiceAmount * (float) $aliquotaPis / 100, 2, '.', '')
+            : '';
+
+        if (($federalMode === 'per_invoice_amounts' || $valorPis === '') && $invoiceFederalTaxes['pis_value'] !== '') {
+            $valorPis = $invoiceFederalTaxes['pis_value'];
+        }
+
+        $valorCofins = $aliquotaCofins !== ''
+            ? number_format($invoiceAmount * (float) $aliquotaCofins / 100, 2, '.', '')
+            : '';
+
+        if (($federalMode === 'per_invoice_amounts' || $valorCofins === '') && $invoiceFederalTaxes['cofins_value'] !== '') {
+            $valorCofins = $invoiceFederalTaxes['cofins_value'];
+        }
+
         return $this->finalizeFederalPayload([
             'federalPiscofinsSituacaoTributaria' => $situacaoTributaria,
             'federalPiscofinsTipoRetencao' => $tipoRetencao,
             'federalPiscofinsBaseCalculo' => number_format($invoiceAmount, 2, '.', ''),
             'federalPiscofinsAliquotaPis' => $aliquotaPis,
-            'federalPiscofinsValorPis' => $aliquotaPis !== ''
-                ? number_format($invoiceAmount * (float) $aliquotaPis / 100, 2, '.', '')
-                : '',
+            'federalPiscofinsValorPis' => $valorPis,
             'federalPiscofinsAliquotaCofins' => $aliquotaCofins,
-            'federalPiscofinsValorCofins' => $aliquotaCofins !== ''
-                ? number_format($invoiceAmount * (float) $aliquotaCofins / 100, 2, '.', '')
-                : '',
-            'federalValorIrrf' => $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_irrf'),
+            'federalPiscofinsValorCofins' => $valorCofins,
+            'federalValorIrrf' => $valorIrrf,
             'federalValorCsll' => $tipoRetencao !== '0'
                 ? $valorCsllRetencao
                 : '',
@@ -2284,6 +2320,142 @@ class InvoiceController extends Controller
             'totalTributosPercentualEstadual' => $totalTributosPercentualEstadual,
             'totalTributosPercentualMunicipal' => $totalTributosPercentualMunicipal,
         ]);
+    }
+
+    /**
+     * @return array{pis_value:string,pis_rate:string,cofins_value:string,cofins_rate:string,irrf_value:string,csll_value:string,federal_percent:string}
+     */
+    protected function invoiceFederalTaxSnapshot(Invoice $invoice, float $invoiceAmount): array
+    {
+        $totals = [
+            'pis' => 0.0,
+            'cofins' => 0.0,
+            'irrf' => 0.0,
+            'csll' => 0.0,
+            'cp' => 0.0,
+        ];
+
+        $seenTaxes = [];
+
+        foreach ($this->invoiceItemsAsArray($invoice) as $item) {
+            $taxes = [];
+
+            if (is_array($item)) {
+                $taxes = array_merge(
+                    is_array($item['taxes'] ?? null) ? $item['taxes'] : [],
+                    is_array($item['item_taxes'] ?? null) ? $item['item_taxes'] : []
+                );
+            }
+
+            if (is_object($item)) {
+                $itemTaxes = [];
+
+                if (isset($item->taxes) && is_iterable($item->taxes)) {
+                    foreach ($item->taxes as $tax) {
+                        $itemTaxes[] = $tax;
+                    }
+                }
+
+                if (isset($item->item_taxes) && is_iterable($item->item_taxes)) {
+                    foreach ($item->item_taxes as $tax) {
+                        $itemTaxes[] = $tax;
+                    }
+                }
+
+                $taxes = array_merge($taxes, $itemTaxes);
+            }
+
+            foreach ($taxes as $tax) {
+                $name = trim((string) (is_array($tax) ? ($tax['name'] ?? '') : ($tax->name ?? '')));
+                $amountRaw = is_array($tax) ? ($tax['amount'] ?? null) : ($tax->amount ?? null);
+
+                if ($name === '' || !is_numeric($amountRaw)) {
+                    continue;
+                }
+
+                $amount = (float) $amountRaw;
+
+                if ($amount <= 0) {
+                    continue;
+                }
+
+                $signature = strtolower($name) . '|' . number_format($amount, 4, '.', '');
+
+                if (isset($seenTaxes[$signature])) {
+                    continue;
+                }
+
+                $seenTaxes[$signature] = true;
+                $bucket = $this->federalTaxBucketFromName($name);
+
+                if ($bucket === null) {
+                    continue;
+                }
+
+                $totals[$bucket] += $amount;
+            }
+        }
+
+        $federalTotal = $totals['pis'] + $totals['cofins'] + $totals['irrf'] + $totals['csll'] + $totals['cp'];
+
+        return [
+            'pis_value' => $this->formattedPositiveDecimal($totals['pis']),
+            'pis_rate' => $this->formattedTaxRate($totals['pis'], $invoiceAmount),
+            'cofins_value' => $this->formattedPositiveDecimal($totals['cofins']),
+            'cofins_rate' => $this->formattedTaxRate($totals['cofins'], $invoiceAmount),
+            'irrf_value' => $this->formattedPositiveDecimal($totals['irrf']),
+            'csll_value' => $this->formattedPositiveDecimal($totals['csll']),
+            'federal_percent' => $this->formattedTaxRate($federalTotal, $invoiceAmount),
+        ];
+    }
+
+    protected function federalTaxBucketFromName(string $name): ?string
+    {
+        $normalizedName = strtolower(trim($name));
+
+        if ($normalizedName === '') {
+            return null;
+        }
+
+        if (str_contains($normalizedName, 'cofins')) {
+            return 'cofins';
+        }
+
+        if (str_contains($normalizedName, 'irrf')) {
+            return 'irrf';
+        }
+
+        if (str_contains($normalizedName, 'csll')) {
+            return 'csll';
+        }
+
+        if (str_contains($normalizedName, 'inss') || str_contains($normalizedName, 'contribuicao previd')) {
+            return 'cp';
+        }
+
+        if (str_contains($normalizedName, 'pis')) {
+            return 'pis';
+        }
+
+        return null;
+    }
+
+    protected function formattedPositiveDecimal(float $value): string
+    {
+        if ($value <= 0) {
+            return '';
+        }
+
+        return number_format($value, 2, '.', '');
+    }
+
+    protected function formattedTaxRate(float $taxValue, float $baseAmount): string
+    {
+        if ($taxValue <= 0 || $baseAmount <= 0) {
+            return '';
+        }
+
+        return number_format(($taxValue / $baseAmount) * 100, 2, '.', '');
     }
 
     private function finalizeFederalPayload(array $payload): array
