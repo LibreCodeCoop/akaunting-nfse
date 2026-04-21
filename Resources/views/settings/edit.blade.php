@@ -367,11 +367,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
                         </label>
 
-                        <div class="rounded-md border border-green-200 bg-green-50 px-4 py-3 md:flex md:items-center md:justify-between">
-                            <p class="text-sm text-green-900 mb-2 md:mb-0">
-                                {{ trans('nfse::general.settings.federal.helper') }}
-                            </p>
-                            <button id="federal-save-button" type="submit" class="inline-flex w-full md:w-auto justify-center items-center px-5 py-2.5 rounded font-semibold shadow-sm transition-colors duration-150 bg-gray-300 text-gray-500 cursor-not-allowed" disabled aria-disabled="true">
+                        <div class="flex justify-end pt-2">
+                            <button id="federal-save-button" type="submit" class="inline-flex justify-center items-center px-4 py-2 rounded font-semibold shadow-sm transition-colors duration-150 bg-gray-300 text-gray-500 cursor-not-allowed" disabled aria-disabled="true">
                                 {{ trans('general.save') }}
                             </button>
                         </div>
@@ -394,11 +391,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         <h3 class="text-base font-semibold text-gray-900">{{ trans('nfse::general.settings.federal.heading') }}</h3>
 
-                        <p class="text-sm text-gray-600">{{ trans('nfse::general.settings.federal.helper') }}</p>
-                        <div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                        <div class="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
                             {{ trans('nfse::general.settings.federal.canonical_source_notice') }}
                         </div>
 
+                        <input name="nfse[tributacao_federal_mode]" type="hidden" value="percentage_profile">
+
+                        <div id="federal-piscofins-panel">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="federal-piscofins-situacao">{{ trans('nfse::general.settings.federal.piscofins_situacao_tributaria') }}</label>
@@ -457,8 +456,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
                         </div>
 
-                        <div class="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                            {{ trans('nfse::general.settings.federal.helper') }}
+                        <p id="federal-piscofins-preview-note" class="text-xs text-gray-500 mt-1">
+                            {{ trans('nfse::general.settings.federal.piscofins_preview_note') }}
+                        </p>
+
+                        <div id="federal-valor-csll-row">
+                            <label class="block text-sm font-medium mb-1">{{ trans('nfse::general.settings.federal.valor_csll') }}</label>
+                            <div class="relative">
+                                <input name="nfse[federal_valor_csll]" type="text" data-tax-affix="percent" class="w-full border rounded px-3 py-2 pr-8 federal-piscofins-field" value="{{ old('nfse.federal_valor_csll', setting('nfse.federal_valor_csll', '')) }}" placeholder="0.00">
+                                <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 text-sm">%</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.federal.valor_csll_hint') }}</p>
+                        </div>
+
+                        </div>{{-- /#federal-piscofins-panel --}}
+
+                        <div id="federal-tributos-profile-p">
+                            <label class="block text-sm font-medium mb-1">{{ trans('nfse::general.settings.federal.tributos_fed_p') }}</label>
+                            <div class="relative">
+                                <input name="nfse[tributos_fed_p]" type="text" data-tax-affix="percent" class="w-full border rounded px-3 py-2 pr-8" value="{{ old('nfse.tributos_fed_p', setting('nfse.tributos_fed_p', '')) }}" placeholder="0.00">
+                                <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 text-sm">%</span>
+                            </div>
+                        </div>
+
+                        <div id="federal-tributos-profile-sn">
+                            <label class="block text-sm font-medium mb-1">{{ trans('nfse::general.settings.federal.tributos_mun_sn') }}</label>
+                            <div class="relative">
+                                <input name="nfse[tributos_mun_sn]" type="text" data-tax-affix="percent" class="w-full border rounded px-3 py-2 pr-8" value="{{ old('nfse.tributos_mun_sn', setting('nfse.tributos_mun_sn', '')) }}" placeholder="0.00">
+                                <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 text-sm">%</span>
+                            </div>
                         </div>
 
                         <div class="flex justify-end pt-2">
@@ -773,20 +799,98 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 // ── Federal tab: official-like PIS/COFINS interactions ────
                 const federalSituacao = document.getElementById('federal-piscofins-situacao');
                 const federalTipoRetencao = document.getElementById('federal-piscofins-tipo-retencao');
+                const federalPanel = document.getElementById('federal-piscofins-panel');
+                const federalValorCsllRow = document.getElementById('federal-valor-csll-row');
+                const federalTributosProfileP = document.getElementById('federal-tributos-profile-p');
+                const federalTributosProfileSn = document.getElementById('federal-tributos-profile-sn');
+                const federalFields = Array.from(document.querySelectorAll('.federal-piscofins-field'));
+                const selectedOpcaoSimplesNacional = String(@json(old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 2))));
 
-                const syncFederalRetencaoCompatibility = () => {
-                    if (!(federalSituacao instanceof HTMLSelectElement) || !(federalTipoRetencao instanceof HTMLSelectElement)) {
+                const syncFederalTributosProfileVisibility = () => {
+                    // Option 2 means Simples Nacional optant.
+                    const isSimplesNacionalOptant = selectedOpcaoSimplesNacional === '2';
+
+                    federalTributosProfileP?.classList.toggle('hidden', isSimplesNacionalOptant);
+                    federalTributosProfileSn?.classList.toggle('hidden', !isSimplesNacionalOptant);
+                };
+
+                const blockPiscofinsFields = (blockAndZero) => {
+                    federalFields.forEach((field) => {
+                        if (!(field instanceof HTMLInputElement)) {
+                            return;
+                        }
+
+                        if (blockAndZero) {
+                            field.value = '0.00';
+                            field.readOnly = true;
+                            field.classList.add('bg-gray-50');
+                        } else {
+                            if (field.value === '0.00') {
+                                field.value = '';
+                            }
+                            field.readOnly = false;
+                            field.classList.remove('bg-gray-50');
+                        }
+                    });
+                };
+
+                const syncFederalCsllVisibility = () => {
+                    if (!(federalTipoRetencao instanceof HTMLSelectElement)) {
+                        return;
+                    }
+
+                    const tipoRetencao = federalTipoRetencao.value;
+                    // Follow retention-type semantics in UI:
+                    // show CSLL only when retention type includes CSLL.
+                    const showCsll = ['3', '7', '8', '9'].includes(tipoRetencao);
+
+                    if (federalValorCsllRow) {
+                        federalValorCsllRow.classList.toggle('hidden', !showCsll);
+                    }
+                };
+
+                const syncFederalPanel = () => {
+                    if (!(federalSituacao instanceof HTMLSelectElement)) {
                         return;
                     }
 
                     const situacao = federalSituacao.value;
-                    if (situacao === '' || situacao === '0') {
-                        federalTipoRetencao.value = '';
+                    const showPiscofins = situacao !== '' && situacao !== '0';
+
+                    if (federalPanel) {
+                        federalPanel.classList.toggle('hidden', !showPiscofins);
                     }
+
+                    if (!showPiscofins) {
+                        if (federalTipoRetencao instanceof HTMLSelectElement) {
+                            federalTipoRetencao.value = '';
+                        }
+
+                        federalFields.forEach((field) => {
+                            if (field instanceof HTMLInputElement) {
+                                field.value = '';
+                                field.readOnly = false;
+                                field.classList.remove('bg-gray-50');
+                            }
+                        });
+
+                        syncFederalCsllVisibility();
+                    }
+
+                    blockPiscofinsFields(situacao === '4' || situacao === '6');
                 };
 
-                federalSituacao?.addEventListener('change', syncFederalRetencaoCompatibility);
-                syncFederalRetencaoCompatibility();
+                federalSituacao?.addEventListener('change', () => {
+                    syncFederalPanel();
+                });
+
+                federalTipoRetencao?.addEventListener('change', () => {
+                    syncFederalCsllVisibility();
+                });
+
+                syncFederalPanel();
+                syncFederalCsllVisibility();
+                syncFederalTributosProfileVisibility();
 
                 // ── Fiscal tab: UF / municipality / LC116 ───────────────────
                 const ufSelect           = document.getElementById('uf');

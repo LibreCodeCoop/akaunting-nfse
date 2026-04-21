@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <x-form id="form-email" method="DELETE" :route="[$cancel_route, $invoice->id]">
     <x-form.section>
         <x-slot name="body">
+            <input type="hidden" name="redirect_after_cancel" value="{{ $redirect_after_cancel ?? 'nfse_index' }}">
+
             <x-form.group.select
                 name="cancel_reason"
                 :label="trans('nfse::general.invoices.cancel_modal_reason')"

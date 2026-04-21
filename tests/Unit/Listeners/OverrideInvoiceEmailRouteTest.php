@@ -39,6 +39,7 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
         self::assertStringContainsString('shouldManageInvoiceSendFlow', $content);
         self::assertStringContainsString('latestReceiptStatus', $content);
         self::assertStringContainsString("if ((\$invoice->type ?? '') !== 'invoice')", $content);
+        self::assertStringContainsString('return true;', $content);
     }
 
     public function testEmittedReceiptUsesCancelLabelInsteadOfEmitLabel(): void
@@ -57,11 +58,11 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
         self::assertStringContainsString("return 'nfse::general.invoices.reemit';", $content);
     }
 
-    public function testPendingInvoiceWithActiveServiceStillUsesNfseFlow(): void
+    public function testPendingInvoiceStillUsesNfseFlowWithoutCompanyServiceDependency(): void
     {
         $content = $this->listenerContent();
 
-        self::assertStringContainsString('return $receiptStatus !== null || $this->hasActiveCompanyService($invoice);', $content);
+        self::assertStringNotContainsString('hasActiveCompanyService', $content);
         self::assertStringContainsString("return 'nfse::general.invoices.emit_now';", $content);
     }
 
@@ -106,10 +107,13 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
 
     public function testOverrideKeepsModuleRouteForEmittedReceipt(): void
     {
-        self::assertStringContainsString(
-            'return $receiptStatus !== null || $this->hasActiveCompanyService($invoice);',
-            $this->listenerContent()
-        );
+        self::assertStringContainsString('return true;', $this->listenerContent());
+    }
+
+    public function testOverrideDoesNotDependOnCompanyServiceRecordsAfterDumpRestore(): void
+    {
+        self::assertStringNotContainsString('CompanyService', $this->listenerContent());
+        self::assertStringNotContainsString('hasActiveCompanyService', $this->listenerContent());
     }
 
     public function testListenerReadsLatestReceiptStatusBeforeChoosingTheOverride(): void

@@ -226,11 +226,12 @@ class InvoiceController extends Controller
         $tomadorPayload = $this->tomadorPayload($invoice->contact);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
+        $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
         $dps = $this->makeDpsData([
             'cnpjPrestador' => $cnpj,
             'municipioIbge' => $ibge,
-            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
+            'itemListaServico' => $municipalTaxationCode,
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
@@ -330,11 +331,12 @@ class InvoiceController extends Controller
         $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
         $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
 
-        $taxPolicyMessage = $this->canonicalTaxPolicyMessage($invoice);
-
-        return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
-            ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso]))
-            ->with('info', $taxPolicyMessage));
+        return $this->ajaxAwareRedirect(
+            $request,
+            redirect()->route('nfse.invoices.show', $invoice)
+                ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])),
+            ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
+        );
     }
 
     protected function markInvoiceSentAfterEmission(Invoice $invoice): void
@@ -344,10 +346,12 @@ class InvoiceController extends Controller
 
     public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
+        $request = $this->currentRequest($request);
         $receipt = $this->findReceiptForInvoice($invoice);
 
         $client = $this->makeClient($this->sandboxModeEnabled());
         $cancelReason = $this->cancellationReasonForGateway($request);
+        $redirect = $this->cancellationRedirect($invoice, $request);
 
         try {
             $client->cancel($receipt->chave_acesso, $cancelReason);
@@ -366,7 +370,7 @@ class InvoiceController extends Controller
 
                 return $this->ajaxAwareRedirect(
                     $request,
-                    redirect()->route('nfse.invoices.index')
+                    $redirect
                         ->with('success', trans('nfse::general.nfse_cancelled')),
                 );
             }
@@ -380,7 +384,7 @@ class InvoiceController extends Controller
 
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('nfse.invoices.index')
+                $redirect
                     ->with('error', trans('nfse::general.nfse_cancel_failed'))
                     ->with('nfse_gateway_error_detail', $gatewayDetail),
             );
@@ -390,9 +394,21 @@ class InvoiceController extends Controller
 
         return $this->ajaxAwareRedirect(
             $request,
-            redirect()->route('nfse.invoices.index')
+            $redirect
                 ->with('success', trans('nfse::general.nfse_cancelled')),
         );
+    }
+
+    protected function cancellationRedirect(Invoice $invoice, ?Request $request = null): RedirectResponse
+    {
+        $request = $this->currentRequest($request);
+        $target = trim((string) ($request?->input('redirect_after_cancel', '') ?? ''));
+
+        return match ($target) {
+            'invoice_show' => redirect()->route('invoices.show', $invoice),
+            'nfse_show' => redirect()->route('nfse.invoices.show', $invoice),
+            default => redirect()->route('nfse.invoices.index'),
+        };
     }
 
     protected function cancellationReasonForGateway(?Request $request = null): string
@@ -590,11 +606,12 @@ class InvoiceController extends Controller
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues((float) $invoice->amount);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
+        $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
         $dps = $this->makeDpsData([
             'cnpjPrestador' => (string) setting('nfse.cnpj_prestador'),
             'municipioIbge' => (string) setting('nfse.municipio_ibge'),
-            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
+            'itemListaServico' => $municipalTaxationCode,
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
@@ -671,8 +688,12 @@ class InvoiceController extends Controller
         $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
         $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
 
-        return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
-            ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso])));
+        return $this->ajaxAwareRedirect(
+            $request,
+            redirect()->route('nfse.invoices.show', $invoice)
+                ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso])),
+            ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -755,7 +776,7 @@ class InvoiceController extends Controller
     }
 
 
-    protected function ajaxAwareRedirect(?Request $request, RedirectResponse $redirect): RedirectResponse|JsonResponse
+    protected function ajaxAwareRedirect(?Request $request, RedirectResponse $redirect, array $extra = []): RedirectResponse|JsonResponse
     {
         if ($request === null && function_exists('request')) {
             try {
@@ -769,11 +790,14 @@ class InvoiceController extends Controller
             }
         }
 
-        if (!$request instanceof Request || !$request->isXmlHttpRequest()) {
+        $forcedAjax = $request instanceof Request && $request->boolean('nfse_force_ajax', false);
+
+        if (!$request instanceof Request || (!$request->isXmlHttpRequest() && !$forcedAjax)) {
             return $redirect;
         }
 
-        $hasError = isset($redirect->flash['error']) || isset($redirect->flash['warning']);
+        $hasSuccess = isset($redirect->flash['success']);
+        $hasError = !$hasSuccess && (isset($redirect->flash['error']) || isset($redirect->flash['warning']));
 
         if ($hasError) {
             return response()->json([
@@ -793,13 +817,17 @@ class InvoiceController extends Controller
             session()->flash('info', $redirect->flash['info']);
         }
 
-        return response()->json([
+        if (isset($redirect->flash['warning'])) {
+            session()->flash('warning', $redirect->flash['warning']);
+        }
+
+        return response()->json(array_merge([
             'success' => true,
             'error' => false,
-            'message' => '',
+            'message' => (string) ($redirect->flash['success'] ?? ''),
             'redirect' => $redirect->getTargetUrl(),
             'data' => null,
-        ]);
+        ], $extra));
     }
     protected function normalizeDescriptionText(string $value): ?string
     {
@@ -1971,6 +1999,7 @@ class InvoiceController extends Controller
         $query = Invoice::invoice()
             ->with(['contact'])
             ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE))
+            ->whereHas('items')
             ->whereNotExists(static function ($subQuery) use ($receiptTable): void {
                 $subQuery->selectRaw('1')
                     ->from($receiptTable)
@@ -2175,7 +2204,7 @@ class InvoiceController extends Controller
         }
 
         if ($situacaoTributaria === '' || $situacaoTributaria === '0') {
-            return [
+            return $this->finalizeFederalPayload([
                 'federalPiscofinsSituacaoTributaria' => '',
                 'federalPiscofinsTipoRetencao' => '',
                 'federalPiscofinsBaseCalculo' => '',
@@ -2191,13 +2220,13 @@ class InvoiceController extends Controller
                 'totalTributosPercentualFederal' => $totalTributosPercentualFederal,
                 'totalTributosPercentualEstadual' => $totalTributosPercentualEstadual,
                 'totalTributosPercentualMunicipal' => $totalTributosPercentualMunicipal,
-            ];
+            ]);
         }
 
         $aliquotaPis = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_pis', ''));
         $aliquotaCofins = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_cofins', ''));
 
-        return [
+        return $this->finalizeFederalPayload([
             'federalPiscofinsSituacaoTributaria' => $situacaoTributaria,
             'federalPiscofinsTipoRetencao' => $tipoRetencao,
             'federalPiscofinsBaseCalculo' => number_format($invoiceAmount, 2, '.', ''),
@@ -2219,7 +2248,39 @@ class InvoiceController extends Controller
             'totalTributosPercentualFederal' => $totalTributosPercentualFederal,
             'totalTributosPercentualEstadual' => $totalTributosPercentualEstadual,
             'totalTributosPercentualMunicipal' => $totalTributosPercentualMunicipal,
-        ];
+        ]);
+    }
+
+    private function finalizeFederalPayload(array $payload): array
+    {
+        $hasConfiguredTotalTributos = $payload['totalTributosPercentualFederal'] !== ''
+            || $payload['totalTributosPercentualEstadual'] !== ''
+            || $payload['totalTributosPercentualMunicipal'] !== '';
+
+        if ($hasConfiguredTotalTributos || !$this->hasFederalTaxationPayload($payload)) {
+            return $payload;
+        }
+
+        $payload['indicadorTributacao'] = 2;
+        $payload['totalTributosPercentualFederal'] = '0.00';
+        $payload['totalTributosPercentualEstadual'] = '0.00';
+        $payload['totalTributosPercentualMunicipal'] = '0.00';
+
+        return $payload;
+    }
+
+    private function hasFederalTaxationPayload(array $payload): bool
+    {
+        return $payload['federalPiscofinsSituacaoTributaria'] !== ''
+            || $payload['federalPiscofinsTipoRetencao'] !== ''
+            || $payload['federalPiscofinsBaseCalculo'] !== ''
+            || $payload['federalPiscofinsAliquotaPis'] !== ''
+            || $payload['federalPiscofinsValorPis'] !== ''
+            || $payload['federalPiscofinsAliquotaCofins'] !== ''
+            || $payload['federalPiscofinsValorCofins'] !== ''
+            || $this->hasNonZeroDecimalValue($payload['federalValorIrrf'])
+            || $this->hasNonZeroDecimalValue($payload['federalValorCsll'])
+            || $this->hasNonZeroDecimalValue($payload['federalValorCp']);
     }
 
     /**
@@ -2241,6 +2302,19 @@ class InvoiceController extends Controller
         $calculatedValue = $invoiceAmount * $percentage / 100;
 
         return number_format($calculatedValue, 2, '.', '');
+    }
+
+    protected function normalizedMunicipalTaxationCode(string $value): string
+    {
+        $digits = preg_replace('/\D+/', '', $value) ?: '';
+
+        if ($digits === '') {
+            return '';
+        }
+
+        // SEFIN schema for cTribMun rejects 4-digit LC116-like values such as 0107.
+        // Keep the municipal code in up to 3 digits to satisfy TCCodTribMun.
+        return substr($digits, -3);
     }
 
     protected function normalizedFederalSelectValue(mixed $value): string

@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace Modules\Nfse\Listeners;
 
 use App\Traits\Modules;
-use Modules\Nfse\Models\CompanyService;
 use Modules\Nfse\Models\NfseReceipt;
 
 final class OverrideInvoiceEmailRoute
@@ -62,9 +61,7 @@ final class OverrideInvoiceEmailRoute
             return false;
         }
 
-        $receiptStatus = $this->latestReceiptStatus($invoice);
-
-        return $receiptStatus !== null || $this->hasActiveCompanyService($invoice);
+        return true;
     }
 
     protected function sendButtonTranslationKey(object $invoice): string
@@ -98,23 +95,6 @@ final class OverrideInvoiceEmailRoute
             return is_string($status) && $status !== '' ? $status : null;
         } catch (\Throwable) {
             return null;
-        }
-    }
-
-    protected function hasActiveCompanyService(object $invoice): bool
-    {
-        $companyId = (int) ($invoice->company_id ?? 0);
-
-        if ($companyId <= 0) {
-            return false;
-        }
-
-        try {
-            return CompanyService::where('company_id', $companyId)
-                ->where('is_active', true)
-                ->exists();
-        } catch (\Throwable) {
-            return false;
         }
     }
 }

@@ -5,6 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <x-layouts.admin>
     <x-slot name="title">{{ trans('nfse::general.invoices.details_title') }}</x-slot>
 
+    @push('scripts_start')
+        <script>
+            if (typeof window.document_app_env === 'undefined') {
+                window.document_app_env = @json((string) app()->environment());
+            }
+        </script>
+    @endpush
+
     <x-slot name="content">
         @if(session('success'))
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
@@ -293,14 +301,48 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     button.addEventListener('click', closeModal);
                 });
 
+                const nfseCancelSuccessTitle = @json((string) trans('nfse::general.invoices.cancel_success_modal_title'));
+                const nfseCancelErrorTitle   = @json((string) trans('nfse::general.invoices.result_modal_error_title'));
+                const nfseCancelErrorDefault = @json((string) trans('nfse::general.nfse_cancel_failed'));
+
                 reasonSelect.addEventListener('change', updateSubmitState);
                 justificationInput.addEventListener('input', updateSubmitState);
-                form.addEventListener('submit', () => {
+                form.addEventListener('submit', (event) => {
+                    event.preventDefault();
                     if (isSubmitting) {
                         return;
                     }
 
                     setSubmittingState(true);
+
+                    const cancelFormData = new FormData(form);
+                    fetch(form.action, {
+                        method: 'POST',
+                        body: cancelFormData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    })
+                    .then(async (response) => {
+                        let data = null;
+                        try { data = await response.json(); } catch { /* ignore */ }
+                        closeModal();
+                        if (data && data.success) {
+                            window.nfseOpenResultModal(
+                                nfseCancelSuccessTitle,
+                                data.message ?? '',
+                                null,
+                                null,
+                                true,
+                                true,
+                            );
+                        } else {
+                            const errMsg = (data && data.message) ? data.message : nfseCancelErrorDefault;
+                            window.nfseOpenResultModal(nfseCancelErrorTitle, errMsg, null, null, false, false);
+                        }
+                    })
+                    .catch(() => {
+                        setSubmittingState(false);
+                        form.submit();
+                    });
                 });
 
                 if (modal.getAttribute('data-old-action')) {
@@ -349,6 +391,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 }
             })();
         </script>
+
+        @include('nfse::modals.nfse-result-modal')
     </x-slot>
 
     <x-script folder="common" file="documents" />

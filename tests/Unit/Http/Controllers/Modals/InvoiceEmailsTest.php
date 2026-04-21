@@ -46,6 +46,13 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
+    private function issueJsHandlersContent(): string
+    {
+        return (string) file_get_contents(
+            dirname(__DIR__, 5) . '/Resources/views/modals/invoices/partials/issue_js_handlers.php'
+        );
+    }
+
     private function routesContent(): string
     {
         return (string) file_get_contents(
@@ -276,6 +283,21 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString("trans('nfse::general.invoices.cancel_modal_reason')", $view);
         self::assertStringContainsString("trans('nfse::general.invoices.cancel_modal_justification')", $view);
         self::assertStringContainsString('nfse::general.invoices.cancel_reason_options', $view);
+        self::assertStringContainsString('redirect_after_cancel', $view);
+    }
+
+    public function testControllerCreateClassifiesCancelRedirectTargetFromQueryOrReferer(): void
+    {
+        $content = $this->controllerContent();
+
+        self::assertStringContainsString('cancelRedirectTarget', $content);
+        self::assertStringContainsString('$request ??= request();', $content);
+        self::assertStringContainsString("request->query('redirect_after_cancel', '')", $content);
+        self::assertStringContainsString("in_array(", $content);
+        self::assertStringContainsString("request->header('referer', '')", $content);
+        self::assertStringContainsString("return 'invoice_show';", $content);
+        self::assertStringContainsString("return 'nfse_show';", $content);
+        self::assertStringContainsString("return 'nfse_index';", $content);
     }
 
     public function testInvoiceControllerNormalizesRecipientForEmitEmailModalPayloads(): void
@@ -292,10 +314,60 @@ final class InvoiceEmailsTest extends TestCase
     {
         $view = $this->issueViewContent();
 
-        self::assertStringContainsString('x-tabs', $view);
-        self::assertStringContainsString('id="issuance"', $view);
-        self::assertStringContainsString('id="email"', $view);
-        self::assertStringContainsString('id="attachments"', $view);
+        // Plain-JS tabs (no Alpine.js x-tabs) so they work in AJAX-loaded modal context.
+        self::assertStringContainsString('data-nfse-tabs', $view);
+        self::assertStringContainsString('id="nfse-tab-nav-list"', $view);
+        self::assertStringContainsString('class="grid w-full auto-rows-max', $view);
+        self::assertStringContainsString('data-nfse-tab-nav="nfse-tab-pane-issuance"', $view);
+        self::assertStringContainsString('data-nfse-tab-nav="nfse-tab-pane-email"', $view);
+        self::assertStringContainsString('data-nfse-tab-nav="nfse-tab-pane-attachments"', $view);
+        self::assertStringContainsString('id="nfse-tab-pane-issuance"', $view);
+        self::assertStringContainsString('id="nfse-tab-pane-email"', $view);
+        self::assertStringContainsString('id="nfse-tab-pane-attachments"', $view);
+        self::assertStringContainsString('data-nfse-tab-pane', $view);
+    }
+
+    public function testIssueViewTabPanesAreHiddenByDefaultExceptIssuance(): void
+    {
+        $view = $this->issueViewContent();
+
+        // Email and attachments panes must start hidden so only the issuance pane is
+        // visible when the modal first opens (no Alpine.js x-show available in AJAX context).
+        self::assertStringContainsString(
+            'id="nfse-tab-pane-email" data-nfse-tab-pane="true" style="display:none;"',
+            $view
+        );
+        self::assertStringContainsString(
+            'id="nfse-tab-pane-attachments" data-nfse-tab-pane="true" style="display:none;"',
+            $view
+        );
+    }
+
+    public function testIssueViewDoesNotUseAlpineJsXShowOrXOnClickOnTabs(): void
+    {
+        $view = $this->issueViewContent();
+
+        // x-show and x-on:click from x-tabs are not initialized when HTML is injected
+        // via AJAX into the Akaunting modal, so they must not be used for tab switching.
+        self::assertStringNotContainsString('x-show="active', $view);
+        self::assertStringNotContainsString("x-on:click=\"active =", $view);
+    }
+
+    public function testIssueViewSendEmailToggleReferencesNewTabNavIds(): void
+    {
+        $view = $this->issueViewContent();
+        $handlers = $this->issueJsHandlersContent();
+
+        // The send-email toggle extraOnChange must target the new Alpine-free tab IDs.
+        self::assertStringContainsString('issue_js_handlers.php', $view);
+        self::assertStringContainsString('nfse-tab-nav-list', $view);
+        self::assertStringContainsString('nfse-tab-nav-attachments', $view);
+        self::assertStringContainsString('nfse-tab-nav-email', $view);
+        self::assertStringContainsString("navList.classList.toggle('grid-cols-3', cb.checked)", $handlers);
+        self::assertStringContainsString("navList.classList.toggle('grid-cols-2', !cb.checked)", $handlers);
+        // Must NOT reference the old x-tabs duplicate-id pattern.
+        self::assertStringNotContainsString("querySelectorAll('#tab-attachments')", $view);
+        self::assertStringNotContainsString("querySelector('#tab-email[data-tabs=email]')", $view);
     }
 
     public function testIssueViewUsesSwitchTogglesInsteadOfPlainCheckboxRows(): void

@@ -96,6 +96,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('->whereHas(\'contact\', static fn ($contactQuery) => $contactQuery->where(\'type\', Contact::CUSTOMER_TYPE))', $content);
         }
 
+        public function testPendingInvoicesQueryRequiresAtLeastOneItem(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString('->whereHas(\'items\')', $content);
+        }
+
         public function testPendingInvoicesQueryExcludesInvoicesAlreadyPresentInNfseReceipts(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
@@ -847,7 +854,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('sent', $invoice->status);
             self::assertSame('12345678000195', $client->capturedDps?->cnpjPrestador);
             self::assertSame('3303302', $client->capturedDps?->municipioIbge);
-            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('107', $client->capturedDps?->itemListaServico);
             self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('1500.25', $client->capturedDps?->valorServico);
             self::assertSame('4.50', $client->capturedDps?->aliquota);
@@ -876,7 +883,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
-            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualMunicipal);
             self::assertSame('00001', $client->capturedDps?->serie);
             self::assertSame('42', $client->capturedDps?->numeroDps);
             self::assertSame('2026-02-04', $client->capturedDps?->dataCompetencia);
@@ -896,10 +906,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('NFS-e emitida NF-2026-0001', $response->flash['success'] ?? null);
-            self::assertSame(
-                'Para emissão da NFS-e, a fonte canônica de tributação é a aba 5. Tributação. Impostos do item no Akaunting permanecem para uso interno do documento.',
-                $response->flash['info'] ?? null,
-            );
         }
 
 
@@ -958,7 +964,69 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertInstanceOf(\Illuminate\Http\JsonResponse::class, $response);
             self::assertTrue($response->payload['success'] ?? false);
             self::assertFalse($response->payload['error'] ?? true);
+            self::assertNotSame('', (string) ($response->payload['message'] ?? ''));
             self::assertStringContainsString('nfse.invoices.show', (string) ($response->payload['redirect'] ?? ''));
+            self::assertStringContainsString('nfse.invoices.emit-success', (string) ($response->payload['partial_url'] ?? ''));
+        }
+
+        public function testEmitReturnsJsonWithRedirectWhenForceAjaxFlagIsProvided(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 770,
+                amount: 500.00,
+                items: [['name' => 'Servico Ajax Forcado']],
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->issued_at = '2026-01-15 10:00:00';
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    return new ReceiptData('NF-0770', 'CHAVE-770', '2026-01-15T10:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $request = new \Illuminate\Http\Request(['nfse_confirm_default_service' => '1', 'nfse_force_ajax' => '1']);
+
+            $response = $controller->emit($invoice, $request);
+
+            self::assertInstanceOf(\Illuminate\Http\JsonResponse::class, $response);
+            self::assertTrue($response->payload['success'] ?? false);
+            self::assertFalse($response->payload['error'] ?? true);
+            self::assertNotSame('', (string) ($response->payload['message'] ?? ''));
+            self::assertStringContainsString('nfse.invoices.show', (string) ($response->payload['redirect'] ?? ''));
+            self::assertStringContainsString('nfse.invoices.emit-success', (string) ($response->payload['partial_url'] ?? ''));
         }
 
         public function testEmitReturnsJsonErrorOnGatewayExceptionWhenRequestIsAjax(): void
@@ -1074,70 +1142,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertInstanceOf(\Illuminate\Http\RedirectResponse::class, $response);
             self::assertSame('nfse.invoices.show', $response->route);
         }
-        public function testEmitAddsTaxPolicyInfoWhenInvoiceContainsNativeItemTaxes(): void
-        {
-            $invoice = InvoiceControllerIsolationState::makeInvoice(
-                id: 4242,
-                amount: 100.00,
-                items: [
-                    ['name' => 'Servico com imposto nativo', 'tax_ids' => [1]],
-                ],
-                contactTaxNumber: '99887766000155',
-            );
-            $invoice->issued_at = '2026-02-04 08:37:53';
-
-            $client = new class () implements NfseClientInterface {
-                public ?DpsData $capturedDps = null;
-
-                public function emit(DpsData $dps): ReceiptData
-                {
-                    $this->capturedDps = $dps;
-
-                    return new ReceiptData('NF-4242', 'CHAVE-4242', '2026-03-21T10:30:00-03:00');
-                }
-
-                public function query(string $chaveAcesso): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function cancel(string $chaveAcesso, string $motivo): bool
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function getDanfse(string $chaveAcesso): string
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-            };
-
-            $controller = new class ($client) extends InvoiceController {
-                public function __construct(private readonly NfseClientInterface $client)
-                {
-                }
-
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
-                {
-                    return $this->client;
-                }
-
-                protected function hasCertificateSecret(string $cnpj): bool
-                {
-                    return true;
-                }
-            };
-
-            $response = $controller->emit($invoice);
-
-            self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame(
-                'Esta fatura possui impostos nativos de item no Akaunting. Na NFS-e emitida, prevaleceram as regras da aba 5. Tributação.',
-                $response->flash['info'] ?? null,
-            );
-        }
-
         public function testEmitCalculatesValoresFromAliquotasInPercentageProfileMode(): void
         {
             ControllerIsolationState::$settings['nfse.tributacao_federal_mode'] = 'percentage_profile';
@@ -1212,8 +1216,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
-            // No tributos_* percent configured → indicadorTributacao = 0
-            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            // Federal taxation without explicit tributos_* config still needs totTrib in the XML schema.
+            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
         public function testEmitSetsIndicadorTributacaoTwoWhenTributosPercentConfigured(): void
@@ -1588,7 +1595,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('107', $client->capturedDps?->itemListaServico);
             self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('4.50', $client->capturedDps?->aliquota);
         }
@@ -1696,7 +1703,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // Items sem perfil fiscal usam fallback de settings.
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('107', $client->capturedDps?->itemListaServico);
             self::assertSame('[0107] Servico sem vinculo', $client->capturedDps?->discriminacao);
         }
 
@@ -1796,7 +1803,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('107', $client->capturedDps?->itemListaServico);
             self::assertStringContainsString('Servico sem vinculo', $client->capturedDps?->discriminacao ?? '');
             self::assertStringContainsString('0107', $client->capturedDps?->discriminacao ?? '');
         }
@@ -1909,7 +1916,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('1502', $client->capturedDps?->itemListaServico);
+            self::assertSame('502', $client->capturedDps?->itemListaServico);
             self::assertSame('150201', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('7.00', $client->capturedDps?->aliquota);
             self::assertStringContainsString('[1502] Servico vinculado', $client->capturedDps?->discriminacao ?? '');
@@ -2032,7 +2039,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
             // When multiple profiles exist, the first one is selected (highest priority)
-            self::assertSame('1502', $client->capturedDps?->itemListaServico);
+            self::assertSame('502', $client->capturedDps?->itemListaServico);
             self::assertStringContainsString('[1502] Servico A', $client->capturedDps?->discriminacao ?? '');
         }
 
@@ -2857,6 +2864,68 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('cancelled', $receipt->status);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame('NFS-e cancelada', $response->flash['success'] ?? null);
+        }
+
+        public function testCancelRedirectsBackToSalesInvoiceShowWhenRequested(): void
+        {
+            $invoice = new Invoice(id: 902, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(902, 'CHAVE-CANCELAR-902', 'emitted');
+
+            $client = new class () implements NfseClientInterface {
+                public array $cancelCalls = [];
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    $this->cancelCalls[] = [
+                        'chaveAcesso' => $chaveAcesso,
+                        'motivo' => $motivo,
+                    ];
+
+                    return true;
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $request = new Request(['redirect_after_cancel' => 'invoice_show']);
+
+            $response = $controller->cancel($invoice, $request);
+
+            self::assertSame([['status' => 'cancelled']], $receipt->updatedPayloads);
+            self::assertSame('cancelled', $receipt->status);
+            self::assertSame('route', $response->target);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertSame('NFS-e cancelada', $response->flash['success'] ?? null);
         }
 

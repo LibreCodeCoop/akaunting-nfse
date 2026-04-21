@@ -225,7 +225,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             action="{{ route('nfse.invoices.emit', $invoice) }}"
                                             method="POST"
                                             class="inline-flex"
-                                            data-emit-form="true"
+                                            data-emit-form="false"
                                             data-preview-url="{{ route('nfse.invoices.service-preview', $invoice) }}"
                                             data-emit-confirm-label="{{ trans('nfse::general.invoices.emit_now') }}"
                                             onsubmit="
@@ -348,8 +348,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <input type="hidden" name="nfse_email_attach_xml" value="1" data-emit-email-attach-xml-input>
                                             <input type="hidden" name="nfse_email_save_default" value="0" data-emit-email-save-default-input>
                                             <button
-                                                type="submit"
+                                                type="button"
                                                 @if(!$isReady) disabled @endif
+                                                @click="onSendEmail('{{ route('nfse.modals.invoices.emails.create', $invoice->id) }}')"
                                                 title="{{ trans('nfse::general.invoices.emit_now') }}"
                                                 data-emit-trigger="true"
                                                 class="inline-flex h-8 w-8 items-center justify-center rounded border @if($isReady) border-indigo-200 text-indigo-700 hover:bg-indigo-50 @else border-gray-300 text-gray-400 cursor-not-allowed @endif"
@@ -461,7 +462,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 action="{{ route('nfse.invoices.reemit', $receipt->invoice_id) }}"
                                                 method="POST"
                                                 class="inline-flex"
-                                                data-emit-form="true"
+                                                data-emit-form="false"
                                                 data-preview-url="{{ route('nfse.invoices.service-preview', $receipt->invoice_id) }}"
                                                 data-emit-confirm-label="{{ trans('nfse::general.invoices.reemit') }}"
                                                 onsubmit="
@@ -679,7 +680,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 <input type="hidden" name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input>
                                                 <input type="hidden" name="nfse_email_attach_xml" value="1" data-emit-email-attach-xml-input>
                                                 <input type="hidden" name="nfse_email_save_default" value="0" data-emit-email-save-default-input>
-                                                <button type="submit" title="{{ trans('nfse::general.invoices.reemit') }}" data-emit-trigger="true" class="inline-flex h-8 w-8 items-center justify-center rounded border border-green-200 text-green-700 hover:bg-green-50">
+                                                <button type="button" @click="onSendEmail('{{ route('nfse.modals.invoices.emails.create', $receipt->invoice_id) }}')" title="{{ trans('nfse::general.invoices.reemit') }}" data-emit-trigger="true" class="inline-flex h-8 w-8 items-center justify-center rounded border border-green-200 text-green-700 hover:bg-green-50">
                                                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                         <path d="M10 3a7 7 0 00-6.32 4H1l3 3 3-3H4.85A5 5 0 1110 15a1 1 0 100 2 7 7 0 000-14z" />
                                                     </svg>
@@ -743,97 +744,127 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <button type="button" class="text-gray-500 hover:text-gray-700" data-emit-close="true">{{ trans('nfse::general.invoices.cancel_modal_close') }}</button>
                     </div>
 
-                    <div class="p-5 space-y-4">
-                        <p id="nfse-emit-missing-items-hint" class="hidden text-sm text-amber-700">{{ trans('nfse::general.invoices.emit_modal_missing_items_hint') }}</p>
-                        <div id="nfse-emit-missing-items" class="space-y-3"></div>
+                    <div class="p-5">
+                        <x-tabs active="issuance" class="grid grid-cols-3 auto-rows-max" override="class" ignore-hash>
+                            <x-slot name="navs">
+                                <x-tabs.nav id="issuance">
+                                    {{ trans('general.general') }}
+                                </x-tabs.nav>
 
-                        <div>
-                            <label for="nfse_emit_description" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description') }}</label>
-                            <textarea
-                                id="nfse_emit_description"
-                                rows="5"
-                                class="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                                placeholder="{{ trans('nfse::general.invoices.emit_modal_description_placeholder') }}"
-                            ></textarea>
-                            <p class="mt-2 text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_description_help') }}</p>
-                        </div>
+                                <x-tabs.nav id="email">
+                                    {{ trans_choice('general.email', 1) }}
+                                </x-tabs.nav>
 
-                        <div class="flex items-center gap-3">
-                            <label for="nfse_emit_save_description_default" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                <input id="nfse_emit_save_description_default" type="checkbox" class="sr-only">
-                                <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
-                                <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
-                            </label>
-                            <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_save_default') }}</span>
-                        </div>
+                                <x-tabs.nav id="attachments" style="display:none;" data-nfse-attachments-nav="true">
+                                    {{ trans_choice('general.attachments', 2) }}
+                                </x-tabs.nav>
+                            </x-slot>
 
-                        <div class="rounded-lg border border-gray-200 p-4 space-y-3">
-                            <div class="flex items-center gap-3">
-                                <label for="nfse_emit_send_email" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center" aria-label="{{ trans('nfse::general.invoices.emit_modal_send_email') }}">
-                                     <input id="nfse_emit_send_email" type="checkbox" class="sr-only" data-email-fields-target="nfse_emit_email_fields" onchange="window.nfseSyncEmailToggle?.(this)">
-                                    <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
-                                    <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
-                                </label>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
-                                    <p class="text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_send_email_hint') }}</p>
-                                </div>
-                            </div>
+                            <x-slot name="content">
+                                <x-tabs.tab id="issuance">
+                                    <div class="space-y-4 px-1">
+                                        <p id="nfse-emit-missing-items-hint" class="hidden text-sm text-amber-700">{{ trans('nfse::general.invoices.emit_modal_missing_items_hint') }}</p>
+                                        <div id="nfse-emit-missing-items" class="space-y-3"></div>
 
-                            <div id="nfse_emit_email_fields" class="hidden space-y-3">
-                            <div>
-                                <label for="nfse_emit_email_to" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
-                                <input id="nfse_emit_email_to" type="email" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="">
-                            </div>
+                                        <div>
+                                            <label for="nfse_emit_description" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description') }}</label>
+                                            <textarea
+                                                id="nfse_emit_description"
+                                                rows="5"
+                                                class="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                                                placeholder="{{ trans('nfse::general.invoices.emit_modal_description_placeholder') }}"
+                                            ></textarea>
+                                            <p class="mt-2 text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_description_help') }}</p>
+                                        </div>
 
-                            <div>
-                                <label for="nfse_emit_email_subject" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_subject') }}</label>
-                                <input id="nfse_emit_email_subject" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="{{ $emitModalDefaultEmailSubject }}">
-                            </div>
-
-                            <div>
-                                <label for="nfse_emit_email_body" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_body') }}</label>
-                                    <textarea id="nfse_emit_email_body" class="sr-only" aria-hidden="true">{{ $emitModalDefaultEmailBody }}</textarea>
-                                    <div id="nfse-emit-body-editor">
-                                        <akaunting-html-editor :value='@json($emitModalDefaultEmailBody)' @input="$root.$emit('nfse:emit-email-body', $event)"></akaunting-html-editor>
+                                        <div class="flex items-center gap-3">
+                                            <label for="nfse_emit_save_description_default" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                                <input id="nfse_emit_save_description_default" type="checkbox" class="sr-only">
+                                                <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                                <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
+                                            </label>
+                                            <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_save_default') }}</span>
+                                        </div>
                                     </div>
-                            </div>
+                                </x-tabs.tab>
 
-                                <div class="rounded-md bg-gray-100 p-3 text-xs text-gray-600">
-                                    {!! trans('settings.email.templates.tags', ['tag_list' => implode(', ', app(\Modules\Nfse\Notifications\NfseIssued::class)->getTags())]) !!}
-                                </div>
+                                <x-tabs.tab id="email">
+                                    <div class="space-y-4 px-1">
+                                        <div class="rounded-lg border border-gray-200 p-4 space-y-3">
+                                            <div class="flex items-center gap-3">
+                                                <label for="nfse_emit_send_email" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center" aria-label="{{ trans('nfse::general.invoices.emit_modal_send_email') }}">
+                                                    <input id="nfse_emit_send_email" type="checkbox" class="sr-only" data-email-fields-target="nfse_emit_email_fields" onchange="window.nfseSyncEmailToggle?.(this)">
+                                                    <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                                    <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
+                                                </label>
+                                                <div>
+                                                    <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
+                                                    <p class="text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_send_email_hint') }}</p>
+                                                </div>
+                                            </div>
 
-                            <div class="space-y-3">
-                                <div class="flex items-center gap-3">
-                                    <label for="nfse_emit_attach_danfse" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                        <input id="nfse_emit_attach_danfse" type="checkbox" class="sr-only" checked>
-                                        <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green"></div>
-                                        <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 translate-x-5"></div>
-                                    </label>
-                                    <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
-                                </div>
+                                            <div id="nfse_emit_email_fields" class="hidden space-y-3">
+                                                <div>
+                                                    <label for="nfse_emit_email_to" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
+                                                    <input id="nfse_emit_email_to" type="email" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="">
+                                                </div>
 
-                                <div class="flex items-center gap-3">
-                                    <label for="nfse_emit_attach_xml" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                        <input id="nfse_emit_attach_xml" type="checkbox" class="sr-only" checked>
-                                        <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green"></div>
-                                        <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 translate-x-5"></div>
-                                    </label>
-                                    <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
-                                </div>
+                                                <div>
+                                                    <label for="nfse_emit_email_subject" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_subject') }}</label>
+                                                    <input id="nfse_emit_email_subject" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="{{ $emitModalDefaultEmailSubject }}">
+                                                </div>
 
-                                <div class="flex items-center gap-3">
-                                    <label for="nfse_emit_save_default" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                        <input id="nfse_emit_save_default" type="checkbox" class="sr-only">
-                                        <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
-                                        <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
-                                    </label>
-                                    <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
-                                </div>
-                            </div>
-                            </div>
-                        </div>
+                                                <div>
+                                                    <label for="nfse_emit_email_body" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_body') }}</label>
+                                                    <textarea id="nfse_emit_email_body" class="sr-only" aria-hidden="true">{{ $emitModalDefaultEmailBody }}</textarea>
+                                                    <div id="nfse-emit-body-editor">
+                                                        <akaunting-html-editor :value='@json($emitModalDefaultEmailBody)' @input="$root.$emit('nfse:emit-email-body', $event)"></akaunting-html-editor>
+                                                    </div>
+                                                </div>
+
+                                                <div class="rounded-md bg-gray-100 p-3 text-xs text-gray-600">
+                                                    {!! trans('settings.email.templates.tags', ['tag_list' => implode(', ', app(\Modules\Nfse\Notifications\NfseIssued::class)->getTags())]) !!}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </x-tabs.tab>
+
+                                <x-tabs.tab id="attachments" style="display:none;" data-nfse-attachments-tab="true">
+                                    <div class="space-y-4 px-1 pt-1">
+                                        <div class="flex items-center gap-3">
+                                            <label for="nfse_emit_attach_danfse" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                                <input id="nfse_emit_attach_danfse" type="checkbox" class="sr-only" checked>
+                                                <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green"></div>
+                                                <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 translate-x-5"></div>
+                                            </label>
+                                            <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_danfse') }}</span>
+                                        </div>
+
+                                        <div class="flex items-center gap-3">
+                                            <label for="nfse_emit_attach_xml" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                                <input id="nfse_emit_attach_xml" type="checkbox" class="sr-only" checked>
+                                                <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green"></div>
+                                                <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 translate-x-5"></div>
+                                            </label>
+                                            <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
+                                        </div>
+
+                                        <div class="flex items-center gap-3">
+                                            <label for="nfse_emit_save_default" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                                <input id="nfse_emit_save_default" type="checkbox" class="sr-only">
+                                                <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                                <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
+                                            </label>
+                                            <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
+                                        </div>
+                                    </div>
+                                </x-tabs.tab>
+                            </x-slot>
+                        </x-tabs>
                     </div>
+
+                    <div id="nfse-emit-error-msg" class="hidden mx-5 mb-0 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
 
                     <div class="flex items-center justify-end gap-2 border-t px-5 py-4">
                         <button type="button" class="inline-flex items-center px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100" data-emit-close="true">
@@ -1028,6 +1059,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 window.nfseSyncEmailToggle = (input) => {
                     syncToggle(input);
 
+                    const attachmentTabs = document.querySelectorAll('#tab-attachments');
+                    attachmentTabs.forEach((tab) => {
+                        tab.style.display = input.checked ? '' : 'none';
+                    });
+
+                    if (!input.checked) {
+                        const emailTab = document.querySelector('#tab-email[data-tabs="email"]');
+                        if (emailTab instanceof HTMLElement) {
+                            emailTab.click();
+                        }
+                    }
+
                     const targetId = input?.dataset?.emailFieldsTarget;
                     if (!targetId) {
                         return;
@@ -1094,14 +1137,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (emitModalEmailFields && emitModalSendEmailInput) {
                         const shouldShow = emitModalSendEmailInput.checked;
                         emitModalEmailFields.classList.toggle('hidden', !shouldShow);
-                        syncToggle(emitModalSendEmailInput);
+                        if (typeof window.nfseSyncEmailToggle === 'function') {
+                            window.nfseSyncEmailToggle(emitModalSendEmailInput);
+                        } else {
+                            syncToggle(emitModalSendEmailInput);
+                        }
                     }
                 };
 
                 const applyEmailDefaults = (emailDefaults = {}) => {
                     if (emitModalSendEmailInput) {
                         emitModalSendEmailInput.checked = Boolean(emailDefaults.send_email);
-                        syncToggle(emitModalSendEmailInput);
+                        if (typeof window.nfseSyncEmailToggle === 'function') {
+                            window.nfseSyncEmailToggle(emitModalSendEmailInput);
+                        } else {
+                            syncToggle(emitModalSendEmailInput);
+                        }
                     }
 
                     if (emitModalEmailToInput) {
@@ -1159,6 +1210,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     emitModal.setAttribute('aria-hidden', 'true');
                     document.body.classList.remove('overflow-hidden');
                     currentEmitForm = null;
+
+                    const emitErrMsg = document.getElementById('nfse-emit-error-msg');
+                    if (emitErrMsg) {
+                        emitErrMsg.textContent = '';
+                        emitErrMsg.classList.add('hidden');
+                    }
 
                     if (emitModalMissingItems) {
                         emitModalMissingItems.innerHTML = '';
@@ -1384,16 +1441,46 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         saveDefaultInput.value = saveDefaultField?.checked ? '1' : '0';
                     }
 
-                    form.dataset.emitConfirmed = '1';
                     setEmitSubmittingState(true);
 
-                    if (typeof form.requestSubmit === 'function') {
-                        form.requestSubmit();
+                    const nfseEmitFormData = new FormData(form);
+                    const nfseEmitSuccessTitle = @json((string) trans('nfse::general.invoices.emit_success_modal_title'));
+                    const nfseEmitErrorTitle   = @json((string) trans('nfse::general.invoices.result_modal_error_title'));
+                    const nfseEmitErrorDefault = @json((string) trans('nfse::general.nfse_emit_failed'));
 
-                        return false;
-                    }
-
-                    form.submit();
+                    fetch(form.action, {
+                        method: 'POST',
+                        body: nfseEmitFormData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    })
+                    .then(async (response) => {
+                        let data = null;
+                        try { data = await response.json(); } catch { /* ignore */ }
+                        closeEmitModal();
+                        if (data && data.success) {
+                            window.nfseOpenResultModal(
+                                nfseEmitSuccessTitle,
+                                data.message ?? '',
+                                data.partial_url ?? null,
+                                data.redirect ?? null,
+                                false,
+                                true,
+                            );
+                        } else {
+                            const errMsg = (data && data.message) ? data.message : nfseEmitErrorDefault;
+                            window.nfseOpenResultModal(nfseEmitErrorTitle, errMsg, null, null, false, false);
+                        }
+                    })
+                    .catch(() => {
+                        setEmitSubmittingState(false);
+                        // Network error fallback: regular submit
+                        form.dataset.emitConfirmed = '1';
+                        if (typeof form.requestSubmit === 'function') {
+                            form.requestSubmit();
+                        } else {
+                            form.submit();
+                        }
+                    });
 
                     return false;
                 };
@@ -1615,9 +1702,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         }
                     });
 
+                    const nfseCancelSuccessTitle = @json((string) trans('nfse::general.invoices.cancel_success_modal_title'));
+                    const nfseCancelErrorTitle   = @json((string) trans('nfse::general.invoices.result_modal_error_title'));
+                    const nfseCancelErrorDefault = @json((string) trans('nfse::general.nfse_cancel_failed'));
+
                     reasonSelect.addEventListener('change', updateSubmitState);
                     justificationInput.addEventListener('input', updateSubmitState);
-                    form.addEventListener('submit', () => {
+                    form.addEventListener('submit', (event) => {
+                        event.preventDefault();
                         if (isSubmitting) {
                             return;
                         }
@@ -1630,6 +1722,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         submitButton.classList.add('bg-gray-400', 'text-white', 'cursor-not-allowed', 'opacity-100');
                         submitSpinner.classList.remove('hidden');
                         submitLabel.textContent = submitLoadingLabel;
+
+                        const cancelFormData = new FormData(form);
+                        fetch(form.action, {
+                            method: 'POST',
+                            body: cancelFormData,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        })
+                        .then(async (response) => {
+                            let data = null;
+                            try { data = await response.json(); } catch { /* ignore */ }
+                            closeModal();
+                            if (data && data.success) {
+                                window.nfseOpenResultModal(
+                                    nfseCancelSuccessTitle,
+                                    data.message ?? '',
+                                    null,
+                                    null,
+                                    true,
+                                    true,
+                                );
+                            } else {
+                                const errMsg = (data && data.message) ? data.message : nfseCancelErrorDefault;
+                                window.nfseOpenResultModal(nfseCancelErrorTitle, errMsg, null, null, false, false);
+                            }
+                        })
+                        .catch(() => {
+                            isSubmitting = false;
+                            submitButton.setAttribute('aria-busy', 'false');
+                            submitSpinner.classList.add('hidden');
+                            submitLabel.textContent = submitDefaultLabel;
+                            updateSubmitState();
+                            form.submit();
+                        });
                     });
 
                     submitLabel.textContent = submitDefaultLabel;
@@ -1647,7 +1772,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 }
             })();
         </script>
+
+        @include('nfse::modals.nfse-result-modal')
     </x-slot>
 
-    <x-script folder="common" file="documents" />
+    <x-documents.script type="invoice" />
 </x-layouts.admin>

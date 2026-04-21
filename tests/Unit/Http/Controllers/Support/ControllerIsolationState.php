@@ -217,6 +217,21 @@ namespace Modules\Nfse\Http\Controllers {
         }
     }
 
+    if (!function_exists(__NAMESPACE__ . '\\route')) {
+        function route(string $name, mixed $parameters = []): string
+        {
+            if (is_object($parameters) && property_exists($parameters, 'id')) {
+                $id = (string) $parameters->id;
+            } elseif (is_array($parameters)) {
+                $id = implode('/', array_values($parameters));
+            } else {
+                $id = (string) $parameters;
+            }
+
+            return 'route://' . $name . ($id !== '' ? '/' . $id : '');
+        }
+    }
+
     if (!function_exists(__NAMESPACE__ . '\\view')) {
         function view(string $name, array $data = []): \Illuminate\View\View
         {

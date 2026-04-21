@@ -47,7 +47,8 @@
         "test:coverage": "XDEBUG_MODE=coverage phpunit --coverage-clover=build/logs/clover.xml",
         "cs:check": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
-        "psalm": "psalm"
+        "psalm": "psalm --threads=$(nproc)",
+        "psalm:update-baseline": "psalm --threads=$(nproc) --update-baseline --set-baseline=tests/psalm-baseline.xml"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,

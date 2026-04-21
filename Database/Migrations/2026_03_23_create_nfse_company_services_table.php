@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::create('nfse_company_services', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('company_id')->index();
+            $table->unsignedInteger('company_id')->index();
             $table->string('item_lista_servico', 10); // LC 116 code (e.g., '0107', '6.01')
             $table->string('codigo_tributacao_nacional', 6)->nullable();
             $table->decimal('aliquota', 5, 2); // ISS rate (e.g., 5.00, 2.50)

@@ -139,7 +139,7 @@ class Main extends Provider
 
             $serviceDigits = preg_replace('/\D+/', '', (string) $rawServiceCode) ?: '';
             $serviceCode = preg_match('/(\d{4})$/', $serviceDigits, $serviceCodeMatch)
-                ? (string) $serviceCodeMatch[1]
+                ? $serviceCodeMatch[1]
                 : substr($serviceDigits, 0, 4);
 
             $nationalCode = preg_replace('/\D+/', '', (string) $rawNationalCode) ?: '';
