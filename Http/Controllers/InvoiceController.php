@@ -207,6 +207,12 @@ class InvoiceController extends Controller
     {
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
+
+        if (!$this->invoiceHasLineItems($invoice)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', trans('nfse::general.invoices.emit_blocked_no_items')));
+        }
+
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
         $this->persistDefaultDescriptionFromRequest($request);
 
@@ -583,6 +589,12 @@ class InvoiceController extends Controller
     {
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
+
+        if (!$this->invoiceHasLineItems($invoice)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.emit_blocked_no_items')));
+        }
+
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
         $this->persistDefaultDescriptionFromRequest($request);
 
@@ -1057,6 +1069,29 @@ class InvoiceController extends Controller
         }
 
         return [];
+    }
+
+    protected function invoiceHasLineItems(Invoice $invoice): bool
+    {
+        $items = $this->invoiceItemsAsArray($invoice);
+
+        if ($items !== []) {
+            return true;
+        }
+
+        if (method_exists($invoice, 'items')) {
+            try {
+                $relation = $invoice->items();
+
+                if (is_object($relation) && method_exists($relation, 'exists')) {
+                    return (bool) $relation->exists();
+                }
+            } catch (\Throwable) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     protected function normalizedTomadorDocument(?string $document): string
@@ -3001,11 +3036,15 @@ class InvoiceController extends Controller
             // class not available in unit-test context
         }
 
+        $moduleDefaults = \Modules\Nfse\Listeners\FinishInstallation::defaultEmailTemplateContent();
+
         return [
             'send_email'         => $sendEmail,
             'recipient'          => $recipient,
             'subject'            => $template !== null ? (string) ($template->subject ?? '') : '',
             'body'               => $template !== null ? (string) ($template->body ?? '') : '',
+            'default_subject'    => $moduleDefaults['subject'],
+            'default_body'       => $moduleDefaults['body'],
             'copy_to_self'       => $copyToSelf,
             'attach_invoice_pdf' => $attachInvoicePdf,
             'attach_danfse'      => $attachDanfse,

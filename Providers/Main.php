@@ -24,6 +24,7 @@ class Main extends Provider
     {
         $this->loadTranslations();
         $this->loadViews();
+        $this->registerCoreItemViewOverrides();
         $this->loadMigrations();
         $this->registerInvoiceSendFlowOverride();
         $this->registerItemFiscalFieldInjection();
@@ -48,6 +49,22 @@ class Main extends Provider
     protected function loadViews(): void
     {
         $this->loadViewsFrom(__DIR__ . '/../Resources/views', 'nfse');
+    }
+
+    protected function registerCoreItemViewOverrides(): void
+    {
+        /** @var \Illuminate\View\Factory $viewFactory */
+        $viewFactory = $this->app->make('view');
+        /** @var \Illuminate\View\FileViewFinder $finder */
+        $finder = $viewFactory->getFinder();
+        $overridePath = __DIR__ . '/../Resources/overrides';
+        $paths = $finder->getPaths();
+
+        if (in_array($overridePath, $paths, true)) {
+            return;
+        }
+
+        $finder->setPaths(array_merge([$overridePath], $paths));
     }
 
     protected function loadTranslations(): void

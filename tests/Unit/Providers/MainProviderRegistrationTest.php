@@ -20,6 +20,8 @@ final class MainProviderRegistrationTest extends TestCase
         self::assertStringContainsString('runningInConsole()', $content);
         self::assertStringContainsString('commands([', $content);
         self::assertStringContainsString("->composer('sales.invoices.show'", $content);
+        self::assertStringContainsString('registerCoreItemViewOverrides', $content);
+        self::assertStringContainsString('setPaths(array_merge([$overridePath], $paths));', $content);
         self::assertStringContainsString("->composer(['common.items.create', 'common.items.edit']", $content);
         self::assertStringContainsString('registerItemFiscalProfileHooks', $content);
         self::assertStringContainsString('ItemFiscalProfile::updateOrCreate', $content);

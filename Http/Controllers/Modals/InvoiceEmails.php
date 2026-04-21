@@ -107,27 +107,43 @@ class InvoiceEmails extends Controller
 
         $referer = trim((string) $request->header('referer', ''));
 
-        if ($referer === '') {
-            return 'nfse_index';
-        }
-
         $invoiceShowUrl = route('invoices.show', $invoice);
         $nfseShowUrl = route('nfse.invoices.show', $invoice);
         $nfseIndexUrl = route('nfse.invoices.index');
 
-        if ($referer === $invoiceShowUrl || str_starts_with($referer, $invoiceShowUrl . '?')) {
+        $invoiceShowPath = (string) parse_url($invoiceShowUrl, PHP_URL_PATH);
+        $nfseShowPath = (string) parse_url($nfseShowUrl, PHP_URL_PATH);
+        $nfseIndexPath = (string) parse_url($nfseIndexUrl, PHP_URL_PATH);
+        $refererPath = (string) parse_url($referer, PHP_URL_PATH);
+
+        if (
+            $referer === $invoiceShowUrl
+            || str_starts_with($referer, $invoiceShowUrl . '?')
+            || $refererPath === $invoiceShowPath
+            || str_starts_with($refererPath, $invoiceShowPath . '/')
+        ) {
             return 'invoice_show';
         }
 
-        if ($referer === $nfseShowUrl || str_starts_with($referer, $nfseShowUrl . '?')) {
+        if (
+            $referer === $nfseShowUrl
+            || str_starts_with($referer, $nfseShowUrl . '?')
+            || $refererPath === $nfseShowPath
+            || str_starts_with($refererPath, $nfseShowPath . '/')
+        ) {
             return 'nfse_show';
         }
 
-        if ($referer === $nfseIndexUrl || str_starts_with($referer, $nfseIndexUrl . '?')) {
+        if (
+            $referer === $nfseIndexUrl
+            || str_starts_with($referer, $nfseIndexUrl . '?')
+            || $refererPath === $nfseIndexPath
+            || str_starts_with($refererPath, $nfseIndexPath . '/')
+        ) {
             return 'nfse_index';
         }
 
-        return 'nfse_index';
+        return 'invoice_show';
     }
 
     public function store(Request $request): JsonResponse

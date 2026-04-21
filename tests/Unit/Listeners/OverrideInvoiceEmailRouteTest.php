@@ -38,8 +38,9 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
         self::assertStringContainsString('public function overrideForInvoice', $content);
         self::assertStringContainsString('shouldManageInvoiceSendFlow', $content);
         self::assertStringContainsString('latestReceiptStatus', $content);
+        self::assertStringContainsString('invoiceHasLineItems', $content);
         self::assertStringContainsString("if ((\$invoice->type ?? '') !== 'invoice')", $content);
-        self::assertStringContainsString('return true;', $content);
+        self::assertStringContainsString('if (!$this->invoiceHasLineItems($invoice))', $content);
     }
 
     public function testEmittedReceiptUsesCancelLabelInsteadOfEmitLabel(): void
@@ -107,7 +108,7 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
 
     public function testOverrideKeepsModuleRouteForEmittedReceipt(): void
     {
-        self::assertStringContainsString('return true;', $this->listenerContent());
+        self::assertStringContainsString('if ($receiptStatus !== null)', $this->listenerContent());
     }
 
     public function testOverrideDoesNotDependOnCompanyServiceRecordsAfterDumpRestore(): void

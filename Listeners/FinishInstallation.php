@@ -39,17 +39,39 @@ class FinishInstallation
 
     protected function createNfseEmailTemplates(Event $event): void
     {
-        $subject = trans('email_templates.invoice_nfse_issued_customer.subject');
-        $body = trans('email_templates.invoice_nfse_issued_customer.body');
+        $defaults = self::defaultEmailTemplateContent();
 
         $this->dispatch(new CreateEmailTemplate([
             'company_id' => $event->company_id,
             'alias' => 'invoice_nfse_issued_customer',
             'class' => \Modules\Nfse\Notifications\NfseIssued::class,
             'name' => 'settings.email.templates.invoice_nfse_issued_customer',
-            'subject' => is_string($subject) ? $subject : 'NFS-e {nfse_number} emitida',
-            'body' => is_string($body) ? $body : 'Prezado(a) {customer_name},',
+            'subject' => $defaults['subject'],
+            'body' => $defaults['body'],
             'created_from' => 'nfse::seed',
         ]));
+    }
+
+    public static function defaultEmailTemplateContent(): array
+    {
+        $fallbackSubject = 'NFS-e {nfse_number} emitida';
+        $fallbackBody    = 'Prezado(a) {customer_name},<br><br>Segue a NFS-e nº {nfse_number} referente à fatura {invoice_number}.<br><br>Atenciosamente,<br>{company_name}';
+        $subjectKey      = 'email_templates.invoice_nfse_issued_customer.subject';
+        $bodyKey         = 'email_templates.invoice_nfse_issued_customer.body';
+
+        try {
+            $subject = trans($subjectKey);
+            $body    = trans($bodyKey);
+        } catch (\Throwable) {
+            return ['subject' => $fallbackSubject, 'body' => $fallbackBody];
+        }
+
+        $subjectValue = is_string($subject) && $subject !== '' && $subject !== $subjectKey ? $subject : $fallbackSubject;
+        $bodyValue    = is_string($body) && $body !== '' && $body !== $bodyKey ? $body : $fallbackBody;
+
+        return [
+            'subject' => $subjectValue,
+            'body'    => $bodyValue,
+        ];
     }
 }

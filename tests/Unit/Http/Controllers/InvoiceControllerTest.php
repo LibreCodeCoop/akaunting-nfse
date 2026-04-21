@@ -733,6 +733,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.cancel_motivo_default' => 'Cancelamento padrao',
                 'nfse::general.service_default' => 'Servico padrao',
                 'nfse::general.invoices.emit_blocked_not_ready' => 'Existem configuracoes pendentes para liberar a emissao.',
+                'nfse::general.invoices.emit_blocked_no_items' => 'A fatura precisa ter ao menos um item para emitir NFS-e.',
                 'nfse::general.invoices.default_service_confirmation_required' => 'Existem itens sem servico vinculado. Revise e confirme o uso do servico padrao para emitir a NFS-e.',
                 'nfse::general.invoices.mixed_service_tax_profiles_not_supported' => 'A fatura possui itens vinculados a servicos com tributacao municipal diferente. Emita NFS-e separadas por perfil de servico/ISS.',
                 'nfse::general.invoices.refresh_not_allowed_for_cancelled' => 'NFS-e cancelada nao pode ser atualizada por refresh. Use a acao de reemissao quando aplicavel.',
@@ -1533,7 +1534,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 52,
                 amount: 875.4,
-                items: [],
+                items: [['name' => 'Servico sem perfil fiscal']],
                 description: 'Servico do cadastro padrao',
                 contactName: 'Cliente Padrao',
                 contactTaxNumber: '11222333000144',
@@ -2130,6 +2131,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('Prezado(a) {customer_name}', $payload['email_defaults']['body']);
             self::assertTrue($payload['email_defaults']['attach_danfse']);
             self::assertTrue($payload['email_defaults']['attach_xml']);
+            self::assertArrayHasKey('default_subject', $payload['email_defaults']);
+            self::assertNotEmpty($payload['email_defaults']['default_subject']);
+            self::assertArrayHasKey('default_body', $payload['email_defaults']);
+            self::assertNotEmpty($payload['email_defaults']['default_body']);
         }
 
         public function testServicePreviewUsesSavedAttachmentDefaults(): void
@@ -2238,6 +2243,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertFalse($payload['email_defaults']['send_email']);
             self::assertSame('', $payload['email_defaults']['subject']);
             self::assertSame('', $payload['email_defaults']['body']);
+            self::assertArrayHasKey('default_subject', $payload['email_defaults']);
+            self::assertNotEmpty($payload['email_defaults']['default_subject']);
+            self::assertArrayHasKey('default_body', $payload['email_defaults']);
+            self::assertNotEmpty($payload['email_defaults']['default_body']);
         }
 
         public function testPersistDefaultDescriptionFromRequestSavesWhenFlagEnabled(): void
@@ -2437,7 +2446,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 99,
                 amount: 100.0,
-                items: [],
+                items: [['name' => 'Servico sandbox']],
                 description: 'Teste sandbox',
             );
 
@@ -2498,7 +2507,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 1042,
                 amount: 10.0,
-                items: [],
+                items: [['name' => 'Servico tomador formatado']],
                 description: 'Teste tomador formatado',
                 contactName: 'Tomador Formatado',
                 contactTaxNumber: '99.887.766/0001-55',
@@ -2579,7 +2588,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 1043,
                 amount: 11.0,
-                items: [],
+                items: [['name' => 'Servico tomador invalido']],
                 description: 'Teste tomador invalido',
                 contactName: 'Tomador Invalido',
                 contactTaxNumber: 'ABC',
@@ -2632,7 +2641,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('', $client->capturedDps?->documentoTomador);
         }
 
-        public function testEmitFallsBackToInvoiceDescriptionWhenItemsAreEmpty(): void
+        public function testEmitBlocksWhenInvoiceHasNoItems(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 7,
@@ -2683,9 +2692,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller->emit($invoice);
+            $response = $controller->emit($invoice);
 
-            self::assertSame('Descricao da nota', $client->capturedDps?->discriminacao);
+            self::assertNull($client->capturedDps);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame([['status' => 'pending']], $response->parameters);
+            self::assertSame('A fatura precisa ter ao menos um item para emitir NFS-e.', $response->flash['error'] ?? null);
         }
 
         public function testEmitUsesCustomDescriptionFromRequestWhenProvided(): void
@@ -2746,7 +2759,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('Descricao manual ajustada da NFS-e', $client->capturedDps?->discriminacao);
         }
 
-        public function testEmitFallsBackToDefaultServiceLabelWhenItemsAndDescriptionAreEmpty(): void
+        public function testReemitBlocksWhenInvoiceHasNoItems(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 8,
@@ -2754,6 +2767,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 items: [],
                 description: '',
             );
+
+            InvoiceControllerIsolationState::makeReceipt(8, 'CHAVE-8', 'cancelled');
 
             $client = new class () implements NfseClientInterface {
                 public ?DpsData $capturedDps = null;
@@ -2797,9 +2812,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller->emit($invoice);
+            $response = $controller->reemit($invoice);
 
-            self::assertSame('Servico padrao', $client->capturedDps?->discriminacao);
+            self::assertNull($client->capturedDps);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
+            self::assertSame('A fatura precisa ter ao menos um item para emitir NFS-e.', $response->flash['error'] ?? null);
         }
 
         public function testCancelUsesStoredReceiptUpdatesStatusAndRedirectsToIndex(): void
@@ -4998,7 +5017,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testReemitReturnsWarningWhenReceiptIsNotCancelled(): void
         {
-            $invoice = new Invoice(id: 302, amount: 200.0);
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 302, amount: 200.0, items: [['name' => 'Servico reemissao']]);
             InvoiceControllerIsolationState::makeReceipt(302, 'CHAVE-302', 'emitted');
 
             $controller = new class () extends InvoiceController {

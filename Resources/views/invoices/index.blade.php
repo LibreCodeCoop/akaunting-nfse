@@ -900,6 +900,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <form id="nfse-cancel-form" method="POST" action="" class="p-5 space-y-4">
                         @csrf
                         @method('DELETE')
+                        <input type="hidden" name="redirect_after_cancel" value="nfse_index">
                         <input type="hidden" name="cancel_invoice_action" id="cancel_invoice_action" value="{{ old('cancel_invoice_action', '') }}">
                         @php($cancelReasonOptions = trans('nfse::general.invoices.cancel_reason_options'))
 
