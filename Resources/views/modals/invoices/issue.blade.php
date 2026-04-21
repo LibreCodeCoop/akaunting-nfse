@@ -3,10 +3,11 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 --}}
 @php
-    // Tab switching JS is inlined because x-tabs uses Alpine.js (x-show, x-on:click,
-    // x-bind:class) which is NOT initialized when HTML is injected via AJAX into the
-    // Akaunting modal. This plain-JS implementation works in any DOM context.
-    $nfseTabOnclick = "(function(nav){var c=nav.closest('[data-nfse-tabs]');var t=nav.getAttribute('data-nfse-tab-nav');c.querySelectorAll('[data-nfse-tab-nav]').forEach(function(n){var a=n===nav;n.classList.toggle('active-tabs',a);n.classList.toggle('text-purple',a);n.classList.toggle('border-purple',a);['after:absolute','after:w-full','after:h-0.5','after:left-0','after:right-0','after:bottom-0','after:bg-purple','after:rounded-tl-md','after:rounded-tr-md'].forEach(function(cls){n.classList.toggle(cls,a);});n.classList.toggle('text-black',!a);});c.querySelectorAll('[data-nfse-tab-pane]').forEach(function(p){p.style.display=p.id===t?'':'none';});})(this)";
+    $issueModalHandlers = include base_path('modules/Nfse/Resources/views/modals/invoices/partials/issue_js_handlers.php');
+    $nfseTabSyncOnclick = (string) ($issueModalHandlers['nfseTabSyncOnclick'] ?? '');
+    $nfseSendEmailOnChange = (string) ($issueModalHandlers['nfseSendEmailOnChange'] ?? '');
+    $nfseRestoreDefaultSync = (string) ($issueModalHandlers['nfseRestoreDefaultSync'] ?? '');
+    $nfseRestoreDefaultOnclick = (string) ($issueModalHandlers['nfseRestoreDefaultOnclick'] ?? '');
 
     $missingItems = is_array($preview['missing_items'] ?? null) ? $preview['missing_items'] : [];
     $defaultServiceId = (int) ($preview['default_service_id'] ?? 0);
@@ -19,6 +20,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     $attachInvoicePdfDefault = (bool) ($emailDefaults['attach_invoice_pdf'] ?? true);
     $attachDanfseDefault = (bool) ($emailDefaults['attach_danfse'] ?? true);
     $attachXmlDefault = (bool) ($emailDefaults['attach_xml'] ?? true);
+    $currentSubject = (string) ($emailDefaults['subject'] ?? '');
+    $currentBody = (string) ($emailDefaults['body'] ?? '');
+    $defaultSubject = (string) ($emailDefaults['default_subject'] ?? '');
+    $defaultBody = (string) ($emailDefaults['default_body'] ?? '');
+    $defaultSubjectEncoded = rawurlencode($defaultSubject);
+    $defaultBodyEncoded = rawurlencode($defaultBody);
+    $showRestoreDefault =
+        ($defaultSubject !== '' || $defaultBody !== '')
+        && ($currentSubject !== $defaultSubject || $currentBody !== $defaultBody);
+    $restoreButtonStyle = $showRestoreDefault ? '' : 'display:none;';
 @endphp
 
 <x-form id="form-email" :route="[$issue_route, $invoice->id]">
@@ -31,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <li id="nfse-tab-nav-issuance"
                     data-nfse-tab-nav="nfse-tab-pane-issuance"
                     class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link active-tabs text-purple border-purple after:absolute after:w-full after:h-0.5 after:left-0 after:right-0 after:bottom-0 after:bg-purple after:rounded-tl-md after:rounded-tr-md"
-                    onclick="{!! $nfseTabOnclick !!}"
+                    onclick="{!! $nfseTabSyncOnclick !!}"
                 >
                     {{ trans('general.general') }}
                 </li>
@@ -39,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <li id="nfse-tab-nav-email"
                     data-nfse-tab-nav="nfse-tab-pane-email"
                     class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link text-black"
-                    onclick="{!! $nfseTabOnclick !!}"
+                    onclick="{!! $nfseTabSyncOnclick !!}"
                 >
                     {{ trans_choice('general.email', 1) }}
                 </li>
@@ -48,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     data-nfse-tab-nav="nfse-tab-pane-attachments"
                     class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link text-black"
                     style="{{ $sendEmailDefault ? '' : 'display:none;' }}"
-                    onclick="{!! $nfseTabOnclick !!}"
+                    onclick="{!! $nfseTabSyncOnclick !!}"
                 >
                     {{ trans_choice('general.attachments', 2) }}
                 </li>
@@ -111,7 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 'name' => 'nfse_send_email',
                                 'label' => trans('nfse::general.invoices.emit_modal_send_email'),
                                 'checked' => $sendEmailDefault,
-                                'extraOnChange' => "const target=document.getElementById('nfse-email-fields'); if(target){target.classList.toggle('hidden',!cb.checked);} const navList=document.getElementById('nfse-tab-nav-list'); if(navList){navList.classList.toggle('grid-cols-3',cb.checked); navList.classList.toggle('grid-cols-2',!cb.checked);} const attNav=document.getElementById('nfse-tab-nav-attachments'); if(attNav){attNav.style.display=cb.checked?'':'none';} if(!cb.checked){const attPane=document.getElementById('nfse-tab-pane-attachments'); if(attPane&&attPane.style.display!=='none'){const emailNav=document.getElementById('nfse-tab-nav-email'); if(emailNav){emailNav.click();}} if(attPane){attPane.style.display='none';}}",
+                                'extraOnChange' => $nfseSendEmailOnChange,
                             ])
                             <div>
                                 <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
@@ -119,7 +130,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
                         </div>
 
-                        <div id="nfse-email-fields" class="sm:col-span-6 space-y-3 {{ $sendEmailDefault ? '' : 'hidden' }}">
+                        <div id="nfse-email-fields"
+                            class="sm:col-span-6 space-y-3 {{ $sendEmailDefault ? '' : 'hidden' }}"
+                            oninput="{!! $nfseRestoreDefaultSync !!}"
+                            onkeyup="{!! $nfseRestoreDefaultSync !!}"
+                            onfocusin="{!! $nfseRestoreDefaultSync !!}"
+                        >
                             <x-form.group.contact
                                 name="nfse_email_to"
                                 label="{{ trans('nfse::general.invoices.emit_modal_email_to') }}"
@@ -139,7 +155,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <x-form.group.text
                                 name="nfse_email_subject"
                                 label="{{ trans('nfse::general.invoices.emit_modal_email_subject') }}"
-                                value="{{ (string) ($emailDefaults['subject'] ?? '') }}"
+                                value="{{ $currentSubject }}"
                                 form-group-class="sm:col-span-6"
                             />
 
@@ -155,6 +171,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <div class="sm:col-span-6 text-xs text-gray-500">
                                 {{ trans('nfse::general.invoices.emit_modal_email_body_help') }}
                             </div>
+
+                            @if ($defaultSubject !== '' || $defaultBody !== '')
+                                <div class="sm:col-span-6 text-right">
+                                    <button type="button"
+                                        data-nfse-restore-default="true"
+                                        class="text-xs text-purple hover:underline"
+                                        style="{{ $restoreButtonStyle }}"
+                                        data-nfse-default-subject="{{ $defaultSubjectEncoded }}"
+                                        data-nfse-default-body="{{ $defaultBodyEncoded }}"
+                                        onclick="{!! $nfseRestoreDefaultOnclick !!}"
+                                    >
+                                        {{ trans('nfse::general.invoices.emit_modal_email_restore_default') }}
+                                    </button>
+                                </div>
+                            @endif
 
                             <div class="sm:col-span-6 rounded-md bg-gray-100 p-3 text-xs text-gray-600">
                                 {!! trans('settings.email.templates.tags', ['tag_list' => implode(', ', $notification->getTags())]) !!}

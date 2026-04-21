@@ -46,6 +46,13 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
+    private function issueJsHandlersContent(): string
+    {
+        return (string) file_get_contents(
+            dirname(__DIR__, 5) . '/Resources/views/modals/invoices/partials/issue_js_handlers.php'
+        );
+    }
+
     private function routesContent(): string
     {
         return (string) file_get_contents(
@@ -349,13 +356,15 @@ final class InvoiceEmailsTest extends TestCase
     public function testIssueViewSendEmailToggleReferencesNewTabNavIds(): void
     {
         $view = $this->issueViewContent();
+        $handlers = $this->issueJsHandlersContent();
 
         // The send-email toggle extraOnChange must target the new Alpine-free tab IDs.
+        self::assertStringContainsString('issue_js_handlers.php', $view);
         self::assertStringContainsString('nfse-tab-nav-list', $view);
         self::assertStringContainsString('nfse-tab-nav-attachments', $view);
         self::assertStringContainsString('nfse-tab-nav-email', $view);
-        self::assertStringContainsString("navList.classList.toggle('grid-cols-3',cb.checked)", $view);
-        self::assertStringContainsString("navList.classList.toggle('grid-cols-2',!cb.checked)", $view);
+        self::assertStringContainsString("navList.classList.toggle('grid-cols-3', cb.checked)", $handlers);
+        self::assertStringContainsString("navList.classList.toggle('grid-cols-2', !cb.checked)", $handlers);
         // Must NOT reference the old x-tabs duplicate-id pattern.
         self::assertStringNotContainsString("querySelectorAll('#tab-attachments')", $view);
         self::assertStringNotContainsString("querySelector('#tab-email[data-tabs=email]')", $view);
