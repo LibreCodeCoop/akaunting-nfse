@@ -282,6 +282,146 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(200, $controller->resolveStatusCode($headers));
         }
 
+        /**
+         * @dataProvider federalTaxBucketByNameProvider
+         */
+        public function testFederalTaxBucketFromNameMatchesExpectedBucket(string $name, ?string $expectedBucket): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function resolveBucket(string $name): ?string
+                {
+                    return $this->federalTaxBucketFromName($name);
+                }
+            };
+
+            self::assertSame($expectedBucket, $controller->resolveBucket($name));
+        }
+
+        /**
+         * @return array<string, array{0:string,1:?string}>
+         */
+        public static function federalTaxBucketByNameProvider(): array
+        {
+            return [
+                'pis simple' => ['PIS', 'pis'],
+                'pis with pasep alias' => ['Contribuicao PASEP sobre servicos', 'pis'],
+                'pis with long description' => ['Programa de Integracao Social', 'pis'],
+                'cofins simple' => ['COFINS', 'cofins'],
+                'cofins long description' => ['Contribuicao para o Financiamento da Seguridade Social', 'cofins'],
+                'irrf acronym' => ['IRRF - servicos PJ', 'irrf'],
+                'irrf long description' => ['Imposto de Renda Retido na Fonte', 'irrf'],
+                'csll acronym' => ['CSLL', 'csll'],
+                'csll long description with accents' => ['Contribuição social sobre o lucro líquido', 'csll'],
+                'cp by inss' => ['INSS Patronal', 'cp'],
+                'cp by previdenciaria description' => ['Contribuição previdenciária patronal', 'cp'],
+                'code hint using cod prefix' => ['cod:pis - servicos', 'pis'],
+                'code hint using codigo prefix' => ['codigo irrf servicos', 'irrf'],
+                'code hint using cst prefix' => ['cst:cofins', 'cofins'],
+                'code hint with brackets' => ['Retencao [csll]', 'csll'],
+                'unknown tax name' => ['ISSQN municipal', null],
+                'numeric code only is ignored' => ['0561', null],
+                'empty is ignored' => ['', null],
+            ];
+        }
+
+        /**
+         * @dataProvider federalTaxReadinessProvider
+         * @param list<array<string, mixed>> $items
+         * @param list<string> $expectedMissing
+         */
+        public function testFederalTaxReadinessForInvoice(array $items, bool $expectedReady, array $expectedMissing): void
+        {
+            ControllerIsolationState::$settings['nfse.enforce_item_federal_taxes'] = true;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 990,
+                amount: 1000.00,
+                items: $items,
+            );
+
+            $controller = new class () extends InvoiceController {
+                /** @return array{isReady: bool, missing: list<string>} */
+                public function resolveFederalReadiness(Invoice $invoice): array
+                {
+                    return $this->federalTaxReadinessForInvoice($invoice);
+                }
+            };
+
+            $readiness = $controller->resolveFederalReadiness($invoice);
+
+            self::assertSame($expectedReady, $readiness['isReady'] ?? null);
+            self::assertSame($expectedMissing, $readiness['missing'] ?? null);
+        }
+
+        /**
+         * @return array<string, array{0:list<array<string,mixed>>,1:bool,2:list<string>}>
+         */
+        public static function federalTaxReadinessProvider(): array
+        {
+            return [
+                'all required taxes available' => [[
+                    [
+                        'name' => 'Servico A',
+                        'item_taxes' => [
+                            ['name' => 'PIS', 'amount' => 16.50],
+                            ['name' => 'COFINS', 'amount' => 76.00],
+                            ['name' => 'CSLL', 'amount' => 10.00],
+                        ],
+                    ],
+                ], true, []],
+                'missing csll when retention requires it' => [[
+                    [
+                        'name' => 'Servico A',
+                        'item_taxes' => [
+                            ['name' => 'PIS', 'amount' => 16.50],
+                            ['name' => 'COFINS', 'amount' => 76.00],
+                        ],
+                    ],
+                ], false, ['csll']],
+                'missing piscofins and csll' => [[
+                    [
+                        'name' => 'Servico A',
+                        'item_taxes' => [
+                            ['name' => 'ISS', 'amount' => 40.00],
+                        ],
+                    ],
+                ], false, ['pis', 'cofins', 'csll']],
+            ];
+        }
+
+        public function testEmitBlocksWhenRequiredFederalTaxesAreMissingInInvoiceItems(): void
+        {
+            ControllerIsolationState::$settings['nfse.enforce_item_federal_taxes'] = true;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 991,
+                amount: 1200.00,
+                items: [
+                    [
+                        'name' => 'Servico sem CSLL',
+                        'item_taxes' => [
+                            ['name' => 'PIS', 'amount' => 19.80],
+                            ['name' => 'COFINS', 'amount' => 91.20],
+                        ],
+                    ],
+                ],
+                contactTaxNumber: '99887766000155',
+            );
+
+            $controller = new class () extends InvoiceController {
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->emit($invoice, new Request());
+
+            self::assertSame('route', $response->target ?? null);
+            self::assertSame('nfse.invoices.index', $response->route ?? null);
+            self::assertStringContainsString('CSLL', (string) ($response->flash['error'] ?? ''));
+        }
+
         public function testShowPassesSuggestedDiscriminacaoToView(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
@@ -734,6 +874,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.service_default' => 'Servico padrao',
                 'nfse::general.invoices.emit_blocked_not_ready' => 'Existem configuracoes pendentes para liberar a emissao.',
                 'nfse::general.invoices.emit_blocked_no_items' => 'A fatura precisa ter ao menos um item para emitir NFS-e.',
+                'nfse::general.invoices.emit_blocked_missing_federal_taxes' => 'A fatura nao possui os tributos federais necessarios para emissao da NFS-e.',
+                'nfse::general.invoices.emit_blocked_missing_federal_taxes_with_list' => 'A fatura nao possui os tributos federais necessarios para emissao da NFS-e (:taxes).',
+                'nfse::general.invoices.federal_tax_labels.pis' => 'PIS',
+                'nfse::general.invoices.federal_tax_labels.cofins' => 'COFINS',
+                'nfse::general.invoices.federal_tax_labels.irrf' => 'IRRF',
+                'nfse::general.invoices.federal_tax_labels.csll' => 'CSLL',
                 'nfse::general.invoices.default_service_confirmation_required' => 'Existem itens sem servico vinculado. Revise e confirme o uso do servico padrao para emitir a NFS-e.',
                 'nfse::general.invoices.mixed_service_tax_profiles_not_supported' => 'A fatura possui itens vinculados a servicos com tributacao municipal diferente. Emita NFS-e separadas por perfil de servico/ISS.',
                 'nfse::general.invoices.refresh_not_allowed_for_cancelled' => 'NFS-e cancelada nao pode ser atualizada por refresh. Use a acao de reemissao quando aplicavel.',
@@ -757,6 +903,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.federal_valor_csll' => '1.00',
                 'nfse.federal_valor_cp' => '1.00',
                 'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
+                'nfse.enforce_item_federal_taxes' => false,
                 'nfse.sandbox_mode' => false,
             ];
 

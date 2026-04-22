@@ -85,6 +85,38 @@ Ela precisa indicar **Sim** para todos os itens, incluindo:
 
 Se o ultimo item estiver pendente, a emissao sera bloqueada para evitar falha em tempo de envio.
 
+### Mapeamento de tributos federais por nome
+
+Na emissao da NFS-e, os tributos federais (PIS/COFINS/IRRF/CSLL) sao derivados dos impostos dos itens da fatura.
+
+Se os tributos federais exigidos para o perfil configurado nao estiverem presentes nos itens, o botao de emissao nao e exibido na listagem pendente e a emissao/reemissao e bloqueada no backend.
+
+Como o cadastro padrao de impostos do Akaunting (`taxes`) nao possui um campo estruturado para codigo fiscal (mantem principalmente `name`, `rate` e `type`), a classificacao e feita pelo texto do nome do imposto.
+
+Termos reconhecidos (com normalizacao de acentos e caixa):
+
+| Tributo | Termos/variantes reconhecidos |
+|---|---|
+| PIS | `pis`, `pasep`, `programa de integracao social` |
+| COFINS | `cofins`, `financiamento da seguridade social` |
+| IRRF | `irrf`, `imposto de renda retido na fonte`, `renda retida na fonte` |
+| CSLL | `csll`, `contribuicao social sobre o lucro liquido` |
+| CP (previdenciaria) | `inss`, `contribuicao previdenciaria`, `previdencia social` |
+
+Hints de codigo textual aceitos no nome do imposto:
+
+| Padrao | Exemplo |
+|---|---|
+| Prefixo `cod:` | `cod:pis` |
+| Prefixo `codigo` | `codigo irrf` |
+| Prefixo `cst:` | `cst:cofins` |
+| Marcador em colchetes | `[csll]` |
+
+Recomendacao para reduzir ambiguidades:
+
+- Inclua sempre o identificador explicito no nome do imposto (ex.: `IRRF - Servicos` ou `cod:irrf - Servicos PJ`).
+- Evite depender apenas de codigos numericos no nome (ex.: apenas `0561`), pois esses codigos variam por contexto fiscal e nao sao suficientes, sozinhos, para classificacao automatica segura no modulo.
+
 #### Desenvolvimento
 
 O ambiente de desenvolvimento utiliza o [akaunting-docker](https://github.com/LibreCodeCoop/akaunting-docker), que já inclui o OpenBao no `docker-compose.override.yml`.
