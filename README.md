@@ -93,18 +93,22 @@ Como o cadastro padrao de impostos do Akaunting (`taxes`) nao possui um campo es
 
 Termos reconhecidos (com normalizacao de acentos e caixa):
 
-- PIS: `pis`, `pasep`, `programa de integracao social`
-- COFINS: `cofins`, `financiamento da seguridade social`
-- IRRF: `irrf`, `imposto de renda retido na fonte`, `renda retida na fonte`
-- CSLL: `csll`, `contribuicao social sobre o lucro liquido`
-- CP (previdenciaria): `inss`, `contribuicao previdenciaria`, `previdencia social`
+| Tributo | Termos/variantes reconhecidos |
+|---|---|
+| PIS | `pis`, `pasep`, `programa de integracao social` |
+| COFINS | `cofins`, `financiamento da seguridade social` |
+| IRRF | `irrf`, `imposto de renda retido na fonte`, `renda retida na fonte` |
+| CSLL | `csll`, `contribuicao social sobre o lucro liquido` |
+| CP (previdenciaria) | `inss`, `contribuicao previdenciaria`, `previdencia social` |
 
-Tambem sao aceitos hints de codigo textual no nome, por exemplo:
+Hints de codigo textual aceitos no nome do imposto:
 
-- `cod:pis`
-- `codigo irrf`
-- `cst:cofins`
-- `[csll]`
+| Padrao | Exemplo |
+|---|---|
+| Prefixo `cod:` | `cod:pis` |
+| Prefixo `codigo` | `codigo irrf` |
+| Prefixo `cst:` | `cst:cofins` |
+| Marcador em colchetes | `[csll]` |
 
 Recomendacao para reduzir ambiguidades:
 

@@ -282,6 +282,48 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(200, $controller->resolveStatusCode($headers));
         }
 
+        /**
+         * @dataProvider federalTaxBucketByNameProvider
+         */
+        public function testFederalTaxBucketFromNameMatchesExpectedBucket(string $name, ?string $expectedBucket): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function resolveBucket(string $name): ?string
+                {
+                    return $this->federalTaxBucketFromName($name);
+                }
+            };
+
+            self::assertSame($expectedBucket, $controller->resolveBucket($name));
+        }
+
+        /**
+         * @return array<string, array{0:string,1:?string}>
+         */
+        public static function federalTaxBucketByNameProvider(): array
+        {
+            return [
+                'pis simple' => ['PIS', 'pis'],
+                'pis with pasep alias' => ['Contribuicao PASEP sobre servicos', 'pis'],
+                'pis with long description' => ['Programa de Integracao Social', 'pis'],
+                'cofins simple' => ['COFINS', 'cofins'],
+                'cofins long description' => ['Contribuicao para o Financiamento da Seguridade Social', 'cofins'],
+                'irrf acronym' => ['IRRF - servicos PJ', 'irrf'],
+                'irrf long description' => ['Imposto de Renda Retido na Fonte', 'irrf'],
+                'csll acronym' => ['CSLL', 'csll'],
+                'csll long description with accents' => ['Contribuição social sobre o lucro líquido', 'csll'],
+                'cp by inss' => ['INSS Patronal', 'cp'],
+                'cp by previdenciaria description' => ['Contribuição previdenciária patronal', 'cp'],
+                'code hint using cod prefix' => ['cod:pis - servicos', 'pis'],
+                'code hint using codigo prefix' => ['codigo irrf servicos', 'irrf'],
+                'code hint using cst prefix' => ['cst:cofins', 'cofins'],
+                'code hint with brackets' => ['Retencao [csll]', 'csll'],
+                'unknown tax name' => ['ISSQN municipal', null],
+                'numeric code only is ignored' => ['0561', null],
+                'empty is ignored' => ['', null],
+            ];
+        }
+
         public function testShowPassesSuggestedDiscriminacaoToView(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
