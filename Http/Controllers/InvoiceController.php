@@ -91,6 +91,9 @@ class InvoiceController extends Controller
             ? $this->receiptsForIndex($receiptStatus, $perPage, $searchTerm, $parsedFilters['date_emissao'] ?? null)
             : null;
         $pendingInvoices = $includesPendingStatus ? $this->pendingInvoices($perPage, $searchTerm) : null;
+        if ($includesPendingStatus && $pendingInvoices !== null) {
+            $pendingInvoices = $this->annotatePendingInvoicesFederalReadiness($pendingInvoices);
+        }
         $pendingReadiness = $includesPendingStatus ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
         $sortBy = $this->indexSortBy;
         $sortDirection = $this->indexSortDirection;
@@ -211,6 +214,13 @@ class InvoiceController extends Controller
         if (!$this->invoiceHasLineItems($invoice)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.invoices.emit_blocked_no_items')));
+        }
+
+        $federalTaxReadiness = $this->federalTaxReadinessForInvoice($invoice);
+
+        if (($federalTaxReadiness['isReady'] ?? false) !== true) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', $this->emitBlockedFederalTaxMessage($federalTaxReadiness['missing'] ?? [])));
         }
 
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
@@ -593,6 +603,13 @@ class InvoiceController extends Controller
         if (!$this->invoiceHasLineItems($invoice)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_no_items')));
+        }
+
+        $federalTaxReadiness = $this->federalTaxReadinessForInvoice($invoice);
+
+        if (($federalTaxReadiness['isReady'] ?? false) !== true) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', $this->emitBlockedFederalTaxMessage($federalTaxReadiness['missing'] ?? [])));
         }
 
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
@@ -1094,6 +1111,157 @@ class InvoiceController extends Controller
         return false;
     }
 
+    /**
+     * @return array{isReady: bool, missing: list<string>}
+     */
+    protected function federalTaxReadinessForInvoice(Invoice $invoice): array
+    {
+        $requiredBuckets = $this->requiredFederalTaxBucketsForEmission();
+
+        if ($requiredBuckets === []) {
+            return [
+                'isReady' => true,
+                'missing' => [],
+            ];
+        }
+
+        $snapshot = $this->invoiceFederalTaxSnapshot($invoice, (float) ($invoice->amount ?? 0.0));
+        $bucketToSnapshotKey = [
+            'pis' => 'pis_value',
+            'cofins' => 'cofins_value',
+            'irrf' => 'irrf_value',
+            'csll' => 'csll_value',
+        ];
+
+        $missing = [];
+
+        foreach ($requiredBuckets as $bucket) {
+            $snapshotKey = $bucketToSnapshotKey[$bucket] ?? null;
+
+            if ($snapshotKey === null) {
+                continue;
+            }
+
+            if (($snapshot[$snapshotKey] ?? '') === '') {
+                $missing[] = $bucket;
+            }
+        }
+
+        return [
+            'isReady' => $missing === [],
+            'missing' => $missing,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function requiredFederalTaxBucketsForEmission(): array
+    {
+        if (!$this->enforceFederalItemTaxes()) {
+            return [];
+        }
+
+        $required = [];
+
+        $situacaoTributaria = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_situacao_tributaria', ''));
+
+        if ($situacaoTributaria !== '' && $situacaoTributaria !== '0') {
+            $required[] = 'pis';
+            $required[] = 'cofins';
+        }
+
+        $tipoRetencao = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_tipo_retencao', ''));
+
+        if (in_array($tipoRetencao, ['3', '7', '8', '9'], true)) {
+            $required[] = 'csll';
+        }
+
+        return array_values(array_unique($required));
+    }
+
+    protected function enforceFederalItemTaxes(): bool
+    {
+        $configured = setting('nfse.enforce_item_federal_taxes', true);
+
+        if (is_bool($configured)) {
+            return $configured;
+        }
+
+        if (is_numeric($configured)) {
+            return (int) $configured === 1;
+        }
+
+        if (is_string($configured)) {
+            $normalized = strtolower(trim($configured));
+
+            if ($normalized === '' || in_array($normalized, ['0', 'false', 'off', 'no'], true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param list<string> $missingBuckets
+     */
+    protected function emitBlockedFederalTaxMessage(array $missingBuckets): string
+    {
+        if ($missingBuckets === []) {
+            return (string) trans('nfse::general.invoices.emit_blocked_missing_federal_taxes');
+        }
+
+        $labels = array_map(function (string $bucket): string {
+            $translated = trim((string) trans('nfse::general.invoices.federal_tax_labels.' . $bucket));
+
+            if ($translated !== '' && $translated !== 'nfse::general.invoices.federal_tax_labels.' . $bucket) {
+                return $translated;
+            }
+
+            return strtoupper($bucket);
+        }, $missingBuckets);
+
+        return (string) trans('nfse::general.invoices.emit_blocked_missing_federal_taxes_with_list', [
+            'taxes' => implode(', ', $labels),
+        ]);
+    }
+
+    protected function annotatePendingInvoicesFederalReadiness(mixed $pendingInvoices): mixed
+    {
+        if (is_object($pendingInvoices) && is_callable([$pendingInvoices, 'getCollection']) && is_callable([$pendingInvoices, 'setCollection'])) {
+            $collection = $pendingInvoices->getCollection();
+
+            if (is_object($collection) && is_callable([$collection, 'map'])) {
+                $pendingInvoices->setCollection($collection->map(fn ($invoice) => $this->attachPendingInvoiceFederalReadiness($invoice)));
+
+                return $pendingInvoices;
+            }
+        }
+
+        if (is_array($pendingInvoices)) {
+            return array_map(fn ($invoice) => $this->attachPendingInvoiceFederalReadiness($invoice), $pendingInvoices);
+        }
+
+        return $pendingInvoices;
+    }
+
+    protected function attachPendingInvoiceFederalReadiness(mixed $invoice): mixed
+    {
+        if (!$invoice instanceof Invoice) {
+            return $invoice;
+        }
+
+        $readiness = $this->federalTaxReadinessForInvoice($invoice);
+
+        $invoice->nfse_emit_ready = $readiness['isReady'];
+        $invoice->nfse_emit_block_reason = $readiness['isReady']
+            ? ''
+            : $this->emitBlockedFederalTaxMessage($readiness['missing']);
+
+        return $invoice;
+    }
+
     protected function normalizedTomadorDocument(?string $document): string
     {
         $digits = preg_replace('/\D+/', '', (string) $document) ?: '';
@@ -1220,7 +1388,13 @@ class InvoiceController extends Controller
     protected function ensureInvoiceRelationsLoaded(Invoice $invoice): void
     {
         if (method_exists($invoice, 'loadMissing')) {
-            $invoice->loadMissing(['contact', 'items']);
+            try {
+                $invoice->loadMissing(['contact', 'items.item_taxes', 'items.taxes']);
+
+                return;
+            } catch (\Throwable) {
+                $invoice->loadMissing(['contact', 'items']);
+            }
         }
     }
 
@@ -2359,6 +2533,42 @@ class InvoiceController extends Controller
                 if (isset($item->item_taxes) && is_iterable($item->item_taxes)) {
                     foreach ($item->item_taxes as $tax) {
                         $itemTaxes[] = $tax;
+                    }
+                }
+
+                if ($itemTaxes === [] && method_exists($item, 'item_taxes')) {
+                    try {
+                        $itemTaxRelation = $item->item_taxes();
+
+                        if (is_object($itemTaxRelation) && is_callable([$itemTaxRelation, 'get'])) {
+                            $resolvedItemTaxes = $itemTaxRelation->get();
+
+                            if (is_iterable($resolvedItemTaxes)) {
+                                foreach ($resolvedItemTaxes as $tax) {
+                                    $itemTaxes[] = $tax;
+                                }
+                            }
+                        }
+                    } catch (\Throwable) {
+                        // Ignore relation resolution errors and keep snapshot best-effort.
+                    }
+                }
+
+                if ($itemTaxes === [] && method_exists($item, 'taxes')) {
+                    try {
+                        $taxRelation = $item->taxes();
+
+                        if (is_object($taxRelation) && is_callable([$taxRelation, 'get'])) {
+                            $resolvedTaxes = $taxRelation->get();
+
+                            if (is_iterable($resolvedTaxes)) {
+                                foreach ($resolvedTaxes as $tax) {
+                                    $itemTaxes[] = $tax;
+                                }
+                            }
+                        }
+                    } catch (\Throwable) {
+                        // Ignore relation resolution errors and keep snapshot best-effort.
                     }
                 }
 

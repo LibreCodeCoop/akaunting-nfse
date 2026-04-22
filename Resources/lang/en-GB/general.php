@@ -160,6 +160,14 @@ return [
         'refresh_not_allowed_for_cancelled' => 'Cancelled NFS-e cannot be refreshed. Use reissue when applicable.',
         'emit_blocked_not_ready' => 'There are pending settings before issuance can continue.',
         'emit_blocked_no_items' => 'The invoice must have at least one item before issuing NFS-e.',
+        'emit_blocked_missing_federal_taxes' => 'The invoice does not have the required federal taxes to issue NFS-e.',
+        'emit_blocked_missing_federal_taxes_with_list' => 'The invoice does not have the required federal taxes to issue NFS-e (:taxes).',
+        'federal_tax_labels' => [
+            'pis' => 'PIS',
+            'cofins' => 'COFINS',
+            'irrf' => 'IRRF',
+            'csll' => 'CSLL',
+        ],
         'readiness_incomplete' => 'There are pending configuration items. Review settings before issuing.',
         'no_pending' => 'No pending invoices to emit.',
         'cancel' => 'Cancel NFS-e',
@@ -211,8 +219,8 @@ return [
             'Service not provided',
             'Others',
         ],
-        'tax_policy_notice' => 'For NFS-e issuance, the canonical taxation source is tab 5. Taxation. Native Akaunting item taxes remain for internal document use.',
-        'tax_policy_notice_with_item_taxes' => 'This invoice has native Akaunting item taxes. In the emitted NFS-e, rules from tab 5. Taxation were applied.',
+        'tax_policy_notice' => 'For NFS-e issuance, federal taxes are derived from invoice item taxes. If required taxes are missing, issuance is blocked.',
+        'tax_policy_notice_with_item_taxes' => 'This invoice has item taxes in Akaunting and they are used to build federal taxes in NFS-e.',
     ],
 
     'settings' => [

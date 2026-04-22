@@ -214,6 +214,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="relative inline-flex items-center">
+                                        @php
+                                            $invoiceEmitReady = (bool) ($invoice->nfse_emit_ready ?? true);
+                                            $invoiceEmitBlockReason = (string) ($invoice->nfse_emit_block_reason ?? '');
+                                        @endphp
                                         <div class="pointer-events-none absolute right-10 top-1/2 z-20 hidden w-72 -translate-y-1/2 rounded-lg border border-indigo-100 bg-white p-3 text-left text-xs text-gray-600 shadow-xl group-hover:block" data-row-quick-view="true">
                                             <p class="font-semibold text-gray-800">{{ $invoice->number ?? $invoice->document_number ?? ('#' . $invoice->id) }}</p>
                                             <p class="mt-1">{{ $invoice->contact?->name ?? '—' }}</p>
@@ -221,6 +225,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <p>{{ trans('general.status') }}: {{ trans('nfse::general.invoices.filter_pending') }}</p>
                                         </div>
 
+                                        @if($invoiceEmitReady)
                                         <form
                                             action="{{ route('nfse.invoices.emit', $invoice) }}"
                                             method="POST"
@@ -361,6 +366,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 <span class="sr-only">{{ trans('nfse::general.invoices.emit_now') }}</span>
                                             </button>
                                         </form>
+                                        @elseif($invoiceEmitBlockReason !== '')
+                                            <span class="inline-flex h-8 items-center text-xs text-gray-500" title="{{ $invoiceEmitBlockReason }}">{{ trans('general.na') }}</span>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

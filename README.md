@@ -87,7 +87,9 @@ Se o ultimo item estiver pendente, a emissao sera bloqueada para evitar falha em
 
 ### Mapeamento de tributos federais por nome
 
-Quando o modo de tributacao federal esta em `per_invoice_amounts` e os campos federais nao estao preenchidos nas configuracoes, o modulo tenta derivar PIS, COFINS, IRRF e CSLL a partir dos impostos dos itens da fatura.
+Na emissao da NFS-e, os tributos federais (PIS/COFINS/IRRF/CSLL) sao derivados dos impostos dos itens da fatura.
+
+Se os tributos federais exigidos para o perfil configurado nao estiverem presentes nos itens, o botao de emissao nao e exibido na listagem pendente e a emissao/reemissao e bloqueada no backend.
 
 Como o cadastro padrao de impostos do Akaunting (`taxes`) nao possui um campo estruturado para codigo fiscal (mantem principalmente `name`, `rate` e `type`), a classificacao e feita pelo texto do nome do imposto.
 

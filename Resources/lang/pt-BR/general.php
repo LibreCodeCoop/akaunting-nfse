@@ -158,6 +158,14 @@ return [
         'refresh_not_allowed_for_cancelled' => 'NFS-e cancelada nao pode ser atualizada por refresh. Use a acao de reemissao quando aplicavel.',
         'emit_blocked_not_ready' => 'Existem configurações pendentes para liberar a emissão.',
         'emit_blocked_no_items' => 'A fatura precisa ter ao menos um item para emitir NFS-e.',
+        'emit_blocked_missing_federal_taxes' => 'A fatura nao possui os tributos federais necessarios para emissao da NFS-e.',
+        'emit_blocked_missing_federal_taxes_with_list' => 'A fatura nao possui os tributos federais necessarios para emissao da NFS-e (:taxes).',
+        'federal_tax_labels' => [
+            'pis' => 'PIS',
+            'cofins' => 'COFINS',
+            'irrf' => 'IRRF',
+            'csll' => 'CSLL',
+        ],
         'readiness_incomplete' => 'Existem pendências de configuração. Revise as configurações antes de emitir.',
         'no_pending' => 'Nenhuma fatura pendente de emissão.',
         'cancel' => 'Cancelar NFS-e',
@@ -209,8 +217,8 @@ return [
             'Serviço não prestado',
             'Outros',
         ],
-        'tax_policy_notice' => 'Para emissão da NFS-e, a fonte canônica de tributação é a aba 5. Tributação. Impostos do item no Akaunting permanecem para uso interno do documento.',
-        'tax_policy_notice_with_item_taxes' => 'Esta fatura possui impostos nativos de item no Akaunting. Na NFS-e emitida, prevaleceram as regras da aba 5. Tributação.',
+        'tax_policy_notice' => 'Para emissao da NFS-e, os tributos federais sao derivados dos impostos dos itens da fatura. Sem os tributos obrigatorios, a emissao e bloqueada.',
+        'tax_policy_notice_with_item_taxes' => 'Esta fatura possui impostos de item no Akaunting e eles sao usados para compor os tributos federais da NFS-e.',
     ],
 
     'settings' => [
