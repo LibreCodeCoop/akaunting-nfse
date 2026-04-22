@@ -2411,33 +2411,140 @@ class InvoiceController extends Controller
 
     protected function federalTaxBucketFromName(string $name): ?string
     {
-        $normalizedName = strtolower(trim($name));
+        $normalizedName = $this->normalizeTaxMatcherString($name);
 
         if ($normalizedName === '') {
             return null;
         }
 
-        if (str_contains($normalizedName, 'cofins')) {
+        $bucketByCodeHint = $this->federalTaxBucketFromCodeHint($normalizedName);
+
+        if ($bucketByCodeHint !== null) {
+            return $bucketByCodeHint;
+        }
+
+        if ($this->containsAnyTaxTerm($normalizedName, [
+            'cofins',
+            'contribuicao para o financiamento da seguridade social',
+            'financiamento da seguridade social',
+        ])) {
             return 'cofins';
         }
 
-        if (str_contains($normalizedName, 'irrf')) {
+        if ($this->containsAnyTaxTerm($normalizedName, [
+            'irrf',
+            'imposto de renda retido na fonte',
+            'renda retida na fonte',
+            'imposto de renda fonte',
+        ])) {
             return 'irrf';
         }
 
-        if (str_contains($normalizedName, 'csll')) {
+        if ($this->containsAnyTaxTerm($normalizedName, [
+            'csll',
+            'contribuicao social sobre o lucro liquido',
+            'contribuicao social lucro liquido',
+        ])) {
             return 'csll';
         }
 
-        if (str_contains($normalizedName, 'inss') || str_contains($normalizedName, 'contribuicao previd')) {
+        if ($this->containsAnyTaxTerm($normalizedName, [
+            'inss',
+            'contribuicao previd',
+            'contribuicao previdenciaria',
+            'previdencia social',
+        ])) {
             return 'cp';
         }
 
-        if (str_contains($normalizedName, 'pis')) {
+        if ($this->containsAnyTaxTerm($normalizedName, [
+            'pis',
+            'pasep',
+            'programa de integracao social',
+            'programa de formacao do patrimonio do servidor publico',
+        ])) {
             return 'pis';
         }
 
         return null;
+    }
+
+    protected function federalTaxBucketFromCodeHint(string $normalizedName): ?string
+    {
+        if (preg_match('/\b(?:cod|codigo|cst)\s*[:\-]?\s*(pis|cofins|irrf|csll|inss|cp)\b/', $normalizedName, $matches) === 1) {
+            return match ($matches[1]) {
+                'pis' => 'pis',
+                'cofins' => 'cofins',
+                'irrf' => 'irrf',
+                'csll' => 'csll',
+                'inss', 'cp' => 'cp',
+                default => null,
+            };
+        }
+
+        if (preg_match('/\[(pis|cofins|irrf|csll|inss|cp)\]/', $normalizedName, $matches) === 1) {
+            return match ($matches[1]) {
+                'pis' => 'pis',
+                'cofins' => 'cofins',
+                'irrf' => 'irrf',
+                'csll' => 'csll',
+                'inss', 'cp' => 'cp',
+                default => null,
+            };
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<string> $terms
+     */
+    protected function containsAnyTaxTerm(string $normalizedName, array $terms): bool
+    {
+        foreach ($terms as $term) {
+            if (str_contains($normalizedName, $term)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function normalizeTaxMatcherString(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        $normalized = strtr($normalized, [
+            'á' => 'a',
+            'à' => 'a',
+            'â' => 'a',
+            'ã' => 'a',
+            'ä' => 'a',
+            'é' => 'e',
+            'è' => 'e',
+            'ê' => 'e',
+            'ë' => 'e',
+            'í' => 'i',
+            'ì' => 'i',
+            'î' => 'i',
+            'ï' => 'i',
+            'ó' => 'o',
+            'ò' => 'o',
+            'ô' => 'o',
+            'õ' => 'o',
+            'ö' => 'o',
+            'ú' => 'u',
+            'ù' => 'u',
+            'û' => 'u',
+            'ü' => 'u',
+            'ç' => 'c',
+        ]);
+
+        $collapsed = preg_replace('/[^a-z0-9\[\]\-:\s]+/', ' ', $normalized);
+        $collapsed = is_string($collapsed) ? $collapsed : $normalized;
+
+        $singleSpaced = preg_replace('/\s+/', ' ', $collapsed);
+
+        return trim(is_string($singleSpaced) ? $singleSpaced : $collapsed);
     }
 
     protected function formattedPositiveDecimal(float $value): string

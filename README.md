@@ -85,6 +85,32 @@ Ela precisa indicar **Sim** para todos os itens, incluindo:
 
 Se o ultimo item estiver pendente, a emissao sera bloqueada para evitar falha em tempo de envio.
 
+### Mapeamento de tributos federais por nome
+
+Quando o modo de tributacao federal esta em `per_invoice_amounts` e os campos federais nao estao preenchidos nas configuracoes, o modulo tenta derivar PIS, COFINS, IRRF e CSLL a partir dos impostos dos itens da fatura.
+
+Como o cadastro padrao de impostos do Akaunting (`taxes`) nao possui um campo estruturado para codigo fiscal (mantem principalmente `name`, `rate` e `type`), a classificacao e feita pelo texto do nome do imposto.
+
+Termos reconhecidos (com normalizacao de acentos e caixa):
+
+- PIS: `pis`, `pasep`, `programa de integracao social`
+- COFINS: `cofins`, `financiamento da seguridade social`
+- IRRF: `irrf`, `imposto de renda retido na fonte`, `renda retida na fonte`
+- CSLL: `csll`, `contribuicao social sobre o lucro liquido`
+- CP (previdenciaria): `inss`, `contribuicao previdenciaria`, `previdencia social`
+
+Tambem sao aceitos hints de codigo textual no nome, por exemplo:
+
+- `cod:pis`
+- `codigo irrf`
+- `cst:cofins`
+- `[csll]`
+
+Recomendacao para reduzir ambiguidades:
+
+- Inclua sempre o identificador explicito no nome do imposto (ex.: `IRRF - Servicos` ou `cod:irrf - Servicos PJ`).
+- Evite depender apenas de codigos numericos no nome (ex.: apenas `0561`), pois esses codigos variam por contexto fiscal e nao sao suficientes, sozinhos, para classificacao automatica segura no modulo.
+
 #### Desenvolvimento
 
 O ambiente de desenvolvimento utiliza o [akaunting-docker](https://github.com/LibreCodeCoop/akaunting-docker), que já inclui o OpenBao no `docker-compose.override.yml`.
