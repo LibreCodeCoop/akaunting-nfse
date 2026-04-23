@@ -336,6 +336,14 @@ class InvoiceController extends Controller
 
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed')));
+        } catch (\JsonException $e) {
+            $this->safeLogError('NFS-e issuance failed due invalid gateway response payload', [
+                'invoice_id' => $invoice->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (PfxImportException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
@@ -701,6 +709,14 @@ class InvoiceController extends Controller
                 ->with('nfse_gateway_error_detail', $gatewayDetail));
         } catch (NetworkException $e) {
             $this->safeLogError('NFS-e reissuance failed due network/transport error', [
+                'invoice_id' => $invoice->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_reemit_failed')));
+        } catch (\JsonException $e) {
+            $this->safeLogError('NFS-e reissuance failed due invalid gateway response payload', [
                 'invoice_id' => $invoice->id,
                 'message' => $e->getMessage(),
             ]);
@@ -2460,7 +2476,7 @@ class InvoiceController extends Controller
             ? number_format($invoiceAmount * (float) $aliquotaPis / 100, 2, '.', '')
             : '';
 
-        if (($federalMode === 'per_invoice_amounts' || $valorPis === '') && $invoiceFederalTaxes['pis_value'] !== '') {
+        if ($valorPis === '' && $invoiceFederalTaxes['pis_value'] !== '') {
             $valorPis = $invoiceFederalTaxes['pis_value'];
         }
 
@@ -2468,7 +2484,7 @@ class InvoiceController extends Controller
             ? number_format($invoiceAmount * (float) $aliquotaCofins / 100, 2, '.', '')
             : '';
 
-        if (($federalMode === 'per_invoice_amounts' || $valorCofins === '') && $invoiceFederalTaxes['cofins_value'] !== '') {
+        if ($valorCofins === '' && $invoiceFederalTaxes['cofins_value'] !== '') {
             $valorCofins = $invoiceFederalTaxes['cofins_value'];
         }
 
@@ -2903,6 +2919,8 @@ class InvoiceController extends Controller
     protected function makeClient(bool $sandboxMode): NfseClientInterface
     {
         $cnpj = (string) setting('nfse.cnpj_prestador', '');
+        $secretStore = $this->makeSecretStore();
+        [$transportCertificatePath, $transportPrivateKeyPath] = $this->resolveTransportCertificatePaths($cnpj, $secretStore);
 
         return new NfseClient(
             environment: new EnvironmentConfig(sandboxMode: $sandboxMode),
@@ -2910,11 +2928,160 @@ class InvoiceController extends Controller
                 cnpj:      $cnpj,
                 pfxPath:   storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
                 vaultPath: 'pfx/' . $cnpj,
-                transportCertificatePath: $this->existingProjectRootPath('client.crt.pem'),
-                transportPrivateKeyPath: $this->existingProjectRootPath('client.key.pem'),
+                transportCertificatePath: $transportCertificatePath,
+                transportPrivateKeyPath: $transportPrivateKeyPath,
             ),
-            secretStore: $this->makeSecretStore(),
+            secretStore: $secretStore,
         );
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string}
+     */
+    protected function resolveTransportCertificatePaths(string $cnpj, OpenBaoSecretStore $secretStore): array
+    {
+        $transportCertificatePath = $this->existingProjectRootPath('client.crt.pem');
+        $transportPrivateKeyPath = $this->existingProjectRootPath('client.key.pem');
+
+        if ($transportCertificatePath !== null && $transportPrivateKeyPath !== null) {
+            return [$transportCertificatePath, $transportPrivateKeyPath];
+        }
+
+        return $this->buildTransportPemFromPfx($cnpj, $secretStore);
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string}
+     */
+    protected function buildTransportPemFromPfx(string $cnpj, OpenBaoSecretStore $secretStore): array
+    {
+        if ($cnpj === '' || !function_exists('openssl_pkcs12_read')) {
+            return [null, null];
+        }
+
+        $pfxPath = storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
+
+        if (!is_file($pfxPath)) {
+            return [null, null];
+        }
+
+        try {
+            $secret = $secretStore->get('pfx/' . $cnpj);
+            $password = (string) ($secret['password'] ?? '');
+
+            if ($password === '') {
+                return [null, null];
+            }
+
+            $pfxContent = file_get_contents($pfxPath);
+
+            if (!is_string($pfxContent) || $pfxContent === '') {
+                return [null, null];
+            }
+
+            $certs = [];
+
+            if (!openssl_pkcs12_read($pfxContent, $certs, $password)) {
+                $legacyPem = $this->extractLegacyPemMaterial($pfxContent, $password);
+
+                if ($legacyPem === null) {
+                    return [null, null];
+                }
+
+                [$privateKey, $certificate] = $legacyPem;
+            } else {
+                $certificate = (string) ($certs['cert'] ?? '');
+                $privateKey = (string) ($certs['pkey'] ?? '');
+            }
+
+            if ($certificate === '' || $privateKey === '') {
+                return [null, null];
+            }
+
+            $runtimeDirectory = storage_path('app/nfse/runtime/transport');
+
+            if (!is_dir($runtimeDirectory)) {
+                mkdir($runtimeDirectory, 0o700, true);
+            }
+
+            $certificatePath = $runtimeDirectory . DIRECTORY_SEPARATOR . $cnpj . '.crt.pem';
+            $privateKeyPath = $runtimeDirectory . DIRECTORY_SEPARATOR . $cnpj . '.key.pem';
+
+            file_put_contents($certificatePath, $certificate);
+            file_put_contents($privateKeyPath, $privateKey);
+
+            @chmod($certificatePath, 0o600);
+            @chmod($privateKeyPath, 0o600);
+
+            if (is_file($certificatePath) && is_file($privateKeyPath)) {
+                return [$certificatePath, $privateKeyPath];
+            }
+        } catch (\Throwable) {
+            // Best-effort fallback only; caller can continue without transport certs.
+        }
+
+        return [null, null];
+    }
+
+    /**
+     * @return array{0: string, 1: string}|null [privateKeyPem, certificatePem]
+     */
+    protected function extractLegacyPemMaterial(string $pfxContent, string $password): ?array
+    {
+        $tmpIn = tempnam(sys_get_temp_dir(), 'nfse_mt_in_');
+        $tmpOut = tempnam(sys_get_temp_dir(), 'nfse_mt_out_');
+
+        if ($tmpIn === false || $tmpOut === false) {
+            return null;
+        }
+
+        try {
+            file_put_contents($tmpIn, $pfxContent);
+
+            putenv('NFSE_PFX_PASS=' . $password);
+
+            $command = sprintf(
+                'openssl pkcs12 -legacy -in %s -passin env:NFSE_PFX_PASS -nodes -out %s 2>/dev/null',
+                escapeshellarg($tmpIn),
+                escapeshellarg($tmpOut)
+            );
+
+            exec($command, result_code: $exitCode);
+
+            if ($exitCode !== 0) {
+                return null;
+            }
+
+            $pemBundle = file_get_contents($tmpOut);
+
+            if (!is_string($pemBundle) || $pemBundle === '') {
+                return null;
+            }
+
+            if (
+                preg_match('/(-----BEGIN (?:RSA |ENCRYPTED )?PRIVATE KEY-----.*?-----END (?:RSA |ENCRYPTED )?PRIVATE KEY-----)/s', $pemBundle, $privateKeyMatch) !== 1
+                || preg_match('/(-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----)/s', $pemBundle, $certificateMatch) !== 1
+            ) {
+                return null;
+            }
+
+            $privateKey = $privateKeyMatch[1];
+            $certificate = $certificateMatch[1];
+
+            return [trim($privateKey) . PHP_EOL, trim($certificate) . PHP_EOL];
+        } catch (\Throwable) {
+            return null;
+        } finally {
+            putenv('NFSE_PFX_PASS');
+
+            if (is_file($tmpIn)) {
+                @unlink($tmpIn);
+            }
+
+            if (is_file($tmpOut)) {
+                @unlink($tmpOut);
+            }
+        }
     }
 
     protected function existingProjectRootPath(string $relativePath): ?string
