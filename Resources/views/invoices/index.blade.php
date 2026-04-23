@@ -697,6 +697,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             </form>
                                         @endif
 
+                                        @if(($receipt->status ?? '') === 'emitted')
+                                            <a href="{{ route('nfse.invoices.artifacts.download', ['invoice' => $receipt->invoice_id, 'artifact' => 'danfse']) }}" title="{{ trans('nfse::general.invoices.artifact_danfse_label') }}" class="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-100">
+                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clip-rule="evenodd" />
+                                                </svg>
+                                                <span class="sr-only">{{ trans('nfse::general.invoices.artifact_danfse_label') }}</span>
+                                            </a>
+                                            <a href="{{ route('nfse.invoices.artifacts.download', ['invoice' => $receipt->invoice_id, 'artifact' => 'xml']) }}" title="{{ trans('nfse::general.invoices.artifact_xml_label') }}" class="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-100">
+                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                                                </svg>
+                                                <span class="sr-only">{{ trans('nfse::general.invoices.artifact_xml_label') }}</span>
+                                            </a>
+                                        @endif
+
                                         <a href="{{ route('nfse.invoices.show', $receipt->invoice_id) }}" title="{{ trans('nfse::general.invoices.view') }}" class="inline-flex h-8 w-8 items-center justify-center rounded border border-indigo-200 text-indigo-700 hover:bg-indigo-50">
                                             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                 <path d="M10 4.5c-4 0-7.33 2.33-9 5.5 1.67 3.17 5 5.5 9 5.5s7.33-2.33 9-5.5c-1.67-3.17-5-5.5-9-5.5zm0 9a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" />
