@@ -15,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use LibreCodeCoop\NfsePHP\Config\CertConfig;
 use LibreCodeCoop\NfsePHP\Config\EnvironmentConfig;
 use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
@@ -2522,7 +2523,17 @@ class InvoiceController extends Controller
             'cp' => 0.0,
         ];
 
+        $rateTotals = [
+            'pis' => 0.0,
+            'cofins' => 0.0,
+            'irrf' => 0.0,
+            'csll' => 0.0,
+            'cp' => 0.0,
+        ];
+
         $seenTaxes = [];
+        $seenRateKeys = [];
+        $taxRateById = [];
 
         foreach ($this->invoiceItemsAsArray($invoice) as $item) {
             $taxes = [];
@@ -2616,20 +2627,109 @@ class InvoiceController extends Controller
                 }
 
                 $totals[$bucket] += $amount;
+
+                $resolvedRate = $this->resolveFederalTaxRate($tax, $taxRateById);
+
+                if ($resolvedRate === null || $resolvedRate <= 0) {
+                    continue;
+                }
+
+                $rateKey = $this->federalTaxRateDedupKey($tax, $bucket, $name, $resolvedRate);
+
+                if (isset($seenRateKeys[$rateKey])) {
+                    continue;
+                }
+
+                $seenRateKeys[$rateKey] = true;
+                $rateTotals[$bucket] += $resolvedRate;
             }
         }
 
         $federalTotal = $totals['pis'] + $totals['cofins'] + $totals['irrf'] + $totals['csll'] + $totals['cp'];
+        $federalRateTotal = $rateTotals['pis'] + $rateTotals['cofins'] + $rateTotals['irrf'] + $rateTotals['csll'] + $rateTotals['cp'];
+
+        $pisRate = $rateTotals['pis'] > 0
+            ? number_format($rateTotals['pis'], 2, '.', '')
+            : $this->formattedTaxRate($totals['pis'], $invoiceAmount);
+
+        $cofinsRate = $rateTotals['cofins'] > 0
+            ? number_format($rateTotals['cofins'], 2, '.', '')
+            : $this->formattedTaxRate($totals['cofins'], $invoiceAmount);
+
+        $federalPercent = $federalRateTotal > 0
+            ? number_format($federalRateTotal, 2, '.', '')
+            : $this->formattedTaxRate($federalTotal, $invoiceAmount);
 
         return [
             'pis_value' => $this->formattedPositiveDecimal($totals['pis']),
-            'pis_rate' => $this->formattedTaxRate($totals['pis'], $invoiceAmount),
+            'pis_rate' => $pisRate,
             'cofins_value' => $this->formattedPositiveDecimal($totals['cofins']),
-            'cofins_rate' => $this->formattedTaxRate($totals['cofins'], $invoiceAmount),
+            'cofins_rate' => $cofinsRate,
             'irrf_value' => $this->formattedPositiveDecimal($totals['irrf']),
             'csll_value' => $this->formattedPositiveDecimal($totals['csll']),
-            'federal_percent' => $this->formattedTaxRate($federalTotal, $invoiceAmount),
+            'federal_percent' => $federalPercent,
         ];
+    }
+
+    protected function resolveFederalTaxRate(mixed $tax, array &$taxRateById): ?float
+    {
+        $inlineRate = is_array($tax)
+            ? ($tax['rate'] ?? null)
+            : ($tax->rate ?? null);
+
+        if (is_numeric($inlineRate)) {
+            $rate = (float) $inlineRate;
+
+            return $rate > 0 ? $rate : null;
+        }
+
+        $taxIdRaw = is_array($tax)
+            ? ($tax['tax_id'] ?? null)
+            : ($tax->tax_id ?? null);
+
+        if (!is_numeric($taxIdRaw)) {
+            return null;
+        }
+
+        $taxId = (int) $taxIdRaw;
+
+        if ($taxId <= 0) {
+            return null;
+        }
+
+        if (array_key_exists($taxId, $taxRateById)) {
+            return $taxRateById[$taxId];
+        }
+
+        $resolvedRate = null;
+
+        try {
+            $rateValue = DB::table('taxes')->where('id', $taxId)->value('rate');
+
+            if (is_numeric($rateValue)) {
+                $rateFloat = (float) $rateValue;
+                $resolvedRate = $rateFloat > 0 ? $rateFloat : null;
+            }
+        } catch (\Throwable) {
+            $resolvedRate = null;
+        }
+
+        $taxRateById[$taxId] = $resolvedRate;
+
+        return $resolvedRate;
+    }
+
+    protected function federalTaxRateDedupKey(mixed $tax, string $bucket, string $name, float $rate): string
+    {
+        $taxIdRaw = is_array($tax)
+            ? ($tax['tax_id'] ?? null)
+            : ($tax->tax_id ?? null);
+
+        if (is_numeric($taxIdRaw) && (int) $taxIdRaw > 0) {
+            return $bucket . '|tax_id:' . (int) $taxIdRaw;
+        }
+
+        return $bucket . '|name:' . strtolower($name) . '|rate:' . number_format($rate, 4, '.', '');
     }
 
     protected function federalTaxBucketFromName(string $name): ?string
