@@ -69,7 +69,6 @@ return [
             'bao_mount' => 'OpenBao mount configured',
             'certificate' => 'Local certificate available',
             'certificate_secret' => 'Certificate secret available in Vault',
-            'transport_certificate' => 'Transport PEM certificate and key available at the project root',
         ],
     ],
 

@@ -913,8 +913,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             }
 
             file_put_contents($certificateDir . '/12345678000195.pfx', 'fake-certificate');
-            file_put_contents(ControllerIsolationState::$storageRoot . '/client.crt.pem', 'fake-transport-certificate');
-            file_put_contents(ControllerIsolationState::$storageRoot . '/client.key.pem', 'fake-transport-private-key');
         }
 
         public function testEmitBuildsDpsPersistsReceiptAndRedirectsToShowPage(): void
