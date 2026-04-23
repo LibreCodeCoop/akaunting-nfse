@@ -2237,8 +2237,6 @@ class InvoiceController extends Controller
         $settings = is_array($settings) ? $settings : [];
         $cnpj = (string) ($settings['cnpj_prestador'] ?? '');
         $certificatePath = $cnpj !== '' ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx') : '';
-        $transportCertificatePath = $this->projectRootPath('client.crt.pem');
-        $transportPrivateKeyPath = $this->projectRootPath('client.key.pem');
 
         $checklist = [
             'cnpj_prestador' => $cnpj !== '',
@@ -2246,7 +2244,6 @@ class InvoiceController extends Controller
             'item_lista_servico' => $this->itemListaServico() !== '',
             'certificate' => $certificatePath !== '' && is_file($certificatePath),
             'certificate_secret' => $this->hasCertificateSecret($cnpj),
-            'transport_certificate' => is_file($transportCertificatePath) && is_file($transportPrivateKeyPath),
         ];
 
         return [
