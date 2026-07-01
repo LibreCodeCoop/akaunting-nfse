@@ -329,6 +329,14 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed'))
                 ->with('nfse_gateway_error_detail', $gatewayDetail));
+        } catch (\JsonException $e) {
+            $this->safeLogError('NFS-e issuance failed due invalid non-JSON gateway response', [
+                'invoice_id' => $invoice->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (NetworkException $e) {
             $this->safeLogError('NFS-e issuance failed due network/transport error', [
                 'invoice_id' => $invoice->id,
