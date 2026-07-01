@@ -77,91 +77,94 @@ JS API: window.nfseOpenResultModal(title, bodyHtml, viewUrl, reloadOnClose)
     </div>
 </div>
 
-<script>
-    (() => {
-        let nfseResultReloadOnClose = false;
-        const getModal     = () => document.getElementById('nfse-result-modal');
-        const getTitle     = () => document.getElementById('nfse-result-modal-title');
-        const getContent   = () => document.getElementById('nfse-result-modal-content');
-        const getLoading   = () => document.getElementById('nfse-result-modal-loading');
-        const getViewLink  = () => document.getElementById('nfse-result-modal-view-link');
-        const getIconOk    = () => document.getElementById('nfse-result-modal-icon-success');
-        const getIconErr   = () => document.getElementById('nfse-result-modal-icon-error');
+@once
+    @push('scripts')
+    <script>
+        (() => {
+            let nfseResultReloadOnClose = false;
+            const getModal     = () => document.getElementById('nfse-result-modal');
+            const getTitle     = () => document.getElementById('nfse-result-modal-title');
+            const getContent   = () => document.getElementById('nfse-result-modal-content');
+            const getLoading   = () => document.getElementById('nfse-result-modal-loading');
+            const getViewLink  = () => document.getElementById('nfse-result-modal-view-link');
+            const getIconOk    = () => document.getElementById('nfse-result-modal-icon-success');
+            const getIconErr   = () => document.getElementById('nfse-result-modal-icon-error');
 
-        /**
-         * @param {string}       title         - Modal header title
-         * @param {string}       message       - Plain-text message shown in the body (when partialUrl is absent)
-         * @param {string|null}  partialUrl    - URL to fetch and render as the modal body (HTML fragment)
-         * @param {string|null}  viewUrl       - URL for the "Ver NFS-e" button; null hides it
-         * @param {boolean}      reloadOnClose - Reload the page when the modal is closed
-         * @param {boolean}      isSuccess     - Controls icon and header colour
-         */
-        window.nfseOpenResultModal = (title, message, partialUrl, viewUrl, reloadOnClose, isSuccess) => {
-            const resultModal    = getModal();
-            const resultTitle    = getTitle();
-            const resultContent  = getContent();
-            const resultLoading  = getLoading();
-            const resultViewLink = getViewLink();
-            const resultIconOk   = getIconOk();
-            const resultIconErr  = getIconErr();
+            /**
+             * @param {string}       title         - Modal header title
+             * @param {string}       message       - Plain-text message shown in the body (when partialUrl is absent)
+             * @param {string|null}  partialUrl    - URL to fetch and render as the modal body (HTML fragment)
+             * @param {string|null}  viewUrl       - URL for the "Ver NFS-e" button; null hides it
+             * @param {boolean}      reloadOnClose - Reload the page when the modal is closed
+             * @param {boolean}      isSuccess     - Controls icon and header colour
+             */
+            window.nfseOpenResultModal = (title, message, partialUrl, viewUrl, reloadOnClose, isSuccess) => {
+                const resultModal    = getModal();
+                const resultTitle    = getTitle();
+                const resultContent  = getContent();
+                const resultLoading  = getLoading();
+                const resultViewLink = getViewLink();
+                const resultIconOk   = getIconOk();
+                const resultIconErr  = getIconErr();
 
-            if (!resultModal) { return; }
+                if (!resultModal) { return; }
 
-            nfseResultReloadOnClose = Boolean(reloadOnClose);
+                nfseResultReloadOnClose = Boolean(reloadOnClose);
 
-            if (resultTitle)  { resultTitle.textContent = title ?? ''; }
+                if (resultTitle)  { resultTitle.textContent = title ?? ''; }
 
-            if (resultIconOk)  { resultIconOk.classList.toggle('hidden', !isSuccess); }
-            if (resultIconErr) { resultIconErr.classList.toggle('hidden', isSuccess); }
+                if (resultIconOk)  { resultIconOk.classList.toggle('hidden', !isSuccess); }
+                if (resultIconErr) { resultIconErr.classList.toggle('hidden', isSuccess); }
 
-            if (resultViewLink) {
-                if (viewUrl) {
-                    resultViewLink.href = String(viewUrl);
-                    resultViewLink.classList.remove('hidden');
-                } else {
-                    resultViewLink.classList.add('hidden');
+                if (resultViewLink) {
+                    if (viewUrl) {
+                        resultViewLink.href = String(viewUrl);
+                        resultViewLink.classList.remove('hidden');
+                    } else {
+                        resultViewLink.classList.add('hidden');
+                    }
                 }
-            }
 
-            resultModal.classList.remove('hidden');
-            resultModal.setAttribute('aria-hidden', 'false');
-            document.body.classList.add('overflow-hidden');
+                resultModal.classList.remove('hidden');
+                resultModal.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('overflow-hidden');
 
-            if (partialUrl) {
-                if (resultLoading)  { resultLoading.classList.remove('hidden'); }
-                if (resultContent)  { resultContent.innerHTML = ''; }
+                if (partialUrl) {
+                    if (resultLoading)  { resultLoading.classList.remove('hidden'); }
+                    if (resultContent)  { resultContent.innerHTML = ''; }
 
-                fetch(partialUrl, { headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' } })
-                    .then(async (r) => {
-                        const html = await r.text();
-                        if (resultContent)  { resultContent.innerHTML = html; }
-                        if (resultLoading)  { resultLoading.classList.add('hidden'); }
-                    })
-                    .catch(() => {
-                        if (resultContent)  { resultContent.textContent = message ?? ''; }
-                        if (resultLoading)  { resultLoading.classList.add('hidden'); }
-                    });
-            } else {
-                if (resultLoading) { resultLoading.classList.add('hidden'); }
-                if (resultContent) { resultContent.textContent = message ?? ''; }
-            }
+                    fetch(partialUrl, { headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(async (r) => {
+                            const html = await r.text();
+                            if (resultContent)  { resultContent.innerHTML = html; }
+                            if (resultLoading)  { resultLoading.classList.add('hidden'); }
+                        })
+                        .catch(() => {
+                            if (resultContent)  { resultContent.textContent = message ?? ''; }
+                            if (resultLoading)  { resultLoading.classList.add('hidden'); }
+                        });
+                } else {
+                    if (resultLoading) { resultLoading.classList.add('hidden'); }
+                    if (resultContent) { resultContent.textContent = message ?? ''; }
+                }
 
-            // Attach close listeners lazily (safe to re-attach with once)
-            resultModal.querySelectorAll('[data-result-close="true"]').forEach((btn) => {
-                btn.addEventListener('click', window.nfseCloseResultModal, { once: true });
-            });
-        };
+                resultModal.querySelectorAll('[data-result-close="true"]').forEach((btn) => {
+                    btn.addEventListener('click', window.nfseCloseResultModal, { once: true });
+                });
+            };
 
-        window.nfseCloseResultModal = () => {
-            const resultModal = getModal();
-            if (!resultModal) { return; }
-            resultModal.classList.add('hidden');
-            resultModal.setAttribute('aria-hidden', 'true');
-            document.body.classList.remove('overflow-hidden');
-            if (nfseResultReloadOnClose) {
-                nfseResultReloadOnClose = false;
-                window.location.reload();
-            }
-        };
-    })();
-</script>
+            window.nfseCloseResultModal = () => {
+                const resultModal = getModal();
+                if (!resultModal) { return; }
+                resultModal.classList.add('hidden');
+                resultModal.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('overflow-hidden');
+                if (nfseResultReloadOnClose) {
+                    nfseResultReloadOnClose = false;
+                    window.location.reload();
+                }
+            };
+        })();
+    </script>
+    @endpush
+@endonce
