@@ -96,6 +96,7 @@ class NfseIssued extends Notification
             '{invoice_number}',
             '{nfse_number}',
             '{chave_acesso}',
+            '{invoice_amount_due}',
             '{customer_name}',
             '{company_name}',
             '{company_contact_name}',
@@ -136,6 +137,7 @@ class NfseIssued extends Notification
             (string) ($this->invoice->document_number ?? ''),
             (string) ($this->receipt->nfse_number ?? ''),
             (string) ($this->receipt->chave_acesso ?? ''),
+            $this->resolveInvoiceAmountDueReplacement(),
             (string) ($this->invoice->contact_name ?? ''),
             (string) ($this->invoice->company?->name ?? ''),
             $this->resolveCompanyContactField('name', (string) ($this->invoice->company?->name ?? '')),
@@ -143,6 +145,38 @@ class NfseIssued extends Notification
             $this->resolveCompanyContactField('phone', (string) ($this->invoice->company?->phone ?? '')),
             $issueDate,
         ];
+    }
+
+    protected function resolveInvoiceAmountDueReplacement(): string
+    {
+        $amountDue = $this->resolveInvoiceAmountDueValue();
+        $currencyCode = trim((string) ($this->invoice->currency_code ?? ''));
+
+        if ($currencyCode !== '') {
+            if (function_exists('money')) {
+                try {
+                    return (string) money($amountDue, $currencyCode);
+                } catch (\Throwable) {
+                    // Fall back to a plain numeric representation in isolated contexts.
+                }
+            }
+        }
+
+        return number_format($amountDue, 2, '.', '');
+    }
+
+    protected function resolveInvoiceAmountDueValue(): float
+    {
+        $amountDue = $this->invoice->amount_due ?? null;
+
+        if (is_numeric($amountDue)) {
+            return (float) $amountDue;
+        }
+
+        $amount = is_numeric($this->invoice->amount ?? null) ? (float) $this->invoice->amount : 0.0;
+        $paid = is_numeric($this->invoice->paid ?? null) ? (float) $this->invoice->paid : 0.0;
+
+        return $amount - $paid;
     }
 
     protected function resolveCompanyContactField(string $field, string $fallback = ''): string
