@@ -308,13 +308,19 @@ test('typing in email body keeps email tab content visible in emit modal', async
   await expect(subject).toBeVisible();
   await expect(editor).toBeVisible();
 
+  const typedText = 'Teste E2E: digitar no body deve manter a aba Email visivel.';
+
   await editor.click({ force: true });
-  await page.keyboard.type('Teste E2E: digitar no body deve manter a aba Email visivel.', { delay: 10 });
+  await page.keyboard.type(typedText, { delay: 10 });
 
   await expect(emailPane).toBeVisible();
   await expect(emailFields).toBeVisible();
   await expect(subject).toBeVisible();
   await expect(editor).toBeVisible();
+  await expect.poll(async () => getEditorText(editor)).toContain(typedText);
+  await expect.poll(async () => {
+    return editor.evaluate((node) => node.contains(document.activeElement));
+  }).toBeTruthy();
 });
 
 test('restore default button reacts to subject and body edits in emit modal', async ({ page }, testInfo) => {
