@@ -116,6 +116,11 @@ namespace Modules\Nfse\Http\Controllers {
         {
             ControllerIsolationState::$sessionFlash[$key] = $value;
         }
+
+        public function get(string $key, mixed $default = null): mixed
+        {
+            return ControllerIsolationState::$sessionFlash[$key] ?? $default;
+        }
     }
 
     final class ControllerIsolationResponseFactory
