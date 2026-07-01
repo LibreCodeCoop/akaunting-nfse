@@ -154,7 +154,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             parent::setUp();
 
             if (!class_exists(\App\Models\Document\Document::class, false)) {
-                eval('namespace App\\Models\\Document; class Document { public string $document_number = ""; public string $contact_name = ""; public float $amount = 0.0; public float $amount_due = 0.0; public float $paid = 0.0; public string $currency_code = "BRL"; public ?object $company = null; }');
+                eval('namespace App\\Models\\Document; class Document { public string $document_number = ""; public string $contact_name = ""; public float $amount = 0.0; public float $amount_due = 0.0; public float $paid = 0.0; public string $currency_code = "BRL"; public $due_at = null; public ?object $company = null; }');
             }
 
             if (!class_exists(\Modules\Nfse\Models\NfseReceipt::class, false)) {
@@ -248,6 +248,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertContains('{nfse_number}', $tags);
             self::assertContains('{chave_acesso}', $tags);
             self::assertContains('{invoice_amount_due}', $tags);
+            self::assertContains('{invoice_due_date}', $tags);
             self::assertContains('{customer_name}', $tags);
             self::assertContains('{company_name}', $tags);
             self::assertContains('{company_contact_name}', $tags);
@@ -261,6 +262,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $this->makeTemplate();
             $invoice = $this->makeInvoice('INV-123', 'Empresa ABC');
             $invoice->amount_due = 321.45;
+            $invoice->due_at = new \DateTimeImmutable('2026-05-10 00:00:00');
             $receipt = $this->makeReceipt('9988');
             $receipt->chave_acesso = 'ACESSO-XYZ';
             $this->assignIssueDate($receipt, '2026-04-14 10:15:00');
@@ -271,6 +273,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertContains('9988', $replacements);
             self::assertContains('ACESSO-XYZ', $replacements);
             self::assertContains('321.45', $replacements);
+            self::assertContains('10/05/2026', $replacements);
             self::assertContains('Empresa ABC', $replacements);
             self::assertContains('Contato Primario', $replacements);
             self::assertContains('contato.primario@example.com', $replacements);
@@ -377,6 +380,27 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
 
             self::assertStringContainsString('Valor líquido a pagar: 789.01', $body);
             self::assertStringNotContainsString('{invoice_amount_due}', $body);
+        }
+
+        public function testGetBodyReplacesInvoiceDueDatePlaceholderWhenCustomBodyProvided(): void
+        {
+            $this->makeTemplate();
+
+            $invoice = $this->makeInvoice('INV-789', 'Cliente Prazo');
+            $invoice->due_at = new \DateTimeImmutable('2026-06-15 00:00:00');
+
+            $notification = new NfseIssued(
+                $invoice,
+                $this->makeReceipt('77881'),
+                true,
+                true,
+                ['body' => 'Vencimento: {invoice_due_date}']
+            );
+
+            $body = (string) $notification->getBody();
+
+            self::assertStringContainsString('Vencimento: 15/06/2026', $body);
+            self::assertStringNotContainsString('{invoice_due_date}', $body);
         }
 
         public function testToMailNormalizesLegacyArrayRecipientPayload(): void
