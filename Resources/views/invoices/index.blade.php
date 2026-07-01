@@ -230,7 +230,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             action="{{ route('nfse.invoices.emit', $invoice) }}"
                                             method="POST"
                                             class="inline-flex"
-                                            data-emit-form="false"
+                                            data-emit-form="true"
                                             data-preview-url="{{ route('nfse.invoices.service-preview', $invoice) }}"
                                             data-emit-confirm-label="{{ trans('nfse::general.invoices.emit_now') }}"
                                             onsubmit="
@@ -353,9 +353,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <input type="hidden" name="nfse_email_attach_xml" value="1" data-emit-email-attach-xml-input>
                                             <input type="hidden" name="nfse_email_save_default" value="0" data-emit-email-save-default-input>
                                             <button
-                                                type="button"
+                                                type="submit"
                                                 @if(!$isReady) disabled @endif
-                                                @click="onSendEmail('{{ route('nfse.modals.invoices.emails.create', $invoice->id) }}')"
                                                 title="{{ trans('nfse::general.invoices.emit_now') }}"
                                                 data-emit-trigger="true"
                                                 class="inline-flex h-8 w-8 items-center justify-center rounded border @if($isReady) border-indigo-200 text-indigo-700 hover:bg-indigo-50 @else border-gray-300 text-gray-400 cursor-not-allowed @endif"
@@ -470,7 +469,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 action="{{ route('nfse.invoices.reemit', $receipt->invoice_id) }}"
                                                 method="POST"
                                                 class="inline-flex"
-                                                data-emit-form="false"
+                                                data-emit-form="true"
                                                 data-preview-url="{{ route('nfse.invoices.service-preview', $receipt->invoice_id) }}"
                                                 data-emit-confirm-label="{{ trans('nfse::general.invoices.reemit') }}"
                                                 onsubmit="
@@ -688,7 +687,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 <input type="hidden" name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input>
                                                 <input type="hidden" name="nfse_email_attach_xml" value="1" data-emit-email-attach-xml-input>
                                                 <input type="hidden" name="nfse_email_save_default" value="0" data-emit-email-save-default-input>
-                                                <button type="button" @click="onSendEmail('{{ route('nfse.modals.invoices.emails.create', $receipt->invoice_id) }}')" title="{{ trans('nfse::general.invoices.reemit') }}" data-emit-trigger="true" class="inline-flex h-8 w-8 items-center justify-center rounded border border-green-200 text-green-700 hover:bg-green-50">
+                                                <button type="submit" title="{{ trans('nfse::general.invoices.reemit') }}" data-emit-trigger="true" class="inline-flex h-8 w-8 items-center justify-center rounded border border-green-200 text-green-700 hover:bg-green-50">
                                                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                         <path d="M10 3a7 7 0 00-6.32 4H1l3 3 3-3H4.85A5 5 0 1110 15a1 1 0 100 2 7 7 0 000-14z" />
                                                     </svg>
@@ -974,8 +973,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         </div>
 
+        @push('scripts')
         <script>
             (() => {
+                const initNfseInvoicePage = () => {
                 const cookieFilters = @json($searchStringCookieFilters ?? []);
 
                 const nfseEmitEditorState = {
@@ -1310,19 +1311,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     console.log('[NFS-e Emit Modal] Applied email defaults:', { send_email: emitModalSendEmailInput?.checked, fields_hidden: emitModalEmailFields?.classList.contains('hidden') });
                 };
 
-                const closeEmitModal = () => {
+                const closeEmitModal = (force = false) => {
                     if (!emitModal) {
                         return;
                     }
 
-                    if (emitModal.dataset.submitting === '1') {
+                    if (!force && emitModal.dataset.submitting === '1') {
                         return;
+                    }
+
+                    if (force) {
+                        setEmitSubmittingState(false);
                     }
 
                     emitModal.classList.add('hidden');
                     emitModal.setAttribute('aria-hidden', 'true');
                     document.body.classList.remove('overflow-hidden');
                     currentEmitForm = null;
+                    delete emitModal.dataset.currentFormId;
 
                     const emitErrMsg = document.getElementById('nfse-emit-error-msg');
                     if (emitErrMsg) {
@@ -1351,9 +1357,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         attach_xml: true,
                     });
 
-                    if (emitModalConfirmButton) {
-                        setEmitSubmittingState(false);
-                    }
+                    setEmitSubmittingState(false);
                 };
 
                 const openEmitModal = (confirmLabel, descriptionValue, emailDefaults = {}) => {
@@ -1481,7 +1485,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 });
 
                 window.nfseConfirmEmit = () => {
-                    const form = currentEmitForm;
+                    const form = currentEmitForm
+                        ?? (() => {
+                            const formId = emitModal?.dataset?.currentFormId || '';
+
+                            if (formId === '') {
+                                return null;
+                            }
+
+                            const resolvedForm = document.getElementById(formId);
+
+                            return resolvedForm instanceof HTMLFormElement ? resolvedForm : null;
+                        })();
                     const descriptionField = emitModalDescriptionInput;
                     const saveDescriptionDefaultField = emitModalSaveDescriptionDefaultInput;
                     const sendEmailToggle = emitModalSendEmailInput;
@@ -1569,7 +1584,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     .then(async (response) => {
                         let data = null;
                         try { data = await response.json(); } catch { /* ignore */ }
-                        closeEmitModal();
+                        closeEmitModal(true);
                         if (data && data.success) {
                             window.nfseOpenResultModal(
                                 nfseEmitSuccessTitle,
@@ -1714,9 +1729,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 if (modal.getAttribute('data-old-action')) {
                     openModal(modal.getAttribute('data-old-action'));
                 }
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initNfseInvoicePage, { once: true });
+                } else {
+                    initNfseInvoicePage();
+                }
             })();
         </script>
         <script>
+            (() => {
+                const initNfseInvoiceActions = () => {
                 const refreshAllForm = document.getElementById('refresh-all-form');
                 const refreshAllButton = document.getElementById('index-more-actions-refresh-nfse-invoices');
 
@@ -1883,8 +1907,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 } else {
                     initCancelModal();
                 }
+
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initNfseInvoiceActions, { once: true });
+                } else {
+                    initNfseInvoiceActions();
+                }
             })();
         </script>
+        @endpush
 
         @include('nfse::modals.nfse-result-modal')
     </x-slot>
