@@ -94,6 +94,7 @@ class NfseIssued extends Notification
             '{nfse_issue_day}',
             '{nfse_issue_month_name}',
             '{invoice_number}',
+            '{invoice_due_date}',
             '{nfse_number}',
             '{chave_acesso}',
             '{invoice_amount_due}',
@@ -135,6 +136,7 @@ class NfseIssued extends Notification
             $issueDay,
             $issueMonthName,
             (string) ($this->invoice->document_number ?? ''),
+            $this->resolveInvoiceDueDateReplacement(),
             (string) ($this->receipt->nfse_number ?? ''),
             (string) ($this->receipt->chave_acesso ?? ''),
             $this->resolveInvoiceAmountDueReplacement(),
@@ -165,6 +167,27 @@ class NfseIssued extends Notification
         return number_format($amountDue, 2, '.', '');
     }
 
+    protected function resolveInvoiceDueDateReplacement(): string
+    {
+        $dueDateObject = $this->resolveInvoiceDueDate();
+
+        if ($dueDateObject instanceof \DateTimeInterface) {
+            if (function_exists('company_date')) {
+                try {
+                    return (string) company_date($dueDateObject);
+                } catch (\Throwable) {
+                    // Fall back to a stable dd/mm/YYYY format in isolated contexts.
+                }
+            }
+
+            return $dueDateObject->format('d/m/Y');
+        }
+
+        $dueDate = $this->invoice->due_at ?? null;
+
+        return is_scalar($dueDate) ? (string) $dueDate : '';
+    }
+
     protected function resolveInvoiceAmountDueValue(): float
     {
         $amountDue = $this->invoice->amount_due ?? null;
@@ -177,6 +200,25 @@ class NfseIssued extends Notification
         $paid = is_numeric($this->invoice->paid ?? null) ? (float) $this->invoice->paid : 0.0;
 
         return $amount - $paid;
+    }
+
+    protected function resolveInvoiceDueDate(): ?\DateTimeInterface
+    {
+        $dueDate = $this->invoice->due_at ?? null;
+
+        if ($dueDate instanceof \DateTimeInterface) {
+            return $dueDate;
+        }
+
+        if ($dueDate === null || $dueDate === '') {
+            return null;
+        }
+
+        try {
+            return new \DateTimeImmutable((string) $dueDate);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     protected function resolveCompanyContactField(string $field, string $fallback = ''): string
