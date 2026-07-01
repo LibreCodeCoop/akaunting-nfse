@@ -978,6 +978,91 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             (() => {
                 const cookieFilters = @json($searchStringCookieFilters ?? []);
 
+                const nfseEmitEditorState = {
+                    isTyping: false,
+                    typingTimeoutId: null,
+                    selection: null,
+                };
+
+                const getEmitEmailEditorContext = () => {
+                    const editorRoot = document.getElementById('nfse-emit-body-editor');
+                    const quillContainer = editorRoot?.querySelector('.ql-container');
+                    const editor = editorRoot?.querySelector('.ql-editor');
+                    const tooltipInput = editorRoot?.querySelector('.ql-tooltip input');
+                    const quill = quillContainer?.__quill ?? null;
+
+                    return {
+                        editorRoot,
+                        quillContainer,
+                        editor,
+                        tooltipInput,
+                        quill,
+                    };
+                };
+
+                const markEmitEditorTyping = () => {
+                    nfseEmitEditorState.isTyping = true;
+
+                    if (nfseEmitEditorState.typingTimeoutId) {
+                        window.clearTimeout(nfseEmitEditorState.typingTimeoutId);
+                    }
+
+                    nfseEmitEditorState.typingTimeoutId = window.setTimeout(() => {
+                        nfseEmitEditorState.isTyping = false;
+                        nfseEmitEditorState.selection = null;
+                        nfseEmitEditorState.typingTimeoutId = null;
+                    }, 250);
+                };
+
+                const restoreEmitEditorFocusIfNeeded = () => {
+                    if (!nfseEmitEditorState.isTyping) {
+                        return;
+                    }
+
+                    const { editor, tooltipInput, quill } = getEmitEmailEditorContext();
+                    const activeElement = document.activeElement;
+
+                    if (!editor || !tooltipInput || activeElement !== tooltipInput) {
+                        return;
+                    }
+
+                    if (quill && typeof quill.focus === 'function') {
+                        quill.focus();
+
+                        if (nfseEmitEditorState.selection && typeof quill.setSelection === 'function') {
+                            quill.setSelection(
+                                nfseEmitEditorState.selection.index,
+                                nfseEmitEditorState.selection.length,
+                                'silent'
+                            );
+                        }
+
+                        return;
+                    }
+
+                    editor.focus();
+                };
+
+                document.addEventListener('keydown', (event) => {
+                    const target = event.target instanceof Element ? event.target : null;
+                    const editor = target?.closest('#nfse-emit-body-editor .ql-editor');
+
+                    if (!editor) {
+                        return;
+                    }
+
+                    const { quill } = getEmitEmailEditorContext();
+
+                    if (quill && typeof quill.getSelection === 'function') {
+                        const selection = quill.getSelection();
+                        nfseEmitEditorState.selection = selection
+                            ? { index: selection.index, length: selection.length }
+                            : null;
+                    }
+
+                    markEmitEditorTyping();
+                }, true);
+
                     // Wire the akaunting-html-editor $emit event to the hidden textarea so the
                     // rich-text body value is collected when the emit confirm button is clicked.
                     document.addEventListener('DOMContentLoaded', () => {
@@ -988,6 +1073,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 if (el) {
                                     el.value = typeof val === 'string' ? val : '';
                                 }
+
+                                window.requestAnimationFrame(() => {
+                                    restoreEmitEditorFocusIfNeeded();
+                                });
                             });
                         }
                     }, { once: true });
