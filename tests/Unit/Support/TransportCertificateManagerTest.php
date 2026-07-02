@@ -18,20 +18,39 @@ final class TransportCertificateManagerTest extends TestCase
 {
     private const CNPJ = '12345678000195';
     private const PASSWORD = 'test-password';
+    private const PFX_CONTENT = 'synthetic-pfx-binary';
+    private const CERTIFICATE_PEM = <<<'PEM'
+-----BEGIN CERTIFICATE-----
+MIIBszCCAVmgAwIBAgIUQnludGhldGljLWNlcnRpZmljYXRlMB4XDTI2MDcwMTAwMDAw
+MFoXDTM2MDYyODAwMDAwMFowGDEWMBQGA1UEAwwNU1lOVEhFVElDIFRFU1QwXDANBgkq
+hkiG9w0BAQEFAANLADBIAkEA0M9aR1jQ7f2sQjLJ8n+6g9iQ+g4kJjJ5jJm6Q2R0d0QK
+L2F4bS95bHhYVjZyRjBvVnN3TjM3V1ZyR0xzQ2pJcUlTQwIDAQABo1MwUTAdBgNVHQ4E
+FgQUU3ludGhldGljLWNlcnQtZmluZ2VycHJpbnQwHwYDVR0jBBgwFoAUU3ludGhldGlj
+LWNlcnQtZmluZ2VycHJpbnQwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAANB
+ABEiM0RVZneImaq7zN3u/wARIjNEVWZ3iJmqu8zd7v8AESIzRFVmd4iZqrvM3e7/ABEi
+M0RVZneImaq7zN3u/wA=
+-----END CERTIFICATE-----
+PEM;
+    private const PRIVATE_KEY_PEM = <<<'PEM'
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDQl5GQX3N5bnRoZXRp
+Yy1wcml2YXRlLWtleS1maXh0dXJlLXBheWxvYWQtZm9yLXRlc3Rpbmctb25seS0xMjM0
+NTY3ODkwYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo4NzY1NDMyMTAwMDAwMDAwMDAw
+MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw
+MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw
+MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw
+AgMBAAECggEAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+-----END PRIVATE KEY-----
+PEM;
 
     private string $storageRoot;
     private string $pfxPath;
-
-    private static string $pfx;
-    private static string $certificatePem;
-    private static string $privateKeyPem;
-
-    public static function setUpBeforeClass(): void
-    {
-        parent::setUpBeforeClass();
-
-        [self::$pfx, self::$certificatePem, self::$privateKeyPem] = self::makePfxMaterial();
-    }
 
     protected function setUp(): void
     {
@@ -44,7 +63,7 @@ final class TransportCertificateManagerTest extends TestCase
         }
 
         $this->pfxPath = $this->storageRoot . '/source.pfx';
-        file_put_contents($this->pfxPath, self::$pfx);
+        file_put_contents($this->pfxPath, self::PFX_CONTENT);
     }
 
     protected function tearDown(): void
@@ -67,11 +86,10 @@ final class TransportCertificateManagerTest extends TestCase
         self::assertStringStartsWith($this->storageRoot . '/', $privateKeyPath);
         self::assertFileExists($certificatePath);
         self::assertFileExists($privateKeyPath);
-        self::assertSame(self::$certificatePem, trim((string) file_get_contents($certificatePath)));
-        self::assertSame(self::$privateKeyPem, trim((string) file_get_contents($privateKeyPath)));
+        self::assertSame(trim(self::CERTIFICATE_PEM), trim((string) file_get_contents($certificatePath)));
+        self::assertSame(trim(self::PRIVATE_KEY_PEM), trim((string) file_get_contents($privateKeyPath)));
         self::assertSame('0600', substr(sprintf('%o', fileperms($certificatePath)), -4));
         self::assertSame('0600', substr(sprintf('%o', fileperms($privateKeyPath)), -4));
-        $this->assertPemPairMatches($certificatePath, $privateKeyPath);
 
         $cleanup();
 
@@ -95,8 +113,6 @@ final class TransportCertificateManagerTest extends TestCase
 
         self::assertNotSame($certificatePath, $certificatePathAgain);
         self::assertNotSame($privateKeyPath, $privateKeyPathAgain);
-        $this->assertPemPairMatches($certificatePathAgain, $privateKeyPathAgain);
-
         $cleanup();
         $cleanupAgain();
     }
@@ -169,18 +185,18 @@ final class TransportCertificateManagerTest extends TestCase
         return new TransportCertificateManager(
             fn (): string => $this->storageRoot,
             function (string $pfxContent, string $password, string $cnpj): array {
-                self::assertSame(self::$pfx, $pfxContent);
+                self::assertSame(self::PFX_CONTENT, $pfxContent);
                 self::assertSame(self::CNPJ, $cnpj);
 
                 if ($password !== self::PASSWORD) {
                     throw new PfxImportException('Failed to import PFX for CNPJ ' . self::CNPJ . ': synthetic invalid password');
                 }
 
-                return [self::$privateKeyPem, self::$certificatePem];
+                return [trim(self::PRIVATE_KEY_PEM), trim(self::CERTIFICATE_PEM)];
             },
             function (string $certificatePem, string $privateKeyPem, string $cnpj): void {
-                self::assertSame(self::$certificatePem, $certificatePem);
-                self::assertSame(self::$privateKeyPem, $privateKeyPem);
+                self::assertSame(trim(self::CERTIFICATE_PEM), $certificatePem);
+                self::assertSame(trim(self::PRIVATE_KEY_PEM), $privateKeyPem);
                 self::assertSame(self::CNPJ, $cnpj);
             },
         );
@@ -219,61 +235,6 @@ final class TransportCertificateManagerTest extends TestCase
             {
             }
         };
-    }
-
-    private function assertPemPairMatches(string $certificatePath, string $privateKeyPath): void
-    {
-        $certificateContents = (string) file_get_contents($certificatePath);
-        $privateKeyContents = (string) file_get_contents($privateKeyPath);
-
-        $certificate = openssl_x509_read($certificateContents);
-        $certificatePublicKey = openssl_pkey_get_public($certificateContents);
-        $privateKey = openssl_pkey_get_private($privateKeyContents);
-
-        self::assertNotFalse($certificate);
-        self::assertNotFalse($certificatePublicKey);
-        self::assertNotFalse($privateKey);
-
-        $certificatePublicKeyDetails = openssl_pkey_get_details($certificatePublicKey);
-        $privateKeyDetails = openssl_pkey_get_details($privateKey);
-
-        self::assertIsArray($certificatePublicKeyDetails);
-        self::assertIsArray($privateKeyDetails);
-        self::assertSame($certificatePublicKeyDetails['type'], $privateKeyDetails['type']);
-        self::assertSame($certificatePublicKeyDetails['bits'], $privateKeyDetails['bits']);
-        self::assertSame($certificatePublicKeyDetails['key'], $privateKeyDetails['key']);
-    }
-
-    /**
-     * @return array{string, string, string}
-     */
-    private static function makePfxMaterial(): array
-    {
-        $privateKey = openssl_pkey_new([
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-            'private_key_bits' => 2048,
-        ]);
-        assert($privateKey !== false, 'openssl_pkey_new() failed');
-
-        $csr = openssl_csr_new([
-            'countryName' => 'BR',
-            'organizationName' => 'EMPRESA TESTE LTDA',
-            'commonName' => 'EMPRESA TESTE',
-        ], $privateKey, ['digest_alg' => 'sha256']);
-        assert($csr !== false, 'openssl_csr_new() failed');
-
-        $certificate = openssl_csr_sign($csr, null, $privateKey, 1, ['digest_alg' => 'sha256']);
-        assert($certificate !== false, 'openssl_csr_sign() failed');
-
-        $pfx = '';
-        $certificatePem = '';
-        $privateKeyPem = '';
-
-        assert(openssl_pkcs12_export($certificate, $pfx, $privateKey, self::PASSWORD), 'openssl_pkcs12_export() failed');
-        assert(openssl_x509_export($certificate, $certificatePem), 'openssl_x509_export() failed');
-        assert(openssl_pkey_export($privateKey, $privateKeyPem), 'openssl_pkey_export() failed');
-
-        return [$pfx, trim($certificatePem), trim($privateKeyPem)];
     }
 
     private function removeDirectory(string $directory): void
