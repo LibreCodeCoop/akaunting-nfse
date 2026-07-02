@@ -86,6 +86,8 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
     public function testScoperPatcherSupportsPrefixedComposerClassLoader(): void
     {
+        require_once dirname(__DIR__, 3) . '/vendor-bin/php-scoper/vendor/autoload.php';
+
         $config = require dirname(__DIR__, 3) . '/3rdparty/scoper.inc.php';
         $patchers = $config['patchers'] ?? null;
 
