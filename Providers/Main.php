@@ -37,6 +37,7 @@ class Main extends Provider
      */
     public function register(): void
     {
+        $this->loadModuleVendorAutoload();
         $this->loadRoutes();
 
         if ($this->app->runningInConsole()) {
