@@ -20,4 +20,17 @@ return [
             ])
             ->in($vendorDirectory),
     ],
+    'patchers' => [
+        static function (string $filePath, string $prefix, string $content): string {
+            if (!str_ends_with($filePath, 'composer/autoload_real.php')) {
+                return $content;
+            }
+
+            return str_replace(
+                "if ('Composer\\Autoload\\ClassLoader' === \$class) {",
+                "if ('Composer\\Autoload\\ClassLoader' === \$class || '" . $prefix . "\\Composer\\Autoload\\ClassLoader' === \$class) {",
+                $content,
+            );
+        },
+    ],
 ];

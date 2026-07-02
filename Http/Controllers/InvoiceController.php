@@ -16,6 +16,11 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\TransportCertificateManager;
+use Modules\Nfse\Support\VaultConfig;
+use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\EnvironmentConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
@@ -28,11 +33,6 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
-use Modules\Nfse\Models\ItemFiscalProfile;
-use Modules\Nfse\Models\NfseReceipt;
-use Modules\Nfse\Support\TransportCertificateManager;
-use Modules\Nfse\Support\VaultConfig;
-use Modules\Nfse\Support\WebDavClient;
 
 class InvoiceController extends Controller
 {

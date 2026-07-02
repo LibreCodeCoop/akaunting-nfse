@@ -80,5 +80,27 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         self::assertStringContainsString("'/scoped'", $content);
         self::assertStringContainsString("__DIR__ . '/vendor'", $content);
         self::assertStringNotContainsString("'composer'", $content);
+        self::assertStringContainsString("'patchers' => [", $content);
+        self::assertStringContainsString("composer/autoload_real.php", $content);
+    }
+
+    public function testScoperPatcherSupportsPrefixedComposerClassLoader(): void
+    {
+        $config = require dirname(__DIR__, 3) . '/3rdparty/scoper.inc.php';
+        $patchers = $config['patchers'] ?? null;
+
+        self::assertIsArray($patchers);
+        self::assertCount(1, $patchers);
+
+        $patchedContent = $patchers[0](
+            'composer/autoload_real.php',
+            'Modules\\Nfse\\Vendor',
+            "if ('Composer\\Autoload\\ClassLoader' === \$class) {",
+        );
+
+        self::assertSame(
+            "if ('Composer\\Autoload\\ClassLoader' === \$class || 'Modules\\Nfse\\Vendor\\Composer\\Autoload\\ClassLoader' === \$class) {",
+            $patchedContent,
+        );
     }
 }
