@@ -24,6 +24,8 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         self::assertStringContainsString('@composer bin behat install', $content);
         self::assertStringContainsString('@composer bin php-cs-fixer install', $content);
         self::assertStringContainsString('@composer bin psalm install', $content);
+        self::assertStringContainsString('"thirdparty:scope": [', $content);
+        self::assertStringContainsString('Composer\\\\Config::disableProcessTimeout', $content);
         self::assertStringContainsString('vendor-bin/php-scoper/vendor/bin/php-scoper', $content);
         self::assertStringContainsString('vendor-bin/phpunit/vendor/bin/phpunit', $content);
         self::assertStringContainsString('vendor-bin/behat/vendor/bin/behat', $content);
@@ -52,6 +54,8 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
     public function testAdditionalDevToolsEachLiveInTheirOwnVendorBin(): void
     {
         $moduleRoot = dirname(__DIR__, 3);
+
+        self::assertFileDoesNotExist($moduleRoot . '/vendor-bin/nfse-runtime/composer.json');
 
         foreach ([
             'behat' => '"behat/behat": "^3.16"',

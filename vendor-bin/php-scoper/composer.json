@@ -8,6 +8,9 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "config": {
+        "platform": {
+            "php": "8.2.31"
+        },
         "sort-packages": true,
         "allow-plugins": {
             "composer/package-versions-deprecated": true

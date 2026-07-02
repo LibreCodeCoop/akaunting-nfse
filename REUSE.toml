@@ -17,6 +17,8 @@ path = [
     "3rdparty/.gitignore",
     "3rdparty/composer.json",
     "3rdparty/scoper.inc.php",
+    "vendor-bin/**/composer.json",
+    "vendor-bin/**/composer.lock",
     "behat.yml.dist",
     "composer.json",
     "module.json",

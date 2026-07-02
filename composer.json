@@ -46,7 +46,10 @@
             "@composer bin php-cs-fixer install --ansi --prefer-dist --no-progress --no-interaction",
             "@composer bin psalm install --ansi --prefer-dist --no-progress --no-interaction"
         ],
-        "thirdparty:scope": "@php -d memory_limit=-1 vendor-bin/php-scoper/vendor/bin/php-scoper add-prefix --force --config=3rdparty/scoper.inc.php",
+        "thirdparty:scope": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -d memory_limit=-1 vendor-bin/php-scoper/vendor/bin/php-scoper add-prefix --force --config=3rdparty/scoper.inc.php"
+        ],
         "thirdparty:build": [
             "@thirdparty:install",
             "@dev-tools:install",

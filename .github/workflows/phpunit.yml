@@ -32,4 +32,4 @@ jobs:
 
       - name: Run PHPUnit (Unit)
         working-directory: modules/Nfse
-        run: vendor/bin/phpunit --testsuite Unit
+        run: composer test:unit
