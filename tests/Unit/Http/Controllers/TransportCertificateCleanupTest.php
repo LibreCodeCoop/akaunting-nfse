@@ -17,11 +17,11 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 
 /**
  * Validates that transport certificates are not prematurely deleted before being used.
- * 
+ *
  * Background: In production, DANFSE generation failed because the temporary certificate files
  * (/dev/shm/nfse_tls_cert_*) were deleted by the cleanup closure too early - before the client
  * had finished using them to make mTLS requests to the gateway.
- * 
+ *
  * The fix moved the cleanup logic to occur AFTER storeArtifacts() completes, ensuring that
  * getDanfse() calls (which require mTLS transport certificates) complete before cleanup.
  */
