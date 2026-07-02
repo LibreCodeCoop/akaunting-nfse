@@ -359,24 +359,28 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (PfxImportException) {
+            $this->cleanupClientTransportArtifacts();
+
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
+        }
+
+        try {
+            $persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);
+            $this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);
+            $this->markInvoiceSentAfterEmission($invoice);
+            $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
+            $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
+
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.show', $invoice)
+                    ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])),
+                ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
+            );
         } finally {
             $this->cleanupClientTransportArtifacts();
         }
-
-        $persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);
-        $this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);
-        $this->markInvoiceSentAfterEmission($invoice);
-        $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
-        $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
-
-        return $this->ajaxAwareRedirect(
-            $request,
-            redirect()->route('nfse.invoices.show', $invoice)
-                ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])),
-            ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
-        );
     }
 
     protected function markInvoiceSentAfterEmission(Invoice $invoice): void
@@ -585,21 +589,29 @@ class InvoiceController extends Controller
                 'status' => 'emitted',
             ]);
 
-            $this->storeArtifacts($invoice, $updatedReceipt, $receipt, $client);
+            try {
+                $this->storeArtifacts($invoice, $updatedReceipt, $receipt, $client);
+            } finally {
+                $this->cleanupClientTransportArtifacts();
+            }
 
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('success', trans('nfse::general.nfse_refreshed', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $updatedReceipt->chaveAcesso]));
         } catch (SecretStoreException) {
+            $this->cleanupClientTransportArtifacts();
+
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed'));
         } catch (PfxImportException) {
+            $this->cleanupClientTransportArtifacts();
+
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         } catch (\Throwable) {
+            $this->cleanupClientTransportArtifacts();
+
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_refresh_failed'));
-        } finally {
-            $this->cleanupClientTransportArtifacts();
         }
     }
 
@@ -765,23 +777,27 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_reemit_failed')));
         } catch (PfxImportException) {
+            $this->cleanupClientTransportArtifacts();
+
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
+        }
+
+        try {
+            $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
+            $this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);
+            $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
+            $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
+
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.show', $invoice)
+                    ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso])),
+                ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
+            );
         } finally {
             $this->cleanupClientTransportArtifacts();
         }
-
-        $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
-        $this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);
-        $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
-        $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
-
-        return $this->ajaxAwareRedirect(
-            $request,
-            redirect()->route('nfse.invoices.show', $invoice)
-                ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso])),
-            ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
-        );
     }
 
     // -------------------------------------------------------------------------

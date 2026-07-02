@@ -37,13 +37,23 @@ final class TransportCertificateManager
         $this->temporaryDirectoryResolver = $temporaryDirectoryResolver !== null
             ? \Closure::fromCallable($temporaryDirectoryResolver)
             : static function (): string {
+                // Prefer in-memory directory for security, but fallback to system temp dir if unavailable
                 $sharedMemoryDirectory = '/dev/shm';
 
-                if (!is_dir($sharedMemoryDirectory) || !is_writable($sharedMemoryDirectory)) {
-                    throw new PfxImportException('Memory-backed temporary directory "/dev/shm" is unavailable for mTLS transport artifacts.');
+                if (is_dir($sharedMemoryDirectory) && is_writable($sharedMemoryDirectory)) {
+                    return $sharedMemoryDirectory;
                 }
 
-                return $sharedMemoryDirectory;
+                $systemTempDirectory = sys_get_temp_dir();
+
+                if (is_dir($systemTempDirectory) && is_writable($systemTempDirectory)) {
+                    return $systemTempDirectory;
+                }
+
+                throw new PfxImportException(
+                    'No suitable temporary directory for mTLS transport artifacts. '
+                    . 'Checked: /dev/shm, ' . $systemTempDirectory . '.'
+                );
             };
         $this->pfxImporter = $pfxImporter !== null
             ? \Closure::fromCallable($pfxImporter)
