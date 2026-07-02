@@ -39,27 +39,36 @@
     },
     "scripts": {
         "thirdparty:install": "composer --working-dir=3rdparty install --prefer-dist --no-progress --no-interaction",
+        "runtime-tools:install": "composer --working-dir=vendor-bin/php-scoper install --ansi --prefer-dist --no-progress --no-interaction",
         "dev-tools:install": [
-            "@composer bin php-scoper install --ansi --prefer-dist --no-progress --no-interaction",
-            "@composer bin phpunit install --ansi --prefer-dist --no-progress --no-interaction",
-            "@composer bin behat install --ansi --prefer-dist --no-progress --no-interaction",
-            "@composer bin php-cs-fixer install --ansi --prefer-dist --no-progress --no-interaction",
-            "@composer bin psalm install --ansi --prefer-dist --no-progress --no-interaction"
+            "composer --working-dir=vendor-bin/php-scoper install --ansi --prefer-dist --no-progress --no-interaction",
+            "composer --working-dir=vendor-bin/phpunit install --ansi --prefer-dist --no-progress --no-interaction",
+            "composer --working-dir=vendor-bin/behat install --ansi --prefer-dist --no-progress --no-interaction",
+            "composer --working-dir=vendor-bin/php-cs-fixer install --ansi --prefer-dist --no-progress --no-interaction",
+            "composer --working-dir=vendor-bin/psalm install --ansi --prefer-dist --no-progress --no-interaction"
         ],
         "thirdparty:scope": [
             "Composer\\Config::disableProcessTimeout",
             "@php -d memory_limit=-1 vendor-bin/php-scoper/vendor/bin/php-scoper add-prefix --force --config=3rdparty/scoper.inc.php"
+        ],
+        "thirdparty:build:prod": [
+            "@thirdparty:install",
+            "@runtime-tools:install",
+            "@thirdparty:scope"
         ],
         "thirdparty:build": [
             "@thirdparty:install",
             "@dev-tools:install",
             "@thirdparty:scope"
         ],
+        "thirdparty:build:auto": [
+            "if [ \"${COMPOSER_DEV_MODE:-1}\" = \"0\" ]; then composer thirdparty:build:prod; else composer thirdparty:build; fi"
+        ],
         "post-install-cmd": [
-            "@thirdparty:build"
+            "@thirdparty:build:auto"
         ],
         "post-update-cmd": [
-            "@thirdparty:build"
+            "@thirdparty:build:auto"
         ],
         "test": "vendor-bin/phpunit/vendor/bin/phpunit",
         "test:unit": "vendor-bin/phpunit/vendor/bin/phpunit --testsuite=Unit",
@@ -89,6 +98,8 @@
     },
     "scripts-descriptions": {
         "dev-tools:install": "Install isolated development tools under vendor-bin",
+        "runtime-tools:install": "Install the isolated runtime build tooling needed in production",
+        "thirdparty:build:auto": "Build scoped runtime dependencies using the production or development toolchain as appropriate",
         "thirdparty:build": "Build scoped runtime dependencies for the module"
     }
 }
