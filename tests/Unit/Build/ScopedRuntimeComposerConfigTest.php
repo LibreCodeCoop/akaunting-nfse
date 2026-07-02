@@ -18,13 +18,17 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertIsString($content);
         self::assertStringContainsString('"bamarni/composer-bin-plugin": "^1.8"', $content);
+        self::assertStringContainsString('"runtime-tools:install": "composer --working-dir=vendor-bin/php-scoper install', $content);
         self::assertStringContainsString('"dev-tools:install": [', $content);
-        self::assertStringContainsString('@composer bin php-scoper install', $content);
-        self::assertStringContainsString('@composer bin phpunit install', $content);
-        self::assertStringContainsString('@composer bin behat install', $content);
-        self::assertStringContainsString('@composer bin php-cs-fixer install', $content);
-        self::assertStringContainsString('@composer bin psalm install', $content);
+        self::assertStringContainsString('composer --working-dir=vendor-bin/php-scoper install', $content);
+        self::assertStringContainsString('composer --working-dir=vendor-bin/phpunit install', $content);
+        self::assertStringContainsString('composer --working-dir=vendor-bin/behat install', $content);
+        self::assertStringContainsString('composer --working-dir=vendor-bin/php-cs-fixer install', $content);
+        self::assertStringContainsString('composer --working-dir=vendor-bin/psalm install', $content);
         self::assertStringContainsString('"thirdparty:scope": [', $content);
+        self::assertStringContainsString('"thirdparty:build:prod": [', $content);
+        self::assertStringContainsString('"thirdparty:build:auto": [', $content);
+        self::assertStringContainsString('COMPOSER_DEV_MODE', $content);
         self::assertStringContainsString('Composer\\\\Config::disableProcessTimeout', $content);
         self::assertStringContainsString('vendor-bin/php-scoper/vendor/bin/php-scoper', $content);
         self::assertStringContainsString('vendor-bin/phpunit/vendor/bin/phpunit', $content);
