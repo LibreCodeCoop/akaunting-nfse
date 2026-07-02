@@ -139,6 +139,16 @@ class InvoiceController extends Controller
         return view('nfse::invoices.show', compact('invoice', 'receipt', 'receiptStatusLabel', 'suggestedDiscriminacao', 'emailDefaults', 'artifacts'));
     }
 
+    public function showEmitSuccess(Invoice $invoice): \Illuminate\View\View
+    {
+        $this->ensureInvoiceRelationsLoaded($invoice);
+        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $receiptStatusLabel = $this->translateReceiptStatus((string) ($receipt->status ?? ''));
+        $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
+
+        return view('nfse::invoices.partials.emit-success', compact('invoice', 'receipt', 'receiptStatusLabel', 'artifacts'));
+    }
+
     protected function translateReceiptStatus(string $status): string
     {
         $normalized = strtolower(trim($status));
@@ -3297,7 +3307,7 @@ class InvoiceController extends Controller
             ]);
         }
 
-        return NfseReceipt::updateOrCreate(
+        $persistedReceipt = NfseReceipt::updateOrCreate(
             ['invoice_id' => $invoice->id],
             [
                 'nfse_number' => $resolvedReceiptNumber,
@@ -3307,6 +3317,38 @@ class InvoiceController extends Controller
                 'status' => 'emitted',
             ]
         );
+
+        $freshPersistedReceipt = $persistedReceipt;
+
+        if (method_exists($persistedReceipt, 'fresh')) {
+            try {
+                $candidate = $persistedReceipt->fresh();
+
+                if ($candidate instanceof NfseReceipt) {
+                    $freshPersistedReceipt = $candidate;
+                }
+            } catch (\Throwable $throwable) {
+                $this->safeLogError('NFS-e emitted receipt refresh failed after persistence', [
+                    'invoice_id' => $invoice->id,
+                    'chave_acesso' => $receipt->chaveAcesso,
+                    'message' => $throwable->getMessage(),
+                ]);
+            }
+        }
+
+        if (($freshPersistedReceipt->status ?? '') !== 'emitted') {
+            try {
+                $persistedReceipt->update(['status' => 'emitted']);
+            } catch (\Throwable $throwable) {
+                $this->safeLogError('NFS-e emitted receipt status repair failed', [
+                    'invoice_id' => $invoice->id,
+                    'chave_acesso' => $receipt->chaveAcesso,
+                    'message' => $throwable->getMessage(),
+                ]);
+            }
+        }
+
+        return $persistedReceipt;
     }
 
     protected function storeArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
@@ -3339,7 +3381,7 @@ class InvoiceController extends Controller
                 $danfseGetter = [$client, 'getDanfse'];
 
                 if (is_callable($danfseGetter)) {
-                    $danfse = $this->fetchDanfseWithRetry($client, $receipt);
+                    $danfse = $this->fetchDanfseArtifact($client, $receipt);
 
                     if (is_string($danfse) && $danfse !== '') {
                         $candidateDanfsePath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'pdf');
@@ -3372,32 +3414,6 @@ class InvoiceController extends Controller
         }
     }
 
-    protected function fetchDanfseWithRetry(NfseClientInterface $client, ReceiptData $receipt, int $maxAttempts = 2): string
-    {
-        $attempt = 0;
-        $lastError = null;
-
-        while ($attempt < $maxAttempts) {
-            $attempt++;
-
-            try {
-                return $this->fetchDanfseArtifact($client, $receipt);
-            } catch (\Throwable $throwable) {
-                $lastError = $throwable;
-
-                if (!$this->shouldRetryDanfseRetrieval($throwable, $attempt, $maxAttempts)) {
-                    throw $throwable;
-                }
-            }
-        }
-
-        if ($lastError instanceof \Throwable) {
-            throw $lastError;
-        }
-
-        throw new \RuntimeException('Unexpected DANFSE retrieval retry flow termination.');
-    }
-
     protected function fetchDanfseArtifact(NfseClientInterface $client, ReceiptData $receipt): string
     {
         $nfseXml = trim((string) ($receipt->rawXml ?? ''));
@@ -3407,107 +3423,6 @@ class InvoiceController extends Controller
         }
 
         return $client->getDanfse($nfseXml);
-    }
-
-    /**
-     * @return list<string>
-     */
-    protected function danfseFallbackUrls(string $chaveAcesso): array
-    {
-        return [
-            'https://www.producaorestrita.nfse.gov.br/EmissorNacional/Notas/Download/DANFSe/' . $chaveAcesso,
-            'https://www.nfse.gov.br/EmissorNacional/Notas/Download/DANFSe/' . $chaveAcesso,
-            'https://adn.producaorestrita.nfse.gov.br/danfse/' . $chaveAcesso,
-            'https://adn.nfse.gov.br/danfse/' . $chaveAcesso,
-        ];
-    }
-
-    protected function downloadDanfseFromUrl(string $url): string
-    {
-        [$sslOptions, $cleanup] = $this->transportSslContextOptions();
-
-        try {
-            $context = stream_context_create([
-                'http' => [
-                    'method' => 'GET',
-                    'header' => "Accept: application/pdf\r\n",
-                    'ignore_errors' => true,
-                ],
-                'ssl' => $sslOptions,
-            ]);
-
-            $http_response_header = [];
-            $body = file_get_contents($url, false, $context);
-            $status = $this->parseHttpStatusCode($http_response_header);
-
-            if ($body === false || $status >= 400 || $status === 0) {
-                throw new \RuntimeException('ADN gateway returned error for DANFSE retrieval (HTTP ' . $status . ')');
-            }
-
-            if ($body === '') {
-                throw new \RuntimeException('ADN gateway returned empty body for DANFSE retrieval');
-            }
-
-            return $body;
-        } finally {
-            $cleanup();
-        }
-    }
-
-    /**
-     * @return array{0: array<string, mixed>, 1: \Closure(): void}
-     */
-    protected function transportSslContextOptions(): array
-    {
-        $cnpj = (string) setting('nfse.cnpj_prestador', '');
-
-        return (new TemporaryTlsFilesFactory($this->makeSecretStore()))->create(
-            new CertConfig(
-                cnpj: $cnpj,
-                pfxPath: storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
-                vaultPath: 'pfx/' . $cnpj,
-            ),
-            [
-                'verify_peer' => true,
-                'verify_peer_name' => true,
-            ],
-        );
-    }
-
-    /**
-     * @param list<string> $headers
-     */
-    protected function parseHttpStatusCode(array $headers): int
-    {
-        for ($index = count($headers) - 1; $index >= 0; $index--) {
-            $headerLine = $headers[$index] ?? null;
-
-            if (!is_string($headerLine)) {
-                continue;
-            }
-
-            if (preg_match('/HTTP\/[\d.]+ (\d{3})/', $headerLine, $matches) === 1) {
-                return (int) ($matches[1] ?? 0);
-            }
-        }
-
-        return 0;
-    }
-
-    protected function isDanfseHttp496(\Throwable $throwable): bool
-    {
-        $message = strtolower($throwable->getMessage());
-
-        return str_contains($message, 'http 496') || str_contains($message, 'http status 496');
-    }
-
-    protected function shouldRetryDanfseRetrieval(\Throwable $throwable, int $attempt, int $maxAttempts): bool
-    {
-        if ($attempt >= $maxAttempts) {
-            return false;
-        }
-
-        return $this->isDanfseHttp496($throwable);
     }
 
     /**
