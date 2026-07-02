@@ -50,6 +50,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/vendor/librecodeoop/nfse-php/src/Http/NfseClient.php');
 
+            if (str_contains($content, 'generateFromXml')) {
+                self::assertStringContainsString('return $this->danfseGenerator->generateFromXml($nfseXml);', $content);
+
+                return;
+            }
+
             if (str_contains($content, "'ssl' => \$this->sslContextOptions()")) {
                 self::markTestSkipped('Pending upstream librecodeoop/nfse-php runtime DANFSE transport update on dev-main.');
             }
@@ -624,7 +630,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
 
-                public function getDanfse(string $chaveAcesso): string
+                public function getDanfse(string $nfseXml): string
                 {
                     throw new \RuntimeException('DANFSE unavailable');
                 }
