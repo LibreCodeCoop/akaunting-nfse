@@ -31,12 +31,16 @@ use LibreCodeCoop\NfsePHP\Support\TemporaryTlsFilesFactory;
 use LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\TransportCertificateManager;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
 
 class InvoiceController extends Controller
 {
     private const INVOICE_NOTES_SETTING_KEY = 'invoice.notes';
+
+    /** @var (\Closure(): void)|null */
+    private ?\Closure $clientTransportCleanup = null;
 
     protected string $indexSortBy = 'due_at';
 
@@ -308,9 +312,8 @@ class InvoiceController extends Controller
             'tributos_mun_p' => $dps->totalTributosPercentualMunicipal,
         ]);
 
-        $client = $this->makeClient($sandbox);
-
         try {
+            $client = $this->makeClient($sandbox);
             $receipt = $client->emit($dps);
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
@@ -349,6 +352,8 @@ class InvoiceController extends Controller
         } catch (PfxImportException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
+        } finally {
+            $this->cleanupClientTransportArtifacts();
         }
 
         $persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);
@@ -375,12 +380,24 @@ class InvoiceController extends Controller
         $request = $this->currentRequest($request);
         $receipt = $this->findReceiptForInvoice($invoice);
 
-        $client = $this->makeClient($this->sandboxModeEnabled());
         $cancelReason = $this->cancellationReasonForGateway($request);
         $redirect = $this->cancellationRedirect($invoice, $request);
 
         try {
+            $client = $this->makeClient($this->sandboxModeEnabled());
             $client->cancel($receipt->chave_acesso, $cancelReason);
+        } catch (SecretStoreException) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                $redirect
+                    ->with('error', trans('nfse::general.nfse_secret_store_failed')),
+            );
+        } catch (PfxImportException) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                $redirect
+                    ->with('error', trans('nfse::general.nfse_pfx_import_failed')),
+            );
         } catch (GatewayException $e) {
             $gatewayDetail = $this->gatewayErrorDetail($e);
 
@@ -414,6 +431,8 @@ class InvoiceController extends Controller
                     ->with('error', trans('nfse::general.nfse_cancel_failed'))
                     ->with('nfse_gateway_error_detail', $gatewayDetail),
             );
+        } finally {
+            $this->cleanupClientTransportArtifacts();
         }
 
         $receipt->update(['status' => 'cancelled']);
@@ -544,9 +563,8 @@ class InvoiceController extends Controller
                 ->with('warning', trans('nfse::general.invoices.refresh_not_allowed_for_cancelled'));
         }
 
-        $client = $this->makeClient($this->sandboxModeEnabled());
-
         try {
+            $client = $this->makeClient($this->sandboxModeEnabled());
             $updatedReceipt = $client->query($receipt->chave_acesso);
             $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($updatedReceipt);
 
@@ -562,35 +580,56 @@ class InvoiceController extends Controller
 
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('success', trans('nfse::general.nfse_refreshed', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $updatedReceipt->chaveAcesso]));
+        } catch (SecretStoreException) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_secret_store_failed'));
+        } catch (PfxImportException) {
+            return redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         } catch (\Throwable) {
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_refresh_failed'));
+        } finally {
+            $this->cleanupClientTransportArtifacts();
         }
     }
 
     public function refreshAll(): RedirectResponse
     {
-        $client = $this->makeClient($this->sandboxModeEnabled());
         $updated = 0;
         $failed = 0;
 
-        foreach ($this->refreshableReceipts() as $receipt) {
-            try {
-                $updatedReceipt = $client->query($receipt->chave_acesso);
-                $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($updatedReceipt);
+        try {
+            $client = $this->makeClient($this->sandboxModeEnabled());
+        } catch (SecretStoreException) {
+            return redirect()->route('nfse.invoices.index')
+                ->with('warning', trans('nfse::general.nfse_secret_store_failed'));
+        } catch (PfxImportException) {
+            return redirect()->route('nfse.invoices.index')
+                ->with('warning', trans('nfse::general.nfse_pfx_import_failed'));
+        }
 
-                $receipt->update([
-                    'nfse_number' => $resolvedReceiptNumber,
-                    'chave_acesso' => $updatedReceipt->chaveAcesso,
-                    'data_emissao' => $updatedReceipt->dataEmissao,
-                    'codigo_verificacao' => $updatedReceipt->codigoVerificacao,
-                    'status' => 'emitted',
-                ]);
+        try {
+            foreach ($this->refreshableReceipts() as $receipt) {
+                try {
+                    $updatedReceipt = $client->query($receipt->chave_acesso);
+                    $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($updatedReceipt);
 
-                $updated++;
-            } catch (\Throwable) {
-                $failed++;
+                    $receipt->update([
+                        'nfse_number' => $resolvedReceiptNumber,
+                        'chave_acesso' => $updatedReceipt->chaveAcesso,
+                        'data_emissao' => $updatedReceipt->dataEmissao,
+                        'codigo_verificacao' => $updatedReceipt->codigoVerificacao,
+                        'status' => 'emitted',
+                    ]);
+
+                    $updated++;
+                } catch (\Throwable) {
+                    $failed++;
+                }
             }
+        } finally {
+            $this->cleanupClientTransportArtifacts();
         }
 
         if ($failed === 0) {
@@ -687,9 +726,8 @@ class InvoiceController extends Controller
             'federalValorCp' => $federalPayload['federalValorCp'],
         ]);
 
-        $client = $this->makeClient($sandboxReemit);
-
         try {
+            $client = $this->makeClient($sandboxReemit);
             $newReceipt = $client->emit($dps);
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
@@ -720,6 +758,8 @@ class InvoiceController extends Controller
         } catch (PfxImportException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
+        } finally {
+            $this->cleanupClientTransportArtifacts();
         }
 
         $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
@@ -3147,17 +3187,65 @@ class InvoiceController extends Controller
 
     protected function makeClient(bool $sandboxMode): NfseClientInterface
     {
+        $this->cleanupClientTransportArtifacts();
+
         $cnpj = (string) setting('nfse.cnpj_prestador', '');
+        $secretStore = $this->makeSecretStore();
+        $cert = new CertConfig(
+            cnpj: $cnpj,
+            pfxPath: storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
+            vaultPath: 'pfx/' . $cnpj,
+        );
+
+        try {
+            [$transportCertificatePath, $transportPrivateKeyPath] = $this->resolveTransportCertificatePaths($cert, $secretStore);
+        } catch (SecretStoreException|PfxImportException $exception) {
+            $this->safeLogError('NFS-e transport certificate preparation failed', [
+                'cnpj' => $cnpj,
+                'sandbox_mode' => $sandboxMode,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
 
         return new NfseClient(
             environment: new EnvironmentConfig(sandboxMode: $sandboxMode),
             cert:        new CertConfig(
-                cnpj:      $cnpj,
-                pfxPath:   storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
-                vaultPath: 'pfx/' . $cnpj,
+                cnpj: $cert->cnpj,
+                pfxPath: $cert->pfxPath,
+                vaultPath: $cert->vaultPath,
+                transportCertificatePath: $transportCertificatePath,
+                transportPrivateKeyPath: $transportPrivateKeyPath,
             ),
-            secretStore: $this->makeSecretStore(),
+            secretStore: $secretStore,
         );
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    protected function resolveTransportCertificatePaths(CertConfig $cert, OpenBaoSecretStore $secretStore): array
+    {
+        [$certificatePath, $privateKeyPath, $cleanup] = $this->makeTransportCertificateManager()->prepare($cert, $secretStore);
+        $this->clientTransportCleanup = $cleanup;
+
+        return [$certificatePath, $privateKeyPath];
+    }
+
+    protected function makeTransportCertificateManager(): TransportCertificateManager
+    {
+        return new TransportCertificateManager();
+    }
+
+    protected function cleanupClientTransportArtifacts(): void
+    {
+        if ($this->clientTransportCleanup === null) {
+            return;
+        }
+
+        ($this->clientTransportCleanup)();
+        $this->clientTransportCleanup = null;
     }
 
     protected function existingProjectRootPath(string $relativePath): ?string
