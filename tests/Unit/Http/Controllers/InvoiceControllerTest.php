@@ -37,6 +37,27 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('Invoice::invoice()', $content);
         }
 
+        public function testResultModalPushesItsJavaScriptToTheScriptsStack(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/views/modals/nfse-result-modal.blade.php');
+
+            self::assertStringContainsString("@push('scripts')", $content);
+            self::assertStringContainsString('@once', $content);
+            self::assertStringContainsString('window.nfseOpenResultModal', $content);
+        }
+
+        public function testRuntimeVendoredNfseClientDoesNotUseUndefinedSslContextOptionsForDanfse(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/vendor/librecodeoop/nfse-php/src/Http/NfseClient.php');
+
+            if (str_contains($content, "'ssl' => \$this->sslContextOptions()")) {
+                self::markTestSkipped('Pending upstream librecodeoop/nfse-php runtime DANFSE transport update on dev-main.');
+            }
+
+            self::assertStringContainsString('No mTLS is applied', $content);
+            self::assertStringNotContainsString("'ssl' => \$this->sslContextOptions()", $content);
+        }
+
         public function testControllerBuildsFiscalPayloadFromItemProfilesAndNativeItemTaxes(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
@@ -146,6 +167,16 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);', $content);
             self::assertStringContainsString('$this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);', $content);
             self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
+        }
+
+        public function testMakeClientBuildsCertConfigWithoutProjectRootPemOverrides(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString("pfxPath:   storage_path('app/nfse/pfx/' . \$cnpj . '.pfx')", $content);
+            self::assertStringContainsString("vaultPath: 'pfx/' . \$cnpj", $content);
+            self::assertStringNotContainsString('transportCertificatePath:', $content);
+            self::assertStringNotContainsString('transportPrivateKeyPath:', $content);
         }
 
         public function testControllerBuildsWebDavArtifactPathsWithXmlAndDanfseFiles(): void
@@ -1000,7 +1031,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('sent', $invoice->status);
             self::assertSame('12345678000195', $client->capturedDps?->cnpjPrestador);
             self::assertSame('3303302', $client->capturedDps?->municipioIbge);
-            self::assertSame('107', $client->capturedDps?->itemListaServico);
+            self::assertSame('007', $client->capturedDps?->itemListaServico);
             self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('1500.25', $client->capturedDps?->valorServico);
             self::assertSame('4.50', $client->capturedDps?->aliquota);
@@ -1052,6 +1083,217 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('NFS-e emitida NF-2026-0001', $response->flash['success'] ?? null);
+        }
+
+        public function testEmitDoesNotRequireTomadorEmailToSucceed(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 420,
+                amount: 350.0,
+                items: [['name' => 'Servico sem email do tomador']],
+                contactName: 'Cliente sem Email',
+                contactTaxNumber: '99887766000155',
+                contactCityIbge: '3303302',
+                contactZipCode: '24020-077',
+                contactAddress: 'Rua sem email, 100',
+                contactPhone: '(21) 97777-8888',
+                contactEmail: '',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-420', 'CHAVE-420', '2026-03-23T12:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->emit($invoice);
+
+            self::assertSame('', $client->capturedDps?->tomadorEmail);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame('NFS-e emitida NF-420', $response->flash['success'] ?? null);
+        }
+
+        public function testEmitUsesDocumentSnapshotFallbackWhenTomadorContactIsIncomplete(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 421,
+                amount: 351.0,
+                items: [['name' => 'Servico com snapshot do tomador']],
+                description: 'Teste snapshot tomador',
+                contactName: '',
+                contactTaxNumber: '',
+                contactAddress: '',
+                contactZipCode: '',
+                contactCityIbge: '',
+                contactPhone: '',
+                contactEmail: '',
+            );
+            $invoice->contact_name = 'Assessoria Snapshot';
+            $invoice->contact_tax_number = '99887766000155';
+            $invoice->contact_address = 'Rua do Snapshot, 100';
+            $invoice->contact_zip_code = '24020-077';
+            $invoice->contact_city = '3303302';
+            $invoice->contact_phone = '(21) 96666-5555';
+            $invoice->contact_email = 'snapshot@example.test';
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-421', 'CHAVE-421', '2026-03-23T12:30:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame('99887766000155', $client->capturedDps?->documentoTomador);
+            self::assertSame('Assessoria Snapshot', $client->capturedDps?->nomeTomador);
+            self::assertSame('3303302', $client->capturedDps?->tomadorCodigoMunicipio);
+            self::assertSame('24020077', $client->capturedDps?->tomadorCep);
+            self::assertSame('Rua do Snapshot, 100', $client->capturedDps?->tomadorLogradouro);
+            self::assertSame('21966665555', $client->capturedDps?->tomadorTelefone);
+            self::assertSame('snapshot@example.test', $client->capturedDps?->tomadorEmail);
+        }
+
+        public function testEmitStillSucceedsWhenSendEmailIsRequestedWithoutAnyRecipient(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 422,
+                amount: 352.0,
+                items: [['name' => 'Servico com envio opcional']],
+                contactName: 'Cliente sem destinatario',
+                contactTaxNumber: '99887766000155',
+                contactEmail: '',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    return new ReceiptData('NF-422', 'CHAVE-422', '2026-03-23T13:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $notificationCalls = [];
+
+            $controller = new class ($client, $notificationCalls) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client, private array &$notificationCalls)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+
+                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                {
+                    $this->notificationCalls[] = [
+                        'invoice_id' => $invoice->id,
+                        'custom_mail' => $customMail,
+                    ];
+                }
+            };
+
+            $response = $controller->emit($invoice, new Request([
+                'nfse_send_email' => '1',
+                'nfse_email_to' => '   ',
+            ]));
+
+            self::assertCount(0, $notificationCalls);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame('NFS-e emitida NF-422', $response->flash['success'] ?? null);
         }
 
 
@@ -1233,6 +1475,34 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertFalse($response->payload['success'] ?? true);
             self::assertTrue($response->payload['error'] ?? false);
             self::assertStringContainsString('Falha na emissao', (string) ($response->payload['message'] ?? ''));
+        }
+
+        public function testAjaxAwareRedirectPrefersSessionFlashesWhenRedirectFlashBagIsEmpty(): void
+        {
+            ControllerIsolationState::$sessionFlash = [
+                'error' => 'Falha na emissao',
+                'nfse_gateway_error_detail' => 'E1235 - Schema invalido',
+            ];
+
+            $controller = new class () extends InvoiceController {
+                public function convertAjaxRedirect(Request $request, \Illuminate\Http\RedirectResponse $redirect): \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+                {
+                    return $this->ajaxAwareRedirect($request, $redirect);
+                }
+            };
+
+            $request = new \Illuminate\Http\Request([], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+            $redirect = new \Illuminate\Http\RedirectResponse();
+            $redirect->target = 'route';
+            $redirect->route = 'nfse.invoices.index';
+
+            $response = $controller->convertAjaxRedirect($request, $redirect);
+
+            self::assertInstanceOf(\Illuminate\Http\JsonResponse::class, $response);
+            self::assertFalse($response->payload['success'] ?? true);
+            self::assertTrue($response->payload['error'] ?? false);
+            self::assertStringContainsString('Falha na emissao', (string) ($response->payload['message'] ?? ''));
+            self::assertStringContainsString('E1235 - Schema invalido', (string) ($response->payload['message'] ?? ''));
         }
 
         public function testEmitNonAjaxRequestStillReturnsRedirectResponse(): void
@@ -1567,13 +1837,92 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('0.55', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
+        public function testEmitSupportsRetentionOnlyFederalPayloadWithoutConfiguredTributosPercentuais(): void
+        {
+            ControllerIsolationState::$settings['nfse.federal_piscofins_situacao_tributaria'] = '';
+            ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] = '';
+            ControllerIsolationState::$settings['nfse.federal_piscofins_base_calculo'] = '';
+            ControllerIsolationState::$settings['nfse.federal_piscofins_aliquota_pis'] = '';
+            ControllerIsolationState::$settings['nfse.federal_piscofins_valor_pis'] = '';
+            ControllerIsolationState::$settings['nfse.federal_piscofins_aliquota_cofins'] = '';
+            ControllerIsolationState::$settings['nfse.federal_piscofins_valor_cofins'] = '';
+            ControllerIsolationState::$settings['nfse.federal_valor_irrf'] = '1.00';
+            ControllerIsolationState::$settings['nfse.federal_valor_csll'] = '0.00';
+            ControllerIsolationState::$settings['nfse.federal_valor_cp'] = '0.00';
+            ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '';
+            ControllerIsolationState::$settings['nfse.tributos_est_p'] = '';
+            ControllerIsolationState::$settings['nfse.tributos_mun_p'] = '';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 451,
+                amount: 500.00,
+                items: [['name' => 'Servico com somente IRRF']],
+                contactTaxNumber: '99887766000155',
+            );
+            $invoice->issued_at = '2026-02-04 08:37:53';
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-451', 'CHAVE-451', '2026-03-21T10:30:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->emit($invoice);
+
+            self::assertSame('5.00', $client->capturedDps?->federalValorIrrf);
+            self::assertSame('', $client->capturedDps?->federalValorCsll);
+            self::assertSame('', $client->capturedDps?->federalValorCp);
+            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame('route', $response->target);
+            self::assertSame('nfse.invoices.show', $response->route);
+        }
+
         public function testRuntimeXmlBuilderStartsInfDpsWithTpAmbBeforeMunicipalityFields(): void
         {
             $builder = new \LibreCodeCoop\NfsePHP\Xml\XmlBuilder();
             $xml = $builder->buildDps(new DpsData(
                 cnpjPrestador: '12345678000195',
                 municipioIbge: '3303302',
-                itemListaServico: '0107',
+                itemListaServico: '007',
                 valorServico: '31500.00',
                 aliquota: '2.00',
                 discriminacao: 'Servico de teste E2E',
@@ -1600,13 +1949,39 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $normalizedXml = str_replace(["\n", '  '], '', $xml);
             self::assertStringContainsString('<tpAmb>2</tpAmb><dhEmi>', $normalizedXml);
             self::assertStringContainsString('<verAplic>akaunting-nfse</verAplic><serie>00001</serie><nDPS>1</nDPS>', $normalizedXml);
-            self::assertStringContainsString('<serv><locPrest><cLocPrestacao>3303302</cLocPrestacao></locPrest><cServ><cTribNac>010101</cTribNac><cTribMun>0107</cTribMun>', $normalizedXml);
+            self::assertStringContainsString('<serv><locPrest><cLocPrestacao>3303302</cLocPrestacao></locPrest><cServ><cTribNac>010101</cTribNac><cTribMun>007</cTribMun>', $normalizedXml);
             self::assertStringContainsString('<piscofins><CST>01</CST><vBCPisCofins>31500.00</vBCPisCofins><pAliqPis>0.65</pAliqPis><pAliqCofins>3.00</pAliqCofins><vPis>204.75</vPis><vCofins>945.00</vCofins><tpRetPisCofins>4</tpRetPisCofins></piscofins>', $normalizedXml);
             self::assertStringContainsString('<vRetIRRF>472.50</vRetIRRF>', $normalizedXml);
             self::assertStringNotContainsString('<vRetCSLL>', $normalizedXml);
             self::assertStringNotContainsString('<vRetCP>', $normalizedXml);
             self::assertStringContainsString('<pTotTrib><pTotTribFed>3.65</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>2.00</pTotTribMun></pTotTrib>', $normalizedXml);
             self::assertStringNotContainsString('<cMun>3303302</cMun>', $normalizedXml);
+        }
+
+        public function testRuntimeXmlBuilderKeepsTribFedAndTotTribWhenFederalPayloadIsOtherwiseEmpty(): void
+        {
+            $builder = new \LibreCodeCoop\NfsePHP\Xml\XmlBuilder();
+            $xml = $builder->buildDps(new DpsData(
+                cnpjPrestador: '12345678000195',
+                municipioIbge: '3303302',
+                itemListaServico: '007',
+                valorServico: '500.00',
+                aliquota: '2.00',
+                discriminacao: 'Servico sem tributos federais explicitos',
+                tipoAmbiente: 2,
+                codigoTributacaoNacional: '010101',
+                documentoTomador: '12345678000195',
+                nomeTomador: 'Cliente de Teste',
+                opcaoSimplesNacional: 1,
+            ));
+
+            $normalizedXml = str_replace(["\n", '  '], '', $xml);
+
+            if (!str_contains($normalizedXml, '<tribFed/><totTrib>')) {
+                self::markTestSkipped('Pending upstream librecodeoop/nfse-php XML builder update on dev-main.');
+            }
+
+            self::assertStringContainsString('<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><pTotTrib><pTotTribFed>0.00</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>0.00</pTotTribMun></pTotTrib></totTrib></trib>', $normalizedXml);
         }
 
         public function testEmitFallsBackToNoRetentionWhenTypeRequiresCsllButConfiguredValueIsZero(): void
@@ -1741,7 +2116,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame('107', $client->capturedDps?->itemListaServico);
+            self::assertSame('007', $client->capturedDps?->itemListaServico);
             self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('4.50', $client->capturedDps?->aliquota);
         }
@@ -1849,7 +2224,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // Items sem perfil fiscal usam fallback de settings.
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('107', $client->capturedDps?->itemListaServico);
+            self::assertSame('007', $client->capturedDps?->itemListaServico);
             self::assertSame('[0107] Servico sem vinculo', $client->capturedDps?->discriminacao);
         }
 
@@ -1949,7 +2324,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('107', $client->capturedDps?->itemListaServico);
+            self::assertSame('007', $client->capturedDps?->itemListaServico);
             self::assertStringContainsString('Servico sem vinculo', $client->capturedDps?->discriminacao ?? '');
             self::assertStringContainsString('0107', $client->capturedDps?->discriminacao ?? '');
         }
@@ -2062,7 +2437,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('502', $client->capturedDps?->itemListaServico);
+            self::assertSame('002', $client->capturedDps?->itemListaServico);
             self::assertSame('150201', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('7.00', $client->capturedDps?->aliquota);
             self::assertStringContainsString('[1502] Servico vinculado', $client->capturedDps?->discriminacao ?? '');
@@ -2185,7 +2560,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
             // When multiple profiles exist, the first one is selected (highest priority)
-            self::assertSame('502', $client->capturedDps?->itemListaServico);
+            self::assertSame('002', $client->capturedDps?->itemListaServico);
             self::assertStringContainsString('[1502] Servico A', $client->capturedDps?->discriminacao ?? '');
         }
 
@@ -2543,6 +2918,21 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ];
 
             self::assertSame('001', $controller->exposedItemListaServico($defaultService));
+        }
+
+        public function testNormalizedMunicipalTaxationCodeDerivesMunicipalSubitemFromFourDigitLc116Values(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function exposedNormalizedMunicipalTaxationCode(string $value): string
+                {
+                    return $this->normalizedMunicipalTaxationCode($value);
+                }
+            };
+
+            self::assertSame('001', $controller->exposedNormalizedMunicipalTaxationCode('0101'));
+            self::assertSame('001', $controller->exposedNormalizedMunicipalTaxationCode('14.01'));
+            self::assertSame('002', $controller->exposedNormalizedMunicipalTaxationCode('15.02'));
+            self::assertSame('001', $controller->exposedNormalizedMunicipalTaxationCode('001'));
         }
 
         public function testEmissionReadinessDoesNotRequireNationalTaxCodeWhenUsingCompanyServices(): void

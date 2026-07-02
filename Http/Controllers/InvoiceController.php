@@ -27,6 +27,7 @@ use LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 use LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 use LibreCodeCoop\NfsePHP\Http\NfseClient;
 use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
+use LibreCodeCoop\NfsePHP\Support\TemporaryTlsFilesFactory;
 use LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
@@ -239,8 +240,8 @@ class InvoiceController extends Controller
         $cnpj    = setting('nfse.cnpj_prestador');
         $ibge    = setting('nfse.municipio_ibge');
         $sandbox = $this->sandboxModeEnabled();
-        $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
-        $tomadorPayload = $this->tomadorPayload($invoice->contact);
+        $tomadorDocument = $this->resolvedTomadorDocument($invoice);
+        $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues($invoice);
         $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
@@ -254,7 +255,7 @@ class InvoiceController extends Controller
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
             'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
             'documentoTomador' => $tomadorDocument,
-            'nomeTomador' => $invoice->contact?->name ?? '',
+            'nomeTomador' => $this->resolvedTomadorName($invoice),
             'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
             'tomadorCep' => $tomadorPayload['cep'],
             'tomadorLogradouro' => $tomadorPayload['logradouro'],
@@ -639,8 +640,8 @@ class InvoiceController extends Controller
         }
 
         $sandboxReemit = $this->sandboxModeEnabled();
-        $tomadorDocument = $this->normalizedTomadorDocument($invoice->contact?->tax_number);
-        $tomadorPayload = $this->tomadorPayload($invoice->contact);
+        $tomadorDocument = $this->resolvedTomadorDocument($invoice);
+        $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
@@ -655,7 +656,7 @@ class InvoiceController extends Controller
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
             'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
             'documentoTomador' => $tomadorDocument,
-            'nomeTomador' => $invoice->contact?->name ?? '',
+            'nomeTomador' => $this->resolvedTomadorName($invoice),
             'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
             'tomadorCep' => $tomadorPayload['cep'],
             'tomadorLogradouro' => $tomadorPayload['logradouro'],
@@ -834,38 +835,110 @@ class InvoiceController extends Controller
             return $redirect;
         }
 
-        $hasSuccess = isset($redirect->flash['success']);
-        $hasError = !$hasSuccess && (isset($redirect->flash['error']) || isset($redirect->flash['warning']));
+        $flash = $this->redirectFlashPayload($redirect);
+        $hasSuccess = isset($flash['success']);
+        $hasError = !$hasSuccess && (isset($flash['error']) || isset($flash['warning']));
 
         if ($hasError) {
+            $message = (string) ($flash['error'] ?? $flash['warning'] ?? '');
+            $gatewayDetail = trim((string) ($flash['nfse_gateway_error_detail'] ?? ''));
+
+            if ($gatewayDetail !== '') {
+                $message = trim($message) !== ''
+                    ? $message . ' Detalhe SEFIN: ' . $gatewayDetail
+                    : 'Detalhe SEFIN: ' . $gatewayDetail;
+            }
+
             return response()->json([
                 'success' => false,
                 'error' => true,
-                'message' => $redirect->flash['error'] ?? $redirect->flash['warning'] ?? '',
+                'message' => $message,
                 'redirect' => false,
                 'data' => null,
             ]);
         }
 
-        if (isset($redirect->flash['success'])) {
-            session()->flash('success', $redirect->flash['success']);
+        if (isset($flash['success'])) {
+            session()->flash('success', $flash['success']);
         }
 
-        if (isset($redirect->flash['info'])) {
-            session()->flash('info', $redirect->flash['info']);
+        if (isset($flash['info'])) {
+            session()->flash('info', $flash['info']);
         }
 
-        if (isset($redirect->flash['warning'])) {
-            session()->flash('warning', $redirect->flash['warning']);
+        if (isset($flash['warning'])) {
+            session()->flash('warning', $flash['warning']);
         }
 
         return response()->json(array_merge([
             'success' => true,
             'error' => false,
-            'message' => (string) ($redirect->flash['success'] ?? ''),
+            'message' => (string) ($flash['success'] ?? ''),
             'redirect' => $redirect->getTargetUrl(),
             'data' => null,
         ], $extra));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function redirectFlashPayload(RedirectResponse $redirect): array
+    {
+        $flash = [];
+
+        $redirectVars = get_object_vars($redirect);
+
+        if (isset($redirectVars['flash']) && is_array($redirectVars['flash'])) {
+            $flash = $redirectVars['flash'];
+        }
+
+        $session = null;
+
+        if (method_exists($redirect, 'getSession')) {
+            try {
+                $session = $redirect->getSession();
+            } catch (\Throwable) {
+                $session = null;
+            }
+        }
+
+        if ($session === null) {
+            if (function_exists(__NAMESPACE__ . '\\session')) {
+                try {
+                    $session = session();
+                } catch (\Throwable) {
+                    $session = null;
+                }
+            } elseif (function_exists('session')) {
+                try {
+                    $session = \session();
+                } catch (\Throwable) {
+                    $session = null;
+                }
+            }
+        }
+
+        foreach (['success', 'error', 'warning', 'info', 'nfse_gateway_error_detail'] as $key) {
+            if (array_key_exists($key, $flash)) {
+                continue;
+            }
+
+            if (!is_object($session) || !is_callable([$session, 'get'])) {
+                continue;
+            }
+
+            try {
+                $value = $session->get($key);
+            } catch (\Throwable) {
+                $value = null;
+            }
+
+            if ($value !== null) {
+                $flash[$key] = $value;
+            }
+        }
+
+        return $flash;
     }
     protected function normalizeDescriptionText(string $value): ?string
     {
@@ -1282,6 +1355,18 @@ class InvoiceController extends Controller
         return '';
     }
 
+    protected function resolvedTomadorDocument(Invoice $invoice): string
+    {
+        return $this->normalizedTomadorDocument(
+            $this->contactOrInvoiceStringField($invoice->contact, $invoice, ['tax_number'], ['contact_tax_number'])
+        );
+    }
+
+    protected function resolvedTomadorName(Invoice $invoice): string
+    {
+        return $this->contactOrInvoiceStringField($invoice->contact, $invoice, ['name'], ['contact_name']);
+    }
+
     /**
      * @param array<string, mixed> $payload
      */
@@ -1304,10 +1389,10 @@ class InvoiceController extends Controller
     /**
      * @return array{codigo_municipio: string, cep: string, logradouro: string, numero: string, complemento: string, bairro: string, inscricao_municipal: string, telefone: string, email: string}
      */
-    protected function tomadorPayload(?object $contact): array
+    protected function tomadorPayload(?object $contact, ?object $invoice = null): array
     {
-        $codigoMunicipio = $this->normalizedTomadorMunicipioIbge($contact);
-        $cep = $this->normalizedTomadorCep($this->contactStringField($contact, ['zip_code', 'cep']));
+        $codigoMunicipio = $this->normalizedTomadorMunicipioIbge($contact, $invoice);
+        $cep = $this->normalizedTomadorCep($this->contactOrInvoiceStringField($contact, $invoice, ['zip_code', 'cep'], ['contact_zip_code']));
 
         $logradouro = '';
         $numero = '';
@@ -1315,10 +1400,10 @@ class InvoiceController extends Controller
         $bairro = '';
 
         if ($codigoMunicipio !== '' && $cep !== '') {
-            $logradouro = $this->contactStringField($contact, ['address', 'logradouro']);
-            $numero = $this->contactStringField($contact, ['number', 'numero']);
-            $complemento = $this->contactStringField($contact, ['complement', 'complemento']);
-            $bairro = $this->contactStringField($contact, ['district', 'bairro', 'neighborhood']);
+            $logradouro = $this->contactOrInvoiceStringField($contact, $invoice, ['address', 'logradouro'], ['contact_address']);
+            $numero = $this->contactOrInvoiceStringField($contact, $invoice, ['number', 'numero'], ['contact_number']);
+            $complemento = $this->contactOrInvoiceStringField($contact, $invoice, ['complement', 'complemento'], ['contact_complement']);
+            $bairro = $this->contactOrInvoiceStringField($contact, $invoice, ['district', 'bairro', 'neighborhood'], ['contact_district', 'contact_neighborhood']);
         } else {
             $codigoMunicipio = '';
             $cep = '';
@@ -1331,15 +1416,20 @@ class InvoiceController extends Controller
             'numero' => $numero,
             'complemento' => $complemento,
             'bairro' => $bairro,
-            'inscricao_municipal' => $this->contactStringField($contact, ['inscricao_municipal', 'municipal_registration', 'im']),
-            'telefone' => $this->normalizedTomadorTelefone($this->contactStringField($contact, ['phone', 'telefone'])),
-            'email' => $this->normalizedTomadorEmail($this->contactStringField($contact, ['email'])),
+            'inscricao_municipal' => $this->contactOrInvoiceStringField($contact, $invoice, ['inscricao_municipal', 'municipal_registration', 'im'], ['contact_inscricao_municipal', 'contact_municipal_registration', 'contact_im']),
+            'telefone' => $this->normalizedTomadorTelefone($this->contactOrInvoiceStringField($contact, $invoice, ['phone', 'telefone'], ['contact_phone'])),
+            'email' => $this->normalizedTomadorEmail($this->contactOrInvoiceStringField($contact, $invoice, ['email'], ['contact_email'])),
         ];
     }
 
-    protected function normalizedTomadorMunicipioIbge(?object $contact): string
+    protected function normalizedTomadorMunicipioIbge(?object $contact, ?object $invoice = null): string
     {
-        $raw = $this->contactStringField($contact, ['municipio_ibge', 'city_ibge', 'ibge_code', 'city_code', 'city']);
+        $raw = $this->contactOrInvoiceStringField(
+            $contact,
+            $invoice,
+            ['municipio_ibge', 'city_ibge', 'ibge_code', 'city_code', 'city'],
+            ['contact_municipio_ibge', 'contact_city_ibge', 'contact_ibge_code', 'contact_city_code', 'contact_city']
+        );
         $digits = preg_replace('/\D+/', '', $raw) ?: '';
 
         return strlen($digits) === 7 ? $digits : '';
@@ -1389,6 +1479,41 @@ class InvoiceController extends Controller
             }
 
             return trim((string) $contact->{$field});
+        }
+
+        return '';
+    }
+
+    /**
+     * @param list<string> $contactFields
+     * @param list<string> $invoiceFields
+     */
+    protected function contactOrInvoiceStringField(?object $contact, ?object $invoice, array $contactFields, array $invoiceFields = []): string
+    {
+        $contactValue = $this->contactStringField($contact, $contactFields);
+
+        if ($contactValue !== '') {
+            return $contactValue;
+        }
+
+        return $this->invoiceStringField($invoice, $invoiceFields);
+    }
+
+    /**
+     * @param list<string> $fields
+     */
+    protected function invoiceStringField(?object $invoice, array $fields): string
+    {
+        if ($invoice === null) {
+            return '';
+        }
+
+        foreach ($fields as $field) {
+            if (!isset($invoice->{$field})) {
+                continue;
+            }
+
+            return trim((string) $invoice->{$field});
         }
 
         return '';
@@ -2880,6 +3005,11 @@ class InvoiceController extends Controller
         return number_format(($taxValue / $baseAmount) * 100, 2, '.', '');
     }
 
+    protected function hasNonZeroDecimalValue(string $value): bool
+    {
+        return $value !== '' && (float) $value !== 0.0;
+    }
+
     private function finalizeFederalPayload(array $payload): array
     {
         $hasConfiguredTotalTributos = $payload['totalTributosPercentualFederal'] !== ''
@@ -2941,9 +3071,16 @@ class InvoiceController extends Controller
             return '';
         }
 
-        // SEFIN schema for cTribMun rejects 4-digit LC116-like values such as 0107.
-        // Keep the municipal code in up to 3 digits to satisfy TCCodTribMun.
-        return substr($digits, -3);
+        // The item fiscal profile stores the LC 116 service item (4 digits), which
+        // we already use to derive cTribNac. In the national emitter flow, cTribMun
+        // expects the municipality-specific subitem code instead of the full LC 116
+        // code. Example validated in the public portal: LC 116 01.01 maps to
+        // cTribNac 010101 and cTribMun 001.
+        if (strlen($digits) === 4) {
+            return str_pad(substr($digits, -2), 3, '0', STR_PAD_LEFT);
+        }
+
+        return $digits;
     }
 
     protected function normalizedFederalSelectValue(mixed $value): string
@@ -3018,8 +3155,6 @@ class InvoiceController extends Controller
                 cnpj:      $cnpj,
                 pfxPath:   storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
                 vaultPath: 'pfx/' . $cnpj,
-                transportCertificatePath: $this->existingProjectRootPath('client.crt.pem'),
-                transportPrivateKeyPath: $this->existingProjectRootPath('client.key.pem'),
             ),
             secretStore: $this->makeSecretStore(),
         );
@@ -3219,41 +3354,54 @@ class InvoiceController extends Controller
 
     protected function downloadDanfseFromUrl(string $url): string
     {
-        $sslOptions = [
-            'verify_peer' => true,
-            'verify_peer_name' => true,
-        ];
+        [$sslOptions, $cleanup] = $this->transportSslContextOptions();
 
-        $transportCertPath = $this->existingProjectRootPath('client.crt.pem');
-        $transportKeyPath = $this->existingProjectRootPath('client.key.pem');
+        try {
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'header' => "Accept: application/pdf\r\n",
+                    'ignore_errors' => true,
+                ],
+                'ssl' => $sslOptions,
+            ]);
 
-        if (is_string($transportCertPath) && $transportCertPath !== '' && is_string($transportKeyPath) && $transportKeyPath !== '') {
-            $sslOptions['local_cert'] = $transportCertPath;
-            $sslOptions['local_pk'] = $transportKeyPath;
+            $http_response_header = [];
+            $body = file_get_contents($url, false, $context);
+            $status = $this->parseHttpStatusCode($http_response_header);
+
+            if ($body === false || $status >= 400 || $status === 0) {
+                throw new \RuntimeException('ADN gateway returned error for DANFSE retrieval (HTTP ' . $status . ')');
+            }
+
+            if ($body === '') {
+                throw new \RuntimeException('ADN gateway returned empty body for DANFSE retrieval');
+            }
+
+            return $body;
+        } finally {
+            $cleanup();
         }
+    }
 
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'header' => "Accept: application/pdf\r\n",
-                'ignore_errors' => true,
+    /**
+     * @return array{0: array<string, mixed>, 1: \Closure(): void}
+     */
+    protected function transportSslContextOptions(): array
+    {
+        $cnpj = (string) setting('nfse.cnpj_prestador', '');
+
+        return (new TemporaryTlsFilesFactory($this->makeSecretStore()))->create(
+            new CertConfig(
+                cnpj: $cnpj,
+                pfxPath: storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
+                vaultPath: 'pfx/' . $cnpj,
+            ),
+            [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
             ],
-            'ssl' => $sslOptions,
-        ]);
-
-        $http_response_header = [];
-        $body = file_get_contents($url, false, $context);
-        $status = $this->parseHttpStatusCode($http_response_header);
-
-        if ($body === false || $status >= 400 || $status === 0) {
-            throw new \RuntimeException('ADN gateway returned error for DANFSE retrieval (HTTP ' . $status . ')');
-        }
-
-        if ($body === '') {
-            throw new \RuntimeException('ADN gateway returned empty body for DANFSE retrieval');
-        }
-
-        return $body;
+        );
     }
 
     /**
@@ -3759,15 +3907,13 @@ class InvoiceController extends Controller
 
     protected function defaultPostEmitRecipient(Invoice $invoice): ?string
     {
-        $documentContactEmail = trim((string) ($invoice->contact_email ?? ''));
-
         $candidates = [
             $this->contactStringField($invoice->contact, ['email']),
-            $documentContactEmail,
+            trim((string) ($invoice->contact_email ?? '')),
         ];
 
         foreach ($candidates as $candidate) {
-            $normalized = trim($candidate);
+            $normalized = $this->normalizedTomadorEmail($candidate);
 
             if ($normalized !== '') {
                 return $normalized;

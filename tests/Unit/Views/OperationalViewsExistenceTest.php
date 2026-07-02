@@ -22,6 +22,35 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/modals/invoices/issue.blade.php');
         }
 
+        public function testInvoiceShowOverridesKeepNfseEmitActionEnabledWithoutCustomerEmail(): void
+        {
+            $overrideBasePath = dirname(__DIR__, 3) . '/Resources/overrides/components/documents/show';
+            $routeGuard = <<<'BLADE'
+                ($emailRoute ?? null) === 'nfse.modals.invoices.emails.create'
+                BLADE;
+            $clickBinding = <<<'BLADE'
+                @click="onSendEmail('{{ route($emailRoute, $document->id) }}')"
+                BLADE;
+
+            $sendOverridePath = $overrideBasePath . '/send.blade.php';
+            $moreButtonsOverridePath = $overrideBasePath . '/more-buttons.blade.php';
+
+            self::assertFileExists($sendOverridePath);
+            self::assertFileExists($moreButtonsOverridePath);
+
+            $sendOverrideContent = (string) file_get_contents($sendOverridePath);
+            $moreButtonsOverrideContent = (string) file_get_contents($moreButtonsOverridePath);
+
+            self::assertStringContainsString($routeGuard, $sendOverrideContent);
+            self::assertStringContainsString($routeGuard, $moreButtonsOverrideContent);
+            self::assertStringContainsString('in_array(($textEmail ?? null), [\'nfse::general.invoices.emit_now\', \'nfse::general.invoices.reemit\'], true)', $sendOverrideContent);
+            self::assertStringContainsString('in_array(($textEmail ?? null), [\'nfse::general.invoices.emit_now\', \'nfse::general.invoices.reemit\'], true)', $moreButtonsOverrideContent);
+            self::assertStringContainsString('$canTriggerSendAction = $nfseManagedSendFlow || (bool) ($document->contact->has_email ?? false);', $sendOverrideContent);
+            self::assertStringContainsString('$canTriggerSendAction = $nfseManagedSendFlow || !empty($document->contact_email);', $moreButtonsOverrideContent);
+            self::assertStringContainsString($clickBinding, $sendOverrideContent);
+            self::assertStringContainsString($clickBinding, $moreButtonsOverrideContent);
+        }
+
         public function testInvoicesIndexViewKeepsFiltersInPagination(): void
         {
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
