@@ -3252,7 +3252,7 @@ class InvoiceController extends Controller
                 $danfseGetter = [$client, 'getDanfse'];
 
                 if (is_callable($danfseGetter)) {
-                    $danfse = $this->fetchDanfseWithRetry($client, $receipt->chaveAcesso);
+                    $danfse = $this->fetchDanfseWithRetry($client, $receipt);
 
                     if (is_string($danfse) && $danfse !== '') {
                         $candidateDanfsePath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'pdf');
@@ -3285,7 +3285,7 @@ class InvoiceController extends Controller
         }
     }
 
-    protected function fetchDanfseWithRetry(NfseClientInterface $client, string $chaveAcesso, int $maxAttempts = 2): string
+    protected function fetchDanfseWithRetry(NfseClientInterface $client, ReceiptData $receipt, int $maxAttempts = 2): string
     {
         $attempt = 0;
         $lastError = null;
@@ -3294,7 +3294,7 @@ class InvoiceController extends Controller
             $attempt++;
 
             try {
-                return $this->fetchDanfseArtifact($client, $chaveAcesso);
+                return $this->fetchDanfseArtifact($client, $receipt);
             } catch (\Throwable $throwable) {
                 $lastError = $throwable;
 
@@ -3311,32 +3311,15 @@ class InvoiceController extends Controller
         throw new \RuntimeException('Unexpected DANFSE retrieval retry flow termination.');
     }
 
-    protected function fetchDanfseArtifact(NfseClientInterface $client, string $chaveAcesso): string
+    protected function fetchDanfseArtifact(NfseClientInterface $client, ReceiptData $receipt): string
     {
-        try {
-            return $client->getDanfse($chaveAcesso);
-        } catch (\Throwable $throwable) {
-            if (!$this->isDanfseHttp496($throwable)) {
-                throw $throwable;
-            }
+        $nfseXml = trim((string) ($receipt->rawXml ?? ''));
 
-            // Controller-isolation unit tests must stay fully local and deterministic.
-            if (class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationState::class, false)) {
-                throw $throwable;
-            }
-
-            $lastError = $throwable;
-
-            foreach ($this->danfseFallbackUrls($chaveAcesso) as $fallbackUrl) {
-                try {
-                    return $this->downloadDanfseFromUrl($fallbackUrl);
-                } catch (\Throwable $fallbackError) {
-                    $lastError = $fallbackError;
-                }
-            }
-
-            throw $lastError;
+        if ($nfseXml === '') {
+            throw new \RuntimeException('DANFSE generation requires authorized NFS-e XML payload.');
         }
+
+        return $client->getDanfse($nfseXml);
     }
 
     /**
