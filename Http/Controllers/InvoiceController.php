@@ -3405,7 +3405,12 @@ class InvoiceController extends Controller
                 $this->safeLogError('NFS-e DANFSE artifact storage failed', [
                     'invoice_id' => $invoice->id,
                     'chave_acesso' => $receipt->chaveAcesso,
-                    'message' => $throwable->getMessage(),
+                    'exception_class' => $throwable::class,
+                    'exception_message' => $throwable->getMessage(),
+                    'exception_code' => $throwable->getCode(),
+                    'rawXml_length' => strlen((string) ($receipt->rawXml ?? '')),
+                    'rawXml_sample' => substr((string) ($receipt->rawXml ?? ''), 0, 200),
+                    'trace' => $throwable->getTraceAsString(),
                 ]);
             }
         }
