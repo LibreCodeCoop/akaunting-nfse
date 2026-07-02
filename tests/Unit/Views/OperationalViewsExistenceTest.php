@@ -26,11 +26,11 @@ namespace Modules\Nfse\Tests\Unit\Views {
         {
             $overrideBasePath = dirname(__DIR__, 3) . '/Resources/overrides/components/documents/show';
             $routeGuard = <<<'BLADE'
-($emailRoute ?? null) === 'nfse.modals.invoices.emails.create'
-BLADE;
+                ($emailRoute ?? null) === 'nfse.modals.invoices.emails.create'
+                BLADE;
             $clickBinding = <<<'BLADE'
-@click="onSendEmail('{{ route($emailRoute, $document->id) }}')"
-BLADE;
+                @click="onSendEmail('{{ route($emailRoute, $document->id) }}')"
+                BLADE;
 
             $sendOverridePath = $overrideBasePath . '/send.blade.php';
             $moreButtonsOverridePath = $overrideBasePath . '/more-buttons.blade.php';

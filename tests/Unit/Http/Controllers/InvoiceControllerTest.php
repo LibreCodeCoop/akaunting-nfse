@@ -2429,7 +2429,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('1502', $client->capturedDps?->itemListaServico);
+            self::assertSame('002', $client->capturedDps?->itemListaServico);
             self::assertSame('150201', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('7.00', $client->capturedDps?->aliquota);
             self::assertStringContainsString('[1502] Servico vinculado', $client->capturedDps?->discriminacao ?? '');
@@ -2552,7 +2552,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
             // When multiple profiles exist, the first one is selected (highest priority)
-            self::assertSame('1502', $client->capturedDps?->itemListaServico);
+            self::assertSame('002', $client->capturedDps?->itemListaServico);
             self::assertStringContainsString('[1502] Servico A', $client->capturedDps?->discriminacao ?? '');
         }
 

@@ -902,11 +902,19 @@ class InvoiceController extends Controller
             }
         }
 
-        if ($session === null && function_exists('session')) {
-            try {
-                $session = session();
-            } catch (\Throwable) {
-                $session = null;
+        if ($session === null) {
+            if (function_exists(__NAMESPACE__ . '\\session')) {
+                try {
+                    $session = session();
+                } catch (\Throwable) {
+                    $session = null;
+                }
+            } elseif (function_exists('session')) {
+                try {
+                    $session = \session();
+                } catch (\Throwable) {
+                    $session = null;
+                }
             }
         }
 
