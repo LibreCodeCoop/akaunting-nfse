@@ -79,5 +79,6 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         self::assertStringContainsString("'prefix' => 'Modules\\\\Nfse\\\\Vendor'", $content);
         self::assertStringContainsString("'/scoped'", $content);
         self::assertStringContainsString("__DIR__ . '/vendor'", $content);
+        self::assertStringNotContainsString("'composer'", $content);
     }
 }

@@ -16,7 +16,6 @@ return [
         $finderClass::create()->files()
             ->exclude([
                 'bin',
-                'composer',
                 'humbug',
             ])
             ->in($vendorDirectory),
