@@ -12,6 +12,7 @@ namespace {
 namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use App\Models\Document\Document as Invoice;
     use Illuminate\Http\Request;
+    use LibreCodeCoop\NfsePHP\Config\CertConfig;
     use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
     use LibreCodeCoop\NfsePHP\Dto\DpsData;
     use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -20,6 +21,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
     use LibreCodeCoop\NfsePHP\Exception\PfxImportException;
     use LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
+    use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Http\Controllers\InvoiceController;
     use Modules\Nfse\Models\NfseReceipt;
@@ -175,14 +177,76 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
         }
 
-        public function testMakeClientBuildsCertConfigWithoutProjectRootPemOverrides(): void
+        public function testMakeClientBuildsCertConfigWithTransportPemOverrides(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
-            self::assertStringContainsString("pfxPath:   storage_path('app/nfse/pfx/' . \$cnpj . '.pfx')", $content);
-            self::assertStringContainsString("vaultPath: 'pfx/' . \$cnpj", $content);
-            self::assertStringNotContainsString('transportCertificatePath:', $content);
-            self::assertStringNotContainsString('transportPrivateKeyPath:', $content);
+            self::assertStringContainsString("\$cert = new CertConfig(", $content);
+            self::assertStringContainsString("pfxPath: storage_path('app/nfse/pfx/' . \$cnpj . '.pfx')", $content);
+            self::assertStringContainsString("vaultPath: 'pfx/' . \$cnpj,", $content);
+            self::assertStringContainsString('[$transportCertificatePath, $transportPrivateKeyPath] = $this->resolveTransportCertificatePaths($cert, $secretStore);', $content);
+            self::assertStringContainsString('pfxPath: $cert->pfxPath,', $content);
+            self::assertStringContainsString('vaultPath: $cert->vaultPath,', $content);
+            self::assertStringContainsString('transportCertificatePath: $transportCertificatePath,', $content);
+            self::assertStringContainsString('transportPrivateKeyPath: $transportPrivateKeyPath,', $content);
+            self::assertStringContainsString('[$certificatePath, $privateKeyPath, $cleanup] = $this->makeTransportCertificateManager()->prepare($cert, $secretStore);', $content);
+            self::assertStringContainsString('$this->clientTransportCleanup = $cleanup;', $content);
+            self::assertStringContainsString('protected function cleanupClientTransportArtifacts(): void', $content);
+        }
+
+        public function testMakeClientPassesTransportArtifactsAndPreservesSandboxSelection(): void
+        {
+            $secretStore = new class () extends OpenBaoSecretStore {
+                public function __construct()
+                {
+                }
+            };
+
+            $controller = new class ($secretStore) extends InvoiceController {
+                public ?CertConfig $capturedCert = null;
+
+                public function __construct(private readonly OpenBaoSecretStore $secretStore)
+                {
+                }
+
+                public function buildClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->makeClient($sandboxMode);
+                }
+
+                protected function makeSecretStore(): OpenBaoSecretStore
+                {
+                    return $this->secretStore;
+                }
+
+                protected function resolveTransportCertificatePaths(CertConfig $cert, OpenBaoSecretStore $secretStore): array
+                {
+                    $this->capturedCert = $cert;
+
+                    return ['/tmp/nfse-client.crt.pem', '/tmp/nfse-client.key.pem'];
+                }
+            };
+
+            $sandboxClient = $controller->buildClient(true);
+            $productionClient = $controller->buildClient(false);
+
+            $readCert = \Closure::bind(static fn ($client): CertConfig => $client->cert, null, \LibreCodeCoop\NfsePHP\Http\NfseClient::class);
+            $readEnvironment = \Closure::bind(static fn ($client): \LibreCodeCoop\NfsePHP\Config\EnvironmentConfig => $client->environment, null, \LibreCodeCoop\NfsePHP\Http\NfseClient::class);
+
+            $sandboxCert = $readCert($sandboxClient);
+            $productionCert = $readCert($productionClient);
+            $sandboxEnvironment = $readEnvironment($sandboxClient);
+            $productionEnvironment = $readEnvironment($productionClient);
+
+            self::assertSame('12345678000195', $controller->capturedCert?->cnpj);
+            self::assertSame(ControllerIsolationState::$storageRoot . '/app/nfse/pfx/12345678000195.pfx', $controller->capturedCert?->pfxPath);
+            self::assertSame('pfx/12345678000195', $controller->capturedCert?->vaultPath);
+            self::assertSame('/tmp/nfse-client.crt.pem', $sandboxCert->transportCertificatePath);
+            self::assertSame('/tmp/nfse-client.key.pem', $sandboxCert->transportPrivateKeyPath);
+            self::assertSame('/tmp/nfse-client.crt.pem', $productionCert->transportCertificatePath);
+            self::assertSame('/tmp/nfse-client.key.pem', $productionCert->transportPrivateKeyPath);
+            self::assertTrue($sandboxEnvironment->sandboxMode);
+            self::assertFalse($productionEnvironment->sandboxMode);
         }
 
         public function testControllerBuildsWebDavArtifactPathsWithXmlAndDanfseFiles(): void
