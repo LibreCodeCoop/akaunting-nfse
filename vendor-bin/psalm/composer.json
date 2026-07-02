@@ -1,0 +1,13 @@
+{
+    "name": "librecodeoop/akaunting-nfse-psalm-tools",
+    "description": "Psalm tooling for the Akaunting NFS-e module",
+    "type": "project",
+    "require-dev": {
+        "vimeo/psalm": "^6.0"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    }
+}

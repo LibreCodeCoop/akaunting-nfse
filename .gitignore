@@ -6,5 +6,13 @@
 /node_modules/
 /playwright-report/
 /test-results/
-/vendor-bin/
+/vendor-bin/*
+!/vendor-bin/behat/
+!/vendor-bin/php-cs-fixer/
+!/vendor-bin/php-scoper/
+!/vendor-bin/phpunit/
+!/vendor-bin/psalm/
+/vendor-bin/*/vendor/
+!/vendor-bin/*/composer.json
+!/vendor-bin/*/composer.lock
 .env.e2e
