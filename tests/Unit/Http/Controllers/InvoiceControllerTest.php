@@ -12,16 +12,16 @@ namespace {
 namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use App\Models\Document\Document as Invoice;
     use Illuminate\Http\Request;
-    use LibreCodeCoop\NfsePHP\Config\CertConfig;
-    use LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
-    use LibreCodeCoop\NfsePHP\Dto\DpsData;
-    use LibreCodeCoop\NfsePHP\Dto\ReceiptData;
-    use LibreCodeCoop\NfsePHP\Exception\CancellationException;
-    use LibreCodeCoop\NfsePHP\Exception\IssuanceException;
-    use LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
-    use LibreCodeCoop\NfsePHP\Exception\PfxImportException;
-    use LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
-    use LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\CancellationException;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\IssuanceException;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Http\Controllers\InvoiceController;
     use Modules\Nfse\Models\NfseReceipt;
@@ -50,7 +50,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testRuntimeVendoredNfseClientDoesNotUseUndefinedSslContextOptionsForDanfse(): void
         {
-            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/vendor/librecodeoop/nfse-php/src/Http/NfseClient.php');
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/3rdparty/scoped/librecodeoop/nfse-php/src/Http/NfseClient.php');
 
             if (str_contains($content, 'generateFromXml')) {
                 self::assertStringContainsString('return $this->danfseGenerator->generateFromXml($nfseXml);', $content);
@@ -230,8 +230,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $sandboxClient = $controller->buildClient(true);
             $productionClient = $controller->buildClient(false);
 
-            $readCert = \Closure::bind(static fn ($client): CertConfig => $client->cert, null, \LibreCodeCoop\NfsePHP\Http\NfseClient::class);
-            $readEnvironment = \Closure::bind(static fn ($client): \LibreCodeCoop\NfsePHP\Config\EnvironmentConfig => $client->environment, null, \LibreCodeCoop\NfsePHP\Http\NfseClient::class);
+            $readCert = \Closure::bind(static fn ($client): CertConfig => $client->cert, null, \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient::class);
+            $readEnvironment = \Closure::bind(static fn ($client): \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\EnvironmentConfig => $client->environment, null, \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient::class);
 
             $sandboxCert = $readCert($sandboxClient);
             $productionCert = $readCert($productionClient);
@@ -1988,7 +1988,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testRuntimeXmlBuilderStartsInfDpsWithTpAmbBeforeMunicipalityFields(): void
         {
-            $builder = new \LibreCodeCoop\NfsePHP\Xml\XmlBuilder();
+            $builder = new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder();
             $xml = $builder->buildDps(new DpsData(
                 cnpjPrestador: '12345678000195',
                 municipioIbge: '3303302',
@@ -2030,7 +2030,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testRuntimeXmlBuilderKeepsTribFedAndTotTribWhenFederalPayloadIsOtherwiseEmpty(): void
         {
-            $builder = new \LibreCodeCoop\NfsePHP\Xml\XmlBuilder();
+            $builder = new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder();
             $xml = $builder->buildDps(new DpsData(
                 cnpjPrestador: '12345678000195',
                 municipioIbge: '3303302',

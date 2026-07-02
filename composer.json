@@ -18,20 +18,19 @@
         "source": "https://github.com/LibreCodeCoop/akaunting-nfse"
     },
     "require": {
-        "php": "^8.2",
-        "librecodeoop/nfse-php": "dev-main"
+        "php": "^8.2"
     },
     "require-dev": {
-        "behat/behat": "^3.16",
-        "phpunit/phpunit": "^11.0",
-        "guzzlehttp/guzzle": "^7.9",
-        "friendsofphp/php-cs-fixer": "^3.0",
-        "vimeo/psalm": "^6.0"
+        "bamarni/composer-bin-plugin": "^1.8",
+        "guzzlehttp/guzzle": "^7.9"
     },
     "autoload": {
         "psr-4": {
             "Modules\\Nfse\\": "./"
-        }
+        },
+        "files": [
+            "3rdparty/scoped/autoload.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -39,21 +38,54 @@
         }
     },
     "scripts": {
-        "test": "phpunit",
-        "test:unit": "phpunit --testsuite=Unit",
-        "test:behat": "behat --config=behat.yml.dist --strict --colors",
-        "test:behat:auth": "behat --config=behat.yml.dist --strict --colors --tags='@auth'",
-        "test:behat:guest": "behat --config=behat.yml.dist --strict --colors --tags='~@auth'",
-        "test:coverage": "XDEBUG_MODE=coverage phpunit --coverage-clover=build/logs/clover.xml",
-        "cs:check": "php-cs-fixer fix --dry-run --diff",
-        "cs:fix": "php-cs-fixer fix",
-        "psalm": "psalm --threads=$(nproc)",
-        "psalm:update-baseline": "psalm --threads=$(nproc) --update-baseline --set-baseline=tests/psalm-baseline.xml"
+        "thirdparty:install": "composer --working-dir=3rdparty install --prefer-dist --no-progress --no-interaction",
+        "dev-tools:install": [
+            "@composer bin php-scoper install --ansi --prefer-dist --no-progress --no-interaction",
+            "@composer bin phpunit install --ansi --prefer-dist --no-progress --no-interaction",
+            "@composer bin behat install --ansi --prefer-dist --no-progress --no-interaction",
+            "@composer bin php-cs-fixer install --ansi --prefer-dist --no-progress --no-interaction",
+            "@composer bin psalm install --ansi --prefer-dist --no-progress --no-interaction"
+        ],
+        "thirdparty:scope": "@php -d memory_limit=-1 vendor-bin/php-scoper/vendor/bin/php-scoper add-prefix --force --config=3rdparty/scoper.inc.php",
+        "thirdparty:build": [
+            "@thirdparty:install",
+            "@dev-tools:install",
+            "@thirdparty:scope"
+        ],
+        "post-install-cmd": [
+            "@thirdparty:build"
+        ],
+        "post-update-cmd": [
+            "@thirdparty:build"
+        ],
+        "test": "vendor-bin/phpunit/vendor/bin/phpunit",
+        "test:unit": "vendor-bin/phpunit/vendor/bin/phpunit --testsuite=Unit",
+        "test:behat": "vendor-bin/behat/vendor/bin/behat --config=behat.yml.dist --strict --colors",
+        "test:behat:auth": "vendor-bin/behat/vendor/bin/behat --config=behat.yml.dist --strict --colors --tags='@auth'",
+        "test:behat:guest": "vendor-bin/behat/vendor/bin/behat --config=behat.yml.dist --strict --colors --tags='~@auth'",
+        "test:coverage": "XDEBUG_MODE=coverage vendor-bin/phpunit/vendor/bin/phpunit --coverage-clover=build/logs/clover.xml",
+        "cs:check": "vendor-bin/php-cs-fixer/vendor/bin/php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "vendor-bin/php-cs-fixer/vendor/bin/php-cs-fixer fix",
+        "psalm": "vendor-bin/psalm/vendor/bin/psalm --threads=$(nproc)",
+        "psalm:update-baseline": "vendor-bin/psalm/vendor/bin/psalm --threads=$(nproc) --update-baseline --set-baseline=tests/psalm-baseline.xml"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
     "config": {
+        "allow-plugins": {
+            "bamarni/composer-bin-plugin": true
+        },
         "prepend-autoloader": false,
         "sort-packages": true
+    },
+    "extra": {
+        "bamarni-bin": {
+            "bin-links": false,
+            "forward-command": true
+        }
+    },
+    "scripts-descriptions": {
+        "dev-tools:install": "Install isolated development tools under vendor-bin",
+        "thirdparty:build": "Build scoped runtime dependencies for the module"
     }
 }

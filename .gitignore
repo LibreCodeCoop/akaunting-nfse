@@ -6,4 +6,5 @@
 /node_modules/
 /playwright-report/
 /test-results/
+/vendor-bin/
 .env.e2e

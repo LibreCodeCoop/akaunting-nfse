@@ -26,6 +26,8 @@ final class MainProviderRegistrationTest extends TestCase
         self::assertStringContainsString('registerItemFiscalProfileHooks', $content);
         self::assertStringContainsString('ItemFiscalProfile::updateOrCreate', $content);
         self::assertStringContainsString('OverrideInvoiceEmailRoute::class', $content);
+        self::assertStringContainsString("'/vendor/autoload.php'", $content);
+        self::assertStringContainsString("'/3rdparty/scoped/autoload.php'", $content);
     }
 
     public function testEventProviderListensToRouteMatchedForInvoiceSendFlow(): void

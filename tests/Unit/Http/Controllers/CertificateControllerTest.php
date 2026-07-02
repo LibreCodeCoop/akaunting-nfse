@@ -13,7 +13,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use Illuminate\Http\JsonResponse;
     use Illuminate\Http\Request;
     use Illuminate\Http\UploadedFile;
-    use LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
     use Modules\Nfse\Http\Controllers\CertificateController;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
 

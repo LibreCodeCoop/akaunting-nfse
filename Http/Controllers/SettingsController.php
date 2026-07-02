@@ -735,11 +735,11 @@ class SettingsController extends Controller
         }
     }
 
-    protected function makeSecretStore(): \LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
+    protected function makeSecretStore(): \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
     {
         $config = VaultConfig::secretStoreConfig();
 
-        return new \LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore(
+        return new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore(
             addr: $config['addr'],
             mount: $config['mount'],
             token: $config['token'],

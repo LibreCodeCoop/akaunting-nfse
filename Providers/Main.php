@@ -46,6 +46,21 @@ class Main extends Provider
         }
     }
 
+    protected function loadModuleVendorAutoload(): void
+    {
+        $moduleRoot = dirname(__DIR__);
+        $autoloadPaths = [
+            $moduleRoot . '/vendor/autoload.php',
+            $moduleRoot . '/3rdparty/scoped/autoload.php',
+        ];
+
+        foreach ($autoloadPaths as $autoloadPath) {
+            if (is_file($autoloadPath)) {
+                require_once $autoloadPath;
+            }
+        }
+    }
+
     protected function loadViews(): void
     {
         $this->loadViewsFrom(__DIR__ . '/../Resources/views', 'nfse');
