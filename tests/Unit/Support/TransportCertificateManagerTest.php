@@ -71,7 +71,7 @@ final class TransportCertificateManagerTest extends TestCase
         self::assertSame(self::$privateKeyPem, trim((string) file_get_contents($privateKeyPath)));
         self::assertSame('0600', substr(sprintf('%o', fileperms($certificatePath)), -4));
         self::assertSame('0600', substr(sprintf('%o', fileperms($privateKeyPath)), -4));
-        $this->assertPemPairIsValid($certificatePath, $privateKeyPath);
+        $this->assertPemPairMatches($certificatePath, $privateKeyPath);
 
         $cleanup();
 
@@ -95,7 +95,7 @@ final class TransportCertificateManagerTest extends TestCase
 
         self::assertNotSame($certificatePath, $certificatePathAgain);
         self::assertNotSame($privateKeyPath, $privateKeyPathAgain);
-        $this->assertPemPairIsValid($certificatePathAgain, $privateKeyPathAgain);
+        $this->assertPemPairMatches($certificatePathAgain, $privateKeyPathAgain);
 
         $cleanup();
         $cleanupAgain();
@@ -221,14 +221,27 @@ final class TransportCertificateManagerTest extends TestCase
         };
     }
 
-    private function assertPemPairIsValid(string $certificatePath, string $privateKeyPath): void
+    private function assertPemPairMatches(string $certificatePath, string $privateKeyPath): void
     {
-        $certificate = openssl_x509_read((string) file_get_contents($certificatePath));
-        $privateKey = openssl_pkey_get_private((string) file_get_contents($privateKeyPath));
+        $certificateContents = (string) file_get_contents($certificatePath);
+        $privateKeyContents = (string) file_get_contents($privateKeyPath);
+
+        $certificate = openssl_x509_read($certificateContents);
+        $certificatePublicKey = openssl_pkey_get_public($certificateContents);
+        $privateKey = openssl_pkey_get_private($privateKeyContents);
 
         self::assertNotFalse($certificate);
+        self::assertNotFalse($certificatePublicKey);
         self::assertNotFalse($privateKey);
-        self::assertTrue(openssl_x509_check_private_key($certificate, $privateKey));
+
+        $certificatePublicKeyDetails = openssl_pkey_get_details($certificatePublicKey);
+        $privateKeyDetails = openssl_pkey_get_details($privateKey);
+
+        self::assertIsArray($certificatePublicKeyDetails);
+        self::assertIsArray($privateKeyDetails);
+        self::assertSame($certificatePublicKeyDetails['type'], $privateKeyDetails['type']);
+        self::assertSame($certificatePublicKeyDetails['bits'], $privateKeyDetails['bits']);
+        self::assertSame($certificatePublicKeyDetails['key'], $privateKeyDetails['key']);
     }
 
     /**
