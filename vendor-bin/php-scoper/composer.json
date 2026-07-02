@@ -1,0 +1,19 @@
+{
+    "name": "librecodeoop/akaunting-nfse-scoper-tools",
+    "description": "Development tooling for building the scoped Akaunting NFS-e runtime",
+    "type": "project",
+    "require-dev": {
+        "humbug/php-scoper": "^0.18"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "platform": {
+            "php": "8.2.31"
+        },
+        "sort-packages": true,
+        "allow-plugins": {
+            "composer/package-versions-deprecated": true
+        }
+    }
+}

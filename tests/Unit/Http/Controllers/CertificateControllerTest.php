@@ -13,13 +13,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use Illuminate\Http\JsonResponse;
     use Illuminate\Http\Request;
     use Illuminate\Http\UploadedFile;
-    use LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
     use Modules\Nfse\Http\Controllers\CertificateController;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
 
     use function Modules\Nfse\Http\Controllers\storage_path;
 
     use Modules\Nfse\Tests\TestCase;
+    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 
     final class CertificateControllerTest extends TestCase
     {

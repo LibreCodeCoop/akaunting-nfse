@@ -7,12 +7,12 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Unit\Support;
 
-use LibreCodeCoop\NfsePHP\Config\CertConfig;
-use LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
-use LibreCodeCoop\NfsePHP\Exception\PfxImportException;
-use LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 use Modules\Nfse\Support\TransportCertificateManager;
 use Modules\Nfse\Tests\TestCase;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 
 final class TransportCertificateManagerTest extends TestCase
 {

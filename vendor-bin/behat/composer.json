@@ -1,0 +1,16 @@
+{
+    "name": "librecodeoop/akaunting-nfse-behat-tools",
+    "description": "Behat tooling for the Akaunting NFS-e module",
+    "type": "project",
+    "require-dev": {
+        "behat/behat": "^3.16"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "platform": {
+            "php": "8.2.31"
+        },
+        "sort-packages": true
+    }
+}

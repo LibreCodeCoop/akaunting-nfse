@@ -1,0 +1,19 @@
+{
+    "name": "librecodeoop/akaunting-nfse-runtime",
+    "description": "Scoped runtime dependencies for the Akaunting NFS-e module",
+    "type": "project",
+    "require": {
+        "php": "^8.2",
+        "librecodeoop/nfse-php": "dev-main"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "optimize-autoloader": true,
+        "classmap-authoritative": true,
+        "sort-packages": true,
+        "allow-plugins": {
+            "composer/package-versions-deprecated": true
+        }
+    }
+}

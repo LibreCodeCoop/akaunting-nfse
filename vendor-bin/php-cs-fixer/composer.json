@@ -1,0 +1,16 @@
+{
+    "name": "librecodeoop/akaunting-nfse-php-cs-fixer-tools",
+    "description": "PHP CS Fixer tooling for the Akaunting NFS-e module",
+    "type": "project",
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.0"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "platform": {
+            "php": "8.2.31"
+        },
+        "sort-packages": true
+    }
+}
