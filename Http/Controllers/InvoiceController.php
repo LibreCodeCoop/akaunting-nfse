@@ -3378,16 +3378,12 @@ class InvoiceController extends Controller
 
         if ($this->webDavStorePdfEnabled()) {
             try {
-                $danfseGetter = [$client, 'getDanfse'];
+                $danfse = $this->generateDanfseFromAuthorizedXml($client, $receipt);
 
-                if (is_callable($danfseGetter)) {
-                    $danfse = $this->fetchDanfseArtifact($client, $receipt);
-
-                    if (is_string($danfse) && $danfse !== '') {
-                        $candidateDanfsePath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'pdf');
-                        $webDavClient->put($candidateDanfsePath, $danfse);
-                        $danfsePath = $candidateDanfsePath;
-                    }
+                if (is_string($danfse) && $danfse !== '') {
+                    $candidateDanfsePath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'pdf');
+                    $webDavClient->put($candidateDanfsePath, $danfse);
+                    $danfsePath = $candidateDanfsePath;
                 }
             } catch (\Throwable $throwable) {
                 $this->safeLogError('NFS-e DANFSE artifact storage failed', [
@@ -3414,7 +3410,7 @@ class InvoiceController extends Controller
         }
     }
 
-    protected function fetchDanfseArtifact(NfseClientInterface $client, ReceiptData $receipt): string
+    protected function generateDanfseFromAuthorizedXml(NfseClientInterface $client, ReceiptData $receipt): string
     {
         $nfseXml = trim((string) ($receipt->rawXml ?? ''));
 
