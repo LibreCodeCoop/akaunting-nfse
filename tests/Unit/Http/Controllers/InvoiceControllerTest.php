@@ -718,7 +718,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertNull($persistedReceipt->danfse_webdav_path ?? null);
         }
 
-        public function testFetchDanfseArtifactUsesReceiptRawXml(): void
+        public function testGenerateDanfseFromAuthorizedXmlUsesReceiptRawXml(): void
         {
             $capturedXml = null;
 
@@ -754,9 +754,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             };
 
             $controller = new class () extends InvoiceController {
-                public function callFetchDanfseArtifact(NfseClientInterface $client, ReceiptData $receipt): string
+                public function callGenerateDanfseFromAuthorizedXml(NfseClientInterface $client, ReceiptData $receipt): string
                 {
-                    return $this->fetchDanfseArtifact($client, $receipt);
+                    return $this->generateDanfseFromAuthorizedXml($client, $receipt);
                 }
             };
 
@@ -768,7 +768,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 rawXml: '<NFSe>deve-ser-usado</NFSe>',
             );
 
-            $danfse = $controller->callFetchDanfseArtifact($client, $receipt);
+            $danfse = $controller->callGenerateDanfseFromAuthorizedXml($client, $receipt);
 
             self::assertSame('%PDF-sintetico', $danfse);
             self::assertSame('<NFSe>deve-ser-usado</NFSe>', $client->capturedXml);
