@@ -167,7 +167,22 @@ final class TransportCertificateManagerTest extends TestCase
     private function makeManager(): TransportCertificateManager
     {
         return new TransportCertificateManager(
-            temporaryDirectoryResolver: fn (): string => $this->storageRoot,
+            fn (): string => $this->storageRoot,
+            function (string $pfxContent, string $password, string $cnpj): array {
+                self::assertSame(self::$pfx, $pfxContent);
+                self::assertSame(self::CNPJ, $cnpj);
+
+                if ($password !== self::PASSWORD) {
+                    throw new PfxImportException('Failed to import PFX for CNPJ ' . self::CNPJ . ': synthetic invalid password');
+                }
+
+                return [self::$privateKeyPem, self::$certificatePem];
+            },
+            function (string $certificatePem, string $privateKeyPem, string $cnpj): void {
+                self::assertSame(self::$certificatePem, $certificatePem);
+                self::assertSame(self::$privateKeyPem, $privateKeyPem);
+                self::assertSame(self::CNPJ, $cnpj);
+            },
         );
     }
 

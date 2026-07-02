@@ -17,10 +17,22 @@ final class TransportCertificateManager
     /** @var \Closure(): string */
     private \Closure $temporaryDirectoryResolver;
 
+    /** @var \Closure(string, string, string): array{string, string} */
+    private \Closure $pfxImporter;
+
+    /** @var \Closure(string, string, string): void */
+    private \Closure $pemValidator;
+
     /**
      * @param (callable(): string)|null $temporaryDirectoryResolver
+     * @param (callable(string, string, string): array{string, string})|null $pfxImporter
+     * @param (callable(string, string, string): void)|null $pemValidator
      */
-    public function __construct(?callable $temporaryDirectoryResolver = null)
+    public function __construct(
+        ?callable $temporaryDirectoryResolver = null,
+        ?callable $pfxImporter = null,
+        ?callable $pemValidator = null,
+    )
     {
         $this->temporaryDirectoryResolver = $temporaryDirectoryResolver !== null
             ? \Closure::fromCallable($temporaryDirectoryResolver)
@@ -33,6 +45,12 @@ final class TransportCertificateManager
 
                 return $sharedMemoryDirectory;
             };
+        $this->pfxImporter = $pfxImporter !== null
+            ? \Closure::fromCallable($pfxImporter)
+            : $this->importPfx(...);
+        $this->pemValidator = $pemValidator !== null
+            ? \Closure::fromCallable($pemValidator)
+            : $this->assertPemMaterial(...);
     }
 
     /**
@@ -60,8 +78,8 @@ final class TransportCertificateManager
             throw new PfxImportException('Cannot read PFX file for CNPJ ' . $cert->cnpj . ' at path ' . $pfxPath);
         }
 
-        [$privateKeyPem, $certificatePem] = $this->importPfx($pfxContent, $password, $cert->cnpj);
-        $this->assertPemMaterial($certificatePem, $privateKeyPem, $cert->cnpj);
+        [$privateKeyPem, $certificatePem] = ($this->pfxImporter)($pfxContent, $password, $cert->cnpj);
+        ($this->pemValidator)($certificatePem, $privateKeyPem, $cert->cnpj);
 
         return $this->writeTemporaryArtifacts($certificatePem, $privateKeyPem, $cert->cnpj);
     }
