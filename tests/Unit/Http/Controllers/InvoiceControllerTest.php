@@ -677,6 +677,16 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     $this->storeArtifacts($invoice, $receipt, $nfseReceipt, $client);
                 }
+
+                protected function makeDanfseGenerator(): object
+                {
+                    return new class () {
+                        public function generateFromXml(string $nfseXml): string
+                        {
+                            throw new \RuntimeException('DANFSE unavailable');
+                        }
+                    };
+                }
             };
 
             $client = new class () implements NfseClientInterface {
@@ -697,7 +707,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
                 public function getDanfse(string $nfseXml): string
                 {
-                    throw new \RuntimeException('DANFSE unavailable');
+                    throw new \BadMethodCallException('Not used in this test.');
                 }
             };
 
@@ -720,15 +730,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testGenerateDanfseFromAuthorizedXmlUsesReceiptRawXml(): void
         {
-            $capturedXml = null;
-
-            $client = new class ($capturedXml) implements NfseClientInterface {
-                public ?string $capturedXml = null;
-
-                public function __construct(?string $capturedXml)
-                {
-                    $this->capturedXml = $capturedXml;
-                }
+            $client = new class () implements NfseClientInterface {
 
                 public function emit(DpsData $dps): ReceiptData
                 {
@@ -747,16 +749,32 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
                 public function getDanfse(string $nfseXml): string
                 {
-                    $this->capturedXml = $nfseXml;
-
-                    return '%PDF-sintetico';
+                    throw new \BadMethodCallException('Not used in this test.');
                 }
             };
 
             $controller = new class () extends InvoiceController {
-                public function callGenerateDanfseFromAuthorizedXml(NfseClientInterface $client, ReceiptData $receipt): string
+                public ?string $capturedXml = null;
+
+                public function callGenerateDanfseFromAuthorizedXml(ReceiptData $receipt): string
                 {
-                    return $this->generateDanfseFromAuthorizedXml($client, $receipt);
+                    return $this->generateDanfseFromAuthorizedXml($receipt);
+                }
+
+                protected function makeDanfseGenerator(): object
+                {
+                    return new class ($this) {
+                        public function __construct(private readonly object $controller)
+                        {
+                        }
+
+                        public function generateFromXml(string $nfseXml): string
+                        {
+                            $this->controller->capturedXml = $nfseXml;
+
+                            return '%PDF-sintetico';
+                        }
+                    };
                 }
             };
 
@@ -768,10 +786,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 rawXml: '<NFSe>deve-ser-usado</NFSe>',
             );
 
-            $danfse = $controller->callGenerateDanfseFromAuthorizedXml($client, $receipt);
+            $danfse = $controller->callGenerateDanfseFromAuthorizedXml($receipt);
 
             self::assertSame('%PDF-sintetico', $danfse);
-            self::assertSame('<NFSe>deve-ser-usado</NFSe>', $client->capturedXml);
+            self::assertSame('<NFSe>deve-ser-usado</NFSe>', $controller->capturedXml);
         }
 
         public function testStoreArtifactsBuildsFilenameFromTemplateUsingSequentialAndAccessKeyPlaceholders(): void
@@ -830,7 +848,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
 
-                public function getDanfse(string $chaveAcesso): string
+                public function getDanfse(string $nfseXml): string
                 {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
@@ -906,7 +924,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     throw new \BadMethodCallException('Not used in this test.');
                 }
 
-                public function getDanfse(string $chaveAcesso): string
+                public function getDanfse(string $nfseXml): string
                 {
                     return '';
                 }
@@ -944,6 +962,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class ($writes) extends InvoiceController {
                 /** @var list<array{message:string,context:array<string,mixed>}> */
                 public array $errors = [];
+                public int $danfseCalls = 0;
+                public ?string $capturedXml = null;
 
                 public function __construct(private readonly \ArrayObject $writes)
                 {
@@ -977,12 +997,26 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'context' => $context,
                     ];
                 }
+
+                protected function makeDanfseGenerator(): object
+                {
+                    return new class ($this) {
+                        public function __construct(private readonly object $controller)
+                        {
+                        }
+
+                        public function generateFromXml(string $nfseXml): string
+                        {
+                            $this->controller->danfseCalls++;
+                            $this->controller->capturedXml = $nfseXml;
+
+                            return '%PDF-1.4';
+                        }
+                    };
+                }
             };
 
             $client = new class () implements NfseClientInterface {
-                public int $calls = 0;
-                public ?string $capturedXml = null;
-
                 public function emit(DpsData $dps): ReceiptData
                 {
                     throw new \BadMethodCallException('Not used in this test.');
@@ -1000,10 +1034,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
                 public function getDanfse(string $nfseXml): string
                 {
-                    $this->calls++;
-                    $this->capturedXml = $nfseXml;
-
-                    return '%PDF-1.4';
+                    throw new \BadMethodCallException('Not used in this test.');
                 }
             };
 
@@ -1017,8 +1048,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
 
-            self::assertSame(1, $client->calls);
-            self::assertSame('<xml>conteudo</xml>', $client->capturedXml);
+            self::assertSame(1, $controller->danfseCalls);
+            self::assertSame('<xml>conteudo</xml>', $controller->capturedXml);
             self::assertSame([], $controller->errors);
             self::assertCount(1, $writes);
             self::assertStringEndsWith('/chave-779.pdf', $writes[0][0]);
