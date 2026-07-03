@@ -4,7 +4,7 @@
     "type": "project",
     "require": {
         "php": "^8.2",
-        "librecodeoop/nfse-php": "dev-main"
+        "librecodeoop/nfse-php": "dev-main#8e2ee3ead7c019f55fd77891188f7ab6529f4f0f"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
