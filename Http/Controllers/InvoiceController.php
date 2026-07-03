@@ -22,6 +22,7 @@ use Modules\Nfse\Support\TransportCertificateManager;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseGenerator;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\EnvironmentConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
@@ -3394,7 +3395,7 @@ class InvoiceController extends Controller
 
         if ($this->webDavStorePdfEnabled()) {
             try {
-                $danfse = $this->generateDanfseFromAuthorizedXml($client, $receipt);
+                $danfse = $this->generateDanfseFromAuthorizedXml($receipt);
 
                 if (is_string($danfse) && $danfse !== '') {
                     $candidateDanfsePath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'pdf');
@@ -3431,7 +3432,7 @@ class InvoiceController extends Controller
         }
     }
 
-    protected function generateDanfseFromAuthorizedXml(NfseClientInterface $client, ReceiptData $receipt): string
+    protected function generateDanfseFromAuthorizedXml(ReceiptData $receipt): string
     {
         $nfseXml = trim((string) ($receipt->rawXml ?? ''));
 
@@ -3439,7 +3440,12 @@ class InvoiceController extends Controller
             throw new \RuntimeException('DANFSE generation requires authorized NFS-e XML payload.');
         }
 
-        return $client->getDanfse($nfseXml);
+        return $this->makeDanfseGenerator()->generateFromXml($nfseXml);
+    }
+
+    protected function makeDanfseGenerator(): object
+    {
+        return new DanfseGenerator();
     }
 
     /**
