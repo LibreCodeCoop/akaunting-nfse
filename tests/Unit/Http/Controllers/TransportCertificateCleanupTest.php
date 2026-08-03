@@ -16,22 +16,16 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 
 /**
- * Validates that transport certificates are not prematurely deleted before being used.
+ * Validates that DANFSE generation happens locally from the authorized XML.
  *
- * Background: In production, DANFSE generation failed because the temporary certificate files
- * (/dev/shm/nfse_tls_cert_*) were deleted by the cleanup closure too early - before the client
- * had finished using them to make mTLS requests to the gateway.
- *
- * The fix moved the cleanup logic to occur AFTER storeArtifacts() completes, ensuring that
- * getDanfse() calls (which require mTLS transport certificates) complete before cleanup.
+ * Background: DANFSE generation no longer depends on the HTTP client transport layer.
+ * The controller should invoke the local package generator directly and never call
+ * client->getDanfse() while storing artifacts.
  */
 final class TransportCertificateCleanupTest extends TestCase
 {
-    public function testTransportCertificatesAvailableDuringDanfseGeneration(): void
+    public function testStoreArtifactsGeneratesDanfseLocallyWithoutUsingClientTransport(): void
     {
-        // Track when the certificate files were deleted
-        $certificateCheckAttempts = [];
-
         ControllerIsolationState::$settings['nfse.webdav_url'] = 'https://dav.example.com/root';
         ControllerIsolationState::$settings['nfse.webdav_store_xml'] = true;
         ControllerIsolationState::$settings['nfse.webdav_store_pdf'] = true;
@@ -44,13 +38,8 @@ final class TransportCertificateCleanupTest extends TestCase
         );
         $persistedReceipt = InvoiceControllerIsolationState::makeReceipt(2234, 'CHAVE-2234', 'emitted');
 
-        $controller = new class ($certificateCheckAttempts) extends InvoiceController {
-            public array $certificateCheckAttempts = [];
-
-            public function __construct(array $attempts)
-            {
-                $this->certificateCheckAttempts = $attempts;
-            }
+        $controller = new class () extends InvoiceController {
+            public int $generatorCalls = 0;
 
             protected function makeWebDavClientFromSettings(): \Modules\Nfse\Support\WebDavClient
             {
@@ -70,19 +59,26 @@ final class TransportCertificateCleanupTest extends TestCase
             ): void {
                 $this->storeArtifacts($invoice, $receipt, $nfseReceipt, $client);
             }
+
+            protected function makeDanfseGenerator(): object
+            {
+                return new class ($this) {
+                    public function __construct(private readonly object $controller)
+                    {
+                    }
+
+                    public function generateFromXml(string $nfseXml): string
+                    {
+                        $this->controller->generatorCalls++;
+
+                        return '%PDF-synthetic-danfse';
+                    }
+                };
+            }
         };
 
-        $clientDanfseWasCalled = false;
-
-        $client = new class ($certificateCheckAttempts, $clientDanfseWasCalled) implements NfseClientInterface {
-            public array $certificateCheckAttempts = [];
+        $client = new class () implements NfseClientInterface {
             public bool $danfseWasCalled = false;
-
-            public function __construct(array $attempts, bool $called)
-            {
-                $this->certificateCheckAttempts = $attempts;
-                $this->danfseWasCalled = $called;
-            }
 
             public function emit(DpsData $dps): ReceiptData
             {
@@ -101,12 +97,9 @@ final class TransportCertificateCleanupTest extends TestCase
 
             public function getDanfse(string $nfseXml): string
             {
-                // The fix ensures this method is called BEFORE certificate cleanup
-                // If it's called after cleanup and /dev/shm doesn't have the file,
-                // cURL/OpenSSL will throw "Unable to set local cert chain file" error
                 $this->danfseWasCalled = true;
 
-                return '%PDF-synthetic-danfse';
+                throw new \RuntimeException('Client DANFSE transport should not be used.');
             }
         };
 
@@ -118,12 +111,10 @@ final class TransportCertificateCleanupTest extends TestCase
             rawXml: '<NFSe>XML content</NFSe>',
         );
 
-        // Call storeArtifacts which should:
-        // 1. Call client->getDanfse() to generate the PDF
-        // 2. Only AFTER that completes, cleanup the transport certificates
         $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
 
-        // Verify that getDanfse was called (and didn't fail due to missing cert files)
-        self::assertTrue($client->danfseWasCalled, 'getDanfse() should have been called during storeArtifacts()');
+        self::assertSame(1, $controller->generatorCalls);
+        self::assertFalse($client->danfseWasCalled, 'client->getDanfse() should not be used during local DANFSE generation');
+        self::assertSame('nfse/12345678000195/2026/07/02/chave-2234.pdf', $persistedReceipt->danfse_webdav_path ?? null);
     }
 }
