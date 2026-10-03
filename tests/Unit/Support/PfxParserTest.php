@@ -14,9 +14,11 @@ class PfxParserTest extends TestCase
 {
     private const PASSWORD = 'test-password';
     private const TEST_CNPJ = '12345678000195';
+    private const TEST_ALPHANUMERIC_CNPJ = '12ABC34501DE35';
 
     private static string $pfxWithCnpjInCn;
     private static string $pfxWithCnpjInSerial;
+    private static string $pfxWithAlphanumericCnpjInCn;
     private static string $pfxNoCnpj;
 
     public static function setUpBeforeClass(): void
@@ -44,6 +46,15 @@ class PfxParserTest extends TestCase
             self::PASSWORD,
         );
 
+        self::$pfxWithAlphanumericCnpjInCn = self::makePfx(
+            [
+                'countryName'      => 'BR',
+                'organizationName' => 'EMPRESA ALFA LTDA',
+                'commonName'       => 'EMPRESA ALFA LTDA:' . self::TEST_ALPHANUMERIC_CNPJ,
+            ],
+            self::PASSWORD,
+        );
+
         // Regular certificate without any CNPJ
         self::$pfxNoCnpj = self::makePfx(
             [
@@ -67,6 +78,13 @@ class PfxParserTest extends TestCase
         $result = PfxParser::extractFromContent(self::$pfxWithCnpjInSerial, self::PASSWORD);
 
         self::assertSame(self::TEST_CNPJ, $result['cnpj']);
+    }
+
+    public function testExtractsAlphanumericCnpjFromCnField(): void
+    {
+        $result = PfxParser::extractFromContent(self::$pfxWithAlphanumericCnpjInCn, self::PASSWORD);
+
+        self::assertSame(self::TEST_ALPHANUMERIC_CNPJ, $result['cnpj']);
     }
 
     public function testReturnsNullCnpjWhenNotPresent(): void
