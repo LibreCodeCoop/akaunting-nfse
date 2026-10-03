@@ -33,7 +33,7 @@ Diferenciais:
 | Akaunting | ^4.0 |
 | PHP | ^8.2 |
 | ext-openssl | * |
-| OpenBao / Vault | ^1.x (KV v2) |
+| Secret store | OpenBao or HashiCorp Vault with KV v2 |
 
 ---
 
@@ -46,7 +46,7 @@ composer require librecodeoop/akaunting-nfse
 ```
 
 2. Habilite o módulo em **Configurações → Módulos → NFS-e**
-3. Configure o certificado e as credenciais OpenBao em **NFS-e → Configurações**
+3. Configure o certificado e o secret store (OpenBao/Vault) em **NFS-e → Configurações**
 
 ---
 
@@ -59,7 +59,10 @@ A senha é enviada diretamente ao OpenBao — o servidor nunca armazena em texto
 
 ### OpenBao / Vault
 
-O módulo armazena as credenciais nos campos da aba **NFS-e → Configurações**:
+O módulo consome um OpenBao/Vault já existente. Ele não instala nem inicializa
+esse serviço como parte do Akaunting.
+
+Configure os campos da aba **NFS-e → Configurações**:
 
 | Campo | Descrição |
 |---|---|
@@ -119,23 +122,17 @@ Recomendacao para reduzir ambiguidades:
 
 #### Desenvolvimento
 
-O ambiente de desenvolvimento utiliza o [akaunting-docker](https://github.com/LibreCodeCoop/akaunting-docker), que já inclui o OpenBao no `docker-compose.override.yml`.
+O [akaunting-docker](https://github.com/LibreCodeCoop/akaunting-docker) sobe o
+Akaunting sem OpenBao por padrão. Para desenvolvimento do NFS-e, habilite
+explicitamente o setup opcional de OpenBao documentado naquele repositório.
 
-Ao subir o ambiente pela primeira vez, o serviço `openbao-init` cria automaticamente o mount KV v2 e habilita o AppRole. Você pode verificar:
+Esse setup usa armazenamento persistente e Static Key Auto Unseal. Depois da
+inicialização única, reiniciar os containers ou a VPS não exige informar shares
+de unseal novamente.
 
-```bash
-docker compose exec -e BAO_ADDR=http://127.0.0.1:8200 -e BAO_TOKEN=dev-only-root-token \
-  openbao bao secrets list
-```
-
-O módulo já sabe o endereço do OpenBao via variável de ambiente `OPENBAO_ADDR=http://openbao:8200`
-(injetada no container `akaunting.php` pelo `docker-compose.yml`), então não é necessário configurar
-manualmente o endereço na tela de configurações para o ambiente docker-compose local.
-
-Configure o módulo com:
-- **Endereço**: `http://openbao:8200` (padrão já preenchido)
-- **Token**: `dev-only-root-token` (padrão do modo dev)
-- **Mount**: `/nfse` (padrão já preenchido)
+O módulo não assume um hostname padrão para o secret store. Configure o endereço
+na interface ou forneça `VAULT_ADDR`/`OPENBAO_ADDR` no ambiente. O mount
+continua usando `/nfse` como padrão.
 
 #### Produção (AppRole)
 
