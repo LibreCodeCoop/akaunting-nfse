@@ -94,6 +94,17 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('form.requestSubmit();', $content);
             self::assertStringContainsString('form.submit();', $content);
             self::assertStringContainsString("sendEmailInput.value = sendEmailToggle?.checked ? '1' : '0';", $content);
+            self::assertStringContainsString('name="nfse_tomador_foreign" value="0" data-emit-foreign-enabled-input', $content);
+            self::assertStringContainsString('name="nfse_tomador_nif" value="" data-emit-foreign-nif-input', $content);
+            self::assertStringContainsString('name="nfse_tomador_country" value="" data-emit-foreign-country-input', $content);
+            self::assertStringContainsString('id="nfse_emit_foreign_taker"', $content);
+            self::assertStringContainsString('id="nfse_emit_foreign_fields"', $content);
+            self::assertStringContainsString('id="nfse_emit_foreign_nif"', $content);
+            self::assertStringContainsString('id="nfse_emit_foreign_no_nif"', $content);
+            self::assertStringContainsString('window.nfseSyncForeignTaker = (input) => {', $content);
+            self::assertStringContainsString('applyTakerDefaults', $content);
+            self::assertStringContainsString('payload.taker_defaults', $content);
+            self::assertStringContainsString('foreignMappings.forEach', $content);
         }
 
         public function testInvoicesIndexViewHasRichTextEditorForEmailBody(): void
