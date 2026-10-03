@@ -18,7 +18,6 @@ class PfxParserTest extends TestCase
 
     private static string $pfxWithCnpjInCn;
     private static string $pfxWithCnpjInSerial;
-    private static string $pfxWithAlphanumericCnpjInCn;
     private static string $pfxNoCnpj;
 
     public static function setUpBeforeClass(): void
@@ -42,15 +41,6 @@ class PfxParserTest extends TestCase
                 'organizationName' => 'EMPRESA TESTE LTDA',
                 'commonName'     => 'EMPRESA TESTE',
                 'serialNumber'   => self::TEST_CNPJ,
-            ],
-            self::PASSWORD,
-        );
-
-        self::$pfxWithAlphanumericCnpjInCn = self::makePfx(
-            [
-                'countryName'      => 'BR',
-                'organizationName' => 'EMPRESA ALFA LTDA',
-                'commonName'       => 'EMPRESA ALFA LTDA:' . self::TEST_ALPHANUMERIC_CNPJ,
             ],
             self::PASSWORD,
         );
@@ -80,11 +70,17 @@ class PfxParserTest extends TestCase
         self::assertSame(self::TEST_CNPJ, $result['cnpj']);
     }
 
-    public function testExtractsAlphanumericCnpjFromCnField(): void
+    public function testFindsAlphanumericCnpjInCertificateSubject(): void
     {
-        $result = PfxParser::extractFromContent(self::$pfxWithAlphanumericCnpjInCn, self::PASSWORD);
+        $method = new \ReflectionMethod(PfxParser::class, 'findCnpj');
 
-        self::assertSame(self::TEST_ALPHANUMERIC_CNPJ, $result['cnpj']);
+        $cnpj = $method->invoke(null, [
+            'subject' => [
+                'CN' => 'EMPRESA ALFA LTDA:' . strtolower(self::TEST_ALPHANUMERIC_CNPJ),
+            ],
+        ]);
+
+        self::assertSame(self::TEST_ALPHANUMERIC_CNPJ, $cnpj);
     }
 
     public function testReturnsNullCnpjWhenNotPresent(): void
