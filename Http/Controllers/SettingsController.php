@@ -670,12 +670,26 @@ class SettingsController extends Controller
         $cnpj = (string) setting('nfse.cnpj_prestador', '');
         $path = $cnpj !== '' ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx') : '';
         $hasLocalCertificate = $path !== '' && is_file($path);
+        $validFrom = (int) setting('nfse.certificate_valid_from', 0);
+        $validTo = (int) setting('nfse.certificate_valid_to', 0);
+        $validityKnown = $validFrom > 0 && $validTo > $validFrom;
+        $now = time();
+        $isCurrentlyValid = $validityKnown ? ($now >= $validFrom && $now <= $validTo) : null;
+        $daysUntilExpiry = $validityKnown ? (int) floor(($validTo - $now) / 86400) : null;
 
         return [
             'cnpj' => $cnpj,
             'local_path' => $path,
             'has_local_certificate' => $hasLocalCertificate,
             'has_saved_settings' => $cnpj !== '',
+            'validity_known' => $validityKnown,
+            'valid_from' => $validFrom > 0 ? $validFrom : null,
+            'valid_to' => $validTo > 0 ? $validTo : null,
+            'valid_to_iso' => $validTo > 0 ? gmdate(DATE_ATOM, $validTo) : null,
+            'days_until_expiry' => $daysUntilExpiry,
+            'is_currently_valid' => $isCurrentlyValid,
+            'expires_soon' => $daysUntilExpiry !== null && $daysUntilExpiry >= 0 && $daysUntilExpiry <= 30,
+            'fingerprint_sha256' => (string) setting('nfse.certificate_fingerprint_sha256', ''),
         ];
     }
 

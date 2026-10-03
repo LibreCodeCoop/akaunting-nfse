@@ -3236,6 +3236,31 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(true, $readiness['checklist']['item_lista_servico'] ?? null);
         }
 
+        public function testEmissionReadinessBlocksKnownExpiredCertificate(): void
+        {
+            ControllerIsolationState::$settings['nfse.cnpj_prestador'] = '12345678000195';
+            ControllerIsolationState::$settings['nfse.certificate_valid_from'] = time() - 172800;
+            ControllerIsolationState::$settings['nfse.certificate_valid_to'] = time() - 86400;
+
+            $controller = new class () extends InvoiceController {
+                public function exposedEmissionReadiness(): array
+                {
+                    return $this->emissionReadiness();
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $readiness = $controller->exposedEmissionReadiness();
+
+            self::assertArrayHasKey('certificate_valid', $readiness['checklist']);
+            self::assertFalse($readiness['checklist']['certificate_valid']);
+            self::assertFalse($readiness['isReady']);
+        }
+
         public function testEmitSetsTipoAmbienteFromSandboxMode(): void
         {
             ControllerIsolationState::$settings['nfse.sandbox_mode'] = true;

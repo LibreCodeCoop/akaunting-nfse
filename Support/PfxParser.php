@@ -38,6 +38,14 @@ class PfxParser
     {
         $certificatePem = PfxReader::readCertificatePem($pfxContent, $password);
 
+        return self::extractFromCertificatePem($certificatePem);
+    }
+
+    /**
+     * @return array{cnpj: string|null}
+     */
+    public static function extractFromCertificatePem(string $certificatePem): array
+    {
         $x509 = openssl_x509_read($certificatePem);
 
         if ($x509 === false) {

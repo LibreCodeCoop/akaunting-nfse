@@ -2473,6 +2473,14 @@ class InvoiceController extends Controller
             'certificate_secret' => $this->hasCertificateSecret($cnpj),
         ];
 
+        $certificateValidFrom = (int) ($settings['certificate_valid_from'] ?? 0);
+        $certificateValidTo = (int) ($settings['certificate_valid_to'] ?? 0);
+
+        if ($certificateValidFrom > 0 && $certificateValidTo > $certificateValidFrom) {
+            $now = time();
+            $checklist['certificate_valid'] = $now >= $certificateValidFrom && $now <= $certificateValidTo;
+        }
+
         $ibsCbs = $this->ibsCbsPayloadValues();
         if ($ibsCbs['enabled']) {
             $checklist['ibs_cbs'] = $ibsCbs['ibsCbsCodigoIndicadorOperacao'] !== ''
