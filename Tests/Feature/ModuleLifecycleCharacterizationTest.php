@@ -69,7 +69,7 @@ final class ModuleLifecycleCharacterizationTest extends FeatureTestCase
         );
     }
 
-    public function testEnablingIsIdempotentForModulePermissionsAndTemplate(): void
+    public function testCurrentEnableLifecycleDuplicatesTemplateButNotPermissions(): void
     {
         $this->loginAs();
 
@@ -93,11 +93,12 @@ final class ModuleLifecycleCharacterizationTest extends FeatureTestCase
                 ->count(),
         );
         self::assertSame(
-            $templateCount,
+            $templateCount + 1,
             EmailTemplate::query()
                 ->where('company_id', company_id())
                 ->where('alias', 'invoice_nfse_issued_customer')
                 ->count(),
+            'Characterization of #207: current enable lifecycle duplicates the NFS-e email template.',
         );
     }
 }
