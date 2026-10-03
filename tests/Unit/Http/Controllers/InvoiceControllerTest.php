@@ -3075,6 +3075,113 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('001', $controller->exposedItemListaServico($defaultService));
         }
 
+        public function testAmbiguousEmissionRecoveryQueriesDpsThenAuthorizedNfse(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function recover(NfseClientInterface $client, DpsData $dps): ?ReceiptData
+                {
+                    return $this->recoverReceiptAfterAmbiguousEmission($client, $dps);
+                }
+            };
+
+            $client = new class () implements NfseClientInterface {
+                /** @var list<string> */
+                public array $calls = [];
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \LogicException('not used');
+                }
+
+                public function queryDps(string $idDps): string
+                {
+                    $this->calls[] = 'dps:' . $idDps;
+
+                    return 'ACCESS-KEY-42';
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    $this->calls[] = 'nfse:' . $chaveAcesso;
+
+                    return new ReceiptData('42', $chaveAcesso, '2026-10-03T03:00:00-03:00');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    return false;
+                }
+
+                public function getDanfse(string $nfseXml): string
+                {
+                    return '';
+                }
+            };
+
+            $dps = new DpsData(
+                cnpjPrestador: '12ABC34501DE35',
+                municipioIbge: '3303302',
+                itemListaServico: '001',
+                valorServico: '100.00',
+                aliquota: '5.00',
+                discriminacao: 'Teste',
+                serie: '1',
+                numeroDps: '42',
+            );
+
+            $receipt = $controller->recover($client, $dps);
+
+            self::assertNotNull($receipt);
+            self::assertSame('ACCESS-KEY-42', $receipt->chaveAcesso);
+            self::assertSame([
+                'dps:3303302212ABC34501DE3500001000000000000042',
+                'nfse:ACCESS-KEY-42',
+            ], $client->calls);
+        }
+
+        public function testAmbiguousEmissionRecoveryIsBackwardCompatibleWithoutDpsLookup(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function recover(NfseClientInterface $client, DpsData $dps): ?ReceiptData
+                {
+                    return $this->recoverReceiptAfterAmbiguousEmission($client, $dps);
+                }
+            };
+
+            $client = new class () implements NfseClientInterface {
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    throw new \LogicException('not used');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \LogicException('not used');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    return false;
+                }
+
+                public function getDanfse(string $nfseXml): string
+                {
+                    return '';
+                }
+            };
+
+            $dps = new DpsData(
+                cnpjPrestador: '11222333000181',
+                municipioIbge: '3303302',
+                itemListaServico: '001',
+                valorServico: '100.00',
+                aliquota: '5.00',
+                discriminacao: 'Teste',
+            );
+
+            self::assertNull($controller->recover($client, $dps));
+        }
+
         public function testNormalizedMunicipalTaxationCodeDerivesMunicipalSubitemFromFourDigitLc116Values(): void
         {
             $controller = new class () extends InvoiceController {
