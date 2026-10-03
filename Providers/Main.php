@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Providers;
 
-use App\Models\Common\Item as CoreItem;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
@@ -28,7 +27,6 @@ class Main extends Provider
         $this->loadMigrations();
         $this->registerInvoiceSendFlowOverride();
         $this->registerItemFiscalFieldInjection();
-        $this->registerItemFiscalProfileHooks();
         $this->syncEmailTemplates();
     }
 
@@ -155,66 +153,5 @@ class Main extends Provider
         });
     }
 
-    protected function registerItemFiscalProfileHooks(): void
-    {
-        CoreItem::saved(function (CoreItem $item): void {
-            $request = request();
 
-            if (!is_object($request) || !method_exists($request, 'input')) {
-                return;
-            }
-
-            $rawServiceCode = $request->input('nfse_item_lista_servico', null);
-            $rawNationalCode = $request->input('nfse_codigo_tributacao_nacional', null);
-
-            if ($rawServiceCode === null && $rawNationalCode === null) {
-                return;
-            }
-
-            $companyId = is_numeric($item->company_id ?? null) ? (int) $item->company_id : 0;
-            $itemId = is_numeric($item->id ?? null) ? (int) $item->id : 0;
-
-            if ($companyId <= 0 || $itemId <= 0) {
-                return;
-            }
-
-            $serviceDigits = preg_replace('/\D+/', '', (string) $rawServiceCode) ?: '';
-            $serviceCode = preg_match('/(\d{4})$/', $serviceDigits, $serviceCodeMatch)
-                ? $serviceCodeMatch[1]
-                : substr($serviceDigits, 0, 4);
-
-            $nationalCode = preg_replace('/\D+/', '', (string) $rawNationalCode) ?: '';
-            $nationalCode = $nationalCode !== ''
-                ? str_pad(substr($nationalCode, 0, 6), 6, '0', STR_PAD_LEFT)
-                : null;
-
-            if ($serviceCode === '' && $nationalCode === null) {
-                try {
-                    ItemFiscalProfile::query()
-                        ->where('company_id', $companyId)
-                        ->where('item_id', $itemId)
-                        ->delete();
-                } catch (\Throwable) {
-                    // Keep item save flow resilient.
-                }
-
-                return;
-            }
-
-            try {
-                ItemFiscalProfile::updateOrCreate(
-                    [
-                        'company_id' => $companyId,
-                        'item_id' => $itemId,
-                    ],
-                    [
-                        'item_lista_servico' => $serviceCode !== '' ? $serviceCode : null,
-                        'codigo_tributacao_nacional' => $nationalCode,
-                    ]
-                );
-            } catch (\Throwable) {
-                // Keep item save flow resilient.
-            }
-        });
-    }
 }
