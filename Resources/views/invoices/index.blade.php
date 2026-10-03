@@ -345,6 +345,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <input type="hidden" name="nfse_item_service_assignments" value="" data-emit-assignments>
                                             <input type="hidden" name="nfse_discriminacao_custom" value="" data-emit-description-input>
                                             <input type="hidden" name="nfse_save_default_description" value="0" data-emit-description-save-default-input>
+                                            <input type="hidden" name="nfse_tomador_foreign" value="0" data-emit-foreign-enabled-input>
+                                            <input type="hidden" name="nfse_tomador_nif" value="" data-emit-foreign-nif-input>
+                                            <input type="hidden" name="nfse_tomador_nao_nif" value="" data-emit-foreign-no-nif-input>
+                                            <input type="hidden" name="nfse_tomador_country" value="" data-emit-foreign-country-input>
+                                            <input type="hidden" name="nfse_tomador_postal_code" value="" data-emit-foreign-postal-input>
+                                            <input type="hidden" name="nfse_tomador_city" value="" data-emit-foreign-city-input>
+                                            <input type="hidden" name="nfse_tomador_region" value="" data-emit-foreign-region-input>
+                                            <input type="hidden" name="nfse_tomador_street" value="" data-emit-foreign-street-input>
+                                            <input type="hidden" name="nfse_tomador_number" value="" data-emit-foreign-number-input>
+                                            <input type="hidden" name="nfse_tomador_complement" value="" data-emit-foreign-complement-input>
+                                            <input type="hidden" name="nfse_tomador_district" value="" data-emit-foreign-district-input>
                                             <input type="hidden" name="nfse_send_email" value="0" data-emit-email-send-input>
                                             <input type="hidden" name="nfse_email_to" value="" data-emit-email-to-input>
                                             <input type="hidden" name="nfse_email_subject" value="" data-emit-email-subject-input>
@@ -767,10 +778,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </div>
 
                     <div class="p-5">
-                        <x-tabs active="issuance" class="grid grid-cols-3 auto-rows-max" override="class" ignore-hash>
+                        <x-tabs active="issuance" class="grid grid-cols-4 auto-rows-max" override="class" ignore-hash>
                             <x-slot name="navs">
                                 <x-tabs.nav id="issuance">
                                     {{ trans('general.general') }}
+                                </x-tabs.nav>
+
+                                <x-tabs.nav id="foreign-taker">
+                                    {{ trans('nfse::general.invoices.emit_modal_foreign_taker') }}
                                 </x-tabs.nav>
 
                                 <x-tabs.nav id="email">
@@ -806,6 +821,70 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
                                             </label>
                                             <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_save_default') }}</span>
+                                        </div>
+                                    </div>
+                                </x-tabs.tab>
+
+                                <x-tabs.tab id="foreign-taker">
+                                    <div class="space-y-4 px-1">
+                                        <div class="flex items-start gap-3 rounded-lg border border-gray-200 p-4">
+                                            <label for="nfse_emit_foreign_taker" class="relative mt-0.5 inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
+                                                <input id="nfse_emit_foreign_taker" type="checkbox" class="sr-only" onchange="window.nfseSyncForeignTaker?.(this)">
+                                                <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
+                                                <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
+                                            </label>
+                                            <div>
+                                                <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_taker') }}</p>
+                                                <p class="text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_foreign_taker_hint') }}</p>
+                                            </div>
+                                        </div>
+
+                                        <div id="nfse_emit_foreign_fields" class="hidden grid grid-cols-1 gap-3 md:grid-cols-2">
+                                            <div>
+                                                <label for="nfse_emit_foreign_nif" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_nif') }}</label>
+                                                <input id="nfse_emit_foreign_nif" type="text" maxlength="40" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                            </div>
+                                            <div>
+                                                <label for="nfse_emit_foreign_no_nif" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_no_nif_reason') }}</label>
+                                                <select id="nfse_emit_foreign_no_nif" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                    <option value="">{{ trans('nfse::general.invoices.emit_modal_foreign_no_nif_none') }}</option>
+                                                    <option value="0">{{ trans('nfse::general.invoices.emit_modal_foreign_no_nif_0') }}</option>
+                                                    <option value="1">{{ trans('nfse::general.invoices.emit_modal_foreign_no_nif_1') }}</option>
+                                                    <option value="2">{{ trans('nfse::general.invoices.emit_modal_foreign_no_nif_2') }}</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label for="nfse_emit_foreign_country" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_country') }}</label>
+                                                <input id="nfse_emit_foreign_country" type="text" maxlength="2" class="w-full uppercase rounded border border-gray-300 px-3 py-2 text-sm" placeholder="US">
+                                            </div>
+                                            <div>
+                                                <label for="nfse_emit_foreign_postal" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_postal_code') }}</label>
+                                                <input id="nfse_emit_foreign_postal" type="text" maxlength="11" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                            </div>
+                                            <div>
+                                                <label for="nfse_emit_foreign_city" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_city') }}</label>
+                                                <input id="nfse_emit_foreign_city" type="text" maxlength="60" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                            </div>
+                                            <div>
+                                                <label for="nfse_emit_foreign_region" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_region') }}</label>
+                                                <input id="nfse_emit_foreign_region" type="text" maxlength="60" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label for="nfse_emit_foreign_street" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_street') }}</label>
+                                                <input id="nfse_emit_foreign_street" type="text" maxlength="255" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                            </div>
+                                            <div>
+                                                <label for="nfse_emit_foreign_number" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_number') }}</label>
+                                                <input id="nfse_emit_foreign_number" type="text" maxlength="60" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                            </div>
+                                            <div>
+                                                <label for="nfse_emit_foreign_complement" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_complement') }}</label>
+                                                <input id="nfse_emit_foreign_complement" type="text" maxlength="60" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label for="nfse_emit_foreign_district" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_foreign_district') }}</label>
+                                                <input id="nfse_emit_foreign_district" type="text" maxlength="60" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                            </div>
                                         </div>
                                     </div>
                                 </x-tabs.tab>
@@ -1210,6 +1289,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const emitModalAttachXmlInput = document.getElementById('nfse_emit_attach_xml');
                 const emitModalSaveDefaultInput = document.getElementById('nfse_emit_save_default');
                 const emitModalSaveDescriptionDefaultInput = document.getElementById('nfse_emit_save_description_default');
+                const emitModalForeignEnabledInput = document.getElementById('nfse_emit_foreign_taker');
+                const emitModalForeignFields = document.getElementById('nfse_emit_foreign_fields');
+                const emitModalForeignNifInput = document.getElementById('nfse_emit_foreign_nif');
+                const emitModalForeignNoNifInput = document.getElementById('nfse_emit_foreign_no_nif');
+                const emitModalForeignCountryInput = document.getElementById('nfse_emit_foreign_country');
+                const emitModalForeignPostalInput = document.getElementById('nfse_emit_foreign_postal');
+                const emitModalForeignCityInput = document.getElementById('nfse_emit_foreign_city');
+                const emitModalForeignRegionInput = document.getElementById('nfse_emit_foreign_region');
+                const emitModalForeignStreetInput = document.getElementById('nfse_emit_foreign_street');
+                const emitModalForeignNumberInput = document.getElementById('nfse_emit_foreign_number');
+                const emitModalForeignComplementInput = document.getElementById('nfse_emit_foreign_complement');
+                const emitModalForeignDistrictInput = document.getElementById('nfse_emit_foreign_district');
                 const emitSubmitSpinner = document.getElementById('emit-submit-spinner');
                 const emitSubmitLabel = document.getElementById('emit-submit-label');
                 const emitModalDefaultConfirmLabel = @json((string) trans('nfse::general.invoices.emit_now'));
@@ -1245,6 +1336,41 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     emitModalConfirmButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
                     emitSubmitSpinner.classList.add('hidden');
                     emitSubmitLabel.textContent = emitModalDefaultConfirmLabel;
+                };
+
+                window.nfseSyncForeignTaker = (input) => {
+                    if (!input) {
+                        return;
+                    }
+
+                    syncToggle(input);
+                    emitModalForeignFields?.classList.toggle('hidden', !input.checked);
+                };
+
+                const applyTakerDefaults = (takerDefaults = {}) => {
+                    if (emitModalForeignEnabledInput) {
+                        emitModalForeignEnabledInput.checked = Boolean(takerDefaults.foreign);
+                        window.nfseSyncForeignTaker(emitModalForeignEnabledInput);
+                    }
+
+                    const values = [
+                        [emitModalForeignNifInput, takerDefaults.nif],
+                        [emitModalForeignNoNifInput, takerDefaults.nao_nif],
+                        [emitModalForeignCountryInput, takerDefaults.country],
+                        [emitModalForeignPostalInput, takerDefaults.postal_code],
+                        [emitModalForeignCityInput, takerDefaults.city],
+                        [emitModalForeignRegionInput, takerDefaults.region],
+                        [emitModalForeignStreetInput, takerDefaults.street],
+                        [emitModalForeignNumberInput, takerDefaults.number],
+                        [emitModalForeignComplementInput, takerDefaults.complement],
+                        [emitModalForeignDistrictInput, takerDefaults.district],
+                    ];
+
+                    values.forEach(([field, value]) => {
+                        if (field) {
+                            field.value = typeof value === 'string' ? value : '';
+                        }
+                    });
                 };
 
                 const refreshEmitEmailSection = () => {
@@ -1348,6 +1474,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         emitModalDescriptionInput.value = '';
                     }
 
+                    applyTakerDefaults({
+                        foreign: false,
+                        nif: '',
+                        nao_nif: '',
+                        country: '',
+                        postal_code: '',
+                        city: '',
+                        region: '',
+                        street: '',
+                        number: '',
+                        complement: '',
+                        district: '',
+                    });
+
                     applyEmailDefaults({
                         send_email: false,
                         recipient: '',
@@ -1360,7 +1500,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     setEmitSubmittingState(false);
                 };
 
-                const openEmitModal = (confirmLabel, descriptionValue, emailDefaults = {}) => {
+                const openEmitModal = (confirmLabel, descriptionValue, emailDefaults = {}, takerDefaults = {}) => {
                     if (!emitModal) {
                         return;
                     }
@@ -1376,6 +1516,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
 
                     applyEmailDefaults(emailDefaults);
+                    applyTakerDefaults(takerDefaults);
 
                     emitModal.classList.remove('hidden');
                     emitModal.setAttribute('aria-hidden', 'false');
@@ -1465,6 +1606,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             const emailDefaults = typeof payload.email_defaults === 'object' && payload.email_defaults !== null
                                 ? payload.email_defaults
                                 : {};
+                            const takerDefaults = typeof payload.taker_defaults === 'object' && payload.taker_defaults !== null
+                                ? payload.taker_defaults
+                                : {};
 
                             if (missingItems.length > 0 && availableServices.length === 0) {
                                 form.submit();
@@ -1473,7 +1617,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                             currentEmitForm = form;
                             renderMissingItemRows(missingItems, availableServices, defaultServiceId);
-                            openEmitModal(confirmLabel, suggestedDescription, emailDefaults);
+                            openEmitModal(confirmLabel, suggestedDescription, emailDefaults, takerDefaults);
                         } catch {
                             form.submit();
                         }
@@ -1511,6 +1655,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const assignmentsInput = form?.querySelector('[data-emit-assignments]');
                     const descriptionInput = form?.querySelector('[data-emit-description-input]');
                     const saveDescriptionDefaultInput = form?.querySelector('[data-emit-description-save-default-input]');
+                    const foreignEnabledInput = form?.querySelector('[data-emit-foreign-enabled-input]');
+                    const foreignNifInput = form?.querySelector('[data-emit-foreign-nif-input]');
+                    const foreignNoNifInput = form?.querySelector('[data-emit-foreign-no-nif-input]');
+                    const foreignCountryInput = form?.querySelector('[data-emit-foreign-country-input]');
+                    const foreignPostalInput = form?.querySelector('[data-emit-foreign-postal-input]');
+                    const foreignCityInput = form?.querySelector('[data-emit-foreign-city-input]');
+                    const foreignRegionInput = form?.querySelector('[data-emit-foreign-region-input]');
+                    const foreignStreetInput = form?.querySelector('[data-emit-foreign-street-input]');
+                    const foreignNumberInput = form?.querySelector('[data-emit-foreign-number-input]');
+                    const foreignComplementInput = form?.querySelector('[data-emit-foreign-complement-input]');
+                    const foreignDistrictInput = form?.querySelector('[data-emit-foreign-district-input]');
                     const sendEmailInput = form?.querySelector('[data-emit-email-send-input]');
                     const emailToInput = form?.querySelector('[data-emit-email-to-input]');
                     const emailSubjectInput = form?.querySelector('[data-emit-email-subject-input]');
@@ -1540,6 +1695,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (saveDescriptionDefaultInput) {
                         saveDescriptionDefaultInput.value = saveDescriptionDefaultField?.checked ? '1' : '0';
                     }
+
+                    const foreignEnabled = Boolean(emitModalForeignEnabledInput?.checked);
+
+                    if (foreignEnabled) {
+                        const nif = emitModalForeignNifInput?.value?.trim() || '';
+                        const noNif = emitModalForeignNoNifInput?.value || '';
+                        const requiredForeignValues = [
+                            emitModalForeignCountryInput?.value?.trim() || '',
+                            emitModalForeignPostalInput?.value?.trim() || '',
+                            emitModalForeignCityInput?.value?.trim() || '',
+                            emitModalForeignRegionInput?.value?.trim() || '',
+                            emitModalForeignStreetInput?.value?.trim() || '',
+                            emitModalForeignNumberInput?.value?.trim() || '',
+                            emitModalForeignDistrictInput?.value?.trim() || '',
+                        ];
+
+                        if ((nif === '' && noNif === '') || (nif !== '' && noNif !== '') || requiredForeignValues.some((value) => value === '')) {
+                            const emitErrMsg = document.getElementById('nfse-emit-error-msg');
+
+                            if (emitErrMsg) {
+                                emitErrMsg.textContent = @json((string) trans('nfse::general.invoices.emit_foreign_taker_invalid', ['reason' => 'revise NIF e endereço']));
+                                emitErrMsg.classList.remove('hidden');
+                            }
+
+                            return false;
+                        }
+                    }
+
+                    const foreignMappings = [
+                        [foreignEnabledInput, foreignEnabled ? '1' : '0'],
+                        [foreignNifInput, emitModalForeignNifInput?.value?.trim() || ''],
+                        [foreignNoNifInput, emitModalForeignNoNifInput?.value || ''],
+                        [foreignCountryInput, emitModalForeignCountryInput?.value?.trim().toUpperCase() || ''],
+                        [foreignPostalInput, emitModalForeignPostalInput?.value?.trim() || ''],
+                        [foreignCityInput, emitModalForeignCityInput?.value?.trim() || ''],
+                        [foreignRegionInput, emitModalForeignRegionInput?.value?.trim() || ''],
+                        [foreignStreetInput, emitModalForeignStreetInput?.value?.trim() || ''],
+                        [foreignNumberInput, emitModalForeignNumberInput?.value?.trim() || ''],
+                        [foreignComplementInput, emitModalForeignComplementInput?.value?.trim() || ''],
+                        [foreignDistrictInput, emitModalForeignDistrictInput?.value?.trim() || ''],
+                    ];
+
+                    foreignMappings.forEach(([field, value]) => {
+                        if (field) {
+                            field.value = foreignEnabled ? value : (field === foreignEnabledInput ? '0' : '');
+                        }
+                    });
 
                     if (sendEmailInput) {
                         sendEmailInput.value = sendEmailToggle?.checked ? '1' : '0';
