@@ -15,6 +15,9 @@ use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\NfseRuntimeContextFactory;
+use Modules\Nfse\Support\Testing\DeterministicFiscalHttpTransport;
+use Modules\Nfse\Support\Testing\EnvironmentFixtureSecretStore;
+use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\HttpTransportInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
@@ -55,25 +58,42 @@ class Main extends Provider
 
     protected function registerFiscalClientComposition(): void
     {
-        $this->app->bind(
-            HttpTransportInterface::class,
-            static fn (): HttpTransportInterface => new NativeStreamTransport(),
+        $testHarnessEnabled = FiscalTestHarnessConfig::enabled(
+            (string) $this->app->environment(),
+            env('NFSE_TEST_HARNESS', false),
         );
 
-        $this->app->bind(
-            SecretStoreInterface::class,
-            static function (): SecretStoreInterface {
-                $config = VaultConfig::secretStoreConfig();
+        if ($testHarnessEnabled) {
+            $this->app->bind(
+                HttpTransportInterface::class,
+                static fn (): HttpTransportInterface => new DeterministicFiscalHttpTransport(),
+            );
 
-                return new OpenBaoSecretStore(
-                    addr: $config['addr'],
-                    mount: $config['mount'],
-                    token: $config['token'],
-                    roleId: $config['roleId'],
-                    secretId: $config['secretId'],
-                );
-            },
-        );
+            $this->app->bind(
+                SecretStoreInterface::class,
+                static fn (): SecretStoreInterface => new EnvironmentFixtureSecretStore(),
+            );
+        } else {
+            $this->app->bind(
+                HttpTransportInterface::class,
+                static fn (): HttpTransportInterface => new NativeStreamTransport(),
+            );
+
+            $this->app->bind(
+                SecretStoreInterface::class,
+                static function (): SecretStoreInterface {
+                    $config = VaultConfig::secretStoreConfig();
+
+                    return new OpenBaoSecretStore(
+                        addr: $config['addr'],
+                        mount: $config['mount'],
+                        token: $config['token'],
+                        roleId: $config['roleId'],
+                        secretId: $config['secretId'],
+                    );
+                },
+            );
+        }
 
         $this->app->bind(
             NfseRuntimeContextFactory::class,
