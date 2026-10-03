@@ -17,7 +17,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use Modules\Nfse\Models\NfseReceipt;
     use Modules\Nfse\Tests\TestCase;
     use Modules\Nfse\Tests\Unit\Http\Controllers\Support\InvoiceControllerIsolationState;
-    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -26,7 +25,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
-    use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 
     final class InvoiceControllerTest extends TestCase
     {
