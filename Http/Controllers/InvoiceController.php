@@ -1411,10 +1411,14 @@ class InvoiceController extends Controller
 
     protected function normalizedTomadorDocument(?string $document): string
     {
-        $digits = preg_replace('/\D+/', '', (string) $document) ?: '';
+        $normalized = strtoupper(preg_replace('/[^A-Z0-9]+/i', '', (string) $document) ?: '');
 
-        if (in_array(strlen($digits), [11, 14], true)) {
-            return $digits;
+        if (preg_match('/^[A-Z0-9]{12}\d{2}$/', $normalized) === 1) {
+            return $normalized;
+        }
+
+        if (preg_match('/^\d{11}$/', $normalized) === 1) {
+            return $normalized;
         }
 
         return '';
