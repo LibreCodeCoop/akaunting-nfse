@@ -61,6 +61,9 @@ final class AdnControllerTest extends TestCase
     public function testReconcileDistributionMatchesLocalReceiptsWithoutMutatingState(): void
     {
         $controller = new class () extends AdnController {
+            /** @var list<string> */
+            public array $receivedAccessKeys = [];
+
             /**
              * @param array<string, mixed> $distribution
              * @return array<string, mixed>
@@ -76,7 +79,7 @@ final class AdnControllerTest extends TestCase
              */
             protected function localReceiptMatches(array $accessKeys): array
             {
-                self::assertSame(['KEY-1', 'KEY-2'], $accessKeys);
+                $this->receivedAccessKeys = $accessKeys;
 
                 return [
                     'KEY-1' => [
@@ -96,6 +99,7 @@ final class AdnControllerTest extends TestCase
             ],
         ]);
 
+        self::assertSame(['KEY-1', 'KEY-2'], $controller->receivedAccessKeys);
         self::assertSame([
             'matched' => 1,
             'unmatched' => 2,
