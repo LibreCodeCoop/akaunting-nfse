@@ -405,7 +405,11 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="adn-distribution-browser"', $content);
             self::assertStringContainsString("route('nfse.adn.distribution')", $content);
             self::assertStringContainsString('id="adn-distribution-query"', $content);
+            self::assertStringContainsString('id="adn-summary-matched"', $content);
+            self::assertStringContainsString('id="adn-summary-unmatched"', $content);
             self::assertStringContainsString('id="adn-summary-last-nsu"', $content);
+            self::assertStringContainsString('data.reconciliation?.matched', $content);
+            self::assertStringContainsString('data.reconciliation?.unmatched', $content);
             self::assertStringContainsString('result.textContent = JSON.stringify', $content);
             self::assertStringNotContainsString('result.innerHTML', $content);
 
