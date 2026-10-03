@@ -26,8 +26,8 @@ final class VaultConfig
             'addr' => self::resolve(
                 setting('nfse.bao_addr'),
                 ['VAULT_ADDR', 'OPENBAO_ADDR'],
-                'http://openbao:8200',
-            ) ?? 'http://openbao:8200',
+                null,
+            ) ?? '',
             'mount' => $mount,
             'token' => self::resolve(
                 setting('nfse.bao_token'),

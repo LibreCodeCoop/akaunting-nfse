@@ -87,7 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     <div>
                         <label class="block text-sm font-medium mb-1" for="bao_addr">{{ trans('nfse::general.settings.bao_addr') }}</label>
-                        <input id="bao_addr" name="nfse[bao_addr]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_addr', setting('nfse.bao_addr', 'http://openbao:8200')) }}" required>
+                        <input id="bao_addr" name="nfse[bao_addr]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_addr', setting('nfse.bao_addr', '')) }}" required>
                     </div>
 
                     <div>

@@ -70,6 +70,18 @@ class VaultConfigTest extends TestCase
         self::assertSame('/nfse', $value);
     }
 
+    public function testResolveCanLeaveSecretStoreAddressUnconfigured(): void
+    {
+        $value = VaultConfig::resolve(
+            null,
+            ['VAULT_ADDR', 'OPENBAO_ADDR'],
+            null,
+            static fn (string $_key): ?string => null,
+        );
+
+        self::assertNull($value);
+    }
+
     public function testNormalizeMountAddsLeadingSlashWhenMissing(): void
     {
         self::assertSame('/nfse', VaultConfig::normalizeMount('nfse'));
