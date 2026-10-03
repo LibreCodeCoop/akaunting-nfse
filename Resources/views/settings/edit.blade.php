@@ -229,6 +229,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                         {{ trans('nfse::general.saved_state_certificate_missing') }}
                                     @endif
                                 </p>
+                                <p id="certificate-validity-state">
+                                    {{ trans('nfse::general.saved_state_certificate_valid_to') }}
+                                    @if(($certificateState['validity_known'] ?? false) === true)
+                                        {{ date('d/m/Y', (int) $certificateState['valid_to']) }}
+                                        —
+                                        @if(($certificateState['is_currently_valid'] ?? false) !== true)
+                                            <span class="text-red-700 font-semibold">{{ trans('nfse::general.saved_state_certificate_expired') }}</span>
+                                        @elseif(($certificateState['expires_soon'] ?? false) === true)
+                                            <span class="text-amber-700 font-semibold">{{ trans('nfse::general.saved_state_certificate_expiring', ['days' => $certificateState['days_until_expiry']]) }}</span>
+                                        @else
+                                            <span class="text-green-700">{{ trans('nfse::general.saved_state_certificate_valid') }}</span>
+                                        @endif
+                                    @else
+                                        <span class="text-gray-600">{{ trans('nfse::general.saved_state_certificate_validity_unknown') }}</span>
+                                    @endif
+                                </p>
                                 <p>
                                     {{ trans('nfse::general.saved_state_vault_password') }}
                                     @if(($vaultUiState['certificate_secret_available'] ?? false) === true)
