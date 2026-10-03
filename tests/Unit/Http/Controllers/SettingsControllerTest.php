@@ -1303,6 +1303,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     'nfse' => [
                         'federal_piscofins_situacao_tributaria' => '4',
                         'federal_piscofins_tipo_retencao' => '3',
+                        'ibs_cbs_enabled' => '1',
+                        'ibs_cbs_ind_final' => '0',
+                        'ibs_cbs_c_ind_op' => '010101',
+                        'ibs_cbs_ind_dest' => '0',
+                        'ibs_cbs_cst' => '000',
+                        'ibs_cbs_c_class_trib' => '000001',
                     ],
                 ],
             );
@@ -1316,6 +1322,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::general.saved', $response->flash['success'] ?? null);
             self::assertSame('4', ControllerIsolationState::$settings['nfse.federal_piscofins_situacao_tributaria'] ?? null);
             self::assertSame('3', ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] ?? null);
+            self::assertTrue(ControllerIsolationState::$settings['nfse.ibs_cbs_enabled'] ?? false);
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.ibs_cbs_ind_final'] ?? null);
+            self::assertSame('010101', ControllerIsolationState::$settings['nfse.ibs_cbs_c_ind_op'] ?? null);
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.ibs_cbs_ind_dest'] ?? null);
+            self::assertSame('000', ControllerIsolationState::$settings['nfse.ibs_cbs_cst'] ?? null);
+            self::assertSame('000001', ControllerIsolationState::$settings['nfse.ibs_cbs_c_class_trib'] ?? null);
             self::assertArrayNotHasKey('nfse.tributacao_federal_mode', ControllerIsolationState::$settings);
             self::assertArrayNotHasKey('nfse.federal_piscofins_aliquota_pis', ControllerIsolationState::$settings);
             self::assertArrayNotHasKey('nfse.federal_piscofins_aliquota_cofins', ControllerIsolationState::$settings);
