@@ -12,7 +12,10 @@ use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
+use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\Lc116Catalog;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\HttpTransportInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NativeStreamTransport;
 
 class Main extends Provider
 {
@@ -36,6 +39,7 @@ class Main extends Provider
     public function register(): void
     {
         $this->loadModuleVendorAutoload();
+        $this->registerFiscalClientComposition();
         $this->loadRoutes();
 
         if ($this->app->runningInConsole()) {
@@ -43,6 +47,21 @@ class Main extends Provider
                 ProvisionTestUser::class,
             ]);
         }
+    }
+
+    protected function registerFiscalClientComposition(): void
+    {
+        $this->app->bind(
+            HttpTransportInterface::class,
+            static fn (): HttpTransportInterface => new NativeStreamTransport(),
+        );
+
+        $this->app->bind(
+            FiscalClientFactory::class,
+            fn (): FiscalClientFactory => new FiscalClientFactory(
+                transport: $this->app->make(HttpTransportInterface::class),
+            ),
+        );
     }
 
     protected function loadModuleVendorAutoload(): void

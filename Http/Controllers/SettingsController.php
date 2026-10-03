@@ -13,16 +13,12 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Modules\Nfse\Support\BrazilianStates;
+use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
-use Modules\Nfse\Support\NfseRuntimeContextFactory;
 use Modules\Nfse\Support\PfxReader;
-use Modules\Nfse\Support\TransportCertificateManager;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\MunicipalParametersConfig;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\MunicipalParametersClient;
 use Throwable;
 
 class SettingsController extends Controller
@@ -461,21 +457,10 @@ class SettingsController extends Controller
             throw new \RuntimeException('Service provider CNPJ is not configured.');
         }
 
-        $secretStore = $this->makeSecretStore();
-        $baseCert = new CertConfig(
-            cnpj: $cnpj,
-            pfxPath: storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
-            vaultPath: 'pfx/' . $cnpj,
-        );
-        $context = $this->makeRuntimeContextFactory()->create($baseCert, $secretStore);
+        $context = $this->makeFiscalClientFactory()->municipalParameters($this->sandboxModeEnabled());
 
         try {
-            $client = new MunicipalParametersClient(
-                config: new MunicipalParametersConfig(
-                    sandboxMode: $this->sandboxModeEnabled(),
-                ),
-                cert: $context->cert,
-            );
+            $client = $context->municipalParametersClient();
 
             return [
                 'municipio_ibge' => $municipio,
@@ -487,13 +472,13 @@ class SettingsController extends Controller
                 'retencoes' => $client->retencoes($municipio, $competence),
             ];
         } finally {
-            ($context->cleanup)();
+            $context->close();
         }
     }
 
-    protected function makeRuntimeContextFactory(): NfseRuntimeContextFactory
+    protected function makeFiscalClientFactory(): FiscalClientFactory
     {
-        return new NfseRuntimeContextFactory(new TransportCertificateManager());
+        return app(FiscalClientFactory::class);
     }
 
     protected function sandboxModeEnabled(): bool
