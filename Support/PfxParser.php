@@ -20,7 +20,12 @@ namespace Modules\Nfse\Support;
  */
 class PfxParser
 {
-    private const CNPJ_PATTERN = '/\b(\d{14})\b/';
+    /**
+     * The first 12 CNPJ positions may be uppercase letters or digits; the two
+     * check digits remain numeric. Matching is case-insensitive because some
+     * certificate parsers may expose subject values with lowercase letters.
+     */
+    private const CNPJ_PATTERN = '/(?<![A-Z0-9])([A-Z0-9]{12}\d{2})(?![A-Z0-9])/i';
 
     /**
      * @param  string $pfxContent  Raw binary content of the PKCS#12 file.
@@ -50,7 +55,8 @@ class PfxParser
 
     /**
      * Walk through the Subject fields that Brazilian CAs use and return the
-     * first 14-character CNPJ found. The first 12 positions may be alphanumeric; the two check digits remain numeric.
+     * first 14-character CNPJ found. The first 12 positions may be alphanumeric;
+     * the two check digits remain numeric.
      *
      * @param  array<string, mixed> $certInfo  Result of openssl_x509_parse().
      */
