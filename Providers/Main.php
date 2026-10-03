@@ -60,7 +60,7 @@ class Main extends Provider
     {
         $testHarnessEnabled = FiscalTestHarnessConfig::enabled(
             (string) $this->app->environment(),
-            env('NFSE_TEST_HARNESS', false),
+            (\getenv('NFSE_TEST_HARNESS') ?: false),
         );
 
         if ($testHarnessEnabled) {
