@@ -364,13 +364,24 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (NetworkException $e) {
-            $this->safeLogError('NFS-e issuance failed due network/transport error', [
-                'invoice_id' => $invoice->id,
-                'message' => $e->getMessage(),
-            ]);
+            $receipt = $this->recoverReceiptAfterAmbiguousEmission($client, $dps);
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('error', trans('nfse::general.nfse_emit_failed')));
+            if ($receipt !== null) {
+                $this->safeLogInfo('NFS-e issuance recovered by DPS after network/transport error', [
+                    'invoice_id' => $invoice->id,
+                    'chave_acesso' => $receipt->chaveAcesso,
+                    'original_error' => $e->getMessage(),
+                ]);
+            } else {
+                $this->safeLogError('NFS-e issuance failed due network/transport error', [
+                    'invoice_id' => $invoice->id,
+                    'message' => $e->getMessage(),
+                    'dps_recovery_supported' => is_callable([$client, 'queryDps']),
+                ]);
+
+                return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                    ->with('error', trans('nfse::general.nfse_emit_failed')));
+            }
         } catch (PfxImportException) {
             $this->cleanupClientTransportArtifacts();
 
@@ -2521,6 +2532,39 @@ class InvoiceController extends Controller
         $normalized = str_replace(',', '.', trim($configured));
 
         return number_format((float) $normalized, 2, '.', '');
+    }
+
+    protected function recoverReceiptAfterAmbiguousEmission(NfseClientInterface $client, DpsData $dps): ?ReceiptData
+    {
+        if (!is_callable([$client, 'queryDps'])) {
+            return null;
+        }
+
+        try {
+            $chaveAcesso = call_user_func([$client, 'queryDps'], $this->dpsRecoveryIdentifier($dps));
+
+            if (!is_string($chaveAcesso) || trim($chaveAcesso) === '') {
+                return null;
+            }
+
+            return $client->query(trim($chaveAcesso));
+        } catch (\Throwable $recoveryError) {
+            $this->safeLogError('NFS-e DPS recovery failed after ambiguous emission', [
+                'message' => $recoveryError->getMessage(),
+                'dps_id' => $this->dpsRecoveryIdentifier($dps),
+            ]);
+
+            return null;
+        }
+    }
+
+    protected function dpsRecoveryIdentifier(DpsData $dps): string
+    {
+        return $dps->municipioIbge
+            . '2'
+            . strtoupper($dps->cnpjPrestador)
+            . str_pad($dps->serie, 5, '0', STR_PAD_LEFT)
+            . str_pad($dps->numeroDps, 15, '0', STR_PAD_LEFT);
     }
 
     protected function dpsSerie(Invoice $invoice): string
