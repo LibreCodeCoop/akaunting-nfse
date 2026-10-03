@@ -115,6 +115,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 {{ trans('nfse::general.invoices.back') }}
             </button>
 
+            @if(trim((string) ($receipt->chave_acesso ?? '')) !== '')
+                <button
+                    id="adn-events-query"
+                    type="button"
+                    class="inline-flex items-center px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm"
+                    data-url="{{ route('nfse.invoices.adn-events', $invoice) }}"
+                >
+                    {{ trans('nfse::general.invoices.adn_events') }}
+                </button>
+            @endif
+
             @if(($receipt->status ?? '') !== 'cancelled')
                 <button
                     type="button"
@@ -133,6 +144,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     {{ trans('nfse::general.invoices.reemit') }}
                 </button>
             @endif
+        </div>
+
+        <div id="adn-events-modal" class="fixed inset-0 z-[110] hidden" aria-hidden="true">
+            <div class="absolute inset-0 bg-slate-500/55 backdrop-blur-[1px] backdrop-brightness-75" data-adn-events-close="true"></div>
+            <div class="relative flex min-h-full items-center justify-center overflow-y-auto p-4">
+                <div class="w-full max-w-4xl rounded-lg bg-white shadow-xl">
+                    <div class="flex items-center justify-between border-b px-5 py-4">
+                        <h3 class="text-lg font-semibold text-gray-800">{{ trans('nfse::general.invoices.adn_events_title') }}</h3>
+                        <button type="button" class="text-gray-500 hover:text-gray-700" data-adn-events-close="true">{{ trans('nfse::general.invoices.adn_events_close') }}</button>
+                    </div>
+                    <div class="p-5 space-y-3">
+                        <p id="adn-events-status" class="text-sm text-gray-600" aria-live="polite"></p>
+                        <pre id="adn-events-result" class="hidden max-h-[60vh] overflow-auto rounded bg-gray-900 p-4 text-xs text-gray-100 whitespace-pre-wrap"></pre>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div
@@ -219,9 +246,75 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const submitLabel = document.getElementById('cancel-submit-label');
                 const actionInput = document.getElementById('cancel_invoice_action');
                 const smartBackButton = document.querySelector('[data-smart-back="true"]');
+                const adnEventsButton = document.getElementById('adn-events-query');
+                const adnEventsModal = document.getElementById('adn-events-modal');
+                const adnEventsStatus = document.getElementById('adn-events-status');
+                const adnEventsResult = document.getElementById('adn-events-result');
                 const submitDefaultLabel = @json((string) trans('nfse::general.invoices.cancel_modal_submit'));
                 const submitLoadingLabel = @json((string) trans('nfse::general.invoices.cancel_modal_submitting'));
                 let isSubmitting = false;
+
+                if (
+                    adnEventsButton instanceof HTMLButtonElement &&
+                    adnEventsModal instanceof HTMLElement &&
+                    adnEventsStatus instanceof HTMLElement &&
+                    adnEventsResult instanceof HTMLElement
+                ) {
+                    const closeAdnEventsModal = () => {
+                        adnEventsModal.classList.add('hidden');
+                        adnEventsModal.setAttribute('aria-hidden', 'true');
+                        document.body.classList.remove('overflow-hidden');
+                    };
+
+                    adnEventsModal.querySelectorAll('[data-adn-events-close="true"]').forEach((button) => {
+                        button.addEventListener('click', closeAdnEventsModal);
+                    });
+
+                    adnEventsButton.addEventListener('click', async () => {
+                        const url = adnEventsButton.dataset.url ?? '';
+                        if (!url) {
+                            return;
+                        }
+
+                        adnEventsModal.classList.remove('hidden');
+                        adnEventsModal.setAttribute('aria-hidden', 'false');
+                        document.body.classList.add('overflow-hidden');
+                        adnEventsStatus.textContent = @json((string) trans('nfse::general.invoices.adn_events_loading'));
+                        adnEventsResult.textContent = '';
+                        adnEventsResult.classList.add('hidden');
+                        adnEventsButton.disabled = true;
+
+                        try {
+                            const response = await fetch(url, {
+                                headers: {
+                                    Accept: 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                            });
+                            const payload = await response.json().catch(() => ({}));
+
+                            if (!response.ok) {
+                                adnEventsStatus.textContent = typeof payload.message === 'string'
+                                    ? payload.message
+                                    : @json((string) trans('nfse::general.invoices.adn_events_empty'));
+                                return;
+                            }
+
+                            const data = payload.data ?? {};
+                            const documents = Array.isArray(data.documents) ? data.documents : [];
+
+                            adnEventsStatus.textContent = documents.length === 0
+                                ? @json((string) trans('nfse::general.invoices.adn_events_empty'))
+                                : '';
+                            adnEventsResult.textContent = JSON.stringify(data, null, 2);
+                            adnEventsResult.classList.remove('hidden');
+                        } catch (error) {
+                            adnEventsStatus.textContent = @json((string) trans('nfse::general.invoices.adn_events_empty'));
+                        } finally {
+                            adnEventsButton.disabled = false;
+                        }
+                    });
+                }
 
                 if (!modal || !form || !reasonSelect || !justificationInput || !submitButton || !submitSpinner || !submitLabel || !actionInput) {
                     return;
