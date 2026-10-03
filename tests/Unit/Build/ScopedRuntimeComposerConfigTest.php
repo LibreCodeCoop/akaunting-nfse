@@ -43,8 +43,12 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $content = file_get_contents($manifestPath);
 
         self::assertIsString($content);
-        self::assertStringContainsString('"librecodeoop/nfse-php": "dev-main"', $content);
+        self::assertStringContainsString('"librecodeoop/nfse-php": "dev-main#1d095222fe4a9a3396929283cb48a00509ec8381"', $content);
         self::assertStringContainsString('"url": "https://github.com/LibreCodeCoop/nfse-php"', $content);
+        self::assertMatchesRegularExpression(
+            '/"librecodeoop\/nfse-php": "dev-main#[0-9a-f]{40}"/',
+            $content,
+        );
     }
 
     public function testPhpScoperToolingLivesUnderVendorBin(): void
