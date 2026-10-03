@@ -15,7 +15,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 {
     public function testNativeInvoiceShowKeepsAkauntingPageAndOverridesEmailRouteForFiscalFlow(): void
     {
-        $invoice = Document::factory()->invoice()->items()->create();
+        $invoice = Document::factory()->invoice()->create();
 
         $this->loginAs()
             ->get(route('invoices.show', $invoice))
@@ -29,7 +29,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
     public function testPendingInvoiceUsesIssueModalThroughNativeEmailAction(): void
     {
-        $invoice = Document::factory()->invoice()->items()->create();
+        $invoice = Document::factory()->invoice()->create();
 
         $response = $this->loginAs()
             ->get(route('nfse.modals.invoices.emails.create', $invoice))
@@ -49,7 +49,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
     public function testEmittedInvoiceUsesCancelModalThroughNativeEmailAction(): void
     {
-        $invoice = Document::factory()->invoice()->items()->create();
+        $invoice = Document::factory()->invoice()->create();
 
         NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
@@ -77,6 +77,8 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
     public function testInvoiceWithoutItemsDoesNotTakeOverNativeSendFlow(): void
     {
         $invoice = Document::factory()->invoice()->create();
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
 
         $originalRoute = config('type.document.invoice.route.emails.create');
 
