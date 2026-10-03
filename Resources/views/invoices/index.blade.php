@@ -13,6 +13,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </x-button>
         </form>
 
+        <x-link href="{{ route('nfse.adn.index') }}" id="index-more-actions-open-adn-distribution">
+            {{ trans('nfse::general.adn.title') }}
+        </x-link>
+
         <x-link href="{{ route('nfse.settings.edit') }}" id="index-more-actions-open-nfse-settings">
             {{ trans('nfse::general.go_to_settings') }}
         </x-link>
