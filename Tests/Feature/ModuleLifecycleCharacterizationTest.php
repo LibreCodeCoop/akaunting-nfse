@@ -69,7 +69,7 @@ final class ModuleLifecycleCharacterizationTest extends FeatureTestCase
         );
     }
 
-    public function testCurrentEnableLifecycleDuplicatesTemplateButNotPermissions(): void
+    public function testCurrentEnableLifecycleDeduplicatesTemplatesCreatedDuringInstall(): void
     {
         $this->loginAs();
 
@@ -93,12 +93,18 @@ final class ModuleLifecycleCharacterizationTest extends FeatureTestCase
                 ->count(),
         );
         self::assertGreaterThan(
+            1,
             $templateCount,
+            'Characterization of #207: installation currently leaves duplicate canonical NFS-e email templates.',
+        );
+
+        self::assertSame(
+            1,
             EmailTemplate::query()
                 ->where('company_id', company_id())
                 ->where('alias', 'invoice_nfse_issued_customer')
                 ->count(),
-            'Characterization of #207: current enable lifecycle duplicates the NFS-e email template.',
+            'Enabling currently reconciles installation duplicates back to one canonical template.',
         );
     }
 }
