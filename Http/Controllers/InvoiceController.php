@@ -281,6 +281,7 @@ class InvoiceController extends Controller
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues($invoice);
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
+        $issqnPayload = $this->issqnPayloadValues();
         $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
         $requiredDpsFields = $foreignTomador['enabled']
@@ -293,6 +294,17 @@ class InvoiceController extends Controller
                 'tomadorEstadoExterior',
             ]
             : [];
+
+        if ($issqnPayload['requiresSpecialRuntime']) {
+            $requiredDpsFields = array_values(array_unique(array_merge($requiredDpsFields, [
+                'tributacaoIssqn',
+                'issqnPaisResultado',
+                'issqnTipoImunidade',
+                'issqnTipoSuspensao',
+                'issqnNumeroProcessoSuspensao',
+                'tipoRetencaoIss',
+            ])));
+        }
 
         try {
             $dps = $this->makeDpsData([
@@ -321,6 +333,12 @@ class InvoiceController extends Controller
             'tomadorCidadeExterior' => $foreignTomador['enabled'] ? $foreignTomador['cidade'] : '',
             'tomadorEstadoExterior' => $foreignTomador['enabled'] ? $foreignTomador['estado'] : '',
             'opcaoSimplesNacional' => $opcaoSimplesNacional,
+            'tributacaoIssqn' => $issqnPayload['tributacaoIssqn'],
+            'issqnPaisResultado' => $issqnPayload['issqnPaisResultado'],
+            'issqnTipoImunidade' => $issqnPayload['issqnTipoImunidade'],
+            'issqnTipoSuspensao' => $issqnPayload['issqnTipoSuspensao'],
+            'issqnNumeroProcessoSuspensao' => $issqnPayload['issqnNumeroProcessoSuspensao'],
+            'tipoRetencaoIss' => $issqnPayload['tipoRetencaoIss'],
             'tipoAmbiente' => $sandbox ? 2 : 1,
             'serie' => $this->dpsSerie($invoice),
             'numeroDps' => $this->dpsNumber($invoice),
@@ -2847,6 +2865,61 @@ class InvoiceController extends Controller
      *   ibsCbsClassificacaoTributaria: string
      * }
      */
+    /**
+     * @return array{
+     *   tributacaoIssqn: int,
+     *   issqnPaisResultado: string,
+     *   issqnTipoImunidade: ?int,
+     *   issqnTipoSuspensao: ?int,
+     *   issqnNumeroProcessoSuspensao: string,
+     *   tipoRetencaoIss: int,
+     *   requiresSpecialRuntime: bool
+     * }
+     */
+    protected function issqnPayloadValues(): array
+    {
+        $tributacao = (int) setting('nfse.tributacao_issqn', 1);
+        if (!in_array($tributacao, [1, 2, 3, 4], true)) {
+            $tributacao = 1;
+        }
+
+        $tipoRetencao = (int) setting('nfse.tipo_retencao_iss', 1);
+        if (!in_array($tipoRetencao, [1, 2, 3], true)) {
+            $tipoRetencao = 1;
+        }
+
+        $paisResultado = $tributacao === 3
+            ? strtoupper(trim((string) setting('nfse.issqn_pais_resultado', '')))
+            : '';
+
+        $tipoImunidadeRaw = trim((string) setting('nfse.issqn_tipo_imunidade', ''));
+        $tipoImunidade = $tributacao === 2 && in_array($tipoImunidadeRaw, ['1', '2', '3', '4', '5'], true)
+            ? (int) $tipoImunidadeRaw
+            : null;
+
+        $tipoSuspensaoRaw = trim((string) setting('nfse.issqn_tipo_suspensao', ''));
+        $tipoSuspensao = $tributacao === 1 && in_array($tipoSuspensaoRaw, ['1', '2'], true)
+            ? (int) $tipoSuspensaoRaw
+            : null;
+
+        $numeroProcesso = $tributacao === 1
+            ? trim((string) setting('nfse.issqn_numero_processo_suspensao', ''))
+            : '';
+
+        return [
+            'tributacaoIssqn' => $tributacao,
+            'issqnPaisResultado' => $paisResultado,
+            'issqnTipoImunidade' => $tipoImunidade,
+            'issqnTipoSuspensao' => $tipoSuspensao,
+            'issqnNumeroProcessoSuspensao' => $numeroProcesso,
+            'tipoRetencaoIss' => $tipoRetencao,
+            'requiresSpecialRuntime' => $tributacao !== 1
+                || $tipoRetencao !== 1
+                || $tipoSuspensao !== null
+                || $numeroProcesso !== '',
+        ];
+    }
+
     protected function ibsCbsPayloadValues(): array
     {
         $enabled = $this->booleanSetting('nfse.ibs_cbs_enabled', false);
