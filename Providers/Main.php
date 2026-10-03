@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Providers;
 
 use Illuminate\Support\ServiceProvider as Provider;
+use Modules\Nfse\Console\Commands\ProvisionTestHarness;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
 use Modules\Nfse\Models\ItemFiscalProfile;
@@ -51,6 +52,7 @@ class Main extends Provider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                ProvisionTestHarness::class,
                 ProvisionTestUser::class,
             ]);
         }
