@@ -19,12 +19,22 @@ final class ItemFiscalProfileInput
             return null;
         }
 
-        $rawServiceCode = $request->input('nfse_item_lista_servico', null);
-        $rawNationalCode = $request->input('nfse_codigo_tributacao_nacional', null);
+        $serviceKey = 'nfse_item_lista_servico';
+        $nationalKey = 'nfse_codigo_tributacao_nacional';
 
-        if ($rawServiceCode === null && $rawNationalCode === null) {
+        $servicePresent = method_exists($request, 'exists')
+            ? (bool) $request->exists($serviceKey)
+            : $request->input($serviceKey, null) !== null;
+        $nationalPresent = method_exists($request, 'exists')
+            ? (bool) $request->exists($nationalKey)
+            : $request->input($nationalKey, null) !== null;
+
+        if (!$servicePresent && !$nationalPresent) {
             return null;
         }
+
+        $rawServiceCode = $request->input($serviceKey, null);
+        $rawNationalCode = $request->input($nationalKey, null);
 
         $serviceDigits = preg_replace('/\D+/', '', (string) $rawServiceCode) ?: '';
         $serviceCode = preg_match('/(\d{4})$/', $serviceDigits, $serviceCodeMatch)
