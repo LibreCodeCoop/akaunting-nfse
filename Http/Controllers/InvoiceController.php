@@ -218,6 +218,7 @@ class InvoiceController extends Controller
             'requires_split'   => (bool) ($itemFiscalProfile['requires_split'] ?? false),
             'suggested_description' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? []),
             'email_defaults'   => $this->servicePreviewEmailDefaults($invoice),
+            'taker_defaults'   => $this->servicePreviewTakerDefaults($invoice),
         ]);
     }
 
@@ -255,12 +256,46 @@ class InvoiceController extends Controller
         $sandbox = $this->sandboxModeEnabled();
         $tomadorDocument = $this->resolvedTomadorDocument($invoice);
         $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
+
+        try {
+            $foreignTomador = $this->foreignTomadorPayloadFromRequest($request, $invoice, $tomadorPayload);
+        } catch (\InvalidArgumentException $e) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                    ->with('error', trans('nfse::general.invoices.emit_foreign_taker_invalid', ['reason' => $e->getMessage()])),
+            );
+        }
+
+        if ($foreignTomador['enabled']) {
+            $tomadorDocument = '';
+            $tomadorPayload['codigo_municipio'] = '';
+            $tomadorPayload['cep'] = '';
+            $tomadorPayload['logradouro'] = $foreignTomador['logradouro'];
+            $tomadorPayload['numero'] = $foreignTomador['numero'];
+            $tomadorPayload['complemento'] = $foreignTomador['complemento'];
+            $tomadorPayload['bairro'] = $foreignTomador['bairro'];
+            $tomadorPayload['inscricao_municipal'] = '';
+        }
+
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues($invoice);
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
         $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
-        $dps = $this->makeDpsData([
+        $requiredDpsFields = $foreignTomador['enabled']
+            ? [
+                'tomadorNif',
+                'tomadorCodigoNaoNif',
+                'tomadorPaisCodigo',
+                'tomadorCodigoPostalExterior',
+                'tomadorCidadeExterior',
+                'tomadorEstadoExterior',
+            ]
+            : [];
+
+        try {
+            $dps = $this->makeDpsData([
             'cnpjPrestador' => $cnpj,
             'municipioIbge' => $ibge,
             'itemListaServico' => $municipalTaxationCode,
@@ -279,6 +314,12 @@ class InvoiceController extends Controller
             'tomadorInscricaoMunicipal' => $tomadorPayload['inscricao_municipal'],
             'tomadorTelefone' => $tomadorPayload['telefone'],
             'tomadorEmail' => $tomadorPayload['email'],
+            'tomadorNif' => $foreignTomador['enabled'] ? $foreignTomador['nif'] : '',
+            'tomadorCodigoNaoNif' => $foreignTomador['enabled'] ? $foreignTomador['codigo_nao_nif'] : null,
+            'tomadorPaisCodigo' => $foreignTomador['enabled'] ? $foreignTomador['pais_codigo'] : '',
+            'tomadorCodigoPostalExterior' => $foreignTomador['enabled'] ? $foreignTomador['codigo_postal'] : '',
+            'tomadorCidadeExterior' => $foreignTomador['enabled'] ? $foreignTomador['cidade'] : '',
+            'tomadorEstadoExterior' => $foreignTomador['enabled'] ? $foreignTomador['estado'] : '',
             'opcaoSimplesNacional' => $opcaoSimplesNacional,
             'tipoAmbiente' => $sandbox ? 2 : 1,
             'serie' => $this->dpsSerie($invoice),
@@ -304,7 +345,19 @@ class InvoiceController extends Controller
             'ibsCbsIndDest' => $ibsCbsPayload['ibsCbsIndDest'],
             'ibsCbsCst' => $ibsCbsPayload['ibsCbsCst'],
             'ibsCbsClassificacaoTributaria' => $ibsCbsPayload['ibsCbsClassificacaoTributaria'],
-        ]);
+            ], $requiredDpsFields);
+        } catch (\LogicException $e) {
+            $this->safeLogError('NFS-e runtime capability mismatch', [
+                'invoice_id' => $invoice->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                    ->with('error', trans('nfse::general.invoices.emit_runtime_unsupported')),
+            );
+        }
 
         $this->safeLogInfo('NFS-e emission payload', [
             'invoice_id' => $invoice->id,
@@ -1433,6 +1486,126 @@ class InvoiceController extends Controller
         return $invoice;
     }
 
+    /**
+     * @return array{enabled: bool, nif: string, codigo_nao_nif: ?int, pais_codigo: string, codigo_postal: string, cidade: string, estado: string, logradouro: string, numero: string, complemento: string, bairro: string}
+     */
+    protected function foreignTomadorPayloadFromRequest(?Request $request, Invoice $invoice, array $nationalPayload): array
+    {
+        $enabled = $request?->boolean('nfse_tomador_foreign', false) ?? false;
+
+        if (!$enabled) {
+            return [
+                'enabled' => false,
+                'nif' => '',
+                'codigo_nao_nif' => null,
+                'pais_codigo' => '',
+                'codigo_postal' => '',
+                'cidade' => '',
+                'estado' => '',
+                'logradouro' => '',
+                'numero' => '',
+                'complemento' => '',
+                'bairro' => '',
+            ];
+        }
+
+        $nif = trim((string) $request->input('nfse_tomador_nif', ''));
+        $naoNifRaw = trim((string) $request->input('nfse_tomador_nao_nif', ''));
+        $codigoNaoNif = $naoNifRaw === '' ? null : (int) $naoNifRaw;
+
+        if ($nif !== '' && $codigoNaoNif !== null) {
+            throw new \InvalidArgumentException('informe NIF ou motivo para ausência de NIF, não ambos');
+        }
+
+        if ($nif === '' && $codigoNaoNif === null) {
+            throw new \InvalidArgumentException('informe o NIF ou o motivo para ausência de NIF');
+        }
+
+        if (mb_strlen($nif) > 40) {
+            throw new \InvalidArgumentException('o NIF deve ter no máximo 40 caracteres');
+        }
+
+        if ($codigoNaoNif !== null && !in_array($codigoNaoNif, [0, 1, 2], true)) {
+            throw new \InvalidArgumentException('o motivo para ausência de NIF deve ser 0, 1 ou 2');
+        }
+
+        $pais = strtoupper(trim((string) $request->input('nfse_tomador_country', '')));
+        $codigoPostal = trim((string) $request->input('nfse_tomador_postal_code', ''));
+        $cidade = trim((string) $request->input('nfse_tomador_city', ''));
+        $estado = trim((string) $request->input('nfse_tomador_region', ''));
+        $logradouro = trim((string) $request->input('nfse_tomador_street', (string) ($nationalPayload['logradouro'] ?? '')));
+        $numero = trim((string) $request->input('nfse_tomador_number', (string) ($nationalPayload['numero'] ?? '')));
+        $complemento = trim((string) $request->input('nfse_tomador_complement', (string) ($nationalPayload['complemento'] ?? '')));
+        $bairro = trim((string) $request->input('nfse_tomador_district', (string) ($nationalPayload['bairro'] ?? '')));
+
+        if (preg_match('/^[A-Z]{2}$/', $pais) !== 1 || $pais === 'BR') {
+            throw new \InvalidArgumentException('informe um código ISO de país estrangeiro com 2 letras');
+        }
+
+        foreach ([
+            'código postal' => [$codigoPostal, 11],
+            'cidade' => [$cidade, 60],
+            'estado/província/região' => [$estado, 60],
+            'logradouro' => [$logradouro, 255],
+            'número' => [$numero, 60],
+            'bairro/distrito' => [$bairro, 60],
+        ] as $label => [$value, $maxLength]) {
+            if ($value === '') {
+                throw new \InvalidArgumentException('informe ' . $label . ' do tomador estrangeiro');
+            }
+
+            if (mb_strlen($value) > $maxLength) {
+                throw new \InvalidArgumentException($label . ' excede o tamanho máximo permitido');
+            }
+        }
+
+        return [
+            'enabled' => true,
+            'nif' => $nif,
+            'codigo_nao_nif' => $codigoNaoNif,
+            'pais_codigo' => $pais,
+            'codigo_postal' => $codigoPostal,
+            'cidade' => $cidade,
+            'estado' => $estado,
+            'logradouro' => $logradouro,
+            'numero' => $numero,
+            'complemento' => $complemento,
+            'bairro' => $bairro,
+        ];
+    }
+
+    /**
+     * @return array<string, string|bool>
+     */
+    protected function servicePreviewTakerDefaults(Invoice $invoice): array
+    {
+        $payload = $this->tomadorPayload($invoice->contact, $invoice);
+        $country = strtoupper($this->contactOrInvoiceStringField(
+            $invoice->contact,
+            $invoice,
+            ['country_code', 'country'],
+            ['contact_country_code', 'contact_country'],
+        ));
+
+        if (strlen($country) !== 2) {
+            $country = '';
+        }
+
+        return [
+            'foreign' => false,
+            'nif' => '',
+            'nao_nif' => '',
+            'country' => $country !== 'BR' ? $country : '',
+            'postal_code' => '',
+            'city' => '',
+            'region' => '',
+            'street' => (string) ($payload['logradouro'] ?? ''),
+            'number' => (string) ($payload['numero'] ?? ''),
+            'complement' => (string) ($payload['complemento'] ?? ''),
+            'district' => (string) ($payload['bairro'] ?? ''),
+        ];
+    }
+
     protected function normalizedTomadorDocument(?string $document): string
     {
         $normalized = strtoupper(preg_replace('/[^A-Z0-9]+/i', '', (string) $document) ?: '');
@@ -1462,17 +1635,26 @@ class InvoiceController extends Controller
 
     /**
      * @param array<string, mixed> $payload
+     * @param list<string> $requiredFields
      */
-    protected function makeDpsData(array $payload): DpsData
+    protected function makeDpsData(array $payload, array $requiredFields = []): DpsData
     {
         $constructor = new \ReflectionMethod(DpsData::class, '__construct');
         $supportedPayload = [];
+        $supportedFields = [];
 
         foreach ($constructor->getParameters() as $parameter) {
             $name = $parameter->getName();
+            $supportedFields[$name] = true;
 
             if (array_key_exists($name, $payload)) {
                 $supportedPayload[$name] = $payload[$name];
+            }
+        }
+
+        foreach ($requiredFields as $field) {
+            if (!isset($supportedFields[$field])) {
+                throw new \LogicException('Installed nfse-php runtime does not support required DPS field: ' . $field);
             }
         }
 
