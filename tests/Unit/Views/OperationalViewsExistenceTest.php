@@ -397,6 +397,23 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("'emit_modal_email_save_default'", $enGbContent);
         }
 
+        public function testAdnDistributionBrowserUsesSafeJsonRendering(): void
+        {
+            $path = dirname(__DIR__, 3) . '/Resources/views/adn/index.blade.php';
+            $content = (string) file_get_contents($path);
+
+            self::assertStringContainsString('id="adn-distribution-browser"', $content);
+            self::assertStringContainsString("route('nfse.adn.distribution')", $content);
+            self::assertStringContainsString('id="adn-distribution-query"', $content);
+            self::assertStringContainsString('id="adn-summary-last-nsu"', $content);
+            self::assertStringContainsString('result.textContent = JSON.stringify', $content);
+            self::assertStringNotContainsString('result.innerHTML', $content);
+
+            $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
+            $indexContent = (string) file_get_contents($indexPath);
+            self::assertStringContainsString("route('nfse.adn.index')", $indexContent);
+        }
+
         public function testInvoiceShowViewExposesReadOnlyAdnEventDiagnostics(): void
         {
             $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
