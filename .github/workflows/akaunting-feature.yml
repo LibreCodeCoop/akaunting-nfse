@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Akaunting Feature
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: akaunting-feature-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  feature:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Akaunting
+        uses: actions/checkout@v7
+        with:
+          repository: akaunting/akaunting
+
+      - name: Checkout NFS-e module
+        uses: actions/checkout@v7
+        with:
+          path: modules/Nfse
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, ctype, curl, dom, fileinfo, gd, intl, json, mbstring, openssl, pdo, pdo_sqlite, soap, sqlite, xml, zip
+          coverage: none
+          tools: composer
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: akaunting-feature-${{ runner.os }}-php83-${{ hashFiles('composer.lock', 'modules/Nfse/composer.json', 'modules/Nfse/3rdparty/composer.json') }}
+          restore-keys: |
+            akaunting-feature-${{ runner.os }}-php83-
+
+      - name: Prepare module scoped runtime
+        working-directory: modules/Nfse
+        run: |
+          composer install --prefer-dist --no-progress --no-interaction --no-scripts
+          composer thirdparty:build:prod
+
+      - name: Prepare Akaunting test application
+        run: |
+          cp .env.testing .env
+          composer test
+
+      - name: Run NFS-e Feature tests
+        run: php artisan test modules/Nfse/Tests/Feature

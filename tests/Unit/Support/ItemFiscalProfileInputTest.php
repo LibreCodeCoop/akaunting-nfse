@@ -71,6 +71,19 @@ final class ItemFiscalProfileInputTest extends TestCase
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
+    public function testExplicitNullFieldsRepresentProfileRemovalAfterLaravelMiddleware(): void
+    {
+        $request = $this->request([
+            'nfse_item_lista_servico' => null,
+            'nfse_codigo_tributacao_nacional' => null,
+        ]);
+
+        self::assertSame([
+            'item_lista_servico' => null,
+            'codigo_tributacao_nacional' => null,
+        ], ItemFiscalProfileInput::fromRequest($request));
+    }
+
     public function testNonRequestObjectIsIgnored(): void
     {
         self::assertNull(ItemFiscalProfileInput::fromRequest(new \stdClass()));
@@ -94,6 +107,11 @@ final class ItemFiscalProfileInputTest extends TestCase
                 return array_key_exists($key, $this->values)
                     ? $this->values[$key]
                     : $default;
+            }
+
+            public function exists(string $key): bool
+            {
+                return array_key_exists($key, $this->values);
             }
         };
     }
