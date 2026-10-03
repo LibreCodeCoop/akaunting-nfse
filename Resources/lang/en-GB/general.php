@@ -103,6 +103,26 @@ return [
         'codigo_tributacao_nacional_hint' => 'Optional. If empty, NBS is derived from LC116.',
     ],
 
+    'adn' => [
+        'title' => 'ADN distribution',
+        'distribution_title' => 'Document query by NSU',
+        'distribution_help' => 'Query documents distributed by the National Data Environment. This is read-only and does not automatically import or modify local receipts.',
+        'nsu' => 'Starting NSU',
+        'cnpj' => 'Query CNPJ',
+        'batch' => 'Query batch',
+        'query' => 'Query ADN',
+        'querying' => 'Querying ADN...',
+        'status' => 'Status',
+        'documents' => 'Documents',
+        'last_nsu' => 'Last NSU',
+        'response' => 'Official response',
+        'invalid_nsu' => 'Enter an NSU greater than or equal to zero.',
+        'invalid_cnpj' => 'Enter a valid CNPJ for the query.',
+        'distribution_query_failed' => 'Could not query ADN distribution.',
+        'events_missing_receipt' => 'This NFS-e does not have a local access key for event lookup.',
+        'events_query_failed' => 'Could not query official ADN events.',
+    ],
+
     'invoices' => [
         'title' => 'Service tax receipts',
         'pending_title' => 'Pending invoices for issuance',

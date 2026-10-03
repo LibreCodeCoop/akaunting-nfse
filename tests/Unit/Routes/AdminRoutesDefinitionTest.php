@@ -42,6 +42,9 @@ class AdminRoutesDefinitionTest extends TestCase
         self::assertStringContainsString("->name('ibge.ufs')", $this->routesContent);
         self::assertStringContainsString("->name('ibge.municipalities')", $this->routesContent);
         self::assertStringContainsString("->name('lc116.services')", $this->routesContent);
+        self::assertStringContainsString("->name('adn.index')", $this->routesContent);
+        self::assertStringContainsString("->name('adn.distribution')", $this->routesContent);
+        self::assertStringContainsString("->name('invoices.adn-events')", $this->routesContent);
         self::assertStringContainsString("->name('invoices.index')", $this->routesContent);
         self::assertStringContainsString("->name('invoices.pending')", $this->routesContent);
         self::assertStringContainsString("->name('invoices.emit')", $this->routesContent);

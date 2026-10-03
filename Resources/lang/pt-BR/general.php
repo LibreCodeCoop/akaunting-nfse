@@ -103,6 +103,26 @@ return [
         'codigo_tributacao_nacional_hint' => 'Opcional. Se vazio, o módulo deriva o NBS a partir do LC116.',
     ],
 
+    'adn' => [
+        'title' => 'Distribuição ADN',
+        'distribution_title' => 'Consulta de documentos por NSU',
+        'distribution_help' => 'Consulte documentos distribuídos pelo Ambiente de Dados Nacional. A consulta é somente leitura e não importa nem altera recibos automaticamente.',
+        'nsu' => 'NSU inicial',
+        'cnpj' => 'CNPJ de consulta',
+        'batch' => 'Consultar em lote',
+        'query' => 'Consultar ADN',
+        'querying' => 'Consultando ADN...',
+        'status' => 'Status',
+        'documents' => 'Documentos',
+        'last_nsu' => 'Último NSU',
+        'response' => 'Resposta oficial',
+        'invalid_nsu' => 'Informe um NSU igual ou maior que zero.',
+        'invalid_cnpj' => 'Informe um CNPJ válido para a consulta.',
+        'distribution_query_failed' => 'Não foi possível consultar a distribuição ADN.',
+        'events_missing_receipt' => 'Esta NFS-e não possui uma chave de acesso local para consulta de eventos.',
+        'events_query_failed' => 'Não foi possível consultar os eventos oficiais no ADN.',
+    ],
+
     'invoices' => [
         'title' => 'Notas fiscais de serviço',
         'pending_title' => 'Faturas pendentes para emissão',

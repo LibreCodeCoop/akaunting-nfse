@@ -14,6 +14,103 @@ use Modules\Nfse\Tests\TestCase;
 
 final class AdnControllerTest extends TestCase
 {
+    public function testDistributionNormalizesInputsAndReturnsOfficialData(): void
+    {
+        $controller = new class () extends AdnController {
+            /** @var array{nsu:int, cnpj:?string, lote:bool}|null */
+            public ?array $received = null;
+
+            protected function fetchAdnDistribution(int $nsu, ?string $cnpj, bool $lote): array
+            {
+                $this->received = [
+                    'nsu' => $nsu,
+                    'cnpj' => $cnpj,
+                    'lote' => $lote,
+                ];
+
+                return [
+                    'status_processamento' => 'DOCUMENTOS_LOCALIZADOS',
+                    'ultimo_nsu' => 12,
+                    'documents' => [
+                        ['nsu' => 11, 'tipo_documento' => 'NFSE'],
+                    ],
+                ];
+            }
+
+            protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+            {
+                return new JsonResponse($payload, $status);
+            }
+        };
+
+        $response = $controller->distribution(new \Illuminate\Http\Request([
+            'nsu' => '10',
+            'cnpj' => '12abc34501de35',
+            'lote' => '0',
+        ]));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame([
+            'nsu' => 10,
+            'cnpj' => '12ABC34501DE35',
+            'lote' => false,
+        ], $controller->received);
+        self::assertSame(12, $response->getData(true)['data']['ultimo_nsu'] ?? null);
+    }
+
+    public function testDistributionRejectsInvalidNsuBeforeAdnQuery(): void
+    {
+        $controller = new class () extends AdnController {
+            public bool $queried = false;
+
+            protected function fetchAdnDistribution(int $nsu, ?string $cnpj, bool $lote): array
+            {
+                $this->queried = true;
+
+                return [];
+            }
+
+            protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+            {
+                return new JsonResponse($payload, $status);
+            }
+        };
+
+        $response = $controller->distribution(new \Illuminate\Http\Request([
+            'nsu' => '-1',
+        ]));
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertFalse($controller->queried);
+    }
+
+    public function testDistributionRejectsInvalidCnpjBeforeAdnQuery(): void
+    {
+        $controller = new class () extends AdnController {
+            public bool $queried = false;
+
+            protected function fetchAdnDistribution(int $nsu, ?string $cnpj, bool $lote): array
+            {
+                $this->queried = true;
+
+                return [];
+            }
+
+            protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+            {
+                return new JsonResponse($payload, $status);
+            }
+        };
+
+        $response = $controller->distribution(new \Illuminate\Http\Request([
+            'nsu' => '0',
+            'cnpj' => 'invalid',
+        ]));
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertFalse($controller->queried);
+    }
+
     public function testEventsReturnsReadOnlyAdnDiagnosticsForReceiptAccessKey(): void
     {
         $invoice = new Invoice();
