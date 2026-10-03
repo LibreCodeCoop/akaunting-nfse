@@ -10,9 +10,9 @@ namespace Modules\Nfse\Tests\Unit\Support\Testing;
 use Modules\Nfse\Support\Testing\DeterministicFiscalHttpTransport;
 use Modules\Nfse\Support\Testing\EnvironmentFixtureSecretStore;
 use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
+use Modules\Nfse\Tests\TestCase;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\HttpRequestData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
-use Modules\Nfse\Tests\TestCase;
 
 final class FiscalTestHarnessTest extends TestCase
 {
