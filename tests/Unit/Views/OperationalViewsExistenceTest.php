@@ -397,6 +397,19 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("'emit_modal_email_save_default'", $enGbContent);
         }
 
+        public function testInvoiceShowViewExposesReadOnlyAdnEventDiagnostics(): void
+        {
+            $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
+            $content = (string) file_get_contents($showPath);
+
+            self::assertStringContainsString('id="adn-events-query"', $content);
+            self::assertStringContainsString("route('nfse.invoices.adn-events', \$invoice)", $content);
+            self::assertStringContainsString('id="adn-events-modal"', $content);
+            self::assertStringContainsString('id="adn-events-result"', $content);
+            self::assertStringContainsString('adnEventsResult.textContent = JSON.stringify', $content);
+            self::assertStringNotContainsString('adnEventsResult.innerHTML', $content);
+        }
+
         public function testInvoiceShowViewOffersReemitActionForCancelledReceipts(): void
         {
             $showPath = dirname(__DIR__, 3) . '/Resources/views/invoices/show.blade.php';
