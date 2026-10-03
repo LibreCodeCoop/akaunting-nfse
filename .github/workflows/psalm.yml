@@ -6,6 +6,19 @@ on:
     branches:
       - main
 
+concurrency:
+  group: psalm-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  COMPOSER_NO_INTERACTION: 1
+  COMPOSER_NO_AUDIT: 1
+  COMPOSER_PROCESS_TIMEOUT: 0
+  COMPOSER_CACHE_DIR: /tmp/composer-cache
+
 jobs:
   psalm:
     runs-on: ubuntu-latest
@@ -19,10 +32,25 @@ jobs:
         with:
           php-version: '8.2'
           tools: composer
+          coverage: none
 
-      - name: Install dependencies
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.COMPOSER_CACHE_DIR }}
+          key: composer-${{ runner.os }}-psalm-${{ hashFiles('modules/Nfse/composer.json', 'modules/Nfse/3rdparty/composer.json', 'modules/Nfse/vendor-bin/php-scoper/composer.lock', 'modules/Nfse/vendor-bin/psalm/composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-psalm-
+            composer-${{ runner.os }}-
+
+      - name: Install Psalm and runtime dependencies
         working-directory: modules/Nfse
-        run: composer install --prefer-dist --no-progress
+        run: |
+          composer install --prefer-dist --no-progress --no-scripts
+          composer thirdparty:install
+          composer runtime-tools:install
+          composer --working-dir=vendor-bin/psalm install --prefer-dist --no-progress --no-interaction
+          composer thirdparty:scope
 
       - name: Run Psalm
         working-directory: modules/Nfse

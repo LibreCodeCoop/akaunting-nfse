@@ -6,6 +6,19 @@ on:
     branches:
       - main
 
+concurrency:
+  group: php-cs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  COMPOSER_NO_INTERACTION: 1
+  COMPOSER_NO_AUDIT: 1
+  COMPOSER_PROCESS_TIMEOUT: 0
+  COMPOSER_CACHE_DIR: /tmp/composer-cache
+
 jobs:
   php-cs-fixer:
     runs-on: ubuntu-latest
@@ -19,10 +32,25 @@ jobs:
         with:
           php-version: '8.2'
           tools: composer
+          coverage: none
 
-      - name: Install dependencies
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.COMPOSER_CACHE_DIR }}
+          key: composer-${{ runner.os }}-php-cs-${{ hashFiles('modules/Nfse/composer.json', 'modules/Nfse/3rdparty/composer.json', 'modules/Nfse/vendor-bin/php-scoper/composer.lock', 'modules/Nfse/vendor-bin/php-cs-fixer/composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-php-cs-
+            composer-${{ runner.os }}-
+
+      - name: Install PHP-CS-Fixer and runtime dependencies
         working-directory: modules/Nfse
-        run: composer install --prefer-dist --no-progress
+        run: |
+          composer install --prefer-dist --no-progress --no-scripts
+          composer thirdparty:install
+          composer runtime-tools:install
+          composer --working-dir=vendor-bin/php-cs-fixer install --prefer-dist --no-progress --no-interaction
+          composer thirdparty:scope
 
       - name: Run PHP-CS-Fixer (check only)
         working-directory: modules/Nfse
