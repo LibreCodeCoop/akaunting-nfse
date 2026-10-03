@@ -9,6 +9,7 @@ namespace Modules\Nfse\Http\Controllers;
 
 use App\Models\Document\Document as Invoice;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\NfseRuntimeContextFactory;
 use Modules\Nfse\Support\TransportCertificateManager;
@@ -22,6 +23,46 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 
 class AdnController extends Controller
 {
+    public function index(): \Illuminate\View\View
+    {
+        return view('nfse::adn.index');
+    }
+
+    public function distribution(Request $request): JsonResponse
+    {
+        $rawNsu = $request->query('nsu', 0);
+        if (!is_numeric($rawNsu) || (int) $rawNsu < 0) {
+            return $this->jsonResponse([
+                'message' => trans('nfse::general.adn.invalid_nsu'),
+            ], 422);
+        }
+
+        $cnpj = strtoupper(preg_replace(
+            '/[^A-Z0-9]/i',
+            '',
+            (string) $request->query('cnpj', setting('nfse.cnpj_prestador', '')),
+        ) ?? '');
+
+        if ($cnpj !== '' && preg_match('/^[A-Z0-9]{12}\\d{2}$/', $cnpj) !== 1) {
+            return $this->jsonResponse([
+                'message' => trans('nfse::general.adn.invalid_cnpj'),
+            ], 422);
+        }
+
+        $loteRaw = strtolower(trim((string) $request->query('lote', '1')));
+        $lote = in_array($loteRaw, ['1', 'true', 'on', 'yes'], true);
+
+        try {
+            return $this->jsonResponse([
+                'data' => $this->fetchAdnDistribution((int) $rawNsu, $cnpj !== '' ? $cnpj : null, $lote),
+            ]);
+        } catch (\Throwable) {
+            return $this->jsonResponse([
+                'message' => trans('nfse::general.adn.distribution_query_failed'),
+            ], 502);
+        }
+    }
+
     public function events(Invoice $invoice): JsonResponse
     {
         $accessKey = $this->receiptAccessKey($invoice);
@@ -57,6 +98,28 @@ class AdnController extends Controller
      */
     protected function fetchAdnEvents(string $accessKey): array
     {
+        return $this->withAdnClient(
+            fn (AdnClient $client): array => $this->normalizeDistribution($client->listEvents($accessKey)),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function fetchAdnDistribution(int $nsu, ?string $cnpj, bool $lote): array
+    {
+        return $this->withAdnClient(
+            fn (AdnClient $client): array => $this->normalizeDistribution($client->getDfe($nsu, $cnpj, $lote)),
+        );
+    }
+
+    /**
+     * @template T
+     * @param \Closure(AdnClient): T $operation
+     * @return T
+     */
+    protected function withAdnClient(\Closure $operation): mixed
+    {
         $cnpj = trim((string) setting('nfse.cnpj_prestador', ''));
 
         if ($cnpj === '') {
@@ -72,12 +135,10 @@ class AdnController extends Controller
         $context = $this->makeRuntimeContextFactory()->create($baseCert, $secretStore);
 
         try {
-            $result = (new AdnClient(
+            return $operation(new AdnClient(
                 environment: new AdnEnvironmentConfig(sandboxMode: $this->sandboxModeEnabled()),
                 cert: $context->cert,
-            ))->listEvents($accessKey);
-
-            return $this->normalizeDistribution($result);
+            ));
         } finally {
             ($context->cleanup)();
         }
