@@ -24,9 +24,9 @@ final class EnvironmentFixtureSecretStore implements SecretStoreInterface
 
     public function get(string $path): array
     {
-        $cnpj = trim($this->cnpj ?? (string) env('NFSE_TEST_CNPJ', ''));
-        $password = $this->password ?? (string) env('NFSE_TEST_PFX_PASSWORD', '');
-        $pfxPath = trim($this->pfxPath ?? (string) env('NFSE_TEST_PFX_PATH', ''));
+        $cnpj = trim($this->cnpj ?? (string) (\getenv('NFSE_TEST_CNPJ') ?: ''));
+        $password = $this->password ?? (string) (\getenv('NFSE_TEST_PFX_PASSWORD') ?: '');
+        $pfxPath = trim($this->pfxPath ?? (string) (\getenv('NFSE_TEST_PFX_PATH') ?: ''));
 
         if ($cnpj === '' || $password === '' || $pfxPath === '') {
             throw new SecretStoreException(
