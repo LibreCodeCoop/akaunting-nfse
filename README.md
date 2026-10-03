@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## O que é?
 
-O **akaunting-nfse** integra o seu [Akaunting](https://akaunting.com/) (self-hosted) com o gateway SEFIN Nacional, permitindo que sua empresa emita NFS-e **sem sair do sistema contábil**.
+O **akaunting-nfse** integra o seu [Akaunting](https://github.com/LibreCodeCoop/akaunting-docker) (self-hosted) com o gateway SEFIN Nacional, permitindo que sua empresa emita NFS-e **sem sair do sistema contábil**.
 
 Diferenciais:
 - **Credenciais isoladas** — a senha do certificado ICP-Brasil **nunca** vai para o banco de dados; ela é armazenada em [OpenBao](https://openbao.org/) / HashiCorp Vault KV v2
