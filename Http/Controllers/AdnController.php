@@ -20,6 +20,7 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\AdnDistributionData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\AdnClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlSignatureVerifier;
 
 class AdnController extends Controller
 {
@@ -156,12 +157,13 @@ class AdnController extends Controller
             'data_hora_processamento' => $result->dataHoraProcessamento,
             'ultimo_nsu' => $result->ultimoNsu,
             'documents' => array_map(
-                static fn ($document): array => [
+                fn ($document): array => [
                     'nsu' => $document->nsu,
                     'chave_acesso' => $document->chaveAcesso,
                     'tipo_documento' => $document->tipoDocumento,
                     'tipo_evento' => $document->tipoEvento,
                     'data_hora_geracao' => $document->dataHoraGeracao,
+                    'signature_integrity' => $this->xmlSignatureIntegrity($document->xml),
                     'xml' => $document->xml,
                 ],
                 $result->documents,
@@ -185,6 +187,21 @@ class AdnController extends Controller
                 $result->errors,
             ),
         ];
+    }
+
+    protected function xmlSignatureIntegrity(?string $xml): ?string
+    {
+        if ($xml === null || trim($xml) === '') {
+            return null;
+        }
+
+        if (preg_match('/<(?:[A-Za-z0-9_.-]+:)?Signature\\b/', $xml) !== 1) {
+            return 'not_present';
+        }
+
+        return (new XmlSignatureVerifier())->verify($xml)
+            ? 'valid'
+            : 'invalid';
     }
 
     protected function makeRuntimeContextFactory(): NfseRuntimeContextFactory
