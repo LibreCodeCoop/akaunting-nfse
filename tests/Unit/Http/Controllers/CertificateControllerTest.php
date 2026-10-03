@@ -192,7 +192,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     return [
                         'cnpj' => '12345678000195',
-                        'valid_to' => '2027-03-21',
+                        'is_currently_valid' => true,
+                        'valid_from' => 1767225600,
+                        'valid_to' => 1798761600,
+                        'fingerprint_sha256' => 'ABC123',
                     ];
                 }
 
@@ -266,6 +269,42 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::general.cnpj_not_found', $response->flash['error'] ?? null);
         }
 
+        public function testUploadRejectsExpiredCertificateBeforeStorage(): void
+        {
+            $controller = new class () extends CertificateController {
+                public bool $storeCalled = false;
+
+                protected function readUploadedFile(UploadedFile $file): string
+                {
+                    return 'pfx-binary';
+                }
+
+                protected function parseUploadedCertificate(string $pfxContent, string $password): array
+                {
+                    return [
+                        'cnpj' => '12345678000195',
+                        'is_currently_valid' => false,
+                        'valid_from' => 1609459200,
+                        'valid_to' => 1640995200,
+                        'fingerprint_sha256' => 'EXPIRED',
+                    ];
+                }
+
+                protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
+                {
+                    $this->storeCalled = true;
+                }
+            };
+
+            $response = $controller->upload(new Request(
+                inputs: ['pfx_password' => 'secret'],
+                files: ['pfx_file' => new UploadedFile('/tmp/ignored')],
+            ));
+
+            self::assertFalse($controller->storeCalled);
+            self::assertSame('nfse::general.certificate_not_currently_valid', $response->flash['error'] ?? null);
+        }
+
         public function testUploadRedirectsToCertificateTabWithErrorWhenSecretStoreFails(): void
         {
             $controller = new class () extends CertificateController {
@@ -276,7 +315,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
                 protected function parseUploadedCertificate(string $pfxContent, string $password): array
                 {
-                    return ['cnpj' => '12345678000195', 'valid_to' => '2027-03-21'];
+                    return ['cnpj' => '12345678000195', 'is_currently_valid' => true, 'valid_from' => 1767225600, 'valid_to' => 1798761600, 'fingerprint_sha256' => 'ABC123'];
                 }
 
                 protected function storeCertificate(string $cnpj, string $pfxContent, string $password): void
@@ -355,6 +394,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(['tab' => 'certificate'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.certificate_uploaded', $response->flash['success'] ?? null);
             self::assertSame('12345678000195', ControllerIsolationState::$settings['nfse.cnpj_prestador'] ?? null);
+            self::assertSame(1767225600, ControllerIsolationState::$settings['nfse.certificate_valid_from'] ?? null);
+            self::assertSame(1798761600, ControllerIsolationState::$settings['nfse.certificate_valid_to'] ?? null);
+            self::assertSame('ABC123', ControllerIsolationState::$settings['nfse.certificate_fingerprint_sha256'] ?? null);
             self::assertSame(1, ControllerIsolationState::$savedCount);
         }
 
