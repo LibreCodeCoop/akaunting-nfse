@@ -17,7 +17,7 @@ env:
   COMPOSER_NO_INTERACTION: 1
   COMPOSER_NO_AUDIT: 1
   COMPOSER_PROCESS_TIMEOUT: 0
-  COMPOSER_CACHE_DIR: ${{ runner.temp }}/composer-cache
+  COMPOSER_CACHE_DIR: /tmp/composer-cache
 
 jobs:
   php-cs-fixer:
