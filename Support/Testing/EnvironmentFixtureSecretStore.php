@@ -15,11 +15,18 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
  */
 final class EnvironmentFixtureSecretStore implements SecretStoreInterface
 {
+    public function __construct(
+        private readonly ?string $cnpj = null,
+        private readonly ?string $password = null,
+        private readonly ?string $pfxPath = null,
+    ) {
+    }
+
     public function get(string $path): array
     {
-        $cnpj = trim((string) env('NFSE_TEST_CNPJ', ''));
-        $password = (string) env('NFSE_TEST_PFX_PASSWORD', '');
-        $pfxPath = trim((string) env('NFSE_TEST_PFX_PATH', ''));
+        $cnpj = trim($this->cnpj ?? (string) env('NFSE_TEST_CNPJ', ''));
+        $password = $this->password ?? (string) env('NFSE_TEST_PFX_PASSWORD', '');
+        $pfxPath = trim($this->pfxPath ?? (string) env('NFSE_TEST_PFX_PATH', ''));
 
         if ($cnpj === '' || $password === '' || $pfxPath === '') {
             throw new SecretStoreException(
