@@ -2142,10 +2142,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $normalizedXml = str_replace(["\n", '  '], '', $xml);
 
-            if (!str_contains($normalizedXml, '<tribFed/><totTrib>')) {
-                self::markTestSkipped('Pending upstream librecodeoop/nfse-php XML builder update on dev-main.');
-            }
-
+            self::assertStringContainsString('<tribFed/><totTrib>', $normalizedXml);
             self::assertStringContainsString('<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><pTotTrib><pTotTribFed>0.00</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>0.00</pTotTribMun></pTotTrib></totTrib></trib>', $normalizedXml);
         }
 
