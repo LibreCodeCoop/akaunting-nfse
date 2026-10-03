@@ -2,6 +2,12 @@
     "name": "librecodeoop/akaunting-nfse-runtime",
     "description": "Scoped runtime dependencies for the Akaunting NFS-e module",
     "type": "project",
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/LibreCodeCoop/nfse-php"
+        }
+    ],
     "require": {
         "php": "^8.2",
         "librecodeoop/nfse-php": "dev-main"
