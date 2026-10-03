@@ -14,6 +14,7 @@ class PfxParserTest extends TestCase
 {
     private const PASSWORD = 'test-password';
     private const TEST_CNPJ = '12345678000195';
+    private const TEST_ALPHANUMERIC_CNPJ = '12ABC34501DE35';
 
     private static string $pfxWithCnpjInCn;
     private static string $pfxWithCnpjInSerial;
@@ -67,6 +68,19 @@ class PfxParserTest extends TestCase
         $result = PfxParser::extractFromContent(self::$pfxWithCnpjInSerial, self::PASSWORD);
 
         self::assertSame(self::TEST_CNPJ, $result['cnpj']);
+    }
+
+    public function testFindsAlphanumericCnpjInCertificateSubject(): void
+    {
+        $method = new \ReflectionMethod(PfxParser::class, 'findCnpj');
+
+        $cnpj = $method->invoke(null, [
+            'subject' => [
+                'CN' => 'EMPRESA ALFA LTDA:' . strtolower(self::TEST_ALPHANUMERIC_CNPJ),
+            ],
+        ]);
+
+        self::assertSame(self::TEST_ALPHANUMERIC_CNPJ, $cnpj);
     }
 
     public function testReturnsNullCnpjWhenNotPresent(): void

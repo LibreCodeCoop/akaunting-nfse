@@ -3237,6 +3237,64 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('99887766000155', $client->capturedDps?->documentoTomador);
         }
 
+        public function testEmitPreservesAlphanumericTomadorCnpj(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 1044,
+                amount: 10.0,
+                items: [['name' => 'Servico tomador CNPJ alfanumerico']],
+                description: 'Teste tomador CNPJ alfanumerico',
+                contactName: 'Tomador Alfa',
+                contactTaxNumber: '12.abc.345/01de-35',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-1044', 'CHAVE-1044', '2026-10-02T12:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used in this test.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice);
+
+            self::assertSame('12ABC34501DE35', $client->capturedDps?->documentoTomador);
+        }
+
         public function testTomadorPayloadSkipsAddressWhenMunicipioIbgeIsMissing(): void
         {
             $controller = new class () extends InvoiceController {
