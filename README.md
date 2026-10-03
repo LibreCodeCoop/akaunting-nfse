@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # akaunting-nfse
 
-> Módulo Akaunting para emissão, consulta e cancelamento de **Nota Fiscal de Serviço Eletrônica (NFS-e)** via SEFIN Nacional (ABRASF 2.04 / SEFIN 1.0).
+> Módulo Akaunting para emissão, consulta, cancelamento e diagnóstico de **Nota Fiscal de Serviço Eletrônica (NFS-e)** no padrão nacional, com integração SEFIN/ADN.
 
 [![Latest Version](https://img.shields.io/packagist/v/librecodeoop/akaunting-nfse?style=flat-square)](https://packagist.org/packages/librecodeoop/akaunting-nfse)
 [![PHP Version](https://img.shields.io/packagist/php-v/librecodeoop/akaunting-nfse?style=flat-square)](https://packagist.org/packages/librecodeoop/akaunting-nfse)
@@ -20,9 +20,11 @@ O **akaunting-nfse** integra o seu [Akaunting](https://github.com/LibreCodeCoop/
 
 Diferenciais:
 - **Credenciais isoladas** — a senha do certificado ICP-Brasil **nunca** vai para o banco de dados; ela é armazenada em [OpenBao](https://openbao.org/) / HashiCorp Vault KV v2
-- **Interface nativa Akaunting** — menu, configurações e agenda integrados ao painel
-- **Emissão em lote** — agende emissões automáticas por tipo de cobrança
-- **Auditoria completa** — todo XML enviado e recebido é arquivado em WebDAV configurável
+- **Interface nativa Akaunting** — emissão, consulta, cancelamento, reemissão, configurações e diagnóstico operacional integrados ao painel
+- **NFS-e Nacional atual** — suporte ao layout DPS/NFS-e v1.01, CNPJ alfanumérico, IBS/CBS, cenários especiais de ISSQN e tomador estrangeiro
+- **ADN** — consulta de documentos por NSU, eventos oficiais, reconciliação somente leitura com recibos locais e diagnóstico de integridade XMLDSig
+- **DANFSe v2.0** — geração local alinhada à NT 008, incluindo exibição de IBS/CBS quando presente no XML autorizado
+- **Auditoria completa** — XMLs e artefatos de emissão podem ser arquivados em WebDAV configurável
 
 ---
 
@@ -72,6 +74,28 @@ O modulo nao infere esses codigos automaticamente. O enquadramento fiscal deve s
 definido de acordo com a operacao e as tabelas oficiais. Quando habilitado, o
 plugin envia `finNFSe=0` (NFS-e regular), unico valor atualmente admitido pelo
 schema v1.01.
+
+### Diagnóstico oficial e ADN
+
+O módulo inclui recursos de diagnóstico somente leitura para comparar a configuração local e os documentos emitidos com os dados oficiais:
+
+- consulta de parametrização municipal no ADN;
+- consulta de eventos oficiais por chave de acesso;
+- distribuição de documentos por NSU;
+- reconciliação de documentos ADN com recibos locais pela chave de acesso;
+- verificação de integridade XMLDSig dos XMLs recebidos.
+
+Essas funções não alteram automaticamente o enquadramento fiscal nem importam/cancelam documentos locais.
+
+### Tomador estrangeiro e cenários especiais de ISSQN
+
+A emissão suporta, quando aplicável:
+
+- tomador estrangeiro com NIF, país e endereço exterior;
+- imunidade;
+- exportação de serviços com país de resultado;
+- exigibilidade suspensa com tipo e número de processo;
+- retenção de ISSQN tratada separadamente da tributação da operação.
 
 ### OpenBao / Vault
 
