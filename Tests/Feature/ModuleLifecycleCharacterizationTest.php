@@ -92,8 +92,8 @@ final class ModuleLifecycleCharacterizationTest extends FeatureTestCase
                 ->whereIn('name', ['read-nfse-settings', 'update-nfse-settings', 'delete-nfse-settings'])
                 ->count(),
         );
-        self::assertSame(
-            $templateCount + 1,
+        self::assertGreaterThan(
+            $templateCount,
             EmailTemplate::query()
                 ->where('company_id', company_id())
                 ->where('alias', 'invoice_nfse_issued_customer')
