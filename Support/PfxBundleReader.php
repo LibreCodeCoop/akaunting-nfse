@@ -28,7 +28,9 @@ final class PfxBundleReader
 
         $certs = [];
         $ok = $this->withoutPhpWarnings(
-            static fn (): bool => openssl_pkcs12_read($pfxContent, $certs, $password),
+            static function () use ($pfxContent, $password, &$certs): bool {
+                return openssl_pkcs12_read($pfxContent, $certs, $password);
+            },
         );
 
         if (!$ok) {
