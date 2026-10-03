@@ -257,6 +257,7 @@ class InvoiceController extends Controller
         $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues($invoice);
+        $ibsCbsPayload = $this->ibsCbsPayloadValues();
         $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
         $dps = $this->makeDpsData([
@@ -297,6 +298,12 @@ class InvoiceController extends Controller
             'federalValorIrrf' => $federalPayload['federalValorIrrf'],
             'federalValorCsll' => $federalPayload['federalValorCsll'],
             'federalValorCp' => $federalPayload['federalValorCp'],
+            'ibsCbsFinalidade' => $ibsCbsPayload['ibsCbsFinalidade'],
+            'ibsCbsIndFinal' => $ibsCbsPayload['ibsCbsIndFinal'],
+            'ibsCbsCodigoIndicadorOperacao' => $ibsCbsPayload['ibsCbsCodigoIndicadorOperacao'],
+            'ibsCbsIndDest' => $ibsCbsPayload['ibsCbsIndDest'],
+            'ibsCbsCst' => $ibsCbsPayload['ibsCbsCst'],
+            'ibsCbsClassificacaoTributaria' => $ibsCbsPayload['ibsCbsClassificacaoTributaria'],
         ]);
 
         $this->safeLogInfo('NFS-e emission payload', [
@@ -316,6 +323,12 @@ class InvoiceController extends Controller
             'federal_valor_irrf' => $dps->federalValorIrrf,
             'federal_valor_csll' => $dps->federalValorCsll,
             'federal_valor_cp' => $dps->federalValorCp,
+            'ibs_cbs_enabled' => $ibsCbsPayload['enabled'],
+            'ibs_cbs_ind_final' => $ibsCbsPayload['ibsCbsIndFinal'],
+            'ibs_cbs_c_ind_op' => $ibsCbsPayload['ibsCbsCodigoIndicadorOperacao'],
+            'ibs_cbs_ind_dest' => $ibsCbsPayload['ibsCbsIndDest'],
+            'ibs_cbs_cst' => $ibsCbsPayload['ibsCbsCst'],
+            'ibs_cbs_c_class_trib' => $ibsCbsPayload['ibsCbsClassificacaoTributaria'],
             'tributos_fed_p' => $dps->totalTributosPercentualFederal,
             'tributos_est_p' => $dps->totalTributosPercentualEstadual,
             'tributos_mun_p' => $dps->totalTributosPercentualMunicipal,
@@ -2445,6 +2458,14 @@ class InvoiceController extends Controller
             'certificate_secret' => $this->hasCertificateSecret($cnpj),
         ];
 
+        $ibsCbs = $this->ibsCbsPayloadValues();
+        if ($ibsCbs['enabled']) {
+            $checklist['ibs_cbs'] = $ibsCbs['ibsCbsCodigoIndicadorOperacao'] !== ''
+                && $ibsCbs['ibsCbsIndDest'] !== null
+                && $ibsCbs['ibsCbsCst'] !== ''
+                && $ibsCbs['ibsCbsClassificacaoTributaria'] !== '';
+        }
+
         return [
             'checklist' => $checklist,
             'isReady' => !in_array(false, $checklist, true),
@@ -2575,6 +2596,47 @@ class InvoiceController extends Controller
         $configured = (int) setting('nfse.opcao_simples_nacional', 2);
 
         return in_array($configured, [1, 2], true) ? $configured : 2;
+    }
+
+    /**
+     * @return array{
+     *   enabled: bool,
+     *   ibsCbsFinalidade: ?int,
+     *   ibsCbsIndFinal: ?int,
+     *   ibsCbsCodigoIndicadorOperacao: string,
+     *   ibsCbsIndDest: ?int,
+     *   ibsCbsCst: string,
+     *   ibsCbsClassificacaoTributaria: string
+     * }
+     */
+    protected function ibsCbsPayloadValues(): array
+    {
+        $enabled = $this->booleanSetting('nfse.ibs_cbs_enabled', false);
+
+        if (!$enabled) {
+            return [
+                'enabled' => false,
+                'ibsCbsFinalidade' => null,
+                'ibsCbsIndFinal' => null,
+                'ibsCbsCodigoIndicadorOperacao' => '',
+                'ibsCbsIndDest' => null,
+                'ibsCbsCst' => '',
+                'ibsCbsClassificacaoTributaria' => '',
+            ];
+        }
+
+        $indFinal = trim((string) setting('nfse.ibs_cbs_ind_final', ''));
+        $indDest = trim((string) setting('nfse.ibs_cbs_ind_dest', ''));
+
+        return [
+            'enabled' => true,
+            'ibsCbsFinalidade' => 0,
+            'ibsCbsIndFinal' => in_array($indFinal, ['0', '1'], true) ? (int) $indFinal : null,
+            'ibsCbsCodigoIndicadorOperacao' => trim((string) setting('nfse.ibs_cbs_c_ind_op', '')),
+            'ibsCbsIndDest' => in_array($indDest, ['0', '1'], true) ? (int) $indDest : null,
+            'ibsCbsCst' => trim((string) setting('nfse.ibs_cbs_cst', '')),
+            'ibsCbsClassificacaoTributaria' => trim((string) setting('nfse.ibs_cbs_c_class_trib', '')),
+        ];
     }
 
     protected function federalPayloadValues(Invoice $invoice): array
