@@ -214,7 +214,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([
                 'data' => [
                     'cnpj' => '12345678000195',
-                    'valid_to' => '2027-03-21',
+                    'is_currently_valid' => true,
+                    'valid_from' => 1767225600,
+                    'valid_to' => 1798761600,
+                    'fingerprint_sha256' => 'ABC123',
                 ],
             ], $response->getData(true));
         }
@@ -363,7 +366,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     return [
                         'cnpj' => '12345678000195',
-                        'valid_to' => '2027-03-21',
+                        'is_currently_valid' => true,
+                        'valid_from' => 1767225600,
+                        'valid_to' => 1798761600,
+                        'fingerprint_sha256' => 'ABC123',
                     ];
                 }
 
