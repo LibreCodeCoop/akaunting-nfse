@@ -189,8 +189,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('vaultPath: $cert->vaultPath,', $content);
             self::assertStringContainsString('transportCertificatePath: $transportCertificatePath,', $content);
             self::assertStringContainsString('transportPrivateKeyPath: $transportPrivateKeyPath,', $content);
-            self::assertStringContainsString('[$certificatePath, $privateKeyPath, $cleanup] = $this->makeTransportCertificateManager()->prepare($cert, $secretStore);', $content);
-            self::assertStringContainsString('$this->clientTransportCleanup = $cleanup;', $content);
+            self::assertStringContainsString('$context = $this->makeRuntimeContextFactory()->create($cert, $secretStore);', $content);
+            self::assertStringContainsString('$this->clientTransportCleanup = $context->cleanup;', $content);
+            self::assertStringContainsString('return new NfseRuntimeContextFactory($this->makeTransportCertificateManager());', $content);
             self::assertStringContainsString('protected function cleanupClientTransportArtifacts(): void', $content);
         }
 
