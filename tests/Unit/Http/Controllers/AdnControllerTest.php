@@ -111,6 +111,35 @@ final class AdnControllerTest extends TestCase
         self::assertFalse($controller->queried);
     }
 
+    public function testXmlSignatureIntegrityClassifiesMissingAndUnsignedXml(): void
+    {
+        $controller = new class () extends AdnController {
+            public function integrity(?string $xml): ?string
+            {
+                return $this->xmlSignatureIntegrity($xml);
+            }
+        };
+
+        self::assertNull($controller->integrity(null));
+        self::assertNull($controller->integrity('   '));
+        self::assertSame('not_present', $controller->integrity('<NFSe><infNFSe/></NFSe>'));
+    }
+
+    public function testXmlSignatureIntegrityRejectsMalformedSignature(): void
+    {
+        $controller = new class () extends AdnController {
+            public function integrity(?string $xml): ?string
+            {
+                return $this->xmlSignatureIntegrity($xml);
+            }
+        };
+
+        self::assertSame(
+            'invalid',
+            $controller->integrity('<NFSe><Signature xmlns="http://www.w3.org/2000/09/xmldsig#"/></NFSe>'),
+        );
+    }
+
     public function testEventsReturnsReadOnlyAdnDiagnosticsForReceiptAccessKey(): void
     {
         $invoice = new Invoice();
