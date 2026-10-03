@@ -11,15 +11,9 @@ use App\Models\Document\Document as Invoice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Nfse\Models\NfseReceipt;
-use Modules\Nfse\Support\NfseRuntimeContextFactory;
-use Modules\Nfse\Support\TransportCertificateManager;
-use Modules\Nfse\Support\VaultConfig;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\AdnEnvironmentConfig;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
+use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\AdnDistributionData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\AdnClient;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlSignatureVerifier;
 
 class AdnController extends Controller
@@ -204,27 +198,12 @@ class AdnController extends Controller
      */
     protected function withAdnClient(\Closure $operation): mixed
     {
-        $cnpj = trim((string) setting('nfse.cnpj_prestador', ''));
-
-        if ($cnpj === '') {
-            throw new \RuntimeException('Service provider CNPJ is not configured.');
-        }
-
-        $secretStore = $this->makeSecretStore();
-        $baseCert = new CertConfig(
-            cnpj: $cnpj,
-            pfxPath: storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
-            vaultPath: 'pfx/' . $cnpj,
-        );
-        $context = $this->makeRuntimeContextFactory()->create($baseCert, $secretStore);
+        $context = $this->makeFiscalClientFactory()->adn($this->sandboxModeEnabled());
 
         try {
-            return $operation(new AdnClient(
-                environment: new AdnEnvironmentConfig(sandboxMode: $this->sandboxModeEnabled()),
-                cert: $context->cert,
-            ));
+            return $operation($context->adnClient());
         } finally {
-            ($context->cleanup)();
+            $context->close();
         }
     }
 
@@ -287,22 +266,9 @@ class AdnController extends Controller
             : 'invalid';
     }
 
-    protected function makeRuntimeContextFactory(): NfseRuntimeContextFactory
+    protected function makeFiscalClientFactory(): FiscalClientFactory
     {
-        return new NfseRuntimeContextFactory(new TransportCertificateManager());
-    }
-
-    protected function makeSecretStore(): SecretStoreInterface
-    {
-        $config = VaultConfig::secretStoreConfig();
-
-        return new OpenBaoSecretStore(
-            addr: $config['addr'],
-            mount: $config['mount'],
-            token: $config['token'],
-            roleId: $config['roleId'],
-            secretId: $config['secretId'],
-        );
+        return app(FiscalClientFactory::class);
     }
 
     protected function sandboxModeEnabled(): bool
