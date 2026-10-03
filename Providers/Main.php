@@ -14,8 +14,12 @@ use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\Lc116Catalog;
+use Modules\Nfse\Support\NfseRuntimeContextFactory;
+use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\HttpTransportInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NativeStreamTransport;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 
 class Main extends Provider
 {
@@ -57,9 +61,31 @@ class Main extends Provider
         );
 
         $this->app->bind(
+            SecretStoreInterface::class,
+            static function (): SecretStoreInterface {
+                $config = VaultConfig::secretStoreConfig();
+
+                return new OpenBaoSecretStore(
+                    addr: $config['addr'],
+                    mount: $config['mount'],
+                    token: $config['token'],
+                    roleId: $config['roleId'],
+                    secretId: $config['secretId'],
+                );
+            },
+        );
+
+        $this->app->bind(
+            NfseRuntimeContextFactory::class,
+            static fn (): NfseRuntimeContextFactory => new NfseRuntimeContextFactory(),
+        );
+
+        $this->app->bind(
             FiscalClientFactory::class,
             fn (): FiscalClientFactory => new FiscalClientFactory(
                 transport: $this->app->make(HttpTransportInterface::class),
+                runtimeContextFactory: $this->app->make(NfseRuntimeContextFactory::class),
+                secretStoreFactory: fn (): SecretStoreInterface => $this->app->make(SecretStoreInterface::class),
             ),
         );
     }
