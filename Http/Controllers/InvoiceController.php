@@ -18,12 +18,10 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
-use Modules\Nfse\Support\NfseRuntimeContextFactory;
-use Modules\Nfse\Support\TransportCertificateManager;
+use Modules\Nfse\Support\FiscalClientContext;
+use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\EnvironmentConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -31,7 +29,6 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\GatewayException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 
@@ -39,8 +36,7 @@ class InvoiceController extends Controller
 {
     private const INVOICE_NOTES_SETTING_KEY = 'invoice.notes';
 
-    /** @var (\Closure(): void)|null */
-    private ?\Closure $clientTransportCleanup = null;
+    private ?FiscalClientContext $clientContext = null;
 
     protected string $indexSortBy = 'due_at';
 
@@ -3588,19 +3584,11 @@ class InvoiceController extends Controller
     {
         $this->cleanupClientTransportArtifacts();
 
-        $cnpj = (string) setting('nfse.cnpj_prestador', '');
-        $secretStore = $this->makeSecretStore();
-        $cert = new CertConfig(
-            cnpj: $cnpj,
-            pfxPath: storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
-            vaultPath: 'pfx/' . $cnpj,
-        );
-
         try {
-            [$transportCertificatePath, $transportPrivateKeyPath] = $this->resolveTransportCertificatePaths($cert, $secretStore);
+            $this->clientContext = $this->makeFiscalClientFactory()->nfse($sandboxMode);
         } catch (SecretStoreException|PfxImportException $exception) {
             $this->safeLogError('NFS-e transport certificate preparation failed', [
-                'cnpj' => $cnpj,
+                'cnpj' => (string) setting('nfse.cnpj_prestador', ''),
                 'sandbox_mode' => $sandboxMode,
                 'message' => $exception->getMessage(),
             ]);
@@ -3608,51 +3596,22 @@ class InvoiceController extends Controller
             throw $exception;
         }
 
-        return new NfseClient(
-            environment: new EnvironmentConfig(sandboxMode: $sandboxMode),
-            cert:        new CertConfig(
-                cnpj: $cert->cnpj,
-                pfxPath: $cert->pfxPath,
-                vaultPath: $cert->vaultPath,
-                transportCertificatePath: $transportCertificatePath,
-                transportPrivateKeyPath: $transportPrivateKeyPath,
-            ),
-            secretStore: $secretStore,
-        );
+        return $this->clientContext->nfseClient();
     }
 
-    /**
-     * @return array{0: string, 1: string}
-     */
-    protected function resolveTransportCertificatePaths(CertConfig $cert, OpenBaoSecretStore $secretStore): array
+    protected function makeFiscalClientFactory(): FiscalClientFactory
     {
-        $context = $this->makeRuntimeContextFactory()->create($cert, $secretStore);
-        $this->clientTransportCleanup = $context->cleanup;
-
-        return [
-            (string) $context->cert->transportCertificatePath,
-            (string) $context->cert->transportPrivateKeyPath,
-        ];
-    }
-
-    protected function makeRuntimeContextFactory(): NfseRuntimeContextFactory
-    {
-        return new NfseRuntimeContextFactory($this->makeTransportCertificateManager());
-    }
-
-    protected function makeTransportCertificateManager(): TransportCertificateManager
-    {
-        return new TransportCertificateManager();
+        return app(FiscalClientFactory::class);
     }
 
     protected function cleanupClientTransportArtifacts(): void
     {
-        if ($this->clientTransportCleanup === null) {
+        if ($this->clientContext === null) {
             return;
         }
 
-        ($this->clientTransportCleanup)();
-        $this->clientTransportCleanup = null;
+        $this->clientContext->close();
+        $this->clientContext = null;
     }
 
     protected function existingProjectRootPath(string $relativePath): ?string
