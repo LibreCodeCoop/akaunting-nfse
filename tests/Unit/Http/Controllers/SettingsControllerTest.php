@@ -1237,6 +1237,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'municipio_nome'    => 'Niteroi',
                         'municipio_ibge'    => '3303302',
                         'opcao_simples_nacional' => '1',
+                        'tributacao_issqn' => '3',
+                        'tipo_retencao_iss' => '2',
+                        'issqn_pais_resultado' => 'us',
                         'sandbox_mode'      => '1',
                     ],
                 ],
@@ -1254,6 +1257,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('Niteroi', ControllerIsolationState::$settings['nfse.municipio_nome'] ?? null);
             self::assertSame('3303302', ControllerIsolationState::$settings['nfse.municipio_ibge'] ?? null);
             self::assertSame('1', ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] ?? null);
+            self::assertSame('3', ControllerIsolationState::$settings['nfse.tributacao_issqn'] ?? null);
+            self::assertSame('2', ControllerIsolationState::$settings['nfse.tipo_retencao_iss'] ?? null);
+            self::assertSame('US', ControllerIsolationState::$settings['nfse.issqn_pais_resultado'] ?? null);
             self::assertArrayNotHasKey('nfse.item_lista_servico', ControllerIsolationState::$settings);
             self::assertArrayNotHasKey('nfse.aliquota', ControllerIsolationState::$settings);
             // Vault keys must not be overwritten by fiscal save

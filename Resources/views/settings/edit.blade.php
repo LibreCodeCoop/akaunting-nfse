@@ -378,6 +378,69 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </select>
                         </div>
 
+                        <div class="rounded-md border border-gray-200 bg-gray-50 p-4 space-y-4">
+                            <div>
+                                <h4 class="text-sm font-semibold text-gray-900">{{ trans('nfse::general.settings.issqn_special.heading') }}</h4>
+                                <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.issqn_special.help') }}</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="tributacao_issqn">{{ trans('nfse::general.settings.issqn_special.tributacao') }}</label>
+                                    <select id="tributacao_issqn" name="nfse[tributacao_issqn]" class="w-full border rounded px-3 py-2">
+                                        @foreach([
+                                            '1' => trans('nfse::general.settings.issqn_special.tributacao_taxable'),
+                                            '2' => trans('nfse::general.settings.issqn_special.tributacao_immunity'),
+                                            '3' => trans('nfse::general.settings.issqn_special.tributacao_export'),
+                                            '4' => trans('nfse::general.settings.issqn_special.tributacao_non_incidence'),
+                                        ] as $value => $label)
+                                            <option value="{{ $value }}" @selected((string) old('nfse.tributacao_issqn', setting('nfse.tributacao_issqn', 1)) === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="tipo_retencao_iss">{{ trans('nfse::general.settings.issqn_special.withholding') }}</label>
+                                    <select id="tipo_retencao_iss" name="nfse[tipo_retencao_iss]" class="w-full border rounded px-3 py-2">
+                                        <option value="1" @selected((string) old('nfse.tipo_retencao_iss', setting('nfse.tipo_retencao_iss', 1)) === '1')>{{ trans('nfse::general.settings.issqn_special.withholding_none') }}</option>
+                                        <option value="2" @selected((string) old('nfse.tipo_retencao_iss', setting('nfse.tipo_retencao_iss', 1)) === '2')>{{ trans('nfse::general.settings.issqn_special.withholding_customer') }}</option>
+                                        <option value="3" @selected((string) old('nfse.tipo_retencao_iss', setting('nfse.tipo_retencao_iss', 1)) === '3')>{{ trans('nfse::general.settings.issqn_special.withholding_intermediary') }}</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="issqn_pais_resultado">{{ trans('nfse::general.settings.issqn_special.result_country') }}</label>
+                                    <input id="issqn_pais_resultado" name="nfse[issqn_pais_resultado]" type="text" maxlength="2" class="w-full border rounded px-3 py-2 uppercase" value="{{ old('nfse.issqn_pais_resultado', setting('nfse.issqn_pais_resultado', '')) }}" placeholder="US">
+                                    <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.issqn_special.result_country_help') }}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="issqn_tipo_imunidade">{{ trans('nfse::general.settings.issqn_special.immunity_type') }}</label>
+                                    <select id="issqn_tipo_imunidade" name="nfse[issqn_tipo_imunidade]" class="w-full border rounded px-3 py-2">
+                                        <option value="">{{ trans('general.select') }}</option>
+                                        @for($value = 1; $value <= 5; $value++)
+                                            <option value="{{ $value }}" @selected((string) old('nfse.issqn_tipo_imunidade', setting('nfse.issqn_tipo_imunidade', '')) === (string) $value)>{{ $value }}</option>
+                                        @endfor
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="issqn_tipo_suspensao">{{ trans('nfse::general.settings.issqn_special.suspension_type') }}</label>
+                                    <select id="issqn_tipo_suspensao" name="nfse[issqn_tipo_suspensao]" class="w-full border rounded px-3 py-2">
+                                        <option value="">{{ trans('general.select') }}</option>
+                                        <option value="1" @selected((string) old('nfse.issqn_tipo_suspensao', setting('nfse.issqn_tipo_suspensao', '')) === '1')>{{ trans('nfse::general.settings.issqn_special.suspension_judicial') }}</option>
+                                        <option value="2" @selected((string) old('nfse.issqn_tipo_suspensao', setting('nfse.issqn_tipo_suspensao', '')) === '2')>{{ trans('nfse::general.settings.issqn_special.suspension_administrative') }}</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="issqn_numero_processo_suspensao">{{ trans('nfse::general.settings.issqn_special.suspension_process') }}</label>
+                                    <input id="issqn_numero_processo_suspensao" name="nfse[issqn_numero_processo_suspensao]" type="text" inputmode="numeric" maxlength="30" class="w-full border rounded px-3 py-2" value="{{ old('nfse.issqn_numero_processo_suspensao', setting('nfse.issqn_numero_processo_suspensao', '')) }}">
+                                    <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.issqn_special.suspension_process_help') }}</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <label class="inline-flex items-center gap-2">
                             <input name="nfse[sandbox_mode]" type="checkbox" value="1" @checked((bool) old('nfse.sandbox_mode', setting('nfse.sandbox_mode', true)))>
                             <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>

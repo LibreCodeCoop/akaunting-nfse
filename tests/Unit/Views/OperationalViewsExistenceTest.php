@@ -293,6 +293,12 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringNotContainsString('id="tab-panel-services"', $content);
 
             self::assertStringContainsString('name="nfse[opcao_simples_nacional]"', $content);
+            self::assertStringContainsString('name="nfse[tributacao_issqn]"', $content);
+            self::assertStringContainsString('name="nfse[tipo_retencao_iss]"', $content);
+            self::assertStringContainsString('name="nfse[issqn_pais_resultado]"', $content);
+            self::assertStringContainsString('name="nfse[issqn_tipo_imunidade]"', $content);
+            self::assertStringContainsString('name="nfse[issqn_tipo_suspensao]"', $content);
+            self::assertStringContainsString('name="nfse[issqn_numero_processo_suspensao]"', $content);
             self::assertStringNotContainsString('name="nfse[item_lista_servico_display]"', $content);
             self::assertStringNotContainsString('name="nfse[item_lista_servico]"', $content);
             self::assertStringNotContainsString('id="lc116_services"', $content);

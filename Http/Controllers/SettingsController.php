@@ -109,6 +109,12 @@ class SettingsController extends Controller
             'nfse.municipio_nome'     => 'required|string|max:255',
             'nfse.municipio_ibge'     => 'required|string|size:7',
             'nfse.opcao_simples_nacional' => 'nullable|in:1,2',
+            'nfse.tributacao_issqn' => 'required|in:1,2,3,4',
+            'nfse.tipo_retencao_iss' => 'required|in:1,2,3',
+            'nfse.issqn_pais_resultado' => 'required_if:nfse.tributacao_issqn,3|nullable|regex:/^[A-Za-z]{2}$/|not_in:BR,br',
+            'nfse.issqn_tipo_imunidade' => 'required_if:nfse.tributacao_issqn,2|nullable|in:1,2,3,4,5',
+            'nfse.issqn_tipo_suspensao' => 'nullable|in:1,2|prohibited_unless:nfse.tributacao_issqn,1',
+            'nfse.issqn_numero_processo_suspensao' => 'nullable|regex:/^\\d{30}$/|required_with:nfse.issqn_tipo_suspensao|prohibited_unless:nfse.tributacao_issqn,1',
             'nfse.sandbox_mode'       => 'nullable|boolean',
         ]);
 
@@ -117,8 +123,34 @@ class SettingsController extends Controller
 
         $fiscalInput = $rawNfseInput;
         $fiscalInput['uf'] = strtoupper((string) ($fiscalInput['uf'] ?? ''));
+        $fiscalInput['issqn_pais_resultado'] = strtoupper(trim((string) ($fiscalInput['issqn_pais_resultado'] ?? '')));
 
-        foreach (['cnpj_prestador', 'uf', 'municipio_nome', 'municipio_ibge', 'opcao_simples_nacional', 'sandbox_mode'] as $key) {
+        $tributacaoIssqn = (int) ($fiscalInput['tributacao_issqn'] ?? 1);
+        if ($tributacaoIssqn !== 3) {
+            $fiscalInput['issqn_pais_resultado'] = '';
+        }
+        if ($tributacaoIssqn !== 2) {
+            $fiscalInput['issqn_tipo_imunidade'] = null;
+        }
+        if ($tributacaoIssqn !== 1) {
+            $fiscalInput['issqn_tipo_suspensao'] = null;
+            $fiscalInput['issqn_numero_processo_suspensao'] = '';
+        }
+
+        foreach ([
+            'cnpj_prestador',
+            'uf',
+            'municipio_nome',
+            'municipio_ibge',
+            'opcao_simples_nacional',
+            'tributacao_issqn',
+            'tipo_retencao_iss',
+            'issqn_pais_resultado',
+            'issqn_tipo_imunidade',
+            'issqn_tipo_suspensao',
+            'issqn_numero_processo_suspensao',
+            'sandbox_mode',
+        ] as $key) {
             if (array_key_exists($key, $fiscalInput)) {
                 setting(['nfse.' . $key => $fiscalInput[$key]]);
             }
