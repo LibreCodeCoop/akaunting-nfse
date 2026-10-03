@@ -8,9 +8,13 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Unit\Build;
 
 use Modules\Nfse\Tests\TestCase;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\HttpTransportInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\HttpRequestData;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\HttpResponseData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\AdnClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\MunicipalParametersClient;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NativeStreamTransport;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Support\GzipBase64;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlSignatureVerifier;
@@ -83,6 +87,25 @@ final class NfsePhpRuntimeContractTest extends TestCase
                 method_exists(MunicipalParametersClient::class, $method),
                 'Missing nfse-php municipal parameter method: ' . $method,
             );
+        }
+    }
+
+    public function testInjectableFiscalTransportCapabilityIsAvailable(): void
+    {
+        self::assertTrue(interface_exists(HttpTransportInterface::class));
+        self::assertTrue(class_exists(HttpRequestData::class));
+        self::assertTrue(class_exists(HttpResponseData::class));
+        self::assertTrue(class_exists(NativeStreamTransport::class));
+        self::assertTrue(is_a(NativeStreamTransport::class, HttpTransportInterface::class, true));
+
+        foreach ([NfseClient::class, AdnClient::class, MunicipalParametersClient::class] as $clientClass) {
+            $constructor = new \ReflectionMethod($clientClass, '__construct');
+            $parameterNames = array_map(
+                static fn (\ReflectionParameter $parameter): string => $parameter->getName(),
+                $constructor->getParameters(),
+            );
+
+            self::assertContains('transport', $parameterNames, 'Missing injectable transport on ' . $clientClass);
         }
     }
 
