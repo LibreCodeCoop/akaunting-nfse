@@ -109,8 +109,91 @@ class AdnController extends Controller
     protected function fetchAdnDistribution(int $nsu, ?string $cnpj, bool $lote): array
     {
         return $this->withAdnClient(
-            fn (AdnClient $client): array => $this->normalizeDistribution($client->getDfe($nsu, $cnpj, $lote)),
+            fn (AdnClient $client): array => $this->reconcileDistribution(
+                $this->normalizeDistribution($client->getDfe($nsu, $cnpj, $lote)),
+            ),
         );
+    }
+
+    /**
+     * @param array<string, mixed> $distribution
+     * @return array<string, mixed>
+     */
+    protected function reconcileDistribution(array $distribution): array
+    {
+        $documents = is_array($distribution['documents'] ?? null)
+            ? $distribution['documents']
+            : [];
+
+        $accessKeys = [];
+        foreach ($documents as $document) {
+            if (!is_array($document)) {
+                continue;
+            }
+
+            $accessKey = trim((string) ($document['chave_acesso'] ?? ''));
+            if ($accessKey !== '') {
+                $accessKeys[$accessKey] = true;
+            }
+        }
+
+        $matches = $this->localReceiptMatches(array_keys($accessKeys));
+        $matched = 0;
+
+        foreach ($documents as $index => $document) {
+            if (!is_array($document)) {
+                continue;
+            }
+
+            $accessKey = trim((string) ($document['chave_acesso'] ?? ''));
+            $localReceipt = $accessKey !== '' ? ($matches[$accessKey] ?? null) : null;
+
+            if ($localReceipt !== null) {
+                $matched++;
+            }
+
+            $documents[$index]['local_receipt'] = $localReceipt;
+        }
+
+        $distribution['documents'] = $documents;
+        $distribution['reconciliation'] = [
+            'matched' => $matched,
+            'unmatched' => max(0, count($documents) - $matched),
+        ];
+
+        return $distribution;
+    }
+
+    /**
+     * @param list<string> $accessKeys
+     * @return array<string, array{invoice_id:int, nfse_number:string, status:string}>
+     */
+    protected function localReceiptMatches(array $accessKeys): array
+    {
+        if ($accessKeys === []) {
+            return [];
+        }
+
+        $rows = NfseReceipt::query()
+            ->whereIn('chave_acesso', $accessKeys)
+            ->get(['invoice_id', 'chave_acesso', 'nfse_number', 'status']);
+
+        $matches = [];
+
+        foreach ($rows as $receipt) {
+            $accessKey = trim((string) ($receipt->chave_acesso ?? ''));
+            if ($accessKey === '') {
+                continue;
+            }
+
+            $matches[$accessKey] = [
+                'invoice_id' => (int) ($receipt->invoice_id ?? 0),
+                'nfse_number' => (string) ($receipt->nfse_number ?? ''),
+                'status' => (string) ($receipt->status ?? ''),
+            ];
+        }
+
+        return $matches;
     }
 
     /**
