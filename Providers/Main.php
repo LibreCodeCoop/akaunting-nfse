@@ -15,6 +15,8 @@ use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\NfseRuntimeContextFactory;
+use Modules\Nfse\Support\Testing\DeterministicFiscalTransport;
+use Modules\Nfse\Support\Testing\EnvironmentSecretStore;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\HttpTransportInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
@@ -55,6 +57,16 @@ class Main extends Provider
 
     protected function registerFiscalClientComposition(): void
     {
+        if ($this->deterministicFiscalHarnessEnabled()) {
+            $this->app->bind(
+                HttpTransportInterface::class,
+                static fn (): HttpTransportInterface => new DeterministicFiscalTransport(),
+            );
+            $this->app->bind(
+                SecretStoreInterface::class,
+                static fn (): SecretStoreInterface => new EnvironmentSecretStore(),
+            );
+        } else {
         $this->app->bind(
             HttpTransportInterface::class,
             static fn (): HttpTransportInterface => new NativeStreamTransport(),
@@ -74,6 +86,7 @@ class Main extends Provider
                 );
             },
         );
+        }
 
         $this->app->bind(
             NfseRuntimeContextFactory::class,
@@ -87,6 +100,18 @@ class Main extends Provider
                 runtimeContextFactory: $this->app->make(NfseRuntimeContextFactory::class),
                 secretStoreFactory: fn (): SecretStoreInterface => $this->app->make(SecretStoreInterface::class),
             ),
+        );
+    }
+
+    protected function deterministicFiscalHarnessEnabled(): bool
+    {
+        if (!$this->app->environment('testing')) {
+            return false;
+        }
+
+        return filter_var(
+            env('NFSE_DETERMINISTIC_TEST_HARNESS', false),
+            FILTER_VALIDATE_BOOL,
         );
     }
 
