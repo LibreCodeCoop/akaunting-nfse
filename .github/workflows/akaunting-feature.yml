@@ -59,4 +59,4 @@ jobs:
           composer test
 
       - name: Run NFS-e Feature tests
-        run: php artisan test modules/Nfse/Tests/Feature --parallel
+        run: php artisan test modules/Nfse/Tests/Feature
