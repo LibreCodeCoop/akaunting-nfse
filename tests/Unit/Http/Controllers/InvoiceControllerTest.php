@@ -1096,6 +1096,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ControllerIsolationState::$settings['nfse.ibs_cbs_ind_dest'] = '0';
             ControllerIsolationState::$settings['nfse.ibs_cbs_cst'] = '000';
             ControllerIsolationState::$settings['nfse.ibs_cbs_c_class_trib'] = '000001';
+            ControllerIsolationState::$settings['nfse.tributacao_issqn'] = '3';
+            ControllerIsolationState::$settings['nfse.tipo_retencao_iss'] = '2';
+            ControllerIsolationState::$settings['nfse.issqn_pais_resultado'] = 'US';
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 42,
@@ -1195,6 +1198,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 self::assertSame('financeiro@acme.test', $client->capturedDps->tomadorEmail);
             }
             self::assertSame(2, $client->capturedDps?->opcaoSimplesNacional);
+            self::assertSame(3, $client->capturedDps?->tributacaoIssqn);
+            self::assertSame('US', $client->capturedDps?->issqnPaisResultado);
+            self::assertNull($client->capturedDps?->issqnTipoImunidade);
+            self::assertNull($client->capturedDps?->issqnTipoSuspensao);
+            self::assertSame('', $client->capturedDps?->issqnNumeroProcessoSuspensao);
+            self::assertSame(2, $client->capturedDps?->tipoRetencaoIss);
             self::assertSame(1, $client->capturedDps?->tipoAmbiente);
             self::assertSame('1', $client->capturedDps?->federalPiscofinsSituacaoTributaria);
             self::assertSame('3', $client->capturedDps?->federalPiscofinsTipoRetencao);
