@@ -58,6 +58,95 @@ final class AdnControllerTest extends TestCase
         self::assertSame(12, $response->getData(true)['data']['ultimo_nsu'] ?? null);
     }
 
+    public function testReconcileDistributionMatchesLocalReceiptsWithoutMutatingState(): void
+    {
+        $controller = new class () extends AdnController {
+            /**
+             * @param array<string, mixed> $distribution
+             * @return array<string, mixed>
+             */
+            public function reconcile(array $distribution): array
+            {
+                return $this->reconcileDistribution($distribution);
+            }
+
+            /**
+             * @param list<string> $accessKeys
+             * @return array<string, array{invoice_id:int, nfse_number:string, status:string}>
+             */
+            protected function localReceiptMatches(array $accessKeys): array
+            {
+                self::assertSame(['KEY-1', 'KEY-2'], $accessKeys);
+
+                return [
+                    'KEY-1' => [
+                        'invoice_id' => 42,
+                        'nfse_number' => '1001',
+                        'status' => 'emitted',
+                    ],
+                ];
+            }
+        };
+
+        $result = $controller->reconcile([
+            'documents' => [
+                ['nsu' => 1, 'chave_acesso' => 'KEY-1', 'tipo_documento' => 'NFSE'],
+                ['nsu' => 2, 'chave_acesso' => 'KEY-2', 'tipo_documento' => 'NFSE'],
+                ['nsu' => 3, 'chave_acesso' => null, 'tipo_documento' => 'EVENTO'],
+            ],
+        ]);
+
+        self::assertSame([
+            'matched' => 1,
+            'unmatched' => 2,
+        ], $result['reconciliation'] ?? null);
+
+        self::assertSame(
+            [
+                'invoice_id' => 42,
+                'nfse_number' => '1001',
+                'status' => 'emitted',
+            ],
+            $result['documents'][0]['local_receipt'] ?? null,
+        );
+        self::assertNull($result['documents'][1]['local_receipt'] ?? null);
+        self::assertNull($result['documents'][2]['local_receipt'] ?? null);
+    }
+
+    public function testReconcileDistributionDeduplicatesAccessKeysBeforeDatabaseLookup(): void
+    {
+        $controller = new class () extends AdnController {
+            /** @var list<string> */
+            public array $receivedAccessKeys = [];
+
+            /**
+             * @param array<string, mixed> $distribution
+             * @return array<string, mixed>
+             */
+            public function reconcile(array $distribution): array
+            {
+                return $this->reconcileDistribution($distribution);
+            }
+
+            protected function localReceiptMatches(array $accessKeys): array
+            {
+                $this->receivedAccessKeys = $accessKeys;
+
+                return [];
+            }
+        };
+
+        $controller->reconcile([
+            'documents' => [
+                ['chave_acesso' => 'KEY-1'],
+                ['chave_acesso' => 'KEY-1'],
+                ['chave_acesso' => ''],
+            ],
+        ]);
+
+        self::assertSame(['KEY-1'], $controller->receivedAccessKeys);
+    }
+
     public function testDistributionRejectsInvalidNsuBeforeAdnQuery(): void
     {
         $controller = new class () extends AdnController {
