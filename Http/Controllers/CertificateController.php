@@ -12,7 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
-use Modules\Nfse\Support\PfxParser;
+use Modules\Nfse\Support\PfxInspector;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
 
@@ -67,6 +67,11 @@ class CertificateController extends Controller
                 return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])
                     ->with('error', trans('nfse::general.cnpj_not_found'));
             }
+
+            if (($data['is_currently_valid'] ?? false) !== true) {
+                return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])
+                    ->with('error', trans('nfse::general.certificate_not_currently_valid'));
+            }
         } catch (\RuntimeException) {
             return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])
                 ->with('error', trans('nfse::general.invalid_pfx'));
@@ -74,7 +79,12 @@ class CertificateController extends Controller
 
         try {
             $this->storeCertificate($cnpj, $pfxContent, $password);
-            setting(['nfse.cnpj_prestador' => $cnpj]);
+            setting([
+                'nfse.cnpj_prestador' => $cnpj,
+                'nfse.certificate_valid_from' => (int) ($data['valid_from'] ?? 0),
+                'nfse.certificate_valid_to' => (int) ($data['valid_to'] ?? 0),
+                'nfse.certificate_fingerprint_sha256' => (string) ($data['fingerprint_sha256'] ?? ''),
+            ]);
             setting()->save();
         } catch (\Throwable) {
             return redirect()->route('nfse.settings.edit', ['tab' => 'certificate'])
@@ -107,7 +117,7 @@ class CertificateController extends Controller
      */
     protected function parseUploadedCertificate(string $pfxContent, string $password): array
     {
-        return PfxParser::extractFromContent($pfxContent, $password);
+        return (new PfxInspector())->inspect($pfxContent, $password);
     }
 
     protected function validateUploadedCertificate(string $pfxContent, string $password): void
