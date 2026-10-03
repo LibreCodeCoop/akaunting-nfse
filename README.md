@@ -57,6 +57,22 @@ composer require librecodeoop/akaunting-nfse
 Faça upload do arquivo `.pfx` em **NFS-e → Configurações → Certificado**.
 A senha é enviada diretamente ao OpenBao — o servidor nunca armazena em texto claro.
 
+### IBS/CBS (Reforma Tributaria)
+
+Para operacoes sujeitas as regras RTC, configure na aba **Tributacao**:
+
+- habilitacao do grupo IBS/CBS;
+- `cIndOp` (6 digitos), conforme a tabela oficial de indicador da operacao;
+- `indDest` (0 ou 1);
+- `CST` (3 digitos);
+- `cClassTrib` (6 digitos);
+- `indFinal` (opcional, 0 ou 1).
+
+O modulo nao infere esses codigos automaticamente. O enquadramento fiscal deve ser
+definido de acordo com a operacao e as tabelas oficiais. Quando habilitado, o
+plugin envia `finNFSe=0` (NFS-e regular), unico valor atualmente admitido pelo
+schema v1.01.
+
 ### OpenBao / Vault
 
 O módulo consome um OpenBao/Vault já existente. Ele não instala nem inicializa

@@ -141,18 +141,31 @@ class SettingsController extends Controller
         }
 
         $request->validate([
-            'nfse.federal_piscofins_situacao_tributaria' => 'nullable|regex:/^\d+$/',
-            'nfse.federal_piscofins_tipo_retencao' => 'nullable|regex:/^\d+$/',
+            'nfse.federal_piscofins_situacao_tributaria' => 'nullable|regex:/^\\d+$/',
+            'nfse.federal_piscofins_tipo_retencao' => 'nullable|regex:/^\\d+$/',
+            'nfse.ibs_cbs_enabled' => 'nullable|boolean',
+            'nfse.ibs_cbs_ind_final' => 'nullable|in:0,1',
+            'nfse.ibs_cbs_c_ind_op' => 'required_if:nfse.ibs_cbs_enabled,1|nullable|regex:/^\\d{6}$/',
+            'nfse.ibs_cbs_ind_dest' => 'required_if:nfse.ibs_cbs_enabled,1|nullable|in:0,1',
+            'nfse.ibs_cbs_cst' => 'required_if:nfse.ibs_cbs_enabled,1|nullable|regex:/^\\d{3}$/',
+            'nfse.ibs_cbs_c_class_trib' => 'required_if:nfse.ibs_cbs_enabled,1|nullable|regex:/^\\d{6}$/',
         ]);
 
         $rawNfseInput = $request->input('nfse', []);
         $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
         $situacaoTributaria = trim((string) ($rawNfseInput['federal_piscofins_situacao_tributaria'] ?? ''));
         $tipoRetencao = trim((string) ($rawNfseInput['federal_piscofins_tipo_retencao'] ?? ''));
+        $ibsCbsEnabled = $this->toBooleanInput($rawNfseInput, 'ibs_cbs_enabled', false);
 
         setting([
-            'nfse.federal_piscofins_situacao_tributaria' => preg_match('/^\d+$/', $situacaoTributaria) === 1 ? $situacaoTributaria : null,
-            'nfse.federal_piscofins_tipo_retencao' => preg_match('/^\d+$/', $tipoRetencao) === 1 ? $tipoRetencao : null,
+            'nfse.federal_piscofins_situacao_tributaria' => preg_match('/^\\d+$/', $situacaoTributaria) === 1 ? $situacaoTributaria : null,
+            'nfse.federal_piscofins_tipo_retencao' => preg_match('/^\\d+$/', $tipoRetencao) === 1 ? $tipoRetencao : null,
+            'nfse.ibs_cbs_enabled' => $ibsCbsEnabled,
+            'nfse.ibs_cbs_ind_final' => $ibsCbsEnabled ? $this->nullableStringInput($rawNfseInput, 'ibs_cbs_ind_final') : null,
+            'nfse.ibs_cbs_c_ind_op' => $ibsCbsEnabled ? $this->nullableStringInput($rawNfseInput, 'ibs_cbs_c_ind_op') : null,
+            'nfse.ibs_cbs_ind_dest' => $ibsCbsEnabled ? $this->nullableStringInput($rawNfseInput, 'ibs_cbs_ind_dest') : null,
+            'nfse.ibs_cbs_cst' => $ibsCbsEnabled ? $this->nullableStringInput($rawNfseInput, 'ibs_cbs_cst') : null,
+            'nfse.ibs_cbs_c_class_trib' => $ibsCbsEnabled ? $this->nullableStringInput($rawNfseInput, 'ibs_cbs_c_class_trib') : null,
         ]);
 
         foreach ([
@@ -179,6 +192,20 @@ class SettingsController extends Controller
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'federal'])
             ->with('success', trans('nfse::general.saved'));
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     */
+    protected function nullableStringInput(array $input, string $key): ?string
+    {
+        if (!array_key_exists($key, $input)) {
+            return null;
+        }
+
+        $value = trim((string) $input[$key]);
+
+        return $value !== '' ? $value : null;
     }
 
     public function updateArtifacts(Request $request): RedirectResponse
