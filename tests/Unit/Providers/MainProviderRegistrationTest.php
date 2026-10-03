@@ -23,8 +23,8 @@ final class MainProviderRegistrationTest extends TestCase
         self::assertStringContainsString('registerCoreItemViewOverrides', $content);
         self::assertStringContainsString('setPaths(array_merge([$overridePath], $paths));', $content);
         self::assertStringContainsString("->composer(['common.items.create', 'common.items.edit']", $content);
-        self::assertStringContainsString('registerItemFiscalProfileHooks', $content);
-        self::assertStringContainsString('ItemFiscalProfile::updateOrCreate', $content);
+        self::assertStringNotContainsString('registerItemFiscalProfileHooks', $content);
+        self::assertStringNotContainsString('CoreItem::saved', $content);
         self::assertStringContainsString('OverrideInvoiceEmailRoute::class', $content);
         self::assertStringContainsString("'/vendor/autoload.php'", $content);
         self::assertStringContainsString("'/3rdparty/scoped/autoload.php'", $content);
