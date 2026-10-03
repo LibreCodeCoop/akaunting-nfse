@@ -67,25 +67,25 @@ class Main extends Provider
                 static fn (): SecretStoreInterface => new EnvironmentSecretStore(),
             );
         } else {
-        $this->app->bind(
-            HttpTransportInterface::class,
-            static fn (): HttpTransportInterface => new NativeStreamTransport(),
-        );
+            $this->app->bind(
+                HttpTransportInterface::class,
+                static fn (): HttpTransportInterface => new NativeStreamTransport(),
+            );
 
-        $this->app->bind(
-            SecretStoreInterface::class,
-            static function (): SecretStoreInterface {
-                $config = VaultConfig::secretStoreConfig();
+            $this->app->bind(
+                SecretStoreInterface::class,
+                static function (): SecretStoreInterface {
+                    $config = VaultConfig::secretStoreConfig();
 
-                return new OpenBaoSecretStore(
-                    addr: $config['addr'],
-                    mount: $config['mount'],
-                    token: $config['token'],
-                    roleId: $config['roleId'],
-                    secretId: $config['secretId'],
-                );
-            },
-        );
+                    return new OpenBaoSecretStore(
+                        addr: $config['addr'],
+                        mount: $config['mount'],
+                        token: $config['token'],
+                        roleId: $config['roleId'],
+                        secretId: $config['secretId'],
+                    );
+                },
+            );
         }
 
         $this->app->bind(
