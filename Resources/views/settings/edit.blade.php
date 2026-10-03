@@ -487,6 +487,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
                         </div>
 
+                        <div id="ibs-cbs-panel" class="border-t border-gray-200 pt-4 space-y-4">
+                            <div>
+                                <h4 class="text-sm font-semibold text-gray-900">{{ trans('nfse::general.settings.federal.ibs_cbs_heading') }}</h4>
+                                <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.federal.ibs_cbs_notice') }}</p>
+                            </div>
+
+                            <label class="inline-flex items-center gap-2">
+                                <input name="nfse[ibs_cbs_enabled]" type="hidden" value="0">
+                                <input id="ibs-cbs-enabled" name="nfse[ibs_cbs_enabled]" type="checkbox" value="1" @checked((bool) old('nfse.ibs_cbs_enabled', setting('nfse.ibs_cbs_enabled', false)))>
+                                <span>{{ trans('nfse::general.settings.federal.ibs_cbs_enabled') }}</span>
+                            </label>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="ibs-cbs-ind-final">{{ trans('nfse::general.settings.federal.ibs_cbs_ind_final') }}</label>
+                                    <select id="ibs-cbs-ind-final" name="nfse[ibs_cbs_ind_final]" class="w-full border rounded px-3 py-2">
+                                        <option value="">{{ trans('nfse::general.settings.federal.ibs_cbs_ind_final_empty') }}</option>
+                                        <option value="0" @selected((string) old('nfse.ibs_cbs_ind_final', setting('nfse.ibs_cbs_ind_final', '')) === '0')>{{ trans('nfse::general.settings.federal.ibs_cbs_ind_final_no') }}</option>
+                                        <option value="1" @selected((string) old('nfse.ibs_cbs_ind_final', setting('nfse.ibs_cbs_ind_final', '')) === '1')>{{ trans('nfse::general.settings.federal.ibs_cbs_ind_final_yes') }}</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="ibs-cbs-c-ind-op">{{ trans('nfse::general.settings.federal.ibs_cbs_c_ind_op') }}</label>
+                                    <input id="ibs-cbs-c-ind-op" name="nfse[ibs_cbs_c_ind_op]" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="w-full border rounded px-3 py-2" value="{{ old('nfse.ibs_cbs_c_ind_op', setting('nfse.ibs_cbs_c_ind_op', '')) }}" placeholder="000000">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="ibs-cbs-ind-dest">{{ trans('nfse::general.settings.federal.ibs_cbs_ind_dest') }}</label>
+                                    <select id="ibs-cbs-ind-dest" name="nfse[ibs_cbs_ind_dest]" class="w-full border rounded px-3 py-2">
+                                        <option value="0" @selected((string) old('nfse.ibs_cbs_ind_dest', setting('nfse.ibs_cbs_ind_dest', '0')) === '0')>{{ trans('nfse::general.settings.federal.ibs_cbs_ind_dest_same') }}</option>
+                                        <option value="1" @selected((string) old('nfse.ibs_cbs_ind_dest', setting('nfse.ibs_cbs_ind_dest', '0')) === '1')>{{ trans('nfse::general.settings.federal.ibs_cbs_ind_dest_other') }}</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="ibs-cbs-cst">{{ trans('nfse::general.settings.federal.ibs_cbs_cst') }}</label>
+                                    <input id="ibs-cbs-cst" name="nfse[ibs_cbs_cst]" type="text" inputmode="numeric" pattern="[0-9]{3}" maxlength="3" class="w-full border rounded px-3 py-2" value="{{ old('nfse.ibs_cbs_cst', setting('nfse.ibs_cbs_cst', '')) }}" placeholder="000">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="ibs-cbs-c-class-trib">{{ trans('nfse::general.settings.federal.ibs_cbs_c_class_trib') }}</label>
+                                    <input id="ibs-cbs-c-class-trib" name="nfse[ibs_cbs_c_class_trib]" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" class="w-full border rounded px-3 py-2" value="{{ old('nfse.ibs_cbs_c_class_trib', setting('nfse.ibs_cbs_c_class_trib', '')) }}" placeholder="000000">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="flex justify-end pt-2">
                             <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
                                 {{ trans('general.save') }}
