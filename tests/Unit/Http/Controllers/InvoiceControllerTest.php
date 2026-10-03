@@ -2754,6 +2754,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([['id' => 900, 'label' => '14.01 - Servico padrao', 'is_default' => true]], $payload['available_services'] ?? null);
             self::assertSame(0, $payload['default_service_id'] ?? null);
             self::assertFalse((bool) ($payload['requires_split'] ?? true));
+            self::assertArrayHasKey('taker_defaults', $payload);
+            self::assertFalse((bool) ($payload['taker_defaults']['foreign'] ?? true));
         }
 
         public function testServicePreviewIncludesEmailDefaults(): void
@@ -3073,6 +3075,179 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ];
 
             self::assertSame('001', $controller->exposedItemListaServico($defaultService));
+        }
+
+        public function testForeignTomadorPayloadAcceptsNifAndCompleteAddress(): void
+        {
+            $controller = new class () extends InvoiceController {
+                /** @param array<string, mixed> $nationalPayload */
+                public function foreignPayload(Request $request, Invoice $invoice, array $nationalPayload): array
+                {
+                    return $this->foreignTomadorPayloadFromRequest($request, $invoice, $nationalPayload);
+                }
+            };
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 980,
+                amount: 100.00,
+                contactName: 'Foreign Customer',
+            );
+
+            $payload = $controller->foreignPayload(
+                new Request([
+                    'nfse_tomador_foreign' => '1',
+                    'nfse_tomador_nif' => 'US-TAX-123',
+                    'nfse_tomador_country' => 'us',
+                    'nfse_tomador_postal_code' => '10001',
+                    'nfse_tomador_city' => 'New York',
+                    'nfse_tomador_region' => 'NY',
+                    'nfse_tomador_street' => '5th Avenue',
+                    'nfse_tomador_number' => '100',
+                    'nfse_tomador_complement' => 'Suite 10',
+                    'nfse_tomador_district' => 'Manhattan',
+                ]),
+                $invoice,
+                [],
+            );
+
+            self::assertTrue($payload['enabled']);
+            self::assertSame('US-TAX-123', $payload['nif']);
+            self::assertNull($payload['codigo_nao_nif']);
+            self::assertSame('US', $payload['pais_codigo']);
+            self::assertSame('10001', $payload['codigo_postal']);
+            self::assertSame('New York', $payload['cidade']);
+            self::assertSame('NY', $payload['estado']);
+        }
+
+        public function testForeignTomadorPayloadAcceptsOfficialNoNifReason(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function foreignPayload(Request $request, Invoice $invoice): array
+                {
+                    return $this->foreignTomadorPayloadFromRequest($request, $invoice, []);
+                }
+            };
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 981, amount: 100.00);
+
+            $payload = $controller->foreignPayload(new Request([
+                'nfse_tomador_foreign' => '1',
+                'nfse_tomador_nao_nif' => '2',
+                'nfse_tomador_country' => 'PT',
+                'nfse_tomador_postal_code' => '1000-001',
+                'nfse_tomador_city' => 'Lisboa',
+                'nfse_tomador_region' => 'Lisboa',
+                'nfse_tomador_street' => 'Avenida da Liberdade',
+                'nfse_tomador_number' => '10',
+                'nfse_tomador_district' => 'Santo Antonio',
+            ]), $invoice);
+
+            self::assertSame(2, $payload['codigo_nao_nif']);
+            self::assertSame('', $payload['nif']);
+        }
+
+        public function testForeignTomadorPayloadRejectsNifTogetherWithNoNifReason(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function foreignPayload(Request $request, Invoice $invoice): array
+                {
+                    return $this->foreignTomadorPayloadFromRequest($request, $invoice, []);
+                }
+            };
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 982, amount: 100.00);
+
+            $this->expectException(\InvalidArgumentException::class);
+
+            $controller->foreignPayload(new Request([
+                'nfse_tomador_foreign' => '1',
+                'nfse_tomador_nif' => 'NIF-123',
+                'nfse_tomador_nao_nif' => '1',
+            ]), $invoice);
+        }
+
+        public function testForeignTomadorPayloadIsNoopWhenDisabled(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function foreignPayload(Request $request, Invoice $invoice): array
+                {
+                    return $this->foreignTomadorPayloadFromRequest($request, $invoice, []);
+                }
+            };
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 983, amount: 100.00);
+            $payload = $controller->foreignPayload(new Request([]), $invoice);
+
+            self::assertFalse($payload['enabled']);
+            self::assertSame('', $payload['nif']);
+            self::assertSame('', $payload['pais_codigo']);
+        }
+
+        public function testForeignTomadorPayloadTreatsNullRequestAsDisabled(): void
+        {
+            $controller = new class () extends InvoiceController {
+                public function foreignPayload(?Request $request, Invoice $invoice): array
+                {
+                    return $this->foreignTomadorPayloadFromRequest($request, $invoice, []);
+                }
+            };
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 984, amount: 100.00);
+            $payload = $controller->foreignPayload(null, $invoice);
+
+            self::assertFalse($payload['enabled']);
+            self::assertSame('', $payload['nif']);
+            self::assertSame('', $payload['pais_codigo']);
+        }
+
+        public function testMakeDpsDataRejectsMissingRequiredRuntimeCapability(): void
+        {
+            $controller = new class () extends InvoiceController {
+                /**
+                 * @param array<string, mixed> $payload
+                 * @param list<string> $requiredFields
+                 */
+                public function buildDps(array $payload, array $requiredFields): DpsData
+                {
+                    return $this->makeDpsData($payload, $requiredFields);
+                }
+            };
+
+            $this->expectException(\LogicException::class);
+            $this->expectExceptionMessage('Installed nfse-php runtime does not support required DPS field: unsupportedField');
+
+            $controller->buildDps([
+                'cnpjPrestador' => '29842527000145',
+                'municipioIbge' => '3304557',
+                'itemListaServico' => '0107',
+                'valorServico' => '100.00',
+                'aliquota' => '5.00',
+                'discriminacao' => 'Teste',
+                'unsupportedField' => 'value',
+            ], ['unsupportedField']);
+        }
+
+        public function testMakeDpsDataStillIgnoresOptionalUnknownRuntimeFields(): void
+        {
+            $controller = new class () extends InvoiceController {
+                /** @param array<string, mixed> $payload */
+                public function buildDps(array $payload): DpsData
+                {
+                    return $this->makeDpsData($payload);
+                }
+            };
+
+            $dps = $controller->buildDps([
+                'cnpjPrestador' => '29842527000145',
+                'municipioIbge' => '3304557',
+                'itemListaServico' => '0107',
+                'valorServico' => '100.00',
+                'aliquota' => '5.00',
+                'discriminacao' => 'Teste',
+                'optionalFutureField' => 'ignored',
+            ]);
+
+            self::assertSame('29842527000145', $dps->cnpjPrestador);
         }
 
         public function testAmbiguousEmissionRecoveryQueriesDpsThenAuthorizedNfse(): void
