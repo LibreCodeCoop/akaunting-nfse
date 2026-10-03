@@ -441,6 +441,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
                         </div>
 
+                        <div
+                            id="municipal-parameters-panel"
+                            data-url="{{ route('nfse.municipal-parameters') }}"
+                            class="rounded-md border border-blue-200 bg-blue-50 p-4 space-y-4"
+                        >
+                            <div>
+                                <h4 class="text-sm font-semibold text-blue-900">{{ trans('nfse::general.settings.municipal_parameters.title') }}</h4>
+                                <p class="text-xs text-blue-800 mt-1">{{ trans('nfse::general.settings.municipal_parameters.help') }}</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="municipal-parameters-service-code">{{ trans('nfse::general.settings.municipal_parameters.service_code') }}</label>
+                                    <input id="municipal-parameters-service-code" type="text" inputmode="numeric" class="w-full border rounded px-3 py-2" placeholder="010701">
+                                    <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.municipal_parameters.service_code_help') }}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-1" for="municipal-parameters-competence">{{ trans('nfse::general.settings.municipal_parameters.competence') }}</label>
+                                    <input id="municipal-parameters-competence" type="date" class="w-full border rounded px-3 py-2" value="{{ date('Y-m-d') }}">
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-3">
+                                <button id="municipal-parameters-query" type="button" class="inline-flex items-center px-4 py-2 rounded bg-blue-700 text-white hover:bg-blue-800">
+                                    {{ trans('nfse::general.settings.municipal_parameters.query') }}
+                                </button>
+                                <span id="municipal-parameters-status" class="text-sm text-gray-600" aria-live="polite"></span>
+                            </div>
+
+                            <div id="municipal-parameters-result-wrapper" class="hidden">
+                                <p class="text-sm font-medium mb-2">{{ trans('nfse::general.settings.municipal_parameters.result') }}</p>
+                                <pre id="municipal-parameters-result" class="overflow-x-auto rounded bg-gray-900 p-3 text-xs text-gray-100 whitespace-pre-wrap"></pre>
+                            </div>
+                        </div>
+
                         <label class="inline-flex items-center gap-2">
                             <input name="nfse[sandbox_mode]" type="checkbox" value="1" @checked((bool) old('nfse.sandbox_mode', setting('nfse.sandbox_mode', true)))>
                             <span>{{ trans('nfse::general.settings.sandbox_mode') }}</span>
@@ -1024,6 +1060,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const ibgeHidden         = document.getElementById('municipio_ibge');
                 const ibgeDisplay        = document.getElementById('municipio_ibge_display');
                 const fiscalSaveButton   = document.getElementById('federal-save-button');
+                const municipalParametersPanel = document.getElementById('municipal-parameters-panel');
+                const municipalParametersButton = document.getElementById('municipal-parameters-query');
+                const municipalParametersService = document.getElementById('municipal-parameters-service-code');
+                const municipalParametersCompetence = document.getElementById('municipal-parameters-competence');
+                const municipalParametersStatus = document.getElementById('municipal-parameters-status');
+                const municipalParametersResult = document.getElementById('municipal-parameters-result');
+                const municipalParametersResultWrapper = document.getElementById('municipal-parameters-result-wrapper');
                 if (!ufSelect) {
                     return; // fiscal tab not rendered (no saved settings)
                 }
@@ -1153,6 +1196,64 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 if (selectedUf) {
                     await loadMunicipalities(selectedUf, selectedMunicipalityName, selectedIbge);
+                }
+
+                if (
+                    municipalParametersButton instanceof HTMLButtonElement &&
+                    municipalParametersPanel instanceof HTMLElement &&
+                    municipalParametersService instanceof HTMLInputElement &&
+                    municipalParametersCompetence instanceof HTMLInputElement &&
+                    municipalParametersStatus instanceof HTMLElement &&
+                    municipalParametersResult instanceof HTMLElement &&
+                    municipalParametersResultWrapper instanceof HTMLElement
+                ) {
+                    municipalParametersButton.addEventListener('click', async () => {
+                        const municipioIbge = ibgeHidden.value.trim();
+                        const serviceCode = municipalParametersService.value.trim();
+                        const competence = municipalParametersCompetence.value.trim();
+
+                        municipalParametersStatus.textContent = '';
+                        municipalParametersResult.textContent = '';
+                        municipalParametersResultWrapper.classList.add('hidden');
+
+                        if (!municipioIbge || !serviceCode || !competence) {
+                            municipalParametersStatus.textContent = @json(trans('nfse::general.settings.municipal_parameters.invalid_service'));
+                            return;
+                        }
+
+                        const baseUrl = municipalParametersPanel.dataset.url ?? '';
+                        const params = new URLSearchParams({
+                            municipio_ibge: municipioIbge,
+                            service_code: serviceCode,
+                            competence,
+                        });
+
+                        municipalParametersButton.disabled = true;
+                        municipalParametersStatus.textContent = @json(trans('nfse::general.settings.municipal_parameters.querying'));
+
+                        try {
+                            const response = await fetch(`${baseUrl}?${params.toString()}`, {
+                                headers: { Accept: 'application/json' },
+                            });
+                            const payload = await response.json().catch(() => ({}));
+
+                            if (!response.ok) {
+                                municipalParametersStatus.textContent =
+                                    typeof payload.message === 'string'
+                                        ? payload.message
+                                        : @json(trans('nfse::general.settings.municipal_parameters.query_failed'));
+                                return;
+                            }
+
+                            municipalParametersResult.textContent = JSON.stringify(payload.data ?? {}, null, 2);
+                            municipalParametersResultWrapper.classList.remove('hidden');
+                            municipalParametersStatus.textContent = '';
+                        } catch (error) {
+                            municipalParametersStatus.textContent = @json(trans('nfse::general.settings.municipal_parameters.query_failed'));
+                        } finally {
+                            municipalParametersButton.disabled = false;
+                        }
+                    });
                 }
 
                 syncFiscalSaveButton();

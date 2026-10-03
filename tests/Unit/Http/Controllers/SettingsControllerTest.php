@@ -1101,6 +1101,84 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('0101', $response->getData(true)['data'][0]['code']);
         }
 
+        public function testMunicipalParametersReturnsReadOnlyOfficialDiagnostics(): void
+        {
+            ControllerIsolationState::$settings['nfse.municipio_ibge'] = '3303302';
+
+            $controller = new class () extends SettingsController {
+                /** @var array<string, string> */
+                public array $received = [];
+
+                protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
+                {
+                    $this->received = [
+                        'municipio' => $municipio,
+                        'service_code' => $serviceCode,
+                        'competence' => $competence,
+                    ];
+
+                    return [
+                        'municipio_ibge' => $municipio,
+                        'service_code' => $serviceCode,
+                        'competence' => $competence,
+                        'convenio' => ['parametros' => ['tipoConvenio' => 1]],
+                        'aliquota' => ['aliquotas' => [['Aliq' => 5.0]]],
+                        'regimes_especiais' => ['regimes' => []],
+                        'retencoes' => ['retencoes' => []],
+                    ];
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->municipalParameters(new Request([
+                'service_code' => '01.07.01',
+                'competence' => '2026-10-03',
+            ]));
+
+            self::assertSame(200, $response->getStatusCode());
+            self::assertSame([
+                'municipio' => '3303302',
+                'service_code' => '010701',
+                'competence' => '2026-10-03',
+            ], $controller->received);
+
+            $payload = $response->getData(true);
+            self::assertSame(5.0, $payload['data']['aliquota']['aliquotas'][0]['Aliq'] ?? null);
+            self::assertSame(1, $payload['data']['convenio']['parametros']['tipoConvenio'] ?? null);
+        }
+
+        public function testMunicipalParametersRejectsInvalidInputBeforeOfficialQuery(): void
+        {
+            $controller = new class () extends SettingsController {
+                public bool $called = false;
+
+                protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
+                {
+                    $this->called = true;
+
+                    return [];
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->municipalParameters(new Request([
+                'municipio_ibge' => '123',
+                'service_code' => '',
+                'competence' => 'invalid',
+            ]));
+
+            self::assertSame(422, $response->getStatusCode());
+            self::assertFalse($controller->called);
+        }
+
         // ── updateVault ─────────────────────────────────────────────────────
 
         public function testUpdateVaultSavesVaultSettingsAndRedirectsToVaultTab(): void
