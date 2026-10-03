@@ -36,6 +36,10 @@ Route::admin('nfse', function () {
     Route::post('certificate/parse', [CertificateController::class, 'parsePfx'])->name('certificate.parse');
     Route::delete('certificate', [CertificateController::class, 'destroy'])->name('certificate.destroy');
 
+    // ADN contributor distribution
+    Route::get('adn', [AdnController::class, 'index'])->name('adn.index');
+    Route::get('adn/distribution', [AdnController::class, 'distribution'])->name('adn.distribution');
+
     // NFS-e issuance
     Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('invoices/pending', [InvoiceController::class, 'pending'])->name('invoices.pending');
