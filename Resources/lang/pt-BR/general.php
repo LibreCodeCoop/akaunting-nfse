@@ -114,6 +114,8 @@ return [
         'querying' => 'Consultando ADN...',
         'status' => 'Status',
         'documents' => 'Documentos',
+        'matched_local' => 'Correspondentes locais',
+        'unmatched_local' => 'Sem correspondência local',
         'last_nsu' => 'Último NSU',
         'response' => 'Resposta oficial',
         'invalid_nsu' => 'Informe um NSU igual ou maior que zero.',

@@ -114,6 +114,8 @@ return [
         'querying' => 'Querying ADN...',
         'status' => 'Status',
         'documents' => 'Documents',
+        'matched_local' => 'Matched locally',
+        'unmatched_local' => 'Not matched locally',
         'last_nsu' => 'Last NSU',
         'response' => 'Official response',
         'invalid_nsu' => 'Enter an NSU greater than or equal to zero.',
