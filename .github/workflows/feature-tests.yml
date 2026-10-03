@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Akaunting Feature Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: akaunting-feature-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  COMPOSER_NO_INTERACTION: 1
+  COMPOSER_NO_AUDIT: 1
+  COMPOSER_PROCESS_TIMEOUT: 0
+
+jobs:
+  feature:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Akaunting core
+        uses: actions/checkout@v7
+        with:
+          repository: akaunting/akaunting
+          path: akaunting
+
+      - name: Checkout NFS-e module
+        uses: actions/checkout@v7
+        with:
+          path: akaunting/modules/Nfse
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, ctype, dom, fileinfo, intl, gd, json, mbstring, openssl, pdo, pdo_sqlite, sqlite3, soap, xml, zip
+          coverage: none
+          tools: composer
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: akaunting-feature-${{ runner.os }}-php83-${{ hashFiles('akaunting/composer.lock', 'akaunting/modules/Nfse/composer.json', 'akaunting/modules/Nfse/3rdparty/composer.lock') }}
+          restore-keys: |
+            akaunting-feature-${{ runner.os }}-php83-
+
+      - name: Prepare Akaunting test environment
+        working-directory: akaunting
+        run: cp .env.testing .env
+
+      - name: Install Akaunting dependencies
+        working-directory: akaunting
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Build scoped NFS-e runtime
+        working-directory: akaunting/modules/Nfse
+        run: |
+          composer install --prefer-dist --no-progress --no-interaction --no-scripts
+          composer thirdparty:install
+          composer runtime-tools:install
+          composer thirdparty:scope
+
+      - name: Run NFS-e Feature tests in real Akaunting
+        working-directory: akaunting
+        run: php artisan test modules/Nfse/Tests/Feature --parallel
