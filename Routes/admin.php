@@ -6,6 +6,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Modules\Nfse\Http\Controllers\AdnController;
 use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\SettingsController;
@@ -45,6 +46,7 @@ Route::admin('nfse', function () {
     Route::post('invoices/{invoice}/reemit', [InvoiceController::class, 'reemit'])->name('invoices.reemit');
     Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::get('invoices/{invoice}/emit-success', [InvoiceController::class, 'showEmitSuccess'])->name('invoices.emit-success');
+    Route::get('invoices/{invoice}/adn-events', [AdnController::class, 'events'])->name('invoices.adn-events');
     Route::get('invoices/{invoice}/artifacts/{artifact}', [InvoiceController::class, 'downloadArtifact'])->name('invoices.artifacts.download');
     Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
 
