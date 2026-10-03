@@ -15,9 +15,14 @@ use Illuminate\Support\Facades\Http;
 use Modules\Nfse\Support\BrazilianStates;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
+use Modules\Nfse\Support\NfseRuntimeContextFactory;
 use Modules\Nfse\Support\PfxReader;
+use Modules\Nfse\Support\TransportCertificateManager;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\MunicipalParametersConfig;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\MunicipalParametersClient;
 use Throwable;
 
 class SettingsController extends Controller
@@ -400,6 +405,102 @@ class SettingsController extends Controller
         return $this->jsonResponse([
             'data' => $lc116Catalog->search(is_string($query) ? $query : null, $limit),
         ]);
+    }
+
+    public function municipalParameters(Request $request): JsonResponse
+    {
+        $municipio = trim((string) $request->query('municipio_ibge', setting('nfse.municipio_ibge', '')));
+        $serviceCode = preg_replace('/[^0-9]/', '', (string) $request->query('service_code', '')) ?? '';
+        $competence = trim((string) $request->query('competence', date('Y-m-d')));
+
+        if (preg_match('/^\\d{7}$/', $municipio) !== 1) {
+            return $this->jsonResponse([
+                'message' => trans('nfse::general.settings.municipal_parameters.invalid_municipality'),
+            ], 422);
+        }
+
+        if ($serviceCode === '') {
+            return $this->jsonResponse([
+                'message' => trans('nfse::general.settings.municipal_parameters.invalid_service'),
+            ], 422);
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $competence);
+        if (!$date instanceof \DateTimeImmutable || $date->format('Y-m-d') !== $competence) {
+            return $this->jsonResponse([
+                'message' => trans('nfse::general.settings.municipal_parameters.invalid_competence'),
+            ], 422);
+        }
+
+        try {
+            return $this->jsonResponse([
+                'data' => $this->fetchMunicipalParameters($municipio, $serviceCode, $competence),
+            ]);
+        } catch (Throwable) {
+            return $this->jsonResponse([
+                'message' => trans('nfse::general.settings.municipal_parameters.query_failed'),
+            ], 502);
+        }
+    }
+
+    /**
+     * @return array{
+     *   municipio_ibge: string,
+     *   service_code: string,
+     *   competence: string,
+     *   convenio: array<string, mixed>,
+     *   aliquota: array<string, mixed>,
+     *   regimes_especiais: array<string, mixed>,
+     *   retencoes: array<string, mixed>
+     * }
+     */
+    protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
+    {
+        $cnpj = trim((string) setting('nfse.cnpj_prestador', ''));
+        if ($cnpj === '') {
+            throw new \RuntimeException('Service provider CNPJ is not configured.');
+        }
+
+        $secretStore = $this->makeSecretStore();
+        $baseCert = new CertConfig(
+            cnpj: $cnpj,
+            pfxPath: storage_path('app/nfse/pfx/' . $cnpj . '.pfx'),
+            vaultPath: 'pfx/' . $cnpj,
+        );
+        $context = $this->makeRuntimeContextFactory()->create($baseCert, $secretStore);
+
+        try {
+            $client = new MunicipalParametersClient(
+                config: new MunicipalParametersConfig(
+                    sandboxMode: $this->sandboxModeEnabled(),
+                ),
+                cert: $context->cert,
+            );
+
+            return [
+                'municipio_ibge' => $municipio,
+                'service_code' => $serviceCode,
+                'competence' => $competence,
+                'convenio' => $client->convenio($municipio),
+                'aliquota' => $client->aliquota($municipio, $serviceCode, $competence),
+                'regimes_especiais' => $client->regimesEspeciais($municipio, $serviceCode, $competence),
+                'retencoes' => $client->retencoes($municipio, $competence),
+            ];
+        } finally {
+            ($context->cleanup)();
+        }
+    }
+
+    protected function makeRuntimeContextFactory(): NfseRuntimeContextFactory
+    {
+        return new NfseRuntimeContextFactory(new TransportCertificateManager());
+    }
+
+    protected function sandboxModeEnabled(): bool
+    {
+        return $this->toBooleanInput([
+            'sandbox_mode' => setting('nfse.sandbox_mode', true),
+        ], 'sandbox_mode', true);
     }
 
     public function update(Request $request): RedirectResponse
