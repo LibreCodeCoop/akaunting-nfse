@@ -18,6 +18,14 @@ return new class extends Migration
             return;
         }
 
+        // This corrective migration exists for legacy MySQL installations that
+        // referenced the old invoices table. Fresh installs already create the
+        // foreign key against documents, and Akaunting's test harness uses
+        // SQLite where MySQL information_schema is unavailable.
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            return;
+        }
+
         $constraints = $this->foreignConstraintsForInvoiceId();
 
         if (!empty($constraints)) {
@@ -39,6 +47,10 @@ return new class extends Migration
     public function down(): void
     {
         if (!Schema::hasTable('nfse_receipts')) {
+            return;
+        }
+
+        if (DB::connection()->getDriverName() !== 'mysql') {
             return;
         }
 
