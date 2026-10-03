@@ -18,6 +18,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\NfseRuntimeContextFactory;
 use Modules\Nfse\Support\TransportCertificateManager;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
@@ -3625,10 +3626,18 @@ class InvoiceController extends Controller
      */
     protected function resolveTransportCertificatePaths(CertConfig $cert, OpenBaoSecretStore $secretStore): array
     {
-        [$certificatePath, $privateKeyPath, $cleanup] = $this->makeTransportCertificateManager()->prepare($cert, $secretStore);
-        $this->clientTransportCleanup = $cleanup;
+        $context = $this->makeRuntimeContextFactory()->create($cert, $secretStore);
+        $this->clientTransportCleanup = $context->cleanup;
 
-        return [$certificatePath, $privateKeyPath];
+        return [
+            (string) $context->cert->transportCertificatePath,
+            (string) $context->cert->transportPrivateKeyPath,
+        ];
+    }
+
+    protected function makeRuntimeContextFactory(): NfseRuntimeContextFactory
+    {
+        return new NfseRuntimeContextFactory($this->makeTransportCertificateManager());
     }
 
     protected function makeTransportCertificateManager(): TransportCertificateManager
