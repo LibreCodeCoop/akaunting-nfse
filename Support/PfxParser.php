@@ -11,7 +11,7 @@ namespace Modules\Nfse\Support;
  * Reads a PKCS#12 (PFX) file and extracts business data embedded by the
  * certificate authority.
  *
- * Brazilian ICP-Brasil A1/A3 certificates store the CNPJ (14 digits) of the
+ * Brazilian ICP-Brasil A1/A3 certificates store the CNPJ (14 characters) of the
  * legal entity in one or more Subject fields:
  *   - CommonName (CN):     "NOME DA EMPRESA:12345678000195"
  *   - SerialNumber:        "12345678000195"
@@ -50,7 +50,7 @@ class PfxParser
 
     /**
      * Walk through the Subject fields that Brazilian CAs use and return the
-     * first 14-digit sequence found.
+     * first 14-character CNPJ found. The first 12 positions may be alphanumeric; the two check digits remain numeric.
      *
      * @param  array<string, mixed> $certInfo  Result of openssl_x509_parse().
      */
@@ -64,7 +64,7 @@ class PfxParser
                 : '';
 
             if ($value !== '' && preg_match(self::CNPJ_PATTERN, $value, $m)) {
-                return $m[1];
+                return strtoupper($m[1]);
             }
         }
 
