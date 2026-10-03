@@ -306,6 +306,14 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="federal-tributos-profile-p"', $content);
             self::assertStringContainsString('id="federal-tributos-profile-sn"', $content);
             self::assertStringContainsString('id="federal-save-button"', $content);
+            self::assertStringContainsString('id="ibs-cbs-panel"', $content);
+            self::assertStringContainsString('name="nfse[ibs_cbs_enabled]"', $content);
+            self::assertStringContainsString('name="nfse[ibs_cbs_ind_final]"', $content);
+            self::assertStringContainsString('name="nfse[ibs_cbs_c_ind_op]"', $content);
+            self::assertStringContainsString('name="nfse[ibs_cbs_ind_dest]"', $content);
+            self::assertStringContainsString('name="nfse[ibs_cbs_cst]"', $content);
+            self::assertStringContainsString('name="nfse[ibs_cbs_c_class_trib]"', $content);
+            self::assertStringContainsString("trans('nfse::general.settings.federal.ibs_cbs_notice')", $content);
             self::assertStringContainsString('bg-green-50', $content);
             self::assertStringNotContainsString('id="federal_opcao_simples_status"', $content);
             self::assertStringNotContainsString("trans('nfse::general.settings.federal.current_simples_status')", $content);
