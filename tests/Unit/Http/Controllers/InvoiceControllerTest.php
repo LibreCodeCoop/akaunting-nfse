@@ -1090,6 +1090,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testEmitBuildsDpsPersistsReceiptAndRedirectsToShowPage(): void
         {
+            ControllerIsolationState::$settings['nfse.ibs_cbs_enabled'] = true;
+            ControllerIsolationState::$settings['nfse.ibs_cbs_ind_final'] = '0';
+            ControllerIsolationState::$settings['nfse.ibs_cbs_c_ind_op'] = '010101';
+            ControllerIsolationState::$settings['nfse.ibs_cbs_ind_dest'] = '0';
+            ControllerIsolationState::$settings['nfse.ibs_cbs_cst'] = '000';
+            ControllerIsolationState::$settings['nfse.ibs_cbs_c_class_trib'] = '000001';
+
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 42,
                 amount: 1500.25,
@@ -1202,6 +1209,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
+            self::assertSame(0, $client->capturedDps?->ibsCbsFinalidade);
+            self::assertSame(0, $client->capturedDps?->ibsCbsIndFinal);
+            self::assertSame('010101', $client->capturedDps?->ibsCbsCodigoIndicadorOperacao);
+            self::assertSame(0, $client->capturedDps?->ibsCbsIndDest);
+            self::assertSame('000', $client->capturedDps?->ibsCbsCst);
+            self::assertSame('000001', $client->capturedDps?->ibsCbsClassificacaoTributaria);
             self::assertSame(2, $client->capturedDps?->indicadorTributacao);
             self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
             self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
