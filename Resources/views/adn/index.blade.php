@@ -49,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <span id="adn-distribution-status" class="text-sm text-gray-600" aria-live="polite"></span>
                 </div>
 
-                <div id="adn-distribution-summary" class="hidden grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div id="adn-distribution-summary" class="hidden grid grid-cols-1 md:grid-cols-5 gap-3">
                     <div class="rounded border border-gray-200 bg-gray-50 p-3">
                         <p class="text-xs uppercase text-gray-500">{{ trans('nfse::general.adn.status') }}</p>
                         <p id="adn-summary-status" class="font-semibold text-gray-800">—</p>
@@ -57,6 +57,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <div class="rounded border border-gray-200 bg-gray-50 p-3">
                         <p class="text-xs uppercase text-gray-500">{{ trans('nfse::general.adn.documents') }}</p>
                         <p id="adn-summary-documents" class="font-semibold text-gray-800">0</p>
+                    </div>
+                    <div class="rounded border border-gray-200 bg-gray-50 p-3">
+                        <p class="text-xs uppercase text-gray-500">{{ trans('nfse::general.adn.matched_local') }}</p>
+                        <p id="adn-summary-matched" class="font-semibold text-gray-800">0</p>
+                    </div>
+                    <div class="rounded border border-gray-200 bg-gray-50 p-3">
+                        <p class="text-xs uppercase text-gray-500">{{ trans('nfse::general.adn.unmatched_local') }}</p>
+                        <p id="adn-summary-unmatched" class="font-semibold text-gray-800">0</p>
                     </div>
                     <div class="rounded border border-gray-200 bg-gray-50 p-3">
                         <p class="text-xs uppercase text-gray-500">{{ trans('nfse::general.adn.last_nsu') }}</p>
@@ -85,6 +93,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const summary = document.getElementById('adn-distribution-summary');
                     const summaryStatus = document.getElementById('adn-summary-status');
                     const summaryDocuments = document.getElementById('adn-summary-documents');
+                    const summaryMatched = document.getElementById('adn-summary-matched');
+                    const summaryUnmatched = document.getElementById('adn-summary-unmatched');
                     const summaryLastNsu = document.getElementById('adn-summary-last-nsu');
 
                     if (
@@ -99,6 +109,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         !(summary instanceof HTMLElement) ||
                         !(summaryStatus instanceof HTMLElement) ||
                         !(summaryDocuments instanceof HTMLElement) ||
+                        !(summaryMatched instanceof HTMLElement) ||
+                        !(summaryUnmatched instanceof HTMLElement) ||
                         !(summaryLastNsu instanceof HTMLElement)
                     ) {
                         return;
@@ -139,6 +151,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                             summaryStatus.textContent = String(data.status_processamento ?? '—');
                             summaryDocuments.textContent = String(documents.length);
+                            summaryMatched.textContent = String(data.reconciliation?.matched ?? 0);
+                            summaryUnmatched.textContent = String(data.reconciliation?.unmatched ?? documents.length);
                             summaryLastNsu.textContent = data.ultimo_nsu === null || data.ultimo_nsu === undefined
                                 ? '—'
                                 : String(data.ultimo_nsu);
