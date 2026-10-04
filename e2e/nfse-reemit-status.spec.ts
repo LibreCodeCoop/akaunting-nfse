@@ -6,8 +6,12 @@ import { loginToAkaunting } from './support/auth';
 
 test.use({ serviceWorkers: 'block' });
 
-test('reemit updates receipt status from cancelled to emitted', async ({ page }, testInfo) => {
+test('[live-fiscal] reemit updates receipt status from cancelled to emitted', async ({ page }, testInfo) => {
   test.setTimeout(120_000);
+
+  if (process.env.NFSE_E2E_REAL_REEMIT_FLOW !== '1') {
+    test.skip(true, 'Set NFSE_E2E_REAL_REEMIT_FLOW=1 to run the mutating re-emission flow.');
+  }
 
   await loginToAkaunting(page, testInfo);
 
