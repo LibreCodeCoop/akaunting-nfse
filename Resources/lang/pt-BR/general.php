@@ -125,6 +125,19 @@ return [
         'events_query_failed' => 'Não foi possível consultar os eventos oficiais no ADN.',
     ],
 
+    'native_invoice' => [
+        'fiscal_title' => 'NFS-e',
+        'fiscal_document_linked' => 'Documento fiscal vinculado a esta fatura.',
+        'fiscal_pending' => 'Esta fatura ainda não possui NFS-e emitida.',
+        'status_pending' => 'Pendente',
+        'status_emitted' => 'Emitida',
+        'status_cancelled' => 'Cancelada',
+        'status_substituted' => 'Substituída',
+        'status_unknown' => 'Estado fiscal',
+        'emit' => 'Emitir NFS-e',
+        'fiscal_details' => 'Detalhes fiscais',
+        'settings' => 'Configurações NFS-e',
+    ],
     'invoices' => [
         'title' => 'Notas fiscais de serviço',
         'pending_title' => 'Faturas pendentes para emissão',

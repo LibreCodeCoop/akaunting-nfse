@@ -125,6 +125,19 @@ return [
         'events_query_failed' => 'Could not query official ADN events.',
     ],
 
+    'native_invoice' => [
+        'fiscal_title' => 'NFS-e',
+        'fiscal_document_linked' => 'A fiscal document is linked to this invoice.',
+        'fiscal_pending' => 'This invoice does not have an issued NFS-e yet.',
+        'status_pending' => 'Pending',
+        'status_emitted' => 'Issued',
+        'status_cancelled' => 'Cancelled',
+        'status_substituted' => 'Substituted',
+        'status_unknown' => 'Fiscal state',
+        'emit' => 'Issue NFS-e',
+        'fiscal_details' => 'Fiscal details',
+        'settings' => 'NFS-e settings',
+    ],
     'invoices' => [
         'title' => 'Service tax receipts',
         'pending_title' => 'Pending invoices for issuance',
