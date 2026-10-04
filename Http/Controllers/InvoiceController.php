@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
@@ -1156,69 +1157,15 @@ class InvoiceController extends Controller
         $itemIds = array_values(array_unique($itemIds));
         $companyId = is_numeric($invoice->company_id ?? null) ? (int) $invoice->company_id : $this->resolveCompanyId();
 
-        $profileMap = $this->invoiceItemFiscalProfileMap($companyId, $itemIds);
-        $taxRateMap = $this->invoiceItemTaxRateMap($itemIds);
-
-        $lineItems = [];
-        $signatures = [];
-        $selected = [
-            'item_lista_servico' => $this->itemListaServico($defaultService),
-            'codigo_tributacao_nacional' => $this->nationalTaxCode($defaultService),
-            'aliquota' => $this->normalizedAliquota($defaultService),
-        ];
-
-        foreach ($items as $item) {
-            $itemId = is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0;
-            $itemName = trim((string) ($item['name'] ?? ''));
-            $itemName = $itemName !== '' ? $itemName : trans('general.na');
-
-            $profile = $itemId > 0 ? ($profileMap[$itemId] ?? null) : null;
-            $serviceCode = Lc116Code::normalize($profile['item_lista_servico'] ?? '');
-
-            if ($serviceCode === '') {
-                $serviceCode = $this->itemListaServico($defaultService);
-            }
-
-            $nationalCode = preg_replace('/\D+/', '', (string) ($profile['codigo_tributacao_nacional'] ?? '')) ?: '';
-            if ($nationalCode === '') {
-                $nationalCode = $this->nationalTaxCode((object) [
-                    'item_lista_servico' => $serviceCode,
-                ]);
-            }
-
-            $aliquota = $itemId > 0 ? ($taxRateMap[$itemId] ?? '') : '';
-            if ($aliquota === '') {
-                $aliquota = $this->normalizedAliquota($defaultService);
-            }
-
-            if ($serviceCode !== '') {
-                $lineItems[] = '[' . $serviceCode . '] ' . $itemName;
-            } else {
-                $lineItems[] = $itemName;
-            }
-
-            $signature = $serviceCode . '|' . $nationalCode . '|' . $aliquota;
-
-            if ($signature !== '||') {
-                $signatures[$signature] = true;
-
-                if ($selected['item_lista_servico'] === '' || $selected['item_lista_servico'] === $this->itemListaServico($defaultService)) {
-                    $selected = [
-                        'item_lista_servico' => $serviceCode,
-                        'codigo_tributacao_nacional' => $nationalCode,
-                        'aliquota' => $aliquota,
-                    ];
-                }
-            }
-        }
-
-        return [
-            'item_lista_servico' => $selected['item_lista_servico'] !== '' ? $selected['item_lista_servico'] : $this->itemListaServico($defaultService),
-            'codigo_tributacao_nacional' => $selected['codigo_tributacao_nacional'] !== '' ? $selected['codigo_tributacao_nacional'] : $this->nationalTaxCode($defaultService),
-            'aliquota' => $selected['aliquota'] !== '' ? $selected['aliquota'] : $this->normalizedAliquota($defaultService),
-            'line_items' => $lineItems,
-            'requires_split' => count($signatures) > 1,
-        ];
+        return (new InvoiceFiscalProfileSelector())->select(
+            items: $items,
+            profileMap: $this->invoiceItemFiscalProfileMap($companyId, $itemIds),
+            taxRateMap: $this->invoiceItemTaxRateMap($itemIds),
+            defaultServiceCode: $this->itemListaServico($defaultService),
+            defaultNationalCode: $this->nationalTaxCode($defaultService),
+            defaultRate: $this->normalizedAliquota($defaultService),
+            unnamedItemLabel: (string) trans('general.na'),
+        );
     }
 
     /**
