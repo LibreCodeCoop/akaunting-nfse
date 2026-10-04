@@ -7,13 +7,12 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
-use Modules\Nfse\Application\EmissionReadiness;
-
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Modules\Nfse\Application\EmissionReadiness;
 use Modules\Nfse\Support\BrazilianStates;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\IbgeLocalities;
