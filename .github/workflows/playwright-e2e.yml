@@ -1,51 +1,71 @@
 # SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Playwright E2E
+name: Playwright Live Fiscal
 
 on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: "Akaunting base URL (e.g. https://your-akaunting.example)"
+        description: "Dedicated Akaunting live-fiscal environment URL"
         required: true
         type: string
+      run_emission:
+        description: "Allow the explicitly gated real NFS-e emission test"
+        required: false
+        default: false
+        type: boolean
+      run_reemission:
+        description: "Allow the explicitly gated real NFS-e re-emission test"
+        required: false
+        default: false
+        type: boolean
 
-env:
-  NFSE_E2E_BASE_URL: ${{ inputs.base_url }}
-  NFSE_E2E_EMAIL: ${{ secrets.NFSE_E2E_EMAIL }}
-  NFSE_E2E_PASSWORD: ${{ secrets.NFSE_E2E_PASSWORD }}
+concurrency:
+  group: playwright-live-fiscal
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
-  e2e:
+  live_fiscal:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: .
+    environment: nfse-live
+    timeout-minutes: 30
+    env:
+      NFSE_E2E_BASE_URL: ${{ inputs.base_url }}
+      NFSE_E2E_EMAIL: ${{ secrets.NFSE_E2E_EMAIL }}
+      NFSE_E2E_PASSWORD: ${{ secrets.NFSE_E2E_PASSWORD }}
+      NFSE_E2E_LIVE_FISCAL: '1'
+      NFSE_E2E_REAL_EMIT_FLOW: ${{ inputs.run_emission && '1' || '0' }}
+      NFSE_E2E_REAL_REEMIT_FLOW: ${{ inputs.run_reemission && '1' || '0' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
-      - name: Run Playwright E2E
-        run: npm run test:e2e -- --project=chromium
+      - name: Run live fiscal suite without retries
+        run: npx playwright test --project=live-fiscal --retries=0
 
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v7
+      - name: Upload live-fiscal diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: playwright-live-fiscal-artifacts
           if-no-files-found: ignore
+          path: |
+            playwright-report
+            test-results
