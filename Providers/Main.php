@@ -9,6 +9,7 @@ namespace Modules\Nfse\Providers;
 
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Console\Commands\ProvisionTestHarness;
+use Modules\Nfse\Console\Commands\SyncAdn;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
 use Modules\Nfse\Models\ItemFiscalProfile;
@@ -54,6 +55,7 @@ class Main extends Provider
             $this->commands([
                 ProvisionTestHarness::class,
                 ProvisionTestUser::class,
+                SyncAdn::class,
             ]);
         }
     }
