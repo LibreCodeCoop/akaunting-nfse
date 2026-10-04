@@ -143,11 +143,14 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
             self::assertFalse($listener->emailTemplateCreated);
         }
 
-        public function testCreateNfseEmailTemplatesReferencesCorrectAlias(): void
+        public function testCreateNfseEmailTemplatesUsesCanonicalSynchronizerContract(): void
         {
             $source = file_get_contents(__DIR__ . '/../../../Listeners/FinishInstallation.php');
 
-            self::assertStringContainsString("'invoice_nfse_issued_customer'", $source);
+            self::assertStringContainsString('EmailTemplateSynchronizer::CANONICAL_ALIAS', $source);
+            self::assertStringContainsString('EmailTemplateSynchronizer::NAME_KEY', $source);
+            self::assertStringContainsString('nfseEmailTemplateExists', $source);
+            self::assertStringContainsString('$synchronizer->sync()', $source);
         }
     }
 }
