@@ -14,31 +14,6 @@ final class OverrideInvoiceEmailRoute
 {
     use Modules;
 
-    public function handle(object $event): void
-    {
-        if (!$this->moduleIsEnabled('nfse')) {
-            return;
-        }
-
-        $route = $event->route ?? null;
-
-        if (!is_object($route) || !method_exists($route, 'getName')) {
-            return;
-        }
-
-        if ($route->getName() !== 'invoices.show') {
-            return;
-        }
-
-        if (!method_exists($route, 'parameter')) {
-            return;
-        }
-
-        $invoice = $route->parameter('invoice');
-
-        $this->overrideForInvoice($invoice);
-    }
-
     public function overrideForInvoice(mixed $invoice): void
     {
         if (!$this->shouldManageInvoiceSendFlow($invoice)) {

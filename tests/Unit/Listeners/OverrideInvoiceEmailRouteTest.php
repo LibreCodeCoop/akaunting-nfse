@@ -18,13 +18,13 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
         );
     }
 
-    public function testListenerTargetsOnlyInvoiceShowRoute(): void
+    public function testInvoiceOverrideIsInvokedDirectlyByTheNativeInvoiceViewComposer(): void
     {
         $content = $this->listenerContent();
 
-        self::assertStringContainsString("if (\$route->getName() !== 'invoices.show')", $content);
-        self::assertStringContainsString("\$invoice = \$route->parameter('invoice');", $content);
-        self::assertStringContainsString('overrideForInvoice($invoice);', $content);
+        self::assertStringNotContainsString('RouteMatched', $content);
+        self::assertStringNotContainsString('public function handle(', $content);
+        self::assertStringContainsString('public function overrideForInvoice', $content);
         self::assertStringContainsString('config([', $content);
         self::assertStringContainsString("'type.document.invoice.route.emails.create' => 'nfse.modals.invoices.emails.create'", $content);
         self::assertStringContainsString("'type.document.invoice.translation.send_mail' => \$this->sendButtonTranslationKey(\$invoice)", $content);
@@ -34,7 +34,6 @@ final class OverrideInvoiceEmailRouteTest extends TestCase
     {
         $content = $this->listenerContent();
 
-        self::assertStringContainsString("if (!\$this->moduleIsEnabled('nfse'))", $content);
         self::assertStringContainsString('public function overrideForInvoice', $content);
         self::assertStringContainsString('shouldManageInvoiceSendFlow', $content);
         self::assertStringContainsString('latestReceiptStatus', $content);

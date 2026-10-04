@@ -30,12 +30,12 @@ final class MainProviderRegistrationTest extends TestCase
         self::assertStringContainsString("'/3rdparty/scoped/autoload.php'", $content);
     }
 
-    public function testEventProviderListensToRouteMatchedForInvoiceSendFlow(): void
+    public function testEventProviderDoesNotCoupleInvoiceSendFlowToRouteMatched(): void
     {
         $path = dirname(__DIR__, 3) . '/Providers/Event.php';
         $content = file_get_contents($path);
 
-        self::assertStringContainsString("'Illuminate\\\\Routing\\\\Events\\\\RouteMatched'", $content);
-        self::assertStringContainsString('OverrideInvoiceEmailRoute::class', $content);
+        self::assertStringNotContainsString('RouteMatched', $content);
+        self::assertStringNotContainsString('OverrideInvoiceEmailRoute::class', $content);
     }
 }
