@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Application\EmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\RecoverInvoiceEmission;
 use Modules\Nfse\Application\RuntimeDpsFactory;
@@ -2600,37 +2601,15 @@ class InvoiceController extends Controller
     {
         $settings = setting('nfse', []);
         $settings = is_array($settings) ? $settings : [];
-        $cnpj = (string) ($settings['cnpj_prestador'] ?? '');
+        $cnpj = trim((string) ($settings['cnpj_prestador'] ?? ''));
         $certificatePath = $cnpj !== '' ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx') : '';
 
-        $checklist = [
-            'cnpj_prestador' => $cnpj !== '',
-            'municipio_ibge' => ((string) ($settings['municipio_ibge'] ?? '')) !== '',
-            'item_lista_servico' => $this->itemListaServico() !== '',
-            'certificate' => $certificatePath !== '' && is_file($certificatePath),
-            'certificate_secret' => $this->hasCertificateSecret($cnpj),
-        ];
-
-        $certificateValidFrom = (int) ($settings['certificate_valid_from'] ?? 0);
-        $certificateValidTo = (int) ($settings['certificate_valid_to'] ?? 0);
-
-        if ($certificateValidFrom > 0 && $certificateValidTo > $certificateValidFrom) {
-            $now = time();
-            $checklist['certificate_valid'] = $now >= $certificateValidFrom && $now <= $certificateValidTo;
-        }
-
-        $ibsCbs = $this->ibsCbsPayloadValues();
-        if ($ibsCbs['enabled']) {
-            $checklist['ibs_cbs'] = $ibsCbs['ibsCbsCodigoIndicadorOperacao'] !== ''
-                && $ibsCbs['ibsCbsIndDest'] !== null
-                && $ibsCbs['ibsCbsCst'] !== ''
-                && $ibsCbs['ibsCbsClassificacaoTributaria'] !== '';
-        }
-
-        return [
-            'checklist' => $checklist,
-            'isReady' => !in_array(false, $checklist, true),
-        ];
+        return (new EmissionReadiness())->evaluate(
+            settings: $settings,
+            hasLocalCertificate: $certificatePath !== '' && is_file($certificatePath),
+            hasCertificateSecret: $this->hasCertificateSecret($cnpj),
+            serviceCode: $this->itemListaServico(),
+        );
     }
 
     protected function itemListaServico(?object $defaultService = null): string

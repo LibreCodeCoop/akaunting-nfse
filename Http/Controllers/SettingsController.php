@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
+use Modules\Nfse\Application\EmissionReadiness;
+
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -45,6 +47,15 @@ class SettingsController extends Controller
         $settingsArray = is_array($settings) ? $settings : [];
         $certificateState = $this->certificateState();
         $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
+        $cnpj = trim((string) ($settingsArray['cnpj_prestador'] ?? ''));
+        $readiness = (new EmissionReadiness())->evaluate(
+            settings: $settingsArray,
+            hasLocalCertificate: ($certificateState['has_local_certificate'] ?? false) === true,
+            hasCertificateSecret: $this->hasCertificateSecret($cnpj),
+            serviceCode: \Modules\Nfse\Support\Lc116Code::normalize(
+                (string) ($settingsArray['item_lista_servico'] ?? ''),
+            ),
+        );
 
         $rawTab = $request !== null ? $request->query('tab') : null;
         $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'federal', 'artifacts'], true))
@@ -55,6 +66,7 @@ class SettingsController extends Controller
             'settings' => $settingsArray,
             'certificateState' => $certificateState,
             'vaultUiState' => $vaultUiState,
+            'readiness' => $readiness,
             'activeTab' => $activeTab,
         ]);
     }
