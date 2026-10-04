@@ -29,6 +29,10 @@ test('deterministic fiscal settings report the synthetic provider configuration'
   await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
-  await expect(page.locator('input[name="cnpj_prestador"]')).toHaveValue('11222333000181');
-  await expect(page.locator('input[name="municipio_ibge"]')).toHaveValue('3303302');
+  await expect(
+    page.getByRole('textbox', { name: 'CNPJ (extracted from certificate)' }),
+  ).toHaveValue('11222333000181');
+  await expect(
+    page.getByRole('textbox', { name: 'Municipality IBGE Code' }),
+  ).toHaveValue('3303302');
 });
