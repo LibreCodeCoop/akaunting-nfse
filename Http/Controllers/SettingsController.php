@@ -16,6 +16,7 @@ use Modules\Nfse\Support\BrazilianStates;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
+use Modules\Nfse\Support\Lc116Code;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
@@ -631,7 +632,7 @@ class SettingsController extends Controller
         $clearBaoSecretId = in_array((string) ($nfseInput['clear_bao_secret_id'] ?? ''), ['1', 'true', 'on'], true);
 
         $nfseInput['uf'] = strtoupper((string) ($nfseInput['uf'] ?? ''));
-        $nfseInput['item_lista_servico'] = preg_replace('/\D/', '', (string) ($nfseInput['item_lista_servico'] ?? ''));
+        $nfseInput['item_lista_servico'] = Lc116Code::normalize($nfseInput['item_lista_servico'] ?? '');
         $nfseInput['codigo_tributacao_nacional'] = preg_replace('/\D/', '', (string) ($nfseInput['codigo_tributacao_nacional'] ?? ''));
         $nfseInput['bao_mount'] = VaultConfig::normalizeMount((string) ($nfseInput['bao_mount'] ?? ''));
         unset($nfseInput['clear_bao_token'], $nfseInput['clear_bao_secret_id']);
