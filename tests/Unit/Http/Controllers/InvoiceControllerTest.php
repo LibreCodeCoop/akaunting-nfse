@@ -1123,7 +1123,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('sent', $invoice->status);
             self::assertSame('12345678000195', $client->capturedDps?->cnpjPrestador);
             self::assertSame('3303302', $client->capturedDps?->municipioIbge);
-            self::assertSame('007', $client->capturedDps?->itemListaServico);
+            self::assertSame('0107', $client->capturedDps?->itemListaServico);
             self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('1500.25', $client->capturedDps?->valorServico);
             self::assertSame('4.50', $client->capturedDps?->aliquota);
@@ -2217,7 +2217,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame('007', $client->capturedDps?->itemListaServico);
+            self::assertSame('0107', $client->capturedDps?->itemListaServico);
             self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('4.50', $client->capturedDps?->aliquota);
         }
@@ -2325,7 +2325,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // Items sem perfil fiscal usam fallback de settings.
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('007', $client->capturedDps?->itemListaServico);
+            self::assertSame('0107', $client->capturedDps?->itemListaServico);
             self::assertSame('[0107] Servico sem vinculo', $client->capturedDps?->discriminacao);
         }
 
@@ -2425,7 +2425,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('007', $client->capturedDps?->itemListaServico);
+            self::assertSame('0107', $client->capturedDps?->itemListaServico);
             self::assertStringContainsString('Servico sem vinculo', $client->capturedDps?->discriminacao ?? '');
             self::assertStringContainsString('0107', $client->capturedDps?->discriminacao ?? '');
         }
@@ -2538,7 +2538,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('002', $client->capturedDps?->itemListaServico);
+            self::assertSame('1502', $client->capturedDps?->itemListaServico);
             self::assertSame('150201', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('7.00', $client->capturedDps?->aliquota);
             self::assertStringContainsString('[1502] Servico vinculado', $client->capturedDps?->discriminacao ?? '');
@@ -2661,7 +2661,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
             // When multiple profiles exist, the first one is selected (highest priority)
-            self::assertSame('002', $client->capturedDps?->itemListaServico);
+            self::assertSame('1502', $client->capturedDps?->itemListaServico);
             self::assertStringContainsString('[1502] Servico A', $client->capturedDps?->discriminacao ?? '');
         }
 
@@ -2975,7 +2975,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('010701', $controller->exposedNationalTaxCode($defaultService));
         }
 
-        public function testNationalTaxCodeDerivesFromServiceCodeWhenNoExplicitConfigIsPresent(): void
+        public function testNationalTaxCodeDoesNotGuessFromLc116WhenNoExplicitConfigIsPresent(): void
         {
             ControllerIsolationState::$settings['nfse.codigo_tributacao_nacional'] = '';
 
@@ -2997,10 +2997,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'aliquota' => '5.00',
             ];
 
-            self::assertSame('010101', $controller->exposedNationalTaxCode($defaultService));
+            self::assertSame('', $controller->exposedNationalTaxCode($defaultService));
         }
 
-        public function testItemListaServicoPreservesThreeDigitMunicipalCode(): void
+        public function testItemListaServicoNormalizesLegacyThreeDigitLc116Code(): void
         {
             $controller = new class () extends InvoiceController {
                 public function exposedItemListaServico(?object $defaultService = null): string
@@ -3015,12 +3015,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             };
 
             $defaultService = (object) [
-                'item_lista_servico' => '001',
+                'item_lista_servico' => '107',
                 'codigo_tributacao_nacional' => '010101',
                 'aliquota' => '2.00',
             ];
 
-            self::assertSame('001', $controller->exposedItemListaServico($defaultService));
+            self::assertSame('0107', $controller->exposedItemListaServico($defaultService));
         }
 
         public function testForeignTomadorPayloadAcceptsNifAndCompleteAddress(): void
@@ -3303,19 +3303,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertNull($controller->recover($client, $dps));
         }
 
-        public function testNormalizedMunicipalTaxationCodeDerivesMunicipalSubitemFromFourDigitLc116Values(): void
+        public function testControllerDoesNotDeriveMunicipalTaxCodeFromLc116(): void
         {
-            $controller = new class () extends InvoiceController {
-                public function exposedNormalizedMunicipalTaxationCode(string $value): string
-                {
-                    return $this->normalizedMunicipalTaxationCode($value);
-                }
-            };
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
-            self::assertSame('001', $controller->exposedNormalizedMunicipalTaxationCode('0101'));
-            self::assertSame('001', $controller->exposedNormalizedMunicipalTaxationCode('14.01'));
-            self::assertSame('002', $controller->exposedNormalizedMunicipalTaxationCode('15.02'));
-            self::assertSame('001', $controller->exposedNormalizedMunicipalTaxationCode('001'));
+            self::assertStringNotContainsString('normalizedMunicipalTaxationCode', $content);
+            self::assertStringContainsString("'codigoTributacaoMunicipal' => ''", $content);
+            self::assertStringContainsString("'itemListaServico' => (string) \$itemFiscalProfile['item_lista_servico']", $content);
         }
 
         public function testEmissionReadinessDoesNotRequireNationalTaxCodeWhenUsingCompanyServices(): void
