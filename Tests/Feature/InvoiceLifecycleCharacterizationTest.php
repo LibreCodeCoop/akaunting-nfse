@@ -178,4 +178,23 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
             config('type.document.invoice.route.emails.create'),
         );
     }
+
+    public function testEmitWithoutItemsIsRejectedBeforeFiscalTransport(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
+
+        $this->loginAs()
+            ->post(route('nfse.invoices.emit', $invoice))
+            ->assertRedirect(route('nfse.invoices.index', ['status' => 'pending']))
+            ->assertSessionHas('error', trans('nfse::general.invoices.emit_blocked_no_items'));
+
+        self::assertFalse(
+            NfseReceipt::query()
+                ->where('invoice_id', $invoice->id)
+                ->exists(),
+            'Emission preflight must not create a fiscal receipt when the invoice has no items.',
+        );
+    }
 }
