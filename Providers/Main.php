@@ -9,6 +9,7 @@ namespace Modules\Nfse\Providers;
 
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Console\Commands\ProvisionTestHarness;
+use Modules\Nfse\Application\ItemFiscalProfileValidator;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
 use Modules\Nfse\Models\ItemFiscalProfile;
@@ -214,9 +215,14 @@ class Main extends Provider
             }
 
             $catalog = (new Lc116Catalog())->search(null, 400);
+            $validation = (new ItemFiscalProfileValidator())->validate(
+                is_object($profile) ? (string) ($profile->item_lista_servico ?? '') : null,
+                is_object($profile) ? (string) ($profile->codigo_tributacao_nacional ?? '') : null,
+            );
 
             $view->with('nfseLc116Catalog', $catalog);
             $view->with('nfseItemFiscalProfile', $profile);
+            $view->with('nfseItemFiscalValidation', $validation);
         });
     }
 
