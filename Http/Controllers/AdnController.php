@@ -83,6 +83,7 @@ class AdnController extends Controller
     {
         $receipt = NfseReceipt::query()
             ->where('invoice_id', (int) $invoice->id)
+            ->latest('id')
             ->first();
 
         return trim((string) ($receipt?->chave_acesso ?? ''));

@@ -131,7 +131,7 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice): \Illuminate\View\View
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
-        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->firstOrFail();
         $receiptStatusLabel = $this->translateReceiptStatus((string) ($receipt->status ?? ''));
         $suggestedDiscriminacao = $this->buildDiscriminacao($invoice);
         $emailDefaults = $this->servicePreviewEmailDefaults($invoice);
@@ -143,7 +143,7 @@ class InvoiceController extends Controller
     public function showEmitSuccess(Invoice $invoice): \Illuminate\View\View
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
-        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->firstOrFail();
         $receiptStatusLabel = $this->translateReceiptStatus((string) ($receipt->status ?? ''));
         $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
 
@@ -172,7 +172,7 @@ class InvoiceController extends Controller
     public function downloadArtifact(Invoice $invoice, string $artifact): Response|RedirectResponse
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
-        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->firstOrFail();
+        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->firstOrFail();
         $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
 
         if (!isset($artifacts[$artifact]) || !is_array($artifacts[$artifact])) {
