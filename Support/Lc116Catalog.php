@@ -94,7 +94,7 @@ final class Lc116Catalog
      */
     public function find(string $code): ?array
     {
-        $normalizedCode = preg_replace('/\D+/', '', $code) ?: '';
+        $normalizedCode = Lc116Code::normalize($code);
 
         foreach (self::ITEMS as $item) {
             if ($item['code'] !== $normalizedCode) {
