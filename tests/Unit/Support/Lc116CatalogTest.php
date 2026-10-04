@@ -24,6 +24,16 @@ class Lc116CatalogTest extends TestCase
         self::assertStringContainsString('Suporte tecnico em informatica', $result[0]['label']);
     }
 
+    public function testFindAcceptsHumanAndLegacyLc116Representations(): void
+    {
+        $catalog = new Lc116Catalog();
+
+        self::assertSame('0107', $catalog->find('1.07')['code'] ?? null);
+        self::assertSame('0107', $catalog->find('01.07')['code'] ?? null);
+        self::assertSame('0107', $catalog->find('107')['code'] ?? null);
+        self::assertSame('0107', $catalog->find('lc:0107')['code'] ?? null);
+    }
+
     public function testSearchCanFindByDescriptionText(): void
     {
         $catalog = new Lc116Catalog();
