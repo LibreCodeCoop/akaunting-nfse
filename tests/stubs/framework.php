@@ -144,15 +144,27 @@ class Model
     {
     }
 
-    public function belongsTo(string $related): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function belongsTo(string $related, ?string $foreignKey = null): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return new \Illuminate\Database\Eloquent\Relations\BelongsTo();
+    }
+
+    public function hasOne(string $related, ?string $foreignKey = null): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return new \Illuminate\Database\Eloquent\Relations\HasOne();
     }
 }
 
 namespace Illuminate\Database\Eloquent\Relations;
 
 class BelongsTo
+{
+    public function __construct(mixed ...$args)
+    {
+    }
+}
+
+class HasOne
 {
     public function __construct(mixed ...$args)
     {
