@@ -1,0 +1,173 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Playwright Smoke
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: playwright-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  COMPOSER_NO_INTERACTION: 1
+  COMPOSER_NO_AUDIT: 1
+  COMPOSER_PROCESS_TIMEOUT: 0
+  APP_ENV: testing
+  APP_URL: http://127.0.0.1:8082
+  DB_CONNECTION: sqlite
+  DB_DATABASE: ${{ github.workspace }}/akaunting/database/playwright.sqlite
+  MAIL_MAILER: array
+  MAIL_FROM_ADDRESS: nfse-e2e@example.test
+  MAIL_FROM_NAME: NFS-e E2E
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Akaunting core
+        uses: actions/checkout@v7
+        with:
+          repository: akaunting/akaunting
+          path: akaunting
+
+      - name: Checkout NFS-e module
+        uses: actions/checkout@v7
+        with:
+          path: akaunting/modules/Nfse
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, ctype, curl, dom, fileinfo, gd, intl, json, mbstring, openssl, pdo, pdo_sqlite, soap, sqlite3, xml, zip
+          coverage: none
+          tools: composer
+
+      - name: Prepare Akaunting test environment
+        working-directory: akaunting
+        run: |
+          cp .env.testing .env
+          touch database/playwright.sqlite
+          sed -i "s#^DB_CONNECTION=.*#DB_CONNECTION=sqlite#" .env
+          sed -i "s#^DB_DATABASE=.*#DB_DATABASE=${PWD}/database/playwright.sqlite#" .env
+          sed -i "s#^APP_URL=.*#APP_URL=http://127.0.0.1:8082#" .env
+          {
+            echo "MAIL_MAILER=array"
+            echo "MAIL_FROM_ADDRESS=nfse-e2e@example.test"
+            echo 'MAIL_FROM_NAME="NFS-e E2E"'
+          } >> .env
+
+      - name: Install Akaunting dependencies
+        working-directory: akaunting
+        run: composer test
+
+      - name: Build scoped NFS-e runtime
+        working-directory: akaunting/modules/Nfse
+        run: |
+          composer install --prefer-dist --no-progress --no-interaction --no-scripts
+          composer thirdparty:install
+          composer runtime-tools:install
+          composer thirdparty:scope
+
+      - name: Prepare persistent Akaunting test database
+        working-directory: akaunting
+        run: |
+          php artisan migrate:fresh --force
+          php artisan db:seed --class='\Database\Seeds\TestCompany' --force
+
+      - name: Provision deterministic NFS-e test user
+        working-directory: akaunting
+        run: |
+          php artisan nfse:test-user:provision \
+            --company-id=1 \
+            --email=nfse-e2e@example.test \
+            --password=NfseE2E!123456 \
+            --role=admin \
+            --landing-page=dashboard \
+            --json
+
+      - name: Provision deterministic NFS-e fiscal harness
+        working-directory: akaunting
+        env:
+          NFSE_TEST_HARNESS: '1'
+        run: |
+          php artisan nfse:test-harness:provision \
+            --company-id=1 \
+            --cnpj=11222333000181 \
+            --municipio=3303302 \
+            --item-lista=0107 \
+            --codigo-nacional=010701 \
+            --password=nfse-test-password \
+            --json
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: akaunting/modules/Nfse/package-lock.json
+
+      - name: Install Playwright
+        working-directory: akaunting/modules/Nfse
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Verify persistent smoke database
+        working-directory: akaunting
+        run: |
+          php artisan tinker --execute='
+            if (!\Illuminate\Support\Facades\Schema::hasTable("users")) { throw new RuntimeException("users table missing from Playwright SQLite database"); }
+            $userModel = user_model_class();
+            if (!$userModel::query()->where("email", "nfse-e2e@example.test")->exists()) { throw new RuntimeException("Playwright test user missing from persistent database"); }
+          '
+
+      - name: Start Akaunting
+        working-directory: akaunting
+        env:
+          NFSE_TEST_HARNESS: '1'
+          NFSE_TEST_CNPJ: '11222333000181'
+          NFSE_TEST_PFX_PASSWORD: 'nfse-test-password'
+        run: |
+          export NFSE_TEST_PFX_PATH="${PWD}/storage/app/nfse/pfx/11222333000181.pfx"
+          nohup php artisan serve --host=127.0.0.1 --port=8082 > storage/logs/playwright-server.log 2>&1 &
+          echo $! > /tmp/akaunting-playwright.pid
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:8082/auth/login >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat storage/logs/playwright-server.log
+          exit 1
+
+      - name: Run deterministic browser smoke
+        working-directory: akaunting/modules/Nfse
+        env:
+          CI: 'true'
+          NFSE_E2E_BASE_URL: http://127.0.0.1:8082
+          NFSE_E2E_EMAIL: nfse-e2e@example.test
+          NFSE_E2E_PASSWORD: 'NfseE2E!123456'
+        run: |
+          npx playwright test             e2e/smoke.spec.ts             e2e/deterministic-harness.spec.ts             --retries=0
+
+      - name: Upload browser artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-artifacts
+          if-no-files-found: ignore
+          path: |
+            akaunting/modules/Nfse/playwright-report
+            akaunting/modules/Nfse/test-results
+            akaunting/storage/logs/playwright-server.log
