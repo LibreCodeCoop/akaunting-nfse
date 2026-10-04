@@ -18,6 +18,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\RecoverInvoiceEmission;
+use Modules\Nfse\Application\RuntimeDpsFactory;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
@@ -1613,26 +1614,7 @@ class InvoiceController extends Controller
      */
     protected function makeDpsData(array $payload, array $requiredFields = []): DpsData
     {
-        $constructor = new \ReflectionMethod(DpsData::class, '__construct');
-        $supportedPayload = [];
-        $supportedFields = [];
-
-        foreach ($constructor->getParameters() as $parameter) {
-            $name = $parameter->getName();
-            $supportedFields[$name] = true;
-
-            if (array_key_exists($name, $payload)) {
-                $supportedPayload[$name] = $payload[$name];
-            }
-        }
-
-        foreach ($requiredFields as $field) {
-            if (!isset($supportedFields[$field])) {
-                throw new \LogicException('Installed nfse-php runtime does not support required DPS field: ' . $field);
-            }
-        }
-
-        return new DpsData(...$supportedPayload);
+        return (new RuntimeDpsFactory())->make($payload, $requiredFields);
     }
 
     /**
