@@ -57,7 +57,15 @@ export async function loginToAkaunting(page: Page, testInfo: TestInfo): Promise<
       throw new Error('E2E login failed: credentials were rejected by Akaunting.');
     }
 
-    throw new Error('E2E login did not complete: no redirect and no success payload were observed.');
+    const status = loginResponse.status();
+    const contentType = loginResponse.headers()['content-type'] ?? '';
+    const responseSummary = contentType.includes('application/json')
+      ? JSON.stringify(payload)
+      : (await loginResponse.text()).replace(/\s+/g, ' ').slice(0, 500);
+
+    throw new Error(
+      `E2E login did not complete (HTTP ${status}, ${contentType || 'unknown content type'}): ${responseSummary}`,
+    );
   }
 
   await expect(page).not.toHaveURL(/\/auth\/login$/);
