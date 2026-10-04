@@ -9,8 +9,11 @@ namespace Modules\Nfse\Listeners;
 
 use App\Events\Module\Installed as Event;
 use App\Jobs\Setting\CreateEmailTemplate;
+use App\Models\Setting\EmailTemplate;
 use App\Traits\Jobs;
 use App\Traits\Permissions;
+use Modules\Nfse\Notifications\NfseIssued;
+use Modules\Nfse\Support\EmailTemplateSynchronizer;
 
 class FinishInstallation
 {
@@ -39,17 +42,37 @@ class FinishInstallation
 
     protected function createNfseEmailTemplates(Event $event): void
     {
-        $defaults = self::defaultEmailTemplateContent();
+        $synchronizer = new EmailTemplateSynchronizer();
 
-        $this->dispatch(new CreateEmailTemplate([
-            'company_id' => $event->company_id,
-            'alias' => 'invoice_nfse_issued_customer',
-            'class' => \Modules\Nfse\Notifications\NfseIssued::class,
-            'name' => 'settings.email.templates.invoice_nfse_issued_customer',
-            'subject' => $defaults['subject'],
-            'body' => $defaults['body'],
-            'created_from' => 'nfse::seed',
-        ]));
+        if (!$this->nfseEmailTemplateExists((int) $event->company_id)) {
+            $defaults = self::defaultEmailTemplateContent();
+
+            $this->dispatch(new CreateEmailTemplate([
+                'company_id' => $event->company_id,
+                'alias' => EmailTemplateSynchronizer::CANONICAL_ALIAS,
+                'class' => NfseIssued::class,
+                'name' => EmailTemplateSynchronizer::NAME_KEY,
+                'subject' => $defaults['subject'],
+                'body' => $defaults['body'],
+                'created_from' => 'nfse::seed',
+            ]));
+        }
+
+        // Keep installation idempotent and migrate legacy/duplicate rows without
+        // overwriting the operator-customized subject/body.
+        $synchronizer->sync();
+    }
+
+    protected function nfseEmailTemplateExists(int $companyId): bool
+    {
+        return EmailTemplate::query()
+            ->where('company_id', $companyId)
+            ->where('class', NfseIssued::class)
+            ->whereIn('alias', [
+                EmailTemplateSynchronizer::LEGACY_ALIAS,
+                EmailTemplateSynchronizer::CANONICAL_ALIAS,
+            ])
+            ->exists();
     }
 
     public static function defaultEmailTemplateContent(): array
