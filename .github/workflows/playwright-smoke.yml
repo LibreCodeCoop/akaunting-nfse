@@ -126,11 +126,11 @@ jobs:
       - name: Verify persistent smoke database
         working-directory: akaunting
         run: |
-          php artisan tinker --execute="
-            if (!\Illuminate\Support\Facades\Schema::hasTable('users')) { throw new RuntimeException('users table missing from Playwright SQLite database'); }
+          php artisan tinker --execute='
+            if (!\Illuminate\Support\Facades\Schema::hasTable("users")) { throw new RuntimeException("users table missing from Playwright SQLite database"); }
             $userModel = user_model_class();
-            if (!$userModel::query()->where('email', 'nfse-e2e@example.test')->exists()) { throw new RuntimeException('Playwright test user missing from persistent database'); }
-          "
+            if (!$userModel::query()->where("email", "nfse-e2e@example.test")->exists()) { throw new RuntimeException("Playwright test user missing from persistent database"); }
+          '
 
       - name: Start Akaunting
         working-directory: akaunting
