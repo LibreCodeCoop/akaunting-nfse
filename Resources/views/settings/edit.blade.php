@@ -42,6 +42,59 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
             @endphp
 
+            <section
+                id="nfse-readiness-summary"
+                class="mb-6 rounded border px-4 py-4 {{ ($readiness['isReady'] ?? false) ? 'border-green-300 bg-green-50' : 'border-yellow-300 bg-yellow-50' }}"
+                aria-labelledby="nfse-readiness-title"
+            >
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 id="nfse-readiness-title" class="font-semibold">
+                            {{ trans('nfse::general.readiness.title') }}
+                        </h2>
+                        <p class="mt-1 text-sm">
+                            {{ ($readiness['isReady'] ?? false)
+                                ? trans('nfse::general.readiness.ready')
+                                : trans('nfse::general.readiness.hint') }}
+                        </p>
+                    </div>
+                    <span class="text-sm font-medium">
+                        {{ ($readiness['isReady'] ?? false)
+                            ? trans('nfse::general.readiness.ready')
+                            : trans('nfse::general.readiness.not_ready') }}
+                    </span>
+                </div>
+
+                @if(!($readiness['isReady'] ?? false))
+                    <ul class="mt-3 space-y-2 text-sm">
+                        @foreach(($readiness['checklist'] ?? []) as $check => $passed)
+                            @continue($passed)
+                            @php
+                                $readinessTabs = [
+                                    'cnpj_prestador' => 'certificate',
+                                    'municipio_ibge' => 'fiscal',
+                                    'item_lista_servico' => 'fiscal',
+                                    'certificate' => 'certificate',
+                                    'certificate_secret' => 'certificate',
+                                    'certificate_valid' => 'certificate',
+                                    'ibs_cbs' => 'federal',
+                                ];
+                                $targetTab = $readinessTabs[$check] ?? 'fiscal';
+                            @endphp
+                            <li class="flex items-center justify-between gap-4">
+                                <span>{{ trans('nfse::general.readiness.checks.' . $check) }}</span>
+                                <a
+                                    href="{{ route('nfse.settings.edit', ['tab' => $targetTab]) }}"
+                                    class="font-medium text-green-700 hover:underline"
+                                >
+                                    {{ trans('nfse::general.go_to_settings') }}
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+
             {{-- ── Tab navigation ──────────────────────────────────────── --}}
             <div class="border-b border-gray-200 mb-6">
                 <nav class="-mb-px flex" aria-label="{{ trans('nfse::general.settings.title') }}">
