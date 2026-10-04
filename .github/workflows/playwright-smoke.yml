@@ -159,7 +159,7 @@ jobs:
           NFSE_E2E_EMAIL: nfse-e2e@example.test
           NFSE_E2E_PASSWORD: 'NfseE2E!123456'
         run: |
-          npx playwright test             e2e/smoke.spec.ts             e2e/deterministic-harness.spec.ts             --retries=0
+          npx playwright test --project=smoke --retries=0
 
       - name: Upload browser artifacts
         if: failure()
