@@ -6,7 +6,10 @@
   "scripts": {
     "test:e2e": "playwright test -c playwright.config.ts",
     "test:e2e:headed": "playwright test -c playwright.config.ts --headed",
-    "test:e2e:debug": "playwright test -c playwright.config.ts --debug"
+    "test:e2e:debug": "playwright test -c playwright.config.ts --debug",
+    "test:e2e:smoke": "playwright test -c playwright.config.ts --project=smoke",
+    "test:e2e:full-ui": "playwright test -c playwright.config.ts --project=full-ui",
+    "test:e2e:live": "playwright test -c playwright.config.ts --project=live-fiscal"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2"

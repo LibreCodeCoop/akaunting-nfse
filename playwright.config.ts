@@ -8,7 +8,32 @@ const baseURL = process.env.NFSE_E2E_BASE_URL ?? 'http://localhost:8082';
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
-  retries: process.env.CI ? 2 : 0,
+  retries: 0,
+  projects: [
+    {
+      name: 'smoke',
+      testMatch: ['smoke.spec.ts', 'deterministic-harness.spec.ts'],
+    },
+    {
+      name: 'full-ui',
+      testMatch: [
+        'nfse-certificate.spec.ts',
+        'nfse-emission.spec.ts',
+        'nfse-invoice-show-emit-modal.spec.ts',
+        'nfse-settings.spec.ts',
+      ],
+      grepInvert: /\[live-fiscal\]/,
+    },
+    {
+      name: 'live-fiscal',
+      testMatch: [
+        'live-fiscal.spec.ts',
+        'nfse-emission.spec.ts',
+        'nfse-reemit-status.spec.ts',
+      ],
+      grep: /\[live-fiscal\]/,
+    },
+  ],
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
   use: {
     baseURL,

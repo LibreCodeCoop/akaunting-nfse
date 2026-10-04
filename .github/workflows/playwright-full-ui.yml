@@ -1,16 +1,18 @@
 # SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Playwright Smoke
+name: Playwright Full UI
 
 on:
-  pull_request:
+  workflow_dispatch:
   push:
     branches:
       - main
+  schedule:
+    - cron: '17 3 * * *'
 
 concurrency:
-  group: playwright-smoke-${{ github.workflow }}-${{ github.ref }}
+  group: playwright-full-ui-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -29,7 +31,7 @@ env:
   MAIL_FROM_NAME: NFS-e E2E
 
 jobs:
-  smoke:
+  full_ui:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -123,7 +125,7 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Verify persistent smoke database
+      - name: Verify persistent full UI database
         working-directory: akaunting
         run: |
           php artisan tinker --execute='
@@ -151,7 +153,7 @@ jobs:
           cat storage/logs/playwright-server.log
           exit 1
 
-      - name: Run deterministic browser smoke
+      - name: Run deterministic full UI suite
         working-directory: akaunting/modules/Nfse
         env:
           CI: 'true'
@@ -159,13 +161,13 @@ jobs:
           NFSE_E2E_EMAIL: nfse-e2e@example.test
           NFSE_E2E_PASSWORD: 'NfseE2E!123456'
         run: |
-          npx playwright test --project=smoke --retries=0
+          npx playwright test --project=full-ui --retries=0
 
       - name: Upload browser artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-smoke-artifacts
+          name: playwright-full-ui-artifacts
           if-no-files-found: ignore
           path: |
             akaunting/modules/Nfse/playwright-report

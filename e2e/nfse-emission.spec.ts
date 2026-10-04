@@ -163,7 +163,7 @@ test('pending invoices page exposes emission CTA when authenticated', async ({ p
   }
 });
 
-test('real happy path emits NFS-e from pending list', async ({ page }, testInfo) => {
+test('[live-fiscal] real happy path emits NFS-e from pending list', async ({ page }, testInfo) => {
   test.setTimeout(180_000);
 
   if (!REAL_EMIT_FLOW_ENABLED) {
