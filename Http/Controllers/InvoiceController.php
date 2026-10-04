@@ -20,6 +20,7 @@ use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\Lc116Code;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
@@ -279,7 +280,6 @@ class InvoiceController extends Controller
         $federalPayload = $this->federalPayloadValues($invoice);
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
         $issqnPayload = $this->issqnPayloadValues();
-        $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
         $requiredDpsFields = $foreignTomador['enabled']
             ? [
@@ -291,6 +291,8 @@ class InvoiceController extends Controller
                 'tomadorEstadoExterior',
             ]
             : [];
+
+        $requiredDpsFields[] = 'codigoTributacaoMunicipal';
 
         if ($issqnPayload['requiresSpecialRuntime']) {
             $requiredDpsFields = array_values(array_unique(array_merge($requiredDpsFields, [
@@ -307,8 +309,9 @@ class InvoiceController extends Controller
             $dps = $this->makeDpsData([
             'cnpjPrestador' => $cnpj,
             'municipioIbge' => $ibge,
-            'itemListaServico' => $municipalTaxationCode,
+            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
+            'codigoTributacaoMunicipal' => '',
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
             'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
@@ -797,13 +800,14 @@ class InvoiceController extends Controller
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
-        $municipalTaxationCode = $this->normalizedMunicipalTaxationCode((string) $itemFiscalProfile['item_lista_servico']);
 
-        $dps = $this->makeDpsData([
+        try {
+            $dps = $this->makeDpsData([
             'cnpjPrestador' => (string) setting('nfse.cnpj_prestador'),
             'municipioIbge' => (string) setting('nfse.municipio_ibge'),
-            'itemListaServico' => $municipalTaxationCode,
+            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
+            'codigoTributacaoMunicipal' => '',
             'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
             'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
@@ -837,7 +841,16 @@ class InvoiceController extends Controller
             'federalValorIrrf' => $federalPayload['federalValorIrrf'],
             'federalValorCsll' => $federalPayload['federalValorCsll'],
             'federalValorCp' => $federalPayload['federalValorCp'],
-        ]);
+            ], ['codigoTributacaoMunicipal']);
+        } catch (\LogicException $e) {
+            $this->safeLogError('NFS-e runtime capability mismatch during reissuance', [
+                'invoice_id' => $invoice->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.emit_runtime_unsupported')));
+        }
 
         try {
             $client = $this->makeClient($sandboxReemit);
@@ -1160,13 +1173,11 @@ class InvoiceController extends Controller
             $itemName = $itemName !== '' ? $itemName : trans('general.na');
 
             $profile = $itemId > 0 ? ($profileMap[$itemId] ?? null) : null;
-            $serviceCode = preg_replace('/\D+/', '', (string) ($profile['item_lista_servico'] ?? '')) ?: '';
+            $serviceCode = Lc116Code::normalize($profile['item_lista_servico'] ?? '');
 
             if ($serviceCode === '') {
                 $serviceCode = $this->itemListaServico($defaultService);
             }
-
-            $serviceCode = substr($serviceCode, 0, 4);
 
             $nationalCode = preg_replace('/\D+/', '', (string) ($profile['codigo_tributacao_nacional'] ?? '')) ?: '';
             if ($nationalCode === '') {
@@ -1234,7 +1245,7 @@ class InvoiceController extends Controller
 
                     return [
                         $itemId => [
-                            'item_lista_servico' => preg_replace('/\D+/', '', (string) ($profile->item_lista_servico ?? '')) ?: '',
+                            'item_lista_servico' => Lc116Code::normalize($profile->item_lista_servico ?? ''),
                             'codigo_tributacao_nacional' => preg_replace('/\D+/', '', (string) ($profile->codigo_tributacao_nacional ?? '')) ?: '',
                         ],
                     ];
@@ -2694,13 +2705,13 @@ class InvoiceController extends Controller
 
     protected function itemListaServico(?object $defaultService = null): string
     {
-        $serviceCode = preg_replace('/\D+/', '', (string) ($defaultService->item_lista_servico ?? '')) ?: '';
+        $serviceCode = Lc116Code::normalize($defaultService->item_lista_servico ?? '');
 
         if ($serviceCode !== '') {
-            return substr($serviceCode, 0, 4);
+            return $serviceCode;
         }
 
-        return preg_replace('/\D+/', '', (string) setting('nfse.item_lista_servico', '0107')) ?: '0107';
+        return Lc116Code::normalize(setting('nfse.item_lista_servico', ''));
     }
 
     protected function nationalTaxCode(?object $defaultService = null): string
@@ -2709,14 +2720,6 @@ class InvoiceController extends Controller
 
         if ($configured === '') {
             $configured = preg_replace('/\D+/', '', (string) setting('nfse.codigo_tributacao_nacional', '')) ?: '';
-        }
-
-        if ($configured === '') {
-            $municipalCode = $this->itemListaServico($defaultService);
-
-            if ($municipalCode !== '') {
-                $configured = str_pad(substr($municipalCode, 0, 4), 4, '0', STR_PAD_LEFT) . '01';
-            }
         }
 
         if ($configured !== '') {
@@ -3496,26 +3499,6 @@ class InvoiceController extends Controller
         $calculatedValue = $invoiceAmount * $percentage / 100;
 
         return number_format($calculatedValue, 2, '.', '');
-    }
-
-    protected function normalizedMunicipalTaxationCode(string $value): string
-    {
-        $digits = preg_replace('/\D+/', '', $value) ?: '';
-
-        if ($digits === '') {
-            return '';
-        }
-
-        // The item fiscal profile stores the LC 116 service item (4 digits), which
-        // we already use to derive cTribNac. In the national emitter flow, cTribMun
-        // expects the municipality-specific subitem code instead of the full LC 116
-        // code. Example validated in the public portal: LC 116 01.01 maps to
-        // cTribNac 010101 and cTribMun 001.
-        if (strlen($digits) === 4) {
-            return str_pad(substr($digits, -2), 3, '0', STR_PAD_LEFT);
-        }
-
-        return $digits;
     }
 
     protected function normalizedFederalSelectValue(mixed $value): string
