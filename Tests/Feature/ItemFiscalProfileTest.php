@@ -9,6 +9,7 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Common\Item;
 use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Tests\Support\FiscalScenarioBuilder;
 use Tests\Feature\FeatureTestCase;
 
 final class ItemFiscalProfileTest extends FeatureTestCase
@@ -40,12 +41,7 @@ final class ItemFiscalProfileTest extends FeatureTestCase
     {
         $item = Item::factory()->enabled()->create();
 
-        ItemFiscalProfile::query()->create([
-            'company_id' => company_id(),
-            'item_id' => $item->id,
-            'item_lista_servico' => '0107',
-            'codigo_tributacao_nacional' => '010701',
-        ]);
+        FiscalScenarioBuilder::itemProfile($item);
 
         $request = Item::factory()->enabled()->raw([
             'name' => $item->name,

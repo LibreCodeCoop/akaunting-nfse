@@ -9,13 +9,14 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Tests\Support\FiscalScenarioBuilder;
 use Tests\Feature\FeatureTestCase;
 
 final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 {
     public function testNativeInvoiceShowKeepsAkauntingPageAndOverridesEmailRouteForFiscalFlow(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = FiscalScenarioBuilder::invoice();
 
         $this->loginAs()
             ->get(route('invoices.show', $invoice))
@@ -29,7 +30,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
     public function testPendingInvoiceUsesIssueModalThroughNativeEmailAction(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = FiscalScenarioBuilder::invoice();
 
         $response = $this->loginAs()
             ->get(route('nfse.modals.invoices.emails.create', $invoice))
@@ -49,14 +50,14 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
     public function testEmittedInvoiceUsesCancelModalThroughNativeEmailAction(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = FiscalScenarioBuilder::invoice();
 
-        NfseReceipt::query()->create([
-            'invoice_id' => $invoice->id,
-            'nfse_number' => '1001',
-            'chave_acesso' => str_repeat('1', 50),
-            'status' => 'emitted',
-        ]);
+        FiscalScenarioBuilder::receipt(
+            invoice: $invoice,
+            status: 'emitted',
+            number: '1001',
+            accessKey: str_repeat('1', 50),
+        );
 
         $response = $this->loginAs()
             ->get(route('nfse.modals.invoices.emails.create', $invoice))
@@ -76,14 +77,14 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
     public function testCancelledInvoiceUsesReemitActionThroughNativeEmailFlow(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = FiscalScenarioBuilder::invoice();
 
-        NfseReceipt::query()->create([
-            'invoice_id' => $invoice->id,
-            'nfse_number' => '1002',
-            'chave_acesso' => str_repeat('2', 50),
-            'status' => 'cancelled',
-        ]);
+        FiscalScenarioBuilder::receipt(
+            invoice: $invoice,
+            status: 'cancelled',
+            number: '1002',
+            accessKey: str_repeat('2', 50),
+        );
 
         $response = $this->loginAs()
             ->get(route('nfse.modals.invoices.emails.create', $invoice))
@@ -103,14 +104,14 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
     public function testFiscalInvoiceShowRendersPersistedReceiptIdentity(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = FiscalScenarioBuilder::invoice();
 
-        NfseReceipt::query()->create([
-            'invoice_id' => $invoice->id,
-            'nfse_number' => '2026',
-            'chave_acesso' => str_repeat('3', 50),
-            'status' => 'emitted',
-        ]);
+        FiscalScenarioBuilder::receipt(
+            invoice: $invoice,
+            status: 'emitted',
+            number: '2026',
+            accessKey: str_repeat('3', 50),
+        );
 
         $this->loginAs()
             ->get(route('nfse.invoices.show', $invoice))
@@ -121,14 +122,14 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
     public function testInvalidArtifactTypeRedirectsWithoutAttemptingRemoteRead(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = FiscalScenarioBuilder::invoice();
 
-        NfseReceipt::query()->create([
-            'invoice_id' => $invoice->id,
-            'nfse_number' => '1003',
-            'chave_acesso' => str_repeat('4', 50),
-            'status' => 'emitted',
-        ]);
+        FiscalScenarioBuilder::receipt(
+            invoice: $invoice,
+            status: 'emitted',
+            number: '1003',
+            accessKey: str_repeat('4', 50),
+        );
 
         $this->loginAs()
             ->get(route('nfse.invoices.artifacts.download', [
@@ -141,16 +142,14 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
     public function testMissingArtifactRedirectsWithActionableWarning(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = FiscalScenarioBuilder::invoice();
 
-        NfseReceipt::query()->create([
-            'invoice_id' => $invoice->id,
-            'nfse_number' => '1004',
-            'chave_acesso' => str_repeat('5', 50),
-            'status' => 'emitted',
-            'xml_path' => '',
-            'danfse_path' => '',
-        ]);
+        FiscalScenarioBuilder::receipt(
+            invoice: $invoice,
+            status: 'emitted',
+            number: '1004',
+            accessKey: str_repeat('5', 50),
+        );
 
         $this->loginAs()
             ->get(route('nfse.invoices.artifacts.download', [
@@ -163,7 +162,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
     public function testInvoiceWithoutItemsDoesNotTakeOverNativeSendFlow(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = FiscalScenarioBuilder::invoice();
         $invoice->items()->delete();
         $invoice->unsetRelation('items');
 
@@ -181,7 +180,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
     public function testEmitWithoutItemsIsRejectedBeforeFiscalTransport(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = FiscalScenarioBuilder::invoice();
         $invoice->items()->delete();
         $invoice->unsetRelation('items');
 
