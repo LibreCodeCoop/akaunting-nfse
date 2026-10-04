@@ -53,6 +53,7 @@ final class NfsePhpRuntimeContractTest extends TestCase
             'ibsCbsIndDest',
             'ibsCbsCst',
             'ibsCbsClassificacaoTributaria',
+            'codigoTributacaoMunicipal',
         ] as $requiredField) {
             self::assertContains($requiredField, $parameters, 'Missing nfse-php DpsData field: ' . $requiredField);
         }

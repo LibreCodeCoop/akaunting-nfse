@@ -163,7 +163,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $prepared = $controller->runPrepareNfseInput([
                 'uf' => 'sp',
-                'item_lista_servico' => '14-14',
+                'item_lista_servico' => '14.14',
                 'bao_mount' => '/vault/nfse/',
                 'bao_token' => '',
                 'bao_secret_id' => '',

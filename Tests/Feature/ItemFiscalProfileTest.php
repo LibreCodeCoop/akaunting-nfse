@@ -16,7 +16,7 @@ final class ItemFiscalProfileTest extends FeatureTestCase
     public function testNativeItemCreatePersistsFiscalProfileThroughAkauntingEvent(): void
     {
         $request = Item::factory()->enabled()->raw();
-        $request['nfse_item_lista_servico'] = '0107';
+        $request['nfse_item_lista_servico'] = '1.07';
         $request['nfse_codigo_tributacao_nacional'] = '010701';
 
         $this->loginAs()

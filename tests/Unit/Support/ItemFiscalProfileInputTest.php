@@ -32,7 +32,7 @@ final class ItemFiscalProfileInputTest extends TestCase
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
-    public function testPreservesLegacyNormalizationForFormattedThreeDigitServiceCode(): void
+    public function testNormalizesFormattedLc116WithLeadingZero(): void
     {
         $request = $this->request([
             'nfse_item_lista_servico' => '1.07',
@@ -40,12 +40,12 @@ final class ItemFiscalProfileInputTest extends TestCase
         ]);
 
         self::assertSame([
-            'item_lista_servico' => '107',
+            'item_lista_servico' => '0107',
             'codigo_tributacao_nacional' => '010701',
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
-    public function testUsesLastFourServiceDigitsForPrefixedCodes(): void
+    public function testNormalizesPrefixedHumanLc116Label(): void
     {
         $request = $this->request([
             'nfse_item_lista_servico' => 'LC 116 / 01.07',
@@ -55,6 +55,19 @@ final class ItemFiscalProfileInputTest extends TestCase
         self::assertSame([
             'item_lista_servico' => '0107',
             'codigo_tributacao_nacional' => '000701',
+        ], ItemFiscalProfileInput::fromRequest($request));
+    }
+
+    public function testNormalizesLegacyThreeDigitPersistedInput(): void
+    {
+        $request = $this->request([
+            'nfse_item_lista_servico' => '107',
+            'nfse_codigo_tributacao_nacional' => '010701',
+        ]);
+
+        self::assertSame([
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
