@@ -28,7 +28,7 @@ final class EmissionReadinessTest extends TestCase
         );
 
         self::assertTrue($result['isReady']);
-        self::assertNotContains(false, $result['checklist'], true);
+        self::assertFalse(in_array(false, $result['checklist'], true));
     }
 
     public function testReportsAllIndependentBlockers(): void
