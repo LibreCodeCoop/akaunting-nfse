@@ -31,11 +31,12 @@ final class ModuleLifecycleCharacterizationTest extends FeatureTestCase
             );
         }
 
-        self::assertTrue(
+        self::assertSame(
+            1,
             EmailTemplate::query()
                 ->where('company_id', company_id())
                 ->where('alias', 'invoice_nfse_issued_customer')
-                ->exists(),
+                ->count(),
         );
     }
 
@@ -69,21 +70,28 @@ final class ModuleLifecycleCharacterizationTest extends FeatureTestCase
         );
     }
 
-    public function testCurrentEnableLifecycleDeduplicatesTemplatesCreatedDuringInstall(): void
+    public function testInstallAndEnableLifecycleKeepsOneCanonicalEmailTemplate(): void
     {
         $this->loginAs();
 
-        (new FinishInstallation())->handle(new Installed('nfse', company_id(), 'en-GB'));
+        $listener = new FinishInstallation();
+        $listener->handle(new Installed('nfse', company_id(), 'en-GB'));
+        $listener->handle(new Installed('nfse', company_id(), 'en-GB'));
 
         $permissionCount = Permission::query()
             ->whereIn('name', ['read-nfse-settings', 'update-nfse-settings', 'delete-nfse-settings'])
             ->count();
 
-        $templateCount = EmailTemplate::query()
-            ->where('company_id', company_id())
-            ->where('alias', 'invoice_nfse_issued_customer')
-            ->count();
+        self::assertSame(
+            1,
+            EmailTemplate::query()
+                ->where('company_id', company_id())
+                ->where('alias', 'invoice_nfse_issued_customer')
+                ->count(),
+            'Repeated installation must not create duplicate canonical templates.',
+        );
 
+        (new FinishEnabling())->handle(new Enabled('nfse', company_id()));
         (new FinishEnabling())->handle(new Enabled('nfse', company_id()));
 
         self::assertSame(
@@ -92,11 +100,6 @@ final class ModuleLifecycleCharacterizationTest extends FeatureTestCase
                 ->whereIn('name', ['read-nfse-settings', 'update-nfse-settings', 'delete-nfse-settings'])
                 ->count(),
         );
-        self::assertGreaterThan(
-            1,
-            $templateCount,
-            'Characterization of #207: installation currently leaves duplicate canonical NFS-e email templates.',
-        );
 
         self::assertSame(
             1,
@@ -104,7 +107,7 @@ final class ModuleLifecycleCharacterizationTest extends FeatureTestCase
                 ->where('company_id', company_id())
                 ->where('alias', 'invoice_nfse_issued_customer')
                 ->count(),
-            'Enabling currently reconciles installation duplicates back to one canonical template.',
+            'Repeated enabling must preserve a single canonical template.',
         );
     }
 }
