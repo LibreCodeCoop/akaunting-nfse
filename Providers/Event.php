@@ -8,15 +8,11 @@ declare(strict_types=1);
 namespace Modules\Nfse\Providers;
 
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as Provider;
-use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
 use Modules\Nfse\Listeners\PersistItemFiscalProfile;
 
 class Event extends Provider
 {
     protected $listen = [
-        'Illuminate\\Routing\\Events\\RouteMatched' => [
-            OverrideInvoiceEmailRoute::class,
-        ],
         'App\\Events\\Common\\ItemCreated' => [
             PersistItemFiscalProfile::class,
         ],
