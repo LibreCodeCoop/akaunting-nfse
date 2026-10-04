@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
+use Modules\Nfse\Application\RecoverInvoiceEmission;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
@@ -2691,35 +2692,18 @@ class InvoiceController extends Controller
 
     protected function recoverReceiptAfterAmbiguousEmission(NfseClientInterface $client, DpsData $dps): ?ReceiptData
     {
-        if (!is_callable([$client, 'queryDps'])) {
-            return null;
-        }
+        $recovery = new RecoverInvoiceEmission();
 
         try {
-            $chaveAcesso = call_user_func([$client, 'queryDps'], $this->dpsRecoveryIdentifier($dps));
-
-            if (!is_string($chaveAcesso) || trim($chaveAcesso) === '') {
-                return null;
-            }
-
-            return $client->query(trim($chaveAcesso));
+            return $recovery->recover($client, $dps);
         } catch (\Throwable $recoveryError) {
             $this->safeLogError('NFS-e DPS recovery failed after ambiguous emission', [
                 'message' => $recoveryError->getMessage(),
-                'dps_id' => $this->dpsRecoveryIdentifier($dps),
+                'dps_id' => $recovery->dpsIdentifier($dps),
             ]);
 
             return null;
         }
-    }
-
-    protected function dpsRecoveryIdentifier(DpsData $dps): string
-    {
-        return $dps->municipioIbge
-            . '2'
-            . strtoupper($dps->cnpjPrestador)
-            . str_pad($dps->serie, 5, '0', STR_PAD_LEFT)
-            . str_pad($dps->numeroDps, 15, '0', STR_PAD_LEFT);
     }
 
     protected function dpsSerie(Invoice $invoice): string
