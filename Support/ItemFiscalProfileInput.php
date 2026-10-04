@@ -36,10 +36,7 @@ final class ItemFiscalProfileInput
         $rawServiceCode = $request->input($serviceKey, null);
         $rawNationalCode = $request->input($nationalKey, null);
 
-        $serviceDigits = preg_replace('/\D+/', '', (string) $rawServiceCode) ?: '';
-        $serviceCode = preg_match('/(\d{4})$/', $serviceDigits, $serviceCodeMatch)
-            ? $serviceCodeMatch[1]
-            : substr($serviceDigits, 0, 4);
+        $serviceCode = Lc116Code::normalize($rawServiceCode);
 
         $nationalCode = preg_replace('/\D+/', '', (string) $rawNationalCode) ?: '';
         $nationalCode = $nationalCode !== ''
