@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Providers;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\ItemFiscalProfileValidator;
 use Modules\Nfse\Console\Commands\ProvisionTestHarness;
