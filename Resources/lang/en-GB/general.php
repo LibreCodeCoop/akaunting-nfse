@@ -368,6 +368,19 @@ return [
         'tax_policy_notice_with_item_taxes' => 'This invoice has item taxes in Akaunting and they are used to build federal taxes in NFS-e.',
     ],
 
+    'bulk' => [
+        'title' => 'Bulk NFS-e progress',
+        'read_only_notice' => 'This page is currently read-only. It exposes persisted batch progress and per-invoice failures; bulk dispatch is enabled only after the fiscal issuer is fully wired.',
+        'run' => 'Run',
+        'selection' => 'Selection',
+        'invoice' => 'Invoice',
+        'group' => 'Fiscal group',
+        'status' => 'Status',
+        'receipt' => 'Receipt',
+        'error' => 'Error',
+        'empty' => 'No bulk emission runs have been recorded for this company.',
+    ],
+
     'closing' => [
         'title' => 'NFS-e competence closing',
         'competence' => 'Competence',

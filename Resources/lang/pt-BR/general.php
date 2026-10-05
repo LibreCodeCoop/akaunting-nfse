@@ -365,6 +365,19 @@ return [
         'tax_policy_notice_with_item_taxes' => 'Esta fatura possui impostos de item no Akaunting e eles são usados para compor os tributos federais da NFS-e.',
     ],
 
+    'bulk' => [
+        'title' => 'Progresso de emissão NFS-e em lote',
+        'read_only_notice' => 'Esta página é somente leitura por enquanto. Ela mostra o progresso persistido e as falhas por fatura; o disparo em lote só será habilitado após a ligação completa do emissor fiscal.',
+        'run' => 'Execução',
+        'selection' => 'Seleção',
+        'invoice' => 'Fatura',
+        'group' => 'Grupo fiscal',
+        'status' => 'Status',
+        'receipt' => 'Recibo',
+        'error' => 'Erro',
+        'empty' => 'Nenhuma execução de emissão em lote foi registrada para esta empresa.',
+    ],
+
     'closing' => [
         'title' => 'Fechamento de NFS-e por competência',
         'competence' => 'Competência',
