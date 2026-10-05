@@ -8,11 +8,15 @@ declare(strict_types=1);
 namespace Modules\Nfse\Providers;
 
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as Provider;
+use Modules\Nfse\Listeners\EmitNfseBeforeDocumentSend;
 use Modules\Nfse\Listeners\PersistItemFiscalProfile;
 
 class Event extends Provider
 {
     protected $listen = [
+        'App\\Events\\Document\\DocumentSending' => [
+            EmitNfseBeforeDocumentSend::class,
+        ],
         'App\\Events\\Common\\ItemCreated' => [
             PersistItemFiscalProfile::class,
         ],
