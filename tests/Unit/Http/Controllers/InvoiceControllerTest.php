@@ -2508,8 +2508,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     return [
                         10 => [
-                            'item_lista_servico' => '1502',
-                            'codigo_tributacao_nacional' => '150201',
+                            'item_lista_servico' => '0107',
+                            'codigo_tributacao_nacional' => '010701',
                         ],
                     ];
                 }
@@ -2535,10 +2535,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('1502', $client->capturedDps?->itemListaServico);
-            self::assertSame('150201', $client->capturedDps?->codigoTributacaoNacional);
+            self::assertSame('0107', $client->capturedDps?->itemListaServico);
+            self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
             self::assertSame('7.00', $client->capturedDps?->aliquota);
-            self::assertStringContainsString('[1502] Servico vinculado', $client->capturedDps?->discriminacao ?? '');
+            self::assertStringContainsString('[0107] Servico vinculado', $client->capturedDps?->discriminacao ?? '');
         }
 
         public function testEmitBlocksWhenInvoiceUsesDifferentMappedMunicipalTaxProfiles(): void
@@ -2624,12 +2624,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     return [
                         10 => [
-                            'item_lista_servico' => '1502',
-                            'codigo_tributacao_nacional' => '150201',
+                            'item_lista_servico' => '0101',
+                            'codigo_tributacao_nacional' => '010101',
                         ],
                         11 => [
-                            'item_lista_servico' => '1701',
-                            'codigo_tributacao_nacional' => '170101',
+                            'item_lista_servico' => '0107',
+                            'codigo_tributacao_nacional' => '010701',
                         ],
                     ];
                 }
@@ -2658,8 +2658,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
             // When multiple profiles exist, the first one is selected (highest priority)
-            self::assertSame('1502', $client->capturedDps?->itemListaServico);
-            self::assertStringContainsString('[1502] Servico A', $client->capturedDps?->discriminacao ?? '');
+            self::assertSame('0101', $client->capturedDps?->itemListaServico);
+            self::assertStringContainsString('[0101] Servico A', $client->capturedDps?->discriminacao ?? '');
         }
 
         public function testServicePreviewReturnsMissingItemsAndAvailableServicesContract(): void
