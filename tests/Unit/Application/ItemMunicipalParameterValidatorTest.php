@@ -42,6 +42,18 @@ final class ItemMunicipalParameterValidatorTest extends TestCase
         self::assertSame('5.00', $result['official_rate']);
     }
 
+    public function testUnknownOrMultipleNativeItemTaxRateRemainsUnverifiable(): void
+    {
+        $result = (new ItemMunicipalParameterValidator())->validate(
+            null,
+            ['aliquota' => ['aliquotas' => [['Aliq' => 5.0]]]],
+        );
+
+        self::assertSame('unverifiable', $result['status']);
+        self::assertSame(['item_tax_rate_unverifiable'], $result['issues']);
+        self::assertSame('5.00', $result['official_rate']);
+    }
+
     public function testMultipleOfficialRatesRemainUnverifiable(): void
     {
         $result = (new ItemMunicipalParameterValidator())->validate(

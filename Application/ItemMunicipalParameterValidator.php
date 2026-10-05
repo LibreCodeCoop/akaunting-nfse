@@ -89,8 +89,15 @@ final class ItemMunicipalParameterValidator
         $issues = [];
 
         if ($configured === null) {
-            $issues[] = 'municipal_rate_profile_missing';
-        } elseif ($configured !== $officialRate) {
+            return [
+                'status' => 'unverifiable',
+                'issues' => ['item_tax_rate_unverifiable'],
+                'official_rate' => $officialRate,
+                'source' => $source,
+            ];
+        }
+
+        if ($configured !== $officialRate) {
             $issues[] = 'municipal_rate_mismatch';
         }
 
