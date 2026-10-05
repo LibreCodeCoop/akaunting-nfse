@@ -43,6 +43,22 @@ async function clickRestoreButton(button: Locator): Promise<void> {
   await button.evaluate((node: HTMLButtonElement) => node.click());
 }
 
+async function setVisibleSwitch(page: Page, id: string, checked: boolean): Promise<void> {
+  const input = page.locator(`#${id}`);
+
+  if ((await input.isChecked()) === checked) {
+    return;
+  }
+
+  await page.locator(`label[for="${id}"]`).click();
+
+  if (checked) {
+    await expect(input).toBeChecked();
+  } else {
+    await expect(input).not.toBeChecked();
+  }
+}
+
 async function openEmitActionFromInvoiceShow(page: Page): Promise<boolean> {
   const emitAction = page.locator('#nfse-native-fiscal-panel [data-nfse-native-emit="true"]');
 
@@ -103,18 +119,18 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   await dialog.getByText(/E-mail|Email/i).first().click();
 
-  await page.locator('#nfse_send_email_toggle').setChecked(true, { force: true });
+  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
   await expect(page.locator("input[name='nfse_email_subject']")).toBeVisible();
 
   await page.locator("input[name='nfse_email_subject']").fill(subjectValue);
 
-  await page.locator('#nfse_email_save_default_toggle').setChecked(true, { force: true });
-  await page.locator('#nfse_email_copy_to_self_toggle').setChecked(true, { force: true });
+  await setVisibleSwitch(page, 'nfse_email_save_default_toggle', true);
+  await setVisibleSwitch(page, 'nfse_email_copy_to_self_toggle', true);
 
   await dialog.getByText(/Anexos|Attachments/i).first().click();
-  await page.locator('#nfse_email_attach_invoice_pdf_toggle').setChecked(true, { force: true });
-  await page.locator('#nfse_email_attach_danfse_toggle').setChecked(true, { force: true });
-  await page.locator('#nfse_email_attach_xml_toggle').setChecked(false, { force: true });
+  await setVisibleSwitch(page, 'nfse_email_attach_invoice_pdf_toggle', true);
+  await setVisibleSwitch(page, 'nfse_email_attach_danfse_toggle', true);
+  await setVisibleSwitch(page, 'nfse_email_attach_xml_toggle', false);
 
   await dialog.getByText(/Geral|General/i).first().click();
   await expect(page.locator("textarea[name='nfse_discriminacao_custom']")).toHaveValue(descriptionValue);
@@ -201,7 +217,7 @@ test('typing in email body keeps email tab content visible in emit modal', async
   await expect(dialog).toBeVisible();
 
   await dialog.getByText(/E-mail|Email/i).first().click();
-  await page.locator('#nfse_send_email_toggle').setChecked(true, { force: true });
+  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
 
   const emailPane = dialog.locator('#nfse-tab-pane-email');
   const emailFields = dialog.locator('#nfse-email-fields');
@@ -248,7 +264,7 @@ test('restore default button reacts to subject and body edits in emit modal', as
 
   await expect(dialog).toBeVisible();
   await dialog.getByText(/E-mail|Email/i).first().click();
-  await page.locator('#nfse_send_email_toggle').setChecked(true, { force: true });
+  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
 
   const subject = dialog.locator("input[name='nfse_email_subject']");
   const editor = dialog.locator('.ql-editor').first();
@@ -315,7 +331,7 @@ test('restore default flow works on a fixed invoice from show page', async ({ pa
 
   await expect(dialog).toBeVisible();
   await dialog.getByText(/E-mail|Email/i).first().click();
-  await page.locator('#nfse_send_email_toggle').setChecked(true, { force: true });
+  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
 
   const subject = dialog.locator("input[name='nfse_email_subject']");
   const editor = dialog.locator('.ql-editor').first();

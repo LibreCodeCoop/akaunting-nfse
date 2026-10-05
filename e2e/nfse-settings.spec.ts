@@ -347,8 +347,13 @@ test('readiness blocker guides operator to the focused corrective settings tab',
 
   const clearToken = page.locator('#clear_bao_token');
   await clearToken.check();
+
+  const clearTokenResponse = page.waitForResponse((response) => {
+    return response.request().method() === 'POST' && response.url().includes('/nfse/settings');
+  });
   await page.locator('#tab-panel-vault button[type="submit"]').click();
-  await page.waitForLoadState('networkidle');
+  await clearTokenResponse;
+  await page.waitForLoadState('domcontentloaded');
 
   const summary = page.locator('#nfse-readiness-summary');
   await expect(summary).toBeVisible();
@@ -362,8 +367,13 @@ test('readiness blocker guides operator to the focused corrective settings tab',
 
   await page.locator('input[name="nfse[bao_token]"]').fill('deterministic-test-token');
   await page.locator('#clear_bao_token').uncheck();
+
+  const restoreTokenResponse = page.waitForResponse((response) => {
+    return response.request().method() === 'POST' && response.url().includes('/nfse/settings');
+  });
   await page.locator('#tab-panel-vault button[type="submit"]').click();
-  await page.waitForLoadState('networkidle');
+  await restoreTokenResponse;
+  await page.waitForLoadState('domcontentloaded');
 
   await expect(page.locator('#nfse-readiness-summary a[href*="tab=vault"]')).toHaveCount(0);
 });

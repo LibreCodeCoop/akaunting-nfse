@@ -184,7 +184,10 @@ test('emission error summary receives keyboard focus', async ({ page }, testInfo
 
   const form = dialog.locator("form[action*='/nfse/invoices/'][action$='/emit']");
   await expect(form).toBeVisible();
-  await form.locator('button[type="submit"]').last().click();
+
+  const submit = dialog.getByRole('button', { name: /Emitir NFS-e agora|Emit NFS-e now/i });
+  await expect(submit).toBeVisible();
+  await submit.click();
 
   const summary = dialog.locator('[data-nfse-error-summary="true"]');
   await expect(summary).toBeVisible();
