@@ -262,7 +262,7 @@ class InvoiceController extends Controller
         }
 
         if (!$this->invoiceHasLineItems($invoice)) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_no_items')));
         }
 
@@ -275,7 +275,7 @@ class InvoiceController extends Controller
         if (($fiscalProfileReadiness['isReady'] ?? false) !== true) {
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                redirect()->route('invoices.show', $invoice)
                     ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness)),
             );
         }
@@ -320,14 +320,14 @@ class InvoiceController extends Controller
         );
 
         if (($federalTaxReadiness['isReady'] ?? false) !== true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', $this->emitBlockedFederalTaxMessage($federalTaxReadiness['missing'] ?? [])));
         }
 
         $readiness = $this->emissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
         }
 
@@ -342,7 +342,7 @@ class InvoiceController extends Controller
         } catch (\InvalidArgumentException $e) {
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                redirect()->route('invoices.show', $invoice)
                     ->with('error', trans('nfse::general.invoices.emit_foreign_taker_invalid', ['reason' => $e->getMessage()])),
             );
         }
@@ -402,7 +402,7 @@ class InvoiceController extends Controller
 
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                redirect()->route('invoices.show', $invoice)
                     ->with('error', trans('nfse::general.invoices.emit_runtime_unsupported')),
             );
         }
@@ -527,7 +527,7 @@ class InvoiceController extends Controller
                 )
                 : (new IssueInvoiceNfse())->issue($client, $dps);
         } catch (SecretStoreException) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
         } catch (GatewayException $e) {
             $gatewayDetail = $this->gatewayErrorDetail($e);
@@ -541,7 +541,7 @@ class InvoiceController extends Controller
                 'xml_order_debug' => $xmlOrderDebug,
             ]);
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_emit_failed'))
                 ->with('nfse_gateway_error_detail', $gatewayDetail));
         } catch (\JsonException $e) {
@@ -550,7 +550,7 @@ class InvoiceController extends Controller
                 'message' => $e->getMessage(),
             ]);
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (NetworkException $e) {
             $this->safeLogError('NFS-e issuance failed after DPS recovery could not resolve the ambiguous outcome', [
@@ -559,12 +559,12 @@ class InvoiceController extends Controller
                 'dps_recovery_supported' => isset($client) && is_callable([$client, 'queryDps']),
             ]);
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (PfxImportException) {
             $this->cleanupClientTransportArtifacts();
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
         }
 
@@ -714,8 +714,8 @@ class InvoiceController extends Controller
 
         return match ($target) {
             'invoice_show' => redirect()->route('invoices.show', $invoice),
-            'nfse_show' => redirect()->route('nfse.invoices.show', $invoice),
-            default => redirect()->route('nfse.invoices.index'),
+            'nfse_show' => redirect()->route('invoices.show', $invoice),
+            default => redirect()->route('invoices.show', $invoice),
         };
     }
 
@@ -937,7 +937,7 @@ class InvoiceController extends Controller
         $readiness = $this->emissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
         }
 

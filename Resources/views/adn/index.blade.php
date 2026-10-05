@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     <x-slot name="title">{{ trans('nfse::general.adn.title') }}</x-slot>
 
     <x-slot name="buttons">
-        <x-link href="{{ route('nfse.invoices.index') }}">
+        <x-link href="{{ route('invoices.index') }}">
             {{ trans('nfse::general.invoices.back_to_list') }}
         </x-link>
     </x-slot>
