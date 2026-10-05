@@ -23,6 +23,7 @@ export default defineConfig({
         'nfse-emission.spec.ts',
         'nfse-invoice-show-emit-modal.spec.ts',
         'nfse-settings.spec.ts',
+        'nfse-substitution.spec.ts',
       ],
       grepInvert: /\[live-fiscal\]/,
     },
