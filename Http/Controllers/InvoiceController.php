@@ -21,6 +21,7 @@ use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
+use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\IssueInvoiceNfse;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
@@ -223,7 +224,10 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
         $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($itemFiscalProfile);
-        $fiscalGroups = $this->invoiceFiscalGroups($invoice);
+        $fiscalGroups = $this->annotateFiscalGroupsWithReceiptState(
+            $invoice,
+            $this->invoiceFiscalGroups($invoice),
+        );
 
         return response()->json([
             'missing_items'    => [],
@@ -258,13 +262,6 @@ class InvoiceController extends Controller
                 ->with('error', trans('nfse::general.invoices.emit_blocked_no_items')));
         }
 
-        $federalTaxReadiness = $this->federalTaxReadinessForInvoice($invoice);
-
-        if (($federalTaxReadiness['isReady'] ?? false) !== true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                ->with('error', $this->emitBlockedFederalTaxMessage($federalTaxReadiness['missing'] ?? [])));
-        }
-
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
         $this->persistDefaultDescriptionFromRequest($request);
 
@@ -277,6 +274,50 @@ class InvoiceController extends Controller
                 redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                     ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness)),
             );
+        }
+
+        $fiscalGroups = $this->invoiceFiscalGroups($invoice);
+        $selectedFiscalGroup = null;
+
+        if (count($fiscalGroups) > 1) {
+            $selectedGroupKey = trim((string) ($request?->input('nfse_fiscal_group_key', '') ?? ''));
+
+            foreach ($fiscalGroups as $group) {
+                if (hash_equals((string) ($group['key'] ?? ''), $selectedGroupKey)) {
+                    $selectedFiscalGroup = $group;
+                    break;
+                }
+            }
+
+            if (!is_array($selectedFiscalGroup)) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.invoices.fiscal_group_selection_required')),
+                );
+            }
+        }
+
+        $selectedDocumentItemIds = is_array($selectedFiscalGroup)
+            ? array_values(array_filter(array_map(
+                static fn (array $item): int => is_numeric($item['document_item_id'] ?? null)
+                    ? (int) $item['document_item_id']
+                    : 0,
+                is_array($selectedFiscalGroup['items'] ?? null) ? $selectedFiscalGroup['items'] : [],
+            ), static fn (int $id): bool => $id > 0))
+            : null;
+        $selectedFiscalAmount = is_array($selectedFiscalGroup)
+            ? (float) ($selectedFiscalGroup['amount'] ?? 0)
+            : null;
+        $federalTaxReadiness = $this->federalTaxReadinessForInvoice(
+            $invoice,
+            $selectedDocumentItemIds,
+            $selectedFiscalAmount,
+        );
+
+        if (($federalTaxReadiness['isReady'] ?? false) !== true) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', $this->emitBlockedFederalTaxMessage($federalTaxReadiness['missing'] ?? [])));
         }
 
         $readiness = $this->emissionReadiness();
@@ -314,7 +355,11 @@ class InvoiceController extends Controller
         }
 
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
-        $federalPayload = $this->federalPayloadValues($invoice);
+        $federalPayload = $this->federalPayloadValues(
+            $invoice,
+            $selectedDocumentItemIds,
+            $selectedFiscalAmount,
+        );
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
         $issqnPayload = $this->issqnPayloadValues();
 
@@ -428,6 +473,71 @@ class InvoiceController extends Controller
                     redirect()->route('invoices.show', $invoice)
                         ->with('error', trans('nfse::general.invoices.substitution_invalid', ['reason' => $e->getMessage()])),
                 );
+            }
+        }
+
+        if (is_array($selectedFiscalGroup)) {
+            try {
+                $client = $this->makeClient($sandbox);
+                $groupResult = (new IssueInvoiceFiscalGroup())->issue(
+                    client: $client,
+                    invoiceId: (int) $invoice->id,
+                    baseDps: $dps,
+                    group: $selectedFiscalGroup,
+                );
+
+                if (!$groupResult['reused'] && $groupResult['remote_receipt'] instanceof ReceiptData) {
+                    $this->storeArtifacts(
+                        $invoice,
+                        $groupResult['remote_receipt'],
+                        $groupResult['receipt'],
+                        $client,
+                    );
+                }
+
+                $remaining = $this->remainingFiscalGroups($invoice, $fiscalGroups);
+
+                if ($remaining === []) {
+                    $this->markInvoiceSentAfterEmission($invoice);
+                }
+
+                $message = $remaining === []
+                    ? trans('nfse::general.invoices.fiscal_groups_complete')
+                    : trans('nfse::general.invoices.fiscal_group_emitted', [
+                        'remaining' => count($remaining),
+                    ]);
+
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)->with('success', $message),
+                );
+            } catch (SecretStoreException) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.nfse_secret_store_failed')),
+                );
+            } catch (GatewayException $e) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.nfse_emit_failed'))
+                        ->with('nfse_gateway_error_detail', $this->gatewayErrorDetail($e)),
+                );
+            } catch (NetworkException) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.nfse_emit_failed')),
+                );
+            } catch (PfxImportException) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.nfse_pfx_import_failed')),
+                );
+            } finally {
+                $this->cleanupClientTransportArtifacts();
             }
         }
 
@@ -1275,9 +1385,55 @@ class InvoiceController extends Controller
      *   items:list<array{document_item_id:int,item_id:int,name:string,amount:string}>
      * }>
      */
+    /**
+     * @param list<array<string,mixed>> $groups
+     * @return list<array<string,mixed>>
+     */
+    protected function annotateFiscalGroupsWithReceiptState(Invoice $invoice, array $groups): array
+    {
+        $persistence = new ReceiptPersistence();
+
+        foreach ($groups as &$group) {
+            $key = (string) ($group['key'] ?? '');
+            try {
+                $receipt = $key !== ''
+                    ? $persistence->findGrouped((int) $invoice->id, $key)
+                    : null;
+            } catch (\Throwable) {
+                $receipt = null;
+            }
+
+            $group['issued'] = $receipt instanceof NfseReceipt;
+            $group['receipt_id'] = $receipt?->id;
+            $group['nfse_number'] = $receipt?->nfse_number;
+        }
+        unset($group);
+
+        return $groups;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $groups
+     * @return list<array<string,mixed>>
+     */
+    protected function remainingFiscalGroups(Invoice $invoice, array $groups): array
+    {
+        return array_values(array_filter(
+            $this->annotateFiscalGroupsWithReceiptState($invoice, $groups),
+            static fn (array $group): bool => ($group['issued'] ?? false) !== true,
+        ));
+    }
+
     protected function invoiceFiscalGroups(Invoice $invoice): array
     {
         $items = $this->invoiceItemsAsArray($invoice);
+
+        foreach ($items as $item) {
+            if (!is_scalar($item['total'] ?? null)) {
+                return [];
+            }
+        }
+
         $itemIds = [];
 
         foreach ($items as $item) {
@@ -1446,8 +1602,15 @@ class InvoiceController extends Controller
     /**
      * @return array{isReady: bool, missing: list<string>}
      */
-    protected function federalTaxReadinessForInvoice(Invoice $invoice): array
-    {
+    /**
+     * @param list<int>|null $documentItemIds
+     * @return array{isReady: bool, missing: list<string>}
+     */
+    protected function federalTaxReadinessForInvoice(
+        Invoice $invoice,
+        ?array $documentItemIds = null,
+        ?float $amountOverride = null,
+    ): array {
         $requiredBuckets = $this->requiredFederalTaxBucketsForEmission();
 
         if ($requiredBuckets === []) {
@@ -1457,7 +1620,11 @@ class InvoiceController extends Controller
             ];
         }
 
-        $snapshot = $this->invoiceFederalTaxSnapshot($invoice, (float) ($invoice->amount ?? 0.0));
+        $snapshot = $this->invoiceFederalTaxSnapshot(
+            $invoice,
+            $amountOverride ?? (float) ($invoice->amount ?? 0.0),
+            $documentItemIds,
+        );
         $bucketToSnapshotKey = [
             'pis' => 'pis_value',
             'cofins' => 'cofins_value',
@@ -2996,11 +3163,21 @@ class InvoiceController extends Controller
         ];
     }
 
-    protected function federalPayloadValues(Invoice $invoice): array
-    {
-        $invoiceAmount = (float) ($invoice->amount ?? 0.0);
+    /**
+     * @param list<int>|null $documentItemIds
+     */
+    protected function federalPayloadValues(
+        Invoice $invoice,
+        ?array $documentItemIds = null,
+        ?float $amountOverride = null,
+    ): array {
+        $invoiceAmount = $amountOverride ?? (float) ($invoice->amount ?? 0.0);
         $federalMode = strtolower((string) setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
-        $invoiceFederalTaxes = $this->invoiceFederalTaxSnapshot($invoice, $invoiceAmount);
+        $invoiceFederalTaxes = $this->invoiceFederalTaxSnapshot(
+            $invoice,
+            $invoiceAmount,
+            $documentItemIds,
+        );
         $situacaoTributaria = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_situacao_tributaria', ''));
         $tipoRetencao = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_tipo_retencao', ''));
         $valorCsllRetencao = $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_csll');
@@ -3112,10 +3289,14 @@ class InvoiceController extends Controller
     }
 
     /**
+     * @param list<int>|null $documentItemIds
      * @return array{pis_value:string,pis_rate:string,cofins_value:string,cofins_rate:string,irrf_value:string,csll_value:string,federal_percent:string}
      */
-    protected function invoiceFederalTaxSnapshot(Invoice $invoice, float $invoiceAmount): array
-    {
+    protected function invoiceFederalTaxSnapshot(
+        Invoice $invoice,
+        float $invoiceAmount,
+        ?array $documentItemIds = null,
+    ): array {
         $totals = [
             'pis' => 0.0,
             'cofins' => 0.0,
@@ -3137,6 +3318,14 @@ class InvoiceController extends Controller
         $taxRateById = [];
 
         foreach ($this->invoiceItemsAsArray($invoice) as $item) {
+            $documentItemId = is_array($item) && is_numeric($item['id'] ?? null)
+                ? (int) $item['id']
+                : (is_object($item) && is_numeric($item->id ?? null) ? (int) $item->id : 0);
+
+            if ($documentItemIds !== null && !in_array($documentItemId, $documentItemIds, true)) {
+                continue;
+            }
+
             $taxes = [];
 
             if (is_array($item)) {

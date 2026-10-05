@@ -353,6 +353,47 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame($expectedMissing, $readiness['missing'] ?? null);
         }
 
+        public function testFederalTaxSnapshotCanBeScopedToOneFiscalGroup(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 989,
+                amount: 300.00,
+                items: [
+                    [
+                        'id' => 101,
+                        'name' => 'Grupo A',
+                        'item_taxes' => [
+                            ['name' => 'PIS', 'amount' => 10.00],
+                            ['name' => 'COFINS', 'amount' => 20.00],
+                        ],
+                    ],
+                    [
+                        'id' => 102,
+                        'name' => 'Grupo B',
+                        'item_taxes' => [
+                            ['name' => 'PIS', 'amount' => 30.00],
+                            ['name' => 'COFINS', 'amount' => 40.00],
+                        ],
+                    ],
+                ],
+            );
+
+            $controller = new class () extends InvoiceController {
+                /** @param list<int> $documentItemIds */
+                public function groupSnapshot(Invoice $invoice, float $amount, array $documentItemIds): array
+                {
+                    return $this->invoiceFederalTaxSnapshot($invoice, $amount, $documentItemIds);
+                }
+            };
+
+            $snapshot = $controller->groupSnapshot($invoice, 100.00, [101]);
+
+            self::assertSame('10.00', $snapshot['pis_value']);
+            self::assertSame('20.00', $snapshot['cofins_value']);
+            self::assertSame('10.00', $snapshot['pis_rate']);
+            self::assertSame('20.00', $snapshot['cofins_rate']);
+        }
+
         /**
          * @return array<string, array{0:list<array<string,mixed>>,1:bool,2:list<string>}>
          */
