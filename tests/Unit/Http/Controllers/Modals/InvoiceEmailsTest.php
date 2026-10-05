@@ -334,13 +334,29 @@ final class InvoiceEmailsTest extends TestCase
         // Email and attachments panes must start hidden so only the issuance pane is
         // visible when the modal first opens (no Alpine.js x-show available in AJAX context).
         self::assertStringContainsString(
-            'id="nfse-tab-pane-email" data-nfse-tab-pane="true" style="display:none;"',
+            'id="nfse-tab-pane-email" role="tabpanel" aria-labelledby="nfse-tab-nav-email" aria-hidden="true" data-nfse-tab-pane="true" style="display:none;"',
             $view
         );
         self::assertStringContainsString(
-            'id="nfse-tab-pane-attachments" data-nfse-tab-pane="true" style="display:none;"',
+            'id="nfse-tab-pane-attachments" role="tabpanel" aria-labelledby="nfse-tab-nav-attachments" aria-hidden="true" data-nfse-tab-pane="true" style="display:none;"',
             $view
         );
+    }
+
+    public function testIssueViewTabsExposeKeyboardAndAriaContract(): void
+    {
+        $view = $this->issueViewContent();
+        $handlers = $this->issueJsHandlersContent();
+
+        self::assertStringContainsString('role="tablist"', $view);
+        self::assertStringContainsString('role="tab"', $view);
+        self::assertStringContainsString('aria-selected="true"', $view);
+        self::assertStringContainsString('aria-controls="nfse-tab-pane-email"', $view);
+        self::assertStringContainsString('onkeydown="{!! $nfseTabOnkeydown !!}"', $view);
+        self::assertStringContainsString("item.setAttribute('aria-selected'", $handlers);
+        self::assertStringContainsString("pane.setAttribute('aria-hidden'", $handlers);
+        self::assertStringContainsString("key === 'ArrowRight'", $handlers);
+        self::assertStringContainsString("key === 'Home'", $handlers);
     }
 
     public function testIssueViewDoesNotUseAlpineJsXShowOrXOnClickOnTabs(): void
