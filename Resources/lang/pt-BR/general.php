@@ -396,6 +396,10 @@ return [
         'opcao_simples_nacional' => 'Situação no Simples Nacional',
         'opcao_simples_nacional_not_optant' => 'Não optante',
         'opcao_simples_nacional_optant' => 'Optante',
+        'emission_policy' => 'Política de emissão fiscal da fatura',
+        'emission_policy_manual' => 'Ação fiscal manual',
+        'emission_policy_emit_on_send' => 'Emitir NFS-e antes de enviar a fatura',
+        'emission_policy_help' => 'Manual é o padrão seguro. Emitir ao enviar executará o preflight/emissão fiscal antes da notificação do Akaunting; rascunhos nunca são emitidos automaticamente.',
         'sandbox_mode'     => 'Modo Sandbox (Homologação)',
         'municipal_parameters' => [
             'title' => 'Parâmetros municipais oficiais',

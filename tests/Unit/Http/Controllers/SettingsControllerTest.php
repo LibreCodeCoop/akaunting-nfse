@@ -1315,6 +1315,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         'municipio_nome'    => 'Niteroi',
                         'municipio_ibge'    => '3303302',
                         'opcao_simples_nacional' => '1',
+                        'emission_policy' => 'emit_on_send',
                         'tributacao_issqn' => '3',
                         'tipo_retencao_iss' => '2',
                         'issqn_pais_resultado' => 'us',
@@ -1335,6 +1336,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('Niteroi', ControllerIsolationState::$settings['nfse.municipio_nome'] ?? null);
             self::assertSame('3303302', ControllerIsolationState::$settings['nfse.municipio_ibge'] ?? null);
             self::assertSame('1', ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] ?? null);
+            self::assertSame('emit_on_send', ControllerIsolationState::$settings['nfse.emission_policy'] ?? null);
             self::assertSame('3', ControllerIsolationState::$settings['nfse.tributacao_issqn'] ?? null);
             self::assertSame('2', ControllerIsolationState::$settings['nfse.tipo_retencao_iss'] ?? null);
             self::assertSame('US', ControllerIsolationState::$settings['nfse.issqn_pais_resultado'] ?? null);

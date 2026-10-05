@@ -439,6 +439,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </select>
                         </div>
 
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="emission_policy">{{ trans('nfse::general.settings.emission_policy') }}</label>
+                            <select id="emission_policy" name="nfse[emission_policy]" class="w-full border rounded px-3 py-2">
+                                <option value="manual" @selected((string) old('nfse.emission_policy', setting('nfse.emission_policy', 'manual')) === 'manual')>
+                                    {{ trans('nfse::general.settings.emission_policy_manual') }}
+                                </option>
+                                <option value="emit_on_send" @selected((string) old('nfse.emission_policy', setting('nfse.emission_policy', 'manual')) === 'emit_on_send')>
+                                    {{ trans('nfse::general.settings.emission_policy_emit_on_send') }}
+                                </option>
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500">{{ trans('nfse::general.settings.emission_policy_help') }}</p>
+                        </div>
+
                         <div class="rounded-md border border-gray-200 bg-gray-50 p-4 space-y-4">
                             <div>
                                 <h4 class="text-sm font-semibold text-gray-900">{{ trans('nfse::general.settings.issqn_special.heading') }}</h4>
