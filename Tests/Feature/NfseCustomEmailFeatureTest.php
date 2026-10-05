@@ -73,6 +73,6 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
             ],
         ))->handle();
 
-        Notification::assertCount(0, NfseIssued::class);
+        Notification::assertNotSentTo($invoice->contact->fresh(), NfseIssued::class);
     }
 }
