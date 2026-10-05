@@ -11,12 +11,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\ItemFiscalProfileValidator;
 use Modules\Nfse\Application\ItemFiscalValidationSummary;
+use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Console\Commands\ProvisionTestHarness;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Console\Commands\SyncAdn;
 use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\ItemMunicipalValidationResolver;
@@ -118,6 +120,13 @@ class Main extends Provider
                 transport: $this->app->make(HttpTransportInterface::class),
                 runtimeContextFactory: $this->app->make(NfseRuntimeContextFactory::class),
                 secretStoreFactory: fn (): SecretStoreInterface => $this->app->make(SecretStoreInterface::class),
+            ),
+        );
+
+        $this->app->bind(
+            BulkEmissionUnitIssuerInterface::class,
+            fn (): BulkEmissionUnitIssuerInterface => new AutomaticInvoiceFiscalIssuer(
+                clientFactory: $this->app->make(FiscalClientFactory::class),
             ),
         );
     }
