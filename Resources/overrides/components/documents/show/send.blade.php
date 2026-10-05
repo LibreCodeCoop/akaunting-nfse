@@ -11,10 +11,7 @@
     $canTriggerSendAction = $nfseManagedSendFlow || (bool) ($document->contact->has_email ?? false);
 @endphp
 
-<x-show.accordion type="send" :open="($accordionActive == 'send')">
-    <x-slot name="head">
-        <x-show.accordion.head
-            title="{{ trans('general.send') }}"
+           title="{{ trans('general.send') }}"
             description="{!! trans($description, [
                 'user' => $user_name,
                 'type' => $type_lowercase,
@@ -82,7 +79,7 @@
             @stack('timeline_send_body_history_start')
 
             @if ($histories->count())
-                <div class="text-xs mt-6" style="margin-left: 0 !important;">
+                <div class="text-xs mt-6" style="margin-inline-start: 0 !important;">
                     <span class="font-medium">
                         {{ trans_choice('general.histories', 1) }}:
                     </span>

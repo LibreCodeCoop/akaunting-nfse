@@ -11,11 +11,7 @@
     $canTriggerSendAction = $nfseManagedSendFlow || !empty($document->contact_email);
 @endphp
 
-@stack('button_group_start')
-
-@if (! $hideMoreActions)
-    <x-dropdown id="show-more-actions-{{ $document->type }}">
-        <x-slot name="trigger">
+<x-slot name="trigger">
             <span class="material-icons pointer-events-none">more_horiz</span>
         </x-slot>
 
@@ -82,7 +78,7 @@
                         {{ trans($textEmail) }}
                     </x-dropdown.button>
                 @else
-                    <x-tooltip message="{{ trans('invoices.messages.email_required') }}" placement="left">
+                    <x-tooltip message="{{ trans('invoices.messages.email_required') }}" placement="{{ language()->direction() === 'rtl' ? 'right' : 'left' }}">
                         <x-dropdown.button disabled="disabled">
                             {{ trans($textEmail) }}
                         </x-dropdown.button>
