@@ -337,6 +337,33 @@
         return true;
     }
 
+    function launchNativeModal(button, documentRef) {
+        if (!button || !documentRef) {
+            return false;
+        }
+
+        const url = button.getAttribute
+            ? String(button.getAttribute('data-nfse-modal-url') || '')
+            : '';
+
+        if (url === '') {
+            return false;
+        }
+
+        const app = typeof documentRef.getElementById === 'function'
+            ? documentRef.getElementById('app')
+            : null;
+        const vue = app && app.__vue__ ? app.__vue__ : null;
+
+        if (!vue || typeof vue.onSendEmail !== 'function') {
+            return false;
+        }
+
+        vue.onSendEmail(url);
+
+        return true;
+    }
+
     function boot(documentRef) {
         if (!documentRef || documentRef.__nfseIssueModalBooted) {
             return;
@@ -345,6 +372,16 @@
         documentRef.__nfseIssueModalBooted = true;
 
         documentRef.addEventListener('click', (event) => {
+            const modalLauncher = event.target && event.target.closest
+                ? event.target.closest('[data-nfse-modal-url]')
+                : null;
+
+            if (modalLauncher) {
+                event.preventDefault();
+                launchNativeModal(modalLauncher, documentRef);
+                return;
+            }
+
             const nav = event.target && event.target.closest
                 ? event.target.closest('[data-nfse-tab-nav]')
                 : null;
@@ -464,6 +501,7 @@
         applySendEmailState,
         boot,
         focusErrorSummary,
+        launchNativeModal,
         nextTabIndex,
         normalizeHtml,
         restoreDefaults,
