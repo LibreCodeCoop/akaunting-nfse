@@ -20,6 +20,7 @@ use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
+use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\IssueInvoiceNfse;
 use Modules\Nfse\Application\ReceiptNumberResolver;
@@ -223,7 +224,10 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
         $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($itemFiscalProfile);
-        $fiscalGroups = $this->invoiceFiscalGroups($invoice);
+        $fiscalGroups = $this->annotateFiscalGroupsWithReceiptState(
+            $invoice,
+            $this->invoiceFiscalGroups($invoice),
+        );
 
         return response()->json([
             'missing_items'    => [],
@@ -277,6 +281,28 @@ class InvoiceController extends Controller
                 redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                     ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness)),
             );
+        }
+
+        $fiscalGroups = $this->invoiceFiscalGroups($invoice);
+        $selectedFiscalGroup = null;
+
+        if (count($fiscalGroups) > 1) {
+            $selectedGroupKey = trim((string) ($request?->input('nfse_fiscal_group_key', '') ?? ''));
+
+            foreach ($fiscalGroups as $group) {
+                if (hash_equals((string) ($group['key'] ?? ''), $selectedGroupKey)) {
+                    $selectedFiscalGroup = $group;
+                    break;
+                }
+            }
+
+            if (!is_array($selectedFiscalGroup)) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.invoices.fiscal_group_selection_required')),
+                );
+            }
         }
 
         $readiness = $this->emissionReadiness();
@@ -431,6 +457,67 @@ class InvoiceController extends Controller
             }
         }
 
+        if (is_array($selectedFiscalGroup)) {
+            try {
+                $client = $this->makeClient($sandbox);
+                $groupResult = (new IssueInvoiceFiscalGroup())->issue(
+                    client: $client,
+                    invoiceId: (int) $invoice->id,
+                    baseDps: $dps,
+                    group: $selectedFiscalGroup,
+                );
+
+                if (!$groupResult['reused'] && $groupResult['remote_receipt'] instanceof ReceiptData) {
+                    $this->storeArtifacts(
+                        $invoice,
+                        $groupResult['remote_receipt'],
+                        $groupResult['receipt'],
+                        $client,
+                    );
+                }
+
+                $remaining = $this->remainingFiscalGroups($invoice, $fiscalGroups);
+                $message = $remaining === []
+                    ? trans('nfse::general.invoices.fiscal_groups_complete')
+                    : trans('nfse::general.invoices.fiscal_group_emitted', [
+                        'remaining' => count($remaining),
+                    ]);
+
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)->with('success', $message),
+                );
+            } catch (SecretStoreException) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.nfse_secret_store_failed')),
+                );
+            } catch (GatewayException $e) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.nfse_emit_failed'))
+                        ->with('nfse_gateway_error_detail', $this->gatewayErrorDetail($e)),
+                );
+            } catch (NetworkException) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.nfse_emit_failed')),
+                );
+            } catch (PfxImportException) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.nfse_pfx_import_failed')),
+                );
+            } finally {
+                $this->cleanupClientTransportArtifacts();
+            }
+        }
+
+        $this->safeLogInfo('NFS-e emission payload', [
         $this->safeLogInfo('NFS-e emission payload', [
             'invoice_id' => $invoice->id,
             'opSimpNac' => $dps->opcaoSimplesNacional,
@@ -1275,6 +1362,41 @@ class InvoiceController extends Controller
      *   items:list<array{document_item_id:int,item_id:int,name:string,amount:string}>
      * }>
      */
+    /**
+     * @param list<array<string,mixed>> $groups
+     * @return list<array<string,mixed>>
+     */
+    protected function annotateFiscalGroupsWithReceiptState(Invoice $invoice, array $groups): array
+    {
+        $persistence = new ReceiptPersistence();
+
+        foreach ($groups as &$group) {
+            $key = (string) ($group['key'] ?? '');
+            $receipt = $key !== ''
+                ? $persistence->findGrouped((int) $invoice->id, $key)
+                : null;
+
+            $group['issued'] = $receipt instanceof NfseReceipt;
+            $group['receipt_id'] = $receipt?->id;
+            $group['nfse_number'] = $receipt?->nfse_number;
+        }
+        unset($group);
+
+        return $groups;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $groups
+     * @return list<array<string,mixed>>
+     */
+    protected function remainingFiscalGroups(Invoice $invoice, array $groups): array
+    {
+        return array_values(array_filter(
+            $this->annotateFiscalGroupsWithReceiptState($invoice, $groups),
+            static fn (array $group): bool => ($group['issued'] ?? false) !== true,
+        ));
+    }
+
     protected function invoiceFiscalGroups(Invoice $invoice): array
     {
         $items = $this->invoiceItemsAsArray($invoice);

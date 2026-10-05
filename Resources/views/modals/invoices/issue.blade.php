@@ -77,12 +77,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                                 <div class="mt-3 space-y-2">
                                     @foreach($fiscalGroups as $group)
-                                        <div class="rounded border border-blue-200 bg-white px-3 py-2" data-nfse-fiscal-group="{{ $group['key'] ?? '' }}">
+                                        <label class="block rounded border border-blue-200 bg-white px-3 py-2 {{ ($group['issued'] ?? false) ? 'opacity-70' : 'cursor-pointer' }}" data-nfse-fiscal-group="{{ $group['key'] ?? '' }}">
                                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                                <span class="font-medium">
-                                                    {{ $group['item_lista_servico'] ?? '' }} /
-                                                    {{ $group['codigo_tributacao_nacional'] ?? '' }}
-                                                    — {{ $group['aliquota'] ?? '' }}%
+                                                <span class="flex items-center gap-2 font-medium">
+                                                    @if(!($group['issued'] ?? false))
+                                                        <input
+                                                            type="radio"
+                                                            name="nfse_fiscal_group_key"
+                                                            value="{{ $group['key'] ?? '' }}"
+                                                            required
+                                                        >
+                                                    @endif
+                                                    <span>
+                                                        {{ $group['item_lista_servico'] ?? '' }} /
+                                                        {{ $group['codigo_tributacao_nacional'] ?? '' }}
+                                                        — {{ $group['aliquota'] ?? '' }}%
+                                                    </span>
                                                 </span>
                                                 <span>
                                                     {{ trans('nfse::general.invoices.fiscal_group_amount', ['amount' => $group['amount'] ?? '0.00']) }}
@@ -95,12 +105,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                     ['count' => count($group['items'] ?? [])]
                                                 ) }}
                                             </p>
-                                        </div>
+                                            @if($group['issued'] ?? false)
+                                                <p class="mt-1 text-xs font-medium text-green-700">
+                                                    {{ trans('nfse::general.invoices.fiscal_group_already_issued', ['number' => $group['nfse_number'] ?? '']) }}
+                                                </p>
+                                            @endif
+                                        </label>
                                     @endforeach
                                 </div>
 
                                 <p class="mt-3 text-xs">
-                                    {{ trans('nfse::general.invoices.fiscal_groups_preview_not_issued_yet') }}
+                                    {{ trans('nfse::general.invoices.fiscal_groups_issue_one_at_a_time') }}
                                 </p>
                             </div>
                         @elseif ($missingItems !== [] && $defaultServiceId <= 0)
