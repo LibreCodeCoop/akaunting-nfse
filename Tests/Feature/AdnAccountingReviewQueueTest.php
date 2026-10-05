@@ -46,7 +46,8 @@ final class AdnAccountingReviewQueueTest extends FeatureTestCase
         $document->company_id = ((int) company_id()) + 999;
         $document->save();
 
-        $this->post(route('nfse.adn.review.ignore', $document))
+        $this->withExceptionHandling()
+            ->post(route('nfse.adn.review.ignore', $document))
             ->assertNotFound();
 
         self::assertSame('pending', $document->fresh()->review_status);
