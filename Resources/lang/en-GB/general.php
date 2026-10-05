@@ -173,6 +173,7 @@ return [
         'fiscal_pending' => 'This invoice does not have an issued NFS-e yet.',
         'status_pending' => 'Pending',
         'status_emitted' => 'Issued',
+        'status_processing' => 'Processing',
         'status_cancelled' => 'Cancelled',
         'status_substituted' => 'Substituted',
         'status_unknown' => 'Fiscal state',
