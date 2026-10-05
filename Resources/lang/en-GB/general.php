@@ -269,6 +269,7 @@ return [
         'fiscal_groups_preview_title' => 'This invoice requires multiple NFS-e documents',
         'fiscal_groups_preview_help' => 'The items belong to different fiscal signatures. Review the documents that will be required:',
         'fiscal_group_amount' => 'Service value: :amount',
+        'fiscal_group_key' => 'Fiscal group',
         'fiscal_group_items' => '{1} :count item|[2,*] :count items',
         'fiscal_groups_preview_not_issued_yet' => 'This preview does not issue the groups yet. Each group will be emitted independently so partial failures can be resumed safely.',
         'fiscal_groups_issue_one_at_a_time' => 'Select one pending group to issue. Issued groups are preserved and will not be posted again.',

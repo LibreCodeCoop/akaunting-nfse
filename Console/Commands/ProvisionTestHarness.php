@@ -31,6 +31,7 @@ final class ProvisionTestHarness extends Command
         {--substitution-fixture : Create an emitted invoice fixture for substitution UI tests}
         {--adn-review-fixture : Create a received NFS-e review fixture and explicit accounting mappings}
         {--item-validation-fixture : Create an item with a deterministic valid NFS-e fiscal profile}
+        {--grouped-invoice-fixture : Create an invoice with two persisted fiscal-group receipts}
         {--json : Emit machine-readable output}';
 
     protected $description = 'Provision deterministic local/testing fiscal settings and synthetic PKCS#12 material';
@@ -130,6 +131,48 @@ final class ProvisionTestHarness extends Command
             );
 
             $payload['substitution_invoice_id'] = (int) $invoice->id;
+        }
+
+        if ((bool) $this->option('grouped-invoice-fixture')) {
+            $invoice = Document::query()
+                ->where('company_id', $companyId)
+                ->where('type', 'invoice')
+                ->where('document_number', 'NFSE-E2E-GROUPED')
+                ->first();
+
+            if (!$invoice instanceof Document) {
+                $invoice = Document::factory()->invoice()->create([
+                    'company_id' => $companyId,
+                    'document_number' => 'NFSE-E2E-GROUPED',
+                    'amount' => 100.00,
+                ]);
+            }
+
+            NfseReceipt::query()->updateOrCreate(
+                [
+                    'invoice_id' => (int) $invoice->id,
+                    'emission_group_key' => 'service:0107|tax:010701|rate:2.00',
+                ],
+                [
+                    'nfse_number' => '5101',
+                    'chave_acesso' => str_repeat('5', 50),
+                    'status' => 'emitted',
+                ],
+            );
+
+            NfseReceipt::query()->updateOrCreate(
+                [
+                    'invoice_id' => (int) $invoice->id,
+                    'emission_group_key' => 'service:0101|tax:010101|rate:3.00',
+                ],
+                [
+                    'nfse_number' => '5102',
+                    'chave_acesso' => str_repeat('6', 50),
+                    'status' => 'emitted',
+                ],
+            );
+
+            $payload['grouped_invoice_id'] = (int) $invoice->id;
         }
 
         if ((bool) $this->option('item-validation-fixture')) {

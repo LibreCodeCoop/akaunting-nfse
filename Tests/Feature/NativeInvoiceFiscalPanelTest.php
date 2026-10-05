@@ -38,12 +38,13 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
         $this->loginAs()
             ->get(route('invoices.show', $invoice->id))
             ->assertOk()
-            ->assertSee('>901</dd>', false)
+            ->assertSee('901')
             ->assertSee(str_repeat('7', 50))
+            ->assertSee('data-nfse-receipt-id=', false)
             ->assertSee(route('nfse.invoices.show', $invoice->id), false);
     }
 
-    public function testNativePanelUsesLatestFiscalReceipt(): void
+    public function testNativePanelKeepsAllReceiptsVisibleWhileLatestDrivesPrimaryActions(): void
     {
         $invoice = Document::factory()->invoice()->create();
 
@@ -64,7 +65,10 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
         $this->loginAs()
             ->get(route('invoices.show', $invoice->id))
             ->assertOk()
-            ->assertSee('>902</dd>', false)
-            ->assertDontSee('>901</dd>', false);
+            ->assertSee('902')
+            ->assertSee('901')
+            ->assertSee(str_repeat('8', 50))
+            ->assertSee(str_repeat('7', 50))
+            ->assertSee(route('nfse.invoices.substitute', $invoice->id), false);
     }
 }

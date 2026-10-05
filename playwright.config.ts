@@ -22,6 +22,7 @@ export default defineConfig({
         'nfse-adn-import.spec.ts',
         'nfse-certificate.spec.ts',
         'nfse-emission.spec.ts',
+        'nfse-grouped-invoice.spec.ts',
         'nfse-invoice-show-emit-modal.spec.ts',
         'nfse-item-validation.spec.ts',
         'nfse-settings.spec.ts',

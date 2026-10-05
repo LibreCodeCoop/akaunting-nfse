@@ -3,6 +3,7 @@
 @php
     $receiptStatus = (string) ($receipt->status ?? '');
     $hasReceipt = $receipt !== null;
+    $receipts = $receipts ?? collect($receipt !== null ? [$receipt] : []);
     $statusClasses = match ($receiptStatus) {
         'emitted' => 'bg-green-100 text-green-700',
         'cancelled', 'substituted' => 'bg-gray-100 text-gray-700',
@@ -33,16 +34,43 @@
     </div>
 
     @if($hasReceipt)
-        <dl class="mt-3 space-y-1 text-sm">
-            <div class="flex gap-2">
-                <dt class="text-gray-500">{{ trans('nfse::general.invoices.nfse_number') }}:</dt>
-                <dd class="font-medium text-gray-800">{{ $receipt->nfse_number ?: '—' }}</dd>
-            </div>
-            <div>
-                <dt class="text-gray-500">{{ trans('nfse::general.invoices.access_key') }}:</dt>
-                <dd class="break-all text-xs text-gray-700">{{ $receipt->chave_acesso ?: '—' }}</dd>
-            </div>
-        </dl>
+        <div class="mt-3 space-y-2" data-nfse-receipt-list="true">
+            @foreach($receipts as $linkedReceipt)
+                @php
+                    $linkedStatus = (string) ($linkedReceipt->status ?? '');
+                    $linkedStatusClasses = match ($linkedStatus) {
+                        'emitted' => 'bg-green-50 border-green-200',
+                        'cancelled', 'substituted' => 'bg-gray-50 border-gray-200',
+                        default => 'bg-yellow-50 border-yellow-200',
+                    };
+                @endphp
+                <article
+                    class="rounded border p-3 {{ $linkedStatusClasses }}"
+                    data-nfse-receipt-id="{{ $linkedReceipt->id }}"
+                    data-nfse-group-key="{{ $linkedReceipt->emission_group_key ?? '' }}"
+                >
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="font-medium text-gray-900">
+                            {{ trans('nfse::general.invoices.nfse_number') }}:
+                            {{ $linkedReceipt->nfse_number ?: '—' }}
+                        </span>
+                        <span class="text-xs text-gray-600">
+                            {{ trans('nfse::general.native_invoice.status_' . ($linkedStatus !== '' ? $linkedStatus : 'unknown')) }}
+                        </span>
+                    </div>
+                    <div class="mt-1 break-all text-xs text-gray-700">
+                        {{ trans('nfse::general.invoices.access_key') }}:
+                        {{ $linkedReceipt->chave_acesso ?: '—' }}
+                    </div>
+                    @if(!empty($linkedReceipt->emission_group_key))
+                        <div class="mt-1 break-all text-xs text-gray-500">
+                            {{ trans('nfse::general.invoices.fiscal_group_key') }}:
+                            {{ $linkedReceipt->emission_group_key }}
+                        </div>
+                    @endif
+                </article>
+            @endforeach
+        </div>
     @endif
 
     <div class="mt-4 flex flex-wrap gap-2">

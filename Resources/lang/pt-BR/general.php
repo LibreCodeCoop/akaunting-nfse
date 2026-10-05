@@ -266,6 +266,7 @@ return [
         'fiscal_groups_preview_title' => 'Esta fatura exige múltiplas NFS-e',
         'fiscal_groups_preview_help' => 'Os itens pertencem a assinaturas fiscais diferentes. Revise os documentos fiscais que serão necessários:',
         'fiscal_group_amount' => 'Valor dos serviços: :amount',
+        'fiscal_group_key' => 'Grupo fiscal',
         'fiscal_group_items' => '{1} :count item|[2,*] :count itens',
         'fiscal_groups_preview_not_issued_yet' => 'Esta prévia ainda não emite os grupos. Cada grupo será emitido de forma independente para permitir retomada segura em caso de falha parcial.',
         'fiscal_groups_issue_one_at_a_time' => 'Selecione um grupo pendente para emitir. Grupos já emitidos são preservados e não serão enviados novamente.',
