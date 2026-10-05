@@ -191,8 +191,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("'type' => 'date'", $content);
             self::assertStringNotContainsString("'key' => 'per_page'", $content);
             self::assertStringContainsString('<x-documents.script type="invoice" />', $content);
-            self::assertStringContainsString("const cookieFilters = @json(\$searchStringCookieFilters ?? []);", $content);
-            self::assertStringContainsString("Cookies.set('search-string', searchStringCookie);", $content);
+            self::assertStringContainsString('id="nfse-invoice-list-search-config"', $content);
+            self::assertStringContainsString('data-nfse-invoice-list-search-module="true"', $content);
             self::assertStringNotContainsString('id="nfse-status-filter"', $content);
             self::assertStringNotContainsString('class="bg-white border border-gray-200 rounded-lg overflow-hidden"', $content);
             self::assertStringContainsString('text-sm text-gray-600', $content);
