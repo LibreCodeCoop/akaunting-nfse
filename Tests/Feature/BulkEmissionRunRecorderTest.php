@@ -9,6 +9,7 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
 use Modules\Nfse\Application\BulkEmissionRunRecorder;
+use Modules\Nfse\Application\BulkEmissionStatusPolicy;
 use Tests\Feature\FeatureTestCase;
 
 final class BulkEmissionRunRecorderTest extends FeatureTestCase
@@ -48,6 +49,60 @@ final class BulkEmissionRunRecorderTest extends FeatureTestCase
             'invoice_id' => $first->id,
             'status' => 'queued',
         ]);
+    }
+
+    public function testRepeatedActiveSelectionReusesSameRunAndUnits(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $units = [[
+            'invoice_id' => (int) $invoice->id,
+            'emission_group_key' => 'service:0107|tax:010701|rate:2.00',
+        ]];
+
+        $recorder = new BulkEmissionRunRecorder();
+        $first = $recorder->create(
+            companyId: (int) $invoice->company_id,
+            requestedBy: null,
+            units: $units,
+        );
+        $second = $recorder->create(
+            companyId: (int) $invoice->company_id,
+            requestedBy: null,
+            units: $units,
+        );
+
+        self::assertSame($first['run']->id, $second['run']->id);
+        self::assertCount(1, $second['units']);
+        self::assertSame($first['units'][0]->id, $second['units'][0]->id);
+        $this->assertDatabaseCount('nfse_bulk_emission_runs', 1);
+        $this->assertDatabaseCount('nfse_bulk_emission_units', 1);
+    }
+
+    public function testTerminalRunAllowsNewAttemptForSameSelection(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $units = [[
+            'invoice_id' => (int) $invoice->id,
+            'emission_group_key' => 'service:0107|tax:010701|rate:2.00',
+        ]];
+
+        $recorder = new BulkEmissionRunRecorder();
+        $first = $recorder->create(
+            companyId: (int) $invoice->company_id,
+            requestedBy: null,
+            units: $units,
+        );
+
+        $first['run']->update(['status' => BulkEmissionStatusPolicy::ISSUED]);
+
+        $second = $recorder->create(
+            companyId: (int) $invoice->company_id,
+            requestedBy: null,
+            units: $units,
+        );
+
+        self::assertNotSame($first['run']->id, $second['run']->id);
+        $this->assertDatabaseCount('nfse_bulk_emission_runs', 2);
     }
 
     public function testRejectsEmptyOrInvalidSelection(): void
