@@ -8,6 +8,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\AdnController;
 use Modules\Nfse\Http\Controllers\CertificateController;
+use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 use Modules\Nfse\Http\Controllers\Modals\InvoiceEmails;
@@ -39,6 +40,10 @@ Route::admin('nfse', function () {
     // ADN contributor distribution
     Route::get('adn', [AdnController::class, 'index'])->name('adn.index');
     Route::get('adn/distribution', [AdnController::class, 'distribution'])->name('adn.distribution');
+
+    // Competence closing and reconciliation
+    Route::get('closing', [ClosingController::class, 'index'])->name('closing.index');
+    Route::get('closing/export', [ClosingController::class, 'export'])->name('closing.export');
 
     // NFS-e issuance
     Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');

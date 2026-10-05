@@ -301,6 +301,27 @@ return [
         'tax_policy_notice_with_item_taxes' => 'This invoice has item taxes in Akaunting and they are used to build federal taxes in NFS-e.',
     ],
 
+    'closing' => [
+        'title' => 'NFS-e competence closing',
+        'competence' => 'Competence',
+        'apply' => 'Apply',
+        'export_csv' => 'Export CSV',
+        'gross' => 'Gross service value',
+        'iss' => 'ISSQN value',
+        'active_documents' => 'Active fiscal documents',
+        'mismatches' => 'Reconciliation mismatches',
+        'reconciliation_attention' => 'Resolve these discrepancies before closing',
+        'reason_missing_authorized_snapshot' => 'authorized fiscal snapshot unavailable',
+        'reason_amount_mismatch' => 'authorized fiscal total differs from the accounting invoice',
+        'invoice' => 'Invoice',
+        'nfse' => 'NFS-e',
+        'status' => 'Status',
+        'taxation' => 'ISSQN taxation',
+        'retention' => 'ISSQN retention',
+        'reconciliation' => 'Reconciliation',
+        'empty' => 'No fiscal documents found for this competence.',
+    ],
+
     'settings' => [
         'title'                 => 'NFS-e Settings',
         'cnpj_prestador'        => 'Service Provider CNPJ',

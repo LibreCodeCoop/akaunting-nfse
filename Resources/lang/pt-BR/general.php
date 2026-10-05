@@ -298,6 +298,27 @@ return [
         'tax_policy_notice_with_item_taxes' => 'Esta fatura possui impostos de item no Akaunting e eles são usados para compor os tributos federais da NFS-e.',
     ],
 
+    'closing' => [
+        'title' => 'Fechamento de NFS-e por competência',
+        'competence' => 'Competência',
+        'apply' => 'Aplicar',
+        'export_csv' => 'Exportar CSV',
+        'gross' => 'Valor bruto dos serviços',
+        'iss' => 'Valor do ISSQN',
+        'active_documents' => 'Documentos fiscais ativos',
+        'mismatches' => 'Divergências de reconciliação',
+        'reconciliation_attention' => 'Resolva estas divergências antes do fechamento',
+        'reason_missing_authorized_snapshot' => 'snapshot fiscal autorizado indisponível',
+        'reason_amount_mismatch' => 'total fiscal autorizado difere da fatura contábil',
+        'invoice' => 'Fatura',
+        'nfse' => 'NFS-e',
+        'status' => 'Status',
+        'taxation' => 'Tributação do ISSQN',
+        'retention' => 'Retenção do ISSQN',
+        'reconciliation' => 'Reconciliação',
+        'empty' => 'Nenhum documento fiscal encontrado para esta competência.',
+    ],
+
     'settings' => [
         'title'                 => 'Configurações NFS-e',
         'cnpj_prestador'        => 'CNPJ do Prestador',
