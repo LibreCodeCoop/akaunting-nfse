@@ -48,6 +48,38 @@
         return Array.from(new Set(values));
     }
 
+    function bindBulkSelectionSync(rootNode, sync) {
+        if (!rootNode || typeof rootNode.addEventListener !== 'function') {
+            return false;
+        }
+
+        rootNode.__nfseBulkDispatchSync = sync;
+
+        if (rootNode.__nfseBulkDispatchEventsBound) {
+            return true;
+        }
+
+        const delegatedSync = (event) => {
+            const target = event ? event.target : null;
+
+            if (!target || typeof target.matches !== 'function' || !target.matches('[data-bulk-action]')) {
+                return;
+            }
+
+            const currentSync = rootNode.__nfseBulkDispatchSync;
+
+            if (typeof currentSync === 'function') {
+                currentSync();
+            }
+        };
+
+        rootNode.addEventListener('change', delegatedSync);
+        rootNode.addEventListener('input', delegatedSync);
+        rootNode.__nfseBulkDispatchEventsBound = true;
+
+        return true;
+    }
+
     function mountBulkDispatch(rootNode, config) {
         if (!rootNode || typeof rootNode.querySelectorAll !== 'function' || typeof rootNode.createElement !== 'function') {
             return null;
@@ -111,11 +143,14 @@
             });
         });
 
-        checkboxes.forEach((checkbox) => {
-            if (typeof checkbox.addEventListener === 'function') {
-                checkbox.addEventListener('change', sync);
-            }
-        });
+        if (!bindBulkSelectionSync(rootNode, sync)) {
+            checkboxes.forEach((checkbox) => {
+                if (typeof checkbox.addEventListener === 'function') {
+                    checkbox.addEventListener('change', sync);
+                    checkbox.addEventListener('input', sync);
+                }
+            });
+        }
 
         sync();
         firstTable.parentNode.insertBefore(form, firstTable);
@@ -178,6 +213,7 @@
 
     return {
         badgeDescriptor,
+        bindBulkSelectionSync,
         classesForStatus,
         decorate,
         mountBulkDispatch,

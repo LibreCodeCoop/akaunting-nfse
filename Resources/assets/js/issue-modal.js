@@ -337,6 +337,46 @@
         return true;
     }
 
+    function reconcileHydratedModal(documentRef) {
+        if (!documentRef || typeof documentRef.querySelectorAll !== 'function') {
+            return 0;
+        }
+
+        let reconciled = 0;
+
+        documentRef.querySelectorAll('[data-nfse-tabs]').forEach((container) => {
+            syncTabPane(container);
+            reconciled += 1;
+        });
+
+        const sendEmailToggle = typeof documentRef.getElementById === 'function'
+            ? documentRef.getElementById('nfse_send_email_toggle')
+            : null;
+
+        if (sendEmailToggle) {
+            syncSwitch(sendEmailToggle);
+            applySendEmailState(Boolean(sendEmailToggle.checked), documentRef);
+        }
+
+        const descriptionToggle = typeof documentRef.getElementById === 'function'
+            ? documentRef.getElementById('nfse_save_default_description_toggle')
+            : null;
+
+        if (descriptionToggle) {
+            syncSwitch(descriptionToggle);
+        }
+
+        const emailScope = typeof documentRef.getElementById === 'function'
+            ? documentRef.getElementById('nfse-email-fields')
+            : null;
+
+        if (emailScope) {
+            syncRestoreButton(emailScope, documentRef);
+        }
+
+        return reconciled;
+    }
+
     function triggerNativeDocumentModal(documentRef) {
         if (!documentRef || typeof documentRef.getElementById !== 'function') {
             return false;
@@ -478,6 +518,7 @@
 
         if (typeof MutationObserverRef === 'function') {
             const observer = new MutationObserverRef(() => {
+                reconcileHydratedModal(documentRef);
                 focusErrorSummary(documentRef);
             });
             const target = documentRef.body || documentRef.documentElement;
@@ -489,6 +530,8 @@
                 });
             }
         }
+
+        reconcileHydratedModal(documentRef);
     }
 
     return {
@@ -499,6 +542,7 @@
         triggerNativeDocumentModal,
         nextTabIndex,
         normalizeHtml,
+        reconcileHydratedModal,
         restoreDefaults,
         sendEmailUiState,
         shouldShowRestore,

@@ -118,3 +118,35 @@ test('selectedInvoiceIds returns unique checked native invoice ids', () => {
 
     assert.deepEqual(moduleApi.selectedInvoiceIds(root), [9, 11]);
 });
+
+
+test('delegated bulk selection sync survives checkbox replacement', () => {
+    const listeners = {};
+    let syncCalls = 0;
+    const root = {
+        addEventListener(name, listener) {
+            listeners[name] = listener;
+        },
+    };
+
+    assert.equal(moduleApi.bindBulkSelectionSync(root, () => {
+        syncCalls += 1;
+    }), true);
+
+    const currentCheckbox = {
+        matches(selector) {
+            return selector === '[data-bulk-action]';
+        },
+    };
+
+    listeners.change({ target: currentCheckbox });
+    assert.equal(syncCalls, 1);
+
+    moduleApi.bindBulkSelectionSync(root, () => {
+        syncCalls += 10;
+    });
+    listeners.input({ target: currentCheckbox });
+
+    assert.equal(syncCalls, 11);
+    assert.equal(Object.keys(listeners).length, 2);
+});
