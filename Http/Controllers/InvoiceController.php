@@ -18,6 +18,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\EmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
+use Modules\Nfse\Application\ReceiptPersistence;
 use Modules\Nfse\Application\RecoverInvoiceEmission;
 use Modules\Nfse\Application\RuntimeDpsFactory;
 use Modules\Nfse\Models\ItemFiscalProfile;
@@ -3527,60 +3528,12 @@ class InvoiceController extends Controller
 
     protected function storeEmittedReceipt(Invoice $invoice, ReceiptData $receipt, ?NfseReceipt $existingReceipt = null): NfseReceipt
     {
-        $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
-
-        if ($existingReceipt instanceof NfseReceipt) {
-            $existingReceipt->update([
-                'nfse_number' => $resolvedReceiptNumber,
-                'chave_acesso' => $receipt->chaveAcesso,
-                'data_emissao' => $receipt->dataEmissao,
-                'codigo_verificacao' => $receipt->codigoVerificacao,
-                'status' => 'emitted',
-            ]);
-        }
-
-        $persistedReceipt = NfseReceipt::updateOrCreate(
-            ['invoice_id' => $invoice->id],
-            [
-                'nfse_number' => $resolvedReceiptNumber,
-                'chave_acesso' => $receipt->chaveAcesso,
-                'data_emissao' => $receipt->dataEmissao,
-                'codigo_verificacao' => $receipt->codigoVerificacao,
-                'status' => 'emitted',
-            ]
+        return (new ReceiptPersistence())->storeCurrent(
+            invoiceId: (int) $invoice->id,
+            receipt: $receipt,
+            resolvedNumber: $this->resolveReceiptNfseNumber($receipt),
+            existingReceipt: $existingReceipt,
         );
-
-        $freshPersistedReceipt = $persistedReceipt;
-
-        if (method_exists($persistedReceipt, 'fresh')) {
-            try {
-                $candidate = $persistedReceipt->fresh();
-
-                if ($candidate instanceof NfseReceipt) {
-                    $freshPersistedReceipt = $candidate;
-                }
-            } catch (\Throwable $throwable) {
-                $this->safeLogError('NFS-e emitted receipt refresh failed after persistence', [
-                    'invoice_id' => $invoice->id,
-                    'chave_acesso' => $receipt->chaveAcesso,
-                    'message' => $throwable->getMessage(),
-                ]);
-            }
-        }
-
-        if (($freshPersistedReceipt->status ?? '') !== 'emitted') {
-            try {
-                $persistedReceipt->update(['status' => 'emitted']);
-            } catch (\Throwable $throwable) {
-                $this->safeLogError('NFS-e emitted receipt status repair failed', [
-                    'invoice_id' => $invoice->id,
-                    'chave_acesso' => $receipt->chaveAcesso,
-                    'message' => $throwable->getMessage(),
-                ]);
-            }
-        }
-
-        return $persistedReceipt;
     }
 
     protected function storeArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
