@@ -40,6 +40,10 @@ Route::admin('nfse', function () {
     Route::get('adn', [AdnController::class, 'index'])->name('adn.index');
     Route::get('adn/distribution', [AdnController::class, 'distribution'])->name('adn.distribution');
 
+    // Competence closing and reconciliation
+    Route::get('closing', [ClosingController::class, 'index'])->name('closing.index');
+    Route::get('closing/export', [ClosingController::class, 'export'])->name('closing.export');
+
     // NFS-e issuance
     Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('invoices/pending', [InvoiceController::class, 'pending'])->name('invoices.pending');
