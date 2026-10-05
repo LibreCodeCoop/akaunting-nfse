@@ -15,10 +15,12 @@
     id="nfse-native-fiscal-panel"
     class="rounded-lg border border-gray-200 bg-white p-4"
     data-nfse-native-panel="true"
+    role="region"
+    aria-labelledby="nfse-native-fiscal-panel-title"
 >
     <div class="flex items-start justify-between gap-3">
         <div>
-            <h3 class="font-medium text-gray-900">{{ trans('nfse::general.native_invoice.fiscal_title') }}</h3>
+            <h3 id="nfse-native-fiscal-panel-title" class="font-medium text-gray-900">{{ trans('nfse::general.native_invoice.fiscal_title') }}</h3>
             <p class="mt-1 text-sm text-gray-600">
                 {{ $hasReceipt
                     ? trans('nfse::general.native_invoice.fiscal_document_linked')
