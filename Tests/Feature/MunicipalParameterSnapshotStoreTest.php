@@ -69,6 +69,24 @@ final class MunicipalParameterSnapshotStoreTest extends FeatureTestCase
         );
     }
 
+    public function testSuccessfulLiveQueryDoesNotDependOnCachePersistence(): void
+    {
+        \Illuminate\Support\Facades\Schema::dropIfExists('nfse_municipal_parameter_snapshots');
+
+        $result = (new MunicipalParameterSnapshotStore())->resolve(
+            companyId: 1,
+            environment: 'sandbox',
+            municipioIbge: '3303302',
+            serviceCode: '010701',
+            competence: '2026-10-05',
+            fetch: static fn (): array => ['aliquota' => ['aliquota' => '2.00']],
+        );
+
+        self::assertSame('live', $result['meta']['source']);
+        self::assertFalse($result['meta']['stale']);
+        self::assertSame('2.00', $result['data']['aliquota']['aliquota']);
+    }
+
     public function testFailureWithoutMatchingCompanySnapshotPropagates(): void
     {
         MunicipalParameterSnapshot::query()->create([

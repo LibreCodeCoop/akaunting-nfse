@@ -28,7 +28,34 @@ final class MunicipalParameterSnapshotStore
     ): array {
         try {
             $data = $fetch();
+        } catch (\Throwable $fetchError) {
+            try {
+                $snapshot = MunicipalParameterSnapshot::query()
+                    ->where('company_id', $companyId)
+                    ->where('environment', $environment)
+                    ->where('municipio_ibge', $municipioIbge)
+                    ->where('service_code', $serviceCode)
+                    ->whereDate('competence_date', $competence)
+                    ->first();
+            } catch (\Throwable) {
+                throw $fetchError;
+            }
 
+            if (!$snapshot instanceof MunicipalParameterSnapshot) {
+                throw $fetchError;
+            }
+
+            $payload = is_array($snapshot->payload) ? $snapshot->payload : [];
+
+            return [
+                'data' => $payload,
+                'meta' => $this->metadata($snapshot, 'cache', true),
+            ];
+        }
+
+        $fetchedAt = now();
+
+        try {
             $snapshot = MunicipalParameterSnapshot::query()->updateOrCreate(
                 [
                     'company_id' => $companyId,
@@ -39,7 +66,7 @@ final class MunicipalParameterSnapshotStore
                 ],
                 [
                     'payload' => $data,
-                    'fetched_at' => now(),
+                    'fetched_at' => $fetchedAt,
                 ],
             );
 
@@ -47,24 +74,18 @@ final class MunicipalParameterSnapshotStore
                 'data' => $data,
                 'meta' => $this->metadata($snapshot, 'live', false),
             ];
-        } catch (\Throwable $error) {
-            $snapshot = MunicipalParameterSnapshot::query()
-                ->where('company_id', $companyId)
-                ->where('environment', $environment)
-                ->where('municipio_ibge', $municipioIbge)
-                ->where('service_code', $serviceCode)
-                ->whereDate('competence_date', $competence)
-                ->first();
-
-            if (!$snapshot instanceof MunicipalParameterSnapshot) {
-                throw $error;
-            }
-
-            $payload = is_array($snapshot->payload) ? $snapshot->payload : [];
-
+        } catch (\Throwable) {
+            // Snapshot persistence is advisory. A successful official query
+            // must never become an operational failure because the cache is
+            // unavailable or has not been migrated yet.
             return [
-                'data' => $payload,
-                'meta' => $this->metadata($snapshot, 'cache', true),
+                'data' => $data,
+                'meta' => [
+                    'source' => 'live',
+                    'stale' => false,
+                    'fetched_at' => $fetchedAt->toAtomString(),
+                    'environment' => $environment,
+                ],
             ];
         }
     }
