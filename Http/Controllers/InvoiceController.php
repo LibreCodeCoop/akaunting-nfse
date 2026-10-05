@@ -22,9 +22,11 @@ use Modules\Nfse\Application\FederalTaxReadiness;
 use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
 use Modules\Nfse\Application\FiscalGroupReceiptState;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
+use Modules\Nfse\Application\IbsCbsPayloadResolver;
 use Modules\Nfse\Application\InvoiceDpsBuilder;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
+use Modules\Nfse\Application\IssqnPayloadResolver;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\IssueInvoiceNfse;
 use Modules\Nfse\Application\ReceiptNumberResolver;
@@ -2961,76 +2963,26 @@ class InvoiceController extends Controller
      */
     protected function issqnPayloadValues(): array
     {
-        $tributacao = (int) setting('nfse.tributacao_issqn', 1);
-        if (!in_array($tributacao, [1, 2, 3, 4], true)) {
-            $tributacao = 1;
-        }
-
-        $tipoRetencao = (int) setting('nfse.tipo_retencao_iss', 1);
-        if (!in_array($tipoRetencao, [1, 2, 3], true)) {
-            $tipoRetencao = 1;
-        }
-
-        $paisResultado = $tributacao === 3
-            ? strtoupper(trim((string) setting('nfse.issqn_pais_resultado', '')))
-            : '';
-
-        $tipoImunidadeRaw = trim((string) setting('nfse.issqn_tipo_imunidade', ''));
-        $tipoImunidade = $tributacao === 2 && in_array($tipoImunidadeRaw, ['1', '2', '3', '4', '5'], true)
-            ? (int) $tipoImunidadeRaw
-            : null;
-
-        $tipoSuspensaoRaw = trim((string) setting('nfse.issqn_tipo_suspensao', ''));
-        $tipoSuspensao = $tributacao === 1 && in_array($tipoSuspensaoRaw, ['1', '2'], true)
-            ? (int) $tipoSuspensaoRaw
-            : null;
-
-        $numeroProcesso = $tributacao === 1
-            ? trim((string) setting('nfse.issqn_numero_processo_suspensao', ''))
-            : '';
-
-        return [
-            'tributacaoIssqn' => $tributacao,
-            'issqnPaisResultado' => $paisResultado,
-            'issqnTipoImunidade' => $tipoImunidade,
-            'issqnTipoSuspensao' => $tipoSuspensao,
-            'issqnNumeroProcessoSuspensao' => $numeroProcesso,
-            'tipoRetencaoIss' => $tipoRetencao,
-            'requiresSpecialRuntime' => $tributacao !== 1
-                || $tipoRetencao !== 1
-                || $tipoSuspensao !== null
-                || $numeroProcesso !== '',
-        ];
+        return (new IssqnPayloadResolver())->resolve([
+            'tributacao_issqn' => setting('nfse.tributacao_issqn', 1),
+            'tipo_retencao_iss' => setting('nfse.tipo_retencao_iss', 1),
+            'issqn_pais_resultado' => setting('nfse.issqn_pais_resultado', ''),
+            'issqn_tipo_imunidade' => setting('nfse.issqn_tipo_imunidade', ''),
+            'issqn_tipo_suspensao' => setting('nfse.issqn_tipo_suspensao', ''),
+            'issqn_numero_processo_suspensao' => setting('nfse.issqn_numero_processo_suspensao', ''),
+        ]);
     }
 
     protected function ibsCbsPayloadValues(): array
     {
-        $enabled = $this->booleanSetting('nfse.ibs_cbs_enabled', false);
-
-        if (!$enabled) {
-            return [
-                'enabled' => false,
-                'ibsCbsFinalidade' => null,
-                'ibsCbsIndFinal' => null,
-                'ibsCbsCodigoIndicadorOperacao' => '',
-                'ibsCbsIndDest' => null,
-                'ibsCbsCst' => '',
-                'ibsCbsClassificacaoTributaria' => '',
-            ];
-        }
-
-        $indFinal = trim((string) setting('nfse.ibs_cbs_ind_final', ''));
-        $indDest = trim((string) setting('nfse.ibs_cbs_ind_dest', ''));
-
-        return [
-            'enabled' => true,
-            'ibsCbsFinalidade' => 0,
-            'ibsCbsIndFinal' => in_array($indFinal, ['0', '1'], true) ? (int) $indFinal : null,
-            'ibsCbsCodigoIndicadorOperacao' => trim((string) setting('nfse.ibs_cbs_c_ind_op', '')),
-            'ibsCbsIndDest' => in_array($indDest, ['0', '1'], true) ? (int) $indDest : null,
-            'ibsCbsCst' => trim((string) setting('nfse.ibs_cbs_cst', '')),
-            'ibsCbsClassificacaoTributaria' => trim((string) setting('nfse.ibs_cbs_c_class_trib', '')),
-        ];
+        return (new IbsCbsPayloadResolver())->resolve([
+            'enabled' => setting('nfse.ibs_cbs_enabled', false),
+            'ind_final' => setting('nfse.ibs_cbs_ind_final', ''),
+            'ind_dest' => setting('nfse.ibs_cbs_ind_dest', ''),
+            'c_ind_op' => setting('nfse.ibs_cbs_c_ind_op', ''),
+            'cst' => setting('nfse.ibs_cbs_cst', ''),
+            'c_class_trib' => setting('nfse.ibs_cbs_c_class_trib', ''),
+        ]);
     }
 
     /**
