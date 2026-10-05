@@ -26,8 +26,6 @@ final class ReceiptPersistence
 
         if ($existingReceipt instanceof NfseReceipt) {
             $existingReceipt->update($values);
-
-            return $existingReceipt;
         }
 
         return NfseReceipt::updateOrCreate(
