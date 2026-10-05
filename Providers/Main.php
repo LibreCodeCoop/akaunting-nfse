@@ -268,9 +268,15 @@ class Main extends Provider
                     $status = 'pending';
                 }
 
+                $knownStatus = in_array(
+                    $status,
+                    ['pending', 'processing', 'emitted', 'cancelled', 'substituted'],
+                    true,
+                ) ? $status : 'unknown';
+
                 $statuses[$invoiceId] = [
-                    'status' => $status,
-                    'label' => trans('nfse::general.native_invoice.status_' . $status),
+                    'status' => $knownStatus,
+                    'label' => trans('nfse::general.native_invoice.status_' . $knownStatus),
                     'url' => route('invoices.show', $invoiceId),
                 ];
             }

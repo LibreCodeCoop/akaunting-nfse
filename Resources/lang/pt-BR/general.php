@@ -173,6 +173,7 @@ return [
         'fiscal_pending' => 'Esta fatura ainda não possui NFS-e emitida.',
         'status_pending' => 'Pendente',
         'status_emitted' => 'Emitida',
+        'status_processing' => 'Processando',
         'status_cancelled' => 'Cancelada',
         'status_substituted' => 'Substituída',
         'status_unknown' => 'Estado fiscal',
