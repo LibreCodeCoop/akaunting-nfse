@@ -29,7 +29,6 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
     public function __construct(
         private readonly ?FiscalClientFactory $clientFactory = null,
         private readonly AutomaticInvoiceEmissionPreflight $preflight = new AutomaticInvoiceEmissionPreflight(),
-        private readonly InvoiceFiscalContextResolver $fiscalContext = new InvoiceFiscalContextResolver(),
         private readonly InvoiceTakerResolver $taker = new InvoiceTakerResolver(),
         private readonly InvoiceDpsBuilder $dpsBuilder = new InvoiceDpsBuilder(),
         private readonly InvoiceDpsIdentity $identity = new InvoiceDpsIdentity(),
