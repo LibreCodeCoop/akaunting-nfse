@@ -94,6 +94,9 @@ final class ProvisionTestHarness extends Command
             'nfse.item_lista_servico' => $itemLista,
             'nfse.codigo_tributacao_nacional' => $codigoNacional,
             'nfse.sandbox_mode' => '1',
+            'nfse.bao_addr' => 'http://openbao.invalid.test:8200',
+            'nfse.bao_mount' => 'secret',
+            'nfse.bao_token' => 'deterministic-test-token',
         ]);
         setting()->save();
 
@@ -334,6 +337,22 @@ final class ProvisionTestHarness extends Command
         string $itemLista,
         string $codigoNacional,
     ): Document {
+        $contact = Contact::query()
+            ->where('company_id', $companyId)
+            ->where('type', Contact::CUSTOMER_TYPE)
+            ->where('name', $documentNumber . ' Customer')
+            ->first();
+
+        if (!$contact instanceof Contact) {
+            $contact = Contact::factory()->customer()->enabled()->create([
+                'company_id' => $companyId,
+                'name' => $documentNumber . ' Customer',
+                'country' => $country,
+            ]);
+        } else {
+            $contact->forceFill(['country' => $country])->saveQuietly();
+        }
+
         $invoice = Document::query()
             ->where('company_id', $companyId)
             ->where('type', 'invoice')
@@ -344,11 +363,13 @@ final class ProvisionTestHarness extends Command
             $invoice = Document::factory()->invoice()->create([
                 'company_id' => $companyId,
                 'document_number' => $documentNumber,
+                'contact_id' => $contact->id,
                 'amount' => 100.00,
             ]);
+        } else {
+            $invoice->forceFill(['contact_id' => $contact->id])->saveQuietly();
         }
 
-        $invoice->contact->forceFill(['country' => $country])->saveQuietly();
         $invoice->unsetRelation('contact');
         $invoice->items()->delete();
         $invoice->unsetRelation('items');

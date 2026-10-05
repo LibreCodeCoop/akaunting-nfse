@@ -82,23 +82,19 @@ async function applyExampleFederalProfile(page): Promise<void> {
   await expect(page).toHaveURL(/\/1\/nfse\/settings/);
 }
 
-test('pending invoices page exposes emission CTA when authenticated', async ({ page }, testInfo) => {
-  await loginToAkaunting(page, testInfo);
+test('pending native invoice exposes fiscal emission action', async ({ page }, testInfo) => {
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
 
-  await page.goto('/1/nfse/invoices/pending', { waitUntil: 'domcontentloaded' });
+  expect(invoiceId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
-  await expect(page).toHaveURL((url) => (
-    url.pathname === '/1/nfse/invoices/pending'
-    || (url.pathname === '/1/nfse/invoices' && url.searchParams.get('status') === 'pending')
-  ));
-
-  const emitButtons = page.locator(`${emitFormsSelector} button[type='submit']`);
-  const emitButtonsCount = await emitButtons.count();
-
-  if (emitButtonsCount > 0) {
-    await expect(emitButtons.first()).toBeVisible();
-  }
+  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${invoiceId}$`));
+  await expect(
+    page.locator('#nfse-native-fiscal-panel [data-nfse-native-emit="true"]'),
+  ).toBeVisible();
 });
 
 test('[live-fiscal] real happy path emits NFS-e from pending list', async ({ page }, testInfo) => {
