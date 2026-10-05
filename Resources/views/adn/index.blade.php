@@ -63,8 +63,79 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <p class="mt-3 text-sm text-red-700">{{ trans('nfse::general.adn.review_invalid_xml') }}</p>
                             @endif
 
-                            <div class="mt-3">
-                                <form method="POST" action="{{ route('nfse.adn.review.ignore', $reviewDocument->id) }}">
+                            <div class="mt-4 grid gap-3 md:grid-cols-2">
+                                @if(is_array($accountingPreview))
+                                    <form method="POST" action="{{ route('nfse.adn.review.import', $reviewDocument->id) }}" class="space-y-3 rounded border border-gray-200 p-3">
+                                        @csrf
+
+                                        <div>
+                                            <label for="adn-vendor-{{ $reviewDocument->id }}" class="block text-sm font-medium">
+                                                {{ trans('nfse::general.adn.review_vendor') }}
+                                            </label>
+                                            <select id="adn-vendor-{{ $reviewDocument->id }}" name="contact_id" class="mt-1 w-full rounded border px-3 py-2">
+                                                <option value="0">{{ trans('nfse::general.adn.review_vendor_create_option') }}</option>
+                                                @foreach(($reviewVendors ?? []) as $vendor)
+                                                    <option value="{{ $vendor->id }}">
+                                                        {{ $vendor->name }}@if($vendor->tax_number) — {{ $vendor->tax_number }}@endif
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <label class="mt-2 inline-flex items-center gap-2 text-xs text-gray-600">
+                                                <input type="checkbox" name="create_vendor" value="1">
+                                                {{ trans('nfse::general.adn.review_create_vendor') }}
+                                            </label>
+                                        </div>
+
+                                        <div>
+                                            <label for="adn-category-{{ $reviewDocument->id }}" class="block text-sm font-medium">
+                                                {{ trans('nfse::general.adn.review_category') }}
+                                            </label>
+                                            <select id="adn-category-{{ $reviewDocument->id }}" name="category_id" required class="mt-1 w-full rounded border px-3 py-2">
+                                                <option value="">{{ trans('nfse::general.adn.review_select') }}</option>
+                                                @foreach(($reviewCategories ?? []) as $category)
+                                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label for="adn-item-{{ $reviewDocument->id }}" class="block text-sm font-medium">
+                                                {{ trans('nfse::general.adn.review_item') }}
+                                            </label>
+                                            <select id="adn-item-{{ $reviewDocument->id }}" name="item_id" required class="mt-1 w-full rounded border px-3 py-2">
+                                                <option value="">{{ trans('nfse::general.adn.review_select') }}</option>
+                                                @foreach(($reviewItems ?? []) as $item)
+                                                    <option value="{{ $item->id }}">{{ $item->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label for="adn-issued-{{ $reviewDocument->id }}" class="block text-sm font-medium">
+                                                    {{ trans('nfse::general.adn.review_issued_at') }}
+                                                </label>
+                                                <input id="adn-issued-{{ $reviewDocument->id }}" type="date" name="issued_at" value="{{ $accountingPreview['competence'] ?? '' }}" required class="mt-1 w-full rounded border px-3 py-2">
+                                            </div>
+                                            <div>
+                                                <label for="adn-due-{{ $reviewDocument->id }}" class="block text-sm font-medium">
+                                                    {{ trans('nfse::general.adn.review_due_at') }}
+                                                </label>
+                                                <input id="adn-due-{{ $reviewDocument->id }}" type="date" name="due_at" value="{{ $accountingPreview['competence'] ?? '' }}" required class="mt-1 w-full rounded border px-3 py-2">
+                                            </div>
+                                        </div>
+
+                                        <p class="text-xs text-gray-600">
+                                            {{ trans('nfse::general.adn.review_import_notice') }}
+                                        </p>
+
+                                        <button type="submit" class="rounded bg-green-700 px-3 py-2 text-sm font-medium text-white">
+                                            {{ trans('nfse::general.adn.review_import_draft') }}
+                                        </button>
+                                    </form>
+                                @endif
+
+                                <form method="POST" action="{{ route('nfse.adn.review.ignore', $reviewDocument->id) }}" class="self-end">
                                     @csrf
                                     <button type="submit" class="rounded border px-3 py-2 text-sm">
                                         {{ trans('nfse::general.adn.review_ignore') }}
