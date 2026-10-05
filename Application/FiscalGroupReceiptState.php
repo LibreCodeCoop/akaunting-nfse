@@ -25,13 +25,9 @@ final class FiscalGroupReceiptState
         foreach ($groups as &$group) {
             $key = trim((string) ($group['key'] ?? ''));
 
-            try {
-                $receipt = $invoiceId > 0 && $key !== ''
-                    ? $this->persistence->findGrouped($invoiceId, $key)
-                    : null;
-            } catch (\Throwable) {
-                $receipt = null;
-            }
+            $receipt = $invoiceId > 0 && $key !== ''
+                ? $this->persistence->findGrouped($invoiceId, $key)
+                : null;
 
             $group['issued'] = $receipt instanceof NfseReceipt;
             $group['receipt_id'] = $receipt?->id;
