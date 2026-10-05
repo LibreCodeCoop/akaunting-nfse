@@ -101,6 +101,19 @@ return [
         'codigo_tributacao_nacional' => 'Código de tributação nacional (NBS)',
         'codigo_tributacao_nacional_placeholder' => 'Ex.: 010701',
         'codigo_tributacao_nacional_hint' => 'Opcional. Se vazio, o módulo deriva o NBS a partir do LC116.',
+        'validation' => [
+            'status_valid' => 'Perfil fiscal válido nos cadastros normativos disponíveis',
+            'status_warning' => 'Perfil fiscal incompleto',
+            'status_invalid' => 'Perfil fiscal inválido',
+            'status_unverifiable' => 'Perfil fiscal ainda não verificável',
+            'missing_profile' => 'Informe os códigos fiscais do serviço para validar este item.',
+            'missing_service_code' => 'O código LC116 não foi informado.',
+            'missing_national_code' => 'O código nacional do serviço não foi informado.',
+            'invalid_service_code' => 'O código LC116 não existe no catálogo suportado.',
+            'invalid_national_code' => 'O código nacional do serviço não existe no anexo oficial vigente.',
+            'correlation_unverifiable' => 'A correlação LC116/NBS/IBS-CBS não é bloqueada: o Anexo VIII ainda não é uma regra normativa de produção.',
+            'source_version' => 'Fonte nacional: :version',
+        ],
     ],
 
     'adn' => [
@@ -138,6 +151,7 @@ return [
         'fiscal_details' => 'Detalhes fiscais',
         'settings' => 'Configurações NFS-e',
     ],
+
     'invoices' => [
         'title' => 'Notas fiscais de serviço',
         'pending_title' => 'Faturas pendentes para emissão',
