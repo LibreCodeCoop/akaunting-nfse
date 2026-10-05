@@ -56,15 +56,38 @@ final class ReceiptPersistence
         NfseReceipt $original,
     ): NfseReceipt {
         return DB::transaction(function () use ($invoiceId, $receipt, $resolvedNumber, $original): NfseReceipt {
+            $lockedOriginal = NfseReceipt::query()
+                ->whereKey($original->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $existing = NfseReceipt::query()
+                ->where('replaces_receipt_id', $lockedOriginal->id)
+                ->first();
+
+            if ($existing instanceof NfseReceipt) {
+                if ((string) $existing->chave_acesso !== $receipt->chaveAcesso) {
+                    throw new \LogicException(
+                        'Original NFS-e already has a different persisted replacement.',
+                    );
+                }
+
+                if ($lockedOriginal->status !== 'substituted') {
+                    $lockedOriginal->update(['status' => 'substituted']);
+                }
+
+                return $existing;
+            }
+
             $replacement = NfseReceipt::query()->create(array_merge(
                 [
                     'invoice_id' => $invoiceId,
-                    'replaces_receipt_id' => $original->id,
+                    'replaces_receipt_id' => $lockedOriginal->id,
                 ],
                 $this->receiptValues($receipt, $resolvedNumber),
             ));
 
-            $original->update(['status' => 'substituted']);
+            $lockedOriginal->update(['status' => 'substituted']);
 
             return $replacement;
         });
