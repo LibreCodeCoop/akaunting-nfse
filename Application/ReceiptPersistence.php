@@ -40,13 +40,44 @@ final class ReceiptPersistence
         string $resolvedNumber,
         string $groupKey,
     ): NfseReceipt {
-        return NfseReceipt::query()->create(array_merge(
-            [
-                'invoice_id' => $invoiceId,
-                'emission_group_key' => $groupKey,
-            ],
-            $this->receiptValues($receipt, $resolvedNumber),
-        ));
+        return DB::transaction(function () use ($invoiceId, $receipt, $resolvedNumber, $groupKey): NfseReceipt {
+            DB::table('documents')
+                ->where('id', $invoiceId)
+                ->lockForUpdate()
+                ->first();
+
+            $existing = $this->findGrouped($invoiceId, $groupKey);
+
+            if ($existing instanceof NfseReceipt) {
+                if ((string) $existing->chave_acesso !== $receipt->chaveAcesso) {
+                    throw new \LogicException(
+                        'Fiscal emission group already has a different persisted NFS-e.',
+                    );
+                }
+
+                $existing->update($this->receiptValues($receipt, $resolvedNumber));
+
+                return $existing->fresh();
+            }
+
+            return NfseReceipt::query()->create(array_merge(
+                [
+                    'invoice_id' => $invoiceId,
+                    'emission_group_key' => $groupKey,
+                ],
+                $this->receiptValues($receipt, $resolvedNumber),
+            ));
+        });
+    }
+
+    public function findGrouped(int $invoiceId, string $groupKey): ?NfseReceipt
+    {
+        $receipt = NfseReceipt::query()
+            ->where('invoice_id', $invoiceId)
+            ->where('emission_group_key', $groupKey)
+            ->first();
+
+        return $receipt instanceof NfseReceipt ? $receipt : null;
     }
 
     public function createReplacement(

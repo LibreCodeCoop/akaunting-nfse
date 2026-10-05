@@ -58,6 +58,66 @@ final class ReceiptPersistenceTest extends FeatureTestCase
         self::assertSame(2, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
     }
 
+    public function testGroupedRetryReturnsExistingReceiptWithoutDuplicatingGroup(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $persistence = new ReceiptPersistence();
+        $remote = $this->receipt('12', str_repeat('8', 50));
+
+        $first = $persistence->createGrouped(
+            $invoice->id,
+            $remote,
+            '12',
+            'service:0107|tax:010701|rate:2.00',
+        );
+        $retry = $persistence->createGrouped(
+            $invoice->id,
+            $remote,
+            '12',
+            'service:0107|tax:010701|rate:2.00',
+        );
+
+        self::assertSame($first->id, $retry->id);
+        self::assertSame(
+            1,
+            NfseReceipt::query()
+                ->where('invoice_id', $invoice->id)
+                ->where('emission_group_key', 'service:0107|tax:010701|rate:2.00')
+                ->count(),
+        );
+        self::assertSame(
+            $first->id,
+            $persistence->findGrouped(
+                $invoice->id,
+                'service:0107|tax:010701|rate:2.00',
+            )?->id,
+        );
+    }
+
+    public function testGroupedRetryRejectsDifferentRemoteNfseForSameGroup(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $persistence = new ReceiptPersistence();
+        $groupKey = 'service:0107|tax:010701|rate:2.00';
+
+        $persistence->createGrouped(
+            $invoice->id,
+            $this->receipt('13', str_repeat('6', 50)),
+            '13',
+            $groupKey,
+        );
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Fiscal emission group already has a different persisted NFS-e.');
+
+        $persistence->createGrouped(
+            $invoice->id,
+            $this->receipt('14', str_repeat('7', 50)),
+            '14',
+            $groupKey,
+        );
+    }
+
     public function testReplacementCreatesNewReceiptAndPreservesOriginal(): void
     {
         $invoice = Document::factory()->invoice()->create();
