@@ -28,20 +28,22 @@ class AdnController extends Controller
         ]);
     }
 
-    public function ignore(AdnSyncDocument $document): \Illuminate\Http\RedirectResponse
+    public function ignore(int $document): \Illuminate\Http\RedirectResponse
     {
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
 
-        if (
-            ($companyId > 0 && (int) $document->company_id !== $companyId)
-            || !in_array((string) $document->fiscal_role, ['received', 'intermediated'], true)
-        ) {
-            abort(404);
+        $query = AdnSyncDocument::query()
+            ->whereKey($document)
+            ->whereIn('fiscal_role', ['received', 'intermediated']);
+
+        if ($companyId > 0) {
+            $query->where('company_id', $companyId);
         }
 
-        $document->review_status = 'ignored';
-        $document->ignored_at = now();
-        $document->save();
+        $reviewDocument = $query->firstOrFail();
+        $reviewDocument->review_status = 'ignored';
+        $reviewDocument->ignored_at = now();
+        $reviewDocument->save();
 
         return redirect()->route('nfse.adn.index')
             ->with('success', trans('nfse::general.adn.review_ignored'));
