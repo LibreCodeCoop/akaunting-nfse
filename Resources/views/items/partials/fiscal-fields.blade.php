@@ -40,6 +40,29 @@
                     {{ trans('nfse::general.items.validation.source_version', ['version' => $fiscalValidation['source_versions']['service_nbs']]) }}
                 </p>
             @endif
+
+            @if(isset($fiscalValidation['municipal_status']))
+                <p class="mt-2 text-xs font-medium" data-nfse-municipal-validation="{{ $fiscalValidation['municipal_status'] }}">
+                    {{ trans('nfse::general.items.validation.municipal_status_' . $fiscalValidation['municipal_status']) }}
+                </p>
+                @if(($fiscalValidation['municipal_issues'] ?? []) !== [])
+                    <ul class="mt-1 list-disc pl-5 text-xs">
+                        @foreach($fiscalValidation['municipal_issues'] as $issue)
+                            <li>{{ trans('nfse::general.items.validation.' . $issue, [
+                                'rate' => $fiscalValidation['municipal_official_rate'] ?? '',
+                            ]) }}</li>
+                        @endforeach
+                    </ul>
+                @endif
+                @if(($fiscalValidation['municipal_source']['fetched_at'] ?? '') !== '')
+                    <p class="mt-1 text-xs" data-nfse-municipal-fetched-at="{{ $fiscalValidation['municipal_source']['fetched_at'] }}">
+                        {{ trans('nfse::general.items.validation.municipal_source', [
+                            'fetched_at' => $fiscalValidation['municipal_source']['fetched_at'],
+                            'environment' => $fiscalValidation['municipal_source']['environment'] ?? '',
+                        ]) }}
+                    </p>
+                @endif
+            @endif
         </div>
         @php($profileServiceCode = (string) ($nfseItemFiscalProfile->item_lista_servico ?? ''))
         @php($profileNationalCode = (string) ($nfseItemFiscalProfile->codigo_tributacao_nacional ?? ''))

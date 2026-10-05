@@ -10,6 +10,7 @@ namespace Modules\Nfse\Providers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\ItemFiscalProfileValidator;
+use Modules\Nfse\Application\ItemFiscalValidationSummary;
 use Modules\Nfse\Console\Commands\ProvisionTestHarness;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Console\Commands\SyncAdn;
@@ -18,6 +19,7 @@ use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\ItemMunicipalValidationResolver;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\NfseRuntimeContextFactory;
 use Modules\Nfse\Support\Testing\DeterministicFiscalHttpTransport;
@@ -324,6 +326,26 @@ class Main extends Provider
 
             $profiles = collect(DB::select($sql, $bindings))->keyBy('item_id');
             $validator = new ItemFiscalProfileValidator();
+            $summary = new ItemFiscalValidationSummary();
+            $municipalResolver = new ItemMunicipalValidationResolver();
+            $municipalByItem = $municipalResolver->resolveMany(
+                itemNationalCodes: array_reduce(
+                    $itemIds,
+                    static function (array $codes, int $itemId) use ($profiles): array {
+                        $profile = $profiles->get($itemId);
+
+                        if (is_object($profile)) {
+                            $codes[$itemId] = (string) ($profile->codigo_tributacao_nacional ?? '');
+                        }
+
+                        return $codes;
+                    },
+                    [],
+                ),
+                companyId: $companyId,
+                municipioIbge: trim((string) setting('nfse.municipio_ibge', '')),
+                sandboxMode: filter_var(setting('nfse.sandbox_mode', true), FILTER_VALIDATE_BOOL),
+            );
             $validation = [];
 
             foreach ($itemIds as $itemId) {
@@ -332,6 +354,10 @@ class Main extends Provider
                     is_object($profile) ? (string) ($profile->item_lista_servico ?? '') : null,
                     is_object($profile) ? (string) ($profile->codigo_tributacao_nacional ?? '') : null,
                 );
+
+                if (isset($municipalByItem[$itemId])) {
+                    $result = $summary->combine($result, $municipalByItem[$itemId]);
+                }
 
                 $validation[$itemId] = [
                     'status' => $result['status'],
@@ -377,6 +403,17 @@ class Main extends Provider
                 is_object($profile) ? (string) ($profile->item_lista_servico ?? '') : null,
                 is_object($profile) ? (string) ($profile->codigo_tributacao_nacional ?? '') : null,
             );
+
+            if ($itemId > 0 && $companyId > 0 && is_object($profile)) {
+                $municipal = (new ItemMunicipalValidationResolver())->resolve(
+                    itemId: $itemId,
+                    companyId: $companyId,
+                    nationalCode: (string) ($profile->codigo_tributacao_nacional ?? ''),
+                    municipioIbge: trim((string) setting('nfse.municipio_ibge', '')),
+                    sandboxMode: filter_var(setting('nfse.sandbox_mode', true), FILTER_VALIDATE_BOOL),
+                );
+                $validation = (new ItemFiscalValidationSummary())->combine($validation, $municipal);
+            }
 
             $view->with('nfseLc116Catalog', $catalog);
             $view->with('nfseItemFiscalProfile', $profile);
