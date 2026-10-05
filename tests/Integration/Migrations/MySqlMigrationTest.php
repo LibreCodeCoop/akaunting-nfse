@@ -54,9 +54,11 @@ final class MySqlMigrationTest extends TestCase
         });
         $this->migration('2026_01_01_000001_create_nfse_receipts_table')->up();
         // Legacy installations may have only the UNIQUE index supporting the FK.
-        Schema::table('nfse_receipts', function (Blueprint $table): void {
-            $table->dropIndex(['invoice_id']);
-        });
+        if (Schema::hasIndex('nfse_receipts', 'nfse_receipts_invoice_id_index')) {
+            Schema::table('nfse_receipts', function (Blueprint $table): void {
+                $table->dropIndex(['invoice_id']);
+            });
+        }
         DB::table('documents')->insert(['id' => 1]);
         DB::table('nfse_receipts')->insert(['id' => 1, 'invoice_id' => 1, 'status' => 'emitted']);
     }
