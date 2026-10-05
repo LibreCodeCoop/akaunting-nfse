@@ -18,7 +18,6 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
-use Modules\Nfse\Application\EmissionReadiness;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\ReceiptNumberResolver;
@@ -32,6 +31,7 @@ use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\Lc116Code;
+use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
@@ -2712,15 +2712,18 @@ class InvoiceController extends Controller
     protected function emissionReadiness(): array
     {
         $settings = setting('nfse', []);
-        $settings = is_array($settings) ? $settings : [];
-        $cnpj = trim((string) ($settings['cnpj_prestador'] ?? ''));
-        $certificatePath = $cnpj !== '' ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx') : '';
 
-        return (new EmissionReadiness())->evaluate(
-            settings: $settings,
-            hasLocalCertificate: $certificatePath !== '' && is_file($certificatePath),
-            hasCertificateSecret: $this->hasCertificateSecret($cnpj),
+        $settingsArray = is_array($settings) ? $settings : [];
+        $cnpj = trim((string) ($settingsArray['cnpj_prestador'] ?? ''));
+        $certificatePath = $cnpj !== ''
+            ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx')
+            : '';
+
+        return (new OperationalReadinessResolver())->evaluate(
+            settings: $settingsArray,
             serviceCode: $this->itemListaServico(),
+            hasCertificateSecret: $this->hasCertificateSecret($cnpj),
+            certificatePath: $certificatePath,
         );
     }
 

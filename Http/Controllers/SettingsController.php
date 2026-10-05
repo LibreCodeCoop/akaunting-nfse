@@ -12,12 +12,12 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
-use Modules\Nfse\Application\EmissionReadiness;
 use Modules\Nfse\Support\BrazilianStates;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\Lc116Code;
+use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
@@ -46,14 +46,13 @@ class SettingsController extends Controller
         $settingsArray = is_array($settings) ? $settings : [];
         $certificateState = $this->certificateState();
         $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
-        $cnpj = trim((string) ($settingsArray['cnpj_prestador'] ?? ''));
-        $readiness = (new EmissionReadiness())->evaluate(
+        $readiness = (new OperationalReadinessResolver())->evaluate(
             settings: $settingsArray,
-            hasLocalCertificate: ($certificateState['has_local_certificate'] ?? false) === true,
-            hasCertificateSecret: $this->hasCertificateSecret($cnpj),
-            serviceCode: \Modules\Nfse\Support\Lc116Code::normalize(
-                (string) ($settingsArray['item_lista_servico'] ?? ''),
+            serviceCode: Lc116Code::normalize((string) ($settingsArray['item_lista_servico'] ?? '')),
+            hasCertificateSecret: $this->hasCertificateSecret(
+                trim((string) ($settingsArray['cnpj_prestador'] ?? '')),
             ),
+            certificatePath: (string) ($certificateState['local_path'] ?? ''),
         );
 
         $rawTab = $request !== null ? $request->query('tab') : null;
