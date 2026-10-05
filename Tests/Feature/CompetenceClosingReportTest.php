@@ -16,7 +16,7 @@ final class CompetenceClosingReportTest extends FeatureTestCase
 {
     public function testClosingExcludesCancelledAndSubstitutedSourcesFromTotals(): void
     {
-        $invoice = Document::factory()->invoice()->create(['amount' => 100.00]);
+        $invoice = $this->invoiceWithAmount('100.00');
 
         $original = $this->receipt($invoice, 'substituted', '40.00', '1', '1', '2026-10-10');
         $replacement = $this->receipt($invoice, 'emitted', '100.00', '1', '2', '2026-10-10');
@@ -38,7 +38,7 @@ final class CompetenceClosingReportTest extends FeatureTestCase
 
     public function testGroupedActiveReceiptsReconcileToInvoiceTotal(): void
     {
-        $invoice = Document::factory()->invoice()->create(['amount' => 150.00]);
+        $invoice = $this->invoiceWithAmount('150.00');
         $this->receipt($invoice, 'emitted', '50.00', '2', '1', '2026-10-05');
         $this->receipt($invoice, 'emitted', '100.00', '3', '1', '2026-10-20');
 
@@ -54,7 +54,7 @@ final class CompetenceClosingReportTest extends FeatureTestCase
 
     public function testMissingSnapshotIsExplicitlyUnresolvedInsteadOfEstimated(): void
     {
-        $invoice = Document::factory()->invoice()->create(['amount' => 100.00]);
+        $invoice = $this->invoiceWithAmount('100.00');
         NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
             'nfse_number' => '999',
@@ -74,7 +74,7 @@ final class CompetenceClosingReportTest extends FeatureTestCase
 
     public function testClosingRoutesFilterByCompetenceAndCsvHasStableContract(): void
     {
-        $invoice = Document::factory()->invoice()->create(['amount' => 100.00]);
+        $invoice = $this->invoiceWithAmount('100.00');
         $this->receipt($invoice, 'emitted', '100.00', '1', '1', '2026-10-10');
         $this->receipt($invoice, 'emitted', '200.00', '1', '1', '2026-09-30');
 
@@ -93,6 +93,14 @@ final class CompetenceClosingReportTest extends FeatureTestCase
             'access_key,nfse_number,invoice_number,customer,competence,status,gross_service_value,liquid_value,taxation_group,iss_retention,issqn_value,pis,cofins,irrf,social_security,csll,ibs_total,cbs_total,nfse_total,source_sha256,reconciliation_status',
             $csv,
         );
+    }
+
+    private function invoiceWithAmount(string $amount): Document
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $invoice->forceFill(['amount' => $amount])->saveQuietly();
+
+        return $invoice->fresh();
     }
 
     private function receipt(

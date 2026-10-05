@@ -38,7 +38,7 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
         $this->loginAs()
             ->get(route('invoices.show', $invoice->id))
             ->assertOk()
-            ->assertSee('901')
+            ->assertSee('>901</dd>', false)
             ->assertSee(str_repeat('7', 50))
             ->assertSee(route('nfse.invoices.show', $invoice->id), false);
     }
@@ -64,7 +64,7 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
         $this->loginAs()
             ->get(route('invoices.show', $invoice->id))
             ->assertOk()
-            ->assertSee('902')
-            ->assertDontSee('901');
+            ->assertSee('>902</dd>', false)
+            ->assertDontSee('>901</dd>', false);
     }
 }
