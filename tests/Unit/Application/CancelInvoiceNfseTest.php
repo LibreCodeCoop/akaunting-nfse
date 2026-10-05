@@ -101,13 +101,11 @@ final class CancelInvoiceNfseTest extends TestCase
                 $this->status = $status;
             }
 
-            public function update(array $attributes = [], array $options = []): bool
+            public function update(array $values): void
             {
-                foreach ($attributes as $key => $value) {
+                foreach ($values as $key => $value) {
                     $this->{$key} = $value;
                 }
-
-                return true;
             }
         };
     }
