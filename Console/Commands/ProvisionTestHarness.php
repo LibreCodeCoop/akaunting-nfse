@@ -14,6 +14,7 @@ use App\Models\Document\Document;
 use App\Models\Setting\Category;
 use Illuminate\Console\Command;
 use Modules\Nfse\Models\AdnSyncDocument;
+use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
 use Modules\Nfse\Support\Testing\SyntheticPkcs12Factory;
@@ -29,6 +30,7 @@ final class ProvisionTestHarness extends Command
         {--password=nfse-test-password : Synthetic PKCS#12 password}
         {--substitution-fixture : Create an emitted invoice fixture for substitution UI tests}
         {--adn-review-fixture : Create a received NFS-e review fixture and explicit accounting mappings}
+        {--item-validation-fixture : Create an item with a deterministic valid NFS-e fiscal profile}
         {--json : Emit machine-readable output}';
 
     protected $description = 'Provision deterministic local/testing fiscal settings and synthetic PKCS#12 material';
@@ -130,6 +132,34 @@ final class ProvisionTestHarness extends Command
             $payload['substitution_invoice_id'] = (int) $invoice->id;
         }
 
+        if ((bool) $this->option('item-validation-fixture')) {
+            $item = Item::query()
+                ->where('company_id', $companyId)
+                ->where('name', 'NFSE E2E Fiscal Item')
+                ->first();
+
+            if (!$item instanceof Item) {
+                $item = Item::factory()->enabled()->create([
+                    'company_id' => $companyId,
+                    'name' => 'NFSE E2E Fiscal Item',
+                    'sale_price' => 100.00,
+                ]);
+            }
+
+            ItemFiscalProfile::query()->updateOrCreate(
+                [
+                    'company_id' => $companyId,
+                    'item_id' => (int) $item->id,
+                ],
+                [
+                    'item_lista_servico' => $itemLista,
+                    'codigo_tributacao_nacional' => $codigoNacional,
+                    'aliquota' => '2.00',
+                ],
+            );
+
+            $payload['item_validation_item_id'] = (int) $item->id;
+        }
         if ((bool) $this->option('adn-review-fixture')) {
             $vendor = Contact::query()
                 ->where('company_id', $companyId)
