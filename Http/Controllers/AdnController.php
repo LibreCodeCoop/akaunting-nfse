@@ -170,8 +170,15 @@ class AdnController extends Controller
             return [];
         }
 
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+
         $rows = NfseReceipt::query()
             ->whereIn('chave_acesso', $accessKeys)
+            ->when($companyId > 0, static function ($query) use ($companyId): void {
+                $query->whereHas('invoice', static function ($invoiceQuery) use ($companyId): void {
+                    $invoiceQuery->where('company_id', $companyId);
+                });
+            })
             ->get(['invoice_id', 'chave_acesso', 'nfse_number', 'status']);
 
         $matches = [];
