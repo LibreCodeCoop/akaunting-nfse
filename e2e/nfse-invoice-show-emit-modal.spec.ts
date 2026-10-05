@@ -44,105 +44,48 @@ async function clickRestoreButton(button: Locator): Promise<void> {
 }
 
 async function openEmitActionFromInvoiceShow(page: Page): Promise<boolean> {
-  const inlineEmitButton = page.locator('#show-slider-actions-send-email-invoice:visible');
+  const emitAction = page.locator('#nfse-native-fiscal-panel [data-nfse-native-emit="true"]');
 
-  if (await inlineEmitButton.count() > 0) {
-    await inlineEmitButton.first().click();
-
-    return true;
-  }
-
-  const moreActionsButton = page.getByRole('button', { name: 'more_horiz' });
-
-  if (await moreActionsButton.count() === 0) {
+  if (await emitAction.count() === 0) {
     return false;
   }
 
-  await moreActionsButton.first().click();
-
-  const moreMenuEmitButton = page
-    .locator('#show-more-actions-send-email-invoice:visible, button:visible')
-    .filter({ hasText: /Emitir NFS-e agora|Emit NFS-e now/i })
-    .last();
-
-  if (await moreMenuEmitButton.count() === 0) {
-    return false;
-  }
-
-  await moreMenuEmitButton.click({ force: true });
+  await expect(emitAction).toBeVisible();
+  await emitAction.click();
 
   return true;
 }
 
+
 test('invoice show emit button opens NFS-e modal and submits final emit payload', async ({ page }, testInfo) => {
   test.setTimeout(180_000);
 
+  const fixtureInvoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+
+  expect(fixtureInvoiceId).toMatch(/^\d+$/);
+
   await loginToAkaunting(page, testInfo);
 
-  await page.goto('/1/nfse/invoices/pending', { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(/\/1\/nfse\/invoices(?:\/pending|\?status=pending.*)?$/);
-  await expect(page.locator('body')).toBeVisible();
-
-  const candidateIds = await page.locator("form[action*='/nfse/invoices/'][action$='/emit']").evaluateAll((forms) => {
-    const ids: string[] = [];
-
-    for (const form of forms) {
-      const action = form.getAttribute('action') ?? '';
-      const match = action.match(/\/invoices\/(\d+)\/emit$/);
-
-      if (match && match[1]) {
-        ids.push(match[1]);
-      }
-
-      if (ids.length >= 10) {
-        break;
-      }
-    }
-
-    return ids;
-  });
-
-  if (candidateIds.length === 0) {
-    test.skip(true, 'No pending invoice available to validate emit modal flow from invoice page.');
-  }
-
-  let selectedInvoiceId = '';
+  const selectedInvoiceId = fixtureInvoiceId;
   let modalCreatePayload: { data?: { title?: string }; html?: string } | null = null;
   let dialog = page.locator('[role="dialog"]').last();
 
-  for (const invoiceId of candidateIds) {
-    await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
-    await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${invoiceId}$`));
+  await page.goto(`/1/sales/invoices/${selectedInvoiceId}`, { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
 
-    const modalCreateResponsePromise = page.waitForResponse((response) => {
-      return response.request().method() === 'GET' && response.url().includes(`/nfse/modals/invoices/${invoiceId}/emails/create`);
-    }, { timeout: 8_000 }).catch(() => null);
+  const modalCreateResponsePromise = page.waitForResponse((response) => {
+    return response.request().method() === 'GET'
+      && response.url().includes(`/nfse/modals/invoices/${selectedInvoiceId}/emails/create`);
+  }, { timeout: 8_000 });
 
-    const clicked = await openEmitActionFromInvoiceShow(page);
+  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
 
-    if (!clicked) {
-      continue;
-    }
+  const modalCreateResponse = await modalCreateResponsePromise;
+  expect(modalCreateResponse.ok()).toBeTruthy();
 
-    const modalCreateResponse = await modalCreateResponsePromise;
+  modalCreatePayload = (await modalCreateResponse.json()) as { data?: { title?: string }; html?: string };
+  dialog = page.locator('[role="dialog"]').last();
 
-    if (!modalCreateResponse || !modalCreateResponse.ok()) {
-      continue;
-    }
-
-    const payload = (await modalCreateResponse.json()) as { data?: { title?: string }; html?: string };
-
-    if ((payload.html ?? '').includes('nfse_discriminacao_custom')) {
-      selectedInvoiceId = invoiceId;
-      modalCreatePayload = payload;
-      dialog = page.locator('[role="dialog"]').last();
-      break;
-    }
-  }
-
-  if (selectedInvoiceId === '' || modalCreatePayload === null) {
-    test.skip(true, 'Could not find a pending invoice that opens the NFS-e issue modal from invoice show page.');
-  }
 
   const ensuredModalCreatePayload = modalCreatePayload as { data?: { title?: string }; html?: string };
 
@@ -240,58 +183,20 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 test('typing in email body keeps email tab content visible in emit modal', async ({ page }, testInfo) => {
   test.setTimeout(180_000);
 
+  const fixtureInvoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+
+  expect(fixtureInvoiceId).toMatch(/^\d+$/);
+
   await loginToAkaunting(page, testInfo);
 
-  await page.goto('/1/nfse/invoices/pending', { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(/\/1\/nfse\/invoices(?:\/pending|\?status=pending.*)?$/);
-
-  const candidateIds = await page.locator("form[action*='/nfse/invoices/'][action$='/emit']").evaluateAll((forms) => {
-    const ids: string[] = [];
-
-    for (const form of forms) {
-      const action = form.getAttribute('action') ?? '';
-      const match = action.match(/\/invoices\/(\d+)\/emit$/);
-
-      if (match && match[1]) {
-        ids.push(match[1]);
-      }
-
-      if (ids.length >= 10) {
-        break;
-      }
-    }
-
-    return ids;
-  });
-
-  if (candidateIds.length === 0) {
-    test.skip(true, 'No pending invoice available to validate email body behavior in emit modal.');
-  }
-
-  let selectedInvoiceId = '';
+  const selectedInvoiceId = fixtureInvoiceId;
   let dialog = page.locator('[role="dialog"]').last();
 
-  for (const invoiceId of candidateIds) {
-    await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
-    await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${invoiceId}$`));
+  await page.goto(`/1/sales/invoices/${selectedInvoiceId}`, { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
+  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
+  dialog = page.locator('[role="dialog"]').last();
 
-    const clicked = await openEmitActionFromInvoiceShow(page);
-
-    if (!clicked) {
-      continue;
-    }
-
-    dialog = page.locator('[role="dialog"]').last();
-
-    if (await dialog.isVisible().catch(() => false)) {
-      selectedInvoiceId = invoiceId;
-      break;
-    }
-  }
-
-  if (selectedInvoiceId === '') {
-    test.skip(true, 'Could not open emit modal from invoice show page.');
-  }
 
   await expect(dialog).toBeVisible();
 
@@ -326,58 +231,20 @@ test('typing in email body keeps email tab content visible in emit modal', async
 test('restore default button reacts to subject and body edits in emit modal', async ({ page }, testInfo) => {
   test.setTimeout(180_000);
 
+  const fixtureInvoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+
+  expect(fixtureInvoiceId).toMatch(/^\d+$/);
+
   await loginToAkaunting(page, testInfo);
 
-  await page.goto('/1/nfse/invoices/pending', { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(/\/1\/nfse\/invoices(?:\/pending|\?status=pending.*)?$/);
-
-  const candidateIds = await page.locator("form[action*='/nfse/invoices/'][action$='/emit']").evaluateAll((forms) => {
-    const ids: string[] = [];
-
-    for (const form of forms) {
-      const action = form.getAttribute('action') ?? '';
-      const match = action.match(/\/invoices\/(\d+)\/emit$/);
-
-      if (match && match[1]) {
-        ids.push(match[1]);
-      }
-
-      if (ids.length >= 10) {
-        break;
-      }
-    }
-
-    return ids;
-  });
-
-  if (candidateIds.length === 0) {
-    test.skip(true, 'No pending invoice available to validate restore-default reactivity in emit modal.');
-  }
-
-  let selectedInvoiceId = '';
+  const selectedInvoiceId = fixtureInvoiceId;
   let dialog = page.locator('[role="dialog"]').last();
 
-  for (const invoiceId of candidateIds) {
-    await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
-    await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${invoiceId}$`));
+  await page.goto(`/1/sales/invoices/${selectedInvoiceId}`, { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
+  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
+  dialog = page.locator('[role="dialog"]').last();
 
-    const clicked = await openEmitActionFromInvoiceShow(page);
-
-    if (!clicked) {
-      continue;
-    }
-
-    dialog = page.locator('[role="dialog"]').last();
-
-    if (await dialog.isVisible().catch(() => false)) {
-      selectedInvoiceId = invoiceId;
-      break;
-    }
-  }
-
-  if (selectedInvoiceId === '') {
-    test.skip(true, 'Could not open emit modal from invoice show page.');
-  }
 
   await expect(dialog).toBeVisible();
   await dialog.getByText(/E-mail|Email/i).first().click();

@@ -339,25 +339,29 @@ test('settings no longer expose legacy services create route', async ({ page }, 
 test('readiness blocker guides operator to the focused corrective settings tab', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
 
-  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  await page.goto('/1/nfse/settings?tab=vault', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  const clearToken = page.locator('#clear_bao_token');
+  await clearToken.check();
+  await page.locator('#tab-panel-vault button[type="submit"]').click();
   await page.waitForLoadState('networkidle');
 
   const summary = page.locator('#nfse-readiness-summary');
   await expect(summary).toBeVisible();
 
-  const vaultCorrectiveLinks = summary.locator('a[href*="tab=vault"]');
-  await expect(vaultCorrectiveLinks.first()).toBeVisible();
+  const vaultCorrectiveLink = summary.locator('a[href*="tab=vault"]').first();
+  await expect(vaultCorrectiveLink).toBeVisible();
+  await vaultCorrectiveLink.click();
 
-  await vaultCorrectiveLinks.first().click();
   await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=vault/);
   await expect(page.locator('#tab-panel-vault')).toBeVisible();
 
-  await page.locator('input[name="nfse[bao_addr]"]').fill('http://openbao:8200');
-  await page.locator('input[name="nfse[bao_mount]"]').fill('secret');
   await page.locator('input[name="nfse[bao_token]"]').fill('deterministic-test-token');
+  await page.locator('#clear_bao_token').uncheck();
   await page.locator('#tab-panel-vault button[type="submit"]').click();
   await page.waitForLoadState('networkidle');
 
-  await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=vault/);
   await expect(page.locator('#nfse-readiness-summary a[href*="tab=vault"]')).toHaveCount(0);
 });
+

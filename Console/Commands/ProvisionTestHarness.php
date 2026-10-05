@@ -94,6 +94,9 @@ final class ProvisionTestHarness extends Command
             'nfse.item_lista_servico' => $itemLista,
             'nfse.codigo_tributacao_nacional' => $codigoNacional,
             'nfse.sandbox_mode' => '1',
+            'nfse.bao_addr' => 'http://openbao.invalid.test:8200',
+            'nfse.bao_mount' => 'secret',
+            'nfse.bao_token' => 'deterministic-test-token',
         ]);
         setting()->save();
 
