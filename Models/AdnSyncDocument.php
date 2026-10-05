@@ -24,11 +24,17 @@ final class AdnSyncDocument extends Model
         'data_hora_geracao',
         'xml',
         'recognized_event',
+        'fiscal_role',
+        'review_status',
+        'imported_document_id',
+        'ignored_at',
     ];
 
     protected $casts = [
         'company_id' => 'integer',
         'nsu' => 'integer',
         'recognized_event' => 'boolean',
+        'imported_document_id' => 'integer',
+        'ignored_at' => 'datetime',
     ];
 }
