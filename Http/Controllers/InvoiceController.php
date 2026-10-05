@@ -3278,10 +3278,8 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @return array{pis_value:string,pis_rate:string,cofins_value:string,cofins_rate:string,irrf_value:string,csll_value:string,federal_percent:string}
-     */
-    /**
      * @param list<int>|null $documentItemIds
+     * @return array{pis_value:string,pis_rate:string,cofins_value:string,cofins_rate:string,irrf_value:string,csll_value:string,federal_percent:string}
      */
     protected function invoiceFederalTaxSnapshot(
         Invoice $invoice,
