@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Application;
 
 use App\Models\Document\Document as Invoice;
+use Modules\Nfse\Support\InvoiceAutomaticTakerEligibility;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 
 /**
@@ -22,6 +23,7 @@ final class AutomaticInvoiceEmissionPreflight
         private readonly InvoiceFiscalContextResolver $context = new InvoiceFiscalContextResolver(),
         private readonly FiscalGroupReceiptState $receiptState = new FiscalGroupReceiptState(),
         private readonly FiscalProfileEmissionReadiness $profileReadiness = new FiscalProfileEmissionReadiness(),
+        private readonly InvoiceAutomaticTakerEligibility $takerEligibility = new InvoiceAutomaticTakerEligibility(),
     ) {
     }
 
@@ -39,6 +41,17 @@ final class AutomaticInvoiceEmissionPreflight
 
         if ($invoiceId <= 0) {
             return $this->blocked('invalid_invoice');
+        }
+
+        $taker = $this->takerEligibility->evaluate($invoice);
+
+        if (($taker['eligible'] ?? false) !== true) {
+            return $this->blocked(
+                (string) ($taker['reason'] ?? 'taker_requires_review'),
+                is_array($taker['details'] ?? null)
+                    ? array_values(array_map('strval', $taker['details']))
+                    : [],
+            );
         }
 
         $profile = $this->context->profile($invoice);
