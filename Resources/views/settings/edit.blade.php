@@ -97,12 +97,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
             {{-- ── Tab navigation ──────────────────────────────────────── --}}
             <div class="border-b border-gray-200 mb-6">
-                <nav class="-mb-px flex" aria-label="{{ trans('nfse::general.settings.title') }}">
+                <nav class="-mb-px flex" role="tablist" aria-label="{{ trans('nfse::general.settings.title') }}">
                     @foreach($tabs as $tabKey => $tab)
                         <button
                             type="button"
                             data-tab="{{ $tabKey }}"
                             id="tab-btn-{{ $tabKey }}"
+                            role="tab"
+                            aria-controls="tab-panel-{{ $tabKey }}"
+                            aria-selected="{{ $activeTab === $tabKey ? 'true' : 'false' }}"
+                            tabindex="{{ $activeTab === $tabKey && $tab['enabled'] ? '0' : '-1' }}"
                             class="tab-button px-5 py-3 text-sm font-medium border-b-2 whitespace-nowrap {{ $activeTab === $tabKey ? 'border-green-600 text-green-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} {{ !$tab['enabled'] ? 'opacity-40 cursor-not-allowed' : '' }}"
                             @if(!$tab['enabled']) disabled aria-disabled="true" @endif
                         >{{ $tab['label'] }}</button>
@@ -111,7 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
 
             {{-- ── Panel 1: Vault ───────────────────────────────────────── --}}
-            <div id="tab-panel-vault" class="tab-panel @if($activeTab !== 'vault') hidden @endif">
+            <div id="tab-panel-vault" role="tabpanel" aria-labelledby="tab-btn-vault" aria-hidden="{{ $activeTab === 'vault' ? 'false' : 'true' }}" class="tab-panel @if($activeTab !== 'vault') hidden @endif">
                 <form method="POST" action="{{ route('nfse.settings.vault') }}" class="space-y-4">
                     @csrf
                     @method('PATCH')
@@ -258,7 +262,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
 
             {{-- ── Panel 2: Certificate ──────────────────────────────────── --}}
-            <div id="tab-panel-certificate" class="tab-panel @if($activeTab !== 'certificate') hidden @endif">
+            <div id="tab-panel-certificate" role="tabpanel" aria-labelledby="tab-btn-certificate" aria-hidden="{{ $activeTab === 'certificate' ? 'false' : 'true' }}" class="tab-panel @if($activeTab !== 'certificate') hidden @endif">
 
                 @if(!$vaultReady)
                     <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
@@ -386,7 +390,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
 
             {{-- ── Panel 3: Fiscal data ──────────────────────────────────── --}}
-            <div id="tab-panel-fiscal" class="tab-panel @if($activeTab !== 'fiscal') hidden @endif">
+            <div id="tab-panel-fiscal" role="tabpanel" aria-labelledby="tab-btn-fiscal" aria-hidden="{{ $activeTab === 'fiscal' ? 'false' : 'true' }}" class="tab-panel @if($activeTab !== 'fiscal') hidden @endif">
 
                 @if(!$hasSavedSettings)
                     <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
@@ -546,7 +550,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
 
             {{-- ── Panel 4: Federal taxation ─────────────────────────────── --}}
-            <div id="tab-panel-federal" class="tab-panel @if($activeTab !== 'federal') hidden @endif">
+            <div id="tab-panel-federal" role="tabpanel" aria-labelledby="tab-btn-federal" aria-hidden="{{ $activeTab === 'federal' ? 'false' : 'true' }}" class="tab-panel @if($activeTab !== 'federal') hidden @endif">
 
                 @if(!$hasSavedSettings)
                     <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
@@ -712,7 +716,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
 
             {{-- ── Panel 5: Artifact Storage ────────────────────────────── --}}
-            <div id="tab-panel-artifacts" class="tab-panel @if($activeTab !== 'artifacts') hidden @endif">
+            <div id="tab-panel-artifacts" role="tabpanel" aria-labelledby="tab-btn-artifacts" aria-hidden="{{ $activeTab === 'artifacts' ? 'false' : 'true' }}" class="tab-panel @if($activeTab !== 'artifacts') hidden @endif">
 
                 @if(!$hasSavedSettings)
                     <div class="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded">
@@ -830,24 +834,73 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             document.addEventListener('DOMContentLoaded', async () => {
 
                 // ── Tab switcher ────────────────────────────────────────────
-                document.querySelectorAll('.tab-button').forEach((btn) => {
-                    btn.addEventListener('click', () => {
-                        if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
+                const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
+
+                const activateTab = (btn, focus = false) => {
+                    if (!(btn instanceof HTMLButtonElement) || btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
+                        return;
+                    }
+
+                    tabButtons.forEach((button) => {
+                        button.classList.remove('border-green-600', 'text-green-700');
+                        button.classList.add('border-transparent', 'text-gray-500');
+                        button.setAttribute('aria-selected', 'false');
+                        button.setAttribute('tabindex', '-1');
+                    });
+
+                    document.querySelectorAll('.tab-panel').forEach((panel) => {
+                        panel.classList.add('hidden');
+                        panel.setAttribute('aria-hidden', 'true');
+                    });
+
+                    btn.classList.add('border-green-600', 'text-green-700');
+                    btn.classList.remove('border-transparent', 'text-gray-500');
+                    btn.setAttribute('aria-selected', 'true');
+                    btn.setAttribute('tabindex', '0');
+
+                    const panel = document.getElementById('tab-panel-' + btn.dataset.tab);
+                    panel?.classList.remove('hidden');
+                    panel?.setAttribute('aria-hidden', 'false');
+
+                    if (focus) {
+                        btn.focus();
+                    }
+                };
+
+                tabButtons.forEach((btn) => {
+                    btn.addEventListener('click', () => activateTab(btn));
+
+                    btn.addEventListener('keydown', (event) => {
+                        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
                             return;
                         }
 
-                        document.querySelectorAll('.tab-button').forEach((b) => {
-                            b.classList.remove('border-green-600', 'text-green-700');
-                            b.classList.add('border-transparent', 'text-gray-500');
-                        });
+                        const enabledTabs = tabButtons.filter((button) => (
+                            button instanceof HTMLButtonElement
+                            && !button.disabled
+                            && button.getAttribute('aria-disabled') !== 'true'
+                        ));
 
-                        document.querySelectorAll('.tab-panel').forEach((p) => {
-                            p.classList.add('hidden');
-                        });
+                        if (enabledTabs.length === 0) {
+                            return;
+                        }
 
-                        btn.classList.add('border-green-600', 'text-green-700');
-                        btn.classList.remove('border-transparent', 'text-gray-500');
-                        document.getElementById('tab-panel-' + btn.dataset.tab)?.classList.remove('hidden');
+                        event.preventDefault();
+
+                        const currentIndex = Math.max(enabledTabs.indexOf(btn), 0);
+                        let targetIndex = currentIndex;
+
+                        if (event.key === 'Home') {
+                            targetIndex = 0;
+                        } else if (event.key === 'End') {
+                            targetIndex = enabledTabs.length - 1;
+                        } else if (event.key === 'ArrowRight') {
+                            targetIndex = (currentIndex + 1) % enabledTabs.length;
+                        } else if (event.key === 'ArrowLeft') {
+                            targetIndex = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
+                        }
+
+                        activateTab(enabledTabs[targetIndex], true);
                     });
                 });
 
