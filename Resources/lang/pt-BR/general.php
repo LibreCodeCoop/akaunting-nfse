@@ -386,6 +386,8 @@ return [
             'invalid_service' => 'Informe um código de serviço válido.',
             'invalid_competence' => 'Informe uma competência válida no formato AAAA-MM-DD.',
             'query_failed' => 'Não foi possível consultar os parâmetros municipais oficiais.',
+            'live_source' => 'Parâmetros municipais oficiais atualizados agora.',
+            'cached_warning' => 'O serviço oficial está indisponível. Exibindo o último snapshot municipal em cache; confira a data de consulta antes de utilizá-lo.',
         ],
         'issqn_special' => [
             'heading' => 'Tributação municipal do ISSQN',

@@ -1353,9 +1353,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 return;
                             }
 
-                            municipalParametersResult.textContent = JSON.stringify(payload.data ?? {}, null, 2);
+                            municipalParametersResult.textContent = JSON.stringify({
+                                data: payload.data ?? {},
+                                source: payload.meta ?? {},
+                            }, null, 2);
                             municipalParametersResultWrapper.classList.remove('hidden');
-                            municipalParametersStatus.textContent = '';
+                            municipalParametersStatus.textContent =
+                                payload.meta?.stale === true
+                                    ? @json(trans('nfse::general.settings.municipal_parameters.cached_warning'))
+                                    : @json(trans('nfse::general.settings.municipal_parameters.live_source'));
                         } catch (error) {
                             municipalParametersStatus.textContent = @json(trans('nfse::general.settings.municipal_parameters.query_failed'));
                         } finally {

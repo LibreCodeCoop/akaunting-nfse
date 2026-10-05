@@ -1,0 +1,87 @@
+<?php
+
+// SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+declare(strict_types=1);
+
+namespace Modules\Nfse\Support;
+
+use Modules\Nfse\Models\MunicipalParameterSnapshot;
+
+final class MunicipalParameterSnapshotStore
+{
+    /**
+     * @param callable():array<string,mixed> $fetch
+     * @return array{
+     *   data:array<string,mixed>,
+     *   meta:array{source:string,stale:bool,fetched_at:string,environment:string}
+     * }
+     */
+    public function resolve(
+        int $companyId,
+        string $environment,
+        string $municipioIbge,
+        string $serviceCode,
+        string $competence,
+        callable $fetch,
+    ): array {
+        try {
+            $data = $fetch();
+
+            $snapshot = MunicipalParameterSnapshot::query()->updateOrCreate(
+                [
+                    'company_id' => $companyId,
+                    'environment' => $environment,
+                    'municipio_ibge' => $municipioIbge,
+                    'service_code' => $serviceCode,
+                    'competence_date' => $competence,
+                ],
+                [
+                    'payload' => $data,
+                    'fetched_at' => now(),
+                ],
+            );
+
+            return [
+                'data' => $data,
+                'meta' => $this->metadata($snapshot, 'live', false),
+            ];
+        } catch (\Throwable $error) {
+            $snapshot = MunicipalParameterSnapshot::query()
+                ->where('company_id', $companyId)
+                ->where('environment', $environment)
+                ->where('municipio_ibge', $municipioIbge)
+                ->where('service_code', $serviceCode)
+                ->whereDate('competence_date', $competence)
+                ->first();
+
+            if (!$snapshot instanceof MunicipalParameterSnapshot) {
+                throw $error;
+            }
+
+            $payload = is_array($snapshot->payload) ? $snapshot->payload : [];
+
+            return [
+                'data' => $payload,
+                'meta' => $this->metadata($snapshot, 'cache', true),
+            ];
+        }
+    }
+
+    /**
+     * @return array{source:string,stale:bool,fetched_at:string,environment:string}
+     */
+    private function metadata(
+        MunicipalParameterSnapshot $snapshot,
+        string $source,
+        bool $stale,
+    ): array {
+        return [
+            'source' => $source,
+            'stale' => $stale,
+            'fetched_at' => $snapshot->fetched_at?->toAtomString() ?? '',
+            'environment' => (string) $snapshot->environment,
+        ];
+    }
+}
