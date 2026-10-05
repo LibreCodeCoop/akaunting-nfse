@@ -454,8 +454,6 @@
                 observer.observe(target, {
                     childList: true,
                     subtree: true,
-                    attributes: true,
-                    attributeFilter: ['class', 'style'],
                 });
             }
         }
