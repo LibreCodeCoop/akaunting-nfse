@@ -28,13 +28,13 @@ final class MunicipalParameterSnapshotStoreTest extends FeatureTestCase
         self::assertFalse($result['meta']['stale']);
         self::assertNotSame('', $result['meta']['fetched_at']);
 
-        self::assertDatabaseHas('nfse_municipal_parameter_snapshots', [
-            'company_id' => 1,
-            'environment' => 'sandbox',
-            'municipio_ibge' => '3303302',
-            'service_code' => '010701',
-            'competence_date' => '2026-10-05',
-        ]);
+        $snapshot = MunicipalParameterSnapshot::query()->firstOrFail();
+
+        self::assertSame(1, $snapshot->company_id);
+        self::assertSame('sandbox', $snapshot->environment);
+        self::assertSame('3303302', $snapshot->municipio_ibge);
+        self::assertSame('010701', $snapshot->service_code);
+        self::assertSame('2026-10-05', $snapshot->competence_date?->format('Y-m-d'));
     }
 
     public function testNetworkFailureReturnsLastSnapshotAsStaleWithoutOverwritingIt(): void
