@@ -2668,7 +2668,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 id: 524,
                 amount: 120.0,
                 items: [
-                    ['item_id' => 77, 'name' => 'Item sem servico'],
+                    ['item_id' => 77, 'name' => 'Item sem servico', 'total' => '120.00'],
                 ],
                 description: 'Descricao preview',
             );
@@ -2798,7 +2798,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 id: 13,
                 amount: 50.0,
                 items: [
-                    ['item_id' => 99, 'name' => 'Texto de item que nao deve ir para descricao'],
+                    ['item_id' => 99, 'name' => 'Texto de item que nao deve ir para descricao', 'total' => '50.00'],
                 ],
                 description: 'Descricao da fatura',
             );
