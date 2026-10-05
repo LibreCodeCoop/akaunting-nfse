@@ -102,7 +102,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
         );
     }
 
-    public function testFiscalInvoiceShowRendersPersistedReceiptIdentity(): void
+    public function testLegacyFiscalInvoiceShowRedirectsToNativeInvoice(): void
     {
         $invoice = FiscalScenarioBuilder::invoice();
 
@@ -115,9 +115,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
         $this->loginAs()
             ->get(route('nfse.invoices.show', $invoice))
-            ->assertOk()
-            ->assertSee('2026')
-            ->assertSee(str_repeat('3', 50));
+            ->assertRedirect(route('invoices.show', $invoice));
     }
 
     public function testInvalidArtifactTypeRedirectsWithoutAttemptingRemoteRead(): void
@@ -186,7 +184,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
         $this->loginAs()
             ->post(route('nfse.invoices.emit', $invoice))
-            ->assertRedirect(route('nfse.invoices.index', ['status' => 'pending']))
+            ->assertRedirect(route('invoices.show', $invoice))
             ->assertSessionHas('error', trans('nfse::general.invoices.emit_blocked_no_items'));
 
         self::assertFalse(

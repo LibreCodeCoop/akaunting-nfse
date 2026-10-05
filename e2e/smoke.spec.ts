@@ -13,12 +13,11 @@ test('login page is reachable', async ({ page }) => {
   await expect(page.locator('input[name="password"]')).toBeVisible();
 });
 
-test('pending invoices page is reachable after login', async ({ page }, testInfo) => {
+test('legacy pending invoices route redirects to native Akaunting invoices', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
 
   await page.goto('/1/nfse/invoices/pending', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('body')).toBeVisible();
 
-  await expect(page).toHaveURL(/\/1\/nfse\/invoices(?:\/pending|\?status=pending.*)?$/);
-  await expect(page.locator('#index-more-actions-refresh-nfse-invoices')).toBeVisible();
+  await expect(page).toHaveURL(/\/1\/sales\/invoices(?:\?.*)?$/);
 });
