@@ -81,6 +81,29 @@ final class ReceiptPersistenceTest extends FeatureTestCase
         self::assertSame(str_repeat('5', 50), $original->fresh()->chave_acesso);
     }
 
+    public function testAuthorizedXmlPersistsCompetenceAndFiscalSnapshot(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $xml = '<NFSe><infNFSe><valores><vLiq>90.00</vLiq></valores><DPS><infDPS><dCompet>2026-10-01</dCompet><valores><vServPrest><vServ>100.00</vServ></vServPrest><trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN><vISSQN>2.00</vISSQN></tribMun></trib></valores></infDPS></DPS></infNFSe></NFSe>';
+
+        $receipt = (new ReceiptPersistence())->storeCurrent(
+            $invoice->id,
+            new ReceiptData(
+                nfseNumber: '30',
+                chaveAcesso: str_repeat('7', 50),
+                dataEmissao: '2026-10-05T10:00:00-03:00',
+                rawXml: $xml,
+            ),
+            '30',
+        );
+
+        $fresh = $receipt->fresh();
+
+        self::assertSame('2026-10-01', $fresh->competence_date?->format('Y-m-d'));
+        self::assertSame('100.00', $fresh->authorized_fiscal_snapshot['gross_service_value'] ?? null);
+        self::assertSame(hash('sha256', $xml), $fresh->authorized_fiscal_snapshot['source_sha256'] ?? null);
+    }
+
     private function receipt(string $number, string $accessKey): ReceiptData
     {
         return new ReceiptData(

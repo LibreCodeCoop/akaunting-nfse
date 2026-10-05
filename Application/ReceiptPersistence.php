@@ -76,17 +76,27 @@ final class ReceiptPersistence
      *   chave_acesso:string,
      *   data_emissao:string,
      *   codigo_verificacao:?string,
-     *   status:string
+     *   status:string,
+     *   competence_date?:?string,
+     *   authorized_fiscal_snapshot?:array<string, mixed>
      * }
      */
     private function receiptValues(ReceiptData $receipt, string $resolvedNumber): array
     {
-        return [
+        $values = [
             'nfse_number' => $resolvedNumber,
             'chave_acesso' => $receipt->chaveAcesso,
             'data_emissao' => $receipt->dataEmissao,
             'codigo_verificacao' => $receipt->codigoVerificacao,
             'status' => 'emitted',
         ];
+
+        if (is_string($receipt->rawXml) && trim($receipt->rawXml) !== '') {
+            $snapshot = (new AuthorizedFiscalSnapshotExtractor())->extract($receipt->rawXml);
+            $values['competence_date'] = $snapshot['competence_date'];
+            $values['authorized_fiscal_snapshot'] = $snapshot;
+        }
+
+        return $values;
     }
 }
