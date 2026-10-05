@@ -103,14 +103,19 @@ jobs:
         env:
           NFSE_TEST_HARNESS: '1'
         run: |
-          php artisan nfse:test-harness:provision \
+          FIXTURE_JSON="$(php artisan nfse:test-harness:provision \
             --company-id=1 \
             --cnpj=11222333000181 \
             --municipio=3303302 \
             --item-lista=0107 \
             --codigo-nacional=010701 \
             --password=nfse-test-password \
-            --json
+            --substitution-fixture \
+            --json)"
+          echo "$FIXTURE_JSON"
+          SUBSTITUTION_INVOICE_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["substitution_invoice_id"] ?? 0);')"
+          test "$SUBSTITUTION_INVOICE_ID" -gt 0
+          echo "NFSE_E2E_SUBSTITUTION_INVOICE_ID=$SUBSTITUTION_INVOICE_ID" >> "$GITHUB_ENV"
 
       - name: Setup Node
         uses: actions/setup-node@v4

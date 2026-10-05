@@ -8,7 +8,9 @@ declare(strict_types=1);
 namespace Modules\Nfse\Console\Commands;
 
 use App\Models\Common\Company;
+use App\Models\Document\Document;
 use Illuminate\Console\Command;
+use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
 use Modules\Nfse\Support\Testing\SyntheticPkcs12Factory;
 
@@ -21,6 +23,7 @@ final class ProvisionTestHarness extends Command
         {--item-lista=0107 : Canonical LC 116 item}
         {--codigo-nacional=010701 : National taxation code}
         {--password=nfse-test-password : Synthetic PKCS#12 password}
+        {--substitution-fixture : Create an emitted invoice fixture for substitution UI tests}
         {--json : Emit machine-readable output}';
 
     protected $description = 'Provision deterministic local/testing fiscal settings and synthetic PKCS#12 material';
@@ -93,6 +96,34 @@ final class ProvisionTestHarness extends Command
             'pfx_path' => $pkcs12['path'],
             'pfx_password' => $pkcs12['password'],
         ];
+
+        if ((bool) $this->option('substitution-fixture')) {
+            $invoice = Document::query()
+                ->where('company_id', $companyId)
+                ->where('type', 'invoice')
+                ->where('document_number', 'NFSE-E2E-SUBSTITUTION')
+                ->first();
+
+            if (!$invoice instanceof Document) {
+                $invoice = Document::factory()->invoice()->create([
+                    'company_id' => $companyId,
+                    'document_number' => 'NFSE-E2E-SUBSTITUTION',
+                ]);
+            }
+
+            NfseReceipt::query()->updateOrCreate(
+                [
+                    'invoice_id' => (int) $invoice->id,
+                    'nfse_number' => '4242',
+                ],
+                [
+                    'chave_acesso' => str_repeat('4', 50),
+                    'status' => 'emitted',
+                ],
+            );
+
+            $payload['substitution_invoice_id'] = (int) $invoice->id;
+        }
 
         if ($this->option('json')) {
             $this->line(json_encode($payload, JSON_THROW_ON_ERROR));
