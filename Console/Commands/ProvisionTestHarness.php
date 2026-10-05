@@ -160,6 +160,7 @@ final class ProvisionTestHarness extends Command
 
             $payload['item_validation_item_id'] = (int) $item->id;
         }
+
         if ((bool) $this->option('adn-review-fixture')) {
             $vendor = Contact::query()
                 ->where('company_id', $companyId)
