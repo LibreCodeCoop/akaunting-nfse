@@ -41,7 +41,7 @@ jobs:
           tools: composer
 
       - name: Cache Composer downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.composer/cache/files
           key: akaunting-feature-${{ runner.os }}-php83-${{ hashFiles('composer.lock', 'modules/Nfse/composer.json', 'modules/Nfse/3rdparty/composer.json') }}
