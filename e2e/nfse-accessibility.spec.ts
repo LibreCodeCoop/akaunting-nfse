@@ -148,3 +148,46 @@ test('emission modal tabs are keyboard operable with synchronized ARIA state', a
   await expect(issuance).toBeFocused();
   await expect(issuance).toHaveAttribute('aria-selected', 'true');
 });
+
+
+test('emission error summary receives keyboard focus', async ({ page }, testInfo) => {
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+
+  expect(invoiceId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  const emitAction = page.locator('#nfse-native-fiscal-panel [data-nfse-native-emit="true"]');
+  await expect(emitAction).toBeVisible();
+  await emitAction.click();
+
+  const dialog = page.locator('[role="dialog"]').last();
+  await expect(dialog).toBeVisible();
+
+  await page.route('**/nfse/invoices/*/emit', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({
+      status: 422,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: true,
+        message: 'Deterministic fiscal validation error',
+      }),
+    });
+  });
+
+  const form = dialog.locator("form[action*='/nfse/invoices/'][action$='/emit']");
+  await expect(form).toBeVisible();
+  await form.locator('button[type="submit"]').last().click();
+
+  const summary = dialog.locator('[data-nfse-error-summary="true"]');
+  await expect(summary).toBeVisible();
+  await expect(summary).toContainText('Deterministic fiscal validation error');
+  await expect(summary).toBeFocused();
+});

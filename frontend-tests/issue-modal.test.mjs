@@ -59,3 +59,25 @@ test('restore-default comparison normalizes equivalent editor html', () => {
         true,
     );
 });
+
+
+test('error summary receives focus once when visible', () => {
+    let focusCount = 0;
+    const summary = {
+        __nfseErrorSummaryFocused: false,
+        offsetParent: {},
+        focus() {
+            focusCount += 1;
+        },
+    };
+    const root = {
+        querySelector(selector) {
+            return selector === '[data-nfse-error-summary="true"]' ? summary : null;
+        },
+    };
+
+    assert.equal(modal.focusErrorSummary(root), true);
+    assert.equal(focusCount, 1);
+    assert.equal(modal.focusErrorSummary(root), false);
+    assert.equal(focusCount, 1);
+});
