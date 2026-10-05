@@ -41,6 +41,7 @@ class Main extends Provider
         $this->loadMigrations();
         $this->registerInvoiceSendFlowOverride();
         $this->registerNativeInvoiceFiscalPanel();
+        $this->registerNativeInvoiceFiscalListStatus();
         $this->registerItemFiscalFieldInjection();
         $this->registerItemFiscalListValidation();
         $this->syncEmailTemplates();
@@ -225,6 +226,60 @@ class Main extends Provider
             ])->render();
 
             $this->app->make('view')->startPush('status_message_end', $content);
+        });
+    }
+
+    protected function registerNativeInvoiceFiscalListStatus(): void
+    {
+        $this->app->make('view')->composer('sales.invoices.index', function ($view): void {
+            $invoices = $view->getData()['invoices'] ?? null;
+
+            if (!is_object($invoices) || !method_exists($invoices, 'getCollection')) {
+                return;
+            }
+
+            $invoiceIds = $invoices->getCollection()
+                ->map(static fn ($invoice): int => is_numeric($invoice->id ?? null) ? (int) $invoice->id : 0)
+                ->filter(static fn (int $id): bool => $id > 0)
+                ->values()
+                ->all();
+
+            if ($invoiceIds === []) {
+                return;
+            }
+
+            try {
+                $receipts = \Modules\Nfse\Models\NfseReceipt::query()
+                    ->whereIn('invoice_id', $invoiceIds)
+                    ->orderByDesc('id')
+                    ->get()
+                    ->unique('invoice_id');
+            } catch (\Throwable) {
+                return;
+            }
+
+            $statuses = [];
+
+            foreach ($invoiceIds as $invoiceId) {
+                $receipt = $receipts->firstWhere('invoice_id', $invoiceId);
+                $status = is_object($receipt) ? trim((string) ($receipt->status ?? '')) : 'pending';
+
+                if ($status === '') {
+                    $status = 'pending';
+                }
+
+                $statuses[$invoiceId] = [
+                    'status' => $status,
+                    'label' => trans('nfse::general.native_invoice.status_' . $status),
+                    'url' => route('invoices.show', $invoiceId),
+                ];
+            }
+
+            $content = view('nfse::invoices.partials.native-list-status-script', [
+                'nfseInvoiceFiscalStatuses' => $statuses,
+            ])->render();
+
+            $this->app->make('view')->startPush('scripts', $content);
         });
     }
 
