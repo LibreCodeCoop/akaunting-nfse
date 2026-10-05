@@ -65,12 +65,13 @@ final class IssueInvoiceFiscalGroup
         ) ?: '';
         $payload['valorServico'] = trim((string) ($group['amount'] ?? ''));
         $payload['aliquota'] = trim((string) ($group['aliquota'] ?? ''));
+        $groupItems = is_array($group['items'] ?? null) ? $group['items'] : [];
         $payload['discriminacao'] = implode(
             ' | ',
-            array_values(array_filter(
-                array_map('strval', is_array($group['line_items'] ?? null) ? $group['line_items'] : []),
-                static fn (string $line): bool => trim($line) !== '',
-            )),
+            array_values(array_filter(array_map(
+                static fn (array $item): string => trim((string) ($item['name'] ?? '')),
+                $groupItems,
+            ), static fn (string $line): bool => $line !== '')),
         );
         $payload['serie'] = $identity['series'];
         $payload['numeroDps'] = $identity['number'];
