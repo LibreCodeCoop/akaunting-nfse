@@ -394,6 +394,8 @@ return [
             'invalid_service' => 'Enter a valid service code.',
             'invalid_competence' => 'Enter a valid competence date in YYYY-MM-DD format.',
             'query_failed' => 'Could not query the official municipal parameters.',
+            'live_source' => 'Official municipal parameters refreshed now.',
+            'cached_warning' => 'Official service is unavailable. Showing the last cached municipal snapshot; review its fetched-at metadata before relying on it.',
         ],
         'issqn_special' => [
             'heading' => 'Municipal ISSQN taxation',

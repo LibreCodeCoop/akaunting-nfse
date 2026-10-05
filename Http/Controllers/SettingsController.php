@@ -17,6 +17,7 @@ use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\Lc116Code;
+use Modules\Nfse\Support\MunicipalParameterSnapshotStore;
 use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
@@ -439,10 +440,20 @@ class SettingsController extends Controller
             ], 422);
         }
 
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $environment = $this->sandboxModeEnabled() ? 'sandbox' : 'production';
+
         try {
-            return $this->jsonResponse([
-                'data' => $this->fetchMunicipalParameters($municipio, $serviceCode, $competence),
-            ]);
+            $resolved = (new MunicipalParameterSnapshotStore())->resolve(
+                companyId: $companyId,
+                environment: $environment,
+                municipioIbge: $municipio,
+                serviceCode: $serviceCode,
+                competence: $competence,
+                fetch: fn (): array => $this->fetchMunicipalParameters($municipio, $serviceCode, $competence),
+            );
+
+            return $this->jsonResponse($resolved);
         } catch (Throwable) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.settings.municipal_parameters.query_failed'),
