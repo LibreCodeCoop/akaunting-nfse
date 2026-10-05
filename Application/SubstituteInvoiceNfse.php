@@ -10,7 +10,6 @@ namespace Modules\Nfse\Application;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
 
 /**
  * Issues an official replacement DPS while preserving ambiguous-POST recovery.
@@ -18,7 +17,7 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
 final class SubstituteInvoiceNfse
 {
     public function __construct(
-        private readonly RecoverInvoiceEmission $recovery = new RecoverInvoiceEmission(),
+        private readonly IssueInvoiceNfse $issuer = new IssueInvoiceNfse(),
     ) {
     }
 
@@ -41,16 +40,6 @@ final class SubstituteInvoiceNfse
             );
         }
 
-        try {
-            return $client->emit($replacementDps);
-        } catch (NetworkException $networkError) {
-            $recovered = $this->recovery->recover($client, $replacementDps);
-
-            if ($recovered === null) {
-                throw $networkError;
-            }
-
-            return $recovered;
-        }
+        return $this->issuer->issue($client, $replacementDps);
     }
 }
