@@ -46,9 +46,7 @@ final class CancelInvoiceNfseTest extends TestCase
             }
         };
 
-        $receipt = new NfseReceipt();
-        $receipt->chave_acesso = 'ACCESS-42';
-        $receipt->status = 'emitted';
+        $receipt = $this->receipt('ACCESS-42', 'emitted');
 
         (new CancelInvoiceNfse())->cancel($client, $receipt, 'Erro na emissão - teste');
 
@@ -81,9 +79,7 @@ final class CancelInvoiceNfseTest extends TestCase
             }
         };
 
-        $receipt = new NfseReceipt();
-        $receipt->chave_acesso = 'ACCESS-42';
-        $receipt->status = 'emitted';
+        $receipt = $this->receipt('ACCESS-42', 'emitted');
 
         try {
             (new CancelInvoiceNfse())->cancel($client, $receipt, 'Erro na emissão');
@@ -93,5 +89,26 @@ final class CancelInvoiceNfseTest extends TestCase
         }
 
         self::assertSame('emitted', $receipt->status);
+    }
+
+    private function receipt(string $accessKey, string $status): NfseReceipt
+    {
+        return new class ($accessKey, $status) extends NfseReceipt {
+            public function __construct(string $accessKey, string $status)
+            {
+                parent::__construct();
+                $this->chave_acesso = $accessKey;
+                $this->status = $status;
+            }
+
+            public function update(array $attributes = [], array $options = []): bool
+            {
+                foreach ($attributes as $key => $value) {
+                    $this->{$key} = $value;
+                }
+
+                return true;
+            }
+        };
     }
 }
