@@ -118,6 +118,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
         self::assertSame('60.00', $client->lastDps?->valorServico);
         self::assertSame('0101', $client->lastDps?->itemListaServico);
         self::assertSame('010101', $client->lastDps?->codigoTributacaoNacional);
+        self::assertSame('Servico fiscal do grupo', $client->lastDps?->discriminacao);
 
         self::assertDatabaseHas('nfse_receipts', [
             'invoice_id' => $invoice->id,
@@ -167,7 +168,14 @@ final class FiscalGroupResumeTest extends FeatureTestCase
             'codigo_tributacao_nacional' => str_contains($key, '010101') ? '010101' : '010701',
             'aliquota' => str_contains($key, '3.00') ? '3.00' : '2.00',
             'amount' => $amount,
-            'line_items' => ['Servico fiscal do grupo'],
+            'items' => [
+                [
+                    'document_item_id' => 1,
+                    'item_id' => 1,
+                    'name' => 'Servico fiscal do grupo',
+                    'amount' => $amount,
+                ],
+            ],
         ];
     }
 }
