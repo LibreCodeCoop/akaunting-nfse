@@ -43,6 +43,18 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
         self::assertCount(2, $result['details']);
     }
 
+    public function testBlocksForeignTakerThatNeedsInteractiveNifAndAddressReview(): void
+    {
+        $invoice = $this->invoiceWithProfile('0107', '010701', '100');
+        $invoice->contact_country_code = 'GB';
+
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice);
+
+        self::assertSame('blocked', $result['status']);
+        self::assertSame('foreign_taker_requires_review', $result['reason']);
+        self::assertSame(['GB'], $result['details']);
+    }
+
     public function testAlreadyIssuedUnitIsIdempotent(): void
     {
         $invoice = $this->invoiceWithProfile('0107', '010701', '100');
