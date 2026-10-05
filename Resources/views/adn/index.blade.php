@@ -157,6 +157,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <div
                 id="adn-distribution-browser"
                 data-url="{{ route('nfse.adn.distribution') }}"
+                data-querying-label="{{ trans('nfse::general.adn.querying') }}"
+                data-error-label="{{ trans('nfse::general.adn.distribution_query_failed') }}"
                 role="region"
                 aria-labelledby="adn-distribution-title"
                 class="rounded-lg border border-gray-200 bg-white p-5 space-y-4"
@@ -217,102 +219,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         </div>
 
-        <script>
-            (() => {
-                const init = () => {
-                    const browser = document.getElementById('adn-distribution-browser');
-                    const queryButton = document.getElementById('adn-distribution-query');
-                    const nsuInput = document.getElementById('adn-nsu');
-                    const cnpjInput = document.getElementById('adn-cnpj');
-                    const batchInput = document.getElementById('adn-lote');
-                    const status = document.getElementById('adn-distribution-status');
-                    const result = document.getElementById('adn-distribution-result');
-                    const resultWrapper = document.getElementById('adn-distribution-result-wrapper');
-                    const summary = document.getElementById('adn-distribution-summary');
-                    const summaryStatus = document.getElementById('adn-summary-status');
-                    const summaryDocuments = document.getElementById('adn-summary-documents');
-                    const summaryMatched = document.getElementById('adn-summary-matched');
-                    const summaryUnmatched = document.getElementById('adn-summary-unmatched');
-                    const summaryLastNsu = document.getElementById('adn-summary-last-nsu');
+        <script
+            src="{{ asset('modules/Nfse/Resources/assets/js/adn-distribution-browser.js?v=' . module_version('nfse')) }}"
+            data-nfse-adn-distribution-module="true"
+        ></script>
 
-                    if (
-                        !(browser instanceof HTMLElement) ||
-                        !(queryButton instanceof HTMLButtonElement) ||
-                        !(nsuInput instanceof HTMLInputElement) ||
-                        !(cnpjInput instanceof HTMLInputElement) ||
-                        !(batchInput instanceof HTMLInputElement) ||
-                        !(status instanceof HTMLElement) ||
-                        !(result instanceof HTMLElement) ||
-                        !(resultWrapper instanceof HTMLElement) ||
-                        !(summary instanceof HTMLElement) ||
-                        !(summaryStatus instanceof HTMLElement) ||
-                        !(summaryDocuments instanceof HTMLElement) ||
-                        !(summaryMatched instanceof HTMLElement) ||
-                        !(summaryUnmatched instanceof HTMLElement) ||
-                        !(summaryLastNsu instanceof HTMLElement)
-                    ) {
-                        return;
-                    }
-
-                    queryButton.addEventListener('click', async () => {
-                        const url = browser.dataset.url ?? '';
-                        const params = new URLSearchParams({
-                            nsu: nsuInput.value.trim() || '0',
-                            cnpj: cnpjInput.value.trim(),
-                            lote: batchInput.checked ? '1' : '0',
-                        });
-
-                        queryButton.disabled = true;
-                        status.textContent = @json((string) trans('nfse::general.adn.querying'));
-                        result.textContent = '';
-                        resultWrapper.classList.add('hidden');
-                        summary.classList.add('hidden');
-
-                        try {
-                            const response = await fetch(`${url}?${params.toString()}`, {
-                                headers: {
-                                    Accept: 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                },
-                            });
-                            const payload = await response.json().catch(() => ({}));
-
-                            if (!response.ok) {
-                                status.textContent = typeof payload.message === 'string'
-                                    ? payload.message
-                                    : @json((string) trans('nfse::general.adn.distribution_query_failed'));
-                                return;
-                            }
-
-                            const data = payload.data ?? {};
-                            const documents = Array.isArray(data.documents) ? data.documents : [];
-
-                            summaryStatus.textContent = String(data.status_processamento ?? '—');
-                            summaryDocuments.textContent = String(documents.length);
-                            summaryMatched.textContent = String(data.reconciliation?.matched ?? 0);
-                            summaryUnmatched.textContent = String(data.reconciliation?.unmatched ?? documents.length);
-                            summaryLastNsu.textContent = data.ultimo_nsu === null || data.ultimo_nsu === undefined
-                                ? '—'
-                                : String(data.ultimo_nsu);
-                            summary.classList.remove('hidden');
-
-                            result.textContent = JSON.stringify(data, null, 2);
-                            resultWrapper.classList.remove('hidden');
-                            status.textContent = '';
-                        } catch (error) {
-                            status.textContent = @json((string) trans('nfse::general.adn.distribution_query_failed'));
-                        } finally {
-                            queryButton.disabled = false;
-                        }
-                    });
-                };
-
-                if (document.readyState === 'complete') {
-                    init();
-                } else {
-                    window.addEventListener('load', init, { once: true });
-                }
-            })();
-        </script>
     </x-slot>
 </x-layouts.admin>

@@ -14,10 +14,17 @@ test('deterministic ADN browser reaches fiscal transport without real A1 or gove
   await expect(page.locator('#adn-cnpj')).toHaveValue('11222333000181');
   await expect(page.locator('#adn-nsu')).toHaveValue('0');
 
+  const distributionResponse = page.waitForResponse(
+    (response) => response.url().includes('/nfse/adn/distribution?') && response.request().method() === 'GET',
+    { timeout: 15_000 },
+  );
+
   await page.locator('#adn-distribution-query').click();
 
+  const response = await distributionResponse;
+  expect(response.ok()).toBeTruthy();
   await expect(page.locator('#adn-distribution-status')).not.toContainText(/error|erro/i);
-  await expect(page.locator('#adn-distribution-summary')).toBeVisible();
+  await expect(page.locator('#adn-distribution-summary')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('#adn-summary-status')).toHaveText('PROCESSADO');
   await expect(page.locator('#adn-summary-documents')).toHaveText('0');
   await expect(page.locator('#adn-summary-last-nsu')).toHaveText('0');
