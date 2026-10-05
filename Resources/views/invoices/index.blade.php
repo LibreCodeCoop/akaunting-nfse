@@ -1057,11 +1057,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         </div>
 
         @push('scripts')
+        <script id="nfse-invoice-list-search-config" type="application/json">
+            @json($searchStringCookieFilters ?? [])
+        </script>
+        <script
+            src="{{ asset('modules/Nfse/Resources/assets/js/invoice-list-search.js?v=' . module_version('nfse')) }}"
+            data-nfse-invoice-list-search-module="true"
+        ></script>
+
         <script>
             (() => {
                 const initNfseInvoicePage = () => {
-                const cookieFilters = @json($searchStringCookieFilters ?? []);
-
                 const nfseEmitEditorState = {
                     isTyping: false,
                     typingTimeoutId: null,
@@ -1164,79 +1170,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             });
                         }
                     }, { once: true });
-
-                // When the AkauntingSearch "×" button is clicked, it normally navigates to the
-                // bare URL (no query params), which would trigger our server-side preference
-                // restore and bring back the old filter. Instead, intercept the click and
-                // navigate to ?search= (explicit empty search), which the server treats as
-                // "user explicitly cleared" — skipping the restore and saving default preferences.
-                document.addEventListener('click', function (e) {
-                    const clearBtn = e.target && e.target.closest('.clear');
-
-                    if (!clearBtn || !clearBtn.closest('.js-search')) {
-                        return;
-                    }
-
-                    e.stopImmediatePropagation();
-                    e.preventDefault();
-
-                    if (typeof Cookies !== 'undefined' && typeof Cookies.remove === 'function') {
-                        Cookies.remove('search-string');
-                    }
-
-                    const basePath = window.location.href.replace(window.location.search, '');
-                    window.location.href = basePath + '?search=';
-                }, true);
-
-                // Keep native AkauntingSearch visual chips in sync after page reload.
-                const hydrateSearchStringCookie = () => {
-                    if (!cookieFilters || Object.keys(cookieFilters).length === 0) {
-                        return;
-                    }
-
-                    const path = window.location.href.replace(window.location.search, '');
-                    let searchStringCookie = {};
-
-                    const readRawCookie = (name) => {
-                        const cookies = document.cookie ? document.cookie.split('; ') : [];
-
-                        for (const item of cookies) {
-                            const separatorIndex = item.indexOf('=');
-
-                            if (separatorIndex === -1) {
-                                continue;
-                            }
-
-                            const key = item.slice(0, separatorIndex);
-                            const value = item.slice(separatorIndex + 1);
-
-                            if (key === name) {
-                                return decodeURIComponent(value);
-                            }
-                        }
-
-                        return null;
-                    };
-
-                    try {
-                        const rawCookie = (typeof Cookies !== 'undefined' && typeof Cookies.get === 'function')
-                            ? Cookies.get('search-string')
-                            : readRawCookie('search-string');
-                        searchStringCookie = rawCookie ? JSON.parse(rawCookie) : {};
-                    } catch (error) {
-                        searchStringCookie = {};
-                    }
-
-                    searchStringCookie[path] = cookieFilters;
-
-                    if (typeof Cookies !== 'undefined' && typeof Cookies.set === 'function') {
-                        Cookies.set('search-string', searchStringCookie);
-                    } else {
-                        document.cookie = 'search-string=' + encodeURIComponent(JSON.stringify(searchStringCookie)) + '; path=/';
-                    }
-                };
-
-                hydrateSearchStringCookie();
 
                 const syncToggle = (input) => {
                     const label = input.closest('label');
