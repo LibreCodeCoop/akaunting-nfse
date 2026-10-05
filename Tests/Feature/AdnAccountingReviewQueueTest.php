@@ -14,10 +14,10 @@ final class AdnAccountingReviewQueueTest extends FeatureTestCase
 {
     public function testReceivedDocumentAppearsWithParsedAccountingPreview(): void
     {
+        $this->loginAs();
         $document = $this->pendingDocument('review-1', str_repeat('1', 50));
 
-        $this->loginAs()
-            ->get(route('nfse.adn.index'))
+        $this->get(route('nfse.adn.index'))
             ->assertOk()
             ->assertSee('Fornecedor Recebido Ltda')
             ->assertSee('2026-10-01')
@@ -27,10 +27,10 @@ final class AdnAccountingReviewQueueTest extends FeatureTestCase
 
     public function testIgnoreKeepsTraceAndRemovesPendingState(): void
     {
+        $this->loginAs();
         $document = $this->pendingDocument('review-2', str_repeat('2', 50));
 
-        $this->loginAs()
-            ->post(route('nfse.adn.review.ignore', $document))
+        $this->post(route('nfse.adn.review.ignore', $document))
             ->assertRedirect(route('nfse.adn.index'));
 
         $fresh = $document->fresh();
@@ -41,12 +41,12 @@ final class AdnAccountingReviewQueueTest extends FeatureTestCase
 
     public function testIgnoreRejectsDocumentOwnedByAnotherCompany(): void
     {
+        $this->loginAs();
         $document = $this->pendingDocument('review-3', str_repeat('3', 50));
         $document->company_id = ((int) company_id()) + 999;
         $document->save();
 
-        $this->loginAs()
-            ->post(route('nfse.adn.review.ignore', $document))
+        $this->post(route('nfse.adn.review.ignore', $document))
             ->assertNotFound();
 
         self::assertSame('pending', $document->fresh()->review_status);
