@@ -113,6 +113,7 @@ jobs:
             --substitution-fixture \
             --adn-review-fixture \
             --item-validation-fixture \
+            --grouped-invoice-fixture \
             --json)"
           echo "$FIXTURE_JSON"
           SUBSTITUTION_INVOICE_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["substitution_invoice_id"] ?? 0);')"
@@ -133,6 +134,9 @@ jobs:
           ITEM_VALIDATION_ITEM_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["item_validation_item_id"] ?? 0);')"
           test "$ITEM_VALIDATION_ITEM_ID" -gt 0
           echo "NFSE_E2E_ITEM_VALIDATION_ID=$ITEM_VALIDATION_ITEM_ID" >> "$GITHUB_ENV"
+          GROUPED_INVOICE_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["grouped_invoice_id"] ?? 0);')"
+          test "$GROUPED_INVOICE_ID" -gt 0
+          echo "NFSE_E2E_GROUPED_INVOICE_ID=$GROUPED_INVOICE_ID" >> "$GITHUB_ENV"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -183,6 +187,7 @@ jobs:
           NFSE_E2E_EMAIL: nfse-e2e@example.test
           NFSE_E2E_PASSWORD: 'NfseE2E!123456'
           NFSE_E2E_ITEM_VALIDATION_ID: ${{ env.NFSE_E2E_ITEM_VALIDATION_ID }}
+          NFSE_E2E_GROUPED_INVOICE_ID: ${{ env.NFSE_E2E_GROUPED_INVOICE_ID }}
         run: |
           npx playwright test --project=full-ui --retries=0
 

@@ -213,17 +213,20 @@ class Main extends Provider
             }
 
             try {
-                $receipt = \Modules\Nfse\Models\NfseReceipt::query()
+                $receipts = NfseReceipt::query()
                     ->where('invoice_id', $invoiceId)
                     ->latest('id')
-                    ->first();
+                    ->get();
             } catch (\Throwable) {
-                $receipt = null;
+                $receipts = collect();
             }
+
+            $receipt = $receipts->first();
 
             $content = view('nfse::invoices.partials.native-fiscal-panel', [
                 'invoice' => $invoice,
                 'receipt' => $receipt,
+                'receipts' => $receipts,
             ])->render();
 
             $this->app->make('view')->startPush('status_message_end', $content);
