@@ -108,3 +108,53 @@ test('ADN distribution browser exposes labelled controls and live status', async
   await expect(page.locator('#adn-distribution-query')).toHaveAccessibleName(/.+/);
   await expect(page.locator('#adn-distribution-status')).toHaveAttribute('aria-live', 'polite');
 });
+
+
+test('emission modal tabs are keyboard operable with synchronized ARIA state', async ({ page }, testInfo) => {
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+
+  expect(invoiceId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  const inlineAction = page.locator('#show-slider-actions-send-email-invoice:visible');
+
+  if (await inlineAction.count() > 0) {
+    await inlineAction.first().click();
+  } else {
+    const more = page.getByRole('button', { name: 'more_horiz' }).first();
+    await more.click();
+    await page
+      .locator('#show-more-actions-send-email-invoice:visible, button:visible')
+      .filter({ hasText: /Emitir NFS-e agora|Emit NFS-e now/i })
+      .last()
+      .click({ force: true });
+  }
+
+  const dialog = page.locator('[role="dialog"]').last();
+  await expect(dialog).toBeVisible();
+
+  const tablist = dialog.getByRole('tablist', { name: 'NFS-e' });
+  await expect(tablist).toBeVisible();
+
+  const issuance = dialog.locator('#nfse-tab-nav-issuance');
+  const email = dialog.locator('#nfse-tab-nav-email');
+
+  await expect(issuance).toHaveAttribute('aria-selected', 'true');
+  await expect(email).toHaveAttribute('aria-selected', 'false');
+
+  await issuance.focus();
+  await page.keyboard.press('ArrowRight');
+
+  await expect(email).toBeFocused();
+  await expect(email).toHaveAttribute('aria-selected', 'true');
+  await expect(issuance).toHaveAttribute('aria-selected', 'false');
+  await expect(dialog.locator('#nfse-tab-pane-email')).toHaveAttribute('aria-hidden', 'false');
+  await expect(dialog.locator('#nfse-tab-pane-issuance')).toHaveAttribute('aria-hidden', 'true');
+
+  await page.keyboard.press('Home');
+  await expect(issuance).toBeFocused();
+  await expect(issuance).toHaveAttribute('aria-selected', 'true');
+});

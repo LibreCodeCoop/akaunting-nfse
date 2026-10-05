@@ -32,6 +32,7 @@ final class ProvisionTestHarness extends Command
         {--adn-review-fixture : Create a received NFS-e review fixture and explicit accounting mappings}
         {--item-validation-fixture : Create an item with a deterministic valid NFS-e fiscal profile}
         {--grouped-invoice-fixture : Create an invoice with two persisted fiscal-group receipts}
+        {--pending-invoice-fixture : Create a pending invoice for modal accessibility tests}
         {--json : Emit machine-readable output}';
 
     protected $description = 'Provision deterministic local/testing fiscal settings and synthetic PKCS#12 material';
@@ -131,6 +132,28 @@ final class ProvisionTestHarness extends Command
             );
 
             $payload['substitution_invoice_id'] = (int) $invoice->id;
+        }
+
+        if ((bool) $this->option('pending-invoice-fixture')) {
+            $invoice = Document::query()
+                ->where('company_id', $companyId)
+                ->where('type', 'invoice')
+                ->where('document_number', 'NFSE-E2E-PENDING')
+                ->first();
+
+            if (!$invoice instanceof Document) {
+                $invoice = Document::factory()->invoice()->create([
+                    'company_id' => $companyId,
+                    'document_number' => 'NFSE-E2E-PENDING',
+                    'amount' => 100.00,
+                ]);
+            }
+
+            NfseReceipt::query()
+                ->where('invoice_id', (int) $invoice->id)
+                ->delete();
+
+            $payload['pending_invoice_id'] = (int) $invoice->id;
         }
 
         if ((bool) $this->option('grouped-invoice-fixture')) {

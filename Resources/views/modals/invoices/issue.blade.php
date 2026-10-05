@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 @php
     $issueModalHandlers = include base_path('modules/Nfse/Resources/views/modals/invoices/partials/issue_js_handlers.php');
     $nfseTabSyncOnclick = (string) ($issueModalHandlers['nfseTabSyncOnclick'] ?? '');
+    $nfseTabOnkeydown = (string) ($issueModalHandlers['nfseTabOnkeydown'] ?? '');
     $nfseSendEmailOnChange = (string) ($issueModalHandlers['nfseSendEmailOnChange'] ?? '');
     $nfseRestoreDefaultSync = (string) ($issueModalHandlers['nfseRestoreDefaultSync'] ?? '');
     $nfseRestoreDefaultOnclick = (string) ($issueModalHandlers['nfseRestoreDefaultOnclick'] ?? '');
@@ -39,35 +40,50 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
     <div data-nfse-tabs="true">
         <div data-tabs-swiper>
-            <ul id="nfse-tab-nav-list" class="grid w-full auto-rows-max {{ $sendEmailDefault ? 'grid-cols-3' : 'grid-cols-2' }}">
+            <ul id="nfse-tab-nav-list" role="tablist" aria-label="NFS-e" class="grid w-full auto-rows-max {{ $sendEmailDefault ? 'grid-cols-3' : 'grid-cols-2' }}">
                 <li id="nfse-tab-nav-issuance"
+                    role="tab"
+                    tabindex="0"
+                    aria-selected="true"
+                    aria-controls="nfse-tab-pane-issuance"
                     data-nfse-tab-nav="nfse-tab-pane-issuance"
                     class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link active-tabs text-purple border-purple after:absolute after:w-full after:h-0.5 after:left-0 after:right-0 after:bottom-0 after:bg-purple after:rounded-tl-md after:rounded-tr-md"
                     onclick="{!! $nfseTabSyncOnclick !!}"
+                    onkeydown="{!! $nfseTabOnkeydown !!}"
                 >
                     {{ trans('general.general') }}
                 </li>
 
                 <li id="nfse-tab-nav-email"
+                    role="tab"
+                    tabindex="-1"
+                    aria-selected="false"
+                    aria-controls="nfse-tab-pane-email"
                     data-nfse-tab-nav="nfse-tab-pane-email"
                     class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link text-black"
                     onclick="{!! $nfseTabSyncOnclick !!}"
+                    onkeydown="{!! $nfseTabOnkeydown !!}"
                 >
                     {{ trans_choice('general.email', 1) }}
                 </li>
 
                 <li id="nfse-tab-nav-attachments"
+                    role="tab"
+                    tabindex="-1"
+                    aria-selected="false"
+                    aria-controls="nfse-tab-pane-attachments"
                     data-nfse-tab-nav="nfse-tab-pane-attachments"
                     class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link text-black"
                     style="{{ $sendEmailDefault ? '' : 'display:none;' }}"
                     onclick="{!! $nfseTabSyncOnclick !!}"
+                    onkeydown="{!! $nfseTabOnkeydown !!}"
                 >
                     {{ trans_choice('general.attachments', 2) }}
                 </li>
             </ul>
         </div>
 
-        <div id="nfse-tab-pane-issuance" data-nfse-tab-pane="true">
+        <div id="nfse-tab-pane-issuance" role="tabpanel" aria-labelledby="nfse-tab-nav-issuance" aria-hidden="false" data-nfse-tab-pane="true">
                 <x-form.section>
                     <x-slot name="body">
                         @if ($requiresSplit)
@@ -158,7 +174,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </x-form.section>
         </div>
 
-        <div id="nfse-tab-pane-email" data-nfse-tab-pane="true" style="display:none;">
+        <div id="nfse-tab-pane-email" role="tabpanel" aria-labelledby="nfse-tab-nav-email" aria-hidden="true" data-nfse-tab-pane="true" style="display:none;">
                 <x-form.section>
                     <x-slot name="body">
                         <div class="sm:col-span-6 flex items-center gap-3">
@@ -259,7 +275,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </x-form.section>
         </div>
 
-        <div id="nfse-tab-pane-attachments" data-nfse-tab-pane="true" style="display:none;">
+        <div id="nfse-tab-pane-attachments" role="tabpanel" aria-labelledby="nfse-tab-nav-attachments" aria-hidden="true" data-nfse-tab-pane="true" style="display:none;">
                 <x-form.section>
                     <x-slot name="body">
                         <div class="sm:col-span-6 space-y-3">
