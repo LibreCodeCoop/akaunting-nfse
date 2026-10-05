@@ -69,27 +69,91 @@ class InvoiceController extends Controller
         return view('nfse::dashboard.index', compact('stats'));
     }
 
-    public function index(?Request $request = null): RedirectResponse
+    public function index(?Request $request = null): \Illuminate\View\View|RedirectResponse
     {
         $request = $this->currentRequest($request);
 
-        return redirect()->route('invoices.index', array_filter([
-            'search' => $this->normalizedIndexSearch($request?->query('search', $request?->query('q'))),
-        ], static fn ($value): bool => $value !== null && $value !== ''));
+        $hasExplicitState = $this->requestHasIndexState($request);
+        $savedPreferences = $this->loadIndexPreferences();
+
+        if (!$hasExplicitState && $savedPreferences !== [] && $this->canRestoreIndexPreferences($savedPreferences)) {
+            return redirect()->route('nfse.invoices.index', $this->indexRestoreQueryParams($savedPreferences));
+        }
+
+        $search = $this->normalizedIndexSearch($request?->query('search', $request?->query('q')));
+        $requestedStatus = $request?->query('status');
+        $requestedPerPage = $request?->query('limit', $request?->query('per_page'));
+        $requestedSortBy = $request?->query('sort', $request?->query('sort_by'));
+        $requestedSortDirection = $request?->query('direction', $request?->query('sort_direction'));
+
+        if (!$hasExplicitState && $savedPreferences !== [] && $this->canRestoreIndexPreferences($savedPreferences)) {
+            $search ??= $savedPreferences['search'];
+            $requestedStatus ??= $savedPreferences['status'];
+            $requestedPerPage ??= $savedPreferences['per_page'];
+            $requestedSortBy ??= $savedPreferences['sort_by'];
+            $requestedSortDirection ??= $savedPreferences['sort_direction'];
+        }
+
+        $parsedFilters = $this->parsedIndexSearchFilters($search);
+        $status = $requestedStatus !== null
+            ? $this->normalizedIndexStatus($requestedStatus)
+            : ($parsedFilters['status'] ?? 'all');
+        $perPage = $requestedPerPage !== null
+            ? $this->normalizedIndexPerPage($requestedPerPage)
+            : ($parsedFilters['per_page'] ?? 25);
+        $this->indexSortBy = $this->normalizedIndexSortBy($requestedSortBy);
+        $this->indexSortDirection = $this->normalizedIndexSortDirection($requestedSortDirection);
+        $searchTerm = $parsedFilters['search'];
+        $searchStringCookieFilters = $this->searchStringCookieFilters($parsedFilters);
+        $selectedStatuses = $this->selectedIndexStatuses($status);
+        $includesPendingStatus = in_array('pending', $selectedStatuses, true);
+        $receiptStatus = $this->receiptStatusForIndex($status);
+        $overviewCounts = $this->listingOverviewCounts();
+        $receipts = $receiptStatus !== null
+            ? $this->receiptsForIndex($receiptStatus, $perPage, $searchTerm, $parsedFilters['date_emissao'] ?? null)
+            : null;
+        $pendingInvoices = $includesPendingStatus ? $this->pendingInvoices($perPage, $searchTerm) : null;
+        if ($includesPendingStatus && $pendingInvoices !== null) {
+            $pendingInvoices = $this->annotatePendingInvoicesFederalReadiness($pendingInvoices);
+        }
+        $pendingReadiness = $includesPendingStatus ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
+        $sortBy = $this->indexSortBy;
+        $sortDirection = $this->indexSortDirection;
+
+        $this->saveIndexPreferences([
+            'status' => $status,
+            'per_page' => $perPage,
+            'search' => $search,
+            'sort_by' => $sortBy,
+            'sort_direction' => $sortDirection,
+        ]);
+
+        return view('nfse::invoices.index', compact('receipts', 'pendingInvoices', 'pendingReadiness', 'overviewCounts', 'status', 'perPage', 'search', 'searchStringCookieFilters', 'sortBy', 'sortDirection'));
     }
 
     public function pending(?Request $request = null): RedirectResponse
     {
         $request = $this->currentRequest($request);
+        $perPage = $request?->query('limit', $request?->query('per_page'));
+        $search = $request?->query('search', $request?->query('q'));
 
-        return redirect()->route('invoices.index', array_filter([
-            'search' => $this->normalizedIndexSearch($request?->query('search', $request?->query('q'))),
+        return redirect()->route('nfse.invoices.index', array_filter([
+            'status' => 'pending',
+            'limit' => $this->normalizedIndexPerPage($perPage),
+            'search' => $this->normalizedIndexSearch($search),
         ], static fn ($value): bool => $value !== null && $value !== ''));
     }
 
-    public function show(Invoice $invoice): RedirectResponse
+    public function show(Invoice $invoice): \Illuminate\View\View
     {
-        return redirect()->route('invoices.show', $invoice);
+        $this->ensureInvoiceRelationsLoaded($invoice);
+        $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->firstOrFail();
+        $receiptStatusLabel = $this->translateReceiptStatus((string) ($receipt->status ?? ''));
+        $suggestedDiscriminacao = $this->buildDiscriminacao($invoice);
+        $emailDefaults = $this->servicePreviewEmailDefaults($invoice);
+        $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
+
+        return view('nfse::invoices.show', compact('invoice', 'receipt', 'receiptStatusLabel', 'suggestedDiscriminacao', 'emailDefaults', 'artifacts'));
     }
 
     public function showEmitSuccess(Invoice $invoice): \Illuminate\View\View
@@ -198,7 +262,7 @@ class InvoiceController extends Controller
         }
 
         if (!$this->invoiceHasLineItems($invoice)) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.invoices.emit_blocked_no_items')));
         }
 
@@ -211,7 +275,7 @@ class InvoiceController extends Controller
         if (($fiscalProfileReadiness['isReady'] ?? false) !== true) {
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('invoices.show', $invoice)
+                redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                     ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness)),
             );
         }
@@ -256,14 +320,14 @@ class InvoiceController extends Controller
         );
 
         if (($federalTaxReadiness['isReady'] ?? false) !== true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', $this->emitBlockedFederalTaxMessage($federalTaxReadiness['missing'] ?? [])));
         }
 
         $readiness = $this->emissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
         }
 
@@ -278,7 +342,7 @@ class InvoiceController extends Controller
         } catch (\InvalidArgumentException $e) {
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('invoices.show', $invoice)
+                redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                     ->with('error', trans('nfse::general.invoices.emit_foreign_taker_invalid', ['reason' => $e->getMessage()])),
             );
         }
@@ -338,7 +402,7 @@ class InvoiceController extends Controller
 
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('invoices.show', $invoice)
+                redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                     ->with('error', trans('nfse::general.invoices.emit_runtime_unsupported')),
             );
         }
@@ -463,7 +527,7 @@ class InvoiceController extends Controller
                 )
                 : (new IssueInvoiceNfse())->issue($client, $dps);
         } catch (SecretStoreException) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
         } catch (GatewayException $e) {
             $gatewayDetail = $this->gatewayErrorDetail($e);
@@ -477,7 +541,7 @@ class InvoiceController extends Controller
                 'xml_order_debug' => $xmlOrderDebug,
             ]);
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed'))
                 ->with('nfse_gateway_error_detail', $gatewayDetail));
         } catch (\JsonException $e) {
@@ -486,7 +550,7 @@ class InvoiceController extends Controller
                 'message' => $e->getMessage(),
             ]);
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (NetworkException $e) {
             $this->safeLogError('NFS-e issuance failed after DPS recovery could not resolve the ambiguous outcome', [
@@ -495,12 +559,12 @@ class InvoiceController extends Controller
                 'dps_recovery_supported' => isset($client) && is_callable([$client, 'queryDps']),
             ]);
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (PfxImportException) {
             $this->cleanupClientTransportArtifacts();
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
         }
 
@@ -650,8 +714,8 @@ class InvoiceController extends Controller
 
         return match ($target) {
             'invoice_show' => redirect()->route('invoices.show', $invoice),
-            'nfse_show' => redirect()->route('invoices.show', $invoice),
-            default => redirect()->route('invoices.show', $invoice),
+            'nfse_show' => redirect()->route('nfse.invoices.show', $invoice),
+            default => redirect()->route('nfse.invoices.index'),
         };
     }
 
@@ -873,7 +937,7 @@ class InvoiceController extends Controller
         $readiness = $this->emissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
         }
 

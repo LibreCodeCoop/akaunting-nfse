@@ -10,6 +10,7 @@ use Modules\Nfse\Http\Controllers\AdnController;
 use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
+use Modules\Nfse\Http\Controllers\LegacyInvoiceController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 use Modules\Nfse\Http\Controllers\Modals\InvoiceEmails;
 
@@ -48,15 +49,15 @@ Route::admin('nfse', function () {
     Route::get('closing/export', [ClosingController::class, 'export'])->name('closing.export');
 
     // NFS-e issuance
-    Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
-    Route::get('invoices/pending', [InvoiceController::class, 'pending'])->name('invoices.pending');
+    Route::get('invoices', [LegacyInvoiceController::class, 'index'])->name('invoices.index');
+    Route::get('invoices/pending', [LegacyInvoiceController::class, 'pending'])->name('invoices.pending');
     Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])->name('invoices.emit');
     Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])->name('invoices.service-preview');
     Route::post('invoices/refresh-all', [InvoiceController::class, 'refreshAll'])->name('invoices.refresh-all');
     Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])->name('invoices.refresh');
     Route::post('invoices/{invoice}/reemit', [InvoiceController::class, 'reemit'])->name('invoices.reemit');
     Route::post('invoices/{invoice}/substitute', [InvoiceController::class, 'substitute'])->name('invoices.substitute');
-    Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::get('invoices/{invoice}', [LegacyInvoiceController::class, 'show'])->name('invoices.show');
     Route::get('invoices/{invoice}/emit-success', [InvoiceController::class, 'showEmitSuccess'])->name('invoices.emit-success');
     Route::get('invoices/{invoice}/adn-events', [AdnController::class, 'events'])->name('invoices.adn-events');
     Route::get('invoices/{invoice}/artifacts/{artifact}', [InvoiceController::class, 'downloadArtifact'])->name('invoices.artifacts.download');
