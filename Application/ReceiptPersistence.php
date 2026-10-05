@@ -30,21 +30,10 @@ final class ReceiptPersistence
             return $existingReceipt;
         }
 
-        $current = NfseReceipt::query()
-            ->where('invoice_id', $invoiceId)
-            ->latest('id')
-            ->first();
-
-        if ($current instanceof NfseReceipt) {
-            $current->update($values);
-
-            return $current;
-        }
-
-        return NfseReceipt::query()->create(array_merge(
+        return NfseReceipt::updateOrCreate(
             ['invoice_id' => $invoiceId],
             $values,
-        ));
+        );
     }
 
     public function createGrouped(
