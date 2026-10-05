@@ -77,12 +77,14 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         setting()->set(['nfse.emission_policy' => 'emit_on_send']);
         setting()->save();
 
-        Notification::fake();
-
         $invoice = $this->invoiceWithProfile();
         $invoice->contact->forceFill(['email' => 'customer@example.test'])->saveQuietly();
         $invoice->unsetRelation('contact');
         $invoice->load(['contact', 'items']);
+
+        // Isolate the assertion window from notifications emitted by Akaunting
+        // factories while building the fixture.
+        Notification::fake();
 
         $issuer = new class () implements BulkEmissionUnitIssuerInterface {
             public function issue(int $invoiceId, string $emissionGroupKey): NfseReceipt
