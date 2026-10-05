@@ -248,8 +248,13 @@ class Main extends Provider
             }
 
             $companyId = function_exists('company_id') ? (int) company_id() : 0;
-            $profiles = ItemFiscalProfile::query()
-                ->when($companyId > 0, static fn ($query) => $query->where('company_id', $companyId))
+            $profilesQuery = ItemFiscalProfile::query();
+
+            if ($companyId > 0) {
+                $profilesQuery->where('company_id', $companyId);
+            }
+
+            $profiles = $profilesQuery
                 ->whereIn('item_id', $itemIds)
                 ->get()
                 ->keyBy('item_id');
