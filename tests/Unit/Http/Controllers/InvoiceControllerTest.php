@@ -13,7 +13,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use App\Models\Document\Document as Invoice;
     use Illuminate\Http\Request;
     use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
-use Modules\Nfse\Http\Controllers\ControllerIsolationState;
+    use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Http\Controllers\InvoiceController;
     use Modules\Nfse\Models\NfseReceipt;
     use Modules\Nfse\Tests\TestCase;
