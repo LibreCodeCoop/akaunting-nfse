@@ -156,18 +156,21 @@ test('federal tab visibility matrix matches situacao tributaria and tipo retenca
   const situacaoSelect = page.locator('#federal-piscofins-situacao');
   const tipoRetencaoSelect = page.locator('#federal-piscofins-tipo-retencao');
   const piscofinsPanel = page.locator('#federal-piscofins-panel');
+  const retentionRow = page.locator('#federal-piscofins-retention-row');
   const csllRow = page.locator('#federal-valor-csll-row');
 
-  // Situacao 0/empty: panel and CSLL row must be hidden regardless of retention type.
+  await expect(piscofinsPanel).toBeVisible();
+  await expect(situacaoSelect).toBeVisible();
+
   for (const situacao of ['', '0']) {
     await situacaoSelect.selectOption(situacao);
-    await expect(piscofinsPanel).toBeHidden();
+    await expect(situacaoSelect).toBeVisible();
+    await expect(retentionRow).toBeHidden();
     await expect(csllRow).toBeHidden();
   }
 
-  // Situacao with tributacao enabled: panel visible, CSLL controlled by retention type.
   await situacaoSelect.selectOption('1');
-  await expect(piscofinsPanel).toBeVisible();
+  await expect(retentionRow).toBeVisible();
 
   const matrix = [
     { tipoRetencao: '0', shouldShowCsll: false },

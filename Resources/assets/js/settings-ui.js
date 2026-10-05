@@ -283,6 +283,8 @@
                 const federalSituacao = documentRef.getElementById('federal-piscofins-situacao');
                 const federalTipoRetencao = documentRef.getElementById('federal-piscofins-tipo-retencao');
                 const federalPanel = documentRef.getElementById('federal-piscofins-panel');
+                const federalRetentionRow = documentRef.getElementById('federal-piscofins-retention-row');
+                const federalPreviewNote = documentRef.getElementById('federal-piscofins-preview-note');
                 const federalValorCsllRow = documentRef.getElementById('federal-valor-csll-row');
                 const federalTributosProfileP = documentRef.getElementById('federal-tributos-profile-p');
                 const federalTributosProfileSn = documentRef.getElementById('federal-tributos-profile-sn');
@@ -323,7 +325,11 @@
                     }
 
                     const tipoRetencao = federalTipoRetencao.value;
-                    const showCsll = retentionShowsCsll(tipoRetencao);
+                    const situacao = federalSituacao instanceof HTMLSelectElement
+                        ? federalSituacao.value
+                        : '';
+                    const piscofinsActive = situacao !== '' && situacao !== '0';
+                    const showCsll = piscofinsActive && retentionShowsCsll(tipoRetencao);
 
                     if (federalValorCsllRow) {
                         federalValorCsllRow.classList.toggle('hidden', !showCsll);
@@ -339,8 +345,11 @@
                     const showPiscofins = situacao !== '' && situacao !== '0';
 
                     if (federalPanel) {
-                        federalPanel.classList.toggle('hidden', !showPiscofins);
+                        federalPanel.classList.remove('hidden');
                     }
+
+                    federalRetentionRow?.classList.toggle('hidden', !showPiscofins);
+                    federalPreviewNote?.classList.toggle('hidden', !showPiscofins);
 
                     if (!showPiscofins) {
                         if (federalTipoRetencao instanceof HTMLSelectElement) {

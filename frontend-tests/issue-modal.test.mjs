@@ -81,3 +81,41 @@ test('error summary receives focus once when visible', () => {
     assert.equal(modal.focusErrorSummary(root), false);
     assert.equal(focusCount, 1);
 });
+
+
+test('native modal launcher delegates to the Akaunting root Vue instance', () => {
+    const calls = [];
+    const button = {
+        getAttribute(name) {
+            return name === 'data-nfse-modal-url' ? '/1/nfse/modals/invoices/42/emails/create' : '';
+        },
+    };
+    const documentRef = {
+        getElementById(id) {
+            if (id !== 'app') {
+                return null;
+            }
+
+            return {
+                __vue__: {
+                    onSendEmail(url) {
+                        calls.push(url);
+                    },
+                },
+            };
+        },
+    };
+
+    assert.equal(modal.launchNativeModal(button, documentRef), true);
+    assert.deepEqual(calls, ['/1/nfse/modals/invoices/42/emails/create']);
+});
+
+test('native modal launcher fails closed without a Vue root', () => {
+    const button = {
+        getAttribute() {
+            return '/1/nfse/modals/invoices/42/emails/create';
+        },
+    };
+
+    assert.equal(modal.launchNativeModal(button, { getElementById() { return null; } }), false);
+});

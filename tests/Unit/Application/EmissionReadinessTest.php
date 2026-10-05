@@ -20,6 +20,7 @@ final class EmissionReadinessTest extends TestCase
                 'municipio_ibge' => '3303302',
                 'bao_addr' => 'http://openbao:8200',
                 'bao_mount' => 'nfse',
+                'bao_token' => 'test-token',
                 'certificate_valid_from' => 100,
                 'certificate_valid_to' => 300,
             ],
@@ -50,6 +51,7 @@ final class EmissionReadinessTest extends TestCase
             'item_lista_servico' => false,
             'bao_addr' => false,
             'bao_mount' => false,
+            'vault_auth' => false,
             'certificate' => false,
             'certificate_secret' => false,
         ], $result['checklist']);
@@ -82,6 +84,7 @@ final class EmissionReadinessTest extends TestCase
                 'municipio_ibge' => '3303302',
                 'bao_addr' => 'http://openbao:8200',
                 'bao_mount' => 'nfse',
+                'bao_token' => 'test-token',
             ],
             hasLocalCertificate: true,
             hasCertificateSecret: true,
@@ -101,6 +104,7 @@ final class EmissionReadinessTest extends TestCase
                 'municipio_ibge' => '3303302',
                 'bao_addr' => 'http://openbao:8200',
                 'bao_mount' => 'nfse',
+                'bao_token' => 'test-token',
             ],
             hasLocalCertificate: true,
             hasCertificateSecret: true,
@@ -119,6 +123,7 @@ final class EmissionReadinessTest extends TestCase
                 'municipio_ibge' => '3303302',
                 'bao_addr' => 'http://openbao:8200',
                 'bao_mount' => 'nfse',
+                'bao_token' => 'test-token',
                 'certificate_valid_from' => 100,
                 'certificate_valid_to' => 200,
             ],
@@ -140,6 +145,7 @@ final class EmissionReadinessTest extends TestCase
                 'municipio_ibge' => '3303302',
                 'bao_addr' => 'http://openbao:8200',
                 'bao_mount' => 'nfse',
+                'bao_token' => 'test-token',
                 'ibs_cbs_enabled' => '1',
                 'ibs_cbs_ind_dest' => '',
                 'ibs_cbs_c_ind_op' => '',
@@ -153,5 +159,36 @@ final class EmissionReadinessTest extends TestCase
 
         self::assertFalse($result['isReady']);
         self::assertFalse($result['checklist']['ibs_cbs']);
+    }
+
+    public function testVaultAuthenticationRequiresTokenOrCompleteAppRole(): void
+    {
+        $base = [
+            'cnpj_prestador' => '11222333000181',
+            'municipio_ibge' => '3303302',
+            'bao_addr' => 'http://openbao:8200',
+            'bao_mount' => 'nfse',
+        ];
+
+        $missing = (new EmissionReadiness())->evaluate(
+            settings: $base,
+            hasLocalCertificate: true,
+            hasCertificateSecret: true,
+            serviceCode: '0107',
+        );
+
+        self::assertFalse($missing['checklist']['vault_auth']);
+
+        $approle = (new EmissionReadiness())->evaluate(
+            settings: $base + [
+                'bao_role_id' => 'role-id',
+                'bao_secret_id' => 'secret-id',
+            ],
+            hasLocalCertificate: true,
+            hasCertificateSecret: true,
+            serviceCode: '0107',
+        );
+
+        self::assertTrue($approle['checklist']['vault_auth']);
     }
 }

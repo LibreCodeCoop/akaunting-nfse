@@ -97,6 +97,8 @@ final class ProvisionTestHarness extends Command
             'nfse.bao_addr' => 'http://openbao.invalid.test:8200',
             'nfse.bao_mount' => 'secret',
             'nfse.bao_token' => 'deterministic-test-token',
+            'nfse.bao_role_id' => '',
+            'nfse.bao_secret_id' => '',
         ]);
         setting()->save();
 
@@ -121,8 +123,11 @@ final class ProvisionTestHarness extends Command
                 $invoice = Document::factory()->invoice()->create([
                     'company_id' => $companyId,
                     'document_number' => 'NFSE-E2E-SUBSTITUTION',
+                    'status' => 'sent',
                 ]);
             }
+
+            $invoice->forceFill(['status' => 'sent'])->saveQuietly();
 
             NfseReceipt::query()->updateOrCreate(
                 [
@@ -149,9 +154,12 @@ final class ProvisionTestHarness extends Command
                 $invoice = Document::factory()->invoice()->create([
                     'company_id' => $companyId,
                     'document_number' => 'NFSE-E2E-PENDING',
+                    'status' => 'sent',
                     'amount' => 100.00,
                 ]);
             }
+
+            $invoice->forceFill(['status' => 'sent'])->saveQuietly();
 
             NfseReceipt::query()
                 ->where('invoice_id', (int) $invoice->id)
@@ -171,9 +179,12 @@ final class ProvisionTestHarness extends Command
                 $invoice = Document::factory()->invoice()->create([
                     'company_id' => $companyId,
                     'document_number' => 'NFSE-E2E-GROUPED',
+                    'status' => 'sent',
                     'amount' => 100.00,
                 ]);
             }
+
+            $invoice->forceFill(['status' => 'sent'])->saveQuietly();
 
             NfseReceipt::query()->updateOrCreate(
                 [
@@ -364,10 +375,14 @@ final class ProvisionTestHarness extends Command
                 'company_id' => $companyId,
                 'document_number' => $documentNumber,
                 'contact_id' => $contact->id,
+                'status' => 'sent',
                 'amount' => 100.00,
             ]);
         } else {
-            $invoice->forceFill(['contact_id' => $contact->id])->saveQuietly();
+            $invoice->forceFill([
+                'contact_id' => $contact->id,
+                'status' => 'sent',
+            ])->saveQuietly();
         }
 
         $invoice->unsetRelation('contact');

@@ -76,6 +76,7 @@ return [
             'codigo_tributacao_nacional' => 'National tax code (NBS) configured',
             'bao_addr' => 'OpenBao address configured',
             'bao_mount' => 'OpenBao mount configured',
+            'vault_auth' => 'Vault authentication configured',
             'certificate' => 'Local certificate available',
             'certificate_secret' => 'Certificate secret available in Vault',
             'certificate_valid' => 'A1 certificate is within its validity period',

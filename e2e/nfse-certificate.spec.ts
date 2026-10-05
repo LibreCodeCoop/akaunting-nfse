@@ -126,13 +126,13 @@ test.describe('NFS-e certificate upload', () => {
         await expect(passwordInput).toBeAttached();
         await expect(passwordInput).toHaveAttribute('type', 'password');
 
-        const hasSavedState = await page.locator('text=Estado atualmente salvo').count();
-        if (hasSavedState > 0) {
-            await expect(certificatePanel).toBeVisible();
+        const hasSavedState = await showReplaceButton.count() > 0;
+        await expect(certificatePanel).toBeVisible();
+
+        if (hasSavedState) {
             await expect(showReplaceButton).toBeVisible();
             await expect(readButton).toBeHidden();
         } else {
-            await expect(certificatePanel).toBeVisible();
             await expect(readButton).toBeVisible();
         }
     });
