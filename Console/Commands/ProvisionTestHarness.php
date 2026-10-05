@@ -33,6 +33,7 @@ final class ProvisionTestHarness extends Command
         {--item-validation-fixture : Create an item with a deterministic valid NFS-e fiscal profile}
         {--grouped-invoice-fixture : Create an invoice with two persisted fiscal-group receipts}
         {--pending-invoice-fixture : Create a pending invoice for modal accessibility tests}
+        {--bulk-emission-fixture : Create deterministic ready and blocked invoices for bulk UI tests}
         {--json : Emit machine-readable output}';
 
     protected $description = 'Provision deterministic local/testing fiscal settings and synthetic PKCS#12 material';
@@ -198,6 +199,26 @@ final class ProvisionTestHarness extends Command
             $payload['grouped_invoice_id'] = (int) $invoice->id;
         }
 
+        if ((bool) $this->option('bulk-emission-fixture')) {
+            $ready = $this->bulkInvoiceFixture(
+                companyId: $companyId,
+                documentNumber: 'NFSE-E2E-BULK-READY',
+                country: 'BR',
+                itemLista: $itemLista,
+                codigoNacional: $codigoNacional,
+            );
+            $blocked = $this->bulkInvoiceFixture(
+                companyId: $companyId,
+                documentNumber: 'NFSE-E2E-BULK-BLOCKED',
+                country: 'GB',
+                itemLista: $itemLista,
+                codigoNacional: $codigoNacional,
+            );
+
+            $payload['bulk_ready_invoice_id'] = (int) $ready->id;
+            $payload['bulk_blocked_invoice_id'] = (int) $blocked->id;
+        }
+
         if ((bool) $this->option('item-validation-fixture')) {
             $item = Item::query()
                 ->where('company_id', $companyId)
@@ -304,6 +325,76 @@ final class ProvisionTestHarness extends Command
         $this->line('PFX path: ' . $pkcs12['path']);
 
         return self::SUCCESS;
+    }
+
+    private function bulkInvoiceFixture(
+        int $companyId,
+        string $documentNumber,
+        string $country,
+        string $itemLista,
+        string $codigoNacional,
+    ): Document {
+        $invoice = Document::query()
+            ->where('company_id', $companyId)
+            ->where('type', 'invoice')
+            ->where('document_number', $documentNumber)
+            ->first();
+
+        if (!$invoice instanceof Document) {
+            $invoice = Document::factory()->invoice()->create([
+                'company_id' => $companyId,
+                'document_number' => $documentNumber,
+                'amount' => 100.00,
+            ]);
+        }
+
+        $invoice->contact->forceFill(['country' => $country])->saveQuietly();
+        $invoice->unsetRelation('contact');
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
+
+        $item = Item::query()
+            ->where('company_id', $companyId)
+            ->where('name', $documentNumber . ' Item')
+            ->first();
+
+        if (!$item instanceof Item) {
+            $item = Item::factory()->enabled()->create([
+                'company_id' => $companyId,
+                'name' => $documentNumber . ' Item',
+                'sale_price' => 100.00,
+            ]);
+        }
+
+        $invoice->items()->create([
+            'company_id' => $companyId,
+            'type' => 'item',
+            'item_id' => $item->id,
+            'name' => $documentNumber . ' Item',
+            'quantity' => 1,
+            'price' => '100.00',
+            'total' => '100.00',
+        ]);
+
+        ItemFiscalProfile::query()->updateOrCreate(
+            [
+                'company_id' => $companyId,
+                'item_id' => (int) $item->id,
+            ],
+            [
+                'item_lista_servico' => $itemLista,
+                'codigo_tributacao_nacional' => $codigoNacional,
+                'aliquota' => '5.00',
+            ],
+        );
+
+        NfseReceipt::query()
+            ->where('invoice_id', (int) $invoice->id)
+            ->delete();
+
+        $invoice->load(['items', 'contact']);
+
+        return $invoice;
     }
 
     private function fail(string $message): int

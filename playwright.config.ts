@@ -20,6 +20,7 @@ export default defineConfig({
       testMatch: [
         'nfse-accessibility.spec.ts',
         'nfse-adn-import.spec.ts',
+        'nfse-bulk-emission.spec.ts',
         'nfse-certificate.spec.ts',
         'nfse-emission.spec.ts',
         'nfse-grouped-invoice.spec.ts',
