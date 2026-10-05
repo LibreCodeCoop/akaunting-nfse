@@ -86,10 +86,19 @@
             </button>
         @else
             <a
-                href="{{ route('nfse.invoices.show', $invoice->id) }}"
-                class="inline-flex items-center rounded bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200"
+                href="{{ route('nfse.invoices.artifacts.download', [$invoice->id, 'danfse']) }}"
+                class="inline-flex items-center rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                data-nfse-artifact="danfse"
             >
-                {{ trans('nfse::general.native_invoice.fiscal_details') }}
+                {{ trans('nfse::general.invoices.artifact_danfse_label') }}
+            </a>
+
+            <a
+                href="{{ route('nfse.invoices.artifacts.download', [$invoice->id, 'xml']) }}"
+                class="inline-flex items-center rounded bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200"
+                data-nfse-artifact="xml"
+            >
+                {{ trans('nfse::general.invoices.artifact_xml_label') }}
             </a>
 
             @if($receiptStatus === 'cancelled')

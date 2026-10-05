@@ -605,7 +605,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->downloadArtifact($invoice, 'danfse');
 
             self::assertSame('route', $response->target ?? null);
-            self::assertSame('nfse.invoices.show', $response->route ?? null);
+            self::assertSame('invoices.show', $response->route ?? null);
             self::assertSame([$invoice], $response->parameters ?? null);
         }
 

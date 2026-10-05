@@ -192,7 +192,7 @@ class InvoiceController extends Controller
         $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
 
         if (!isset($artifacts[$artifact]) || !is_array($artifacts[$artifact])) {
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route('invoices.show', $invoice)
                 ->with('warning', trans('nfse::general.invoices.artifact_invalid_type'));
         }
 
@@ -200,14 +200,14 @@ class InvoiceController extends Controller
         $path = isset($artifactData['path']) && is_string($artifactData['path']) ? trim($artifactData['path']) : '';
 
         if ($path === '' || !($artifactData['exists'] ?? false)) {
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route('invoices.show', $invoice)
                 ->with('warning', trans('nfse::general.invoices.artifact_not_found'));
         }
 
         try {
             $content = $this->makeWebDavClientFromSettings()->get($path);
         } catch (\Throwable) {
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route('invoices.show', $invoice)
                 ->with('warning', trans('nfse::general.invoices.artifact_not_found'));
         }
 
