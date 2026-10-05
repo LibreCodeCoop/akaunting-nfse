@@ -28,6 +28,7 @@ export default defineConfig({
         'nfse-item-validation.spec.ts',
         'nfse-settings.spec.ts',
         'nfse-substitution.spec.ts',
+        'nfse-visual-regression.spec.ts',
       ],
       grepInvert: /\[live-fiscal\]/,
     },
