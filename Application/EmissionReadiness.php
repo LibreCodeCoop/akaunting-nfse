@@ -32,6 +32,8 @@ final class EmissionReadiness
             'cnpj_prestador' => $cnpj !== '',
             'municipio_ibge' => trim((string) ($settings['municipio_ibge'] ?? '')) !== '',
             'item_lista_servico' => trim($serviceCode) !== '',
+            'bao_addr' => trim((string) ($settings['bao_addr'] ?? '')) !== '',
+            'bao_mount' => trim((string) ($settings['bao_mount'] ?? '')) !== '',
             'certificate' => $hasLocalCertificate,
             'certificate_secret' => $hasCertificateSecret,
         ];
