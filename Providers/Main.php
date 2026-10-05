@@ -39,6 +39,7 @@ class Main extends Provider
         $this->registerCoreItemViewOverrides();
         $this->loadMigrations();
         $this->registerInvoiceSendFlowOverride();
+        $this->registerNativeInvoiceFiscalPanel();
         $this->registerItemFiscalFieldInjection();
         $this->syncEmailTemplates();
     }
@@ -189,6 +190,39 @@ class Main extends Provider
             $this->app->make(OverrideInvoiceEmailRoute::class)->overrideForInvoice(
                 $view->getData()['invoice'] ?? null
             );
+        });
+    }
+
+    protected function registerNativeInvoiceFiscalPanel(): void
+    {
+        $this->app->make('view')->composer('sales.invoices.show', function ($view): void {
+            $invoice = $view->getData()['invoice'] ?? null;
+
+            if (!is_object($invoice) || ($invoice->type ?? '') !== 'invoice') {
+                return;
+            }
+
+            $invoiceId = is_numeric($invoice->id ?? null) ? (int) $invoice->id : 0;
+
+            if ($invoiceId <= 0) {
+                return;
+            }
+
+            try {
+                $receipt = \Modules\Nfse\Models\NfseReceipt::query()
+                    ->where('invoice_id', $invoiceId)
+                    ->latest('id')
+                    ->first();
+            } catch (\Throwable) {
+                $receipt = null;
+            }
+
+            $content = view('nfse::invoices.partials.native-fiscal-panel', [
+                'invoice' => $invoice,
+                'receipt' => $receipt,
+            ])->render();
+
+            $this->app->make('view')->startPush('status_message_end', $content);
         });
     }
 
