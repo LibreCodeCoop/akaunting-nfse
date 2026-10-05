@@ -16,7 +16,7 @@ final class SubstitutionDpsNumberTest extends TestCase
     {
         $number = new SubstitutionDpsNumber();
 
-        self::assertSame('70000000000042', $number->forOriginalReceipt(42));
+        self::assertSame('700000000000042', $number->forOriginalReceipt(42));
         self::assertSame(
             $number->forOriginalReceipt(42),
             $number->forOriginalReceipt(42),
