@@ -81,6 +81,72 @@ final class ReceiptPersistenceTest extends FeatureTestCase
         self::assertSame(str_repeat('5', 50), $original->fresh()->chave_acesso);
     }
 
+    public function testReplacementRetryReturnsExistingReceiptWithoutDuplicatingHistory(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $original = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '40',
+            'chave_acesso' => str_repeat('4', 50),
+            'status' => 'emitted',
+        ]);
+        $persistence = new ReceiptPersistence();
+        $remote = $this->receipt('41', str_repeat('8', 50));
+
+        $first = $persistence->createReplacement($invoice->id, $remote, '41', $original);
+        $retry = $persistence->createReplacement($invoice->id, $remote, '41', $original->fresh());
+
+        self::assertSame($first->id, $retry->id);
+        self::assertSame(
+            1,
+            NfseReceipt::query()->where('replaces_receipt_id', $original->id)->count(),
+        );
+        self::assertSame('substituted', $original->fresh()->status);
+
+        $enriched = $persistence->createReplacement(
+            $invoice->id,
+            new ReceiptData(
+                nfseNumber: '41',
+                chaveAcesso: str_repeat('8', 50),
+                dataEmissao: '2026-10-05T10:00:00-03:00',
+                rawXml: '<NFSe><infNFSe><DPS><infDPS><dCompet>2026-10-01</dCompet><valores><vServPrest><vServ>100.00</vServ></vServPrest></valores></infDPS></DPS></infNFSe></NFSe>',
+            ),
+            '41',
+            $original->fresh(),
+        );
+
+        self::assertSame($first->id, $enriched->id);
+        self::assertSame('2026-10-01', $enriched->competence_date?->format('Y-m-d'));
+    }
+
+    public function testReplacementRetryRejectsDifferentRemoteReplacement(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $original = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '50',
+            'chave_acesso' => str_repeat('5', 50),
+            'status' => 'emitted',
+        ]);
+        $persistence = new ReceiptPersistence();
+
+        $persistence->createReplacement(
+            $invoice->id,
+            $this->receipt('51', str_repeat('6', 50)),
+            '51',
+            $original,
+        );
+
+        $this->expectException(\LogicException::class);
+
+        $persistence->createReplacement(
+            $invoice->id,
+            $this->receipt('52', str_repeat('7', 50)),
+            '52',
+            $original->fresh(),
+        );
+    }
+
     public function testAuthorizedXmlPersistsCompetenceAndFiscalSnapshot(): void
     {
         $invoice = Document::factory()->invoice()->create();
