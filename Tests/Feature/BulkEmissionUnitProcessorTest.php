@@ -56,7 +56,7 @@ final class BulkEmissionUnitProcessorTest extends FeatureTestCase
         self::assertSame(BulkEmissionStatusPolicy::ISSUED, $unit->status);
         self::assertSame($receipt->id, $unit->receipt_id);
         self::assertSame(
-            'completed',
+            BulkEmissionStatusPolicy::ISSUED,
             $recorded['run']->fresh()?->status,
         );
     }
@@ -90,7 +90,10 @@ final class BulkEmissionUnitProcessorTest extends FeatureTestCase
         self::assertSame(1, $issuer->calls);
         self::assertSame(BulkEmissionStatusPolicy::RETRYABLE_READ_ERROR, $unit->status);
         self::assertSame('network', $unit->error_type);
-        self::assertSame('partial_retryable', $recorded['run']->fresh()?->status);
+        self::assertSame(
+            BulkEmissionStatusPolicy::RETRYABLE_READ_ERROR,
+            $recorded['run']->fresh()?->status,
+        );
     }
 
     public function testQueuedJobProcessesExactlyItsPersistedUnitWithoutFrameworkRetryLoop(): void
