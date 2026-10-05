@@ -14,7 +14,7 @@ final class SettingsFrontendModuleTest extends TestCase
     public function testSettingsBladeContainsOnlyConfigurationBootstrapForStatefulFrontendLogic(): void
     {
         $blade = (string) file_get_contents(
-            dirname(__DIR__, 4) . '/Resources/views/settings/edit.blade.php'
+            dirname(__DIR__, 3) . '/Resources/views/settings/edit.blade.php'
         );
 
         self::assertStringContainsString('data-nfse-settings-module="true"', $blade);
