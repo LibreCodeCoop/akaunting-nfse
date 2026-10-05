@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
+use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
@@ -220,12 +221,14 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
         $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($itemFiscalProfile);
+        $fiscalGroups = $this->invoiceFiscalGroups($invoice);
 
         return response()->json([
             'missing_items'    => [],
             'available_services' => $this->availableInvoiceServices($invoice),
             'default_service_id' => 0,
-            'requires_split'   => (bool) ($itemFiscalProfile['requires_split'] ?? false),
+            'requires_split'   => count($fiscalGroups) > 1,
+            'fiscal_groups'    => $fiscalGroups,
             'fiscal_profile_validation' => $fiscalProfileReadiness,
             'suggested_description' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? []),
             'email_defaults'   => $this->servicePreviewEmailDefaults($invoice),
@@ -1261,6 +1264,44 @@ class InvoiceController extends Controller
             defaultNationalCode: $this->nationalTaxCode($defaultService),
             defaultRate: $this->normalizedAliquota($defaultService),
             unnamedItemLabel: (string) trans('general.na'),
+        );
+    }
+
+    /**
+     * @return list<array{
+     *   key:string,
+     *   item_lista_servico:string,
+     *   codigo_tributacao_nacional:string,
+     *   aliquota:string,
+     *   amount:string,
+     *   items:list<array{document_item_id:int,item_id:int,name:string,amount:string}>
+     * }>
+     */
+    protected function invoiceFiscalGroups(Invoice $invoice): array
+    {
+        $items = $this->invoiceItemsAsArray($invoice);
+        $itemIds = [];
+
+        foreach ($items as $item) {
+            $itemId = is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0;
+
+            if ($itemId > 0) {
+                $itemIds[] = $itemId;
+            }
+        }
+
+        $itemIds = array_values(array_unique($itemIds));
+        $companyId = is_numeric($invoice->company_id ?? null)
+            ? (int) $invoice->company_id
+            : $this->resolveCompanyId();
+
+        return (new InvoiceFiscalGroupBuilder())->build(
+            items: $items,
+            profileMap: $this->invoiceItemFiscalProfileMap($companyId, $itemIds),
+            taxRateMap: $this->invoiceItemTaxRateMap($itemIds),
+            defaultServiceCode: $this->itemListaServico(),
+            defaultNationalCode: $this->nationalTaxCode(),
+            defaultRate: $this->normalizedAliquota(),
         );
     }
 
