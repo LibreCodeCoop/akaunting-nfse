@@ -249,40 +249,17 @@ class Main extends Provider
                 return;
             }
 
-            try {
-                $receiptQuery = NfseReceipt::query();
-
-                foreach ($invoiceIds as $index => $invoiceId) {
-                    if ($index === 0) {
-                        $receiptQuery->where('invoice_id', $invoiceId);
-                    } else {
-                        $receiptQuery->orWhere('invoice_id', $invoiceId);
-                    }
-                }
-
-                $receiptRows = $receiptQuery
-                    ->orderByDesc('id')
-                    ->get(['id', 'invoice_id', 'status']);
-            } catch (\Throwable) {
-                return;
-            }
-
-            $latestByInvoice = [];
-
-            foreach ($receiptRows as $receiptRow) {
-                $receiptInvoiceId = is_numeric($receiptRow->invoice_id ?? null)
-                    ? (int) $receiptRow->invoice_id
-                    : 0;
-
-                if ($receiptInvoiceId > 0 && !isset($latestByInvoice[$receiptInvoiceId])) {
-                    $latestByInvoice[$receiptInvoiceId] = $receiptRow;
-                }
-            }
-
             $statuses = [];
 
             foreach ($invoiceIds as $invoiceId) {
-                $receipt = $latestByInvoice[$invoiceId] ?? null;
+                try {
+                    $receipt = NfseReceipt::query()
+                        ->where('invoice_id', $invoiceId)
+                        ->latest('id')
+                        ->first();
+                } catch (\Throwable) {
+                    $receipt = null;
+                }
                 $status = is_object($receipt) ? trim((string) ($receipt->status ?? '')) : 'pending';
 
                 if ($status === '') {
