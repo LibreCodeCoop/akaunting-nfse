@@ -372,7 +372,7 @@ final class InvoiceEmailsTest extends TestCase
     public function testIssueViewSendEmailToggleReferencesNewTabNavIds(): void
     {
         $view = $this->issueViewContent();
-        $module = $this->issueJsHandlersContent();
+        $module = $this->issueJsModuleContent();
 
         // The send-email toggle extraOnChange must target the new Alpine-free tab IDs.
         self::assertStringNotContainsString('issue_js_handlers.php', $view);
