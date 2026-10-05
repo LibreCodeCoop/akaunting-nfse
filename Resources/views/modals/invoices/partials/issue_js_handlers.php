@@ -87,14 +87,70 @@ return [
         });
 
         item.classList.toggle('text-black', !isActive);
+        item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        item.setAttribute('tabindex', isActive ? '0' : '-1');
     });
 
     container.querySelectorAll('[data-nfse-tab-pane]').forEach(function (pane) {
-        pane.style.display = pane.id === targetPaneId ? '' : 'none';
+        var isActive = pane.id === targetPaneId;
+
+        pane.style.display = isActive ? '' : 'none';
+        pane.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
 
     container.__nfseSync();
 })(this)
+JS,
+
+    'nfseTabOnkeydown' => <<<'JS'
+(function (nav, event) {
+    var key = event.key;
+
+    if (key === 'Enter' || key === ' ') {
+        event.preventDefault();
+        nav.click();
+        return;
+    }
+
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) {
+        return;
+    }
+
+    var container = nav.closest('[data-nfse-tabs]');
+
+    if (!container) {
+        return;
+    }
+
+    var tabs = Array.from(container.querySelectorAll('[data-nfse-tab-nav]'))
+        .filter(function (item) {
+            return item.offsetParent !== null;
+        });
+
+    if (tabs.length === 0) {
+        return;
+    }
+
+    var index = tabs.indexOf(nav);
+
+    if (index < 0) {
+        return;
+    }
+
+    if (key === 'Home') {
+        index = 0;
+    } else if (key === 'End') {
+        index = tabs.length - 1;
+    } else if (key === 'ArrowRight') {
+        index = (index + 1) % tabs.length;
+    } else {
+        index = (index - 1 + tabs.length) % tabs.length;
+    }
+
+    event.preventDefault();
+    tabs[index].focus();
+    tabs[index].click();
+})(this, event)
 JS,
 
     'nfseSendEmailOnChange' => <<<'JS'
