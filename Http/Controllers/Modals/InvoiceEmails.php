@@ -8,6 +8,8 @@ declare(strict_types=1);
 namespace Modules\Nfse\Http\Controllers\Modals;
 
 use App\Abstracts\Http\Controller;
+use App\Events\Document\DocumentSending;
+use App\Events\Document\DocumentSent;
 use App\Models\Document\Document as Invoice;
 use App\Traits\Emails;
 use Illuminate\Http\JsonResponse;
@@ -150,6 +152,10 @@ class InvoiceEmails extends Controller
     {
         $invoice = Invoice::findOrFail($request->input('document_id'));
 
+        // Match Akaunting's native send lifecycle: fiscal listeners run before
+        // customer delivery and may persist the NFS-e that this email attaches.
+        event(new DocumentSending($invoice));
+
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->first();
 
         if (!$receipt instanceof NfseReceipt) {
@@ -182,6 +188,8 @@ class InvoiceEmails extends Controller
         $response = $this->sendEmail($job);
 
         if ($response['success']) {
+            event(new DocumentSent($invoice));
+
             $route = config('type.document.' . $invoice->type . '.route.prefix');
 
             if ($alias = config('type.document.' . $invoice->type . '.alias')) {
