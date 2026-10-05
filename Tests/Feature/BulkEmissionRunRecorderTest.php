@@ -39,6 +39,7 @@ final class BulkEmissionRunRecorderTest extends FeatureTestCase
         );
 
         self::assertSame('queued', $result['run']->status);
+        self::assertFalse($result['reused']);
         self::assertCount(2, $result['units']);
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $result['run']->selection_hash);
 
@@ -72,6 +73,8 @@ final class BulkEmissionRunRecorderTest extends FeatureTestCase
         );
 
         self::assertSame($first['run']->id, $second['run']->id);
+        self::assertFalse($first['reused']);
+        self::assertTrue($second['reused']);
         self::assertCount(1, $second['units']);
         self::assertSame($first['units'][0]->id, $second['units'][0]->id);
         $this->assertDatabaseCount('nfse_bulk_emission_runs', 1);
