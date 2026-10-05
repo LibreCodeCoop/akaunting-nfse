@@ -7,15 +7,21 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Unit\Controllers;
 
+use Modules\Nfse\Http\Controllers\Controller;
 use Modules\Nfse\Tests\TestCase;
 
-class ControllerAclOverrideTest extends TestCase
+final class ControllerAclOverrideTest extends TestCase
 {
-    public function testAssignPermissionsToControllerIsOverriddenInModuleBaseController(): void
+    public function testModuleBaseControllerOwnsPublicVoidPermissionOverride(): void
     {
-        $content = file_get_contents(dirname(__DIR__, 3) . '/Http/Controllers/Controller.php');
+        self::assertTrue(
+            is_subclass_of(Controller::class, \App\Abstracts\Http\Controller::class),
+        );
 
-        self::assertStringContainsString('class Controller extends \\App\\Abstracts\\Http\\Controller', $content);
-        self::assertStringContainsString('public function assignPermissionsToController(): void', $content);
+        $method = new \ReflectionMethod(Controller::class, 'assignPermissionsToController');
+
+        self::assertSame(Controller::class, $method->getDeclaringClass()->getName());
+        self::assertTrue($method->isPublic());
+        self::assertSame('void', (string) $method->getReturnType());
     }
 }
