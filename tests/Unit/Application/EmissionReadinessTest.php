@@ -160,8 +160,6 @@ final class EmissionReadinessTest extends TestCase
         self::assertFalse($result['isReady']);
         self::assertFalse($result['checklist']['ibs_cbs']);
     }
-}
-
 
     public function testVaultAuthenticationRequiresTokenOrCompleteAppRole(): void
     {
@@ -193,3 +191,4 @@ final class EmissionReadinessTest extends TestCase
 
         self::assertTrue($approle['checklist']['vault_auth']);
     }
+}

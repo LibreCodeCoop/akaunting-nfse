@@ -24,7 +24,6 @@ final class OperationalReadinessResolverTest extends TestCase
                     'municipio_ibge' => '3303302',
                     'bao_addr' => 'https://vault.example.test',
                     'bao_mount' => 'nfse',
-                'bao_token' => 'test-token',
                     'bao_token' => 'test-token',
                 ],
                 serviceCode: '0107',
