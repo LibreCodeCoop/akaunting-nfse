@@ -66,6 +66,8 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
     private function invoiceWithProfile(string $service, string $national, string $total): Document
     {
         $invoice = Document::factory()->invoice()->create();
+        $invoice->contact->forceFill(['country' => 'BR'])->saveQuietly();
+        $invoice->unsetRelation('contact');
         $invoice->items()->delete();
         $invoice->unsetRelation('items');
 
