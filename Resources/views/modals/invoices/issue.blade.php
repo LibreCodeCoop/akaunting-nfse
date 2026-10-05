@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     $missingItems = is_array($preview['missing_items'] ?? null) ? $preview['missing_items'] : [];
     $defaultServiceId = (int) ($preview['default_service_id'] ?? 0);
     $requiresSplit = (bool) ($preview['requires_split'] ?? false);
+    $fiscalGroups = is_array($preview['fiscal_groups'] ?? null) ? $preview['fiscal_groups'] : [];
     $suggestedDescription = (string) ($preview['suggested_description'] ?? '');
     $emailDefaults = is_array($preview['email_defaults'] ?? null) ? $preview['email_defaults'] : [];
     $bodyValue = (string) ($emailDefaults['body'] ?? '');
@@ -70,8 +71,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <x-form.section>
                     <x-slot name="body">
                         @if ($requiresSplit)
-                            <div class="sm:col-span-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-900">
-                                {{ trans('nfse::general.invoices.mixed_service_tax_profiles_not_supported') }}
+                            <div class="sm:col-span-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                                <p class="font-medium">{{ trans('nfse::general.invoices.fiscal_groups_preview_title') }}</p>
+                                <p class="mt-1">{{ trans('nfse::general.invoices.fiscal_groups_preview_help') }}</p>
+
+                                <div class="mt-3 space-y-2">
+                                    @foreach($fiscalGroups as $group)
+                                        <div class="rounded border border-blue-200 bg-white px-3 py-2" data-nfse-fiscal-group="{{ $group['key'] ?? '' }}">
+                                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                                <span class="font-medium">
+                                                    {{ $group['item_lista_servico'] ?? '' }} /
+                                                    {{ $group['codigo_tributacao_nacional'] ?? '' }}
+                                                    — {{ $group['aliquota'] ?? '' }}%
+                                                </span>
+                                                <span>
+                                                    {{ trans('nfse::general.invoices.fiscal_group_amount', ['amount' => $group['amount'] ?? '0.00']) }}
+                                                </span>
+                                            </div>
+                                            <p class="mt-1 text-xs">
+                                                {{ trans_choice(
+                                                    'nfse::general.invoices.fiscal_group_items',
+                                                    count($group['items'] ?? []),
+                                                    ['count' => count($group['items'] ?? [])]
+                                                ) }}
+                                            </p>
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                <p class="mt-3 text-xs">
+                                    {{ trans('nfse::general.invoices.fiscal_groups_preview_not_issued_yet') }}
+                                </p>
                             </div>
                         @elseif ($missingItems !== [] && $defaultServiceId <= 0)
                             <div class="sm:col-span-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-900">
