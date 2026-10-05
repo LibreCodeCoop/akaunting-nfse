@@ -456,7 +456,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->emit($invoice, new Request());
 
             self::assertSame('route', $response->target ?? null);
-            self::assertSame('nfse.invoices.index', $response->route ?? null);
+            self::assertSame('invoices.show', $response->route ?? null);
             self::assertStringContainsString('CSLL', (string) ($response->flash['error'] ?? ''));
         }
 
@@ -3748,8 +3748,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertNull($client->capturedDps);
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending']], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertSame('A fatura precisa ter ao menos um item para emitir NFS-e.', $response->flash['error'] ?? null);
         }
 
@@ -3934,7 +3934,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([['status' => 'cancelled']], $receipt->updatedPayloads);
             self::assertSame('cancelled', $receipt->status);
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
+            self::assertSame('invoices.show', $response->route);
             self::assertSame('NFS-e cancelada', $response->flash['success'] ?? null);
         }
 
@@ -4631,8 +4631,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->emit($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending']], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertSame('Existem configuracoes pendentes para liberar a emissao.', $response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
@@ -5293,8 +5293,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->emit($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending']], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertNotNull($response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
@@ -5348,8 +5348,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->emit($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending']], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertSame('Nao foi possivel acessar o segredo do certificado no Vault/OpenBao.', $response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
@@ -5405,8 +5405,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->cancel($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertNotNull($response->flash['error'] ?? null);
             self::assertSame('NFS-e não pode ser cancelada', $response->flash['nfse_gateway_error_detail'] ?? null);
             self::assertSame([], $receipt->updatedPayloads);
@@ -5463,8 +5463,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->cancel($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertNotNull($response->flash['error'] ?? null);
             self::assertSame(
                 'The requested resource does not support http method DELETE.',
@@ -5524,8 +5524,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->cancel($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertNotNull($response->flash['error'] ?? null);
             self::assertSame(
                 'SEFIN gateway rejected cancellation (HTTP 405)',
@@ -5591,8 +5591,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->cancel($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertNotNull($response->flash['error'] ?? null);
             self::assertSame(
                 'Schema validation failed for event payload. - The payload is invalid.',
@@ -5659,8 +5659,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->cancel($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertNotNull($response->flash['error'] ?? null);
             self::assertSame(
                 'E6154 - Xml não está utilizando codificação UTF-8.',
@@ -5727,8 +5727,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->cancel($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertSame('NFS-e cancelada', $response->flash['success'] ?? null);
             self::assertArrayNotHasKey('error', $response->flash);
             self::assertSame([['status' => 'cancelled']], $receipt->updatedPayloads);
@@ -6005,8 +6005,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->emit($invoice);
 
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.index', $response->route);
-            self::assertSame([['status' => 'pending']], $response->parameters);
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame([$invoice], $response->parameters);
             self::assertSame('Nao foi possivel importar o certificado PFX.', $response->flash['error'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
