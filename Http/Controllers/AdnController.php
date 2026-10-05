@@ -10,6 +10,9 @@ namespace Modules\Nfse\Http\Controllers;
 use App\Models\Document\Document as Invoice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Application\AdnAccountingPreview;
+use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\AdnDistributionData;
@@ -20,7 +23,67 @@ class AdnController extends Controller
 {
     public function index(): \Illuminate\View\View
     {
-        return view('nfse::adn.index');
+        return view('nfse::adn.index', [
+            'reviewDocuments' => $this->accountingReviewQueue(),
+        ]);
+    }
+
+    public function ignore(int $document): \Illuminate\Http\RedirectResponse
+    {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+
+        $query = AdnSyncDocument::query()
+            ->whereKey($document)
+            ->whereIn('fiscal_role', ['received', 'intermediated']);
+
+        if ($companyId > 0) {
+            $query->where('company_id', $companyId);
+        }
+
+        $reviewDocument = $query->firstOrFail();
+        $reviewDocument->review_status = 'ignored';
+        $reviewDocument->ignored_at = now();
+        $reviewDocument->save();
+
+        return redirect()->route('nfse.adn.index')
+            ->with('success', trans('nfse::general.adn.review_ignored'));
+    }
+
+    /**
+     * @return list<array{document:object,preview:?array<string,string>}>
+     */
+    protected function accountingReviewQueue(): array
+    {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $sql = 'SELECT id, company_id, document_key, chave_acesso, fiscal_role, xml'
+            . ' FROM nfse_adn_documents'
+            . " WHERE review_status = 'pending'"
+            . " AND fiscal_role IN ('received', 'intermediated')";
+        $bindings = [];
+
+        if ($companyId > 0) {
+            $sql .= ' AND company_id = ?';
+            $bindings[] = $companyId;
+        }
+
+        $sql .= ' ORDER BY id DESC LIMIT 50';
+        $previewer = new AdnAccountingPreview();
+        $rows = [];
+
+        foreach (DB::select($sql, $bindings) as $document) {
+            try {
+                $preview = $previewer->fromAuthorizedXml((string) ($document->xml ?? ''));
+            } catch (\InvalidArgumentException) {
+                $preview = null;
+            }
+
+            $rows[] = [
+                'document' => $document,
+                'preview' => $preview,
+            ];
+        }
+
+        return $rows;
     }
 
     public function distribution(Request $request): JsonResponse
