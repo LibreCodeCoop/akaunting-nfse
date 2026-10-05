@@ -629,7 +629,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </select>
                             </div>
 
-                            <div>
+                            <div id="federal-piscofins-retention-row">
                                 <label class="block text-sm font-medium mb-1" for="federal-piscofins-tipo-retencao">{{ trans('nfse::general.settings.federal.piscofins_tipo_retencao') }}</label>
                                 <select id="federal-piscofins-tipo-retencao" name="nfse[federal_piscofins_tipo_retencao]" class="w-full border rounded px-3 py-2">
                                     <option value="">{{ trans('nfse::general.settings.federal.select_placeholder') }}</option>
