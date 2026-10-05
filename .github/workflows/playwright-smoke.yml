@@ -132,6 +132,13 @@ jobs:
             if (!$userModel::query()->where("email", "nfse-e2e@example.test")->exists()) { throw new RuntimeException("Playwright test user missing from persistent database"); }
           '
 
+      - name: Expose module browser assets
+        working-directory: akaunting
+        run: |
+          mkdir -p public/modules
+          ln -sfn "${PWD}/modules/Nfse" public/modules/Nfse
+          test -f public/modules/Nfse/Resources/assets/js/adn-distribution-browser.js
+
       - name: Start Akaunting
         working-directory: akaunting
         env:
