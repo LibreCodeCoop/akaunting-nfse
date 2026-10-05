@@ -1391,27 +1391,13 @@ class InvoiceController extends Controller
      * @param list<array<string,mixed>> $groups
      * @return list<array<string,mixed>>
      */
+    /**
+     * @param list<array<string,mixed>> $groups
+     * @return list<array<string,mixed>>
+     */
     protected function annotateFiscalGroupsWithReceiptState(Invoice $invoice, array $groups): array
     {
-        $persistence = new ReceiptPersistence();
-
-        foreach ($groups as &$group) {
-            $key = (string) ($group['key'] ?? '');
-            try {
-                $receipt = $key !== ''
-                    ? $persistence->findGrouped((int) $invoice->id, $key)
-                    : null;
-            } catch (\Throwable) {
-                $receipt = null;
-            }
-
-            $group['issued'] = $receipt instanceof NfseReceipt;
-            $group['receipt_id'] = $receipt?->id;
-            $group['nfse_number'] = $receipt?->nfse_number;
-        }
-        unset($group);
-
-        return $groups;
+        return (new FiscalGroupReceiptState())->annotate((int) $invoice->id, $groups);
     }
 
     /**
@@ -1420,11 +1406,9 @@ class InvoiceController extends Controller
      */
     protected function remainingFiscalGroups(Invoice $invoice, array $groups): array
     {
-        return array_values(array_filter(
-            $this->annotateFiscalGroupsWithReceiptState($invoice, $groups),
-            static fn (array $group): bool => ($group['issued'] ?? false) !== true,
-        ));
+        return (new FiscalGroupReceiptState())->remaining((int) $invoice->id, $groups);
     }
+
 
     protected function invoiceFiscalGroups(Invoice $invoice): array
     {
