@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: MySQL Migrations
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: mysql-migrations-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: migration-tests
+          MYSQL_DATABASE: nfse_migration_tests
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pmigration-tests"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      NFSE_MIGRATION_TEST_DB: nfse_migration_tests
+      NFSE_MIGRATION_TEST_HOST: 127.0.0.1
+      NFSE_MIGRATION_TEST_PASSWORD: migration-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql
+          coverage: none
+          tools: composer
+      - name: Install isolated migration test dependencies
+        run: composer --working-dir=vendor-bin/migrations install --prefer-dist --no-progress --no-interaction
+      - name: Test migrations against MySQL
+        run: vendor-bin/migrations/vendor/bin/phpunit --configuration phpunit.migrations.xml
