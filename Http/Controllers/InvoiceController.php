@@ -19,7 +19,6 @@ use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\FederalTaxReadiness;
-use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
 use Modules\Nfse\Application\FiscalGroupReceiptState;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
 use Modules\Nfse\Application\IbsCbsPayloadResolver;

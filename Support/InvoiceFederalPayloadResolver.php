@@ -35,7 +35,9 @@ final class InvoiceFederalPayloadResolver
         ?\Closure $taxRateResolver = null,
     ) {
         $this->settingResolver = $settingResolver
-            ?? static fn (string $key, mixed $default): mixed => setting($key, $default);
+            ?? static fn (string $key, mixed $default): mixed => function_exists('setting')
+                ? \setting($key, $default)
+                : $default;
 
         $this->taxRateResolver = $taxRateResolver
             ?? static function (int $taxId): ?float {

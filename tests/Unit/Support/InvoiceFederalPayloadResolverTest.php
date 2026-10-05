@@ -31,7 +31,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $invoice = new Document();
         $invoice->amount = 100.00;
-        $invoice->items = [];
+        $invoice->items = $this->items([]);
 
         $payload = $resolver->resolve($invoice);
 
@@ -56,7 +56,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $invoice = new Document();
         $invoice->amount = 300.00;
-        $invoice->items = [
+        $invoice->items = $this->items([
             [
                 'id' => 101,
                 'item_taxes' => [
@@ -70,7 +70,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
                     ['name' => 'PIS', 'amount' => 30.00, 'rate' => 15.00],
                 ],
             ],
-        ];
+        ]);
 
         $payload = $resolver->resolve($invoice, [101], 100.00);
 
@@ -92,11 +92,30 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $invoice = new Document();
         $invoice->amount = 100.00;
-        $invoice->items = [];
+        $invoice->items = $this->items([]);
 
         $payload = $resolver->resolve($invoice);
 
         self::assertSame('0', $payload['federalPiscofinsTipoRetencao']);
         self::assertSame('', $payload['federalValorCsll']);
     }
+    /**
+     * @param list<array<string,mixed>> $rows
+     */
+    private function items(array $rows): object
+    {
+        return new class ($rows) {
+            /** @param list<array<string,mixed>> $rows */
+            public function __construct(private readonly array $rows)
+            {
+            }
+
+            /** @return list<array<string,mixed>> */
+            public function toArray(): array
+            {
+                return $this->rows;
+            }
+        };
+    }
+
 }
