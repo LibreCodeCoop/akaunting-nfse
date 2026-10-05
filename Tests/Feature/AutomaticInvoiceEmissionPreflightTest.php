@@ -30,6 +30,8 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
     public function testBlocksWhenMultipleFiscalGroupsStillNeedOperatorSelection(): void
     {
         $invoice = Document::factory()->invoice()->create();
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
         $this->addProfiledItem($invoice, '0107', '010701', '60');
         $this->addProfiledItem($invoice, '0101', '010101', '40');
         $invoice->load('items');
@@ -63,6 +65,8 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
     private function invoiceWithProfile(string $service, string $national, string $total): Document
     {
         $invoice = Document::factory()->invoice()->create();
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
         $this->addProfiledItem($invoice, $service, $national, $total);
         $invoice->load('items');
 
