@@ -128,3 +128,52 @@ test('native fiscal action fails closed without compiled Akaunting trigger', () 
         false,
     );
 });
+
+
+test('hydration reconciliation reapplies active tab state', () => {
+    let tabSyncs = 0;
+    const activePane = { id: 'nfse-tab-pane-email', style: { display: 'none' }, setAttribute() {} };
+    const inactivePane = { id: 'nfse-tab-pane-issuance', style: { display: '' }, setAttribute() {} };
+    const activeNav = {
+        getAttribute() {
+            return 'nfse-tab-pane-email';
+        },
+    };
+    const container = {
+        querySelector(selector) {
+            return selector.includes('.active-tabs') ? activeNav : null;
+        },
+        querySelectorAll(selector) {
+            if (selector === '[data-nfse-tab-pane]') {
+                return [inactivePane, activePane];
+            }
+            return [];
+        },
+    };
+    const documentRef = {
+        querySelectorAll(selector) {
+            if (selector === '[data-nfse-tabs]') {
+                tabSyncs += 1;
+                return [container];
+            }
+            return [];
+        },
+        getElementById() {
+            return null;
+        },
+    };
+
+    assert.equal(modal.reconcileHydratedModal(documentRef), 1);
+    assert.equal(tabSyncs, 1);
+    assert.equal(activePane.style.display, '');
+    assert.equal(inactivePane.style.display, 'none');
+});
+
+
+test('hydration observer work is scoped to NFS-e modal mutations by selector contract', () => {
+    const source = modal.boot.toString();
+
+    assert.match(source, /closest\('\[data-nfse-tabs\]'\)/);
+    assert.match(source, /data-nfse-error-summary/);
+    assert.doesNotMatch(source, /new MutationObserverRef\(\(\) => \{\s*reconcileHydratedModal/);
+});
