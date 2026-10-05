@@ -21,24 +21,37 @@ final class FiscalGroupPreviewTest extends FeatureTestCase
         $firstItem = Item::factory()->enabled()->create();
         $secondItem = Item::factory()->enabled()->create();
 
-        $invoice = Document::factory()->invoice()->create([
-            'items' => [
-                [
-                    'item_id' => $firstItem->id,
-                    'name' => 'Consultoria',
-                    'quantity' => '1',
-                    'price' => '40.00',
-                    'total' => '40.00',
-                ],
-                [
-                    'item_id' => $secondItem->id,
-                    'name' => 'Suporte',
-                    'quantity' => '1',
-                    'price' => '60.00',
-                    'total' => '60.00',
-                ],
+        $invoice = Document::factory()->invoice()->create();
+
+        $invoice->items()->createMany([
+            [
+                'company_id' => $invoice->company_id,
+                'type' => $invoice->type,
+                'item_id' => $firstItem->id,
+                'name' => 'Consultoria',
+                'quantity' => '1',
+                'price' => '40.00',
+                'total' => '40.00',
+                'tax' => '0.00',
+                'discount_rate' => '0.00',
+                'discount_type' => 'normal',
+            ],
+            [
+                'company_id' => $invoice->company_id,
+                'type' => $invoice->type,
+                'item_id' => $secondItem->id,
+                'name' => 'Suporte',
+                'quantity' => '1',
+                'price' => '60.00',
+                'total' => '60.00',
+                'tax' => '0.00',
+                'discount_rate' => '0.00',
+                'discount_type' => 'normal',
             ],
         ]);
+
+        $invoice->forceFill(['amount' => '100.00'])->saveQuietly();
+        $invoice->unsetRelation('items');
 
         ItemFiscalProfile::query()->create([
             'company_id' => company_id(),
