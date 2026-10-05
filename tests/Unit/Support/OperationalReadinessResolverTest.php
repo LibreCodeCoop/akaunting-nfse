@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Unit\Support;
 
 use Modules\Nfse\Support\OperationalReadinessResolver;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use PHPUnit\Framework\TestCase;
 
 final class OperationalReadinessResolverTest extends TestCase
@@ -27,10 +26,7 @@ final class OperationalReadinessResolverTest extends TestCase
                     'bao_mount' => 'nfse',
                 ],
                 serviceCode: '0107',
-                secretStore: $this->secretStore([
-                    'password' => 'fixture-password',
-                    'pfx_path' => '/fixture/certificate.pfx',
-                ]),
+                hasCertificateSecret: true,
                 certificatePath: $certificate,
             );
 
@@ -42,23 +38,8 @@ final class OperationalReadinessResolverTest extends TestCase
         }
     }
 
-    public function testUnavailableSecretStoreBecomesReadinessBlockerWithoutThrowing(): void
+    public function testMissingCertificateSecretRemainsReadinessBlocker(): void
     {
-        $store = new class () implements SecretStoreInterface {
-            public function get(string $path): array
-            {
-                throw new \RuntimeException('Vault unavailable');
-            }
-
-            public function put(string $path, array $data): void
-            {
-            }
-
-            public function delete(string $path): void
-            {
-            }
-        };
-
         $result = (new OperationalReadinessResolver())->evaluate(
             settings: [
                 'cnpj_prestador' => '11222333000181',
@@ -67,14 +48,13 @@ final class OperationalReadinessResolverTest extends TestCase
                 'bao_mount' => 'nfse',
             ],
             serviceCode: '0107',
-            secretStore: $store,
+            hasCertificateSecret: false,
             certificatePath: __FILE__,
         );
 
         self::assertFalse($result['isReady']);
         self::assertFalse($result['checklist']['certificate_secret']);
     }
-
     /**
      * @param array<string,string> $secret
      */

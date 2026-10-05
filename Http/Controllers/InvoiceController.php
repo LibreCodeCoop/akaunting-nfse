@@ -2716,7 +2716,9 @@ class InvoiceController extends Controller
         return (new OperationalReadinessResolver())->evaluate(
             settings: is_array($settings) ? $settings : [],
             serviceCode: $this->itemListaServico(),
-            secretStore: $this->makeSecretStore(),
+            hasCertificateSecret: $this->hasCertificateSecret(
+                trim((string) ((is_array($settings) ? $settings : [])['cnpj_prestador'] ?? '')),
+            ),
         );
     }
 

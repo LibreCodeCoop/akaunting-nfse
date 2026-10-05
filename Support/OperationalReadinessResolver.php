@@ -8,8 +8,6 @@ declare(strict_types=1);
 namespace Modules\Nfse\Support;
 
 use Modules\Nfse\Application\EmissionReadiness;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
-
 final class OperationalReadinessResolver
 {
     /**
@@ -19,7 +17,7 @@ final class OperationalReadinessResolver
     public function evaluate(
         array $settings,
         string $serviceCode,
-        SecretStoreInterface $secretStore,
+        bool $hasCertificateSecret,
         ?string $certificatePath = null,
         ?int $now = null,
     ): array {
@@ -31,25 +29,11 @@ final class OperationalReadinessResolver
         return (new EmissionReadiness())->evaluate(
             settings: $settings,
             hasLocalCertificate: $certificatePath !== '' && is_file($certificatePath),
-            hasCertificateSecret: $this->hasCertificateSecret($secretStore, $cnpj),
+            hasCertificateSecret: $hasCertificateSecret,
             serviceCode: $serviceCode,
             now: $now,
         );
     }
 
-    private function hasCertificateSecret(SecretStoreInterface $secretStore, string $cnpj): bool
-    {
-        if ($cnpj === '') {
-            return false;
-        }
 
-        try {
-            $secret = $secretStore->get('pfx/' . $cnpj);
-        } catch (\Throwable) {
-            return false;
-        }
-
-        return trim((string) ($secret['password'] ?? '')) !== ''
-            && trim((string) ($secret['pfx_path'] ?? '')) !== '';
-    }
 }
