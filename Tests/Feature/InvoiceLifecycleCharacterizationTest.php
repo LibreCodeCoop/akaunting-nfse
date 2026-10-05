@@ -136,7 +136,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
                 'invoice' => $invoice,
                 'artifact' => 'unknown',
             ]))
-            ->assertRedirect(route('nfse.invoices.show', $invoice))
+            ->assertRedirect(route('invoices.show', $invoice))
             ->assertSessionHas('warning', trans('nfse::general.invoices.artifact_invalid_type'));
     }
 
@@ -156,7 +156,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
                 'invoice' => $invoice,
                 'artifact' => 'xml',
             ]))
-            ->assertRedirect(route('nfse.invoices.show', $invoice))
+            ->assertRedirect(route('invoices.show', $invoice))
             ->assertSessionHas('warning', trans('nfse::general.invoices.artifact_not_found'));
     }
 

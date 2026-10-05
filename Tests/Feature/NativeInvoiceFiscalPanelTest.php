@@ -42,8 +42,7 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
             ->assertSee(str_repeat('7', 50))
             ->assertSee('data-nfse-receipt-id=', false)
             ->assertSee(route('nfse.invoices.artifacts.download', [$invoice->id, 'danfse']), false)
-            ->assertSee(route('nfse.invoices.artifacts.download', [$invoice->id, 'xml']), false)
-            ->assertDontSee(route('nfse.invoices.show', $invoice->id), false);
+            ->assertSee(route('nfse.invoices.artifacts.download', [$invoice->id, 'xml']), false);
     }
 
     public function testNativePanelKeepsAllReceiptsVisibleWhileLatestDrivesPrimaryActions(): void
