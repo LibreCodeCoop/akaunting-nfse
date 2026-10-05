@@ -2,8 +2,9 @@
   "name": "@librecodecoop/akaunting-nfse-e2e",
   "private": true,
   "version": "1.0.0",
-  "description": "Playwright E2E tests for akaunting-nfse module",
+  "description": "Playwright E2E and frontend tests for akaunting-nfse module",
   "scripts": {
+    "test:frontend": "node --test frontend-tests/*.test.mjs",
     "test:e2e": "playwright test -c playwright.config.ts",
     "test:e2e:headed": "playwright test -c playwright.config.ts --headed",
     "test:e2e:debug": "playwright test -c playwright.config.ts --debug",
