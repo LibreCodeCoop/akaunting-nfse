@@ -39,11 +39,34 @@ final class BulkEmissionRunRecorder
         }
 
         return DB::transaction(function () use ($companyId, $requestedBy, $normalized): array {
+            $selectionHash = $this->selectionHash($companyId, $normalized);
+            $existing = BulkEmissionRun::query()
+                ->where('company_id', $companyId)
+                ->where('selection_hash', $selectionHash)
+                ->latest('id')
+                ->first();
+
+            if ($existing instanceof BulkEmissionRun && $this->isReusableRunStatus((string) $existing->status)) {
+                $units = BulkEmissionUnit::query()
+                    ->where('run_id', (int) $existing->id)
+                    ->latest('id')
+                    ->get()
+                    ->all();
+
+                return [
+                    'run' => $existing,
+                    'units' => array_values(array_filter(
+                        $units,
+                        static fn (mixed $unit): bool => $unit instanceof BulkEmissionUnit,
+                    )),
+                ];
+            }
+
             $run = BulkEmissionRun::query()->create([
                 'company_id' => $companyId,
                 'requested_by' => $requestedBy !== null && $requestedBy > 0 ? $requestedBy : null,
                 'status' => 'queued',
-                'selection_hash' => $this->selectionHash($companyId, $normalized),
+                'selection_hash' => $selectionHash,
             ]);
 
             $persisted = [];
@@ -90,6 +113,16 @@ final class BulkEmissionRunRecorder
         ksort($normalized);
 
         return array_values($normalized);
+    }
+
+    private function isReusableRunStatus(string $status): bool
+    {
+        return in_array($status, [
+            BulkEmissionStatusPolicy::QUEUED,
+            BulkEmissionStatusPolicy::PROCESSING,
+            BulkEmissionStatusPolicy::RETRYABLE_READ_ERROR,
+            'partial_retryable',
+        ], true);
     }
 
     /**
