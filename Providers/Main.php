@@ -18,6 +18,7 @@ use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\InvoiceFiscalReceiptResolver;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\NfseRuntimeContextFactory;
 use Modules\Nfse\Support\Testing\DeterministicFiscalHttpTransport;
@@ -212,16 +213,9 @@ class Main extends Provider
                 return;
             }
 
-            try {
-                $receipts = \Modules\Nfse\Models\NfseReceipt::query()
-                    ->where('invoice_id', $invoiceId)
-                    ->latest('id')
-                    ->get();
-                $receipt = $receipts->first();
-            } catch (\Throwable) {
-                $receipts = collect();
-                $receipt = null;
-            }
+            $resolvedReceipts = (new InvoiceFiscalReceiptResolver())->resolve($invoiceId);
+            $receipt = $resolvedReceipts['primary'];
+            $receipts = $resolvedReceipts['receipts'];
 
             $content = view('nfse::invoices.partials.native-fiscal-panel', [
                 'invoice' => $invoice,

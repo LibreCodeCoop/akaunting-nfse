@@ -3,7 +3,7 @@
 @php
     $receiptStatus = (string) ($receipt->status ?? '');
     $hasReceipt = $receipt !== null;
-    $linkedReceipts = $receipts ?? collect($hasReceipt ? [$receipt] : []);
+    $linkedReceipts = is_array($receipts ?? null) ? $receipts : ($hasReceipt ? [$receipt] : []);
     $statusClasses = match ($receiptStatus) {
         'emitted' => 'bg-green-100 text-green-700',
         'cancelled', 'substituted' => 'bg-gray-100 text-gray-700',
@@ -45,7 +45,7 @@
             </div>
         </dl>
 
-        @if($linkedReceipts->count() > 1)
+        @if(count($linkedReceipts) > 1)
             <section class="mt-4 border-t border-gray-200 pt-3" aria-labelledby="nfse-linked-documents-title">
                 <h4 id="nfse-linked-documents-title" class="text-sm font-medium text-gray-800">
                     {{ trans('nfse::general.native_invoice.linked_documents') }}
