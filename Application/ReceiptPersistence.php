@@ -72,11 +72,13 @@ final class ReceiptPersistence
                     );
                 }
 
+                $existing->update($this->receiptValues($receipt, $resolvedNumber));
+
                 if ($lockedOriginal->status !== 'substituted') {
                     $lockedOriginal->update(['status' => 'substituted']);
                 }
 
-                return $existing;
+                return $existing->fresh();
             }
 
             $replacement = NfseReceipt::query()->create(array_merge(

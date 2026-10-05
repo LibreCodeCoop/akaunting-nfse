@@ -102,6 +102,21 @@ final class ReceiptPersistenceTest extends FeatureTestCase
             NfseReceipt::query()->where('replaces_receipt_id', $original->id)->count(),
         );
         self::assertSame('substituted', $original->fresh()->status);
+
+        $enriched = $persistence->createReplacement(
+            $invoice->id,
+            new ReceiptData(
+                nfseNumber: '41',
+                chaveAcesso: str_repeat('8', 50),
+                dataEmissao: '2026-10-05T10:00:00-03:00',
+                rawXml: '<NFSe><infNFSe><DPS><infDPS><dCompet>2026-10-01</dCompet><valores><vServPrest><vServ>100.00</vServ></vServPrest></valores></infDPS></DPS></infNFSe></NFSe>',
+            ),
+            '41',
+            $original->fresh(),
+        );
+
+        self::assertSame($first->id, $enriched->id);
+        self::assertSame('2026-10-01', $enriched->competence_date?->format('Y-m-d'));
     }
 
     public function testReplacementRetryRejectsDifferentRemoteReplacement(): void
