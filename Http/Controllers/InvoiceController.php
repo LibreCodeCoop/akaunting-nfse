@@ -18,6 +18,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
+use Modules\Nfse\Application\FederalTaxReadiness;
 use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
@@ -1607,100 +1608,38 @@ class InvoiceController extends Controller
      * @param list<int>|null $documentItemIds
      * @return array{isReady: bool, missing: list<string>}
      */
+    /**
+     * @param list<int>|null $documentItemIds
+     * @return array{isReady: bool, missing: list<string>}
+     */
     protected function federalTaxReadinessForInvoice(
         Invoice $invoice,
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
     ): array {
-        $requiredBuckets = $this->requiredFederalTaxBucketsForEmission();
+        $policy = new FederalTaxReadiness();
+        $requiredBuckets = $policy->requiredBuckets(
+            enforce: setting('nfse.enforce_item_federal_taxes', true),
+            piscofinsSituation: $this->normalizedFederalSelectValue(
+                setting('nfse.federal_piscofins_situacao_tributaria', ''),
+            ),
+            retentionType: $this->normalizedFederalSelectValue(
+                setting('nfse.federal_piscofins_tipo_retencao', ''),
+            ),
+        );
 
         if ($requiredBuckets === []) {
-            return [
-                'isReady' => true,
-                'missing' => [],
-            ];
+            return $policy->evaluate([], []);
         }
 
-        $snapshot = $this->invoiceFederalTaxSnapshot(
-            $invoice,
-            $amountOverride ?? (float) ($invoice->amount ?? 0.0),
-            $documentItemIds,
+        return $policy->evaluate(
+            $this->invoiceFederalTaxSnapshot(
+                $invoice,
+                $amountOverride ?? (float) ($invoice->amount ?? 0.0),
+                $documentItemIds,
+            ),
+            $requiredBuckets,
         );
-        $bucketToSnapshotKey = [
-            'pis' => 'pis_value',
-            'cofins' => 'cofins_value',
-            'irrf' => 'irrf_value',
-            'csll' => 'csll_value',
-        ];
-
-        $missing = [];
-
-        foreach ($requiredBuckets as $bucket) {
-            $snapshotKey = $bucketToSnapshotKey[$bucket] ?? null;
-
-            if ($snapshotKey === null) {
-                continue;
-            }
-
-            if (($snapshot[$snapshotKey] ?? '') === '') {
-                $missing[] = $bucket;
-            }
-        }
-
-        return [
-            'isReady' => $missing === [],
-            'missing' => $missing,
-        ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    protected function requiredFederalTaxBucketsForEmission(): array
-    {
-        if (!$this->enforceFederalItemTaxes()) {
-            return [];
-        }
-
-        $required = [];
-
-        $situacaoTributaria = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_situacao_tributaria', ''));
-
-        if ($situacaoTributaria !== '' && $situacaoTributaria !== '0') {
-            $required[] = 'pis';
-            $required[] = 'cofins';
-        }
-
-        $tipoRetencao = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_tipo_retencao', ''));
-
-        if (in_array($tipoRetencao, ['3', '7', '8', '9'], true)) {
-            $required[] = 'csll';
-        }
-
-        return array_values(array_unique($required));
-    }
-
-    protected function enforceFederalItemTaxes(): bool
-    {
-        $configured = setting('nfse.enforce_item_federal_taxes', true);
-
-        if (is_bool($configured)) {
-            return $configured;
-        }
-
-        if (is_numeric($configured)) {
-            return (int) $configured === 1;
-        }
-
-        if (is_string($configured)) {
-            $normalized = strtolower(trim($configured));
-
-            if ($normalized === '' || in_array($normalized, ['0', 'false', 'off', 'no'], true)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /**
