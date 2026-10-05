@@ -36,7 +36,7 @@ jobs:
           coverage: none
 
       - name: Cache Composer downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.COMPOSER_CACHE_DIR }}
           key: composer-${{ runner.os }}-psalm-${{ hashFiles('modules/Nfse/composer.json', 'modules/Nfse/3rdparty/composer.json', 'modules/Nfse/vendor-bin/php-scoper/composer.lock', 'modules/Nfse/vendor-bin/psalm/composer.lock') }}
