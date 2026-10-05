@@ -66,3 +66,45 @@ test('readiness summary has an accessible section name and actionable links', as
     await expect(correctiveLinks.nth(index)).toHaveAccessibleName(/.+/);
   }
 });
+
+
+test('native invoice fiscal panel is an accessible named region', async ({ page }, testInfo) => {
+  const invoiceId = process.env.NFSE_E2E_GROUPED_INVOICE_ID ?? '';
+
+  expect(invoiceId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  const panel = page.locator('#nfse-native-fiscal-panel');
+  await expect(panel).toBeVisible();
+  await expect(panel).toHaveAttribute('role', 'region');
+  await expect(panel).toHaveAttribute('aria-labelledby', 'nfse-native-fiscal-panel-title');
+  await expect(page.locator('#nfse-native-fiscal-panel-title')).not.toHaveText('');
+
+  const actions = panel.getByRole('link').or(panel.getByRole('button'));
+  const actionCount = await actions.count();
+
+  for (let index = 0; index < actionCount; index += 1) {
+    await expect(actions.nth(index)).toHaveAccessibleName(/.+/);
+  }
+});
+
+test('ADN distribution browser exposes labelled controls and live status', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+  await page.goto('/1/nfse/adn', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  const browser = page.locator('#adn-distribution-browser');
+  await expect(browser).toBeVisible();
+  await expect(browser).toHaveAttribute('role', 'region');
+  await expect(browser).toHaveAttribute('aria-labelledby', 'adn-distribution-title');
+  await expect(page.locator('#adn-distribution-title')).not.toHaveText('');
+
+  await expect(page.locator('#adn-nsu')).toHaveAccessibleName(/.+/);
+  await expect(page.locator('#adn-cnpj')).toHaveAccessibleName(/.+/);
+  await expect(page.locator('#adn-lote')).toHaveAccessibleName(/.+/);
+  await expect(page.locator('#adn-distribution-query')).toHaveAccessibleName(/.+/);
+  await expect(page.locator('#adn-distribution-status')).toHaveAttribute('aria-live', 'polite');
+});

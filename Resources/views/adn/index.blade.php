@@ -150,13 +150,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </section>
 
             <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <h2 class="text-base font-semibold text-blue-900">{{ trans('nfse::general.adn.distribution_title') }}</h2>
+                <h2 id="adn-distribution-title" class="text-base font-semibold text-blue-900">{{ trans('nfse::general.adn.distribution_title') }}</h2>
                 <p class="mt-1 text-sm text-blue-800">{{ trans('nfse::general.adn.distribution_help') }}</p>
             </div>
 
             <div
                 id="adn-distribution-browser"
                 data-url="{{ route('nfse.adn.distribution') }}"
+                role="region"
+                aria-labelledby="adn-distribution-title"
                 class="rounded-lg border border-gray-200 bg-white p-5 space-y-4"
             >
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
