@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\AdnController;
+use Modules\Nfse\Http\Controllers\BulkEmissionController;
 use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
@@ -43,6 +44,9 @@ Route::admin('nfse', function () {
     Route::get('adn/distribution', [AdnController::class, 'distribution'])->name('adn.distribution');
     Route::post('adn/review/{document}/ignore', [AdnController::class, 'ignore'])->name('adn.review.ignore');
     Route::post('adn/review/{document}/import', [AdnController::class, 'importDraft'])->name('adn.review.import');
+
+    // Bulk emission progress (read-only until a concrete fiscal issuer is wired)
+    Route::get('bulk', [BulkEmissionController::class, 'index'])->name('bulk.index');
 
     // Competence closing and reconciliation
     Route::get('closing', [ClosingController::class, 'index'])->name('closing.index');
