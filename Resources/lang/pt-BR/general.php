@@ -76,6 +76,7 @@ return [
             'codigo_tributacao_nacional' => 'Código de tributação nacional (NBS) configurado',
             'bao_addr' => 'Endereço OpenBao configurado',
             'bao_mount' => 'Mount OpenBao configurado',
+            'vault_auth' => 'Autenticação do Vault configurada',
             'certificate' => 'Certificado local disponível',
             'certificate_secret' => 'Segredo do certificado disponível no Vault',
             'certificate_valid' => 'Certificado A1 dentro do período de validade',

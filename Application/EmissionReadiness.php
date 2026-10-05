@@ -29,6 +29,10 @@ final class EmissionReadiness
     ): array {
         $cnpj = strtoupper(trim((string) ($settings['cnpj_prestador'] ?? '')));
         $certificateCnpj = strtoupper(trim((string) ($settings['certificate_cnpj'] ?? '')));
+        $vaultToken = trim((string) ($settings['bao_token'] ?? ''));
+        $vaultRoleId = trim((string) ($settings['bao_role_id'] ?? ''));
+        $vaultSecretId = trim((string) ($settings['bao_secret_id'] ?? ''));
+        $vaultAuthReady = $vaultToken !== '' || ($vaultRoleId !== '' && $vaultSecretId !== '');
 
         $checklist = [
             'runtime_contract' => $runtimeContractAvailable,
@@ -37,6 +41,7 @@ final class EmissionReadiness
             'item_lista_servico' => trim($serviceCode) !== '',
             'bao_addr' => trim((string) ($settings['bao_addr'] ?? '')) !== '',
             'bao_mount' => trim((string) ($settings['bao_mount'] ?? '')) !== '',
+            'vault_auth' => $vaultAuthReady,
             'certificate' => $hasLocalCertificate,
             'certificate_secret' => $hasCertificateSecret,
         ];
