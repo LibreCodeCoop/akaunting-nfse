@@ -73,8 +73,11 @@
             }
         };
 
-        rootNode.addEventListener('change', delegatedSync);
-        rootNode.addEventListener('input', delegatedSync);
+        // Akaunting's Vue handlers may stop bubbling after updating the native
+        // selection state. Capture the event first so replacement checkboxes and
+        // framework-owned handlers cannot bypass the NFS-e dispatch synchronizer.
+        rootNode.addEventListener('change', delegatedSync, true);
+        rootNode.addEventListener('input', delegatedSync, true);
         rootNode.__nfseBulkDispatchEventsBound = true;
 
         return true;

@@ -122,10 +122,12 @@ test('selectedInvoiceIds returns unique checked native invoice ids', () => {
 
 test('delegated bulk selection sync survives checkbox replacement', () => {
     const listeners = {};
+    const capture = {};
     let syncCalls = 0;
     const root = {
-        addEventListener(name, listener) {
+        addEventListener(name, listener, useCapture) {
             listeners[name] = listener;
+            capture[name] = useCapture;
         },
     };
 
@@ -149,4 +151,5 @@ test('delegated bulk selection sync survives checkbox replacement', () => {
 
     assert.equal(syncCalls, 11);
     assert.equal(Object.keys(listeners).length, 2);
+    assert.deepEqual(capture, { change: true, input: true });
 });

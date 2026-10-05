@@ -110,7 +110,8 @@
             return;
         }
 
-        const activeNav = container.querySelector('[data-nfse-tab-nav].active-tabs')
+        const activeNav = container.querySelector('[data-nfse-tab-nav][aria-selected="true"]')
+            || container.querySelector('[data-nfse-tab-nav].active-tabs')
             || container.querySelector('[data-nfse-tab-nav]');
 
         if (!activeNav) {
@@ -223,6 +224,21 @@
         }
     }
 
+    function scheduleTabPaneSync(container, documentRef) {
+        if (!container) {
+            return;
+        }
+
+        const view = documentRef && documentRef.defaultView ? documentRef.defaultView : null;
+        const schedule = view && typeof view.requestAnimationFrame === 'function'
+            ? view.requestAnimationFrame.bind(view)
+            : (typeof setTimeout === 'function' ? setTimeout : null);
+
+        if (schedule) {
+            schedule(() => syncTabPane(container), 0);
+        }
+    }
+
     function resolveBodyState(scope) {
         const editor = scope ? scope.querySelector('.ql-editor') : null;
         const bodyGroup = editor ? editor.closest('.relative') : null;
@@ -265,7 +281,16 @@
         const currentSubject = subjectInput ? subjectInput.value : '';
         const currentBody = bodyState.editor ? bodyState.editor.innerHTML : '';
         const defaultSubject = decodeURIComponent(button.getAttribute('data-nfse-default-subject') || '');
-        const defaultBody = decodeURIComponent(button.getAttribute('data-nfse-default-body') || '');
+        const configuredDefaultBody = decodeURIComponent(button.getAttribute('data-nfse-default-body') || '');
+        const runtimeDefaultBody = button.getAttribute('data-nfse-runtime-default-body');
+        let defaultBody = runtimeDefaultBody === null
+            ? configuredDefaultBody
+            : decodeURIComponent(runtimeDefaultBody);
+
+        if (runtimeDefaultBody === null && button.style.display === 'none' && bodyState.editor) {
+            defaultBody = currentBody;
+            button.setAttribute('data-nfse-runtime-default-body', encodeURIComponent(currentBody));
+        }
 
         button.style.display = shouldShowRestore(
             currentSubject,
@@ -308,6 +333,13 @@
         }
 
         if (scope) {
+            if (bodyState.editor) {
+                button.setAttribute(
+                    'data-nfse-runtime-default-body',
+                    encodeURIComponent(bodyState.editor.innerHTML),
+                );
+            }
+
             scope.dispatchEvent(new Event('input', { bubbles: true }));
             syncRestoreButton(scope, documentRef);
         }
@@ -499,7 +531,16 @@
                     : null;
 
                 if (scope) {
-                    syncRestoreButton(scope, documentRef);
+                    const view = documentRef.defaultView;
+                    const schedule = view && typeof view.requestAnimationFrame === 'function'
+                        ? view.requestAnimationFrame.bind(view)
+                        : (typeof setTimeout === 'function' ? setTimeout : null);
+
+                    if (schedule) {
+                        schedule(() => syncRestoreButton(scope, documentRef), 0);
+                    } else {
+                        syncRestoreButton(scope, documentRef);
+                    }
                 }
 
                 const tabs = event.target && event.target.closest
@@ -507,7 +548,7 @@
                     : null;
 
                 if (tabs) {
-                    syncTabPane(tabs);
+                    scheduleTabPaneSync(tabs, documentRef);
                 }
             }, true);
         });
@@ -589,6 +630,7 @@
         normalizeHtml,
         reconcileHydratedModal,
         restoreDefaults,
+        scheduleTabPaneSync,
         sendEmailUiState,
         shouldShowRestore,
         switchPresentation,

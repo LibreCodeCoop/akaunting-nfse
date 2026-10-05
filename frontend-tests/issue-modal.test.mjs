@@ -177,3 +177,71 @@ test('hydration observer work is scoped to NFS-e modal mutations by selector con
     assert.match(source, /data-nfse-error-summary/);
     assert.doesNotMatch(source, /new MutationObserverRef\(\(\) => \{\s*reconcileHydratedModal/);
 });
+
+
+test('tab reconciliation prefers semantic aria-selected state over stale classes', () => {
+    const panes = [
+        { id: 'nfse-tab-pane-issuance', style: {}, setAttribute() {} },
+        { id: 'nfse-tab-pane-email', style: {}, setAttribute() {} },
+    ];
+    const semanticNav = { getAttribute() { return 'nfse-tab-pane-email'; } };
+    const staleClassNav = { getAttribute() { return 'nfse-tab-pane-issuance'; } };
+    const container = {
+        querySelector(selector) {
+            if (selector === '[data-nfse-tab-nav][aria-selected="true"]') {
+                return semanticNav;
+            }
+            if (selector === '[data-nfse-tab-nav].active-tabs') {
+                return staleClassNav;
+            }
+            return null;
+        },
+        querySelectorAll(selector) {
+            return selector === '[data-nfse-tab-pane]' ? panes : [];
+        },
+    };
+
+    modal.reconcileHydratedModal({
+        querySelectorAll(selector) {
+            return selector === '[data-nfse-tabs]' ? [container] : [];
+        },
+        getElementById() {
+            return null;
+        },
+    });
+
+    assert.equal(panes[0].style.display, 'none');
+    assert.equal(panes[1].style.display, '');
+});
+
+test('tab reconciliation can be deferred until framework input handlers finish', () => {
+    let scheduled = null;
+    let synced = false;
+    const container = {
+        querySelector(selector) {
+            if (selector === '[data-nfse-tab-nav][aria-selected="true"]') {
+                return { getAttribute() { return 'email'; } };
+            }
+            return null;
+        },
+        querySelectorAll(selector) {
+            if (selector !== '[data-nfse-tab-pane]') {
+                return [];
+            }
+            return [{ id: 'email', style: {}, setAttribute() { synced = true; } }];
+        },
+    };
+
+    modal.scheduleTabPaneSync(container, {
+        defaultView: {
+            requestAnimationFrame(callback) {
+                scheduled = callback;
+            },
+        },
+    });
+
+    assert.equal(synced, false);
+    assert.equal(typeof scheduled, 'function');
+    scheduled();
+    assert.equal(synced, true);
+});
