@@ -167,12 +167,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
-            self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);', $content);
+            self::assertStringContainsString(': $this->storeEmittedReceipt($invoice, $receipt);', $content);
+            self::assertStringContainsString('(new ReceiptPersistence())->createReplacement(', $content);
             self::assertStringContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
             self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
             self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);', $content);
             self::assertStringContainsString('$this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);', $content);
-            self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
         }
 
         public function testMakeClientDelegatesFiscalCompositionAndKeepsExplicitCleanup(): void
