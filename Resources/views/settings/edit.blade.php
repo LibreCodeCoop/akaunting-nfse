@@ -71,6 +71,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             @continue($passed)
                             @php
                                 $readinessTabs = [
+                                    'bao_addr' => 'vault',
+                                    'bao_mount' => 'vault',
                                     'cnpj_prestador' => 'certificate',
                                     'municipio_ibge' => 'fiscal',
                                     'item_lista_servico' => 'fiscal',
