@@ -60,7 +60,7 @@ final class ArtifactPathBuilderTest extends TestCase
 
         self::assertSame('nfse/123/2026/01/02', $base);
         self::assertSame(
-            'nfse/123/2026/01/02/KEY100.pdf',
+            'nfse/123/2026/01/02/key100.pdf',
             $builder->filePath($base, '{chave_acesso}.pdf', '123', 'Cliente', $receipt, 'pdf'),
         );
     }
