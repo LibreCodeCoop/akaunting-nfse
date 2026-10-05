@@ -12,7 +12,8 @@ namespace {
 namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use App\Models\Document\Document as Invoice;
     use Illuminate\Http\Request;
-    use Modules\Nfse\Http\Controllers\ControllerIsolationState;
+    use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
+use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Http\Controllers\InvoiceController;
     use Modules\Nfse\Models\NfseReceipt;
     use Modules\Nfse\Tests\TestCase;
@@ -287,14 +288,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
          */
         public function testFederalTaxBucketFromNameMatchesExpectedBucket(string $name, ?string $expectedBucket): void
         {
-            $controller = new class () extends InvoiceController {
-                public function resolveBucket(string $name): ?string
-                {
-                    return $this->federalTaxBucketFromName($name);
-                }
-            };
-
-            self::assertSame($expectedBucket, $controller->resolveBucket($name));
+            self::assertSame(
+                $expectedBucket,
+                (new FederalTaxSnapshotBuilder())->bucketFromName($name),
+            );
         }
 
         /**
