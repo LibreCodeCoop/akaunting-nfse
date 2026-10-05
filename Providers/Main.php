@@ -341,7 +341,7 @@ class Main extends Provider
                 'nfseItemListValidation' => $validation,
             ])->render();
 
-            $this->app->make('view')->startPush('scripts', $content);
+            $this->app->make('view')->startPush('body_end', $content);
         });
     }
 

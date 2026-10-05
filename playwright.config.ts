@@ -23,6 +23,7 @@ export default defineConfig({
         'nfse-certificate.spec.ts',
         'nfse-emission.spec.ts',
         'nfse-invoice-show-emit-modal.spec.ts',
+        'nfse-item-validation.spec.ts',
         'nfse-settings.spec.ts',
         'nfse-substitution.spec.ts',
       ],
