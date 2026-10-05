@@ -46,10 +46,10 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
-    private function issueJsHandlersContent(): string
+    private function issueJsModuleContent(): string
     {
         return (string) file_get_contents(
-            dirname(__DIR__, 5) . '/Resources/views/modals/invoices/partials/issue_js_handlers.php'
+            dirname(__DIR__, 5) . '/Resources/assets/js/issue-modal.js'
         );
     }
 
@@ -346,17 +346,17 @@ final class InvoiceEmailsTest extends TestCase
     public function testIssueViewTabsExposeKeyboardAndAriaContract(): void
     {
         $view = $this->issueViewContent();
-        $handlers = $this->issueJsHandlersContent();
+        $module = $this->issueJsModuleContent();
 
         self::assertStringContainsString('role="tablist"', $view);
         self::assertStringContainsString('role="tab"', $view);
         self::assertStringContainsString('aria-selected="true"', $view);
         self::assertStringContainsString('aria-controls="nfse-tab-pane-email"', $view);
-        self::assertStringContainsString('onkeydown="{!! $nfseTabOnkeydown !!}"', $view);
-        self::assertStringContainsString("item.setAttribute('aria-selected'", $handlers);
-        self::assertStringContainsString("pane.setAttribute('aria-hidden'", $handlers);
-        self::assertStringContainsString("key === 'ArrowRight'", $handlers);
-        self::assertStringContainsString("key === 'Home'", $handlers);
+        self::assertStringNotContainsString('onkeydown=', $view);
+        self::assertStringContainsString("item.setAttribute('aria-selected'", $module);
+        self::assertStringContainsString("pane.setAttribute('aria-hidden'", $module);
+        self::assertStringContainsString("key === 'ArrowRight'", $module);
+        self::assertStringContainsString("key === 'Home'", $module);
     }
 
     public function testIssueViewDoesNotUseAlpineJsXShowOrXOnClickOnTabs(): void
@@ -372,15 +372,15 @@ final class InvoiceEmailsTest extends TestCase
     public function testIssueViewSendEmailToggleReferencesNewTabNavIds(): void
     {
         $view = $this->issueViewContent();
-        $handlers = $this->issueJsHandlersContent();
+        $module = $this->issueJsHandlersContent();
 
         // The send-email toggle extraOnChange must target the new Alpine-free tab IDs.
-        self::assertStringContainsString('issue_js_handlers.php', $view);
+        self::assertStringNotContainsString('issue_js_handlers.php', $view);
         self::assertStringContainsString('nfse-tab-nav-list', $view);
         self::assertStringContainsString('nfse-tab-nav-attachments', $view);
         self::assertStringContainsString('nfse-tab-nav-email', $view);
-        self::assertStringContainsString("navList.classList.toggle('grid-cols-3', cb.checked)", $handlers);
-        self::assertStringContainsString("navList.classList.toggle('grid-cols-2', !cb.checked)", $handlers);
+        self::assertStringContainsString("navList.classList.toggle('grid-cols-3'", $module);
+        self::assertStringContainsString("navList.classList.toggle('grid-cols-2'", $module);
         // Must NOT reference the old x-tabs duplicate-id pattern.
         self::assertStringNotContainsString("querySelectorAll('#tab-attachments')", $view);
         self::assertStringNotContainsString("querySelector('#tab-email[data-tabs=email]')", $view);
@@ -400,8 +400,8 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString("type=\"checkbox\"", $partial);
         self::assertStringContainsString('name="{{ $switchName }}"', $partial);
         self::assertStringContainsString("value=\"1\"", $partial);
-        self::assertStringContainsString("track.style.backgroundColor = cb.checked ? '#5e9f4d' : '#dbe8d4'", $partial);
-        self::assertStringContainsString("thumb.style.left = cb.checked ? '1.5rem' : '0.25rem'", $partial);
+        self::assertStringContainsString('data-nfse-switch-input="true"', $partial);
+        self::assertStringNotContainsString('onchange=', $partial);
         // Hidden input must carry the initial state and always submit (the value-sync strategy).
         self::assertStringContainsString("name=\"{{ \$switchName }}\" value=\"{{ \$switchChecked ? '1' : '0' }}\"", $partial);
     }
