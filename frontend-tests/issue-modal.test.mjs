@@ -83,7 +83,40 @@ test('error summary receives focus once when visible', () => {
 });
 
 
-test('native modal launcher delegates to the Akaunting root Vue instance', () => {
+test('native modal launcher delegates to the Akaunting document Vue instance', () => {
+    const calls = [];
+    const button = {
+        getAttribute(name) {
+            return name === 'data-nfse-modal-url' ? '/1/nfse/modals/invoices/42/emails/create' : '';
+        },
+    };
+    const roots = {
+        'main-body': {
+            __vue__: {
+                onSendEmail(url) {
+                    calls.push(url);
+                },
+            },
+        },
+        app: {
+            __vue__: {
+                onSendEmail() {
+                    throw new Error('document pages must prefer #main-body');
+                },
+            },
+        },
+    };
+    const documentRef = {
+        getElementById(id) {
+            return roots[id] ?? null;
+        },
+    };
+
+    assert.equal(modal.launchNativeModal(button, documentRef), true);
+    assert.deepEqual(calls, ['/1/nfse/modals/invoices/42/emails/create']);
+});
+
+test('native modal launcher falls back to the generic Akaunting root', () => {
     const calls = [];
     const button = {
         getAttribute(name) {

@@ -350,12 +350,21 @@
             return false;
         }
 
-        const app = typeof documentRef.getElementById === 'function'
-            ? documentRef.getElementById('app')
-            : null;
-        const vue = app && app.__vue__ ? app.__vue__ : null;
+        const rootIds = ['main-body', 'app'];
+        let vue = null;
 
-        if (!vue || typeof vue.onSendEmail !== 'function') {
+        if (typeof documentRef.getElementById === 'function') {
+            for (const rootId of rootIds) {
+                const root = documentRef.getElementById(rootId);
+
+                if (root && root.__vue__ && typeof root.__vue__.onSendEmail === 'function') {
+                    vue = root.__vue__;
+                    break;
+                }
+            }
+        }
+
+        if (!vue) {
             return false;
         }
 
