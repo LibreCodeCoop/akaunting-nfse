@@ -206,6 +206,22 @@ class Builder
     }
 }
 
+namespace App\Events\Document;
+
+final class DocumentSending
+{
+    public function __construct(public mixed $document)
+    {
+    }
+}
+
+final class DocumentSent
+{
+    public function __construct(public mixed $document)
+    {
+    }
+}
+
 namespace App\Models\Document;
 
 class Document
@@ -380,6 +396,11 @@ namespace {
         public function success(): void
         {
         }
+    }
+
+    function event(object $event): object
+    {
+        return $event;
     }
 
     function app(?string $abstract = null): object

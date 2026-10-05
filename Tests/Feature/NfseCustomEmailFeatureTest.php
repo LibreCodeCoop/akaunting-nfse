@@ -7,7 +7,10 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Events\Document\DocumentSending;
+use App\Events\Document\DocumentSent;
 use App\Models\Document\Document;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Modules\Nfse\Jobs\SendNfseCustomEmail;
 use Modules\Nfse\Models\NfseReceipt;
@@ -52,6 +55,36 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
                     && !$notification->attachXml;
             },
         );
+    }
+
+    public function testCustomEmailControllerUsesNativeDocumentLifecycleAroundDelivery(): void
+    {
+        Notification::fake();
+        Event::fake([DocumentSending::class, DocumentSent::class]);
+
+        $invoice = Document::factory()->invoice()->create();
+        $invoice->contact->forceFill(['email' => 'customer@example.test'])->saveQuietly();
+
+        NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '101',
+            'chave_acesso' => str_repeat('2', 50),
+            'status' => 'emitted',
+        ]);
+
+        $this->loginAs()
+            ->post(route('nfse.modals.invoices.emails.store', $invoice), [
+                'document_id' => $invoice->id,
+                'to' => ['customer@example.test'],
+                'subject' => 'NFS-e emitida',
+                'body' => 'Documento fiscal disponível.',
+                'nfse_attach_danfse' => 0,
+                'nfse_attach_xml' => 0,
+            ])
+            ->assertOk();
+
+        Event::assertDispatched(DocumentSending::class, static fn (DocumentSending $event): bool => $event->document->is($invoice));
+        Event::assertDispatched(DocumentSent::class, static fn (DocumentSent $event): bool => $event->document->is($invoice));
     }
 
     public function testCustomEmailJobDoesNothingWithoutPersistedReceipt(): void
