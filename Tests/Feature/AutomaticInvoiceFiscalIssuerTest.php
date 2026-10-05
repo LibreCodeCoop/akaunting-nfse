@@ -9,6 +9,7 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Common\Item;
 use App\Models\Document\Document;
+use Modules\Nfse\Application\BulkEmissionUnitProcessor;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
@@ -26,6 +27,14 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
         self::assertInstanceOf(
             AutomaticInvoiceFiscalIssuer::class,
             $this->app->make(BulkEmissionUnitIssuerInterface::class),
+        );
+    }
+
+    public function testContainerResolvesBulkProcessorWithConcreteIssuer(): void
+    {
+        self::assertInstanceOf(
+            BulkEmissionUnitProcessor::class,
+            $this->app->make(BulkEmissionUnitProcessor::class),
         );
     }
 
