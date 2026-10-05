@@ -9,6 +9,38 @@
     </x-slot>
 
     <x-slot name="body">
+        @php($fiscalValidation = $nfseItemFiscalValidation ?? ['status' => 'unverifiable', 'issues' => [], 'source_versions' => []])
+        @php($fiscalStatus = (string) ($fiscalValidation['status'] ?? 'unverifiable'))
+        @php($statusClasses = [
+            'valid' => 'border-green-300 bg-green-50 text-green-800',
+            'warning' => 'border-yellow-300 bg-yellow-50 text-yellow-800',
+            'invalid' => 'border-red-300 bg-red-50 text-red-800',
+            'unverifiable' => 'border-gray-300 bg-gray-50 text-gray-700',
+        ])
+
+        <div class="sm:col-span-6 rounded border px-3 py-2 text-sm {{ $statusClasses[$fiscalStatus] ?? $statusClasses['unverifiable'] }}" data-nfse-fiscal-profile-status="{{ $fiscalStatus }}">
+            <p class="font-medium">
+                {{ trans('nfse::general.items.validation.status_' . $fiscalStatus) }}
+            </p>
+
+            @if(($fiscalValidation['issues'] ?? []) !== [])
+                <ul class="mt-1 list-disc pl-5">
+                    @foreach($fiscalValidation['issues'] as $issue)
+                        <li>{{ trans('nfse::general.items.validation.' . $issue) }}</li>
+                    @endforeach
+                </ul>
+            @endif
+
+            <p class="mt-1 text-xs">
+                {{ trans('nfse::general.items.validation.correlation_unverifiable') }}
+            </p>
+
+            @if(isset($fiscalValidation['source_versions']['service_nbs']))
+                <p class="mt-1 text-xs">
+                    {{ trans('nfse::general.items.validation.source_version', ['version' => $fiscalValidation['source_versions']['service_nbs']]) }}
+                </p>
+            @endif
+        </div>
         @php($profileServiceCode = (string) ($nfseItemFiscalProfile->item_lista_servico ?? ''))
         @php($profileNationalCode = (string) ($nfseItemFiscalProfile->codigo_tributacao_nacional ?? ''))
         @php($oldServiceCode = old('nfse_item_lista_servico', $profileServiceCode))

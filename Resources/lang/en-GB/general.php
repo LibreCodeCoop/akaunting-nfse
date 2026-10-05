@@ -101,6 +101,19 @@ return [
         'codigo_tributacao_nacional' => 'National tax code (NBS)',
         'codigo_tributacao_nacional_placeholder' => 'Example: 010701',
         'codigo_tributacao_nacional_hint' => 'Optional. If empty, NBS is derived from LC116.',
+        'validation' => [
+            'status_valid' => 'Fiscal profile is valid against available normative catalogs',
+            'status_warning' => 'Fiscal profile is incomplete',
+            'status_invalid' => 'Fiscal profile is invalid',
+            'status_unverifiable' => 'Fiscal profile cannot yet be verified',
+            'missing_profile' => 'Enter the service fiscal codes to validate this item.',
+            'missing_service_code' => 'The LC116 code is missing.',
+            'missing_national_code' => 'The national service code is missing.',
+            'invalid_service_code' => 'The LC116 code is not present in the supported catalog.',
+            'invalid_national_code' => 'The national service code is not present in the current official annex.',
+            'correlation_unverifiable' => 'LC116/NBS/IBS-CBS correlation is not blocking: Annex VIII is not yet a normative production rule.',
+            'source_version' => 'National source: :version',
+        ],
     ],
 
     'adn' => [
