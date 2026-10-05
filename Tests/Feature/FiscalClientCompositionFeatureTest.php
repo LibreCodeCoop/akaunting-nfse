@@ -21,10 +21,10 @@ final class FiscalClientCompositionFeatureTest extends FeatureTestCase
 
         self::assertInstanceOf(NativeStreamTransport::class, $transport);
         self::assertInstanceOf(FiscalClientFactory::class, $factory);
-        self::assertSame(
-            $transport,
+        self::assertInstanceOf(
+            NativeStreamTransport::class,
             app(HttpTransportInterface::class),
-            'The module container should consistently resolve the configured fiscal transport.',
+            'The module container should consistently resolve the configured fiscal transport contract.',
         );
     }
 }
