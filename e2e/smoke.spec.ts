@@ -21,3 +21,20 @@ test('legacy pending invoices route redirects to native Akaunting invoices', asy
 
   await expect(page).toHaveURL(/\/1\/sales\/invoices(?:\?.*)?$/);
 });
+
+
+test('native fiscal action opens the NFS-e modal', async ({ page }, testInfo) => {
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+
+  expect(invoiceId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+
+  const emitAction = page.locator('#nfse-native-fiscal-panel [data-nfse-native-emit="true"]');
+  await expect(emitAction).toBeVisible();
+  await emitAction.click();
+
+  await expect(page.locator('[role="dialog"]').last()).toBeVisible();
+});
