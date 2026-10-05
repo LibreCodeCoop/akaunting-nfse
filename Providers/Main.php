@@ -41,6 +41,7 @@ class Main extends Provider
         $this->registerInvoiceSendFlowOverride();
         $this->registerNativeInvoiceFiscalPanel();
         $this->registerItemFiscalFieldInjection();
+        $this->registerItemFiscalListValidation();
         $this->syncEmailTemplates();
     }
 
@@ -223,6 +224,57 @@ class Main extends Provider
             ])->render();
 
             $this->app->make('view')->startPush('status_message_end', $content);
+        });
+    }
+
+    protected function registerItemFiscalListValidation(): void
+    {
+        $this->app->make('view')->composer('common.items.index', function ($view): void {
+            $items = $view->getData()['items'] ?? null;
+
+            if (!is_object($items) || !method_exists($items, 'getCollection')) {
+                return;
+            }
+
+            $collection = $items->getCollection();
+            $itemIds = $collection
+                ->map(static fn ($item): int => is_numeric($item->id ?? null) ? (int) $item->id : 0)
+                ->filter(static fn (int $id): bool => $id > 0)
+                ->values()
+                ->all();
+
+            if ($itemIds === []) {
+                return;
+            }
+
+            $companyId = function_exists('company_id') ? (int) company_id() : 0;
+            $profiles = ItemFiscalProfile::query()
+                ->when($companyId > 0, static fn ($query) => $query->where('company_id', $companyId))
+                ->whereIn('item_id', $itemIds)
+                ->get()
+                ->keyBy('item_id');
+            $validator = new ItemFiscalProfileValidator();
+            $validation = [];
+
+            foreach ($itemIds as $itemId) {
+                $profile = $profiles->get($itemId);
+                $result = $validator->validate(
+                    is_object($profile) ? (string) ($profile->item_lista_servico ?? '') : null,
+                    is_object($profile) ? (string) ($profile->codigo_tributacao_nacional ?? '') : null,
+                );
+
+                $validation[$itemId] = [
+                    'status' => $result['status'],
+                    'label' => trans('nfse::general.items.validation.status_' . $result['status']),
+                    'url' => route('items.edit', $itemId) . '#nfse-fiscal-fields',
+                ];
+            }
+
+            $content = view('nfse::items.partials.list-validation-script', [
+                'nfseItemListValidation' => $validation,
+            ])->render();
+
+            $this->app->make('view')->startPush('scripts', $content);
         });
     }
 
