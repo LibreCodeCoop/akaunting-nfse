@@ -397,10 +397,13 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("'emit_modal_email_save_default'", $enGbContent);
         }
 
-        public function testAdnDistributionBrowserUsesSafeJsonRendering(): void
+        public function testAdnDistributionBrowserUsesExternalSafeJsonRenderingModule(): void
         {
             $path = dirname(__DIR__, 3) . '/Resources/views/adn/index.blade.php';
             $content = (string) file_get_contents($path);
+            $module = (string) file_get_contents(
+                dirname(__DIR__, 3) . '/Resources/assets/js/adn-distribution-browser.js',
+            );
 
             self::assertStringContainsString('id="adn-distribution-browser"', $content);
             self::assertStringContainsString("route('nfse.adn.distribution')", $content);
@@ -408,10 +411,14 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="adn-summary-matched"', $content);
             self::assertStringContainsString('id="adn-summary-unmatched"', $content);
             self::assertStringContainsString('id="adn-summary-last-nsu"', $content);
-            self::assertStringContainsString('data.reconciliation?.matched', $content);
-            self::assertStringContainsString('data.reconciliation?.unmatched', $content);
-            self::assertStringContainsString('result.textContent = JSON.stringify', $content);
-            self::assertStringNotContainsString('result.innerHTML', $content);
+            self::assertStringContainsString('adn-distribution-browser.js', $content);
+            self::assertStringNotContainsString('data.reconciliation?.matched', $content);
+            self::assertStringNotContainsString('result.textContent = JSON.stringify', $content);
+
+            self::assertStringContainsString('source.reconciliation?.matched', $module);
+            self::assertStringContainsString('source.reconciliation?.unmatched', $module);
+            self::assertStringContainsString('result.textContent = JSON.stringify', $module);
+            self::assertStringNotContainsString('result.innerHTML', $module);
 
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
             $indexContent = (string) file_get_contents($indexPath);
