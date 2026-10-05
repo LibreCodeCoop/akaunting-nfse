@@ -9,6 +9,7 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Common\Item;
 use App\Models\Document\Document;
+use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
 use Modules\Nfse\Application\BulkEmissionDispatcher;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Tests\Feature\FeatureTestCase;
@@ -17,10 +18,24 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
 {
     public function testSelectedInvoicesArePreflightedPersistedAndOnlyEligibleUnitIsDispatched(): void
     {
+        $this->loginAs();
+
         $ready = $this->invoiceWithProfile('0107', '010701', '100');
         $blocked = $this->invoiceWithProfile('0107', '010701', '100');
         $blocked->contact->forceFill(['country' => 'GB'])->saveQuietly();
         $blocked->unsetRelation('contact');
+
+        $preflight = new AutomaticInvoiceEmissionPreflight();
+        $readyResult = $preflight->evaluate($ready->fresh(['items', 'contact']));
+        $blockedResult = $preflight->evaluate($blocked->fresh(['items', 'contact']));
+
+        self::assertSame(
+            'ready',
+            $readyResult['status'],
+            json_encode($readyResult, JSON_THROW_ON_ERROR),
+        );
+        self::assertSame('blocked', $blockedResult['status']);
+        self::assertSame('foreign_taker_requires_review', $blockedResult['reason']);
 
         $dispatched = [];
         $this->app->instance(
@@ -32,8 +47,7 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
             ),
         );
 
-        $this->loginAs()
-            ->post(route('nfse.bulk.dispatch'), [
+        $this->post(route('nfse.bulk.dispatch'), [
                 'invoice_ids' => [$ready->id, $blocked->id],
             ])
             ->assertRedirect(route('nfse.bulk.index'))
@@ -65,7 +79,9 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
 
     private function invoiceWithProfile(string $service, string $national, string $total): Document
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = Document::factory()->invoice()->create([
+            'company_id' => (int) $this->company->id,
+        ]);
         $invoice->contact->forceFill(['country' => 'BR'])->saveQuietly();
         $invoice->unsetRelation('contact');
         $invoice->items()->delete();
