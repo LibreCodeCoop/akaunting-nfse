@@ -11,6 +11,8 @@ use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Models\BulkEmissionUnit;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\GatewayException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 
 final class BulkEmissionUnitProcessor
 {
@@ -59,6 +61,13 @@ final class BulkEmissionUnitProcessor
                 unitId: $unitId,
                 target: BulkEmissionStatusPolicy::REJECTED,
                 errorType: 'gateway',
+                errorMessage: $e->getMessage(),
+            );
+        } catch (SecretStoreException|PfxImportException $e) {
+            return $this->state->transition(
+                unitId: $unitId,
+                target: BulkEmissionStatusPolicy::BLOCKED,
+                errorType: 'readiness',
                 errorMessage: $e->getMessage(),
             );
         } catch (\InvalidArgumentException|\LogicException $e) {

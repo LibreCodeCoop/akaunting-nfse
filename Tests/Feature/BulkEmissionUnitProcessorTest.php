@@ -15,6 +15,8 @@ use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Jobs\ProcessBulkEmissionUnit;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 use Tests\Feature\FeatureTestCase;
 
 final class BulkEmissionUnitProcessorTest extends FeatureTestCase
@@ -94,6 +96,62 @@ final class BulkEmissionUnitProcessorTest extends FeatureTestCase
             BulkEmissionStatusPolicy::RETRYABLE_READ_ERROR,
             $recorded['run']->fresh()?->status,
         );
+    }
+
+    public function testVaultFailureBecomesReadinessBlocker(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $recorded = (new BulkEmissionRunRecorder())->create(
+            companyId: (int) $invoice->company_id,
+            requestedBy: null,
+            units: [[
+                'invoice_id' => (int) $invoice->id,
+                'emission_group_key' => 'group-vault',
+            ]],
+        );
+
+        $issuer = new class () implements BulkEmissionUnitIssuerInterface {
+            public function issue(int $invoiceId, string $emissionGroupKey): NfseReceipt
+            {
+                throw new SecretStoreException('Vault unavailable.');
+            }
+        };
+
+        $unit = (new BulkEmissionUnitProcessor($issuer))->process(
+            (int) $recorded['units'][0]->id,
+        );
+
+        self::assertSame(BulkEmissionStatusPolicy::BLOCKED, $unit->status);
+        self::assertSame('readiness', $unit->error_type);
+        self::assertSame('Vault unavailable.', $unit->error_message);
+    }
+
+    public function testPfxFailureBecomesReadinessBlocker(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $recorded = (new BulkEmissionRunRecorder())->create(
+            companyId: (int) $invoice->company_id,
+            requestedBy: null,
+            units: [[
+                'invoice_id' => (int) $invoice->id,
+                'emission_group_key' => 'group-pfx',
+            ]],
+        );
+
+        $issuer = new class () implements BulkEmissionUnitIssuerInterface {
+            public function issue(int $invoiceId, string $emissionGroupKey): NfseReceipt
+            {
+                throw new PfxImportException('Certificate cannot be imported.');
+            }
+        };
+
+        $unit = (new BulkEmissionUnitProcessor($issuer))->process(
+            (int) $recorded['units'][0]->id,
+        );
+
+        self::assertSame(BulkEmissionStatusPolicy::BLOCKED, $unit->status);
+        self::assertSame('readiness', $unit->error_type);
+        self::assertSame('Certificate cannot be imported.', $unit->error_message);
     }
 
     public function testQueuedJobProcessesExactlyItsPersistedUnitWithoutFrameworkRetryLoop(): void
