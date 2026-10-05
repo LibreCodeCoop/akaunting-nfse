@@ -248,15 +248,18 @@ class Main extends Provider
             }
 
             $companyId = function_exists('company_id') ? (int) company_id() : 0;
-            $profiles = ($companyId > 0
-                ? ItemFiscalProfile::where('company_id', $companyId)->get()
-                : ItemFiscalProfile::where('item_id', '>', 0)->get())
-                ->filter(static fn (ItemFiscalProfile $profile): bool => in_array(
-                    (int) ($profile->item_id ?? 0),
-                    $itemIds,
-                    true,
-                ))
-                ->keyBy('item_id');
+            $placeholders = implode(',', array_fill(0, count($itemIds), '?'));
+            $bindings = $itemIds;
+            $sql = 'SELECT item_id, item_lista_servico, codigo_tributacao_nacional'
+                . ' FROM nfse_item_fiscal_profiles'
+                . ' WHERE item_id IN (' . $placeholders . ')';
+
+            if ($companyId > 0) {
+                $sql .= ' AND company_id = ?';
+                $bindings[] = $companyId;
+            }
+
+            $profiles = collect(DB::select($sql, $bindings))->keyBy('item_id');
             $validator = new ItemFiscalProfileValidator();
             $validation = [];
 
