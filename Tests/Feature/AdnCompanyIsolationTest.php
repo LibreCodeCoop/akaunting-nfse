@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
-use App\Models\Common\Company;
 use App\Models\Document\Document;
 use Modules\Nfse\Http\Controllers\AdnController;
 use Modules\Nfse\Models\NfseReceipt;
@@ -20,14 +19,15 @@ final class AdnCompanyIsolationTest extends FeatureTestCase
         $this->loginAs();
 
         $currentCompanyId = company_id();
-        $otherCompany = Company::factory()->enabled()->create();
-
         $currentInvoice = Document::factory()->invoice()->create([
             'company_id' => $currentCompanyId,
         ]);
         $otherInvoice = Document::factory()->invoice()->create([
-            'company_id' => $otherCompany->id,
+            'company_id' => $currentCompanyId,
         ]);
+        $otherInvoice->forceFill([
+            'company_id' => $currentCompanyId + 1000,
+        ])->saveQuietly();
 
         $currentAccessKey = str_repeat('1', 50);
         $otherAccessKey = str_repeat('2', 50);
