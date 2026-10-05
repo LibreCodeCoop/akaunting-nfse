@@ -70,6 +70,19 @@
 
             if (typeof currentSync === 'function') {
                 currentSync();
+
+                const windowRef = rootNode.defaultView || null;
+                const schedule = windowRef && typeof windowRef.requestAnimationFrame === 'function'
+                    ? windowRef.requestAnimationFrame.bind(windowRef)
+                    : (callback) => setTimeout(callback, 0);
+
+                schedule(() => {
+                    const latestSync = rootNode.__nfseBulkDispatchSync;
+
+                    if (typeof latestSync === 'function') {
+                        latestSync();
+                    }
+                });
             }
         };
 

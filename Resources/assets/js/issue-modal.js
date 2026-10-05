@@ -366,14 +366,6 @@
             syncSwitch(descriptionToggle);
         }
 
-        const emailScope = typeof documentRef.getElementById === 'function'
-            ? documentRef.getElementById('nfse-email-fields')
-            : null;
-
-        if (emailScope) {
-            syncRestoreButton(emailScope, documentRef);
-        }
-
         return reconciled;
     }
 

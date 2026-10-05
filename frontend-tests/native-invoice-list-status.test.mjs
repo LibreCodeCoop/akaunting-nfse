@@ -150,3 +150,39 @@ test('delegated bulk selection sync survives checkbox replacement', () => {
     assert.equal(syncCalls, 11);
     assert.equal(Object.keys(listeners).length, 2);
 });
+
+
+test('delegated bulk sync runs again after the UI frame', async () => {
+    const listeners = {};
+    let scheduled = null;
+    let calls = 0;
+    const root = {
+        defaultView: {
+            requestAnimationFrame(callback) {
+                scheduled = callback;
+            },
+        },
+        addEventListener(name, listener) {
+            listeners[name] = listener;
+        },
+    };
+
+    moduleApi.bindBulkSelectionSync(root, () => {
+        calls += 1;
+    });
+
+    listeners.change({
+        target: {
+            matches(selector) {
+                return selector === '[data-bulk-action]';
+            },
+        },
+    });
+
+    assert.equal(calls, 1);
+    assert.equal(typeof scheduled, 'function');
+
+    scheduled();
+
+    assert.equal(calls, 2);
+});

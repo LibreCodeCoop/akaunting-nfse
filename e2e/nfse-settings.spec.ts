@@ -360,9 +360,12 @@ test('readiness blocker guides operator to the focused corrective settings tab',
 
   const vaultCorrectiveLink = summary.locator('a[href*="tab=vault"]').first();
   await expect(vaultCorrectiveLink).toBeVisible();
-  await vaultCorrectiveLink.click();
 
-  await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=vault/);
+  await Promise.all([
+    page.waitForURL(/\/1\/nfse\/settings\?tab=vault/, { waitUntil: 'domcontentloaded' }),
+    vaultCorrectiveLink.click(),
+  ]);
+
   await expect(page.locator('#tab-panel-vault')).toBeVisible();
 
   await page.locator('input[name="nfse[bao_token]"]').fill('deterministic-test-token');
