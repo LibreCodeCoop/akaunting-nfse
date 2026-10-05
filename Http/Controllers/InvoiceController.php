@@ -25,6 +25,7 @@ use Modules\Nfse\Application\ReceiptPersistence;
 use Modules\Nfse\Application\RecoverInvoiceEmission;
 use Modules\Nfse\Application\RefreshInvoiceNfse;
 use Modules\Nfse\Application\RuntimeDpsFactory;
+use Modules\Nfse\Application\SubstitutionDpsBuilder;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
@@ -234,6 +235,16 @@ class InvoiceController extends Controller
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
 
+        try {
+            $substitutionReceipt = $this->substitutionReceiptFromRequest($invoice, $request);
+        } catch (\InvalidArgumentException $e) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('invoices.show', $invoice)
+                    ->with('error', trans('nfse::general.invoices.substitution_invalid', ['reason' => $e->getMessage()])),
+            );
+        }
+
         if (!$this->invoiceHasLineItems($invoice)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.invoices.emit_blocked_no_items')));
@@ -386,6 +397,23 @@ class InvoiceController extends Controller
             );
         }
 
+        if ($substitutionReceipt instanceof NfseReceipt) {
+            try {
+                $dps = (new SubstitutionDpsBuilder())->build(
+                    baseDps: $dps,
+                    originalReceipt: $substitutionReceipt,
+                    reasonCode: trim((string) $request->input('nfse_substitution_reason', '')),
+                    reasonDescription: trim((string) $request->input('nfse_substitution_description', '')),
+                );
+            } catch (\InvalidArgumentException|\LogicException $e) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.invoices.substitution_invalid', ['reason' => $e->getMessage()])),
+                );
+            }
+        }
+
         $this->safeLogInfo('NFS-e emission payload', [
             'invoice_id' => $invoice->id,
             'opSimpNac' => $dps->opcaoSimplesNacional,
@@ -470,16 +498,27 @@ class InvoiceController extends Controller
         }
 
         try {
-            $persistedReceipt = $this->storeEmittedReceipt($invoice, $receipt);
+            $persistedReceipt = $substitutionReceipt instanceof NfseReceipt
+                ? (new ReceiptPersistence())->createReplacement(
+                    invoiceId: (int) $invoice->id,
+                    receipt: $receipt,
+                    resolvedNumber: $this->resolveReceiptNfseNumber($receipt),
+                    original: $substitutionReceipt,
+                )
+                : $this->storeEmittedReceipt($invoice, $receipt);
+
             $this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);
             $this->markInvoiceSentAfterEmission($invoice);
             $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
             $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
+            $successMessage = $substitutionReceipt instanceof NfseReceipt
+                ? trans('nfse::general.nfse_substituted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])
+                : trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso]);
 
             return $this->ajaxAwareRedirect(
                 $request,
                 redirect()->route('nfse.invoices.show', $invoice)
-                    ->with('success', trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])),
+                    ->with('success', $successMessage),
                 ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
             );
         } finally {
@@ -490,6 +529,44 @@ class InvoiceController extends Controller
     protected function markInvoiceSentAfterEmission(Invoice $invoice): void
     {
         event(new DocumentMarkedSent($invoice));
+    }
+
+    public function substitute(Invoice $invoice, Request $request): RedirectResponse|JsonResponse
+    {
+        $receiptId = (int) $request->input('nfse_substitution_receipt_id', 0);
+
+        if ($receiptId <= 0) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('invoices.show', $invoice)
+                    ->with('error', trans('nfse::general.invoices.substitution_invalid', ['reason' => 'Missing original receipt.'])),
+            );
+        }
+
+        return $this->emit($invoice, $request);
+    }
+
+    protected function substitutionReceiptFromRequest(Invoice $invoice, ?Request $request): ?NfseReceipt
+    {
+        if (!$request instanceof Request || !$request->has('nfse_substitution_receipt_id')) {
+            return null;
+        }
+
+        $receiptId = (int) $request->input('nfse_substitution_receipt_id', 0);
+        $receipt = NfseReceipt::query()
+            ->whereKey($receiptId)
+            ->where('invoice_id', $invoice->id)
+            ->first();
+
+        if (!$receipt instanceof NfseReceipt) {
+            throw new \InvalidArgumentException('Original NFS-e was not found for this invoice.');
+        }
+
+        if ((string) $receipt->status !== 'emitted') {
+            throw new \InvalidArgumentException('Only an emitted NFS-e can be substituted.');
+        }
+
+        return $receipt;
     }
 
     public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse

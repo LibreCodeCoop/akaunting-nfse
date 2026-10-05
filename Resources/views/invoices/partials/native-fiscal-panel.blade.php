@@ -71,6 +71,54 @@
                     {{ trans('nfse::general.invoices.reemit') }}
                 </button>
             @endif
+
+            @if($receiptStatus === 'emitted')
+                <details class="w-full rounded border border-gray-200 p-3">
+                    <summary class="cursor-pointer text-sm font-medium text-gray-800">
+                        {{ trans('nfse::general.invoices.substitute') }}
+                    </summary>
+
+                    <form method="POST" action="{{ route('nfse.invoices.substitute', $invoice->id) }}" class="mt-3 space-y-3">
+                        @csrf
+                        <input type="hidden" name="nfse_substitution_receipt_id" value="{{ $receipt->id }}">
+
+                        <div>
+                            <label for="nfse-substitution-reason-{{ $invoice->id }}" class="block text-sm font-medium">
+                                {{ trans('nfse::general.invoices.substitution_reason') }}
+                            </label>
+                            <select id="nfse-substitution-reason-{{ $invoice->id }}" name="nfse_substitution_reason" class="mt-1 w-full rounded border px-3 py-2" required>
+                                @foreach(['01', '02', '03', '04', '05', '99'] as $reason)
+                                    <option value="{{ $reason }}">
+                                        {{ trans('nfse::general.invoices.substitution_reason_' . $reason) }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="nfse-substitution-description-{{ $invoice->id }}" class="block text-sm font-medium">
+                                {{ trans('nfse::general.invoices.substitution_description') }}
+                            </label>
+                            <textarea
+                                id="nfse-substitution-description-{{ $invoice->id }}"
+                                name="nfse_substitution_description"
+                                minlength="15"
+                                maxlength="255"
+                                class="mt-1 w-full rounded border px-3 py-2"
+                                placeholder="{{ trans('nfse::general.invoices.substitution_description_hint') }}"
+                            ></textarea>
+                        </div>
+
+                        <p class="text-xs text-gray-600">
+                            {{ trans('nfse::general.invoices.substitution_audit_hint') }}
+                        </p>
+
+                        <button type="submit" class="rounded bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700">
+                            {{ trans('nfse::general.invoices.substitute_confirm') }}
+                        </button>
+                    </form>
+                </details>
+            @endif
         @endif
 
         <a
