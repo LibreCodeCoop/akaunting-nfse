@@ -101,14 +101,19 @@ jobs:
         env:
           NFSE_TEST_HARNESS: '1'
         run: |
-          php artisan nfse:test-harness:provision \
+          FIXTURE_JSON="$(php artisan nfse:test-harness:provision \
             --company-id=1 \
             --cnpj=11222333000181 \
             --municipio=3303302 \
             --item-lista=0107 \
             --codigo-nacional=010701 \
             --password=nfse-test-password \
-            --json
+            --pending-invoice-fixture \
+            --json)"
+          printf '%s\n' "$FIXTURE_JSON"
+          PENDING_INVOICE_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["pending_invoice_id"] ?? 0);')"
+          test "$PENDING_INVOICE_ID" -gt 0
+          echo "NFSE_E2E_PENDING_INVOICE_ID=$PENDING_INVOICE_ID" >> "$GITHUB_ENV"
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -165,6 +170,7 @@ jobs:
           NFSE_E2E_BASE_URL: http://127.0.0.1:8082
           NFSE_E2E_EMAIL: nfse-e2e@example.test
           NFSE_E2E_PASSWORD: 'NfseE2E!123456'
+          NFSE_E2E_PENDING_INVOICE_ID: ${{ env.NFSE_E2E_PENDING_INVOICE_ID }}
         run: |
           npx playwright test --project=smoke --retries=0
 

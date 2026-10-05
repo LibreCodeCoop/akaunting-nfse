@@ -14,18 +14,24 @@ use Tests\Feature\FeatureTestCase;
 
 final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 {
-    public function testNativeInvoiceShowKeepsAkauntingSendRouteUntouched(): void
+    public function testNativeInvoiceShowScopesSendActionToNfseModal(): void
     {
         $invoice = FiscalScenarioBuilder::invoice();
-        $originalRoute = config('type.document.invoice.route.emails.create');
+
+        self::assertNotSame(
+            'nfse.modals.invoices.emails.create',
+            config('type.document.invoice.route.emails.create'),
+        );
 
         $this->loginAs()
             ->get(route('invoices.show', $invoice))
             ->assertOk()
-            ->assertSee('data-nfse-native-panel="true"', false);
+            ->assertSee('data-nfse-native-panel="true"', false)
+            ->assertSee('id="show-slider-actions-send-email-invoice"', false)
+            ->assertSee(route('nfse.modals.invoices.emails.create', $invoice), false);
 
         self::assertSame(
-            $originalRoute,
+            'nfse.modals.invoices.emails.create',
             config('type.document.invoice.route.emails.create'),
         );
     }

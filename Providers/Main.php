@@ -22,6 +22,7 @@ use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\ItemMunicipalValidationResolver;
 use Modules\Nfse\Support\Lc116Catalog;
+use Modules\Nfse\Support\NativeInvoiceSendOverride;
 use Modules\Nfse\Support\NfseRuntimeContextFactory;
 use Modules\Nfse\Support\Testing\DeterministicFiscalHttpTransport;
 use Modules\Nfse\Support\Testing\EnvironmentFixtureSecretStore;
@@ -211,6 +212,8 @@ class Main extends Provider
             if ($invoiceId <= 0) {
                 return;
             }
+
+            (new NativeInvoiceSendOverride())->apply($invoice);
 
             try {
                 $receipts = NfseReceipt::query()

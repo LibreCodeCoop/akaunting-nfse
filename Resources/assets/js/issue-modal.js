@@ -337,31 +337,26 @@
         return true;
     }
 
-    function launchNativeModal(button, documentRef) {
-        if (!button || !documentRef) {
+    function triggerNativeDocumentModal(documentRef) {
+        if (!documentRef || typeof documentRef.getElementById !== 'function') {
             return false;
         }
 
-        const url = button.getAttribute
-            ? String(button.getAttribute('data-nfse-modal-url') || '')
-            : '';
+        const triggerIds = [
+            'show-slider-actions-send-email-invoice',
+            'show-more-actions-send-email-invoice',
+        ];
 
-        if (url === '') {
-            return false;
+        for (const triggerId of triggerIds) {
+            const trigger = documentRef.getElementById(triggerId);
+
+            if (trigger && typeof trigger.click === 'function') {
+                trigger.click();
+                return true;
+            }
         }
 
-        const app = typeof documentRef.getElementById === 'function'
-            ? documentRef.getElementById('app')
-            : null;
-        const vue = app && app.__vue__ ? app.__vue__ : null;
-
-        if (!vue || typeof vue.onSendEmail !== 'function') {
-            return false;
-        }
-
-        vue.onSendEmail(url);
-
-        return true;
+        return false;
     }
 
     function boot(documentRef) {
@@ -372,13 +367,13 @@
         documentRef.__nfseIssueModalBooted = true;
 
         documentRef.addEventListener('click', (event) => {
-            const modalLauncher = event.target && event.target.closest
-                ? event.target.closest('[data-nfse-modal-url]')
+            const nativeFiscalAction = event.target && event.target.closest
+                ? event.target.closest('[data-nfse-native-emit="true"]')
                 : null;
 
-            if (modalLauncher) {
+            if (nativeFiscalAction) {
                 event.preventDefault();
-                launchNativeModal(modalLauncher, documentRef);
+                triggerNativeDocumentModal(documentRef);
                 return;
             }
 
@@ -501,7 +496,7 @@
         applySendEmailState,
         boot,
         focusErrorSummary,
-        launchNativeModal,
+        triggerNativeDocumentModal,
         nextTabIndex,
         normalizeHtml,
         restoreDefaults,
