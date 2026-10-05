@@ -15,6 +15,7 @@ use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Console\Commands\SyncAdn;
 use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
 use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\Lc116Catalog;
@@ -248,15 +249,11 @@ class Main extends Provider
                 return;
             }
 
-            $placeholders = implode(',', array_fill(0, count($invoiceIds), '?'));
-
             try {
-                $receiptRows = DB::select(
-                    'SELECT id, invoice_id, status FROM nfse_receipts'
-                    . ' WHERE invoice_id IN (' . $placeholders . ')'
-                    . ' ORDER BY id DESC',
-                    $invoiceIds,
-                );
+                $receiptRows = NfseReceipt::query()
+                    ->whereIn('invoice_id', $invoiceIds)
+                    ->orderByDesc('id')
+                    ->get(['id', 'invoice_id', 'status']);
             } catch (\Throwable) {
                 return;
             }
@@ -300,7 +297,7 @@ class Main extends Provider
                 'nfseInvoiceFiscalStatuses' => $statuses,
             ])->render();
 
-            $this->app->make('view')->startPush('scripts', $content);
+            $this->app->make('view')->startPush('body_end', $content);
         });
     }
 
