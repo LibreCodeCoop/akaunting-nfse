@@ -38,6 +38,25 @@ final class OperationalReadinessResolverTest extends TestCase
         }
     }
 
+    public function testUnavailableFiscalRuntimeBlocksOperationalReadiness(): void
+    {
+        $result = (new OperationalReadinessResolver())->evaluate(
+            settings: [
+                'cnpj_prestador' => '11222333000181',
+                'municipio_ibge' => '3303302',
+                'bao_addr' => 'https://vault.example.test',
+                'bao_mount' => 'nfse',
+            ],
+            serviceCode: '0107',
+            hasCertificateSecret: true,
+            certificatePath: __FILE__,
+            runtimeContractAvailable: false,
+        );
+
+        self::assertFalse($result['isReady']);
+        self::assertFalse($result['checklist']['runtime_contract']);
+    }
+
     public function testMissingCertificateSecretRemainsReadinessBlocker(): void
     {
         $result = (new OperationalReadinessResolver())->evaluate(

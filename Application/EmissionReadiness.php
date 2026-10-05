@@ -25,11 +25,14 @@ final class EmissionReadiness
         bool $hasCertificateSecret,
         string $serviceCode,
         ?int $now = null,
+        bool $runtimeContractAvailable = true,
     ): array {
-        $cnpj = trim((string) ($settings['cnpj_prestador'] ?? ''));
+        $cnpj = strtoupper(trim((string) ($settings['cnpj_prestador'] ?? '')));
+        $certificateCnpj = strtoupper(trim((string) ($settings['certificate_cnpj'] ?? '')));
 
         $checklist = [
-            'cnpj_prestador' => $cnpj !== '',
+            'runtime_contract' => $runtimeContractAvailable,
+            'cnpj_prestador' => preg_match('/^[A-Z0-9]{12}\d{2}$/', $cnpj) === 1,
             'municipio_ibge' => trim((string) ($settings['municipio_ibge'] ?? '')) !== '',
             'item_lista_servico' => trim($serviceCode) !== '',
             'bao_addr' => trim((string) ($settings['bao_addr'] ?? '')) !== '',
@@ -37,6 +40,10 @@ final class EmissionReadiness
             'certificate' => $hasLocalCertificate,
             'certificate_secret' => $hasCertificateSecret,
         ];
+
+        if ($certificateCnpj !== '') {
+            $checklist['certificate_cnpj_matches'] = hash_equals($certificateCnpj, $cnpj);
+        }
 
         $validFrom = (int) ($settings['certificate_valid_from'] ?? 0);
         $validTo = (int) ($settings['certificate_valid_to'] ?? 0);
