@@ -19,8 +19,10 @@ use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\EmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
+use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
 use Modules\Nfse\Application\RecoverInvoiceEmission;
+use Modules\Nfse\Application\RefreshInvoiceNfse;
 use Modules\Nfse\Application\RuntimeDpsFactory;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
@@ -677,16 +679,8 @@ class InvoiceController extends Controller
 
         try {
             $client = $this->makeClient($this->sandboxModeEnabled());
-            $updatedReceipt = $client->query($receipt->chave_acesso);
-            $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($updatedReceipt);
-
-            $receipt->update([
-                'nfse_number' => $resolvedReceiptNumber,
-                'chave_acesso' => $updatedReceipt->chaveAcesso,
-                'data_emissao' => $updatedReceipt->dataEmissao,
-                'codigo_verificacao' => $updatedReceipt->codigoVerificacao,
-                'status' => 'emitted',
-            ]);
+            $updatedReceipt = (new RefreshInvoiceNfse())->refresh($client, $receipt);
+            $resolvedReceiptNumber = (new ReceiptNumberResolver())->resolve($updatedReceipt);
 
             try {
                 $this->storeArtifacts($invoice, $updatedReceipt, $receipt, $client);
@@ -3841,28 +3835,7 @@ class InvoiceController extends Controller
 
     protected function resolveReceiptNfseNumber(ReceiptData $receipt): string
     {
-        $numberFromGateway = trim($receipt->nfseNumber);
-
-        if ($numberFromGateway !== '') {
-            return $numberFromGateway;
-        }
-
-        return $this->extractNfseNumberFromRawXml($receipt->rawXml) ?? '';
-    }
-
-    protected function extractNfseNumberFromRawXml(?string $rawXml): ?string
-    {
-        if (!is_string($rawXml) || trim($rawXml) === '') {
-            return null;
-        }
-
-        if (preg_match('/<(?:\\w+:)?nNFSe>\\s*([^<]+?)\\s*<\\/(?:\\w+:)?nNFSe>/u', $rawXml, $matches) !== 1) {
-            return null;
-        }
-
-        $parsedNumber = trim((string) ($matches[1] ?? ''));
-
-        return $parsedNumber !== '' ? $parsedNumber : null;
+        return (new ReceiptNumberResolver())->resolve($receipt);
     }
 
     protected function monthNameByNumber(int $month): string
