@@ -248,16 +248,16 @@ class Main extends Provider
             }
 
             $companyId = function_exists('company_id') ? (int) company_id() : 0;
-            $profilesQuery = ItemFiscalProfile::query();
-
-            if ($companyId > 0) {
-                $profilesQuery->where('company_id', $companyId);
-            }
-
-            $profiles = $profilesQuery
-                ->whereIn('item_id', $itemIds)
-                ->get()
-                ->keyBy('item_id');
+            $profiles = $companyId > 0
+                ? ItemFiscalProfile::query()
+                    ->where('company_id', $companyId)
+                    ->whereIn('item_id', $itemIds)
+                    ->get()
+                    ->keyBy('item_id')
+                : ItemFiscalProfile::query()
+                    ->whereIn('item_id', $itemIds)
+                    ->get()
+                    ->keyBy('item_id');
             $validator = new ItemFiscalProfileValidator();
             $validation = [];
 
