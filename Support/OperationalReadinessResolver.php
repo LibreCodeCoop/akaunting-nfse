@@ -18,14 +18,9 @@ final class OperationalReadinessResolver
         array $settings,
         string $serviceCode,
         bool $hasCertificateSecret,
-        ?string $certificatePath = null,
+        string $certificatePath,
         ?int $now = null,
     ): array {
-        $cnpj = trim((string) ($settings['cnpj_prestador'] ?? ''));
-        $certificatePath ??= $cnpj !== ''
-            ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx')
-            : '';
-
         return (new EmissionReadiness())->evaluate(
             settings: $settings,
             hasLocalCertificate: $certificatePath !== '' && is_file($certificatePath),

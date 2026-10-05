@@ -2713,12 +2713,17 @@ class InvoiceController extends Controller
     {
         $settings = setting('nfse', []);
 
+        $settingsArray = is_array($settings) ? $settings : [];
+        $cnpj = trim((string) ($settingsArray['cnpj_prestador'] ?? ''));
+        $certificatePath = $cnpj !== ''
+            ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx')
+            : '';
+
         return (new OperationalReadinessResolver())->evaluate(
-            settings: is_array($settings) ? $settings : [],
+            settings: $settingsArray,
             serviceCode: $this->itemListaServico(),
-            hasCertificateSecret: $this->hasCertificateSecret(
-                trim((string) ((is_array($settings) ? $settings : [])['cnpj_prestador'] ?? '')),
-            ),
+            hasCertificateSecret: $this->hasCertificateSecret($cnpj),
+            certificatePath: $certificatePath,
         );
     }
 
