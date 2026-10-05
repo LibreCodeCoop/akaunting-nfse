@@ -212,12 +212,29 @@ class Main extends Provider
                 return;
             }
 
+            $receipts = [];
+            $beforeId = null;
+
             try {
-                $receipts = DB::select(
-                    'SELECT id, invoice_id, nfse_number, chave_acesso, status, emission_group_key'
-                    . ' FROM nfse_receipts WHERE invoice_id = ? ORDER BY id DESC',
-                    [$invoiceId],
-                );
+                for ($position = 0; $position < 100; $position++) {
+                    $query = NfseReceipt::query()
+                        ->where('invoice_id', $invoiceId);
+
+                    if ($beforeId !== null) {
+                        $query->where('id', '<', $beforeId);
+                    }
+
+                    $linkedReceipt = $query
+                        ->latest('id')
+                        ->first();
+
+                    if (!$linkedReceipt instanceof NfseReceipt) {
+                        break;
+                    }
+
+                    $receipts[] = $linkedReceipt;
+                    $beforeId = (int) $linkedReceipt->id;
+                }
             } catch (\Throwable) {
                 $receipts = [];
             }
