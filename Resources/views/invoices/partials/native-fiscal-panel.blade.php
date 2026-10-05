@@ -101,6 +101,19 @@
                 {{ trans('nfse::general.invoices.artifact_xml_label') }}
             </a>
 
+            @if($receiptStatus !== 'cancelled')
+                <form method="POST" action="{{ route('nfse.invoices.refresh', $invoice->id) }}" class="inline-flex">
+                    @csrf
+                    <button
+                        type="submit"
+                        class="inline-flex items-center rounded border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        data-nfse-native-refresh="true"
+                    >
+                        {{ trans('nfse::general.invoices.refresh_status') }}
+                    </button>
+                </form>
+            @endif
+
             @if($receiptStatus === 'cancelled')
                 <button
                     type="button"
@@ -154,6 +167,54 @@
 
                         <button type="submit" class="rounded bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700">
                             {{ trans('nfse::general.invoices.substitute_confirm') }}
+                        </button>
+                    </form>
+                </details>
+
+                <details class="w-full rounded border border-red-200 p-3" data-nfse-native-cancel="true">
+                    <summary class="cursor-pointer text-sm font-medium text-red-700">
+                        {{ trans('nfse::general.invoices.cancel') }}
+                    </summary>
+
+                    @php($cancelReasonOptions = trans('nfse::general.invoices.cancel_reason_options'))
+
+                    <form method="POST" action="{{ route('nfse.invoices.cancel', $invoice->id) }}" class="mt-3 space-y-3">
+                        @csrf
+                        @method('DELETE')
+                        <input type="hidden" name="redirect_after_cancel" value="invoice_show">
+
+                        <div>
+                            <label for="nfse-native-cancel-reason-{{ $invoice->id }}" class="block text-sm font-medium text-gray-700">
+                                {{ trans('nfse::general.invoices.cancel_modal_reason') }}
+                            </label>
+                            <select
+                                id="nfse-native-cancel-reason-{{ $invoice->id }}"
+                                name="cancel_reason"
+                                class="mt-1 w-full rounded border px-3 py-2"
+                                required
+                            >
+                                <option value="">{{ trans('nfse::general.invoices.cancel_reason_placeholder') }}</option>
+                                @foreach(is_array($cancelReasonOptions) ? $cancelReasonOptions : [] as $cancelReasonOption)
+                                    <option value="{{ $cancelReasonOption }}">{{ $cancelReasonOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="nfse-native-cancel-justification-{{ $invoice->id }}" class="block text-sm font-medium text-gray-700">
+                                {{ trans('nfse::general.invoices.cancel_modal_justification') }}
+                            </label>
+                            <textarea
+                                id="nfse-native-cancel-justification-{{ $invoice->id }}"
+                                name="cancel_justification"
+                                maxlength="1000"
+                                class="mt-1 w-full rounded border px-3 py-2"
+                                required
+                            ></textarea>
+                        </div>
+
+                        <button type="submit" class="rounded bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">
+                            {{ trans('nfse::general.invoices.cancel_modal_submit') }}
                         </button>
                     </form>
                 </details>
