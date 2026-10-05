@@ -313,6 +313,30 @@
         }
     }
 
+    function focusErrorSummary(root) {
+        if (!root || typeof root.querySelector !== 'function') {
+            return false;
+        }
+
+        const summary = root.querySelector('[data-nfse-error-summary="true"]');
+
+        if (!summary || summary.__nfseErrorSummaryFocused) {
+            return false;
+        }
+
+        const visible = summary.offsetParent !== null
+            || (typeof summary.getClientRects === 'function' && summary.getClientRects().length > 0);
+
+        if (!visible || typeof summary.focus !== 'function') {
+            return false;
+        }
+
+        summary.__nfseErrorSummaryFocused = true;
+        summary.focus();
+
+        return true;
+    }
+
     function boot(documentRef) {
         if (!documentRef || documentRef.__nfseIssueModalBooted) {
             return;
@@ -415,12 +439,31 @@
                 }
             }, true);
         });
+
+        const MutationObserverRef = documentRef.defaultView
+            ? documentRef.defaultView.MutationObserver
+            : (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
+
+        if (typeof MutationObserverRef === 'function') {
+            const observer = new MutationObserverRef(() => {
+                focusErrorSummary(documentRef);
+            });
+            const target = documentRef.body || documentRef.documentElement;
+
+            if (target) {
+                observer.observe(target, {
+                    childList: true,
+                    subtree: true,
+                });
+            }
+        }
     }
 
     return {
         activateTab,
         applySendEmailState,
         boot,
+        focusErrorSummary,
         nextTabIndex,
         normalizeHtml,
         restoreDefaults,

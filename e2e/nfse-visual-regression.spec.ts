@@ -52,19 +52,9 @@ async function openEmissionModal(page: Page): Promise<Locator> {
   await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
-  const inlineAction = page.locator('#show-slider-actions-send-email-invoice:visible');
-
-  if (await inlineAction.count() > 0) {
-    await inlineAction.first().click();
-  } else {
-    const more = page.getByRole('button', { name: 'more_horiz' }).first();
-    await more.click();
-    await page
-      .locator('#show-more-actions-send-email-invoice:visible, button:visible')
-      .filter({ hasText: /Emitir NFS-e agora|Emit NFS-e now/i })
-      .last()
-      .click({ force: true });
-  }
+  const emitAction = page.locator('#nfse-native-fiscal-panel [data-nfse-native-emit="true"]');
+  await expect(emitAction).toBeVisible();
+  await emitAction.click();
 
   const dialog = page.locator('[role="dialog"]').last();
   await expect(dialog).toBeVisible();

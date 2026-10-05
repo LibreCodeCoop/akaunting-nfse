@@ -20,10 +20,10 @@ test('emitted native invoice exposes explicit substitution review form', async (
   await expect(panel).toContainText('4242');
   await expect(panel).toContainText('44444444444444444444444444444444444444444444444444');
 
-  const details = panel.locator('details');
+  const form = panel.locator(`form[action$="/nfse/invoices/${invoiceId}/substitute"]`);
+  const details = form.locator('xpath=ancestor::details[1]');
   await details.locator('summary').click();
 
-  const form = details.locator(`form[action$="/nfse/invoices/${invoiceId}/substitute"]`);
   await expect(form).toBeVisible();
 
   const reason = form.locator('select[name="nfse_substitution_reason"]');

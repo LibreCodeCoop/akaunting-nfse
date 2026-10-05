@@ -81,6 +81,7 @@
                 type="button"
                 class="inline-flex items-center rounded bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
                 @click="onSendEmail('{{ route('nfse.modals.invoices.emails.create', $invoice->id) }}')"
+                data-nfse-native-emit="true"
             >
                 {{ trans('nfse::general.native_invoice.emit') }}
             </button>
