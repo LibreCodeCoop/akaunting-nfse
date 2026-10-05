@@ -8,8 +8,10 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Feature;
 
 use App\Events\Document\DocumentSending;
+use App\Jobs\Document\SendDocument;
 use App\Models\Common\Item;
 use App\Models\Document\Document;
+use Illuminate\Support\Facades\Notification;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
@@ -68,6 +70,37 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         $this->expectExceptionMessage('foreign_taker_requires_review');
 
         event(new DocumentSending($invoice));
+    }
+
+    public function testNativeSendJobDoesNotNotifyCustomerWhenFiscalIssuanceFails(): void
+    {
+        setting()->set(['nfse.emission_policy' => 'emit_on_send']);
+        setting()->save();
+
+        Notification::fake();
+
+        $invoice = $this->invoiceWithProfile();
+        $invoice->contact->forceFill(['email' => 'customer@example.test'])->saveQuietly();
+        $invoice->unsetRelation('contact');
+        $invoice->load(['contact', 'items']);
+
+        $issuer = new class () implements BulkEmissionUnitIssuerInterface {
+            public function issue(int $invoiceId, string $emissionGroupKey): NfseReceipt
+            {
+                throw new \RuntimeException('synthetic fiscal failure');
+            }
+        };
+
+        $this->app->instance(BulkEmissionUnitIssuerInterface::class, $issuer);
+
+        try {
+            (new SendDocument($invoice))->handle();
+            self::fail('Native send must abort when fiscal issuance fails.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('synthetic fiscal failure', $e->getMessage());
+        }
+
+        Notification::assertNothingSent();
     }
 
     public function testRepeatSendWithExistingReceiptDoesNotIssueAgain(): void
