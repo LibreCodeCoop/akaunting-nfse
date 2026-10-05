@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 LibreCode coop and contributors -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<phpunit bootstrap="vendor-bin/migrations/vendor/autoload.php" colors="true"
+         failOnRisky="true" failOnWarning="true" cacheDirectory=".phpunit.cache/migrations">
+    <testsuites>
+        <testsuite name="MySQL migrations">
+            <directory>tests/Integration/Migrations</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
