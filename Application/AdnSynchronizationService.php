@@ -83,6 +83,27 @@ final class AdnSynchronizationService
         $eventType = trim((string) $document->tipoEvento);
         $accessKey = trim((string) $document->chaveAcesso);
         $recognizedEvent = $eventType === self::EVENT_CANCELLATION;
+        $companyCnpj = strtoupper(preg_replace(
+            '/[^A-Z0-9]/i',
+            '',
+            (string) setting('nfse.cnpj_prestador', ''),
+        ) ?? '');
+        $role = (new AdnImportCandidateClassifier())->classify(
+            xml: $document->xml,
+            companyDocument: $companyCnpj,
+            documentType: (string) $document->tipoDocumento,
+            eventType: $eventType,
+        );
+
+        $existing = AdnSyncDocument::query()
+            ->where('company_id', $companyId)
+            ->where('environment', $environment)
+            ->where('document_key', $this->documentKey($document))
+            ->first();
+
+        $reviewStatus = in_array((string) ($existing?->review_status ?? ''), ['ignored', 'imported'], true)
+            ? (string) $existing->review_status
+            : (in_array($role, ['received', 'intermediated'], true) ? 'pending' : 'not_applicable');
 
         AdnSyncDocument::updateOrCreate(
             [
@@ -98,6 +119,8 @@ final class AdnSynchronizationService
                 'data_hora_geracao' => $document->dataHoraGeracao,
                 'xml' => $document->xml,
                 'recognized_event' => $recognizedEvent,
+                'fiscal_role' => $role,
+                'review_status' => $reviewStatus,
             ],
         );
 

@@ -100,6 +100,72 @@ final class AdnSynchronizationTest extends FeatureTestCase
         self::assertSame(0, $service->cursor(10, 'production'));
     }
 
+    public function testReceivedNfseEntersReviewQueueAndResyncPreservesIgnoredState(): void
+    {
+        setting()->set(['nfse.cnpj_prestador' => '11222333000181']);
+        setting()->save();
+
+        $xml = '<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe><DPS><infDPS>'
+            . '<prest><CNPJ>99887766000155</CNPJ></prest>'
+            . '<toma><CNPJ>11222333000181</CNPJ></toma>'
+            . '</infDPS></DPS></infNFSe></NFSe>';
+
+        $service = new AdnSynchronizationService();
+        $batch = $this->distribution([
+            new AdnDocumentData(14, str_repeat('4', 50), 'NFSE', null, $xml),
+        ], 14);
+
+        $service->apply(company_id(), 'sandbox', $batch);
+
+        $document = AdnSyncDocument::query()
+            ->where('company_id', company_id())
+            ->where('nsu', 14)
+            ->firstOrFail();
+
+        self::assertSame('received', $document->fiscal_role);
+        self::assertSame('pending', $document->review_status);
+
+        $document->update([
+            'review_status' => 'ignored',
+            'ignored_at' => now(),
+        ]);
+
+        $service->apply(company_id(), 'sandbox', $batch);
+
+        self::assertSame(
+            'ignored',
+            $document->fresh()->review_status,
+            'ADN resynchronization must never reopen an operator-reviewed document.',
+        );
+    }
+
+    public function testOwnIssuedNfseIsNotQueuedForAccountingImport(): void
+    {
+        setting()->set(['nfse.cnpj_prestador' => '11222333000181']);
+        setting()->save();
+
+        $xml = '<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe><DPS><infDPS>'
+            . '<prest><CNPJ>11222333000181</CNPJ></prest>'
+            . '<toma><CNPJ>99887766000155</CNPJ></toma>'
+            . '</infDPS></DPS></infNFSe></NFSe>';
+
+        (new AdnSynchronizationService())->apply(
+            company_id(),
+            'sandbox',
+            $this->distribution([
+                new AdnDocumentData(15, str_repeat('5', 50), 'NFSE', null, $xml),
+            ], 15),
+        );
+
+        $document = AdnSyncDocument::query()
+            ->where('company_id', company_id())
+            ->where('nsu', 15)
+            ->firstOrFail();
+
+        self::assertSame('emitted', $document->fiscal_role);
+        self::assertSame('not_applicable', $document->review_status);
+    }
+
     public function testFailureMetadataDoesNotAdvanceCheckpoint(): void
     {
         $service = new AdnSynchronizationService();
