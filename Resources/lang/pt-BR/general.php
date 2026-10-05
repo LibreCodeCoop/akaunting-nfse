@@ -179,6 +179,8 @@ return [
         'status_unknown' => 'Estado fiscal',
         'emit' => 'Emitir NFS-e',
         'fiscal_details' => 'Detalhes fiscais',
+        'linked_documents' => 'Documentos fiscais vinculados',
+        'fiscal_group' => 'Grupo fiscal',
         'settings' => 'Configurações NFS-e',
     ],
 
