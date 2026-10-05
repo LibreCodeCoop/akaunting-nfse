@@ -110,7 +110,8 @@
             return;
         }
 
-        const activeNav = container.querySelector('[data-nfse-tab-nav].active-tabs')
+        const activeNav = container.querySelector('[data-nfse-tab-nav][aria-selected="true"]')
+            || container.querySelector('[data-nfse-tab-nav].active-tabs')
             || container.querySelector('[data-nfse-tab-nav]');
 
         if (!activeNav) {
@@ -223,6 +224,23 @@
         }
     }
 
+    function scheduleTabPaneSync(container, documentRef) {
+        if (!container) {
+            return;
+        }
+
+        const view = documentRef && documentRef.defaultView ? documentRef.defaultView : null;
+
+        if (view && typeof view.requestAnimationFrame === 'function') {
+            view.requestAnimationFrame(() => syncTabPane(container));
+            return;
+        }
+
+        if (typeof setTimeout === 'function') {
+            setTimeout(() => syncTabPane(container), 0);
+        }
+    }
+
     function resolveBodyState(scope) {
         const editor = scope ? scope.querySelector('.ql-editor') : null;
         const bodyGroup = editor ? editor.closest('.relative') : null;
@@ -265,7 +283,19 @@
         const currentSubject = subjectInput ? subjectInput.value : '';
         const currentBody = bodyState.editor ? bodyState.editor.innerHTML : '';
         const defaultSubject = decodeURIComponent(button.getAttribute('data-nfse-default-subject') || '');
-        const defaultBody = decodeURIComponent(button.getAttribute('data-nfse-default-body') || '');
+        const configuredDefaultBody = decodeURIComponent(button.getAttribute('data-nfse-default-body') || '');
+        let defaultBody = configuredDefaultBody;
+        const runtimeDefaultBody = button.getAttribute('data-nfse-runtime-default-body');
+
+        if (runtimeDefaultBody !== null) {
+            defaultBody = decodeURIComponent(runtimeDefaultBody);
+        } else if (button.style.display === 'none') {
+            // Akaunting's Quill wrapper normalizes the configured HTML when it mounts.
+            // Capture that rendered representation while the server still considers the
+            // template unchanged, so focusing the editor alone is not treated as a user edit.
+            defaultBody = currentBody;
+            button.setAttribute('data-nfse-runtime-default-body', encodeURIComponent(currentBody));
+        }
 
         button.style.display = shouldShowRestore(
             currentSubject,
@@ -308,6 +338,13 @@
         }
 
         if (scope) {
+            if (bodyState.editor) {
+                button.setAttribute(
+                    'data-nfse-runtime-default-body',
+                    encodeURIComponent(bodyState.editor.innerHTML),
+                );
+            }
+
             scope.dispatchEvent(new Event('input', { bubbles: true }));
             syncRestoreButton(scope, documentRef);
         }
@@ -468,6 +505,10 @@
 
                 if (tabs) {
                     syncTabPane(tabs);
+                    // Vue/Quill may patch the AJAX modal after the DOM event finishes.
+                    // Re-apply the semantic tab state on the next frame so framework
+                    // rendering cannot restore the server's initial hidden style.
+                    scheduleTabPaneSync(tabs, documentRef);
                 }
             }, true);
         });
@@ -500,6 +541,7 @@
         nextTabIndex,
         normalizeHtml,
         restoreDefaults,
+        scheduleTabPaneSync,
         sendEmailUiState,
         shouldShowRestore,
         switchPresentation,
