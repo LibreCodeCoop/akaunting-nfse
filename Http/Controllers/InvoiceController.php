@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\EmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\ReceiptPersistence;
@@ -498,7 +499,7 @@ class InvoiceController extends Controller
 
         try {
             $client = $this->makeClient($this->sandboxModeEnabled());
-            $client->cancel($receipt->chave_acesso, $cancelReason);
+            (new CancelInvoiceNfse())->cancel($client, $receipt, $cancelReason);
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect(
                 $request,
@@ -547,8 +548,6 @@ class InvoiceController extends Controller
         } finally {
             $this->cleanupClientTransportArtifacts();
         }
-
-        $receipt->update(['status' => 'cancelled']);
 
         return $this->ajaxAwareRedirect(
             $request,
