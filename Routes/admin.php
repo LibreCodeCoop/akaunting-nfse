@@ -41,6 +41,7 @@ Route::admin('nfse', function () {
     Route::get('adn', [AdnController::class, 'index'])->name('adn.index');
     Route::get('adn/distribution', [AdnController::class, 'distribution'])->name('adn.distribution');
     Route::post('adn/review/{document}/ignore', [AdnController::class, 'ignore'])->name('adn.review.ignore');
+    Route::post('adn/review/{document}/import', [AdnController::class, 'importDraft'])->name('adn.review.import');
 
     // Competence closing and reconciliation
     Route::get('closing', [ClosingController::class, 'index'])->name('closing.index');
