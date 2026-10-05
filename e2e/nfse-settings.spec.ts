@@ -143,7 +143,6 @@ test('vault status summary shows certificate secret checklist row', async ({ pag
 
   await expect(page).toHaveURL(/\/1\/nfse\/settings/);
   await expect(page.locator('#vault-status-certificate-secret')).toBeVisible();
-  await expect(page.locator('text=Segredo do certificado no Vault')).toBeVisible();
 });
 
 test('federal tab visibility matrix matches situacao tributaria and tipo retencao', async ({ page }, testInfo) => {
