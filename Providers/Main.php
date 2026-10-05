@@ -248,20 +248,35 @@ class Main extends Provider
                 return;
             }
 
+            $placeholders = implode(',', array_fill(0, count($invoiceIds), '?'));
+
             try {
-                $receipts = \Modules\Nfse\Models\NfseReceipt::query()
-                    ->whereIn('invoice_id', $invoiceIds)
-                    ->orderByDesc('id')
-                    ->get()
-                    ->unique('invoice_id');
+                $receiptRows = DB::select(
+                    'SELECT id, invoice_id, status FROM nfse_receipts'
+                    . ' WHERE invoice_id IN (' . $placeholders . ')'
+                    . ' ORDER BY id DESC',
+                    $invoiceIds,
+                );
             } catch (\Throwable) {
                 return;
+            }
+
+            $latestByInvoice = [];
+
+            foreach ($receiptRows as $receiptRow) {
+                $receiptInvoiceId = is_numeric($receiptRow->invoice_id ?? null)
+                    ? (int) $receiptRow->invoice_id
+                    : 0;
+
+                if ($receiptInvoiceId > 0 && !isset($latestByInvoice[$receiptInvoiceId])) {
+                    $latestByInvoice[$receiptInvoiceId] = $receiptRow;
+                }
             }
 
             $statuses = [];
 
             foreach ($invoiceIds as $invoiceId) {
-                $receipt = $receipts->firstWhere('invoice_id', $invoiceId);
+                $receipt = $latestByInvoice[$invoiceId] ?? null;
                 $status = is_object($receipt) ? trim((string) ($receipt->status ?? '')) : 'pending';
 
                 if ($status === '') {
