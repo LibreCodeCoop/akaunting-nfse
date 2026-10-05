@@ -17,6 +17,7 @@ export default defineConfig({
     {
       name: 'full-ui',
       testMatch: [
+        'nfse-accessibility.spec.ts',
         'nfse-certificate.spec.ts',
         'nfse-emission.spec.ts',
         'nfse-invoice-show-emit-modal.spec.ts',
