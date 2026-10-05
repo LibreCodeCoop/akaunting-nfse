@@ -15,21 +15,21 @@ final class AdnAccountingPreviewTest extends TestCase
     public function testExtractsAccountingPreviewFromAuthorizedNfse(): void
     {
         $xml = <<<'XML'
-<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
-  <infNFSe>
-    <prest><CNPJ>11222333000181</CNPJ><xNome>Fornecedor de Teste Ltda</xNome></prest>
-    <DPS><infDPS>
-      <dCompet>2026-10-01</dCompet>
-      <serv><cServ><xDescServ>Consultoria de tecnologia</xDescServ></cServ></serv>
-      <valores>
-        <vServPrest><vServ>150.50</vServ></vServPrest>
-        <trib><tribMun><vISSQN>3.01</vISSQN></tribMun><tribFed><vPis>0.98</vPis><vCofins>4.51</vCofins><vIRRF>2.25</vIRRF><vCSLL>1.50</vCSLL></tribFed></trib>
-      </valores>
-    </infDPS></DPS>
-    <valores><vLiq>137.25</vLiq></valores>
-  </infNFSe>
-</NFSe>
-XML;
+            <NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
+              <infNFSe>
+                <prest><CNPJ>11222333000181</CNPJ><xNome>Fornecedor de Teste Ltda</xNome></prest>
+                <DPS><infDPS>
+                  <dCompet>2026-10-01</dCompet>
+                  <serv><cServ><xDescServ>Consultoria de tecnologia</xDescServ></cServ></serv>
+                  <valores>
+                    <vServPrest><vServ>150.50</vServ></vServPrest>
+                    <trib><tribMun><vISSQN>3.01</vISSQN></tribMun><tribFed><vPis>0.98</vPis><vCofins>4.51</vCofins><vIRRF>2.25</vIRRF><vCSLL>1.50</vCSLL></tribFed></trib>
+                  </valores>
+                </infDPS></DPS>
+                <valores><vLiq>137.25</vLiq></valores>
+              </infNFSe>
+            </NFSe>
+            XML;
 
         $preview = (new AdnAccountingPreview())->fromAuthorizedXml($xml);
 
