@@ -39,7 +39,7 @@ final class SettingsPersistenceTest extends FeatureTestCase
         self::assertSame('1', (string) setting('nfse.sandbox_mode'));
         self::assertSame('emit_on_send', (string) setting('nfse.emission_policy'));
         self::assertSame('https://vault.example.test', (string) setting('nfse.bao_addr'));
-        self::assertSame('secret', (string) setting('nfse.bao_mount'));
+        self::assertSame('/secret', (string) setting('nfse.bao_mount'));
         self::assertSame('test-token', (string) setting('nfse.bao_token'));
         self::assertSame('0107', (string) setting('nfse.item_lista_servico'));
         self::assertSame('010701', (string) setting('nfse.codigo_tributacao_nacional'));
