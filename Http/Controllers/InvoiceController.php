@@ -643,7 +643,7 @@ class InvoiceController extends Controller
 
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('invoices.show', $invoice)
+                redirect()->route('nfse.invoices.show', $invoice)
                     ->with('success', $successMessage),
                 ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
             );
@@ -769,7 +769,7 @@ class InvoiceController extends Controller
 
         return match ($target) {
             'invoice_show' => redirect()->route('invoices.show', $invoice),
-            'nfse_show' => redirect()->route('invoices.show', $invoice),
+            'nfse_show' => redirect()->route('nfse.invoices.show', $invoice),
             default => redirect()->route('nfse.invoices.index'),
         };
     }
@@ -877,7 +877,7 @@ class InvoiceController extends Controller
         $receipt = $this->findReceiptForInvoice($invoice);
 
         if (($receipt->status ?? '') === 'cancelled') {
-            return redirect()->route('invoices.show', $invoice)
+            return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('warning', trans('nfse::general.invoices.refresh_not_allowed_for_cancelled'));
         }
 
@@ -892,22 +892,22 @@ class InvoiceController extends Controller
                 $this->cleanupClientTransportArtifacts();
             }
 
-            return redirect()->route('invoices.show', $invoice)
+            return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('success', trans('nfse::general.nfse_refreshed', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $updatedReceipt->chaveAcesso]));
         } catch (SecretStoreException) {
             $this->cleanupClientTransportArtifacts();
 
-            return redirect()->route('invoices.show', $invoice)
+            return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed'));
         } catch (PfxImportException) {
             $this->cleanupClientTransportArtifacts();
 
-            return redirect()->route('invoices.show', $invoice)
+            return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         } catch (\Throwable) {
             $this->cleanupClientTransportArtifacts();
 
-            return redirect()->route('invoices.show', $invoice)
+            return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_refresh_failed'));
         }
     }
@@ -968,14 +968,14 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
 
         if (!$this->invoiceHasLineItems($invoice)) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_no_items')));
         }
 
         $federalTaxReadiness = $this->federalTaxReadinessForInvoice($invoice);
 
         if (($federalTaxReadiness['isReady'] ?? false) !== true) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', $this->emitBlockedFederalTaxMessage($federalTaxReadiness['missing'] ?? [])));
         }
 
@@ -985,7 +985,7 @@ class InvoiceController extends Controller
         $receipt = $this->findReceiptForInvoice($invoice);
 
         if (($receipt->status ?? '') !== 'cancelled') {
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('warning', trans('nfse::general.nfse_reemit_not_cancelled')));
         }
 
@@ -1007,7 +1007,7 @@ class InvoiceController extends Controller
         if (($fiscalProfileReadiness['isReady'] ?? false) !== true) {
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('invoices.show', $invoice)
+                redirect()->route('nfse.invoices.show', $invoice)
                     ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness)),
             );
         }
@@ -1059,7 +1059,7 @@ class InvoiceController extends Controller
                 'message' => $e->getMessage(),
             ]);
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_runtime_unsupported')));
         }
 
@@ -1067,7 +1067,7 @@ class InvoiceController extends Controller
             $client = $this->makeClient($sandboxReemit);
             $newReceipt = $client->emit($dps);
         } catch (SecretStoreException) {
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
         } catch (GatewayException $e) {
             $gatewayDetail = $this->gatewayErrorDetail($e);
@@ -1081,7 +1081,7 @@ class InvoiceController extends Controller
                 'xml_order_debug' => $xmlOrderDebug,
             ]);
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_reemit_failed'))
                 ->with('nfse_gateway_error_detail', $gatewayDetail));
         } catch (NetworkException $e) {
@@ -1090,12 +1090,12 @@ class InvoiceController extends Controller
                 'message' => $e->getMessage(),
             ]);
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_reemit_failed')));
         } catch (PfxImportException) {
             $this->cleanupClientTransportArtifacts();
 
-            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
         }
 
@@ -1107,7 +1107,7 @@ class InvoiceController extends Controller
 
             return $this->ajaxAwareRedirect(
                 $request,
-                redirect()->route('invoices.show', $invoice)
+                redirect()->route('nfse.invoices.show', $invoice)
                     ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso])),
                 ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
             );
