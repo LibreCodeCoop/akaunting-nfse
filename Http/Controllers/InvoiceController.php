@@ -23,6 +23,7 @@ use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
 use Modules\Nfse\Application\FiscalGroupReceiptState;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
 use Modules\Nfse\Application\InvoiceDpsBuilder;
+use Modules\Nfse\Application\InvoiceDpsIdentity;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
@@ -38,6 +39,7 @@ use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\InvoiceTakerResolver;
 use Modules\Nfse\Support\Lc116Code;
 use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\VaultConfig;
@@ -1768,20 +1770,14 @@ class InvoiceController extends Controller
 
     protected function resolvedTomadorDocument(Invoice $invoice): string
     {
-        return $this->normalizedTomadorDocument(
-            $this->contactOrInvoiceStringField($invoice->contact, $invoice, ['tax_number'], ['contact_tax_number'])
-        );
+        return (new InvoiceTakerResolver())->document($invoice);
     }
 
     protected function resolvedTomadorName(Invoice $invoice): string
     {
-        return $this->contactOrInvoiceStringField($invoice->contact, $invoice, ['name'], ['contact_name']);
+        return (new InvoiceTakerResolver())->name($invoice);
     }
 
-    /**
-     * @param array<string, mixed> $payload
-     * @param list<string> $requiredFields
-     */
     protected function makeDpsData(array $payload, array $requiredFields = []): DpsData
     {
         return (new RuntimeDpsFactory())->make($payload, $requiredFields);
@@ -1809,37 +1805,12 @@ class InvoiceController extends Controller
     /**
      * @return array{codigo_municipio: string, cep: string, logradouro: string, numero: string, complemento: string, bairro: string, inscricao_municipal: string, telefone: string, email: string}
      */
+    /**
+     * @return array{codigo_municipio:string,cep:string,logradouro:string,numero:string,complemento:string,bairro:string,inscricao_municipal:string,telefone:string,email:string}
+     */
     protected function tomadorPayload(?object $contact, ?object $invoice = null): array
     {
-        $codigoMunicipio = $this->normalizedTomadorMunicipioIbge($contact, $invoice);
-        $cep = $this->normalizedTomadorCep($this->contactOrInvoiceStringField($contact, $invoice, ['zip_code', 'cep'], ['contact_zip_code']));
-
-        $logradouro = '';
-        $numero = '';
-        $complemento = '';
-        $bairro = '';
-
-        if ($codigoMunicipio !== '' && $cep !== '') {
-            $logradouro = $this->contactOrInvoiceStringField($contact, $invoice, ['address', 'logradouro'], ['contact_address']);
-            $numero = $this->contactOrInvoiceStringField($contact, $invoice, ['number', 'numero'], ['contact_number']);
-            $complemento = $this->contactOrInvoiceStringField($contact, $invoice, ['complement', 'complemento'], ['contact_complement']);
-            $bairro = $this->contactOrInvoiceStringField($contact, $invoice, ['district', 'bairro', 'neighborhood'], ['contact_district', 'contact_neighborhood']);
-        } else {
-            $codigoMunicipio = '';
-            $cep = '';
-        }
-
-        return [
-            'codigo_municipio' => $codigoMunicipio,
-            'cep' => $cep,
-            'logradouro' => $logradouro,
-            'numero' => $numero,
-            'complemento' => $complemento,
-            'bairro' => $bairro,
-            'inscricao_municipal' => $this->contactOrInvoiceStringField($contact, $invoice, ['inscricao_municipal', 'municipal_registration', 'im'], ['contact_inscricao_municipal', 'contact_municipal_registration', 'contact_im']),
-            'telefone' => $this->normalizedTomadorTelefone($this->contactOrInvoiceStringField($contact, $invoice, ['phone', 'telefone'], ['contact_phone'])),
-            'email' => $this->normalizedTomadorEmail($this->contactOrInvoiceStringField($contact, $invoice, ['email'], ['contact_email'])),
-        ];
+        return (new InvoiceTakerResolver())->payload($contact, $invoice);
     }
 
     protected function normalizedTomadorMunicipioIbge(?object $contact, ?object $invoice = null): string
@@ -2860,14 +2831,12 @@ class InvoiceController extends Controller
 
     protected function dpsSerie(Invoice $invoice): string
     {
-        return '00001';
+        return (new InvoiceDpsIdentity())->series($invoice);
     }
 
     protected function dpsNumber(Invoice $invoice): string
     {
-        $invoiceId = isset($invoice->id) ? (int) $invoice->id : 0;
-
-        return (string) max($invoiceId, 1);
+        return (new InvoiceDpsIdentity())->number($invoice);
     }
 
     protected function dpsNumberForReemit(Invoice $invoice): string
@@ -2886,21 +2855,7 @@ class InvoiceController extends Controller
 
     protected function competenceDate(Invoice $invoice): ?string
     {
-        $issuedAt = $invoice->issued_at ?? null;
-
-        if ($issuedAt instanceof \DateTimeInterface) {
-            return $issuedAt->format('Y-m-d');
-        }
-
-        if (is_string($issuedAt) && $issuedAt !== '') {
-            $timestamp = strtotime($issuedAt);
-
-            if ($timestamp !== false) {
-                return date('Y-m-d', $timestamp);
-            }
-        }
-
-        return null;
+        return (new InvoiceDpsIdentity())->competenceDate($invoice);
     }
 
     protected function resolveCompanyId(): int
