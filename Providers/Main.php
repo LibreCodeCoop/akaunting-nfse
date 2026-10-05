@@ -212,34 +212,16 @@ class Main extends Provider
                 return;
             }
 
-            $receipts = [];
-            $beforeId = null;
-
             try {
-                for ($position = 0; $position < 100; $position++) {
-                    $query = NfseReceipt::query()
-                        ->where('invoice_id', $invoiceId);
-
-                    if ($beforeId !== null) {
-                        $query->where('id', '<', $beforeId);
-                    }
-
-                    $linkedReceipt = $query
-                        ->latest('id')
-                        ->first();
-
-                    if (!$linkedReceipt instanceof NfseReceipt) {
-                        break;
-                    }
-
-                    $receipts[] = $linkedReceipt;
-                    $beforeId = (int) $linkedReceipt->id;
-                }
+                $receipts = NfseReceipt::query()
+                    ->where('invoice_id', $invoiceId)
+                    ->latest('id')
+                    ->get();
             } catch (\Throwable) {
-                $receipts = [];
+                $receipts = new \Illuminate\Support\Collection();
             }
 
-            $receipt = $receipts[0] ?? null;
+            $receipt = $receipts->first();
 
             $content = view('nfse::invoices.partials.native-fiscal-panel', [
                 'invoice' => $invoice,

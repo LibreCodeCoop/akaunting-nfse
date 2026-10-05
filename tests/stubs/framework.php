@@ -194,6 +194,12 @@ class Builder
         return null;
     }
 
+    /** @return \Illuminate\Support\Collection */
+    public function get(array $columns = ['*']): \Illuminate\Support\Collection
+    {
+        return new \Illuminate\Support\Collection();
+    }
+
     public function delete(): int
     {
         return 0;
