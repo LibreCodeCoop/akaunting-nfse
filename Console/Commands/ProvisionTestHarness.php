@@ -8,8 +8,12 @@ declare(strict_types=1);
 namespace Modules\Nfse\Console\Commands;
 
 use App\Models\Common\Company;
+use App\Models\Common\Contact;
+use App\Models\Common\Item;
 use App\Models\Document\Document;
+use App\Models\Setting\Category;
 use Illuminate\Console\Command;
+use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
 use Modules\Nfse\Support\Testing\SyntheticPkcs12Factory;
@@ -24,6 +28,7 @@ final class ProvisionTestHarness extends Command
         {--codigo-nacional=010701 : National taxation code}
         {--password=nfse-test-password : Synthetic PKCS#12 password}
         {--substitution-fixture : Create an emitted invoice fixture for substitution UI tests}
+        {--adn-review-fixture : Create a received NFS-e review fixture and explicit accounting mappings}
         {--json : Emit machine-readable output}';
 
     protected $description = 'Provision deterministic local/testing fiscal settings and synthetic PKCS#12 material';
@@ -123,6 +128,73 @@ final class ProvisionTestHarness extends Command
             );
 
             $payload['substitution_invoice_id'] = (int) $invoice->id;
+        }
+
+        if ((bool) $this->option('adn-review-fixture')) {
+            $vendor = Contact::query()
+                ->where('company_id', $companyId)
+                ->where('type', Contact::VENDOR_TYPE)
+                ->where('name', 'NFSE E2E Vendor')
+                ->first();
+
+            if (!$vendor instanceof Contact) {
+                $vendor = Contact::factory()->vendor()->enabled()->create([
+                    'company_id' => $companyId,
+                    'name' => 'NFSE E2E Vendor',
+                    'tax_number' => '99887766000155',
+                ]);
+            }
+
+            $category = Category::query()
+                ->where('company_id', $companyId)
+                ->where('type', Category::EXPENSE_TYPE)
+                ->where('name', 'NFSE E2E Expense')
+                ->first();
+
+            if (!$category instanceof Category) {
+                $category = Category::factory()->expense()->create([
+                    'company_id' => $companyId,
+                    'name' => 'NFSE E2E Expense',
+                ]);
+            }
+
+            $item = Item::query()
+                ->where('company_id', $companyId)
+                ->where('name', 'NFSE E2E Received Service')
+                ->first();
+
+            if (!$item instanceof Item) {
+                $item = Item::factory()->enabled()->create([
+                    'company_id' => $companyId,
+                    'name' => 'NFSE E2E Received Service',
+                    'purchase_price' => 100.00,
+                    'category_id' => $category->id,
+                ]);
+            }
+
+            $adnDocument = AdnSyncDocument::query()->updateOrCreate(
+                [
+                    'company_id' => $companyId,
+                    'environment' => 'sandbox',
+                    'document_key' => 'nfse:e2e-received',
+                ],
+                [
+                    'nsu' => 9001,
+                    'chave_acesso' => str_repeat('8', 50),
+                    'tipo_documento' => 'NFSe',
+                    'xml' => '<NFSe><infNFSe><prest><CNPJ>11222333000181</CNPJ><xNome>Fornecedor ADN E2E Ltda</xNome></prest><DPS><infDPS><dCompet>2026-10-01</dCompet><serv><cServ><xDescServ>Consultoria ADN deterministica</xDescServ></cServ></serv><valores><vServPrest><vServ>100.00</vServ></vServPrest></valores></infDPS></DPS><valores><vLiq>100.00</vLiq></valores></infNFSe></NFSe>',
+                    'recognized_event' => false,
+                    'fiscal_role' => 'received',
+                    'review_status' => 'pending',
+                    'ignored_at' => null,
+                    'imported_document_id' => null,
+                ],
+            );
+
+            $payload['adn_review_document_id'] = (int) $adnDocument->id;
+            $payload['adn_vendor_id'] = (int) $vendor->id;
+            $payload['adn_category_id'] = (int) $category->id;
+            $payload['adn_item_id'] = (int) $item->id;
         }
 
         if ($this->option('json')) {

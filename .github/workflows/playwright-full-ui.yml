@@ -111,11 +111,24 @@ jobs:
             --codigo-nacional=010701 \
             --password=nfse-test-password \
             --substitution-fixture \
+            --adn-review-fixture \
             --json)"
           echo "$FIXTURE_JSON"
           SUBSTITUTION_INVOICE_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["substitution_invoice_id"] ?? 0);')"
           test "$SUBSTITUTION_INVOICE_ID" -gt 0
           echo "NFSE_E2E_SUBSTITUTION_INVOICE_ID=$SUBSTITUTION_INVOICE_ID" >> "$GITHUB_ENV"
+          ADN_REVIEW_DOCUMENT_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["adn_review_document_id"] ?? 0);')"
+          ADN_VENDOR_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["adn_vendor_id"] ?? 0);')"
+          ADN_CATEGORY_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["adn_category_id"] ?? 0);')"
+          ADN_ITEM_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["adn_item_id"] ?? 0);')"
+          test "$ADN_REVIEW_DOCUMENT_ID" -gt 0
+          test "$ADN_VENDOR_ID" -gt 0
+          test "$ADN_CATEGORY_ID" -gt 0
+          test "$ADN_ITEM_ID" -gt 0
+          echo "NFSE_E2E_ADN_REVIEW_DOCUMENT_ID=$ADN_REVIEW_DOCUMENT_ID" >> "$GITHUB_ENV"
+          echo "NFSE_E2E_ADN_VENDOR_ID=$ADN_VENDOR_ID" >> "$GITHUB_ENV"
+          echo "NFSE_E2E_ADN_CATEGORY_ID=$ADN_CATEGORY_ID" >> "$GITHUB_ENV"
+          echo "NFSE_E2E_ADN_ITEM_ID=$ADN_ITEM_ID" >> "$GITHUB_ENV"
 
       - name: Setup Node
         uses: actions/setup-node@v4
