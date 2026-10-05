@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Models\Common\Contact;
 use App\Models\Common\Item;
 use App\Models\Document\Document;
 use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
@@ -82,7 +83,18 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
         $invoice = Document::factory()->invoice()->create([
             'company_id' => (int) $this->company->id,
         ]);
-        $invoice->contact->forceFill(['country' => 'BR'])->saveQuietly();
+        $contact = Contact::factory()->customer()->enabled()->create([
+            'company_id' => (int) $this->company->id,
+            'country' => 'BR',
+        ]);
+        $invoice->forceFill([
+            'contact_id' => $contact->id,
+            'contact_name' => $contact->name,
+            'contact_email' => $contact->email,
+            'contact_tax_number' => $contact->tax_number,
+            'contact_phone' => $contact->phone,
+            'contact_address' => $contact->address,
+        ])->saveQuietly();
         $invoice->unsetRelation('contact');
         $invoice->items()->delete();
         $invoice->unsetRelation('items');
