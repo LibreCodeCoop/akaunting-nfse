@@ -125,7 +125,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $content = (string) file_get_contents($showPath);
 
             self::assertStringContainsString('data-smart-back="true"', $content);
-            self::assertStringContainsString('data-fallback-url="{{ route(\'nfse.invoices.index\') }}"', $content);
+            self::assertStringContainsString('data-fallback-url="{{ route(\'invoices.index\') }}"', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.back')", $content);
             self::assertStringContainsString('window.history.back();', $content);
             self::assertStringContainsString('window.location.assign(fallbackUrl);', $content);

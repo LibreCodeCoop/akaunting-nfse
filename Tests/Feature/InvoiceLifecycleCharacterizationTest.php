@@ -186,7 +186,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 
         $this->loginAs()
             ->post(route('nfse.invoices.emit', $invoice))
-            ->assertRedirect(route('nfse.invoices.index', ['status' => 'pending']))
+            ->assertRedirect(route('invoices.show', $invoice))
             ->assertSessionHas('error', trans('nfse::general.invoices.emit_blocked_no_items'));
 
         self::assertFalse(

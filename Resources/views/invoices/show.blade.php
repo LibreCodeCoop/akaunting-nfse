@@ -110,7 +110,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 type="button"
                 class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm"
                 data-smart-back="true"
-                data-fallback-url="{{ route('nfse.invoices.index') }}"
+                data-fallback-url="{{ route('invoices.index') }}"
             >
                 {{ trans('nfse::general.invoices.back') }}
             </button>
@@ -445,7 +445,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                 if (smartBackButton) {
                     smartBackButton.addEventListener('click', () => {
-                        const fallbackUrl = smartBackButton.getAttribute('data-fallback-url') || @json(route('nfse.invoices.index'));
+                        const fallbackUrl = smartBackButton.getAttribute('data-fallback-url') || @json(route('invoices.index'));
                         let navigated = false;
 
                         // Try to navigate using document.referrer first (most reliable)
