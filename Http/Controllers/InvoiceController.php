@@ -20,8 +20,8 @@ use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
-use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
+use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\IssueInvoiceNfse;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
@@ -1395,9 +1395,13 @@ class InvoiceController extends Controller
 
         foreach ($groups as &$group) {
             $key = (string) ($group['key'] ?? '');
-            $receipt = $key !== ''
-                ? $persistence->findGrouped((int) $invoice->id, $key)
-                : null;
+            try {
+                $receipt = $key !== ''
+                    ? $persistence->findGrouped((int) $invoice->id, $key)
+                    : null;
+            } catch (\Throwable) {
+                $receipt = null;
+            }
 
             $group['issued'] = $receipt instanceof NfseReceipt;
             $group['receipt_id'] = $receipt?->id;
@@ -1423,6 +1427,13 @@ class InvoiceController extends Controller
     protected function invoiceFiscalGroups(Invoice $invoice): array
     {
         $items = $this->invoiceItemsAsArray($invoice);
+
+        foreach ($items as $item) {
+            if (!is_scalar($item['total'] ?? null)) {
+                return [];
+            }
+        }
+
         $itemIds = [];
 
         foreach ($items as $item) {
