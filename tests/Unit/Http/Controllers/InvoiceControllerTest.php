@@ -1037,6 +1037,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.municipio_ibge' => '3303302',
                 'nfse.bao_addr' => 'http://openbao:8200',
                 'nfse.bao_mount' => 'nfse',
+                'nfse.bao_token' => 'unit-test-token',
                 'nfse.item_lista_servico' => '0107',
                 'nfse.codigo_tributacao_nacional' => '010701',
                 'nfse.aliquota' => '4.50',
