@@ -22,6 +22,7 @@ final class FiscalGroupPreviewTest extends FeatureTestCase
         $secondItem = Item::factory()->enabled()->create();
 
         $invoice = Document::factory()->invoice()->create();
+        $invoice->items()->delete();
 
         $invoice->items()->createMany([
             [
