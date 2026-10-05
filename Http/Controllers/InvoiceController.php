@@ -22,6 +22,7 @@ use Modules\Nfse\Application\FederalTaxReadiness;
 use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
 use Modules\Nfse\Application\FiscalGroupReceiptState;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
+use Modules\Nfse\Application\InvoiceDpsBuilder;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
@@ -366,89 +367,33 @@ class InvoiceController extends Controller
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
         $issqnPayload = $this->issqnPayloadValues();
 
-        $requiredDpsFields = $foreignTomador['enabled']
-            ? [
-                'tomadorNif',
-                'tomadorCodigoNaoNif',
-                'tomadorPaisCodigo',
-                'tomadorCodigoPostalExterior',
-                'tomadorCidadeExterior',
-                'tomadorEstadoExterior',
-            ]
-            : [];
-
-        $requiredDpsFields[] = 'codigoTributacaoMunicipal';
-
-        if ($issqnPayload['requiresSpecialRuntime']) {
-            $requiredDpsFields = array_values(array_unique(array_merge($requiredDpsFields, [
-                'tributacaoIssqn',
-                'issqnPaisResultado',
-                'issqnTipoImunidade',
-                'issqnTipoSuspensao',
-                'issqnNumeroProcessoSuspensao',
-                'tipoRetencaoIss',
-            ])));
-        }
-
         try {
-            $dps = $this->makeDpsData([
-            'cnpjPrestador' => $cnpj,
-            'municipioIbge' => $ibge,
-            'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
-            'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
-            'codigoTributacaoMunicipal' => '',
-            'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
-            'aliquota' => (string) $itemFiscalProfile['aliquota'],
-            'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
-            'documentoTomador' => $tomadorDocument,
-            'nomeTomador' => $this->resolvedTomadorName($invoice),
-            'tomadorCodigoMunicipio' => $tomadorPayload['codigo_municipio'],
-            'tomadorCep' => $tomadorPayload['cep'],
-            'tomadorLogradouro' => $tomadorPayload['logradouro'],
-            'tomadorNumero' => $tomadorPayload['numero'],
-            'tomadorComplemento' => $tomadorPayload['complemento'],
-            'tomadorBairro' => $tomadorPayload['bairro'],
-            'tomadorInscricaoMunicipal' => $tomadorPayload['inscricao_municipal'],
-            'tomadorTelefone' => $tomadorPayload['telefone'],
-            'tomadorEmail' => $tomadorPayload['email'],
-            'tomadorNif' => $foreignTomador['enabled'] ? $foreignTomador['nif'] : '',
-            'tomadorCodigoNaoNif' => $foreignTomador['enabled'] ? $foreignTomador['codigo_nao_nif'] : null,
-            'tomadorPaisCodigo' => $foreignTomador['enabled'] ? $foreignTomador['pais_codigo'] : '',
-            'tomadorCodigoPostalExterior' => $foreignTomador['enabled'] ? $foreignTomador['codigo_postal'] : '',
-            'tomadorCidadeExterior' => $foreignTomador['enabled'] ? $foreignTomador['cidade'] : '',
-            'tomadorEstadoExterior' => $foreignTomador['enabled'] ? $foreignTomador['estado'] : '',
-            'opcaoSimplesNacional' => $opcaoSimplesNacional,
-            'tributacaoIssqn' => $issqnPayload['tributacaoIssqn'],
-            'issqnPaisResultado' => $issqnPayload['issqnPaisResultado'],
-            'issqnTipoImunidade' => $issqnPayload['issqnTipoImunidade'],
-            'issqnTipoSuspensao' => $issqnPayload['issqnTipoSuspensao'],
-            'issqnNumeroProcessoSuspensao' => $issqnPayload['issqnNumeroProcessoSuspensao'],
-            'tipoRetencaoIss' => $issqnPayload['tipoRetencaoIss'],
-            'tipoAmbiente' => $sandbox ? 2 : 1,
-            'serie' => $this->dpsSerie($invoice),
-            'numeroDps' => $this->dpsNumber($invoice),
-            'dataCompetencia' => $this->competenceDate($invoice),
-            'indicadorTributacao' => $federalPayload['indicadorTributacao'],
-            'totalTributosPercentualFederal' => $federalPayload['totalTributosPercentualFederal'],
-            'totalTributosPercentualEstadual' => $federalPayload['totalTributosPercentualEstadual'],
-            'totalTributosPercentualMunicipal' => $federalPayload['totalTributosPercentualMunicipal'],
-            'federalPiscofinsSituacaoTributaria' => $federalPayload['federalPiscofinsSituacaoTributaria'],
-            'federalPiscofinsTipoRetencao' => $federalPayload['federalPiscofinsTipoRetencao'],
-            'federalPiscofinsBaseCalculo' => $federalPayload['federalPiscofinsBaseCalculo'],
-            'federalPiscofinsAliquotaPis' => $federalPayload['federalPiscofinsAliquotaPis'],
-            'federalPiscofinsValorPis' => $federalPayload['federalPiscofinsValorPis'],
-            'federalPiscofinsAliquotaCofins' => $federalPayload['federalPiscofinsAliquotaCofins'],
-            'federalPiscofinsValorCofins' => $federalPayload['federalPiscofinsValorCofins'],
-            'federalValorIrrf' => $federalPayload['federalValorIrrf'],
-            'federalValorCsll' => $federalPayload['federalValorCsll'],
-            'federalValorCp' => $federalPayload['federalValorCp'],
-            'ibsCbsFinalidade' => $ibsCbsPayload['ibsCbsFinalidade'],
-            'ibsCbsIndFinal' => $ibsCbsPayload['ibsCbsIndFinal'],
-            'ibsCbsCodigoIndicadorOperacao' => $ibsCbsPayload['ibsCbsCodigoIndicadorOperacao'],
-            'ibsCbsIndDest' => $ibsCbsPayload['ibsCbsIndDest'],
-            'ibsCbsCst' => $ibsCbsPayload['ibsCbsCst'],
-            'ibsCbsClassificacaoTributaria' => $ibsCbsPayload['ibsCbsClassificacaoTributaria'],
-            ], $requiredDpsFields);
+            $dps = (new InvoiceDpsBuilder())->build([
+                'cnpjPrestador' => $cnpj,
+                'municipioIbge' => $ibge,
+                'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
+                'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
+                'codigoTributacaoMunicipal' => '',
+                'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
+                'aliquota' => (string) $itemFiscalProfile['aliquota'],
+                'discriminacao' => $this->buildDiscriminacao(
+                    $invoice,
+                    $itemFiscalProfile['line_items'] ?? [],
+                    $customDiscriminacao,
+                ),
+                'documentoTomador' => $tomadorDocument,
+                'nomeTomador' => $this->resolvedTomadorName($invoice),
+                'tomador' => $tomadorPayload,
+                'foreignTomador' => $foreignTomador,
+                'opcaoSimplesNacional' => $opcaoSimplesNacional,
+                'issqn' => $issqnPayload,
+                'tipoAmbiente' => $sandbox ? 2 : 1,
+                'serie' => $this->dpsSerie($invoice),
+                'numeroDps' => $this->dpsNumber($invoice),
+                'dataCompetencia' => $this->competenceDate($invoice),
+                'federal' => $federalPayload,
+                'ibsCbs' => $ibsCbsPayload,
+            ]);
         } catch (\LogicException $e) {
             $this->safeLogError('NFS-e runtime capability mismatch', [
                 'invoice_id' => $invoice->id,
