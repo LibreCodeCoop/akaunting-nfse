@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\EmissionReadiness;
+use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
@@ -218,12 +219,14 @@ class InvoiceController extends Controller
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
+        $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($itemFiscalProfile);
 
         return response()->json([
             'missing_items'    => [],
             'available_services' => $this->availableInvoiceServices($invoice),
             'default_service_id' => 0,
             'requires_split'   => (bool) ($itemFiscalProfile['requires_split'] ?? false),
+            'fiscal_profile_validation' => $fiscalProfileReadiness,
             'suggested_description' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? []),
             'email_defaults'   => $this->servicePreviewEmailDefaults($invoice),
             'taker_defaults'   => $this->servicePreviewTakerDefaults($invoice),
@@ -261,6 +264,15 @@ class InvoiceController extends Controller
         $this->persistDefaultDescriptionFromRequest($request);
 
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
+        $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($itemFiscalProfile);
+
+        if (($fiscalProfileReadiness['isReady'] ?? false) !== true) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                    ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness)),
+            );
+        }
 
         $readiness = $this->emissionReadiness();
 
@@ -876,6 +888,15 @@ class InvoiceController extends Controller
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $federalPayload = $this->federalPayloadValues($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
+        $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($itemFiscalProfile);
+
+        if (($fiscalProfileReadiness['isReady'] ?? false) !== true) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.show', $invoice)
+                    ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness)),
+            );
+        }
 
         try {
             $dps = $this->makeDpsData([
@@ -1688,6 +1709,25 @@ class InvoiceController extends Controller
     protected function makeDpsData(array $payload, array $requiredFields = []): DpsData
     {
         return (new RuntimeDpsFactory())->make($payload, $requiredFields);
+    }
+
+    /**
+     * @param array{issues?:list<string>,source_versions?:array<string,string>} $readiness
+     */
+    protected function invalidFiscalProfileMessage(array $readiness): string
+    {
+        $issues = array_map(
+            static fn (string $issue): string => (string) trans('nfse::general.items.validation.' . $issue),
+            is_array($readiness['issues'] ?? null) ? $readiness['issues'] : [],
+        );
+        $versions = is_array($readiness['source_versions'] ?? null)
+            ? array_values(array_filter($readiness['source_versions'], 'is_string'))
+            : [];
+
+        return (string) trans('nfse::general.invoices.emit_blocked_invalid_fiscal_profile', [
+            'issues' => $issues !== [] ? implode('; ', $issues) : trans('nfse::general.items.validation.status_invalid'),
+            'version' => $versions !== [] ? implode(', ', array_unique($versions)) : 'unknown',
+        ]);
     }
 
     /**

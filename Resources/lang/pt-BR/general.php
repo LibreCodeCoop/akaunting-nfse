@@ -235,6 +235,7 @@ return [
         'mixed_service_tax_profiles_not_supported' => 'A fatura possui itens vinculados a serviços com tributação municipal diferente. Emita NFS-e separadas por perfil de serviço/ISS.',
         'refresh_not_allowed_for_cancelled' => 'NFS-e cancelada não pode ser atualizada por refresh. Use a ação de reemissão quando aplicável.',
         'emit_blocked_not_ready' => 'Existem configurações pendentes para liberar a emissão.',
+        'emit_blocked_invalid_fiscal_profile' => 'Perfil fiscal inválido conforme a fonte oficial :version: :issues',
         'emit_blocked_no_items' => 'A fatura precisa ter ao menos um item para emitir NFS-e.',
         'emit_blocked_missing_federal_taxes' => 'A fatura não possui os tributos federais necessários para emissão da NFS-e.',
         'emit_blocked_missing_federal_taxes_with_list' => 'A fatura não possui os tributos federais necessários para emissão da NFS-e (:taxes).',

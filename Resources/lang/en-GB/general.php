@@ -238,6 +238,7 @@ return [
         'mixed_service_tax_profiles_not_supported' => 'This invoice has items linked to services with different municipal taxation profiles. Issue separate NFS-e documents per service/ISS profile.',
         'refresh_not_allowed_for_cancelled' => 'Cancelled NFS-e cannot be refreshed. Use reissue when applicable.',
         'emit_blocked_not_ready' => 'There are pending settings before issuance can continue.',
+        'emit_blocked_invalid_fiscal_profile' => 'Invalid fiscal profile according to official source :version: :issues',
         'emit_blocked_no_items' => 'The invoice must have at least one item before issuing NFS-e.',
         'emit_blocked_missing_federal_taxes' => 'The invoice does not have the required federal taxes to issue NFS-e.',
         'emit_blocked_missing_federal_taxes_with_list' => 'The invoice does not have the required federal taxes to issue NFS-e (:taxes).',
