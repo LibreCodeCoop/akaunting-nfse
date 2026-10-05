@@ -250,8 +250,17 @@ class Main extends Provider
             }
 
             try {
-                $receiptRows = NfseReceipt::query()
-                    ->whereIn('invoice_id', $invoiceIds)
+                $receiptQuery = NfseReceipt::query();
+
+                foreach ($invoiceIds as $index => $invoiceId) {
+                    if ($index === 0) {
+                        $receiptQuery->where('invoice_id', $invoiceId);
+                    } else {
+                        $receiptQuery->orWhere('invoice_id', $invoiceId);
+                    }
+                }
+
+                $receiptRows = $receiptQuery
                     ->orderByDesc('id')
                     ->get(['id', 'invoice_id', 'status']);
             } catch (\Throwable) {
