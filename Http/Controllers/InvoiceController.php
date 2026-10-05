@@ -2939,9 +2939,6 @@ class InvoiceController extends Controller
 
     /**
      * @param list<int>|null $documentItemIds
-     */
-    /**
-     * @param list<int>|null $documentItemIds
      * @return array<string,mixed>
      */
     protected function federalPayloadValues(
@@ -2949,7 +2946,7 @@ class InvoiceController extends Controller
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
     ): array {
-        return (new InvoiceFederalPayloadResolver())->resolve(
+        return $this->invoiceFederalPayloadResolver()->resolve(
             $invoice,
             $documentItemIds,
             $amountOverride,
@@ -2965,10 +2962,17 @@ class InvoiceController extends Controller
         float $invoiceAmount,
         ?array $documentItemIds = null,
     ): array {
-        return (new InvoiceFederalPayloadResolver())->snapshot(
+        return $this->invoiceFederalPayloadResolver()->snapshot(
             $invoice,
             $invoiceAmount,
             $documentItemIds,
+        );
+    }
+
+    protected function invoiceFederalPayloadResolver(): InvoiceFederalPayloadResolver
+    {
+        return new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => setting($key, $default),
         );
     }
 
