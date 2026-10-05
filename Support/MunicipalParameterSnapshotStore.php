@@ -53,7 +53,7 @@ final class MunicipalParameterSnapshotStore
             ];
         }
 
-        $fetchedAt = now();
+        $fetchedAt = new \DateTimeImmutable('now');
 
         try {
             $snapshot = MunicipalParameterSnapshot::query()->updateOrCreate(
@@ -83,7 +83,7 @@ final class MunicipalParameterSnapshotStore
                 'meta' => [
                     'source' => 'live',
                     'stale' => false,
-                    'fetched_at' => $fetchedAt->toAtomString(),
+                    'fetched_at' => $fetchedAt->format(DATE_ATOM),
                     'environment' => $environment,
                 ],
             ];
