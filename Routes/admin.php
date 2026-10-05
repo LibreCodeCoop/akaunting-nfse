@@ -47,7 +47,7 @@ Route::admin('nfse', function () {
 
     // Controlled bulk emission
     Route::get('bulk', [BulkEmissionController::class, 'index'])->name('bulk.index');
-    Route::post('bulk/dispatch', [BulkEmissionController::class, 'dispatch'])->name('bulk.dispatch');
+    Route::post('bulk/dispatch', [BulkEmissionController::class, 'enqueue'])->name('bulk.dispatch');
 
     // Competence closing and reconciliation
     Route::get('closing', [ClosingController::class, 'index'])->name('closing.index');

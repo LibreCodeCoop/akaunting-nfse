@@ -20,7 +20,7 @@ use Modules\Nfse\Models\BulkEmissionUnit;
 
 final class BulkEmissionController extends Controller
 {
-    public function dispatch(
+    public function enqueue(
         Request $request,
         AutomaticInvoiceEmissionPreflight $preflight,
         BulkEmissionPlanner $planner,
@@ -107,7 +107,7 @@ final class BulkEmissionController extends Controller
             $plan['queued'],
         );
 
-        foreach ([...$notFound, ...$plan['blocked']] as $blocked) {
+        foreach ($plan['blocked'] as $blocked) {
             $invoiceId = (int) ($blocked['invoice_id'] ?? 0);
             $preflight = $preflightByInvoice[$invoiceId] ?? [
                 'reason' => (string) ($blocked['reason'] ?? 'readiness'),
