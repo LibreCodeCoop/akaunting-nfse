@@ -213,15 +213,16 @@ class Main extends Provider
             }
 
             try {
-                $receipts = NfseReceipt::query()
-                    ->where('invoice_id', $invoiceId)
-                    ->latest('id')
-                    ->get();
+                $receipts = DB::select(
+                    'SELECT id, invoice_id, nfse_number, chave_acesso, status, emission_group_key'
+                    . ' FROM nfse_receipts WHERE invoice_id = ? ORDER BY id DESC',
+                    [$invoiceId],
+                );
             } catch (\Throwable) {
-                $receipts = collect();
+                $receipts = [];
             }
 
-            $receipt = $receipts->first();
+            $receipt = $receipts[0] ?? null;
 
             $content = view('nfse::invoices.partials.native-fiscal-panel', [
                 'invoice' => $invoice,
