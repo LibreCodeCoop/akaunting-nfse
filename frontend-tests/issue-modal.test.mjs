@@ -82,73 +82,49 @@ test('error summary receives focus once when visible', () => {
     assert.equal(focusCount, 1);
 });
 
-
-test('native modal launcher delegates to the Akaunting document Vue instance', () => {
-    const calls = [];
-    const button = {
-        getAttribute(name) {
-            return name === 'data-nfse-modal-url' ? '/1/nfse/modals/invoices/42/emails/create' : '';
-        },
-    };
-    const roots = {
-        'main-body': {
-            __vue__: {
-                onSendEmail(url) {
-                    calls.push(url);
-                },
-            },
-        },
-        app: {
-            __vue__: {
-                onSendEmail() {
-                    throw new Error('document pages must prefer #main-body');
-                },
-            },
-        },
-    };
+test('native fiscal action delegates to Akaunting compiled document trigger', () => {
+    let clicked = 0;
     const documentRef = {
         getElementById(id) {
-            return roots[id] ?? null;
-        },
-    };
-
-    assert.equal(modal.launchNativeModal(button, documentRef), true);
-    assert.deepEqual(calls, ['/1/nfse/modals/invoices/42/emails/create']);
-});
-
-test('native modal launcher falls back to the generic Akaunting root', () => {
-    const calls = [];
-    const button = {
-        getAttribute(name) {
-            return name === 'data-nfse-modal-url' ? '/1/nfse/modals/invoices/42/emails/create' : '';
-        },
-    };
-    const documentRef = {
-        getElementById(id) {
-            if (id !== 'app') {
+            if (id !== 'show-slider-actions-send-email-invoice') {
                 return null;
             }
 
             return {
-                __vue__: {
-                    onSendEmail(url) {
-                        calls.push(url);
-                    },
+                click() {
+                    clicked += 1;
                 },
             };
         },
     };
 
-    assert.equal(modal.launchNativeModal(button, documentRef), true);
-    assert.deepEqual(calls, ['/1/nfse/modals/invoices/42/emails/create']);
+    assert.equal(modal.triggerNativeDocumentModal(documentRef), true);
+    assert.equal(clicked, 1);
 });
 
-test('native modal launcher fails closed without a Vue root', () => {
-    const button = {
-        getAttribute() {
-            return '/1/nfse/modals/invoices/42/emails/create';
+test('native fiscal action falls back to Akaunting more-actions trigger', () => {
+    let clicked = 0;
+    const documentRef = {
+        getElementById(id) {
+            if (id !== 'show-more-actions-send-email-invoice') {
+                return null;
+            }
+
+            return {
+                click() {
+                    clicked += 1;
+                },
+            };
         },
     };
 
-    assert.equal(modal.launchNativeModal(button, { getElementById() { return null; } }), false);
+    assert.equal(modal.triggerNativeDocumentModal(documentRef), true);
+    assert.equal(clicked, 1);
+});
+
+test('native fiscal action fails closed without compiled Akaunting trigger', () => {
+    assert.equal(
+        modal.triggerNativeDocumentModal({ getElementById() { return null; } }),
+        false,
+    );
 });

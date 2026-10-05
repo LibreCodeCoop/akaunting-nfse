@@ -337,40 +337,26 @@
         return true;
     }
 
-    function launchNativeModal(button, documentRef) {
-        if (!button || !documentRef) {
+    function triggerNativeDocumentModal(documentRef) {
+        if (!documentRef || typeof documentRef.getElementById !== 'function') {
             return false;
         }
 
-        const url = button.getAttribute
-            ? String(button.getAttribute('data-nfse-modal-url') || '')
-            : '';
+        const triggerIds = [
+            'show-slider-actions-send-email-invoice',
+            'show-more-actions-send-email-invoice',
+        ];
 
-        if (url === '') {
-            return false;
-        }
+        for (const triggerId of triggerIds) {
+            const trigger = documentRef.getElementById(triggerId);
 
-        const rootIds = ['main-body', 'app'];
-        let vue = null;
-
-        if (typeof documentRef.getElementById === 'function') {
-            for (const rootId of rootIds) {
-                const root = documentRef.getElementById(rootId);
-
-                if (root && root.__vue__ && typeof root.__vue__.onSendEmail === 'function') {
-                    vue = root.__vue__;
-                    break;
-                }
+            if (trigger && typeof trigger.click === 'function') {
+                trigger.click();
+                return true;
             }
         }
 
-        if (!vue) {
-            return false;
-        }
-
-        vue.onSendEmail(url);
-
-        return true;
+        return false;
     }
 
     function boot(documentRef) {
@@ -381,13 +367,13 @@
         documentRef.__nfseIssueModalBooted = true;
 
         documentRef.addEventListener('click', (event) => {
-            const modalLauncher = event.target && event.target.closest
-                ? event.target.closest('[data-nfse-modal-url]')
+            const nativeFiscalAction = event.target && event.target.closest
+                ? event.target.closest('[data-nfse-native-emit="true"]')
                 : null;
 
-            if (modalLauncher) {
+            if (nativeFiscalAction) {
                 event.preventDefault();
-                launchNativeModal(modalLauncher, documentRef);
+                triggerNativeDocumentModal(documentRef);
                 return;
             }
 
@@ -510,7 +496,7 @@
         applySendEmailState,
         boot,
         focusErrorSummary,
-        launchNativeModal,
+        triggerNativeDocumentModal,
         nextTabIndex,
         normalizeHtml,
         restoreDefaults,
