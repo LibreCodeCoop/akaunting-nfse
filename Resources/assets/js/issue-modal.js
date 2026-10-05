@@ -517,9 +517,54 @@
             : (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
 
         if (typeof MutationObserverRef === 'function') {
-            const observer = new MutationObserverRef(() => {
-                reconcileHydratedModal(documentRef);
-                focusErrorSummary(documentRef);
+            let reconcileScheduled = false;
+            const scheduleReconcile = () => {
+                if (reconcileScheduled) {
+                    return;
+                }
+
+                reconcileScheduled = true;
+                const windowRef = documentRef.defaultView;
+                const schedule = windowRef && typeof windowRef.requestAnimationFrame === 'function'
+                    ? windowRef.requestAnimationFrame.bind(windowRef)
+                    : (callback) => setTimeout(callback, 0);
+
+                schedule(() => {
+                    reconcileScheduled = false;
+                    reconcileHydratedModal(documentRef);
+                    focusErrorSummary(documentRef);
+                });
+            };
+
+            const observer = new MutationObserverRef((records) => {
+                const relevant = records.some((record) => {
+                    const target = record && record.target;
+
+                    if (target && typeof target.closest === 'function' && target.closest('[data-nfse-tabs]')) {
+                        return true;
+                    }
+
+                    return Array.from(record && record.addedNodes ? record.addedNodes : []).some((node) => {
+                        if (!node || node.nodeType !== 1) {
+                            return false;
+                        }
+
+                        if (typeof node.matches === 'function' && (
+                            node.matches('[data-nfse-tabs]')
+                            || node.matches('[data-nfse-error-summary="true"]')
+                        )) {
+                            return true;
+                        }
+
+                        return typeof node.querySelector === 'function' && Boolean(
+                            node.querySelector('[data-nfse-tabs], [data-nfse-error-summary="true"]'),
+                        );
+                    });
+                });
+
+                if (relevant) {
+                    scheduleReconcile();
+                }
             });
             const target = documentRef.body || documentRef.documentElement;
 

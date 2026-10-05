@@ -168,3 +168,12 @@ test('hydration reconciliation reapplies active tab state', () => {
     assert.equal(activePane.style.display, '');
     assert.equal(inactivePane.style.display, 'none');
 });
+
+
+test('hydration observer work is scoped to NFS-e modal mutations by selector contract', () => {
+    const source = modal.boot.toString();
+
+    assert.match(source, /closest\('\[data-nfse-tabs\]'\)/);
+    assert.match(source, /data-nfse-error-summary/);
+    assert.doesNotMatch(source, /new MutationObserverRef\(\(\) => \{\s*reconcileHydratedModal/);
+});
