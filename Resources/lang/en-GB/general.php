@@ -399,6 +399,10 @@ return [
         'opcao_simples_nacional' => 'Simples Nacional status',
         'opcao_simples_nacional_not_optant' => 'Not opted into Simples Nacional',
         'opcao_simples_nacional_optant' => 'Opted into Simples Nacional',
+        'emission_policy' => 'Invoice fiscal emission policy',
+        'emission_policy_manual' => 'Manual fiscal action',
+        'emission_policy_emit_on_send' => 'Emit NFS-e before sending the invoice',
+        'emission_policy_help' => 'Manual is the safe default. Emit-on-send will run fiscal preflight/emission before Akaunting sends the customer notification; drafts are never emitted automatically.',
         'sandbox_mode'     => 'Sandbox Mode (Staging)',
         'municipal_parameters' => [
             'title' => 'Official municipal parameters',
