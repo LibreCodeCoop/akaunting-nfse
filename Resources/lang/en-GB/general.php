@@ -137,6 +137,17 @@ return [
         'distribution_query_failed' => 'Could not query ADN distribution.',
         'events_missing_receipt' => 'This NFS-e does not have a local access key for event lookup.',
         'events_query_failed' => 'Could not query official ADN events.',
+        'review_title' => 'Received NFS-e accounting review',
+        'review_help' => 'Review received or intermediated authorized NFS-e before creating any Akaunting accounting document.',
+        'review_unknown_supplier' => 'Supplier not identified in authorized XML',
+        'review_competence' => 'Competence',
+        'review_gross' => 'Gross service value',
+        'review_liquid' => 'Liquid value',
+        'review_service' => 'Service',
+        'review_invalid_xml' => 'The stored authorized XML cannot be parsed safely for accounting preview.',
+        'review_ignore' => 'Ignore',
+        'review_empty' => 'No received NFS-e is waiting for accounting review.',
+        'review_ignored' => 'Received NFS-e removed from the pending accounting review queue.',
     ],
 
     'native_invoice' => [

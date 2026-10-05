@@ -137,6 +137,17 @@ return [
         'distribution_query_failed' => 'Não foi possível consultar a distribuição ADN.',
         'events_missing_receipt' => 'Esta NFS-e não possui uma chave de acesso local para consulta de eventos.',
         'events_query_failed' => 'Não foi possível consultar os eventos oficiais no ADN.',
+        'review_title' => 'Revisão contábil de NFS-e recebidas',
+        'review_help' => 'Revise a NFS-e autorizada recebida ou intermediada antes de criar qualquer documento contábil no Akaunting.',
+        'review_unknown_supplier' => 'Prestador não identificado no XML autorizado',
+        'review_competence' => 'Competência',
+        'review_gross' => 'Valor bruto dos serviços',
+        'review_liquid' => 'Valor líquido',
+        'review_service' => 'Serviço',
+        'review_invalid_xml' => 'O XML autorizado armazenado não pode ser interpretado com segurança para o preview contábil.',
+        'review_ignore' => 'Ignorar',
+        'review_empty' => 'Nenhuma NFS-e recebida aguarda revisão contábil.',
+        'review_ignored' => 'NFS-e recebida removida da fila de revisão contábil pendente.',
     ],
 
     'native_invoice' => [

@@ -13,6 +13,71 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
     <x-slot name="content">
         <div class="max-w-5xl space-y-4">
+            <section class="rounded-lg border border-gray-200 bg-white p-5" aria-labelledby="adn-accounting-review-title">
+                <h2 id="adn-accounting-review-title" class="text-base font-semibold text-gray-900">
+                    {{ trans('nfse::general.adn.review_title') }}
+                </h2>
+                <p class="mt-1 text-sm text-gray-600">{{ trans('nfse::general.adn.review_help') }}</p>
+
+                <div class="mt-4 space-y-3">
+                    @forelse(($reviewDocuments ?? []) as $reviewRow)
+                        @php
+                            $reviewDocument = $reviewRow['document'];
+                            $accountingPreview = $reviewRow['preview'];
+                        @endphp
+                        <article class="rounded border border-gray-200 p-4" data-adn-review-document="{{ $reviewDocument->id }}">
+                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <div class="font-medium text-gray-900">
+                                        {{ $accountingPreview['supplier_name'] ?? trans('nfse::general.adn.review_unknown_supplier') }}
+                                    </div>
+                                    <div class="mt-1 text-xs text-gray-500">
+                                        {{ $reviewDocument->chave_acesso ?: $reviewDocument->document_key }}
+                                    </div>
+                                </div>
+                                <span class="rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+                                    {{ $reviewDocument->fiscal_role }}
+                                </span>
+                            </div>
+
+                            @if(is_array($accountingPreview))
+                                <dl class="mt-3 grid gap-2 text-sm md:grid-cols-3">
+                                    <div>
+                                        <dt class="text-gray-500">{{ trans('nfse::general.adn.review_competence') }}</dt>
+                                        <dd>{{ $accountingPreview['competence'] ?: '—' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-gray-500">{{ trans('nfse::general.adn.review_gross') }}</dt>
+                                        <dd>{{ $accountingPreview['gross_value'] ?: '—' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-gray-500">{{ trans('nfse::general.adn.review_liquid') }}</dt>
+                                        <dd>{{ $accountingPreview['liquid_value'] ?: '—' }}</dd>
+                                    </div>
+                                    <div class="md:col-span-3">
+                                        <dt class="text-gray-500">{{ trans('nfse::general.adn.review_service') }}</dt>
+                                        <dd>{{ $accountingPreview['service_description'] ?: '—' }}</dd>
+                                    </div>
+                                </dl>
+                            @else
+                                <p class="mt-3 text-sm text-red-700">{{ trans('nfse::general.adn.review_invalid_xml') }}</p>
+                            @endif
+
+                            <div class="mt-3">
+                                <form method="POST" action="{{ route('nfse.adn.review.ignore', $reviewDocument->id) }}">
+                                    @csrf
+                                    <button type="submit" class="rounded border px-3 py-2 text-sm">
+                                        {{ trans('nfse::general.adn.review_ignore') }}
+                                    </button>
+                                </form>
+                            </div>
+                        </article>
+                    @empty
+                        <p class="text-sm text-gray-500">{{ trans('nfse::general.adn.review_empty') }}</p>
+                    @endforelse
+                </div>
+            </section>
+
             <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
                 <h2 class="text-base font-semibold text-blue-900">{{ trans('nfse::general.adn.distribution_title') }}</h2>
                 <p class="mt-1 text-sm text-blue-800">{{ trans('nfse::general.adn.distribution_help') }}</p>
