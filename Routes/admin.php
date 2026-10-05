@@ -45,8 +45,9 @@ Route::admin('nfse', function () {
     Route::post('adn/review/{document}/ignore', [AdnController::class, 'ignore'])->name('adn.review.ignore');
     Route::post('adn/review/{document}/import', [AdnController::class, 'importDraft'])->name('adn.review.import');
 
-    // Bulk emission progress (read-only until a concrete fiscal issuer is wired)
+    // Controlled bulk emission
     Route::get('bulk', [BulkEmissionController::class, 'index'])->name('bulk.index');
+    Route::post('bulk/dispatch', [BulkEmissionController::class, 'dispatch'])->name('bulk.dispatch');
 
     // Competence closing and reconciliation
     Route::get('closing', [ClosingController::class, 'index'])->name('closing.index');

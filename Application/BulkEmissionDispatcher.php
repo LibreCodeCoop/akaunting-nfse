@@ -36,7 +36,13 @@ final class BulkEmissionDispatcher
     }
 
     /**
-     * @param list<array{invoice_id:int,emission_group_key:string}> $units
+     * @param list<array{
+     *   invoice_id:int,
+     *   emission_group_key:string,
+     *   status?:string,
+     *   error_type?:?string,
+     *   error_message?:?string
+     * }> $units
      * @return array{
      *   run:BulkEmissionRun,
      *   units:list<BulkEmissionUnit>,

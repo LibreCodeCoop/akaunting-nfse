@@ -367,7 +367,11 @@ return [
 
     'bulk' => [
         'title' => 'Progresso de emissão NFS-e em lote',
-        'read_only_notice' => 'Esta página é somente leitura por enquanto. Ela mostra o progresso persistido e as falhas por fatura; o disparo em lote só será habilitado após a ligação completa do emissor fiscal.',
+        'operational_notice' => 'A emissão em lote usa uma unidade fiscal validada individualmente por job. Faturas bloqueadas permanecem visíveis aqui e nunca são enviadas à SEFIN.',
+        'emit_selected' => 'Emitir NFS-e selecionadas',
+        'select_at_least_one' => 'Selecione ao menos uma fatura antes de iniciar a emissão em lote.',
+        'nothing_to_dispatch' => 'As faturas selecionadas já foram emitidas; nenhum novo job fiscal foi enfileirado.',
+        'dispatched' => ':queued job(s) fiscal(is) enfileirado(s); :blocked fatura(s) bloqueada(s) no preflight; :already já emitida(s).',
         'run' => 'Execução',
         'selection' => 'Seleção',
         'invoice' => 'Fatura',

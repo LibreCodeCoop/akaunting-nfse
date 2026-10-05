@@ -370,7 +370,11 @@ return [
 
     'bulk' => [
         'title' => 'Bulk NFS-e progress',
-        'read_only_notice' => 'This page is currently read-only. It exposes persisted batch progress and per-invoice failures; bulk dispatch is enabled only after the fiscal issuer is fully wired.',
+        'operational_notice' => 'Bulk emission uses one independently preflighted fiscal unit per queued job. Blocked invoices remain visible here and are never posted to SEFIN.',
+        'emit_selected' => 'Issue selected NFS-e',
+        'select_at_least_one' => 'Select at least one invoice before starting bulk emission.',
+        'nothing_to_dispatch' => 'The selected invoices are already issued; no new fiscal jobs were queued.',
+        'dispatched' => ':queued fiscal job(s) queued; :blocked invoice(s) blocked by preflight; :already already issued.',
         'run' => 'Run',
         'selection' => 'Selection',
         'invoice' => 'Invoice',
