@@ -8,6 +8,10 @@ declare(strict_types=1);
 namespace Modules\Nfse\Support;
 
 use Modules\Nfse\Application\EmissionReadiness;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
+
 final class OperationalReadinessResolver
 {
     /**
@@ -20,15 +24,19 @@ final class OperationalReadinessResolver
         bool $hasCertificateSecret,
         string $certificatePath,
         ?int $now = null,
+        ?bool $runtimeContractAvailable = null,
     ): array {
+        $runtimeContractAvailable ??= interface_exists(NfseClientInterface::class)
+            && class_exists(DpsData::class)
+            && class_exists(ReceiptData::class);
+
         return (new EmissionReadiness())->evaluate(
             settings: $settings,
             hasLocalCertificate: $certificatePath !== '' && is_file($certificatePath),
             hasCertificateSecret: $hasCertificateSecret,
             serviceCode: $serviceCode,
             now: $now,
+            runtimeContractAvailable: $runtimeContractAvailable,
         );
     }
-
-
 }

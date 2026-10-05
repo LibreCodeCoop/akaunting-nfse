@@ -81,6 +81,7 @@ class CertificateController extends Controller
             $this->storeCertificate($cnpj, $pfxContent, $password);
             setting([
                 'nfse.cnpj_prestador' => $cnpj,
+                'nfse.certificate_cnpj' => $cnpj,
                 'nfse.certificate_valid_from' => (int) ($data['valid_from'] ?? 0),
                 'nfse.certificate_valid_to' => (int) ($data['valid_to'] ?? 0),
                 'nfse.certificate_fingerprint_sha256' => (string) ($data['fingerprint_sha256'] ?? ''),

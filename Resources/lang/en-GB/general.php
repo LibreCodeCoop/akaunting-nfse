@@ -68,7 +68,9 @@ return [
         'not_ready' => 'Pending settings',
         'hint' => 'Complete the pending items below to enable issuance.',
         'checks' => [
-            'cnpj_prestador' => 'Service provider CNPJ saved',
+            'runtime_contract' => 'NFS-e fiscal runtime contract is available',
+            'cnpj_prestador' => 'Service provider CNPJ is valid',
+            'certificate_cnpj_matches' => 'Certificate CNPJ matches the configured service provider',
             'municipio_ibge' => 'IBGE municipality configured',
             'item_lista_servico' => 'LC 116 service item configured',
             'codigo_tributacao_nacional' => 'National tax code (NBS) configured',

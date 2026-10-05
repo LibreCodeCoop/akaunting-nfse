@@ -400,6 +400,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(['tab' => 'certificate'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.certificate_uploaded', $response->flash['success'] ?? null);
             self::assertSame('12345678000195', ControllerIsolationState::$settings['nfse.cnpj_prestador'] ?? null);
+            self::assertSame('12345678000195', ControllerIsolationState::$settings['nfse.certificate_cnpj'] ?? null);
             self::assertSame(1767225600, ControllerIsolationState::$settings['nfse.certificate_valid_from'] ?? null);
             self::assertSame(1798761600, ControllerIsolationState::$settings['nfse.certificate_valid_to'] ?? null);
             self::assertSame('ABC123', ControllerIsolationState::$settings['nfse.certificate_fingerprint_sha256'] ?? null);

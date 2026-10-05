@@ -44,6 +44,7 @@ final class EmissionReadinessTest extends TestCase
 
         self::assertFalse($result['isReady']);
         self::assertSame([
+            'runtime_contract' => true,
             'cnpj_prestador' => false,
             'municipio_ibge' => false,
             'item_lista_servico' => false,
@@ -71,6 +72,43 @@ final class EmissionReadinessTest extends TestCase
         self::assertFalse($result['isReady']);
         self::assertFalse($result['checklist']['bao_addr']);
         self::assertFalse($result['checklist']['bao_mount']);
+    }
+
+    public function testRejectsMalformedProviderCnpj(): void
+    {
+        $result = (new EmissionReadiness())->evaluate(
+            settings: [
+                'cnpj_prestador' => '123',
+                'municipio_ibge' => '3303302',
+                'bao_addr' => 'http://openbao:8200',
+                'bao_mount' => 'nfse',
+            ],
+            hasLocalCertificate: true,
+            hasCertificateSecret: true,
+            serviceCode: '0107',
+        );
+
+        self::assertFalse($result['isReady']);
+        self::assertFalse($result['checklist']['cnpj_prestador']);
+    }
+
+    public function testCertificateCnpjMismatchBlocksIssuanceWhenKnown(): void
+    {
+        $result = (new EmissionReadiness())->evaluate(
+            settings: [
+                'cnpj_prestador' => '11222333000181',
+                'certificate_cnpj' => '99888777000166',
+                'municipio_ibge' => '3303302',
+                'bao_addr' => 'http://openbao:8200',
+                'bao_mount' => 'nfse',
+            ],
+            hasLocalCertificate: true,
+            hasCertificateSecret: true,
+            serviceCode: '0107',
+        );
+
+        self::assertFalse($result['isReady']);
+        self::assertFalse($result['checklist']['certificate_cnpj_matches']);
     }
 
     public function testExpiredCertificateBlocksIssuance(): void
