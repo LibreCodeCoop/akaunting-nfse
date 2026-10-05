@@ -96,7 +96,6 @@ final class CancelInvoiceNfseTest extends TestCase
         return new class ($accessKey, $status) extends NfseReceipt {
             public function __construct(string $accessKey, string $status)
             {
-                parent::__construct();
                 $this->chave_acesso = $accessKey;
                 $this->status = $status;
             }
