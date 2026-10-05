@@ -15,7 +15,6 @@ use Modules\Nfse\Console\Commands\ProvisionTestHarness;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Console\Commands\SyncAdn;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
-use Modules\Nfse\Listeners\OverrideInvoiceEmailRoute;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
@@ -44,7 +43,6 @@ class Main extends Provider
         $this->loadViews();
         $this->registerCoreItemViewOverrides();
         $this->loadMigrations();
-        $this->registerInvoiceSendFlowOverride();
         $this->registerNativeInvoiceFiscalPanel();
         $this->registerNativeInvoiceFiscalListStatus();
         $this->registerItemFiscalFieldInjection();
@@ -197,15 +195,6 @@ class Main extends Provider
     protected function syncEmailTemplates(): void
     {
         (new EmailTemplateSynchronizer())->sync();
-    }
-
-    protected function registerInvoiceSendFlowOverride(): void
-    {
-        $this->app->make('view')->composer('sales.invoices.show', function ($view): void {
-            $this->app->make(OverrideInvoiceEmailRoute::class)->overrideForInvoice(
-                $view->getData()['invoice'] ?? null
-            );
-        });
     }
 
     protected function registerNativeInvoiceFiscalPanel(): void

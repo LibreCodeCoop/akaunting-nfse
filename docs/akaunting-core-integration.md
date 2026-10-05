@@ -9,24 +9,21 @@ This document records the upgrade-sensitive Akaunting integration seams tracked 
 issue #190. The reference core is the Akaunting `main` layout reviewed on
 2026-10-04.
 
-## Invoice send route
+## Invoice send lifecycle
 
-The module changes Akaunting's document configuration for the native invoice
-show page so the existing Send action opens the NFS-e modal and uses the fiscal
-label (emit, cancel, or re-emit).
+The native Akaunting Send action is no longer repurposed as a fiscal button.
 
-The previous implementation performed the same mutation twice:
+Fiscal actions live in the NFS-e panel injected into the native invoice page. In
+manual policy mode, the operator emits/re-emits/cancels from that panel while
+Akaunting Send keeps its ordinary customer-delivery semantics.
 
-1. from a global `RouteMatched` listener; and
-2. from a view composer scoped to `sales.invoices.show`.
+With `emit_on_send`, the module listens to Akaunting's native
+`DocumentSending` event. Fiscal preflight and issuance therefore happen before
+customer delivery, and a failure aborts the normal send job. Repeated sends reuse
+an already-issued receipt.
 
-The route listener is unnecessary. The view composer is narrower: it runs only
-while rendering the native invoice page and receives the actual invoice model.
-The `RouteMatched` listener has therefore been removed.
-
-Feature characterization in `InvoiceLifecycleCharacterizationTest` protects the
-native invoice page, the configured modal route, pending/emitted/cancelled
-actions, and the no-items fallback.
+The NFS-e custom email path also dispatches `DocumentSending`/`DocumentSent`
+so it cannot bypass the authoritative lifecycle.
 
 ## Item create/edit views
 
@@ -49,32 +46,27 @@ removed rather than kept in sync indefinitely.
 
 ## Document send components
 
-Remaining overrides:
+The module no longer overrides Akaunting's
+`components/documents/show/send.blade.php` or `more-buttons.blade.php`.
+Those compatibility overrides became unnecessary once manual fiscal actions
+moved into the native fiscal panel and automatic issuance moved into
+`DocumentSending`.
 
-- `Resources/overrides/components/documents/show/more-buttons.blade.php`
-- `Resources/overrides/components/documents/show/send.blade.php`
-
-Akaunting exposes stacks around the send controls, but those stacks can only add
-content. They cannot replace the core email-enabled condition. The NFS-e action
-must remain available when a fiscal invoice can be emitted even if the contact
-has no email address; customer email is a separate post-emission concern.
-
-The overrides therefore change only that eligibility decision while preserving
-the core actions/stacks. Removing them without a core replacement seam would
-regress the native fiscal flow characterized by Feature and Playwright tests.
+This restores core Send/Mark Sent behavior and removes an upgrade-sensitive
+template seam.
 
 ## Global Blade path
 
-The global override path remains only to resolve the four compatibility files
-listed above. It must not be used for new small UI additions. New integrations
-should prefer Akaunting events, jobs, stacks, components, or scoped view
-composers.
+The global override path remains only for the item create/edit compatibility
+files listed above. It must not be used for new small UI additions. New
+integrations should prefer Akaunting events, jobs, stacks, components, or scoped
+view composers.
 
 ## Upgrade checklist
 
 For each supported Akaunting upgrade:
 
-1. compare the four overridden templates with their new core counterparts;
+1. compare the two item create/edit overrides with their new core counterparts;
 2. check whether a native form/action extension seam now exists;
 3. remove an override as soon as a narrower seam can preserve behavior;
 4. run Akaunting Feature and deterministic Playwright tiers before accepting the

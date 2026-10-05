@@ -14,16 +14,18 @@ use Tests\Feature\FeatureTestCase;
 
 final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 {
-    public function testNativeInvoiceShowKeepsAkauntingPageAndOverridesEmailRouteForFiscalFlow(): void
+    public function testNativeInvoiceShowKeepsAkauntingSendRouteUntouched(): void
     {
         $invoice = FiscalScenarioBuilder::invoice();
+        $originalRoute = config('type.document.invoice.route.emails.create');
 
         $this->loginAs()
             ->get(route('invoices.show', $invoice))
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('data-nfse-native-panel="true"', false);
 
         self::assertSame(
-            'nfse.modals.invoices.emails.create',
+            $originalRoute,
             config('type.document.invoice.route.emails.create'),
         );
     }
@@ -156,24 +158,6 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
             ]))
             ->assertRedirect(route('invoices.show', $invoice))
             ->assertSessionHas('warning', trans('nfse::general.invoices.artifact_not_found'));
-    }
-
-    public function testInvoiceWithoutItemsDoesNotTakeOverNativeSendFlow(): void
-    {
-        $invoice = FiscalScenarioBuilder::invoice();
-        $invoice->items()->delete();
-        $invoice->unsetRelation('items');
-
-        $originalRoute = config('type.document.invoice.route.emails.create');
-
-        $this->loginAs()
-            ->get(route('invoices.show', $invoice))
-            ->assertOk();
-
-        self::assertSame(
-            $originalRoute,
-            config('type.document.invoice.route.emails.create'),
-        );
     }
 
     public function testEmitWithoutItemsIsRejectedBeforeFiscalTransport(): void
