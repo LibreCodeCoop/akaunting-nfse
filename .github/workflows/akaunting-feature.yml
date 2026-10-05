@@ -57,6 +57,11 @@ jobs:
       - name: Prepare Akaunting test application
         run: |
           cp .env.testing .env
+          # Akaunting maps Modules\\ to the whole modules/ tree. Its default
+          # optimized autoloader recursively scans module-local vendor tooling
+          # (including vendor-bin) that is intentionally outside that namespace.
+          # Feature tests only need PSR-4 resolution, not an optimized classmap.
+          composer config optimize-autoloader false
           composer test
 
       - name: Run NFS-e Feature tests
