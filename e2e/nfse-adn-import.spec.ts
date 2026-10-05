@@ -23,8 +23,8 @@ test('received ADN NFS-e can be reviewed and imported as a draft bill', async ({
 
   const form = page.locator(`form[action*="/adn/review/${documentId}/import"]`);
   await expect(form).toBeVisible();
-  await expect(form).toContainText('Fornecedor ADN E2E Ltda');
-  await expect(form).toContainText('100.00');
+  await expect(page.getByText('Fornecedor ADN E2E Ltda', { exact: true })).toBeVisible();
+  await expect(page.getByText('100.00', { exact: true }).first()).toBeVisible();
 
   await form.locator('select[name="contact_id"]').selectOption(vendorId!);
   await form.locator('select[name="category_id"]').selectOption(categoryId!);
