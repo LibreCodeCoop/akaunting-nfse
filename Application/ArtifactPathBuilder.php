@@ -76,7 +76,7 @@ final class ArtifactPathBuilder
 
         try {
             $date = new \DateTimeImmutable($receipt->dataEmissao);
-        } catch (\Throwable) {
+        } catch (\Exception) {
             $date = new \DateTimeImmutable('now');
         }
 
