@@ -1,0 +1,61 @@
+// SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import test from 'node:test';
+
+const require = createRequire(import.meta.url);
+const modal = require('../Resources/assets/js/issue-modal.js');
+
+test('keyboard tab navigation wraps and supports home/end', () => {
+    assert.equal(modal.nextTabIndex(0, 3, 'ArrowLeft'), 2);
+    assert.equal(modal.nextTabIndex(2, 3, 'ArrowRight'), 0);
+    assert.equal(modal.nextTabIndex(1, 3, 'Home'), 0);
+    assert.equal(modal.nextTabIndex(1, 3, 'End'), 2);
+});
+
+test('send-email state controls fields, columns and attachment tab', () => {
+    assert.deepEqual(modal.sendEmailUiState(true), {
+        fieldsHidden: false,
+        navColumns: 3,
+        attachmentsVisible: true,
+    });
+
+    assert.deepEqual(modal.sendEmailUiState(false), {
+        fieldsHidden: true,
+        navColumns: 2,
+        attachmentsVisible: false,
+    });
+});
+
+test('switch presentation keeps submitted value and visual state synchronized', () => {
+    assert.deepEqual(modal.switchPresentation(true), {
+        hiddenValue: '1',
+        trackColor: '#5e9f4d',
+        thumbLeft: '1.5rem',
+    });
+    assert.deepEqual(modal.switchPresentation(false), {
+        hiddenValue: '0',
+        trackColor: '#dbe8d4',
+        thumbLeft: '0.25rem',
+    });
+});
+
+test('restore-default comparison normalizes equivalent editor html', () => {
+    assert.equal(
+        modal.shouldShowRestore(
+            'Subject',
+            '<p>Hello<br>World</p>',
+            'Subject',
+            'Hello\nWorld',
+            null,
+        ),
+        false,
+    );
+
+    assert.equal(
+        modal.shouldShowRestore('Changed', '<p>Hello</p>', 'Subject', 'Hello', null),
+        true,
+    );
+});

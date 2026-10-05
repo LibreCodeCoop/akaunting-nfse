@@ -232,6 +232,10 @@ class Main extends Provider
             ])->render();
 
             $this->app->make('view')->startPush('status_message_end', $content);
+            $this->app->make('view')->startPush(
+                'body_end',
+                view('nfse::modals.invoices.partials.issue-modal-script')->render(),
+            );
         });
     }
 

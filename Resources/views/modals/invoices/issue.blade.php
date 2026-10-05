@@ -3,13 +3,6 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 --}}
 @php
-    $issueModalHandlers = include base_path('modules/Nfse/Resources/views/modals/invoices/partials/issue_js_handlers.php');
-    $nfseTabSyncOnclick = (string) ($issueModalHandlers['nfseTabSyncOnclick'] ?? '');
-    $nfseTabOnkeydown = (string) ($issueModalHandlers['nfseTabOnkeydown'] ?? '');
-    $nfseSendEmailOnChange = (string) ($issueModalHandlers['nfseSendEmailOnChange'] ?? '');
-    $nfseRestoreDefaultSync = (string) ($issueModalHandlers['nfseRestoreDefaultSync'] ?? '');
-    $nfseRestoreDefaultOnclick = (string) ($issueModalHandlers['nfseRestoreDefaultOnclick'] ?? '');
-
     $missingItems = is_array($preview['missing_items'] ?? null) ? $preview['missing_items'] : [];
     $defaultServiceId = (int) ($preview['default_service_id'] ?? 0);
     $requiresSplit = (bool) ($preview['requires_split'] ?? false);
@@ -48,8 +41,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     aria-controls="nfse-tab-pane-issuance"
                     data-nfse-tab-nav="nfse-tab-pane-issuance"
                     class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link active-tabs text-purple border-purple after:absolute after:w-full after:h-0.5 after:left-0 after:right-0 after:bottom-0 after:bg-purple after:rounded-tl-md after:rounded-tr-md"
-                    onclick="{!! $nfseTabSyncOnclick !!}"
-                    onkeydown="{!! $nfseTabOnkeydown !!}"
                 >
                     {{ trans('general.general') }}
                 </li>
@@ -61,8 +52,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     aria-controls="nfse-tab-pane-email"
                     data-nfse-tab-nav="nfse-tab-pane-email"
                     class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link text-black"
-                    onclick="{!! $nfseTabSyncOnclick !!}"
-                    onkeydown="{!! $nfseTabOnkeydown !!}"
                 >
                     {{ trans_choice('general.email', 1) }}
                 </li>
@@ -75,8 +64,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     data-nfse-tab-nav="nfse-tab-pane-attachments"
                     class="relative flex-auto px-4 text-sm text-center pb-2 cursor-pointer transition-all border-b whitespace-nowrap tabs-link text-black"
                     style="{{ $sendEmailDefault ? '' : 'display:none;' }}"
-                    onclick="{!! $nfseTabSyncOnclick !!}"
-                    onkeydown="{!! $nfseTabOnkeydown !!}"
                 >
                     {{ trans_choice('general.attachments', 2) }}
                 </li>
@@ -162,7 +149,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 'id' => 'nfse_save_default_description_toggle',
                                 'name' => 'nfse_save_default_description',
                                 'label' => trans('nfse::general.invoices.emit_modal_description_save_default'),
-                                'extraOnChange' => "const hint=document.getElementById('nfse-description-default-hint'); if(hint){hint.classList.toggle('hidden', cb.checked);}",
                             ])
                             <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_save_default') }}</span>
                         </div>
@@ -183,7 +169,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 'name' => 'nfse_send_email',
                                 'label' => trans('nfse::general.invoices.emit_modal_send_email'),
                                 'checked' => $sendEmailDefault,
-                                'extraOnChange' => $nfseSendEmailOnChange,
                             ])
                             <div>
                                 <p class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_send_email') }}</p>
@@ -193,9 +178,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         <div id="nfse-email-fields"
                             class="sm:col-span-6 space-y-3 {{ $sendEmailDefault ? '' : 'hidden' }}"
-                            oninput="{!! $nfseRestoreDefaultSync !!}"
-                            onkeyup="{!! $nfseRestoreDefaultSync !!}"
-                            onfocusin="{!! $nfseRestoreDefaultSync !!}"
                         >
                             <x-form.group.contact
                                 name="nfse_email_to"
@@ -241,7 +223,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                         style="{{ $restoreButtonStyle }}"
                                         data-nfse-default-subject="{{ $defaultSubjectEncoded }}"
                                         data-nfse-default-body="{{ $defaultBodyEncoded }}"
-                                        onclick="{!! $nfseRestoreDefaultOnclick !!}"
                                     >
                                         {{ trans('nfse::general.invoices.emit_modal_email_restore_default') }}
                                     </button>
