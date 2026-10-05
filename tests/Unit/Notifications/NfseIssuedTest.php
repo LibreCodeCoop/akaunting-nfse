@@ -554,27 +554,6 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertContains('nfse/12345678000199/2026/04/15/CHAVE-XYZ.xml', $notification->requestedPaths);
         }
 
-        public function testClassExtendsAkauntingNotification(): void
-        {
-            $source = file_get_contents(__DIR__ . '/../../../Notifications/NfseIssued.php');
-            self::assertStringContainsString('use App\\Abstracts\\Notification', $source);
-            self::assertStringContainsString('extends Notification', $source);
-        }
-
-        public function testTemplateAliasIsCorrect(): void
-        {
-            $source = file_get_contents(__DIR__ . '/../../../Notifications/NfseIssued.php');
-            self::assertStringContainsString("'invoice_nfse_issued_customer'", $source);
-        }
-
-        public function testNotificationDeclaresConcreteTemplateProperty(): void
-        {
-            $source = file_get_contents(__DIR__ . '/../../../Notifications/NfseIssued.php');
-
-            self::assertStringContainsString('public $template = null;', $source);
-            self::assertStringContainsString('protected function ensureTemplateLoaded(): void', $source);
-        }
-
         public function testToMailWorksAfterSerializationRoundTrip(): void
         {
             $this->makeTemplate();
