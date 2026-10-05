@@ -518,7 +518,6 @@ class InvoiceController extends Controller
         }
 
         $this->safeLogInfo('NFS-e emission payload', [
-        $this->safeLogInfo('NFS-e emission payload', [
             'invoice_id' => $invoice->id,
             'opSimpNac' => $dps->opcaoSimplesNacional,
             'aliquota' => $dps->aliquota,
