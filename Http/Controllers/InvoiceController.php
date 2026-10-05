@@ -21,12 +21,14 @@ use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
+use Modules\Nfse\Application\IssueInvoiceNfse;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
 use Modules\Nfse\Application\RecoverInvoiceEmission;
 use Modules\Nfse\Application\RefreshInvoiceNfse;
 use Modules\Nfse\Application\RuntimeDpsFactory;
 use Modules\Nfse\Application\SubstitutionDpsBuilder;
+use Modules\Nfse\Application\SubstituteInvoiceNfse;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
@@ -459,7 +461,13 @@ class InvoiceController extends Controller
 
         try {
             $client = $this->makeClient($sandbox);
-            $receipt = $client->emit($dps);
+            $receipt = $substitutionReceipt instanceof NfseReceipt
+                ? (new SubstituteInvoiceNfse())->issue(
+                    client: $client,
+                    replacementDps: $dps,
+                    originalAccessKey: (string) $substitutionReceipt->chave_acesso,
+                )
+                : (new IssueInvoiceNfse())->issue($client, $dps);
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
@@ -487,24 +495,14 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
                 ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (NetworkException $e) {
-            $receipt = $this->recoverReceiptAfterAmbiguousEmission($client, $dps);
+            $this->safeLogError('NFS-e issuance failed after DPS recovery could not resolve the ambiguous outcome', [
+                'invoice_id' => $invoice->id,
+                'message' => $e->getMessage(),
+                'dps_recovery_supported' => isset($client) && is_callable([$client, 'queryDps']),
+            ]);
 
-            if ($receipt !== null) {
-                $this->safeLogInfo('NFS-e issuance recovered by DPS after network/transport error', [
-                    'invoice_id' => $invoice->id,
-                    'chave_acesso' => $receipt->chaveAcesso,
-                    'original_error' => $e->getMessage(),
-                ]);
-            } else {
-                $this->safeLogError('NFS-e issuance failed due network/transport error', [
-                    'invoice_id' => $invoice->id,
-                    'message' => $e->getMessage(),
-                    'dps_recovery_supported' => is_callable([$client, 'queryDps']),
-                ]);
-
-                return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
-                    ->with('error', trans('nfse::general.nfse_emit_failed')));
-            }
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.index', ['status' => 'pending'])
+                ->with('error', trans('nfse::general.nfse_emit_failed')));
         } catch (PfxImportException) {
             $this->cleanupClientTransportArtifacts();
 
