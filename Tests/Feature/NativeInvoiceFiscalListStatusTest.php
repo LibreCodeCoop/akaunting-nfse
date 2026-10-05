@@ -25,7 +25,7 @@ final class NativeInvoiceFiscalListStatusTest extends FeatureTestCase
         ]);
 
         $response = $this->loginAs()
-            ->get(route('invoices.index'))
+            ->get(route('invoices.index', ['list_records' => 'all']))
             ->assertOk()
             ->assertSee('data-nfse-native-list-map="true"', false);
 
@@ -44,7 +44,7 @@ final class NativeInvoiceFiscalListStatusTest extends FeatureTestCase
         $invoice = Document::factory()->invoice()->create();
 
         $response = $this->loginAs()
-            ->get(route('invoices.index'))
+            ->get(route('invoices.index', ['list_records' => 'all']))
             ->assertOk();
 
         $html = $response->getContent();
