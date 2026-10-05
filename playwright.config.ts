@@ -9,6 +9,7 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   retries: 0,
+  workers: process.env.CI ? 1 : undefined,
   projects: [
     {
       name: 'smoke',

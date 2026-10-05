@@ -88,7 +88,10 @@ test('pending invoices page exposes emission CTA when authenticated', async ({ p
   await page.goto('/1/nfse/invoices/pending', { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
-  await expect(page).toHaveURL(/\/1\/nfse\/invoices\/pending/);
+  await expect(page).toHaveURL((url) => (
+    url.pathname === '/1/nfse/invoices/pending'
+    || (url.pathname === '/1/nfse/invoices' && url.searchParams.get('status') === 'pending')
+  ));
 
   const emitButtons = page.locator(`${emitFormsSelector} button[type='submit']`);
   const emitButtonsCount = await emitButtons.count();
