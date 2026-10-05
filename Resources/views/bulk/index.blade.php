@@ -6,7 +6,7 @@
     <x-slot name="content">
         <div class="space-y-6" id="nfse-bulk-progress">
             <div class="rounded border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-                {{ trans('nfse::general.bulk.read_only_notice') }}
+                {{ trans('nfse::general.bulk.operational_notice') }}
             </div>
 
             @forelse($runs as $run)

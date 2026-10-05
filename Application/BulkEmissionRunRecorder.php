@@ -20,7 +20,13 @@ use Modules\Nfse\Models\BulkEmissionUnit;
 final class BulkEmissionRunRecorder
 {
     /**
-     * @param list<array{invoice_id:int,emission_group_key:string}> $units
+     * @param list<array{
+     *   invoice_id:int,
+     *   emission_group_key:string,
+     *   status?:string,
+     *   error_type?:?string,
+     *   error_message?:?string
+     * }> $units
      * @return array{run:BulkEmissionRun,units:list<BulkEmissionUnit>,reused:bool}
      */
     public function create(
@@ -63,10 +69,14 @@ final class BulkEmissionRunRecorder
                 ];
             }
 
+            $runStatus = (new BulkEmissionStatusPolicy())->aggregate(array_map(
+                static fn (array $unit): string => (string) $unit['status'],
+                $normalized,
+            ));
             $run = BulkEmissionRun::query()->create([
                 'company_id' => $companyId,
                 'requested_by' => $requestedBy !== null && $requestedBy > 0 ? $requestedBy : null,
-                'status' => 'queued',
+                'status' => $runStatus,
                 'selection_hash' => $selectionHash,
             ]);
 
@@ -77,7 +87,9 @@ final class BulkEmissionRunRecorder
                     'run_id' => (int) $run->id,
                     'invoice_id' => $unit['invoice_id'],
                     'emission_group_key' => $unit['emission_group_key'],
-                    'status' => 'queued',
+                    'status' => $unit['status'],
+                    'error_type' => $unit['error_type'],
+                    'error_message' => $unit['error_message'],
                 ]);
             }
 
@@ -90,8 +102,20 @@ final class BulkEmissionRunRecorder
     }
 
     /**
-     * @param list<array{invoice_id:int,emission_group_key:string}> $units
-     * @return list<array{invoice_id:int,emission_group_key:string}>
+     * @param list<array{
+     *   invoice_id:int,
+     *   emission_group_key:string,
+     *   status?:string,
+     *   error_type?:?string,
+     *   error_message?:?string
+     * }> $units
+     * @return list<array{
+     *   invoice_id:int,
+     *   emission_group_key:string,
+     *   status:string,
+     *   error_type:?string,
+     *   error_message:?string
+     * }>
      */
     private function normalizeUnits(array $units): array
     {
@@ -106,9 +130,21 @@ final class BulkEmissionRunRecorder
             }
 
             $dedupeKey = $invoiceId . '|' . $groupKey;
+            $status = trim((string) ($unit['status'] ?? BulkEmissionStatusPolicy::QUEUED));
+
+            if (!in_array($status, [
+                BulkEmissionStatusPolicy::QUEUED,
+                BulkEmissionStatusPolicy::BLOCKED,
+            ], true)) {
+                $status = BulkEmissionStatusPolicy::QUEUED;
+            }
+
             $normalized[$dedupeKey] = [
                 'invoice_id' => $invoiceId,
                 'emission_group_key' => $groupKey,
+                'status' => $status,
+                'error_type' => isset($unit['error_type']) ? trim((string) $unit['error_type']) ?: null : null,
+                'error_message' => isset($unit['error_message']) ? trim((string) $unit['error_message']) ?: null : null,
             ];
         }
 
