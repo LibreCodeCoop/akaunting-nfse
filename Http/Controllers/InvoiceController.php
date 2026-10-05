@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\EmissionReadiness;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
@@ -3777,94 +3778,29 @@ class InvoiceController extends Controller
 
     protected function buildWebDavArtifactBasePath(Invoice $invoice, ReceiptData $receipt): string
     {
-        $template = trim((string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'));
-        if ($template === '') {
-            $template = 'nfse/{cnpj}/{year}/{month}/{day}';
-        }
-
-        return trim(strtr($template, $this->buildWebDavArtifactTemplateReplacements($invoice, $receipt)), '/');
+        return (new ArtifactPathBuilder())->basePath(
+            template: (string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'),
+            cnpj: (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
+            customerName: (string) ($invoice->contact?->name ?? 'sem-cliente'),
+            receipt: $receipt,
+        );
     }
 
     protected function buildWebDavArtifactFilePath(string $basePath, Invoice $invoice, ReceiptData $receipt, string $extension): string
     {
-        $template = trim((string) setting('nfse.webdav_filename_template', '{chave_acesso}'));
-
-        if ($template === '') {
-            $template = '{chave_acesso}';
-        }
-
-        $fileName = trim(strtr($template, $this->buildWebDavArtifactTemplateReplacements($invoice, $receipt)), '/');
-        $fileName = trim($fileName, '.');
-
-        if ($fileName === '') {
-            $fileName = 'nao-informado';
-        }
-
-        if (!str_ends_with(strtolower($fileName), '.' . strtolower($extension))) {
-            $fileName .= '.' . $extension;
-        }
-
-        return $basePath . '/' . $fileName;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function buildWebDavArtifactTemplateReplacements(Invoice $invoice, ReceiptData $receipt): array
-    {
-        $resolvedNfseNumber = $this->resolveReceiptNfseNumber($receipt);
-
-        $date = null;
-        try {
-            $date = new \DateTimeImmutable($receipt->dataEmissao);
-        } catch (\Throwable) {
-            $date = new \DateTimeImmutable('now');
-        }
-
-        return [
-            '{cnpj}' => (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
-            '{year}' => $date->format('Y'),
-            '{month}' => $date->format('m'),
-            '{day}' => $date->format('d'),
-            '{month_name}' => $this->monthNameByNumber((int) $date->format('n')),
-            '{nfse_number}' => $this->sanitizePathSegment($resolvedNfseNumber !== '' ? $resolvedNfseNumber : 'sem-numero'),
-            '{chave_acesso}' => $this->sanitizePathSegment($receipt->chaveAcesso !== '' ? $receipt->chaveAcesso : 'sem-chave-acesso'),
-            '{customer_name}' => $this->sanitizePathSegment((string) ($invoice->contact?->name ?? 'sem-cliente')),
-        ];
+        return (new ArtifactPathBuilder())->filePath(
+            basePath: $basePath,
+            template: (string) setting('nfse.webdav_filename_template', '{chave_acesso}'),
+            cnpj: (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
+            customerName: (string) ($invoice->contact?->name ?? 'sem-cliente'),
+            receipt: $receipt,
+            extension: $extension,
+        );
     }
 
     protected function resolveReceiptNfseNumber(ReceiptData $receipt): string
     {
         return (new ReceiptNumberResolver())->resolve($receipt);
-    }
-
-    protected function monthNameByNumber(int $month): string
-    {
-        $months = [
-            1 => 'janeiro',
-            2 => 'fevereiro',
-            3 => 'marco',
-            4 => 'abril',
-            5 => 'maio',
-            6 => 'junho',
-            7 => 'julho',
-            8 => 'agosto',
-            9 => 'setembro',
-            10 => 'outubro',
-            11 => 'novembro',
-            12 => 'dezembro',
-        ];
-
-        return $months[$month] ?? 'mes-invalido';
-    }
-
-    protected function sanitizePathSegment(string $value): string
-    {
-        $normalized = mb_strtolower(trim($value));
-        $normalized = preg_replace('/[^\pL\pN]+/u', '-', $normalized);
-        $normalized = is_string($normalized) ? trim($normalized, '-') : '';
-
-        return $normalized !== '' ? $normalized : 'nao-informado';
     }
 
     protected function findReceiptForInvoice(Invoice $invoice): NfseReceipt

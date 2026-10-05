@@ -189,19 +189,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringNotContainsString('resolveTransportCertificatePaths(', $content);
         }
 
-        public function testControllerBuildsWebDavArtifactPathsWithXmlAndDanfseFiles(): void
+        public function testControllerDelegatesWebDavArtifactPathConstruction(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString("setting('nfse.webdav_url', '')", $content);
             self::assertStringContainsString("'nfse.webdav_path_template'", $content);
             self::assertStringContainsString("'nfse.webdav_filename_template'", $content);
-            self::assertStringContainsString("'{day}'", $content);
-            self::assertStringContainsString("'{month_name}'", $content);
-            self::assertStringContainsString("'{nfse_number}'", $content);
-            self::assertStringContainsString("'{chave_acesso}'", $content);
-            self::assertStringContainsString("'{customer_name}'", $content);
-            self::assertStringContainsString("buildWebDavArtifactFilePath", $content);
+            self::assertStringContainsString('new ArtifactPathBuilder()', $content);
             self::assertStringContainsString("'xml_webdav_path'", $content);
             self::assertStringContainsString("'danfse_webdav_path'", $content);
         }
