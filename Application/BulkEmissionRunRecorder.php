@@ -21,7 +21,7 @@ final class BulkEmissionRunRecorder
 {
     /**
      * @param list<array{invoice_id:int,emission_group_key:string}> $units
-     * @return array{run:BulkEmissionRun,units:list<BulkEmissionUnit>}
+     * @return array{run:BulkEmissionRun,units:list<BulkEmissionUnit>,reused:bool}
      */
     public function create(
         int $companyId,
@@ -59,6 +59,7 @@ final class BulkEmissionRunRecorder
                         $units,
                         static fn (mixed $unit): bool => $unit instanceof BulkEmissionUnit,
                     )),
+                    'reused' => true,
                 ];
             }
 
@@ -83,6 +84,7 @@ final class BulkEmissionRunRecorder
             return [
                 'run' => $run,
                 'units' => $persisted,
+                'reused' => false,
             ];
         });
     }
