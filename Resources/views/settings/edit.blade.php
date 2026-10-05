@@ -834,8 +834,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
         </div>
 
-        <script id="nfse-settings-config" type="application/json">
-            @json([
+        @php
+            $nfseSettingsFrontendConfig = [
                 'parsePfxUrl' => route('nfse.certificate.parse'),
                 'hasSavedSettings' => ($certificateState['has_saved_settings'] ?? false) === true,
                 'confirmDeleteCertificate' => trans('nfse::general.confirm_delete_certificate_and_settings'),
@@ -853,7 +853,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 'municipalQueryFailed' => trans('nfse::general.settings.municipal_parameters.query_failed'),
                 'municipalCachedWarning' => trans('nfse::general.settings.municipal_parameters.cached_warning'),
                 'municipalLiveSource' => trans('nfse::general.settings.municipal_parameters.live_source'),
-            ])
+            ];
+        @endphp
+        <script id="nfse-settings-config" type="application/json">
+            @json($nfseSettingsFrontendConfig)
         </script>
         <script
             src="{{ asset('modules/Nfse/Resources/assets/js/settings-ui.js?v=' . module_version('nfse')) }}"
