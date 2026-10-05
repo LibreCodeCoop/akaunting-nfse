@@ -8,6 +8,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\AdnController;
 use Modules\Nfse\Http\Controllers\CertificateController;
+use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 use Modules\Nfse\Http\Controllers\Modals\InvoiceEmails;
