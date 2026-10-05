@@ -1,0 +1,97 @@
+<?php
+
+// SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+declare(strict_types=1);
+
+namespace Modules\Nfse\Tests\Unit\Application;
+
+use Modules\Nfse\Application\CancelInvoiceNfse;
+use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
+use PHPUnit\Framework\TestCase;
+
+final class CancelInvoiceNfseTest extends TestCase
+{
+    public function testCancelsRemoteDocumentBeforePersistingCancelledState(): void
+    {
+        $client = new class () implements NfseClientInterface {
+            public string $accessKey = '';
+            public string $reason = '';
+
+            public function emit(DpsData $dps): ReceiptData
+            {
+                throw new \LogicException('Not used.');
+            }
+
+            public function query(string $chaveAcesso): ReceiptData
+            {
+                throw new \LogicException('Not used.');
+            }
+
+            public function cancel(string $chaveAcesso, string $motivo): bool
+            {
+                $this->accessKey = $chaveAcesso;
+                $this->reason = $motivo;
+
+                return true;
+            }
+
+            public function getDanfse(string $nfseXml): string
+            {
+                throw new \LogicException('Not used.');
+            }
+        };
+
+        $receipt = new NfseReceipt();
+        $receipt->chave_acesso = 'ACCESS-42';
+        $receipt->status = 'emitted';
+
+        (new CancelInvoiceNfse())->cancel($client, $receipt, 'Erro na emissão - teste');
+
+        self::assertSame('ACCESS-42', $client->accessKey);
+        self::assertSame('Erro na emissão - teste', $client->reason);
+        self::assertSame('cancelled', $receipt->status);
+    }
+
+    public function testProtocolFailurePropagatesWithoutChangingLocalState(): void
+    {
+        $client = new class () implements NfseClientInterface {
+            public function emit(DpsData $dps): ReceiptData
+            {
+                throw new \LogicException('Not used.');
+            }
+
+            public function query(string $chaveAcesso): ReceiptData
+            {
+                throw new \LogicException('Not used.');
+            }
+
+            public function cancel(string $chaveAcesso, string $motivo): bool
+            {
+                throw new \RuntimeException('SEFIN unavailable');
+            }
+
+            public function getDanfse(string $nfseXml): string
+            {
+                throw new \LogicException('Not used.');
+            }
+        };
+
+        $receipt = new NfseReceipt();
+        $receipt->chave_acesso = 'ACCESS-42';
+        $receipt->status = 'emitted';
+
+        try {
+            (new CancelInvoiceNfse())->cancel($client, $receipt, 'Erro na emissão');
+            self::fail('Expected cancellation failure.');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('SEFIN unavailable', $exception->getMessage());
+        }
+
+        self::assertSame('emitted', $receipt->status);
+    }
+}
