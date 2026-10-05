@@ -11,7 +11,10 @@
     $canTriggerSendAction = $nfseManagedSendFlow || (bool) ($document->contact->has_email ?? false);
 @endphp
 
-           title="{{ trans('general.send') }}"
+<x-show.accordion type="send" :open="($accordionActive == 'send')">
+    <x-slot name="head">
+        <x-show.accordion.head
+            title="{{ trans('general.send') }}"
             description="{!! trans($description, [
                 'user' => $user_name,
                 'type' => $type_lowercase,

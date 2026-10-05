@@ -11,7 +11,11 @@
     $canTriggerSendAction = $nfseManagedSendFlow || !empty($document->contact_email);
 @endphp
 
-<x-slot name="trigger">
+@stack('button_group_start')
+
+@if (! $hideMoreActions)
+    <x-dropdown id="show-more-actions-{{ $document->type }}">
+        <x-slot name="trigger">
             <span class="material-icons pointer-events-none">more_horiz</span>
         </x-slot>
 
