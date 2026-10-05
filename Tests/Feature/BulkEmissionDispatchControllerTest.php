@@ -19,8 +19,8 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
     {
         $ready = $this->invoiceWithProfile('0107', '010701', '100');
         $blocked = $this->invoiceWithProfile('0107', '010701', '100');
-        $blocked->contact_country_code = 'GB';
-        $blocked->save();
+        $blocked->contact->forceFill(['country' => 'GB'])->saveQuietly();
+        $blocked->unsetRelation('contact');
 
         $dispatched = [];
         $this->app->instance(
