@@ -2723,6 +2723,17 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                         ['id' => 900, 'label' => '14.01 - Servico padrao', 'is_default' => true],
                     ];
                 }
+
+                protected function annotateFiscalGroupsWithReceiptState(Invoice $invoice, array $groups): array
+                {
+                    return array_map(static function (array $group): array {
+                        $group['issued'] = false;
+                        $group['receipt_id'] = null;
+                        $group['nfse_number'] = null;
+
+                        return $group;
+                    }, $groups);
+                }
             };
 
             $response = $controller->servicePreview($invoice);
@@ -2861,6 +2872,17 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 protected function availableInvoiceServices(Invoice $invoice): array
                 {
                     return [];
+                }
+
+                protected function annotateFiscalGroupsWithReceiptState(Invoice $invoice, array $groups): array
+                {
+                    return array_map(static function (array $group): array {
+                        $group['issued'] = false;
+                        $group['receipt_id'] = null;
+                        $group['nfse_number'] = null;
+
+                        return $group;
+                    }, $groups);
                 }
             };
 
