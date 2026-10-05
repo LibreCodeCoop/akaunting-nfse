@@ -41,6 +41,7 @@ use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
 use Modules\Nfse\Support\InvoiceTakerResolver;
 use Modules\Nfse\Support\Lc116Code;
 use Modules\Nfse\Support\OperationalReadinessResolver;
@@ -2940,132 +2941,22 @@ class InvoiceController extends Controller
     /**
      * @param list<int>|null $documentItemIds
      */
+    /**
+     * @param list<int>|null $documentItemIds
+     * @return array<string,mixed>
+     */
     protected function federalPayloadValues(
         Invoice $invoice,
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
     ): array {
-        $invoiceAmount = $amountOverride ?? (float) ($invoice->amount ?? 0.0);
-        $federalMode = strtolower((string) setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
-        $invoiceFederalTaxes = $this->invoiceFederalTaxSnapshot(
+        return (new InvoiceFederalPayloadResolver())->resolve(
             $invoice,
-            $invoiceAmount,
             $documentItemIds,
+            $amountOverride,
         );
-        $situacaoTributaria = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_situacao_tributaria', ''));
-        $tipoRetencao = $this->normalizedFederalSelectValue(setting('nfse.federal_piscofins_tipo_retencao', ''));
-        $valorCsllRetencao = $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_csll');
-
-        if ($valorCsllRetencao === '' && $invoiceFederalTaxes['csll_value'] !== '') {
-            $valorCsllRetencao = $invoiceFederalTaxes['csll_value'];
-        }
-
-        if (in_array($tipoRetencao, ['4', '5', '6'], true) && $valorCsllRetencao === '') {
-            // Gateway currently rejects tpRetPisCofins != 0 without vRetCSLL.
-            // When configured CSLL retention is zero, fallback avoids invalid payloads.
-            $tipoRetencao = '0';
-        }
-
-        $isSimplesNacionalOptant = $this->normalizedOpcaoSimplesNacional() === 2;
-
-        $totalTributosPercentualFederal = $this->normalizedFederalDecimal(setting($isSimplesNacionalOptant ? 'nfse.tributos_fed_sn' : 'nfse.tributos_fed_p', ''));
-        $totalTributosPercentualEstadual = $this->normalizedFederalDecimal(setting($isSimplesNacionalOptant ? 'nfse.tributos_est_sn' : 'nfse.tributos_est_p', ''));
-        $totalTributosPercentualMunicipal = $this->normalizedFederalDecimal(setting($isSimplesNacionalOptant ? 'nfse.tributos_mun_sn' : 'nfse.tributos_mun_p', ''));
-
-        if ($totalTributosPercentualFederal === '' && $invoiceFederalTaxes['federal_percent'] !== '') {
-            $totalTributosPercentualFederal = $invoiceFederalTaxes['federal_percent'];
-        }
-
-        $indicadorTributacao = (
-            $totalTributosPercentualFederal !== '' ||
-            $totalTributosPercentualEstadual !== '' ||
-            $totalTributosPercentualMunicipal !== ''
-        ) ? 2 : 0;
-
-        if ($indicadorTributacao === 2) {
-            // RNG6110 schema validation requires the tributos percentage sequence to be present and ordered.
-            $totalTributosPercentualFederal = $totalTributosPercentualFederal !== '' ? $totalTributosPercentualFederal : '0.00';
-            $totalTributosPercentualEstadual = $totalTributosPercentualEstadual !== '' ? $totalTributosPercentualEstadual : '0.00';
-            $totalTributosPercentualMunicipal = $totalTributosPercentualMunicipal !== '' ? $totalTributosPercentualMunicipal : '0.00';
-        }
-
-        $valorIrrf = $this->calculateFederalRetentionValue($invoiceAmount, 'federal_valor_irrf');
-        if ($valorIrrf === '' && $invoiceFederalTaxes['irrf_value'] !== '') {
-            $valorIrrf = $invoiceFederalTaxes['irrf_value'];
-        }
-
-        if ($situacaoTributaria === '' || $situacaoTributaria === '0') {
-            return $this->finalizeFederalPayload([
-                'federalPiscofinsSituacaoTributaria' => '',
-                'federalPiscofinsTipoRetencao' => '',
-                'federalPiscofinsBaseCalculo' => '',
-                'federalPiscofinsAliquotaPis' => '',
-                'federalPiscofinsValorPis' => '',
-                'federalPiscofinsAliquotaCofins' => '',
-                'federalPiscofinsValorCofins' => '',
-                'federalValorIrrf' => $valorIrrf,
-                'federalValorCsll' => $valorCsllRetencao,
-                // Produção restrita currently rejects vRetCP (RNG6110), so keep CP as UI/config only.
-                'federalValorCp' => '',
-                'indicadorTributacao' => $indicadorTributacao,
-                'totalTributosPercentualFederal' => $totalTributosPercentualFederal,
-                'totalTributosPercentualEstadual' => $totalTributosPercentualEstadual,
-                'totalTributosPercentualMunicipal' => $totalTributosPercentualMunicipal,
-            ]);
-        }
-
-        $aliquotaPis = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_pis', ''));
-        $aliquotaCofins = $this->normalizedFederalDecimal(setting('nfse.federal_piscofins_aliquota_cofins', ''));
-
-        if (($federalMode === 'per_invoice_amounts' || $aliquotaPis === '') && $invoiceFederalTaxes['pis_rate'] !== '') {
-            $aliquotaPis = $invoiceFederalTaxes['pis_rate'];
-        }
-
-        if (($federalMode === 'per_invoice_amounts' || $aliquotaCofins === '') && $invoiceFederalTaxes['cofins_rate'] !== '') {
-            $aliquotaCofins = $invoiceFederalTaxes['cofins_rate'];
-        }
-
-        $valorPis = $aliquotaPis !== ''
-            ? number_format($invoiceAmount * (float) $aliquotaPis / 100, 2, '.', '')
-            : '';
-
-        if (($federalMode === 'per_invoice_amounts' || $valorPis === '') && $invoiceFederalTaxes['pis_value'] !== '') {
-            $valorPis = $invoiceFederalTaxes['pis_value'];
-        }
-
-        $valorCofins = $aliquotaCofins !== ''
-            ? number_format($invoiceAmount * (float) $aliquotaCofins / 100, 2, '.', '')
-            : '';
-
-        if (($federalMode === 'per_invoice_amounts' || $valorCofins === '') && $invoiceFederalTaxes['cofins_value'] !== '') {
-            $valorCofins = $invoiceFederalTaxes['cofins_value'];
-        }
-
-        return $this->finalizeFederalPayload([
-            'federalPiscofinsSituacaoTributaria' => $situacaoTributaria,
-            'federalPiscofinsTipoRetencao' => $tipoRetencao,
-            'federalPiscofinsBaseCalculo' => number_format($invoiceAmount, 2, '.', ''),
-            'federalPiscofinsAliquotaPis' => $aliquotaPis,
-            'federalPiscofinsValorPis' => $valorPis,
-            'federalPiscofinsAliquotaCofins' => $aliquotaCofins,
-            'federalPiscofinsValorCofins' => $valorCofins,
-            'federalValorIrrf' => $valorIrrf,
-            'federalValorCsll' => $tipoRetencao !== '0'
-                ? $valorCsllRetencao
-                : '',
-            // Produção restrita currently rejects vRetCP (RNG6110), so keep CP as UI/config only.
-            'federalValorCp' => '',
-            'indicadorTributacao' => $indicadorTributacao,
-            'totalTributosPercentualFederal' => $totalTributosPercentualFederal,
-            'totalTributosPercentualEstadual' => $totalTributosPercentualEstadual,
-            'totalTributosPercentualMunicipal' => $totalTributosPercentualMunicipal,
-        ]);
     }
 
-    /**
-     * @param list<int>|null $documentItemIds
-     * @return array{pis_value:string,pis_rate:string,cofins_value:string,cofins_rate:string,irrf_value:string,csll_value:string,federal_percent:string}
-     */
     /**
      * @param list<int>|null $documentItemIds
      * @return array{pis_value:string,pis_rate:string,cofins_value:string,cofins_rate:string,irrf_value:string,csll_value:string,federal_percent:string}
@@ -3075,15 +2966,10 @@ class InvoiceController extends Controller
         float $invoiceAmount,
         ?array $documentItemIds = null,
     ): array {
-        $taxRateById = [];
-
-        return (new FederalTaxSnapshotBuilder())->build(
-            items: $this->invoiceItemsAsArray($invoice),
-            baseAmount: $invoiceAmount,
-            documentItemIds: $documentItemIds,
-            taxRateResolver: function (mixed $tax) use (&$taxRateById): ?float {
-                return $this->resolveFederalTaxRate($tax, $taxRateById);
-            },
+        return (new InvoiceFederalPayloadResolver())->snapshot(
+            $invoice,
+            $invoiceAmount,
+            $documentItemIds,
         );
     }
 
