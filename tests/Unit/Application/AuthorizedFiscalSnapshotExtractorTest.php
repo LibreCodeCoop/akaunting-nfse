@@ -65,43 +65,43 @@ final class AuthorizedFiscalSnapshotExtractorTest extends TestCase
     private function authorizedXml(): string
     {
         return <<<'XML'
-<?xml version="1.0" encoding="UTF-8"?>
-<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
-  <infNFSe>
-    <valores><vLiq>1292.75</vLiq></valores>
-    <IBSCBS>
-      <valores><vBC>1000.00</vBC></valores>
-      <totais>
-        <gIBS><vIBSTot>12.00</vIBSTot></gIBS>
-        <gCBS><vCBS>8.00</vCBS></gCBS>
-        <vTotNF>1480.00</vTotNF>
-      </totais>
-    </IBSCBS>
-    <DPS>
-      <infDPS>
-        <dCompet>2026-10-05</dCompet>
-        <valores>
-          <vServPrest><vServ>1500.00</vServ></vServPrest>
-          <trib>
-            <tribMun>
-              <tribISSQN>1</tribISSQN>
-              <tpRetISSQN>2</tpRetISSQN>
-              <pAliq>2.00</pAliq>
-              <vBC>1350.00</vBC>
-              <vISSQN>27.00</vISSQN>
-            </tribMun>
-            <tribFed>
-              <piscofins><vPis>9.75</vPis><vCofins>45.00</vCofins></piscofins>
-              <vRetIRRF>22.50</vRetIRRF>
-              <vRetCP>15.00</vRetCP>
-              <vRetCSLL>15.00</vRetCSLL>
-            </tribFed>
-          </trib>
-        </valores>
-      </infDPS>
-    </DPS>
-  </infNFSe>
-</NFSe>
-XML;
+            <?xml version="1.0" encoding="UTF-8"?>
+            <NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
+              <infNFSe>
+                <valores><vLiq>1292.75</vLiq></valores>
+                <IBSCBS>
+                  <valores><vBC>1000.00</vBC></valores>
+                  <totais>
+                    <gIBS><vIBSTot>12.00</vIBSTot></gIBS>
+                    <gCBS><vCBS>8.00</vCBS></gCBS>
+                    <vTotNF>1480.00</vTotNF>
+                  </totais>
+                </IBSCBS>
+                <DPS>
+                  <infDPS>
+                    <dCompet>2026-10-05</dCompet>
+                    <valores>
+                      <vServPrest><vServ>1500.00</vServ></vServPrest>
+                      <trib>
+                        <tribMun>
+                          <tribISSQN>1</tribISSQN>
+                          <tpRetISSQN>2</tpRetISSQN>
+                          <pAliq>2.00</pAliq>
+                          <vBC>1350.00</vBC>
+                          <vISSQN>27.00</vISSQN>
+                        </tribMun>
+                        <tribFed>
+                          <piscofins><vPis>9.75</vPis><vCofins>45.00</vCofins></piscofins>
+                          <vRetIRRF>22.50</vRetIRRF>
+                          <vRetCP>15.00</vRetCP>
+                          <vRetCSLL>15.00</vRetCSLL>
+                        </tribFed>
+                      </trib>
+                    </valores>
+                  </infDPS>
+                </DPS>
+              </infNFSe>
+            </NFSe>
+            XML;
     }
 }
