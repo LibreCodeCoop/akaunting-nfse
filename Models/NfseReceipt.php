@@ -26,10 +26,14 @@ class NfseReceipt extends Model
         'status',
         'emission_group_key',
         'replaces_receipt_id',
+        'competence_date',
+        'authorized_fiscal_snapshot',
     ];
 
     protected $casts = [
         'data_emissao' => 'datetime',
+        'competence_date' => 'date',
+        'authorized_fiscal_snapshot' => 'array',
     ];
 
     public function invoice(): BelongsTo
