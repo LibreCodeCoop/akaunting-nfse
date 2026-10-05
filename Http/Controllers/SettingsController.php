@@ -22,6 +22,7 @@ use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Throwable;
 
 class SettingsController extends Controller
@@ -918,16 +919,8 @@ class SettingsController extends Controller
         }
     }
 
-    protected function makeSecretStore(): \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
+    protected function makeSecretStore(): SecretStoreInterface
     {
-        $config = VaultConfig::secretStoreConfig();
-
-        return new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore(
-            addr: $config['addr'],
-            mount: $config['mount'],
-            token: $config['token'],
-            roleId: $config['roleId'],
-            secretId: $config['secretId'],
-        );
+        return app(SecretStoreInterface::class);
     }
 }
