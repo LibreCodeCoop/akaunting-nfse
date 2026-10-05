@@ -18,6 +18,8 @@ final class InvoiceFiscalContextResolverTest extends FeatureTestCase
     public function testResolvesPersistedItemProfileAndFiscalGroupOutsideHttpController(): void
     {
         $invoice = Document::factory()->invoice()->create();
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
         $item = Item::factory()->create(['company_id' => $invoice->company_id]);
 
         $documentItem = $invoice->items()->create([
@@ -56,6 +58,8 @@ final class InvoiceFiscalContextResolverTest extends FeatureTestCase
     public function testMultiplePersistedProfilesProduceDistinctFiscalGroups(): void
     {
         $invoice = Document::factory()->invoice()->create();
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
         $first = Item::factory()->create(['company_id' => $invoice->company_id]);
         $second = Item::factory()->create(['company_id' => $invoice->company_id]);
 
