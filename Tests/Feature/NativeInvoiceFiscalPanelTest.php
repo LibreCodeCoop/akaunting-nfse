@@ -42,6 +42,19 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
             substr_count($content, 'data-nfse-native-modal-trigger="true"'),
             'The invoice page must contain exactly one compiled bridge to the NFS-e modal.',
         );
+
+        $listeners = app('events')->getRawListeners();
+
+        $this->assertArrayHasKey(
+            'composing: components.documents.show.content',
+            $listeners,
+            'The fiscal panel must be composed at the document content component that consumes status_message_end.',
+        );
+        $this->assertCount(
+            1,
+            $listeners['composing: components.documents.show.content'],
+            'The NFS-e module must register exactly one document content composer for the fiscal panel.',
+        );
     }
 
     public function testNativeInvoiceShowContainsLinkedReceiptAndFiscalDetails(): void
