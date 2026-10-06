@@ -320,12 +320,12 @@ class InvoiceController extends Controller
         $serviceAmount = $this->invoiceServiceAmount(
             $invoice,
             $selectedDocumentItemIds,
-            $serviceAmount,
+            $selectedFiscalAmount,
         );
         $federalTaxReadiness = $this->federalTaxReadinessForInvoice(
             $invoice,
             $selectedDocumentItemIds,
-            $selectedFiscalAmount,
+            $serviceAmount,
         );
 
         if (($federalTaxReadiness['isReady'] ?? false) !== true) {
