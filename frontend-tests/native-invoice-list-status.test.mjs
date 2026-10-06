@@ -412,3 +412,84 @@ test('bulk sync materializes selected invoice ids before submit', () => {
     assert.equal(hidden.value, '17');
     assert.equal(button.disabled, false);
 });
+
+
+test('bulk dispatch remembers selected ids from checkbox events', () => {
+    const appended = [];
+    const listeners = {};
+    const checkbox = {
+        checked: false,
+        value: 'on',
+        dataset: { bulkAction: '21' },
+        addEventListener(name, listener) {
+            listeners[name] = listener;
+        },
+        closest(selector) {
+            if (selector !== 'table') {
+                return null;
+            }
+
+            return { parentNode: { insertBefore() {} } };
+        },
+    };
+    const button = { disabled: true, classList: { add() {} } };
+    const form = {
+        dataset: {},
+        classList: { add() {} },
+        appendChild(node) {
+            appended.push(node);
+        },
+        addEventListener() {},
+        querySelectorAll(selector) {
+            if (selector === '[data-nfse-bulk-invoice]') {
+                return appended.filter((node) => node.dataset?.nfseBulkInvoice === 'true');
+            }
+
+            return [];
+        },
+    };
+    const root = {
+        body: {},
+        defaultView: {
+            MutationObserver: class {
+                observe() {}
+            },
+        },
+        addEventListener() {},
+        querySelector() {
+            return null;
+        },
+        querySelectorAll(selector) {
+            if (selector === '[data-bulk-action]') {
+                return [checkbox];
+            }
+
+            if (selector === '[data-bulk-action]:checked') {
+                return [];
+            }
+
+            return [];
+        },
+        createElement(tag) {
+            if (tag === 'form') {
+                return form;
+            }
+
+            if (tag === 'button') {
+                return button;
+            }
+
+            return { dataset: {}, remove() {} };
+        },
+    };
+
+    moduleApi.mountBulkDispatch(root, { url: '/bulk' });
+
+    checkbox.checked = true;
+    listeners.change();
+
+    const hidden = appended.find((node) => node.dataset?.nfseBulkInvoice === 'true');
+
+    assert.ok(hidden);
+    assert.equal(hidden.value, '21');
+});

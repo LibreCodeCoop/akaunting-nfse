@@ -153,10 +153,12 @@
         button.classList.add('rounded', 'bg-green-600', 'px-4', 'py-2', 'text-sm', 'font-medium', 'text-white');
         form.appendChild(button);
 
+        const selectedIds = new Set(selectedInvoiceIds(rootNode));
+
         const sync = () => {
             form.querySelectorAll('[data-nfse-bulk-invoice]').forEach((input) => input.remove());
 
-            selectedInvoiceIds(rootNode).forEach((invoiceId) => {
+            Array.from(selectedIds).forEach((invoiceId) => {
                 const input = rootNode.createElement('input');
                 input.type = 'hidden';
                 input.name = 'invoice_ids[]';
@@ -168,6 +170,29 @@
             button.disabled = false;
         };
 
+        const rememberSelection = (checkbox) => {
+            if (!checkbox) {
+                return;
+            }
+
+            const invoiceId = Number.parseInt(
+                String(checkbox.dataset?.bulkAction || checkbox.value || ''),
+                10,
+            );
+
+            if (!Number.isInteger(invoiceId) || invoiceId <= 0) {
+                return;
+            }
+
+            if (checkbox.checked) {
+                selectedIds.add(invoiceId);
+            } else {
+                selectedIds.delete(invoiceId);
+            }
+
+            sync();
+        };
+
         form.addEventListener('submit', (event) => {
             sync();
 
@@ -176,12 +201,18 @@
             }
         });
 
-        bindBulkSelectionSync(rootNode, sync);
+        bindBulkSelectionSync(rootNode, () => {
+            rootNode.querySelectorAll('[data-bulk-action]').forEach((checkbox) => {
+                if (checkbox.checked) {
+                    rememberSelection(checkbox);
+                }
+            });
+        });
 
         checkboxes.forEach((checkbox) => {
             if (typeof checkbox.addEventListener === 'function') {
-                checkbox.addEventListener('change', sync);
-                checkbox.addEventListener('input', sync);
+                checkbox.addEventListener('change', () => rememberSelection(checkbox));
+                checkbox.addEventListener('input', () => rememberSelection(checkbox));
             }
         });
 
