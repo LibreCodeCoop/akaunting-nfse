@@ -348,6 +348,20 @@ class Notification
     }
 }
 
+namespace App\BulkActions\Sales;
+
+class Invoices
+{
+    /** @var array<string, array<string, mixed>> */
+    public array $actions = [];
+
+    /** @var array<string, string> */
+    public array $messages = ['general' => ''];
+
+    /** @var array<string, string>|string */
+    public array|string $path = [];
+}
+
 namespace App\Traits;
 
 trait Emails
