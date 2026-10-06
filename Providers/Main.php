@@ -44,6 +44,7 @@ class Main extends Provider
         $this->loadViews();
         $this->registerCoreItemViewOverrides();
         $this->loadMigrations();
+        $this->registerNativeInvoiceBulkAction();
         $this->registerNativeInvoiceFiscalPanel();
         $this->registerNativeInvoiceFiscalListStatus();
         $this->registerItemFiscalFieldInjection();
@@ -196,6 +197,13 @@ class Main extends Provider
     protected function syncEmailTemplates(): void
     {
         (new EmailTemplateSynchronizer())->sync();
+    }
+
+    protected function registerNativeInvoiceBulkAction(): void
+    {
+        config([
+            'type.document.invoice.bulk_actions' => \Modules\Nfse\BulkActions\Invoices::class,
+        ]);
     }
 
     protected function registerNativeInvoiceFiscalPanel(): void
