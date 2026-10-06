@@ -111,119 +111,7 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   let dialog = page.locator('[role="dialog"]').last();
 
   await page.goto(`/1/sales/invoices/${selectedInvoiceId}`, { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}// SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
-// SPDX-License-Identifier: AGPL-3.0-or-later
-
-import { expect, test, type Locator, type Page } from '@playwright/test';
-import { loginToAkaunting } from './support/auth';
-
-test.use({ serviceWorkers: 'block' });
-
-function extractPayloadValue(payload: string, fieldName: string): string | null {
-  const encoded = new URLSearchParams(payload);
-
-  if (encoded.has(fieldName)) {
-    return encoded.get(fieldName);
-  }
-
-  if (encoded.has(`${fieldName}[0]`)) {
-    return encoded.get(`${fieldName}[0]`);
-  }
-
-  const escapedField = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const escapedFieldArray = `${escapedField}\\[0\\]`;
-  const multipartPatterns = [
-    new RegExp(`name=\\"${escapedField}\\"\\r?\\n\\r?\\n([\\s\\S]*?)\\r?\\n--`, 'm'),
-    new RegExp(`name=\\"${escapedFieldArray}\\"\\r?\\n\\r?\\n([\\s\\S]*?)\\r?\\n--`, 'm'),
-  ];
-
-  const match = multipartPatterns
-    .map((pattern) => payload.match(pattern))
-    .find((value) => value !== null);
-
-  if (!match || typeof match[1] !== 'string') {
-    return null;
-  }
-
-  return match[1].trim();
-}
-
-async function getEditorText(editor: Locator): Promise<string> {
-  return editor.evaluate((node: HTMLElement) => (node.textContent || '').replace(/\u00a0/g, ' ').trim());
-}
-
-async function setEditorTextAsUser(editor: Locator, text: string): Promise<void> {
-  const updated = await editor.evaluate((node: HTMLElement, value: string) => {
-    const container = node.closest('.ql-container') as (HTMLElement & { __quill?: {
-      setText?: (text: string, source?: string) => void;
-      focus?: () => void;
-    } }) | null;
-    const quill = container?.__quill;
-
-    if (!quill || typeof quill.setText !== 'function') {
-      return false;
-    }
-
-    quill.setText(value, 'user');
-
-    if (typeof quill.focus === 'function') {
-      quill.focus();
-    }
-
-    return true;
-  }, text);
-
-  expect(updated).toBeTruthy();
-}
-
-async function clickRestoreButton(button: Locator): Promise<void> {
-  await button.evaluate((node: HTMLButtonElement) => node.click());
-}
-
-async function setVisibleSwitch(page: Page, id: string, checked: boolean): Promise<void> {
-  const input = page.locator(`#${id}`);
-
-  if ((await input.isChecked()) === checked) {
-    return;
-  }
-
-  await page.locator(`label[for="${id}"]`).click();
-
-  if (checked) {
-    await expect(input).toBeChecked();
-  } else {
-    await expect(input).not.toBeChecked();
-  }
-}
-
-async function openEmitActionFromInvoiceShow(page: Page): Promise<boolean> {
-  const emitAction = page.locator('#nfse-native-fiscal-panel [data-nfse-native-emit="true"]');
-
-  if (await emitAction.count() === 0) {
-    return false;
-  }
-
-  await expect(emitAction).toBeVisible();
-  await emitAction.click();
-
-  return true;
-}
-
-
-test('invoice show emit button opens NFS-e modal and submits final emit payload', async ({ page }, testInfo) => {
-  test.setTimeout(180_000);
-
-  const fixtureInvoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
-
-  expect(fixtureInvoiceId).toMatch(/^\d+$/);
-
-  await loginToAkaunting(page, testInfo);
-
-  const selectedInvoiceId = fixtureInvoiceId;
-  let modalCreatePayload: { data?: { title?: string }; html?: string } | null = null;
-  let dialog = page.locator('[role="dialog"]').last();
-
-));
+  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
   await expect(page.locator('[data-nfse-native-panel="true"]')).toHaveCount(1);
   await expect(page.locator('[data-nfse-native-emit="true"]')).toHaveCount(1);
   await expect(page.getByRole('button', { name: /Emitir NFS-e agora|Emit NFS-e now/i })).toHaveCount(0);
@@ -452,22 +340,7 @@ test('restore default flow works on a fixed invoice from show page', async ({ pa
   await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
   await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${invoiceId}$`));
 
-  await page.evaluate(() => {
-    const trigger = document.getElementById('show-slider-actions-send-email-invoice');
-
-    if (trigger) {
-      trigger.click();
-      return;
-    }
-
-    const fallback = Array.from(document.querySelectorAll('button')).find((button) => {
-      return /Reemitir NFS-e|Emitir NFS-e agora/i.test((button.textContent || '').trim());
-    });
-
-    if (fallback) {
-      fallback.click();
-    }
-  });
+  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
 
   const dialog = page.locator('[role="dialog"]').last();
 
