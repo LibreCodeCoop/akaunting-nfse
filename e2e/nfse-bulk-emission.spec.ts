@@ -25,15 +25,13 @@ test('selected native invoices enter controlled bulk progress with individual ou
   await ready.check();
   await blocked.check();
 
-  const form = page.locator('[data-nfse-bulk-dispatch-form]');
-  const submit = form.getByRole('button');
+  const bulkAction = page.locator('#index-bulk-actions-nfse');
 
-  await expect(form).toBeVisible();
-  await expect(submit).toBeEnabled();
+  await expect(bulkAction).toBeVisible();
 
   await Promise.all([
     page.waitForURL(/\/1\/nfse\/bulk$/),
-    submit.click(),
+    bulkAction.click(),
   ]);
 
   const progress = page.locator('#nfse-bulk-progress');
