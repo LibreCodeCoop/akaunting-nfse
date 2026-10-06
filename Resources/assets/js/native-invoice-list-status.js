@@ -42,7 +42,7 @@
         }
 
         const values = Array.from(rootNode.querySelectorAll('[data-bulk-action]:checked'))
-            .map((checkbox) => Number.parseInt(String(checkbox.value || checkbox.dataset?.bulkAction || ''), 10))
+            .map((checkbox) => Number.parseInt(String(checkbox.dataset?.bulkAction || checkbox.value || ''), 10))
             .filter((invoiceId) => Number.isInteger(invoiceId) && invoiceId > 0);
 
         return Array.from(new Set(values));

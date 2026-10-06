@@ -116,8 +116,8 @@ test('selectedInvoiceIds returns unique checked native invoice ids', () => {
             assert.equal(selector, '[data-bulk-action]:checked');
 
             return [
-                { value: '9', dataset: { bulkAction: '9' } },
-                { value: '11', dataset: { bulkAction: '11' } },
+                { value: 'on', dataset: { bulkAction: '9' } },
+                { value: 'on', dataset: { bulkAction: '11' } },
                 { value: '9', dataset: { bulkAction: '9' } },
                 { value: 'not-an-id', dataset: {} },
             ];
