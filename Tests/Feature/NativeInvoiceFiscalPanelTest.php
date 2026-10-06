@@ -17,11 +17,19 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
     {
         $invoice = Document::factory()->invoice()->create();
 
-        $this->loginAs()
-            ->get(route('invoices.show', $invoice->id))
+        $response = $this->loginAs()
+            ->get(route('invoices.show', $invoice->id));
+
+        $response
             ->assertOk()
             ->assertSee('data-nfse-native-panel="true"', false)
             ->assertSee(route('nfse.modals.invoices.emails.create', $invoice->id), false);
+
+        $this->assertSame(
+            1,
+            substr_count($response->getContent(), 'data-nfse-native-panel="true"'),
+            'The native NFS-e panel must only be injected once per invoice response.',
+        );
     }
 
     public function testNativeInvoiceShowContainsLinkedReceiptAndFiscalDetails(): void

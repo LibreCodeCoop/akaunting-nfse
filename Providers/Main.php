@@ -213,6 +213,15 @@ class Main extends Provider
                 return;
             }
 
+            $viewFactory = $this->app->make('view');
+            $renderOnceKey = 'nfse.native_invoice_fiscal_panel.' . $invoiceId;
+
+            if ($viewFactory->hasRenderedOnce($renderOnceKey)) {
+                return;
+            }
+
+            $viewFactory->markAsRenderedOnce($renderOnceKey);
+
             (new NativeInvoiceSendOverride())->apply($invoice);
 
             try {
@@ -232,8 +241,8 @@ class Main extends Provider
                 'receipts' => $receipts,
             ])->render();
 
-            $this->app->make('view')->startPush('status_message_end', $content);
-            $this->app->make('view')->startPush(
+            $viewFactory->startPush('status_message_end', $content);
+            $viewFactory->startPush(
                 'body_end',
                 view('nfse::modals.invoices.partials.issue-modal-script')->render(),
             );
