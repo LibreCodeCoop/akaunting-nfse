@@ -221,14 +221,14 @@ class Main extends Provider
             }
 
             $viewFactory = $this->app->make('view');
+            $request = $this->app->make('request');
             $renderOnceKey = 'nfse.native_invoice_fiscal_panel.' . $invoiceId;
 
-            if ($viewFactory->hasRenderedOnce($renderOnceKey)) {
+            if ($request->attributes->get($renderOnceKey, false) === true) {
                 return;
             }
 
-            $viewFactory->markAsRenderedOnce($renderOnceKey);
-
+            $request->attributes->set($renderOnceKey, true);
 
             try {
                 $receipts = NfseReceipt::query()
