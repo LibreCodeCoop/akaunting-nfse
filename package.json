@@ -10,6 +10,7 @@
     "test:e2e:debug": "playwright test -c playwright.config.ts --debug",
     "test:e2e:smoke": "playwright test -c playwright.config.ts --project=smoke",
     "test:e2e:full-ui": "playwright test -c playwright.config.ts --project=full-ui",
+    "test:e2e:bulk": "playwright test -c playwright.config.ts --project=full-ui e2e/nfse-bulk-emission.spec.ts --retries=0",
     "test:e2e:live": "playwright test -c playwright.config.ts --project=live-fiscal"
   },
   "devDependencies": {
