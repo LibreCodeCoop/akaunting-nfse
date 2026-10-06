@@ -207,18 +207,10 @@ class Main extends Provider
 
     protected function registerNativeInvoiceFiscalPanel(): void
     {
-        $viewFactory = $this->app->make('view');
+        $this->app->make('view')->composer('sales.invoices.show', function ($view): void {
+            $invoice = $view->getData()['invoice'] ?? null;
 
-        // The fiscal panel must be pushed from the component that consumes
-        // status_message_end. Pushing it while the parent sales.invoices.show
-        // component slot is being composed can cause Blade to materialize the
-        // same stack content twice in the final response.
-        $viewFactory->composer('components.documents.show.content', function ($view): void {
-            $data = $view->getData();
-            $invoice = $data['document'] ?? null;
-            $type = (string) ($data['type'] ?? '');
-
-            if ($type !== 'invoice' || !is_object($invoice) || ($invoice->type ?? '') !== 'invoice') {
+            if (!is_object($invoice) || ($invoice->type ?? '') !== 'invoice') {
                 return;
             }
 
@@ -228,6 +220,7 @@ class Main extends Provider
                 return;
             }
 
+            $viewFactory = $this->app->make('view');
             $request = $this->app->make('request');
             $renderOnceKey = 'nfse.native_invoice_fiscal_panel.' . $invoiceId;
 
@@ -254,40 +247,20 @@ class Main extends Provider
                 'receipts' => $receipts,
             ])->render();
 
-            $this->app->make('view')->startPush('status_message_end', $content);
-        });
-
-        // Keep the modal bridge and script at the invoice page level. These
-        // stacks are not affected by the content-slot duplication that caused
-        // the fiscal panel regression.
-        $viewFactory->composer('sales.invoices.show', function ($view): void {
-            $invoice = $view->getData()['invoice'] ?? null;
-
-            if (!is_object($invoice) || ($invoice->type ?? '') !== 'invoice') {
-                return;
-            }
-
-            $invoiceId = is_numeric($invoice->id ?? null) ? (int) $invoice->id : 0;
-
-            if ($invoiceId <= 0) {
-                return;
-            }
-
-            $request = $this->app->make('request');
-            $renderOnceKey = 'nfse.native_invoice_modal_bridge.' . $invoiceId;
-
-            if ($request->attributes->get($renderOnceKey, false) === true) {
-                return;
-            }
-
-            $request->attributes->set($renderOnceKey, true);
-
             $modalTrigger = view('nfse::invoices.partials.native-fiscal-modal-trigger', [
                 'invoice' => $invoice,
             ])->render();
 
-            $viewFactory = $this->app->make('view');
             $viewFactory->startPush('timeline_send_body_button_email_start', $modalTrigger);
+
+            // Akaunting yields status_message_end both from the outer document
+            // content view and from the nested status message component. Using
+            // that stack duplicates the fiscal panel on draft invoices.
+            //
+            // create_start is the next native extension point after the status
+            // area and is yielded exactly once by the document content view.
+            $viewFactory->startPush('create_start', $content);
+
             $viewFactory->startPush(
                 'body_end',
                 view('nfse::modals.invoices.partials.issue-modal-script')->render(),
