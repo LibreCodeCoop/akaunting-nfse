@@ -39,6 +39,30 @@ async function getEditorText(editor: Locator): Promise<string> {
   return editor.evaluate((node: HTMLElement) => (node.textContent || '').replace(/\u00a0/g, ' ').trim());
 }
 
+async function setEditorTextAsUser(editor: Locator, text: string): Promise<void> {
+  const updated = await editor.evaluate((node: HTMLElement, value: string) => {
+    const container = node.closest('.ql-container') as (HTMLElement & { __quill?: {
+      setText?: (text: string, source?: string) => void;
+      focus?: () => void;
+    } }) | null;
+    const quill = container?.__quill;
+
+    if (!quill || typeof quill.setText !== 'function') {
+      return false;
+    }
+
+    quill.setText(value, 'user');
+
+    if (typeof quill.focus === 'function') {
+      quill.focus();
+    }
+
+    return true;
+  }, text);
+
+  expect(updated).toBeTruthy();
+}
+
 async function clickRestoreButton(button: Locator): Promise<void> {
   await button.evaluate((node: HTMLButtonElement) => node.click());
 }
@@ -231,7 +255,7 @@ test('typing in email body keeps email tab content visible in emit modal', async
 
   const typedText = 'Teste E2E: digitar no body deve manter a aba Email visivel.';
 
-  await editor.fill(typedText);
+  await setEditorTextAsUser(editor, typedText);
 
   await expect(emailPane).toBeVisible();
   await expect(emailFields).toBeVisible();
@@ -291,7 +315,7 @@ test('restore default button reacts to subject and body edits in emit modal', as
   await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
   await expect(restoreButton).toBeHidden();
 
-  await editor.fill(`${initialBodyText} Corpo alterado E2E.`);
+  await setEditorTextAsUser(editor, `${initialBodyText} Corpo alterado E2E.`);
   await expect(restoreButton).toBeVisible();
 
   await clickRestoreButton(restoreButton);
@@ -353,7 +377,7 @@ test('restore default flow works on a fixed invoice from show page', async ({ pa
   await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
   await expect(restoreButton).toBeHidden();
 
-  await editor.fill(`${initialBodyText} Corpo alterado E2E fixo.`);
+  await setEditorTextAsUser(editor, `${initialBodyText} Corpo alterado E2E fixo.`);
   await expect(restoreButton).toBeVisible();
   await clickRestoreButton(restoreButton);
   await expect(subject).toHaveValue(initialSubject);
