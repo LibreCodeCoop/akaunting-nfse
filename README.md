@@ -116,17 +116,18 @@ Configure os campos da aba **NFS-e → Configurações**:
 
 Antes de emitir NFS-e, valide a tela **NFS-e -> Configuracoes -> Prontidao operacional**.
 
-Ela precisa indicar **Sim** para todos os itens, incluindo:
+Ela precisa indicar **Sim** para todos os itens de configuracao global, incluindo:
 
 - CNPJ do prestador salvo
 - Municipio IBGE configurado
-- Item da lista LC 116 configurado
 - Endereco OpenBao configurado
 - Mount OpenBao configurado
 - Certificado local disponivel
 - Segredo do certificado disponivel no Vault/OpenBao
 
-Se o ultimo item estiver pendente, a emissao sera bloqueada para evitar falha em tempo de envio.
+A classificacao fiscal do servico, incluindo o item da lista LC 116, pertence ao perfil fiscal de cada item e e validada no contexto da fatura antes da emissao.
+
+Se o ultimo item global estiver pendente, a emissao sera bloqueada para evitar falha em tempo de envio.
 
 ### Mapeamento de tributos federais por nome
 

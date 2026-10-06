@@ -72,7 +72,6 @@ return [
             'cnpj_prestador' => 'CNPJ do prestador válido',
             'certificate_cnpj_matches' => 'CNPJ do certificado corresponde ao prestador configurado',
             'municipio_ibge' => 'Município IBGE configurado',
-            'item_lista_servico' => 'Item da lista LC 116 configurado',
             'codigo_tributacao_nacional' => 'Código de tributação nacional (NBS) configurado',
             'bao_addr' => 'Endereço OpenBao configurado',
             'bao_mount' => 'Mount OpenBao configurado',

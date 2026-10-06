@@ -78,7 +78,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     'cnpj_prestador' => 'certificate',
                                     'certificate_cnpj_matches' => 'certificate',
                                     'municipio_ibge' => 'fiscal',
-                                    'item_lista_servico' => 'fiscal',
                                     'certificate' => 'certificate',
                                     'certificate_secret' => 'certificate',
                                     'certificate_valid' => 'certificate',

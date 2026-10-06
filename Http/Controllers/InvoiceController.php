@@ -2767,7 +2767,6 @@ class InvoiceController extends Controller
 
         return (new OperationalReadinessResolver())->evaluate(
             settings: $settingsArray,
-            serviceCode: $this->itemListaServico(),
             hasCertificateSecret: $this->hasCertificateSecret($cnpj),
             certificatePath: $certificatePath,
         );
