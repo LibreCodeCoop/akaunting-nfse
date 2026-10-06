@@ -369,13 +369,11 @@
     }
 
     function triggerNativeDocumentModal(documentRef) {
-        if (!documentRef || typeof documentRef.getElementById !== 'function') {
+        if (!documentRef || typeof documentRef.querySelector !== 'function') {
             return false;
         }
 
-        const trigger = typeof documentRef.querySelector === 'function'
-            ? documentRef.querySelector('[data-nfse-native-modal-trigger="true"]')
-            : null;
+        const trigger = documentRef.querySelector('[data-nfse-native-modal-trigger="true"]');
 
         if (!trigger || typeof trigger.click !== 'function') {
             return false;
