@@ -3370,30 +3370,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString("'itemListaServico' => (string) \$itemFiscalProfile['item_lista_servico']", $content);
         }
 
-        public function testEmissionReadinessDoesNotRequireNationalTaxCodeWhenUsingCompanyServices(): void
+        public function testEmissionReadinessDoesNotIncludeItemFiscalClassification(): void
         {
-            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 88, amount: 100.0, items: []);
-
             $controller = new class () extends InvoiceController {
                 public function exposedEmissionReadiness(): array
                 {
                     return $this->emissionReadiness();
-                }
-
-                protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
-                {
-                    return (object) [
-                        'item_lista_servico' => '1401',
-                        'codigo_tributacao_nacional' => null,
-                        'aliquota' => '5.00',
-                        'is_default' => true,
-                        'is_active' => true,
-                    ];
-                }
-
-                protected function supportsCompanyServiceSelection(): bool
-                {
-                    return true;
                 }
 
                 protected function hasCertificateSecret(string $cnpj): bool
@@ -3406,7 +3388,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertTrue($readiness['isReady'] ?? false);
             self::assertArrayNotHasKey('codigo_tributacao_nacional', $readiness['checklist']);
-            self::assertSame(true, $readiness['checklist']['item_lista_servico'] ?? null);
+            self::assertArrayNotHasKey('item_lista_servico', $readiness['checklist']);
         }
 
         public function testEmissionReadinessBlocksKnownExpiredCertificate(): void
