@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Providers;
 
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\ItemFiscalProfileValidator;
@@ -202,10 +201,9 @@ class Main extends Provider
 
     protected function registerNativeInvoiceBulkAction(): void
     {
-        Config::set(
-            'type.document.invoice.bulk_actions',
-            \Modules\Nfse\BulkActions\Invoices::class,
-        );
+        config([
+            'type.document.invoice.bulk_actions' => \Modules\Nfse\BulkActions\Invoices::class,
+        ]);
     }
 
     protected function registerNativeInvoiceFiscalPanel(): void

@@ -473,8 +473,12 @@ namespace {
         };
     }
 
-    function config(string $key, mixed $default = null): mixed
+    function config(array|string|null $key = null, mixed $default = null): mixed
     {
+        if (is_array($key)) {
+            return null;
+        }
+
         return $default;
     }
 
