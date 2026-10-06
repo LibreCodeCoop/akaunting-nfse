@@ -50,7 +50,6 @@ class SettingsController extends Controller
         $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
         $readiness = (new OperationalReadinessResolver())->evaluate(
             settings: $settingsArray,
-            serviceCode: Lc116Code::normalize((string) ($settingsArray['item_lista_servico'] ?? '')),
             hasCertificateSecret: $this->hasCertificateSecret(
                 trim((string) ($settingsArray['cnpj_prestador'] ?? '')),
             ),

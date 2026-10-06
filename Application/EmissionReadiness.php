@@ -23,7 +23,6 @@ final class EmissionReadiness
         array $settings,
         bool $hasLocalCertificate,
         bool $hasCertificateSecret,
-        string $serviceCode,
         ?int $now = null,
         bool $runtimeContractAvailable = true,
     ): array {
@@ -38,7 +37,6 @@ final class EmissionReadiness
             'runtime_contract' => $runtimeContractAvailable,
             'cnpj_prestador' => preg_match('/^[A-Z0-9]{12}\d{2}$/', $cnpj) === 1,
             'municipio_ibge' => trim((string) ($settings['municipio_ibge'] ?? '')) !== '',
-            'item_lista_servico' => trim($serviceCode) !== '',
             'bao_addr' => trim((string) ($settings['bao_addr'] ?? '')) !== '',
             'bao_mount' => trim((string) ($settings['bao_mount'] ?? '')) !== '',
             'vault_auth' => $vaultAuthReady,

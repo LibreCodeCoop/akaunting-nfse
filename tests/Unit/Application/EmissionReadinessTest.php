@@ -26,12 +26,12 @@ final class EmissionReadinessTest extends TestCase
             ],
             hasLocalCertificate: true,
             hasCertificateSecret: true,
-            serviceCode: '0107',
             now: 200,
         );
 
         self::assertTrue($result['isReady']);
         self::assertFalse(in_array(false, $result['checklist'], true));
+        self::assertArrayNotHasKey('item_lista_servico', $result['checklist']);
     }
 
     public function testReportsAllIndependentBlockers(): void
@@ -40,7 +40,6 @@ final class EmissionReadinessTest extends TestCase
             settings: [],
             hasLocalCertificate: false,
             hasCertificateSecret: false,
-            serviceCode: '',
         );
 
         self::assertFalse($result['isReady']);
@@ -48,7 +47,6 @@ final class EmissionReadinessTest extends TestCase
             'runtime_contract' => true,
             'cnpj_prestador' => false,
             'municipio_ibge' => false,
-            'item_lista_servico' => false,
             'bao_addr' => false,
             'bao_mount' => false,
             'vault_auth' => false,
@@ -68,7 +66,6 @@ final class EmissionReadinessTest extends TestCase
             ],
             hasLocalCertificate: true,
             hasCertificateSecret: true,
-            serviceCode: '0107',
         );
 
         self::assertFalse($result['isReady']);
@@ -88,7 +85,6 @@ final class EmissionReadinessTest extends TestCase
             ],
             hasLocalCertificate: true,
             hasCertificateSecret: true,
-            serviceCode: '0107',
         );
 
         self::assertFalse($result['isReady']);
@@ -108,7 +104,6 @@ final class EmissionReadinessTest extends TestCase
             ],
             hasLocalCertificate: true,
             hasCertificateSecret: true,
-            serviceCode: '0107',
         );
 
         self::assertFalse($result['isReady']);
@@ -129,7 +124,6 @@ final class EmissionReadinessTest extends TestCase
             ],
             hasLocalCertificate: true,
             hasCertificateSecret: true,
-            serviceCode: '0107',
             now: 201,
         );
 
@@ -154,7 +148,6 @@ final class EmissionReadinessTest extends TestCase
             ],
             hasLocalCertificate: true,
             hasCertificateSecret: true,
-            serviceCode: '0107',
         );
 
         self::assertFalse($result['isReady']);
@@ -174,7 +167,6 @@ final class EmissionReadinessTest extends TestCase
             settings: $base,
             hasLocalCertificate: true,
             hasCertificateSecret: true,
-            serviceCode: '0107',
         );
 
         self::assertFalse($missing['checklist']['vault_auth']);
@@ -186,7 +178,6 @@ final class EmissionReadinessTest extends TestCase
             ],
             hasLocalCertificate: true,
             hasCertificateSecret: true,
-            serviceCode: '0107',
         );
 
         self::assertTrue($approle['checklist']['vault_auth']);

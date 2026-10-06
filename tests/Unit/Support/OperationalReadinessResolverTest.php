@@ -26,7 +26,6 @@ final class OperationalReadinessResolverTest extends TestCase
                     'bao_mount' => 'nfse',
                     'bao_token' => 'test-token',
                 ],
-                serviceCode: '0107',
                 hasCertificateSecret: true,
                 certificatePath: $certificate,
             );
@@ -34,6 +33,7 @@ final class OperationalReadinessResolverTest extends TestCase
             self::assertTrue($result['isReady']);
             self::assertTrue($result['checklist']['certificate']);
             self::assertTrue($result['checklist']['certificate_secret']);
+            self::assertArrayNotHasKey('item_lista_servico', $result['checklist']);
         } finally {
             @unlink($certificate);
         }
@@ -49,7 +49,6 @@ final class OperationalReadinessResolverTest extends TestCase
                 'bao_mount' => 'nfse',
                 'bao_token' => 'test-token',
             ],
-            serviceCode: '0107',
             hasCertificateSecret: true,
             certificatePath: __FILE__,
             runtimeContractAvailable: false,
@@ -69,7 +68,6 @@ final class OperationalReadinessResolverTest extends TestCase
                 'bao_mount' => 'nfse',
                 'bao_token' => 'test-token',
             ],
-            serviceCode: '0107',
             hasCertificateSecret: false,
             certificatePath: __FILE__,
         );

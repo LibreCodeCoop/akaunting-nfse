@@ -72,7 +72,6 @@ return [
             'cnpj_prestador' => 'Service provider CNPJ is valid',
             'certificate_cnpj_matches' => 'Certificate CNPJ matches the configured service provider',
             'municipio_ibge' => 'IBGE municipality configured',
-            'item_lista_servico' => 'LC 116 service item configured',
             'codigo_tributacao_nacional' => 'National tax code (NBS) configured',
             'bao_addr' => 'OpenBao address configured',
             'bao_mount' => 'OpenBao mount configured',

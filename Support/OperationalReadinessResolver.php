@@ -20,7 +20,6 @@ final class OperationalReadinessResolver
      */
     public function evaluate(
         array $settings,
-        string $serviceCode,
         bool $hasCertificateSecret,
         string $certificatePath,
         ?int $now = null,
@@ -34,7 +33,6 @@ final class OperationalReadinessResolver
             settings: $settings,
             hasLocalCertificate: $certificatePath !== '' && is_file($certificatePath),
             hasCertificateSecret: $hasCertificateSecret,
-            serviceCode: $serviceCode,
             now: $now,
             runtimeContractAvailable: $runtimeContractAvailable,
         );
