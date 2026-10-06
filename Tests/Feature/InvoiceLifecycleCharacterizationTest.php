@@ -16,7 +16,8 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 {
     public function testNativeInvoiceShowScopesSendActionToNfseModal(): void
     {
-        $invoice = FiscalScenarioBuilder::invoice();
+        // Akaunting's factory randomizes status; cancelled invoices disable sending.
+        $invoice = FiscalScenarioBuilder::invoice(['status' => 'draft']);
 
         self::assertNotSame(
             'nfse.modals.invoices.emails.create',

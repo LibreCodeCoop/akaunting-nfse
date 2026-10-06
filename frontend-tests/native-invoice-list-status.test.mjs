@@ -3,10 +3,18 @@
 
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const require = createRequire(import.meta.url);
 const moduleApi = require('../Resources/assets/js/native-invoice-list-status.js');
+
+test('browser asset contains the same implementation exercised by unit tests', () => {
+    const source = new URL('../Resources/assets/js/native-invoice-list-status.js', import.meta.url);
+    const browserAsset = new URL('../Resources/assets/js/native-invoice-list-status.min.js', import.meta.url);
+
+    assert.equal(readFileSync(browserAsset, 'utf8'), readFileSync(source, 'utf8'));
+});
 
 test('badge descriptor falls back to pending visual state', () => {
     const badge = moduleApi.badgeDescriptor(42, {
@@ -99,54 +107,4 @@ test('decorate appends one accessible fiscal badge and is idempotent', () => {
         },
     }), 0);
     assert.equal(appended.length, 1);
-});
-
-
-test('selectedInvoiceIds returns unique checked native invoice ids', () => {
-    const root = {
-        querySelectorAll(selector) {
-            assert.equal(selector, '[data-bulk-action]:checked');
-
-            return [
-                { value: '9', dataset: { bulkAction: '9' } },
-                { value: '11', dataset: { bulkAction: '11' } },
-                { value: '9', dataset: { bulkAction: '9' } },
-                { value: 'not-an-id', dataset: {} },
-            ];
-        },
-    };
-
-    assert.deepEqual(moduleApi.selectedInvoiceIds(root), [9, 11]);
-});
-
-
-test('delegated bulk selection sync survives checkbox replacement', () => {
-    const listeners = {};
-    let syncCalls = 0;
-    const root = {
-        addEventListener(name, listener) {
-            listeners[name] = listener;
-        },
-    };
-
-    assert.equal(moduleApi.bindBulkSelectionSync(root, () => {
-        syncCalls += 1;
-    }), true);
-
-    const currentCheckbox = {
-        matches(selector) {
-            return selector === '[data-bulk-action]';
-        },
-    };
-
-    listeners.change({ target: currentCheckbox });
-    assert.equal(syncCalls, 1);
-
-    moduleApi.bindBulkSelectionSync(root, () => {
-        syncCalls += 10;
-    });
-    listeners.input({ target: currentCheckbox });
-
-    assert.equal(syncCalls, 11);
-    assert.equal(Object.keys(listeners).length, 2);
 });

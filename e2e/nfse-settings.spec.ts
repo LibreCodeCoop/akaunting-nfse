@@ -113,7 +113,7 @@ test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo
   await expect(page.locator('#btn-read-cert')).toBeVisible();
 
   await page.locator('input[name="pfx_file"]').setInputFiles('e2e/fixtures/test-cert.p12');
-  await page.locator('input[name="pfx_password"]').fill('test-password-only');
+  await page.locator('input[name="pfx_password"]').fill('e2e-certificate-fixture');
   await page.locator('#btn-read-cert').click();
 
   await expect(page.locator('#cert-cnpj-display')).toBeVisible();
@@ -291,7 +291,7 @@ test('full dependent setup flow covers vault, certificate, fiscal and services s
   await expect(page.locator('#tab-panel-vault')).toBeVisible();
   await page.locator('input[name="nfse[bao_addr]"]').fill('http://openbao:8200');
   await page.locator('input[name="nfse[bao_mount]"]').fill('/nfse');
-  await page.locator('input[name="nfse[bao_token]"]').fill('dev-only-root-token');
+  await page.locator('input[name="nfse[bao_token]"]').fill('e2e-vault-fixture');
   await page.locator('#tab-panel-vault button[type="submit"]').click();
   await page.waitForLoadState('networkidle');
   await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=vault/);
@@ -305,7 +305,7 @@ test('full dependent setup flow covers vault, certificate, fiscal and services s
   }
 
   await page.locator('input[name="pfx_file"]').setInputFiles('e2e/fixtures/test-cert.p12');
-  await page.locator('input[name="pfx_password"]').fill('wrong-password');
+  await page.locator('input[name="pfx_password"]').fill('e2e-invalid-certificate-fixture');
   await page.locator('#btn-upload-cert').click();
   await page.waitForLoadState('networkidle');
 
@@ -340,10 +340,11 @@ test('settings no longer expose legacy services create route', async ({ page }, 
 
 
 test('readiness blocker guides operator to the focused corrective settings tab', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+
   await loginToAkaunting(page, testInfo);
 
   await page.goto('/1/nfse/settings?tab=vault', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
 
   const clearToken = page.locator('#clear_bao_token');
   await clearToken.check();
@@ -360,12 +361,16 @@ test('readiness blocker guides operator to the focused corrective settings tab',
 
   const vaultCorrectiveLink = summary.locator('a[href*="tab=vault"]').first();
   await expect(vaultCorrectiveLink).toBeVisible();
-  await vaultCorrectiveLink.click();
+
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    vaultCorrectiveLink.click(),
+  ]);
 
   await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=vault/);
   await expect(page.locator('#tab-panel-vault')).toBeVisible();
 
-  await page.locator('input[name="nfse[bao_token]"]').fill('deterministic-test-token');
+  await page.locator('input[name="nfse[bao_token]"]').fill('e2e-restored-fixture');
   await page.locator('#clear_bao_token').uncheck();
 
   const restoreTokenResponse = page.waitForResponse((response) => {

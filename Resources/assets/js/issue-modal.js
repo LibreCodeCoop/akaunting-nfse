@@ -74,8 +74,7 @@
                 .replace(/<\/(p|div|li)>/gi, '\n')
                 .replace(/<[^>]*>/g, '')
                 .replace(/&nbsp;/gi, ' ')
-                .replace(/[ \t]+\n/g, '\n')
-                .replace(/\n{3,}/g, '\n\n')
+                .replace(/\s+/g, ' ')
                 .trim();
         }
 
@@ -96,7 +95,7 @@
             .replace(/\u00a0/g, ' ')
             .replace(/\r\n/g, '\n')
             .replace(/[ \t]+\n/g, '\n')
-            .replace(/\n{3,}/g, '\n\n')
+            .replace(/\s+/g, ' ')
             .trim();
     }
 
@@ -366,14 +365,6 @@
             syncSwitch(descriptionToggle);
         }
 
-        const emailScope = typeof documentRef.getElementById === 'function'
-            ? documentRef.getElementById('nfse-email-fields')
-            : null;
-
-        if (emailScope) {
-            syncRestoreButton(emailScope, documentRef);
-        }
-
         return reconciled;
     }
 
@@ -509,7 +500,7 @@
                 if (tabs) {
                     syncTabPane(tabs);
                 }
-            }, true);
+            });
         });
 
         const MutationObserverRef = documentRef.defaultView

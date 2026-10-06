@@ -68,6 +68,49 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
         ]);
     }
 
+    public function testNativeAkauntingBulkActionDispatchesSelectedInvoices(): void
+    {
+        $this->loginAs();
+
+        $ready = $this->invoiceWithProfile('0107', '010701', '100');
+        $blocked = $this->invoiceWithProfile('0107', '010701', '100');
+        $blocked->contact->forceFill(['country' => 'GB'])->saveQuietly();
+        $blocked->unsetRelation('contact');
+
+        $dispatched = [];
+        $this->app->instance(
+            BulkEmissionDispatcher::class,
+            new BulkEmissionDispatcher(
+                dispatchUnit: static function (int $unitId) use (&$dispatched): void {
+                    $dispatched[] = $unitId;
+                },
+            ),
+        );
+
+        $this->post(route('bulk-actions.action', [
+            'group' => 'nfse',
+            'type' => 'invoices',
+        ]), [
+            'handle' => 'nfse',
+            'selected' => [$ready->id, $blocked->id],
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('redirect', route('nfse.bulk.index'));
+
+        self::assertCount(1, $dispatched);
+        $this->assertDatabaseCount('nfse_bulk_emission_runs', 1);
+        $this->assertDatabaseHas('nfse_bulk_emission_units', [
+            'invoice_id' => $ready->id,
+            'status' => 'queued',
+        ]);
+        $this->assertDatabaseHas('nfse_bulk_emission_units', [
+            'invoice_id' => $blocked->id,
+            'status' => 'blocked',
+            'error_type' => 'foreign_taker_requires_review',
+        ]);
+    }
+
     public function testEmptySelectionDoesNotCreateRun(): void
     {
         $this->loginAs()

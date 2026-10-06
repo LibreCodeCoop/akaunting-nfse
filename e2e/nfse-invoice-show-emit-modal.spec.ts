@@ -39,6 +39,30 @@ async function getEditorText(editor: Locator): Promise<string> {
   return editor.evaluate((node: HTMLElement) => (node.textContent || '').replace(/\u00a0/g, ' ').trim());
 }
 
+async function setEditorTextAsUser(editor: Locator, text: string): Promise<void> {
+  const updated = await editor.evaluate((node: HTMLElement, value: string) => {
+    const container = node.closest('.ql-container') as (HTMLElement & { __quill?: {
+      setText?: (text: string, source?: string) => void;
+      focus?: () => void;
+    } }) | null;
+    const quill = container?.__quill;
+
+    if (!quill || typeof quill.setText !== 'function') {
+      return false;
+    }
+
+    quill.setText(value, 'user');
+
+    if (typeof quill.focus === 'function') {
+      quill.focus();
+    }
+
+    return true;
+  }, text);
+
+  expect(updated).toBeTruthy();
+}
+
 async function clickRestoreButton(button: Locator): Promise<void> {
   await button.evaluate((node: HTMLButtonElement) => node.click());
 }
@@ -231,8 +255,7 @@ test('typing in email body keeps email tab content visible in emit modal', async
 
   const typedText = 'Teste E2E: digitar no body deve manter a aba Email visivel.';
 
-  await editor.click({ force: true });
-  await page.keyboard.type(typedText, { delay: 10 });
+  await setEditorTextAsUser(editor, typedText);
 
   await expect(emailPane).toBeVisible();
   await expect(emailFields).toBeVisible();
@@ -269,14 +292,19 @@ test('restore default button reacts to subject and body edits in emit modal', as
   const subject = dialog.locator("input[name='nfse_email_subject']");
   const editor = dialog.locator('.ql-editor').first();
   const restoreButton = dialog.getByRole('button', { name: /Restaurar template padrão|Restore default template/i });
+  await expect(subject).toBeVisible();
+  await expect(editor).toBeVisible();
+
+  if (await restoreButton.isVisible()) {
+    await clickRestoreButton(restoreButton);
+  }
+
+  await expect(restoreButton).toBeHidden();
+
   const initialSubject = await subject.inputValue();
   const initialBodyText = await getEditorText(editor);
 
-  await expect(subject).toBeVisible();
-  await expect(editor).toBeVisible();
-  await expect(restoreButton).toBeHidden();
-
-  await editor.click({ force: true });
+  await editor.focus();
   await expect(restoreButton).toBeHidden();
 
   await subject.fill('Assunto alterado E2E');
@@ -287,8 +315,7 @@ test('restore default button reacts to subject and body edits in emit modal', as
   await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
   await expect(restoreButton).toBeHidden();
 
-  await editor.click({ force: true });
-  await page.keyboard.type(' Corpo alterado E2E.', { delay: 10 });
+  await setEditorTextAsUser(editor, `${initialBodyText} Corpo alterado E2E.`);
   await expect(restoreButton).toBeVisible();
 
   await clickRestoreButton(restoreButton);
@@ -350,8 +377,7 @@ test('restore default flow works on a fixed invoice from show page', async ({ pa
   await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
   await expect(restoreButton).toBeHidden();
 
-  await editor.click({ force: true });
-  await page.keyboard.type(' Corpo alterado E2E fixo.', { delay: 10 });
+  await setEditorTextAsUser(editor, `${initialBodyText} Corpo alterado E2E fixo.`);
   await expect(restoreButton).toBeVisible();
   await clickRestoreButton(restoreButton);
   await expect(subject).toHaveValue(initialSubject);

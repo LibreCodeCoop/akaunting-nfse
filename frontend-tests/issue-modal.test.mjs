@@ -55,6 +55,17 @@ test('restore-default comparison normalizes equivalent editor html', () => {
     );
 
     assert.equal(
+        modal.shouldShowRestore(
+            'Subject',
+            '<p>Prezado(a)</p><p><br></p><p>Segue a nota.</p>',
+            'Subject',
+            'Prezado(a)<br><br>Segue a nota.',
+            null,
+        ),
+        false,
+    );
+
+    assert.equal(
         modal.shouldShowRestore('Changed', '<p>Hello</p>', 'Subject', 'Hello', null),
         true,
     );
@@ -176,4 +187,18 @@ test('hydration observer work is scoped to NFS-e modal mutations by selector con
     assert.match(source, /closest\('\[data-nfse-tabs\]'\)/);
     assert.match(source, /data-nfse-error-summary/);
     assert.doesNotMatch(source, /new MutationObserverRef\(\(\) => \{\s*reconcileHydratedModal/);
+});
+
+
+test('generic hydration reconciliation does not override restore-default visibility', () => {
+    const source = modal.reconcileHydratedModal.toString();
+
+    assert.doesNotMatch(source, /syncRestoreButton/);
+});
+
+
+test('editor event reconciliation runs after component handlers', () => {
+    const source = modal.boot.toString();
+
+    assert.doesNotMatch(source, /\}, true\);\s*\}\);/);
 });
