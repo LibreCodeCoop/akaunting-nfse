@@ -112,6 +112,9 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   await page.goto(`/1/sales/invoices/${selectedInvoiceId}`, { waitUntil: 'domcontentloaded' });
   await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
+  await expect(page.locator('[data-nfse-native-panel="true"]')).toHaveCount(1);
+  await expect(page.locator('[data-nfse-native-emit="true"]')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /Emitir NFS-e agora|Emit NFS-e now/i })).toHaveCount(0);
 
   const modalCreateResponsePromise = page.waitForResponse((response) => {
     return response.request().method() === 'GET'
@@ -337,22 +340,7 @@ test('restore default flow works on a fixed invoice from show page', async ({ pa
   await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
   await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${invoiceId}$`));
 
-  await page.evaluate(() => {
-    const trigger = document.getElementById('show-slider-actions-send-email-invoice');
-
-    if (trigger) {
-      trigger.click();
-      return;
-    }
-
-    const fallback = Array.from(document.querySelectorAll('button')).find((button) => {
-      return /Reemitir NFS-e|Emitir NFS-e agora/i.test((button.textContent || '').trim());
-    });
-
-    if (fallback) {
-      fallback.click();
-    }
-  });
+  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
 
   const dialog = page.locator('[role="dialog"]').last();
 

@@ -93,19 +93,16 @@ test('error summary receives focus once when visible', () => {
     assert.equal(focusCount, 1);
 });
 
-test('native fiscal action delegates to Akaunting compiled document trigger', () => {
+test('native fiscal action delegates only to the dedicated compiled NFS-e modal trigger', () => {
     let clicked = 0;
+    const trigger = {
+        click() {
+            clicked += 1;
+        },
+    };
     const documentRef = {
-        getElementById(id) {
-            if (id !== 'show-slider-actions-send-email-invoice') {
-                return null;
-            }
-
-            return {
-                click() {
-                    clicked += 1;
-                },
-            };
+        querySelector(selector) {
+            return selector === '[data-nfse-native-modal-trigger="true"]' ? trigger : null;
         },
     };
 
@@ -113,31 +110,27 @@ test('native fiscal action delegates to Akaunting compiled document trigger', ()
     assert.equal(clicked, 1);
 });
 
-test('native fiscal action falls back to Akaunting more-actions trigger', () => {
-    let clicked = 0;
+test('native fiscal action does not fall back to Akaunting customer-email actions', () => {
+    let nativeSendClicked = 0;
     const documentRef = {
+        querySelector() {
+            return null;
+        },
         getElementById(id) {
-            if (id !== 'show-more-actions-send-email-invoice') {
-                return null;
+            if (id === 'show-slider-actions-send-email-invoice' || id === 'show-more-actions-send-email-invoice') {
+                return {
+                    click() {
+                        nativeSendClicked += 1;
+                    },
+                };
             }
 
-            return {
-                click() {
-                    clicked += 1;
-                },
-            };
+            return null;
         },
     };
 
-    assert.equal(modal.triggerNativeDocumentModal(documentRef), true);
-    assert.equal(clicked, 1);
-});
-
-test('native fiscal action fails closed without compiled Akaunting trigger', () => {
-    assert.equal(
-        modal.triggerNativeDocumentModal({ getElementById() { return null; } }),
-        false,
-    );
+    assert.equal(modal.triggerNativeDocumentModal(documentRef), false);
+    assert.equal(nativeSendClicked, 0);
 });
 
 

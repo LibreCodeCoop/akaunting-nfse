@@ -369,25 +369,19 @@
     }
 
     function triggerNativeDocumentModal(documentRef) {
-        if (!documentRef || typeof documentRef.getElementById !== 'function') {
+        if (!documentRef || typeof documentRef.querySelector !== 'function') {
             return false;
         }
 
-        const triggerIds = [
-            'show-slider-actions-send-email-invoice',
-            'show-more-actions-send-email-invoice',
-        ];
+        const trigger = documentRef.querySelector('[data-nfse-native-modal-trigger="true"]');
 
-        for (const triggerId of triggerIds) {
-            const trigger = documentRef.getElementById(triggerId);
-
-            if (trigger && typeof trigger.click === 'function') {
-                trigger.click();
-                return true;
-            }
+        if (!trigger || typeof trigger.click !== 'function') {
+            return false;
         }
 
-        return false;
+        trigger.click();
+
+        return true;
     }
 
     function boot(documentRef) {
