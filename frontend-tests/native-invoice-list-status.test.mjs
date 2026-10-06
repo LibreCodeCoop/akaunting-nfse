@@ -3,10 +3,18 @@
 
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const require = createRequire(import.meta.url);
 const moduleApi = require('../Resources/assets/js/native-invoice-list-status.js');
+
+test('browser asset contains the same implementation exercised by unit tests', () => {
+    const source = new URL('../Resources/assets/js/native-invoice-list-status.js', import.meta.url);
+    const browserAsset = new URL('../Resources/assets/js/native-invoice-list-status.min.js', import.meta.url);
+
+    assert.equal(readFileSync(browserAsset, 'utf8'), readFileSync(source, 'utf8'));
+});
 
 test('badge descriptor falls back to pending visual state', () => {
     const badge = moduleApi.badgeDescriptor(42, {
