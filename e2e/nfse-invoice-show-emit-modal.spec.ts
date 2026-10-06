@@ -231,8 +231,11 @@ test('typing in email body keeps email tab content visible in emit modal', async
 
   const typedText = 'Teste E2E: digitar no body deve manter a aba Email visivel.';
 
-  await editor.click({ force: true });
-  await editor.pressSequentially(typedText, { delay: 10 });
+  await editor.focus();
+  await expect.poll(async () => {
+    return editor.evaluate((node) => node === document.activeElement || node.contains(document.activeElement));
+  }).toBeTruthy();
+  await page.keyboard.type(typedText, { delay: 10 });
 
   await expect(emailPane).toBeVisible();
   await expect(emailFields).toBeVisible();
@@ -269,14 +272,19 @@ test('restore default button reacts to subject and body edits in emit modal', as
   const subject = dialog.locator("input[name='nfse_email_subject']");
   const editor = dialog.locator('.ql-editor').first();
   const restoreButton = dialog.getByRole('button', { name: /Restaurar template padrão|Restore default template/i });
+  await expect(subject).toBeVisible();
+  await expect(editor).toBeVisible();
+
+  if (await restoreButton.isVisible()) {
+    await clickRestoreButton(restoreButton);
+  }
+
+  await expect(restoreButton).toBeHidden();
+
   const initialSubject = await subject.inputValue();
   const initialBodyText = await getEditorText(editor);
 
-  await expect(subject).toBeVisible();
-  await expect(editor).toBeVisible();
-  await expect(restoreButton).toBeHidden();
-
-  await editor.click({ force: true });
+  await editor.focus();
   await expect(restoreButton).toBeHidden();
 
   await subject.fill('Assunto alterado E2E');
@@ -287,7 +295,7 @@ test('restore default button reacts to subject and body edits in emit modal', as
   await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
   await expect(restoreButton).toBeHidden();
 
-  await editor.click({ force: true });
+  await editor.focus();
   await page.keyboard.type(' Corpo alterado E2E.', { delay: 10 });
   await expect(restoreButton).toBeVisible();
 
@@ -350,7 +358,7 @@ test('restore default flow works on a fixed invoice from show page', async ({ pa
   await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
   await expect(restoreButton).toBeHidden();
 
-  await editor.click({ force: true });
+  await editor.focus();
   await page.keyboard.type(' Corpo alterado E2E fixo.', { delay: 10 });
   await expect(restoreButton).toBeVisible();
   await clickRestoreButton(restoreButton);
