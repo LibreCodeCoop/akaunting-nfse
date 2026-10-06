@@ -325,3 +325,90 @@ test('bulk dispatch stays actionable while submit guard enforces selection', () 
 
     assert.equal(button.disabled, false);
 });
+
+
+test('bulk sync materializes selected invoice ids before submit', () => {
+    const appended = [];
+    const checkbox = {
+        checked: true,
+        value: 'on',
+        dataset: { bulkAction: '17' },
+        addEventListener() {},
+        closest(selector) {
+            if (selector !== 'table') {
+                return null;
+            }
+
+            return {
+                parentNode: {
+                    insertBefore() {},
+                },
+            };
+        },
+    };
+    const button = {
+        disabled: true,
+        classList: { add() {} },
+    };
+    const form = {
+        dataset: {},
+        classList: { add() {} },
+        appendChild(node) {
+            appended.push(node);
+        },
+        addEventListener() {},
+        querySelectorAll(selector) {
+            if (selector === '[data-nfse-bulk-invoice]') {
+                return appended.filter((node) => node.dataset?.nfseBulkInvoice === 'true');
+            }
+
+            return [];
+        },
+    };
+    const root = {
+        body: {},
+        defaultView: {
+            MutationObserver: class {
+                observe() {}
+            },
+        },
+        addEventListener() {},
+        querySelector() {
+            return null;
+        },
+        querySelectorAll(selector) {
+            if (selector === '[data-bulk-action]') {
+                return [checkbox];
+            }
+
+            if (selector === '[data-bulk-action]:checked') {
+                return checkbox.checked ? [checkbox] : [];
+            }
+
+            return [];
+        },
+        createElement(tag) {
+            if (tag === 'form') {
+                return form;
+            }
+
+            if (tag === 'button') {
+                return button;
+            }
+
+            return {
+                dataset: {},
+                remove() {},
+            };
+        },
+    };
+
+    moduleApi.mountBulkDispatch(root, { url: '/bulk' });
+
+    const hidden = appended.find((node) => node.dataset?.nfseBulkInvoice === 'true');
+
+    assert.ok(hidden);
+    assert.equal(hidden.name, 'invoice_ids[]');
+    assert.equal(hidden.value, '17');
+    assert.equal(button.disabled, false);
+});

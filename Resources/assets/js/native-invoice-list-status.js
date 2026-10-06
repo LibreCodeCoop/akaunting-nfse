@@ -154,20 +154,9 @@
         form.appendChild(button);
 
         const sync = () => {
-            button.disabled = false;
-        };
-
-        form.addEventListener('submit', (event) => {
             form.querySelectorAll('[data-nfse-bulk-invoice]').forEach((input) => input.remove());
-            const selected = selectedInvoiceIds(rootNode);
 
-            if (selected.length === 0) {
-                event.preventDefault();
-                sync();
-                return;
-            }
-
-            selected.forEach((invoiceId) => {
+            selectedInvoiceIds(rootNode).forEach((invoiceId) => {
                 const input = rootNode.createElement('input');
                 input.type = 'hidden';
                 input.name = 'invoice_ids[]';
@@ -175,6 +164,16 @@
                 input.dataset.nfseBulkInvoice = 'true';
                 form.appendChild(input);
             });
+
+            button.disabled = false;
+        };
+
+        form.addEventListener('submit', (event) => {
+            sync();
+
+            if (form.querySelectorAll('[data-nfse-bulk-invoice]').length === 0) {
+                event.preventDefault();
+            }
         });
 
         bindBulkSelectionSync(rootNode, sync);
