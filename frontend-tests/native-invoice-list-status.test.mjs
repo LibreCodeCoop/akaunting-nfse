@@ -196,3 +196,40 @@ test('delegated bulk sync runs again after the UI frame', async () => {
 
     assert.equal(calls, 2);
 });
+
+
+test('bulk selection observer resyncs after Vue replaces table content', () => {
+    let callback = null;
+    let observed = null;
+    let syncCalls = 0;
+
+    class FakeMutationObserver {
+        constructor(handler) {
+            callback = handler;
+        }
+
+        observe(target, options) {
+            observed = { target, options };
+        }
+    }
+
+    const body = {};
+    const root = {
+        body,
+        defaultView: {
+            MutationObserver: FakeMutationObserver,
+        },
+    };
+
+    const observer = moduleApi.observeBulkSelection(root, () => {
+        syncCalls += 1;
+    });
+
+    assert.ok(observer);
+    assert.equal(observed.target, body);
+    assert.deepEqual(observed.options, { childList: true, subtree: true });
+
+    callback([]);
+
+    assert.equal(syncCalls, 1);
+});

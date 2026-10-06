@@ -93,6 +93,27 @@
         return true;
     }
 
+    function observeBulkSelection(rootNode, sync) {
+        const windowRef = rootNode && rootNode.defaultView ? rootNode.defaultView : null;
+        const MutationObserverRef = windowRef && typeof windowRef.MutationObserver === 'function'
+            ? windowRef.MutationObserver
+            : null;
+
+        if (!MutationObserverRef || typeof sync !== 'function') {
+            return null;
+        }
+
+        const target = rootNode.body || rootNode.documentElement || rootNode;
+        const observer = new MutationObserverRef(() => sync());
+
+        observer.observe(target, {
+            childList: true,
+            subtree: true,
+        });
+
+        return observer;
+    }
+
     function mountBulkDispatch(rootNode, config) {
         if (!rootNode || typeof rootNode.querySelectorAll !== 'function' || typeof rootNode.createElement !== 'function') {
             return null;
@@ -165,6 +186,7 @@
             });
         }
 
+        observeBulkSelection(rootNode, sync);
         sync();
         firstTable.parentNode.insertBefore(form, firstTable);
 
@@ -230,6 +252,7 @@
         classesForStatus,
         decorate,
         mountBulkDispatch,
+        observeBulkSelection,
         selectedInvoiceIds,
     };
 });
