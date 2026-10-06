@@ -25,10 +25,22 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
             ->assertSee('data-nfse-native-panel="true"', false)
             ->assertSee(route('nfse.modals.invoices.emails.create', $invoice->id), false);
 
+        $content = $response->getContent();
+
         $this->assertSame(
             1,
-            substr_count($response->getContent(), 'data-nfse-native-panel="true"'),
+            substr_count($content, 'data-nfse-native-panel="true"'),
             'The native NFS-e panel must only be injected once per invoice response.',
+        );
+        $this->assertSame(
+            1,
+            substr_count($content, 'data-nfse-native-emit="true"'),
+            'A pending invoice must expose exactly one visible NFS-e emission action.',
+        );
+        $this->assertSame(
+            1,
+            substr_count($content, 'data-nfse-native-modal-trigger="true"'),
+            'The invoice page must contain exactly one compiled bridge to the NFS-e modal.',
         );
     }
 

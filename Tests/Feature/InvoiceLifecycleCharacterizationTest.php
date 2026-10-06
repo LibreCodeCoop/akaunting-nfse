@@ -14,27 +14,23 @@ use Tests\Feature\FeatureTestCase;
 
 final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 {
-    public function testNativeInvoiceShowScopesSendActionToNfseModal(): void
+    public function testNativeInvoiceShowKeepsAkauntingSendRouteUntouched(): void
     {
-        // Akaunting's factory randomizes status; cancelled invoices disable sending.
         $invoice = FiscalScenarioBuilder::invoice(['status' => 'draft']);
+        $originalRoute = config('type.document.invoice.route.emails.create');
+        $originalTranslation = config('type.document.invoice.translation.send_mail');
 
-        self::assertNotSame(
-            'nfse.modals.invoices.emails.create',
-            config('type.document.invoice.route.emails.create'),
-        );
+        $response = $this->loginAs()
+            ->get(route('invoices.show', $invoice));
 
-        $this->loginAs()
-            ->get(route('invoices.show', $invoice))
+        $response
             ->assertOk()
             ->assertSee('data-nfse-native-panel="true"', false)
-            ->assertSee('id="show-slider-actions-send-email-invoice"', false)
+            ->assertSee('data-nfse-native-modal-trigger="true"', false)
             ->assertSee(route('nfse.modals.invoices.emails.create', $invoice), false);
 
-        self::assertSame(
-            'nfse.modals.invoices.emails.create',
-            config('type.document.invoice.route.emails.create'),
-        );
+        self::assertSame($originalRoute, config('type.document.invoice.route.emails.create'));
+        self::assertSame($originalTranslation, config('type.document.invoice.translation.send_mail'));
     }
 
     public function testPendingInvoiceUsesIssueModalThroughNativeEmailAction(): void

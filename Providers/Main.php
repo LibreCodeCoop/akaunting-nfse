@@ -22,7 +22,6 @@ use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\ItemMunicipalValidationResolver;
 use Modules\Nfse\Support\Lc116Catalog;
-use Modules\Nfse\Support\NativeInvoiceSendOverride;
 use Modules\Nfse\Support\NfseRuntimeContextFactory;
 use Modules\Nfse\Support\Testing\DeterministicFiscalHttpTransport;
 use Modules\Nfse\Support\Testing\EnvironmentFixtureSecretStore;
@@ -230,7 +229,6 @@ class Main extends Provider
 
             $viewFactory->markAsRenderedOnce($renderOnceKey);
 
-            (new NativeInvoiceSendOverride())->apply($invoice);
 
             try {
                 $receipts = NfseReceipt::query()
@@ -249,6 +247,11 @@ class Main extends Provider
                 'receipts' => $receipts,
             ])->render();
 
+            $modalTrigger = view('nfse::invoices.partials.native-fiscal-modal-trigger', [
+                'invoice' => $invoice,
+            ])->render();
+
+            $viewFactory->startPush('timeline_send_body_button_email_start', $modalTrigger);
             $viewFactory->startPush('status_message_end', $content);
             $viewFactory->startPush(
                 'body_end',

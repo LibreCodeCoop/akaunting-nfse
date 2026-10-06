@@ -373,21 +373,17 @@
             return false;
         }
 
-        const triggerIds = [
-            'show-slider-actions-send-email-invoice',
-            'show-more-actions-send-email-invoice',
-        ];
+        const trigger = typeof documentRef.querySelector === 'function'
+            ? documentRef.querySelector('[data-nfse-native-modal-trigger="true"]')
+            : null;
 
-        for (const triggerId of triggerIds) {
-            const trigger = documentRef.getElementById(triggerId);
-
-            if (trigger && typeof trigger.click === 'function') {
-                trigger.click();
-                return true;
-            }
+        if (!trigger || typeof trigger.click !== 'function') {
+            return false;
         }
 
-        return false;
+        trigger.click();
+
+        return true;
     }
 
     function boot(documentRef) {
