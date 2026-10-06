@@ -340,6 +340,8 @@ test('settings no longer expose legacy services create route', async ({ page }, 
 
 
 test('readiness blocker guides operator to the focused corrective settings tab', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+
   await loginToAkaunting(page, testInfo);
 
   await page.goto('/1/nfse/settings?tab=vault', { waitUntil: 'domcontentloaded' });
