@@ -48,23 +48,23 @@ final class FiscalProfileEmissionReadinessTest extends TestCase
         self::assertContains('invalid_national_code', $result['issues']);
     }
 
-    public function testMissingOptionalNationalCodeWarnsButDoesNotBlock(): void
+    public function testMissingNationalCodeBlocksEmissionBeforeGatewaySubmission(): void
     {
         $result = (new FiscalProfileEmissionReadiness())->evaluate([
             'item_lista_servico' => '0107',
             'codigo_tributacao_nacional' => '',
         ]);
 
-        self::assertTrue($result['isReady']);
+        self::assertFalse($result['isReady']);
         self::assertSame('warning', $result['status']);
         self::assertContains('missing_national_code', $result['issues']);
     }
 
-    public function testMissingProfileRemainsUnverifiableRatherThanGuessedInvalid(): void
+    public function testMissingProfileBlocksEmissionBecauseNationalCodeCannotBeProduced(): void
     {
         $result = (new FiscalProfileEmissionReadiness())->evaluate([]);
 
-        self::assertTrue($result['isReady']);
+        self::assertFalse($result['isReady']);
         self::assertSame('unverifiable', $result['status']);
         self::assertContains('missing_profile', $result['issues']);
     }

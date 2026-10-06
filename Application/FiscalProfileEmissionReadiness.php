@@ -10,8 +10,9 @@ namespace Modules\Nfse\Application;
 /**
  * Converts item-profile validation into the emission blocking contract.
  *
- * Only objectively invalid values block issuance. Missing optional values and
- * advisory/non-normative correlations remain warning/unverifiable states.
+ * Objectively invalid values block issuance. The national taxation code is
+ * also required for DPS XML emission because SEFIN rejects an empty cTribNac.
+ * Advisory/non-normative correlations remain warning/unverifiable states.
  */
 final class FiscalProfileEmissionReadiness
 {
@@ -41,8 +42,15 @@ final class FiscalProfileEmissionReadiness
                 : null,
         );
 
+        $issues = is_array($validation['issues'] ?? null)
+            ? array_values(array_map('strval', $validation['issues']))
+            : [];
+
+        $missingRequiredNationalCode = in_array('missing_national_code', $issues, true)
+            || in_array('missing_profile', $issues, true);
+
         return array_merge(
-            ['isReady' => $validation['status'] !== 'invalid'],
+            ['isReady' => $validation['status'] !== 'invalid' && !$missingRequiredNationalCode],
             $validation,
         );
     }
