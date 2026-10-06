@@ -66,7 +66,7 @@ final class InvoiceFederalPayloadResolver
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
     ): array {
-        $invoiceAmount = $amountOverride ?? (float) ($invoice->amount ?? 0.0);
+        $invoiceAmount = $this->serviceAmount($invoice, $documentItemIds, $amountOverride);
         $federalMode = strtolower((string) $this->setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
         $snapshot = $this->snapshot($invoice, $invoiceAmount, $documentItemIds);
         $situacao = $this->select($this->setting('nfse.federal_piscofins_situacao_tributaria', ''));
@@ -179,6 +179,49 @@ final class InvoiceFederalPayloadResolver
             'totalTributosPercentualEstadual' => $statePercent,
             'totalTributosPercentualMunicipal' => $municipalPercent,
         ]);
+    }
+
+    /**
+     * Resolve the gross service amount used by the DPS and as the PIS/COFINS
+     * calculation base. Akaunting's document amount can already be reduced by
+     * withholding taxes, so it is not a safe fiscal base.
+     *
+     * @param list<int>|null $documentItemIds
+     */
+    public function serviceAmount(
+        Invoice $invoice,
+        ?array $documentItemIds = null,
+        ?float $amountOverride = null,
+    ): float {
+        if ($amountOverride !== null) {
+            return max(0.0, $amountOverride);
+        }
+
+        $amount = 0.0;
+        $hasItemTotal = false;
+
+        foreach ($this->invoiceItems($invoice) as $item) {
+            $documentItemId = is_numeric($item['id'] ?? null) ? (int) $item['id'] : 0;
+
+            if ($documentItemIds !== null && !in_array($documentItemId, $documentItemIds, true)) {
+                continue;
+            }
+
+            $total = $item['total'] ?? null;
+
+            if (!is_numeric($total)) {
+                continue;
+            }
+
+            $amount += (float) $total;
+            $hasItemTotal = true;
+        }
+
+        if ($hasItemTotal && $amount > 0) {
+            return $amount;
+        }
+
+        return max(0.0, (float) ($invoice->amount ?? 0.0));
     }
 
     /**

@@ -317,6 +317,11 @@ class InvoiceController extends Controller
         $selectedFiscalAmount = is_array($selectedFiscalGroup)
             ? (float) ($selectedFiscalGroup['amount'] ?? 0)
             : null;
+        $serviceAmount = $this->invoiceServiceAmount(
+            $invoice,
+            $selectedDocumentItemIds,
+            $serviceAmount,
+        );
         $federalTaxReadiness = $this->federalTaxReadinessForInvoice(
             $invoice,
             $selectedDocumentItemIds,
@@ -366,7 +371,7 @@ class InvoiceController extends Controller
         $federalPayload = $this->federalPayloadValues(
             $invoice,
             $selectedDocumentItemIds,
-            $selectedFiscalAmount,
+            $serviceAmount,
         );
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
         $issqnPayload = $this->issqnPayloadValues();
@@ -378,7 +383,7 @@ class InvoiceController extends Controller
                 'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
                 'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
                 'codigoTributacaoMunicipal' => '',
-                'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
+                'valorServico' => number_format($serviceAmount, 2, '.', ''),
                 'aliquota' => (string) $itemFiscalProfile['aliquota'],
                 'discriminacao' => $this->buildDiscriminacao(
                     $invoice,
@@ -949,7 +954,8 @@ class InvoiceController extends Controller
         $tomadorDocument = $this->resolvedTomadorDocument($invoice);
         $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
-        $federalPayload = $this->federalPayloadValues($invoice);
+        $serviceAmount = $this->invoiceServiceAmount($invoice);
+        $federalPayload = $this->federalPayloadValues($invoice, null, $serviceAmount);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
         $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($itemFiscalProfile);
 
@@ -968,7 +974,7 @@ class InvoiceController extends Controller
             'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'codigoTributacaoMunicipal' => '',
-            'valorServico' => number_format((float) $invoice->amount, 2, '.', ''),
+            'valorServico' => number_format($serviceAmount, 2, '.', ''),
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
             'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
             'documentoTomador' => $tomadorDocument,
@@ -1569,7 +1575,7 @@ class InvoiceController extends Controller
         return $policy->evaluate(
             $this->invoiceFederalTaxSnapshot(
                 $invoice,
-                $amountOverride ?? (float) ($invoice->amount ?? 0.0),
+                $this->invoiceServiceAmount($invoice, $documentItemIds, $amountOverride),
                 $documentItemIds,
             ),
             $requiredBuckets,
@@ -3013,6 +3019,21 @@ class InvoiceController extends Controller
         ?float $amountOverride = null,
     ): array {
         return $this->invoiceFederalPayloadResolver()->resolve(
+            $invoice,
+            $documentItemIds,
+            $amountOverride,
+        );
+    }
+
+    /**
+     * @param list<int>|null $documentItemIds
+     */
+    protected function invoiceServiceAmount(
+        Invoice $invoice,
+        ?array $documentItemIds = null,
+        ?float $amountOverride = null,
+    ): float {
+        return $this->invoiceFederalPayloadResolver()->serviceAmount(
             $invoice,
             $documentItemIds,
             $amountOverride,
