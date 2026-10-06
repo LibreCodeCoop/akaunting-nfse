@@ -457,9 +457,18 @@ class SettingsController extends Controller
             );
 
             return $this->jsonResponse($resolved);
-        } catch (Throwable) {
+        } catch (QueryException $e) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.settings.municipal_parameters.query_failed'),
+                'upstream' => [
+                    'http_status' => $e->httpStatus,
+                    'payload' => $e->upstreamPayload,
+                ],
+            ], 502);
+        } catch (Throwable $e) {
+            return $this->jsonResponse([
+                'message' => trans('nfse::general.settings.municipal_parameters.query_failed'),
+                'detail' => $e->getMessage(),
             ], 502);
         }
     }

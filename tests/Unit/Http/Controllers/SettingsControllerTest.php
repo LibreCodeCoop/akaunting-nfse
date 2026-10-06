@@ -1151,6 +1151,40 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(1, $payload['data']['convenio']['parametros']['tipoConvenio'] ?? null);
         }
 
+        public function testMunicipalParametersReturnsUpstreamDiagnosticOnQueryFailure(): void
+        {
+            ControllerIsolationState::$settings['nfse.municipio_ibge'] = '3303302';
+
+            $controller = new class () extends SettingsController {
+                protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
+                {
+                    throw new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\QueryException(
+                        'ADN municipal parameters API returned error (HTTP 400)',
+                        \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NfseErrorCode::QueryFailed,
+                        400,
+                        ['mensagem' => 'Código de serviço não administrado.'],
+                    );
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->municipalParameters(new Request([
+                'service_code' => '115022000',
+                'competence' => '2026-10-06',
+            ]));
+
+            self::assertSame(502, $response->getStatusCode());
+            self::assertSame(400, $response->getData(true)['upstream']['http_status'] ?? null);
+            self::assertSame(
+                'Código de serviço não administrado.',
+                $response->getData(true)['upstream']['payload']['mensagem'] ?? null,
+            );
+        }
+
         public function testMunicipalParametersRejectsInvalidInputBeforeOfficialQuery(): void
         {
             $controller = new class () extends SettingsController {
