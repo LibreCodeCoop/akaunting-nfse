@@ -73,6 +73,8 @@ test('readiness summary visual baseline', async ({ page }, testInfo) => {
 test('emission modal visual baseline', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
   const dialog = await openEmissionModal(page);
+  const description = dialog.locator("textarea[name='nfse_discriminacao_custom']");
+  await description.fill('[0107] Deterministic NFS-e visual fixture.');
 
-  await assertVisualBaseline(dialog, 'emission-modal');
+  await assertVisualBaseline(dialog.locator('.modal-content').first(), 'emission-modal');
 });
