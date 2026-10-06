@@ -23,6 +23,7 @@ use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\QueryException;
 use Throwable;
 
 class SettingsController extends Controller
@@ -429,7 +430,7 @@ class SettingsController extends Controller
             ], 422);
         }
 
-        if ($serviceCode === '') {
+        if (preg_match('/^\\d{9}$/', $serviceCode) !== 1) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.settings.municipal_parameters.invalid_service'),
             ], 422);
@@ -486,6 +487,21 @@ class SettingsController extends Controller
         try {
             $client = $context->municipalParametersClient();
 
+            $retencoes = null;
+
+            try {
+                $retencoes = $client->retencoes($municipio, $competence);
+            } catch (QueryException $e) {
+                if ($e->httpStatus !== 404) {
+                    throw $e;
+                }
+
+                // Retention parameters are optional for a municipality/competence.
+                // Preserve the official 404 payload as diagnostic data instead of
+                // failing the entire municipal-parameters query.
+                $retencoes = $e->upstreamPayload;
+            }
+
             return [
                 'municipio_ibge' => $municipio,
                 'service_code' => $serviceCode,
@@ -493,7 +509,7 @@ class SettingsController extends Controller
                 'convenio' => $client->convenio($municipio),
                 'aliquota' => $client->aliquota($municipio, $serviceCode, $competence),
                 'regimes_especiais' => $client->regimesEspeciais($municipio, $serviceCode, $competence),
-                'retencoes' => $client->retencoes($municipio, $competence),
+                'retencoes' => $retencoes,
             ];
         } finally {
             $context->close();

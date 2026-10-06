@@ -1135,14 +1135,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             };
 
             $response = $controller->municipalParameters(new Request([
-                'service_code' => '01.07.01',
+                'service_code' => '1.1502.20.00',
                 'competence' => '2026-10-03',
             ]));
 
             self::assertSame(200, $response->getStatusCode());
             self::assertSame([
                 'municipio' => '3303302',
-                'service_code' => '010701',
+                'service_code' => '115022000',
                 'competence' => '2026-10-03',
             ], $controller->received);
 
