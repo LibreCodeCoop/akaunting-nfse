@@ -232,7 +232,7 @@ test('typing in email body keeps email tab content visible in emit modal', async
   const typedText = 'Teste E2E: digitar no body deve manter a aba Email visivel.';
 
   await editor.click({ force: true });
-  await page.keyboard.type(typedText, { delay: 10 });
+  await editor.pressSequentially(typedText, { delay: 10 });
 
   await expect(emailPane).toBeVisible();
   await expect(emailFields).toBeVisible();

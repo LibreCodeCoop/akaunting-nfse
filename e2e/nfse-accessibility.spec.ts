@@ -173,9 +173,10 @@ test('emission error summary receives keyboard focus', async ({ page }, testInfo
     }
 
     await route.fulfill({
-      status: 422,
+      status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
+        success: false,
         error: true,
         message: 'Deterministic fiscal validation error',
       }),

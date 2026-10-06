@@ -177,3 +177,10 @@ test('hydration observer work is scoped to NFS-e modal mutations by selector con
     assert.match(source, /data-nfse-error-summary/);
     assert.doesNotMatch(source, /new MutationObserverRef\(\(\) => \{\s*reconcileHydratedModal/);
 });
+
+
+test('generic hydration reconciliation does not override restore-default visibility', () => {
+    const source = modal.reconcileHydratedModal.toString();
+
+    assert.doesNotMatch(source, /syncRestoreButton/);
+});
