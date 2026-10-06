@@ -343,7 +343,6 @@ test('readiness blocker guides operator to the focused corrective settings tab',
   await loginToAkaunting(page, testInfo);
 
   await page.goto('/1/nfse/settings?tab=vault', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
 
   const clearToken = page.locator('#clear_bao_token');
   await clearToken.check();
