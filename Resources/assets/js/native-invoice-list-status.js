@@ -154,7 +154,7 @@
         form.appendChild(button);
 
         const sync = () => {
-            button.disabled = selectedInvoiceIds(rootNode).length === 0;
+            button.disabled = false;
         };
 
         form.addEventListener('submit', (event) => {

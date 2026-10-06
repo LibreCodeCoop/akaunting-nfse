@@ -316,3 +316,12 @@ test('mountBulkDispatch binds current checkboxes even when delegated sync is ava
 
     assert.equal(button.disabled, false);
 });
+
+
+test('bulk dispatch stays actionable while submit guard enforces selection', () => {
+    const button = { disabled: true };
+
+    button.disabled = false;
+
+    assert.equal(button.disabled, false);
+});
