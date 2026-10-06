@@ -86,8 +86,8 @@
             }
         };
 
-        rootNode.addEventListener('change', delegatedSync);
-        rootNode.addEventListener('input', delegatedSync);
+        rootNode.addEventListener('change', delegatedSync, true);
+        rootNode.addEventListener('input', delegatedSync, true);
         rootNode.__nfseBulkDispatchEventsBound = true;
 
         return true;

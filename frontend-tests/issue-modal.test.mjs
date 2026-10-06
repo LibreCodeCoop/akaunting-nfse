@@ -55,6 +55,17 @@ test('restore-default comparison normalizes equivalent editor html', () => {
     );
 
     assert.equal(
+        modal.shouldShowRestore(
+            'Subject',
+            '<p>Prezado(a)</p><p><br></p><p>Segue a nota.</p>',
+            'Subject',
+            'Prezado(a)<br><br>Segue a nota.',
+            null,
+        ),
+        false,
+    );
+
+    assert.equal(
         modal.shouldShowRestore('Changed', '<p>Hello</p>', 'Subject', 'Hello', null),
         true,
     );
@@ -183,4 +194,11 @@ test('generic hydration reconciliation does not override restore-default visibil
     const source = modal.reconcileHydratedModal.toString();
 
     assert.doesNotMatch(source, /syncRestoreButton/);
+});
+
+
+test('editor event reconciliation runs after component handlers', () => {
+    const source = modal.boot.toString();
+
+    assert.doesNotMatch(source, /\}, true\);\s*\}\);/);
 });

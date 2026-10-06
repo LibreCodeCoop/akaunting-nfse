@@ -96,7 +96,7 @@
             .replace(/\u00a0/g, ' ')
             .replace(/\r\n/g, '\n')
             .replace(/[ \t]+\n/g, '\n')
-            .replace(/\n{3,}/g, '\n\n')
+            .replace(/\s+/g, ' ')
             .trim();
     }
 
@@ -501,7 +501,7 @@
                 if (tabs) {
                     syncTabPane(tabs);
                 }
-            }, true);
+            });
         });
 
         const MutationObserverRef = documentRef.defaultView
