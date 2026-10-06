@@ -252,7 +252,15 @@ class Main extends Provider
             ])->render();
 
             $viewFactory->startPush('timeline_send_body_button_email_start', $modalTrigger);
-            $viewFactory->startPush('status_message_end', $content);
+
+            // Akaunting yields status_message_end both from the outer document
+            // content view and from the nested status message component. Using
+            // that stack duplicates the fiscal panel on draft invoices.
+            //
+            // create_start is the next native extension point after the status
+            // area and is yielded exactly once by the document content view.
+            $viewFactory->startPush('create_start', $content);
+
             $viewFactory->startPush(
                 'body_end',
                 view('nfse::modals.invoices.partials.issue-modal-script')->render(),

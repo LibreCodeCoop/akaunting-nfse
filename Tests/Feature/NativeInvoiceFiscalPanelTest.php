@@ -15,7 +15,7 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
 {
     public function testNativeInvoiceShowContainsPendingFiscalPanel(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = Document::factory()->invoice()->create(['status' => 'draft']);
 
         $response = $this->loginAs()
             ->get(route('invoices.show', $invoice->id));
@@ -42,6 +42,7 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
             substr_count($content, 'data-nfse-native-modal-trigger="true"'),
             'The invoice page must contain exactly one compiled bridge to the NFS-e modal.',
         );
+
     }
 
     public function testNativeInvoiceShowContainsLinkedReceiptAndFiscalDetails(): void
