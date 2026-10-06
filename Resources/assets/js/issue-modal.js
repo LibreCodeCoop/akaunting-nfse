@@ -74,8 +74,7 @@
                 .replace(/<\/(p|div|li)>/gi, '\n')
                 .replace(/<[^>]*>/g, '')
                 .replace(/&nbsp;/gi, ' ')
-                .replace(/[ \t]+\n/g, '\n')
-                .replace(/\n{3,}/g, '\n\n')
+                .replace(/\s+/g, ' ')
                 .trim();
         }
 
