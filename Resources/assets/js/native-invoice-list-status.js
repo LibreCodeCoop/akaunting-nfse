@@ -177,14 +177,14 @@
             });
         });
 
-        if (!bindBulkSelectionSync(rootNode, sync)) {
-            checkboxes.forEach((checkbox) => {
-                if (typeof checkbox.addEventListener === 'function') {
-                    checkbox.addEventListener('change', sync);
-                    checkbox.addEventListener('input', sync);
-                }
-            });
-        }
+        bindBulkSelectionSync(rootNode, sync);
+
+        checkboxes.forEach((checkbox) => {
+            if (typeof checkbox.addEventListener === 'function') {
+                checkbox.addEventListener('change', sync);
+                checkbox.addEventListener('input', sync);
+            }
+        });
 
         observeBulkSelection(rootNode, sync);
         sync();

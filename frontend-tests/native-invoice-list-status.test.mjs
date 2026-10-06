@@ -233,3 +233,86 @@ test('bulk selection observer resyncs after Vue replaces table content', () => {
 
     assert.equal(syncCalls, 1);
 });
+
+
+test('mountBulkDispatch binds current checkboxes even when delegated sync is available', () => {
+    const checkboxListeners = {};
+    const checkbox = {
+        checked: false,
+        value: '9',
+        dataset: { bulkAction: '9' },
+        addEventListener(name, listener) {
+            checkboxListeners[name] = listener;
+        },
+        closest(selector) {
+            if (selector !== 'table') {
+                return null;
+            }
+
+            return {
+                parentNode: {
+                    insertBefore() {},
+                },
+            };
+        },
+    };
+    const button = {
+        disabled: false,
+        classList: { add() {} },
+    };
+    const form = {
+        dataset: {},
+        classList: { add() {} },
+        appendChild() {},
+        addEventListener() {},
+        querySelectorAll() {
+            return [];
+        },
+    };
+    const root = {
+        body: {},
+        defaultView: {
+            MutationObserver: class {
+                observe() {}
+            },
+        },
+        addEventListener() {},
+        querySelector(selector) {
+            return selector === '[data-nfse-bulk-dispatch-form]' ? null : null;
+        },
+        querySelectorAll(selector) {
+            if (selector === '[data-bulk-action]') {
+                return [checkbox];
+            }
+
+            if (selector === '[data-bulk-action]:checked') {
+                return checkbox.checked ? [checkbox] : [];
+            }
+
+            return [];
+        },
+        createElement(tag) {
+            if (tag === 'form') {
+                return form;
+            }
+
+            if (tag === 'button') {
+                return button;
+            }
+
+            return {
+                dataset: {},
+            };
+        },
+    };
+
+    moduleApi.mountBulkDispatch(root, { url: '/bulk' });
+
+    assert.equal(typeof checkboxListeners.change, 'function');
+    assert.equal(typeof checkboxListeners.input, 'function');
+
+    checkbox.checked = true;
+    checkboxListeners.change();
+
+    assert.equal(button.disabled, false);
+});
