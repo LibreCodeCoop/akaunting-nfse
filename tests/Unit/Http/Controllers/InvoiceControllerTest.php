@@ -65,6 +65,18 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringNotContainsString("'ssl' => \$this->sslContextOptions()", $content);
         }
 
+        public function testMissingNationalTaxCodeFeedbackIdentifiesTheItemToFix(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+            $pt = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/lang/pt-BR/general.php');
+
+            self::assertStringContainsString('itemsMissingNationalTaxCode($invoice)', $content);
+            self::assertStringContainsString("'items' => implode(', ', $items)", $content);
+            self::assertStringContainsString('Edite esse item em Itens', $pt);
+            self::assertStringContainsString('Obrigatório para emissão da NFS-e.', $pt);
+            self::assertStringNotContainsString('Se vazio, o módulo deriva o NBS a partir do LC116.', $pt);
+        }
+
         public function testControllerBuildsFiscalPayloadFromItemProfilesAndNativeItemTaxes(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');

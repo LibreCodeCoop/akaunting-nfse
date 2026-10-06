@@ -280,7 +280,7 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect(
                 $request,
                 redirect()->route('invoices.show', $invoice)
-                    ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness)),
+                    ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness, $invoice)),
             );
         }
 
@@ -1788,20 +1788,87 @@ class InvoiceController extends Controller
     /**
      * @param array{issues?:list<string>,source_versions?:array<string,string>} $readiness
      */
-    protected function invalidFiscalProfileMessage(array $readiness): string
+    protected function invalidFiscalProfileMessage(array $readiness, ?Invoice $invoice = null): string
     {
+        $issueCodes = is_array($readiness['issues'] ?? null)
+            ? array_values(array_map('strval', $readiness['issues']))
+            : [];
         $issues = array_map(
             static fn (string $issue): string => (string) trans('nfse::general.items.validation.' . $issue),
-            is_array($readiness['issues'] ?? null) ? $readiness['issues'] : [],
+            $issueCodes,
         );
         $versions = is_array($readiness['source_versions'] ?? null)
             ? array_values(array_filter($readiness['source_versions'], 'is_string'))
             : [];
+        $version = $versions !== [] ? implode(', ', array_unique($versions)) : 'unknown';
+
+        if ($invoice instanceof Invoice && in_array('missing_national_code', $issueCodes, true)) {
+            $items = $this->itemsMissingNationalTaxCode($invoice);
+
+            if ($items !== []) {
+                return (string) trans('nfse::general.invoices.emit_blocked_missing_national_code_items', [
+                    'items' => implode(', ', $items),
+                    'version' => $version,
+                ]);
+            }
+        }
 
         return (string) trans('nfse::general.invoices.emit_blocked_invalid_fiscal_profile', [
             'issues' => $issues !== [] ? implode('; ', $issues) : trans('nfse::general.items.validation.status_invalid'),
-            'version' => $versions !== [] ? implode(', ', array_unique($versions)) : 'unknown',
+            'version' => $version,
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function itemsMissingNationalTaxCode(Invoice $invoice): array
+    {
+        $items = $this->invoiceItemsAsArray($invoice);
+        $itemIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $item): int => is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0,
+            $items,
+        ), static fn (int $itemId): bool => $itemId > 0)));
+
+        $companyId = is_numeric($invoice->company_id ?? null)
+            ? (int) $invoice->company_id
+            : $this->resolveCompanyId();
+        $profileMap = $this->invoiceItemFiscalProfileMap($companyId, $itemIds);
+        $defaultNationalCode = $this->nationalTaxCode();
+
+        $missing = [];
+
+        foreach ($items as $item) {
+            $itemId = is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0;
+
+            if ($itemId <= 0) {
+                continue;
+            }
+
+            $profile = is_array($profileMap[$itemId] ?? null) ? $profileMap[$itemId] : [];
+            $nationalCode = preg_replace(
+                '/\\D+/',
+                '',
+                (string) ($profile['codigo_tributacao_nacional'] ?? $defaultNationalCode),
+            ) ?: '';
+
+            if ($nationalCode !== '') {
+                continue;
+            }
+
+            $name = trim((string) ($item['name'] ?? ''));
+            $serviceCode = Lc116Code::normalize($profile['item_lista_servico'] ?? '');
+            $label = $name !== '' ? $name : ('Item #' . $itemId);
+            $label .= ' (ID ' . $itemId;
+
+            if ($serviceCode !== '') {
+                $label .= ', LC 116 ' . $serviceCode;
+            }
+
+            $missing[] = $label . ')';
+        }
+
+        return array_values(array_unique($missing));
     }
 
     /**
