@@ -7,6 +7,8 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - 'BulkActions/Invoices.php'
+      - 'Providers/Main.php'
       - 'Resources/assets/js/native-invoice-list-status.js'
       - 'Resources/assets/js/native-invoice-list-status.min.js'
       - 'frontend-tests/native-invoice-list-status.test.mjs'
@@ -91,7 +93,7 @@ jobs:
         working-directory: akaunting
         run: |
           php artisan migrate:fresh --force
-          php artisan db:seed --class='\\Database\\Seeds\\TestCompany' --force
+          php artisan db:seed --class='\Database\Seeds\TestCompany' --force
 
       - name: Provision deterministic NFS-e test user
         working-directory: akaunting
