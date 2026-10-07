@@ -19,9 +19,9 @@ final class InvoiceFiscalProfileSelector
 {
     /**
      * @param list<array<string, mixed>> $items
-     * @param array<int, array{item_lista_servico:string,codigo_tributacao_nacional:string}> $profileMap
+     * @param array<int, array{item_lista_servico:string,codigo_tributacao_nacional:string,codigo_tributacao_municipal:string}> $profileMap
      * @param array<int, string> $taxRateMap
-     * @return array{item_lista_servico:string,codigo_tributacao_nacional:string,aliquota:string,line_items:list<string>,requires_split:bool}
+     * @return array{item_lista_servico:string,codigo_tributacao_nacional:string,codigo_tributacao_municipal:string,aliquota:string,line_items:list<string>,requires_split:bool}
      */
     public function select(
         array $items,
@@ -38,6 +38,7 @@ final class InvoiceFiscalProfileSelector
         $selected = [
             'item_lista_servico' => $defaultServiceCode,
             'codigo_tributacao_nacional' => $defaultNationalCode,
+            'codigo_tributacao_municipal' => '',
             'aliquota' => $defaultRate,
         ];
 
@@ -59,6 +60,8 @@ final class InvoiceFiscalProfileSelector
                 $nationalCode = $defaultNationalCode;
             }
 
+            $municipalCode = preg_replace('/\D+/', '', (string) ($profile['codigo_tributacao_municipal'] ?? '')) ?: '';
+
             $rate = $itemId > 0 ? ($taxRateMap[$itemId] ?? '') : '';
 
             if ($rate === '') {
@@ -69,7 +72,7 @@ final class InvoiceFiscalProfileSelector
                 ? '[' . $serviceCode . '] ' . $itemName
                 : $itemName;
 
-            $signature = $serviceCode . '|' . $nationalCode . '|' . $rate;
+            $signature = $serviceCode . '|' . $nationalCode . '|' . $municipalCode . '|' . $rate;
 
             if ($signature === '||') {
                 continue;
@@ -81,6 +84,7 @@ final class InvoiceFiscalProfileSelector
                 $selected = [
                     'item_lista_servico' => $serviceCode,
                     'codigo_tributacao_nacional' => $nationalCode,
+                    'codigo_tributacao_municipal' => $municipalCode,
                     'aliquota' => $rate,
                 ];
             }
@@ -89,6 +93,7 @@ final class InvoiceFiscalProfileSelector
         return [
             'item_lista_servico' => $selected['item_lista_servico'] !== '' ? $selected['item_lista_servico'] : $defaultServiceCode,
             'codigo_tributacao_nacional' => $selected['codigo_tributacao_nacional'] !== '' ? $selected['codigo_tributacao_nacional'] : $defaultNationalCode,
+            'codigo_tributacao_municipal' => $selected['codigo_tributacao_municipal'] ?? '',
             'aliquota' => $selected['aliquota'] !== '' ? $selected['aliquota'] : $defaultRate,
             'line_items' => $lineItems,
             'requires_split' => count($signatures) > 1,

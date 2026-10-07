@@ -66,10 +66,12 @@
         </div>
         @php($profileServiceCode = (string) ($nfseItemFiscalProfile->item_lista_servico ?? ''))
         @php($profileNationalCode = (string) ($nfseItemFiscalProfile->codigo_tributacao_nacional ?? ''))
+        @php($profileMunicipalCode = (string) ($nfseItemFiscalProfile->codigo_tributacao_municipal ?? ''))
         @php($oldServiceCode = old('nfse_item_lista_servico', $profileServiceCode))
         @php($normalizedServiceCode = \Modules\Nfse\Support\Lc116Code::normalize($oldServiceCode))
         @php($selectedServiceOption = $normalizedServiceCode !== '' ? 'lc:' . $normalizedServiceCode : '')
         @php($oldNationalCode = old('nfse_codigo_tributacao_nacional', $profileNationalCode))
+        @php($oldMunicipalCode = old('nfse_codigo_tributacao_municipal', $profileMunicipalCode))
         @php($lc116Options = [])
         @foreach(($nfseLc116Catalog ?? []) as $entry)
             @php($entryCode = \Modules\Nfse\Support\Lc116Code::normalize($entry['code'] ?? ''))
@@ -106,6 +108,20 @@
 
         <div class="sm:col-span-6 -mt-3">
             <p class="text-xs text-gray-500">{{ trans('nfse::general.items.codigo_tributacao_nacional_hint') }}</p>
+        </div>
+
+        <x-form.group.text
+            name="nfse_codigo_tributacao_municipal"
+            label="{{ trans('nfse::general.items.codigo_tributacao_municipal') }}"
+            :value="$oldMunicipalCode"
+            placeholder="{{ trans('nfse::general.items.codigo_tributacao_municipal_placeholder') }}"
+            maxlength="3"
+            form-group-class="sm:col-span-6"
+            not-required
+        />
+
+        <div class="sm:col-span-6 -mt-3">
+            <p class="text-xs text-gray-500">{{ trans('nfse::general.items.codigo_tributacao_municipal_hint') }}</p>
         </div>
     </x-slot>
 </x-form.section>

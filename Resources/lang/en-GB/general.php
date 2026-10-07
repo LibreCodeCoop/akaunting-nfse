@@ -103,6 +103,9 @@ return [
         'item_lista_servico_hint' => 'Use the official LC116 code. Only 4 digits are stored.',
         'codigo_tributacao_nacional' => 'National tax code (NBS)',
         'codigo_tributacao_nacional_placeholder' => 'Example: 010701',
+        'codigo_tributacao_municipal' => 'Municipal taxation code',
+        'codigo_tributacao_municipal_placeholder' => 'Example: 001',
+        'codigo_tributacao_municipal_hint' => 'Enter the 3-digit municipal subdivision published by the municipality, when applicable.',
         'codigo_tributacao_nacional_hint' => 'Required for NFS-e issuance. Enter the official 6-digit national taxation code for the service.',
         'validation' => [
             'status_valid' => 'Fiscal profile is valid against available normative catalogs',

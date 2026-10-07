@@ -116,7 +116,7 @@ final class InvoiceFiscalContextResolver
 
     /**
      * @param list<int> $itemIds
-     * @return array<int,array{item_lista_servico:string,codigo_tributacao_nacional:string}>
+     * @return array<int,array{item_lista_servico:string,codigo_tributacao_nacional:string,codigo_tributacao_municipal:string}>
      */
     private function profileMap(int $companyId, array $itemIds): array
     {
@@ -143,6 +143,11 @@ final class InvoiceFiscalContextResolver
                                 '/\D+/',
                                 '',
                                 (string) ($profile->codigo_tributacao_nacional ?? ''),
+                            ) ?: '',
+                            'codigo_tributacao_municipal' => preg_replace(
+                                '/\D+/',
+                                '',
+                                (string) ($profile->codigo_tributacao_municipal ?? ''),
                             ) ?: '',
                         ],
                     ];

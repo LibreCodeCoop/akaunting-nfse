@@ -103,6 +103,9 @@ return [
         'item_lista_servico_hint' => 'Use o código oficial da lista LC116. Apenas os 4 dígitos são salvos.',
         'codigo_tributacao_nacional' => 'Código de tributação nacional (NBS)',
         'codigo_tributacao_nacional_placeholder' => 'Ex.: 010701',
+        'codigo_tributacao_municipal' => 'Código de tributação municipal',
+        'codigo_tributacao_municipal_placeholder' => 'Ex.: 001',
+        'codigo_tributacao_municipal_hint' => 'Informe o desdobramento municipal de 3 dígitos publicado pelo município, quando aplicável.',
         'codigo_tributacao_nacional_hint' => 'Obrigatório para emissão da NFS-e. Informe o código nacional oficial de 6 dígitos correspondente ao serviço.',
         'validation' => [
             'status_valid' => 'Perfil fiscal válido nos cadastros normativos disponíveis',

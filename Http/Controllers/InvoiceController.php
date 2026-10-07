@@ -382,7 +382,7 @@ class InvoiceController extends Controller
                 'municipioIbge' => $ibge,
                 'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
                 'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
-                'codigoTributacaoMunicipal' => '',
+                'codigoTributacaoMunicipal' => (string) ($itemFiscalProfile['codigo_tributacao_municipal'] ?? ''),
                 'valorServico' => number_format($serviceAmount, 2, '.', ''),
                 'aliquota' => (string) $itemFiscalProfile['aliquota'],
                 'discriminacao' => $this->buildDiscriminacao(
@@ -973,7 +973,7 @@ class InvoiceController extends Controller
             'municipioIbge' => (string) setting('nfse.municipio_ibge'),
             'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
-            'codigoTributacaoMunicipal' => '',
+            'codigoTributacaoMunicipal' => (string) ($itemFiscalProfile['codigo_tributacao_municipal'] ?? ''),
             'valorServico' => number_format($serviceAmount, 2, '.', ''),
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
             'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
