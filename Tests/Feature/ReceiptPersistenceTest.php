@@ -236,6 +236,44 @@ final class ReceiptPersistenceTest extends FeatureTestCase
         self::assertSame(hash('sha256', $xml), $fresh->authorized_fiscal_snapshot['source_sha256'] ?? null);
     }
 
+    public function testNewAuthorizedXmlResetsPostEmissionEmailMarker(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $persistence = new ReceiptPersistence();
+
+        $receipt = $persistence->storeCurrent(
+            $invoice->id,
+            new ReceiptData(
+                nfseNumber: '60',
+                chaveAcesso: str_repeat('6', 50),
+                dataEmissao: '2026-10-07T10:00:00-03:00',
+                rawXml: '<NFSe>first</NFSe>',
+            ),
+            '60',
+        );
+
+        $receipt->payload()->update([
+            'post_emission_email_sent_at' => now(),
+        ]);
+
+        $persistence->storeCurrent(
+            $invoice->id,
+            new ReceiptData(
+                nfseNumber: '61',
+                chaveAcesso: str_repeat('7', 50),
+                dataEmissao: '2026-10-07T11:00:00-03:00',
+                rawXml: '<NFSe>second</NFSe>',
+            ),
+            '61',
+            $receipt,
+        );
+
+        $payload = $receipt->payload()->first();
+
+        self::assertSame('<NFSe>second</NFSe>', $payload?->authorized_xml);
+        self::assertNull($payload?->post_emission_email_sent_at);
+    }
+
     private function receipt(string $number, string $accessKey): ReceiptData
     {
         return new ReceiptData(

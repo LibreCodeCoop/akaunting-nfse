@@ -181,7 +181,10 @@ final class ReceiptPersistence
 
         $receipt->payload()->updateOrCreate(
             [],
-            ['authorized_xml' => $xml],
+            [
+                'authorized_xml' => $xml,
+                'post_emission_email_sent_at' => null,
+            ],
         );
     }
 }
