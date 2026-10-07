@@ -97,6 +97,17 @@ A emissão suporta, quando aplicável:
 - exigibilidade suspensa com tipo e número de processo;
 - retenção de ISSQN tratada separadamente da tributação da operação.
 
+### Processamento pós-emissão e filas
+
+A autorização fiscal é persistida antes da geração de DANFSE, arquivamento WebDAV e envio de e-mail.
+
+O módulo funciona nos dois modos:
+
+- `QUEUE_CONNECTION=sync`: compatibilidade sem worker; o pós-processamento continua no request.
+- backend assíncrono, como Redis: o request retorna após a persistência fiscal e um worker conclui artefatos/e-mail.
+
+Para produção, configuração do worker, Docker, deploy, diagnóstico e rollback, veja [docs/queue.md](docs/queue.md).
+
 ### OpenBao / Vault
 
 O módulo consome um OpenBao/Vault já existente. Ele não instala nem inicializa
