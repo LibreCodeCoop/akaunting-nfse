@@ -34,7 +34,7 @@ final class ProcessNfsePostEmissionTest extends TestCase
         self::assertNotFalse($artifactPosition);
         self::assertNotFalse($emailPosition);
         self::assertLessThan($emailPosition, $artifactPosition);
-        self::assertStringContainsString('NfseArtifactStorage $artifactStorage', $content);
+        self::assertStringContainsString('$artifactStorage = new NfseArtifactStorage();', $content);
         self::assertStringContainsString('new NfseIssued(', $content);
         self::assertStringContainsString("Notification::route('mail'", $content);
     }
