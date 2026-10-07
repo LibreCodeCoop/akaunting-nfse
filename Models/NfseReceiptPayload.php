@@ -18,10 +18,15 @@ class NfseReceiptPayload extends Model
         'receipt_id',
         'authorized_xml',
         'post_emission_email_sent_at',
+        'artifacts_status',
+        'email_status',
+        'post_processing_error',
+        'artifacts_completed_at',
     ];
 
     protected $casts = [
         'post_emission_email_sent_at' => 'datetime',
+        'artifacts_completed_at' => 'datetime',
     ];
 
     public function receipt(): BelongsTo
