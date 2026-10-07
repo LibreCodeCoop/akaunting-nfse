@@ -99,18 +99,20 @@ Variables: $invoice, $receipt, $receiptStatusLabel, $artifacts
                         {{ $artifactKey === 'danfse' ? trans('nfse::general.invoices.artifact_danfse_label') : trans('nfse::general.invoices.artifact_xml_label') }}
                     </span>
                     @if(($artifactData['exists'] ?? false) === true && is_string($artifactData['download_url'] ?? null) && ($artifactData['download_url'] ?? '') !== '')
-                        <a href="{{ $artifactData['download_url'] }}" data-nfse-artifact="{{ $artifactKey }}" aria-disabled="false" class="inline-flex items-center gap-1 rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
+                        <a href="{{ $artifactData['download_url'] }}" data-nfse-artifact="{{ $artifactKey }}"
+                            data-nfse-artifact-processing="{{ $artifactKey === 'danfse' ? trans('nfse::general.invoices.artifact_danfse_processing') : trans('nfse::general.invoices.artifact_xml_processing') }}" aria-disabled="false" class="inline-flex items-center gap-1 rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
                             <svg data-nfse-artifact-spinner class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
                             <span data-nfse-artifact-label>{{ trans('nfse::general.invoices.artifact_download') }}</span>
                         </a>
                     @elseif($postEmissionActive)
                         <span
                             data-nfse-artifact="{{ $artifactKey }}"
+                            data-nfse-artifact-processing="{{ $artifactKey === 'danfse' ? trans('nfse::general.invoices.artifact_danfse_processing') : trans('nfse::general.invoices.artifact_xml_processing') }}"
                             aria-disabled="true"
                             class="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-500"
                         >
                             <svg data-nfse-artifact-spinner class="h-3 w-3 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
-                            <span data-nfse-artifact-label>{{ trans('nfse::general.invoices.post_processing_stage_processing') }}</span>
+                            <span data-nfse-artifact-label>{{ $artifactKey === 'danfse' ? trans('nfse::general.invoices.artifact_danfse_processing') : trans('nfse::general.invoices.artifact_xml_processing') }}</span>
                         </span>
                     @endif
                 </div>

@@ -73,7 +73,7 @@
 
         if (label) {
             const text = polling
-                ? rootNode.dataset.artifactProcessing
+                ? (link.dataset?.nfseArtifactProcessing || rootNode.dataset.artifactProcessing)
                 : rootNode.dataset.artifactMissing;
 
             if (text) {

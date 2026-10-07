@@ -206,6 +206,8 @@ return [
         'artifacts_title' => 'Artefatos da NFS-e',
         'artifact_danfse_label' => 'DANFSE (PDF)',
         'artifact_xml_label' => 'XML da NFS-e',
+        'artifact_danfse_processing' => 'Gerando DANFSE...',
+        'artifact_xml_processing' => 'Gerando XML...',
         'artifact_download' => 'Baixar',
         'artifact_missing' => 'Indisponível',
         'artifact_status' => 'Status',
