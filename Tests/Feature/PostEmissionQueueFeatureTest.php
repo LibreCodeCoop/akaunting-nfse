@@ -137,9 +137,11 @@ final class PostEmissionQueueFeatureTest extends FeatureTestCase
             {
             }
 
-            public function store(int $invoiceId, int $receiptId): void
+            public function store(int $invoiceId, int $receiptId): array
             {
                 $this->calls[] = [$invoiceId, $receiptId];
+
+                return ['xml' => 'completed', 'danfse' => 'completed'];
             }
         };
 
