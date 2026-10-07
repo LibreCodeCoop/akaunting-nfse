@@ -3844,6 +3844,10 @@ class InvoiceController extends Controller
         NfseReceipt $receipt,
         ?array $email,
     ): void {
+        if (!class_exists(\Illuminate\Support\Facades\Bus::class)) {
+            return;
+        }
+
         try {
             (new PostEmissionDispatcher())->dispatch(
                 invoiceId: (int) $invoice->id,
