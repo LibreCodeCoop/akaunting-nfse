@@ -606,7 +606,6 @@ class InvoiceController extends Controller
             $this->dispatchPostEmission(
                 $invoice,
                 $persistedReceipt,
-                (string) ($receipt->rawXml ?? ''),
                 $email,
             );
             $this->markInvoiceSentAfterEmission($invoice);
@@ -3843,13 +3842,11 @@ class InvoiceController extends Controller
     protected function dispatchPostEmission(
         Invoice $invoice,
         NfseReceipt $receipt,
-        string $authorizedXml,
         ?array $email,
     ): void {
         (new PostEmissionDispatcher())->dispatch(
             invoiceId: (int) $invoice->id,
             receiptId: (int) $receipt->id,
-            authorizedXml: $authorizedXml,
             email: $email,
         );
     }
