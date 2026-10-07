@@ -43,16 +43,18 @@ namespace Modules\Nfse\Tests\Unit\Application {
             $persistedReceipt = InvoiceControllerIsolationState::makeReceipt(777, 'CHAVE-777', 'emitted');
 
             $storage = new NfseArtifactStorage(
-                webDavFactory: static fn (): WebDavClient => new WebDavClient(
-                    baseUrl: 'https://dav.example.com/root',
-                    request: static function (string $method, string $url, array $headers, string $body) use (&$writes): array {
-                        if ($method === 'PUT') {
-                            $writes[] = [$url, $body];
-                        }
+                webDavFactory: static function () use (&$writes): WebDavClient {
+                    return new WebDavClient(
+                        baseUrl: 'https://dav.example.com/root',
+                        request: static function (string $method, string $url, array $headers, string $body) use (&$writes): array {
+                            if ($method === 'PUT') {
+                                $writes[] = [$url, $body];
+                            }
 
-                        return [201, ''];
-                    },
-                ),
+                            return [201, ''];
+                        },
+                    );
+                },
                 danfseGenerator: static function (string $xml): string {
                     throw new \RuntimeException('DANFSE unavailable');
                 },
