@@ -102,8 +102,8 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             is_array($group['items'] ?? null) ? $group['items'] : [],
         ), static fn (int $id): bool => $id > 0));
         $amount = (float) ($group['amount'] ?? 0);
-        $simples = (int) $this->setting('nfse.opcao_simples_nacional', 2);
-        $simples = in_array($simples, [1, 2], true) ? $simples : 2;
+        $simples = (int) $this->setting('nfse.opcao_simples_nacional', 1);
+        $simples = in_array($simples, [1, 2, 3], true) ? $simples : 1;
         $sandbox = filter_var($this->setting('nfse.sandbox_mode', true), FILTER_VALIDATE_BOOL);
 
         $federal = (new InvoiceFederalPayloadResolver(

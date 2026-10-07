@@ -82,7 +82,7 @@ final class InvoiceFederalPayloadResolver
             $retentionType = '0';
         }
 
-        $simples = $this->simplesNacional() === 2;
+        $simples = in_array($this->simplesNacional(), [2, 3], true);
         $federalPercent = $this->decimal($this->setting(
             $simples ? 'nfse.tributos_fed_sn' : 'nfse.tributos_fed_p',
             '',
@@ -295,9 +295,9 @@ final class InvoiceFederalPayloadResolver
 
     private function simplesNacional(): int
     {
-        $value = (int) $this->setting('nfse.opcao_simples_nacional', 2);
+        $value = (int) $this->setting('nfse.opcao_simples_nacional', 1);
 
-        return in_array($value, [1, 2], true) ? $value : 2;
+        return in_array($value, [1, 2, 3], true) ? $value : 1;
     }
 
     private function retentionValue(float $amount, string $key): string

@@ -348,7 +348,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringNotContainsString('operational readiness', $enGbContent);
 
             self::assertStringContainsString("'opcao_simples_nacional_not_optant' => 'Não optante'", $ptBrContent);
-            self::assertStringContainsString("'opcao_simples_nacional_optant' => 'Optante'", $ptBrContent);
+            self::assertStringContainsString("'opcao_simples_nacional_mei' => 'Optante - Microempreendedor Individual (MEI)'", $ptBrContent);
+            self::assertStringContainsString("'opcao_simples_nacional_me_epp' => 'Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP)'", $ptBrContent);
             self::assertStringContainsString("'go_to_settings'        => 'Ver configurações'", $ptBrContent);
             self::assertStringContainsString("'go_to_settings'        => 'View settings'", $enGbContent);
             self::assertStringContainsString("'emit_modal_email_section'", $ptBrContent);

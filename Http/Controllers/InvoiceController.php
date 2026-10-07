@@ -3095,7 +3095,7 @@ class InvoiceController extends Controller
     {
         $configured = (int) setting('nfse.opcao_simples_nacional', 2);
 
-        return in_array($configured, [1, 2], true) ? $configured : 2;
+        return in_array($configured, [1, 2, 3], true) ? $configured : 1;
     }
 
     /**
