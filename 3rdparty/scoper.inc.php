@@ -22,6 +22,25 @@ return [
     ],
     'patchers' => [
         static function (string $filePath, string $prefix, string $content): string {
+            if (!str_ends_with($filePath, 'dompdf/dompdf/src/Frame/Factory.php')) {
+                return $content;
+            }
+
+            return str_replace(
+                [
+                    '"Dompdf\\\\FrameDecorator\\\\$decorator"',
+                    '"Dompdf\\\\FrameReflower\\\\$reflower"',
+                    "'\\\\Dompdf\\\\Positioner\\\\'.\$type",
+                ],
+                [
+                    '"' . $prefix . '\\\\Dompdf\\\\FrameDecorator\\\\$decorator"',
+                    '"' . $prefix . '\\\\Dompdf\\\\FrameReflower\\\\$reflower"',
+                    "'\\\\' . $prefix . '\\\\Dompdf\\\\Positioner\\\\'.\$type",
+                ],
+                $content,
+            );
+        },
+        static function (string $filePath, string $prefix, string $content): string {
             if (!str_ends_with($filePath, 'composer/autoload_real.php')) {
                 return $content;
             }

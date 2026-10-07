@@ -101,7 +101,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $patchers = $config['patchers'] ?? null;
 
         self::assertIsArray($patchers);
-        self::assertCount(1, $patchers);
+        self::assertCount(2, $patchers);
 
         $patchedContent = $patchers[0](
             'composer/autoload_real.php',
@@ -111,6 +111,43 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertSame(
             "if ('Composer\\Autoload\\ClassLoader' === \$class || 'Modules\\Nfse\\Vendor\\Composer\\Autoload\\ClassLoader' === \$class) {",
+            $patchedContent,
+        );
+    }
+
+
+    public function testScoperPatcherPrefixesDompdfDynamicFrameClasses(): void
+    {
+        require_once dirname(__DIR__, 3) . '/vendor-bin/php-scoper/vendor/autoload.php';
+
+        $config = require dirname(__DIR__, 3) . '/3rdparty/scoper.inc.php';
+        $patchers = $config['patchers'] ?? null;
+
+        self::assertIsArray($patchers);
+        self::assertCount(2, $patchers);
+
+        $source = <<<'PHP'
+$decorator  = "Dompdf\\FrameDecorator\\$decorator";
+$reflower   = "Dompdf\\FrameReflower\\$reflower";
+$class = '\\Dompdf\\Positioner\\'.$type;
+PHP;
+
+        $patchedContent = $patchers[0](
+            '/vendor/dompdf/dompdf/src/Frame/Factory.php',
+            'Modules\\Nfse\\Vendor',
+            $source,
+        );
+
+        self::assertStringContainsString(
+            '"Modules\\Nfse\\Vendor\\Dompdf\\FrameDecorator\\$decorator"',
+            $patchedContent,
+        );
+        self::assertStringContainsString(
+            '"Modules\\Nfse\\Vendor\\Dompdf\\FrameReflower\\$reflower"',
+            $patchedContent,
+        );
+        self::assertStringContainsString(
+            "'\\Modules\\Nfse\\Vendor\\Dompdf\\Positioner\\'.\$type",
             $patchedContent,
         );
     }
