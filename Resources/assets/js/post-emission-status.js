@@ -67,13 +67,17 @@
             return;
         }
 
-        if (polling) {
-            link.setAttribute('aria-disabled', 'true');
-            link.classList.add('pointer-events-none', 'opacity-60');
-            spinner?.classList.remove('hidden');
+        link.setAttribute('aria-disabled', 'true');
+        link.classList.add('pointer-events-none', 'opacity-60');
+        spinner?.classList.toggle('hidden', !polling);
 
-            if (label && rootNode.dataset.artifactProcessing) {
-                label.textContent = rootNode.dataset.artifactProcessing;
+        if (label) {
+            const text = polling
+                ? rootNode.dataset.artifactProcessing
+                : rootNode.dataset.artifactMissing;
+
+            if (text) {
+                label.textContent = text;
             }
         }
     }

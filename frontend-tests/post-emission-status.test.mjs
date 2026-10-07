@@ -31,3 +31,59 @@ test('active stage recognition includes retrying but not terminal states', () =>
     assert.equal(status.isActiveStatus('completed'), false);
     assert.equal(status.isActiveStatus('failed'), false);
 });
+
+
+test('missing artifact is disabled even when polling already stopped', () => {
+    const classes = new Set();
+    const spinnerClasses = new Set();
+
+    const link = {
+        attrs: {},
+        classList: {
+            add: (...values) => values.forEach((value) => classes.add(value)),
+            remove: (...values) => values.forEach((value) => classes.delete(value)),
+        },
+        setAttribute(name, value) {
+            this.attrs[name] = value;
+        },
+        querySelector(selector) {
+            if (selector === '[data-nfse-artifact-spinner]') {
+                return {
+                    classList: {
+                        add: (value) => spinnerClasses.add(value),
+                        remove: (value) => spinnerClasses.delete(value),
+                        toggle: (value, force) => force ? spinnerClasses.add(value) : spinnerClasses.delete(value),
+                    },
+                };
+            }
+
+            if (selector === '[data-nfse-artifact-label]') {
+                return this.label ??= { textContent: '' };
+            }
+
+            return null;
+        },
+    };
+
+    const root = {
+        dataset: {
+            artifactMissing: 'Unavailable',
+            artifactProcessing: 'Processing',
+        },
+        querySelector() {
+            return link;
+        },
+    };
+
+    status.applyStatus(root, {
+        status: 'completed',
+        poll: false,
+        stages: { email: 'completed' },
+        artifacts: { xml: { ready: false, download_url: null } },
+    });
+
+    assert.equal(link.attrs['aria-disabled'], 'true');
+    assert.equal(classes.has('pointer-events-none'), true);
+    assert.equal(link.label.textContent, 'Unavailable');
+    assert.equal(spinnerClasses.has('hidden'), true);
+});

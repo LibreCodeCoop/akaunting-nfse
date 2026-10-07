@@ -111,11 +111,9 @@ final class PostEmissionState
      */
     public function snapshot(NfseReceipt $receipt): array
     {
-        $payload = NfseReceiptPayload::query()
-            ->where('receipt_id', (int) $receipt->id)
-            ->first();
+        $relation = $receipt->payload();
 
-        if (!$payload instanceof NfseReceiptPayload) {
+        if (!is_object($relation) || !method_exists($relation, 'value')) {
             return [
                 'overall_status' => 'idle',
                 'poll' => false,
@@ -125,8 +123,20 @@ final class PostEmissionState
             ];
         }
 
-        $artifactsStatus = $this->normalizeStatus($payload->artifacts_status);
-        $emailStatus = $this->normalizeStatus($payload->email_status);
+        $artifactsStatus = $this->normalizeStatus($relation->value('artifacts_status'));
+        $emailStatus = $this->normalizeStatus($relation->value('email_status'));
+        $error = $relation->value('post_processing_error');
+
+        if ($artifactsStatus === null && $emailStatus === null && $error === null) {
+            return [
+                'overall_status' => 'idle',
+                'poll' => false,
+                'artifacts_status' => null,
+                'email_status' => null,
+                'error' => null,
+            ];
+        }
+
         $failed = $artifactsStatus === 'failed' || $emailStatus === 'failed';
         $active = in_array($artifactsStatus, self::ACTIVE_STATUSES, true)
             || in_array($emailStatus, self::ACTIVE_STATUSES, true);
@@ -138,8 +148,8 @@ final class PostEmissionState
             'poll' => !$failed && $active,
             'artifacts_status' => $artifactsStatus,
             'email_status' => $emailStatus,
-            'error' => is_string($payload->post_processing_error)
-                ? trim($payload->post_processing_error) ?: null
+            'error' => is_string($error)
+                ? trim($error) ?: null
                 : null,
         ];
     }

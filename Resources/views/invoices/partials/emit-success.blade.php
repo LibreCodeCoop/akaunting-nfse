@@ -23,6 +23,8 @@ Variables: $invoice, $receipt, $receiptStatusLabel, $artifacts
     data-stage-completed="{{ trans('nfse::general.invoices.post_processing_stage_completed') }}"
     data-stage-failed="{{ trans('nfse::general.invoices.post_processing_stage_failed') }}"
     data-stage-not-requested="{{ trans('nfse::general.invoices.post_processing_stage_not_requested') }}"
+    data-artifact-processing="{{ trans('nfse::general.invoices.post_processing_stage_processing') }}"
+    data-artifact-missing="{{ trans('nfse::general.invoices.artifact_missing') }}"
 >
     <div class="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm {{ $postEmissionOverall === 'idle' ? 'hidden' : '' }}" data-nfse-post-emission-box aria-live="polite">
         <svg data-nfse-post-emission-spinner class="h-4 w-4 animate-spin {{ $postEmissionActive ? '' : 'hidden' }}" viewBox="0 0 24 24" aria-hidden="true">
@@ -105,8 +107,8 @@ Variables: $invoice, $receipt, $receiptStatusLabel, $artifacts
                         <a
                             href="{{ route('nfse.invoices.artifacts.download', [$invoice->id, $artifactKey]) }}"
                             data-nfse-artifact="{{ $artifactKey }}"
-                            aria-disabled="{{ $postEmissionActive ? 'true' : 'false' }}"
-                            class="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-500 {{ $postEmissionActive ? 'pointer-events-none opacity-60' : '' }}"
+                            aria-disabled="true"
+                            class="pointer-events-none inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-500 opacity-60"
                         >
                             <svg data-nfse-artifact-spinner class="h-3 w-3 animate-spin {{ $postEmissionActive ? '' : 'hidden' }}" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
                             <span data-nfse-artifact-label>{{ $postEmissionActive ? trans('nfse::general.invoices.post_processing_stage_processing') : trans('nfse::general.invoices.artifact_missing') }}</span>
