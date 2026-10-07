@@ -15,7 +15,8 @@ final class ProcessNfsePostEmissionTest extends TestCase
     {
         $content = (string) file_get_contents(dirname(__DIR__, 3) . '/Jobs/ProcessNfsePostEmission.php');
 
-        self::assertStringContainsString('final class ProcessNfsePostEmission implements ShouldQueue', $content);
+        self::assertStringContainsString('final class ProcessNfsePostEmission', $content);
+        self::assertStringNotContainsString('ShouldQueue', $content);
         self::assertStringContainsString('public readonly int $invoiceId', $content);
         self::assertStringContainsString('public readonly int $receiptId', $content);
         self::assertStringContainsString('public readonly string $authorizedXml', $content);
