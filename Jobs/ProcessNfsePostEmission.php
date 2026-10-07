@@ -14,8 +14,10 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Notifications\NfseIssued;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseGenerator;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -137,16 +139,31 @@ final class ProcessNfsePostEmission implements ShouldQueue
             return;
         }
 
+        $customMail = is_array($this->email['custom_mail'] ?? null)
+            ? $this->email['custom_mail']
+            : [];
+
+        if (empty($customMail['to'])) {
+            return;
+        }
+
         try {
-            (new SendNfseCustomEmail(
+            $notification = new NfseIssued(
                 invoice: $invoice,
                 receipt: $receipt,
                 attachDanfse: (bool) ($this->email['attach_danfse'] ?? true),
                 attachXml: (bool) ($this->email['attach_xml'] ?? true),
-                customMail: is_array($this->email['custom_mail'] ?? null)
-                    ? $this->email['custom_mail']
-                    : [],
-            ))->handle();
+                custom_mail: $customMail,
+            );
+
+            if ($invoice->contact !== null) {
+                $invoice->contact->notify($notification);
+
+                return;
+            }
+
+            Notification::route('mail', (string) $customMail['to'])
+                ->notify($notification);
         } catch (\Throwable $throwable) {
             Log::error('NFS-e post-emission email failed', [
                 'invoice_id' => $this->invoiceId,
