@@ -45,6 +45,24 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
 
     }
 
+    public function testNativeInvoiceShowSurfacesFiscalActionFeedback(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+
+        $response = $this->loginAs()
+            ->withSession([
+                'error' => 'NFSE-FEEDBACK-ERROR',
+                'nfse_gateway_error_detail' => 'NFSE-GATEWAY-DETAIL',
+            ])
+            ->get(route('invoices.show', $invoice->id));
+
+        $response
+            ->assertOk()
+            ->assertSee('data-nfse-feedback="error"', false)
+            ->assertSee('NFSE-FEEDBACK-ERROR')
+            ->assertSee('NFSE-GATEWAY-DETAIL');
+    }
+
     public function testNativeInvoiceShowContainsLinkedReceiptAndFiscalDetails(): void
     {
         $invoice = Document::factory()->invoice()->create();

@@ -860,10 +860,15 @@ class InvoiceController extends Controller
 
             return redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             $this->cleanupClientTransportArtifacts();
+            $this->safeLogError('NFS-e refresh failed', [
+                'invoice_id' => $invoice->id,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
 
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_refresh_failed'));
         }
     }
