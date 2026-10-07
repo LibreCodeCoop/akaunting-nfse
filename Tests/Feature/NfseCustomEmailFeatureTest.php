@@ -45,7 +45,7 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
                 'subject' => 'NFS-e emitida',
                 'body' => 'Documento fiscal disponível.',
             ],
-        ))->handle(new NfseArtifactStorage());
+        ))->handle();
 
         Notification::assertSentTo(
             $invoice->contact->fresh(),
@@ -110,6 +110,7 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
 
         Notification::assertNotSentTo($invoice->contact->fresh(), NfseIssued::class);
     }
+
     public function testPostEmissionJobSendsEmailWhenWebDavIsDisabled(): void
     {
         Notification::fake();
@@ -141,12 +142,11 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
                     'attach_invoice_pdf' => false,
                 ],
             ],
-        ))->handle();
+        ))->handle(new NfseArtifactStorage());
 
         Notification::assertSentTo(
             $invoice->contact->fresh(),
             NfseIssued::class,
         );
     }
-
 }
