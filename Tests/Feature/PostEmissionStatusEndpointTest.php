@@ -43,9 +43,9 @@ final class PostEmissionStatusEndpointTest extends FeatureTestCase
         self::assertSame('processing', $data['stages']['artifacts']);
         self::assertSame('pending', $data['stages']['email']);
         self::assertTrue($data['artifacts']['xml']['ready']);
-        self::assertFalse($data['artifacts']['danfse']['ready']);
+        self::assertTrue($data['artifacts']['danfse']['ready']);
         self::assertIsString($data['artifacts']['xml']['download_url']);
-        self::assertNull($data['artifacts']['danfse']['download_url']);
+        self::assertIsString($data['artifacts']['danfse']['download_url']);
     }
 
     public function testStatusEndpointExposesDownloadsFromAuthorizedXmlBeforeWebDavArchival(): void

@@ -246,12 +246,22 @@ class Main extends Provider
             $postEmissionStatus = $receipt instanceof NfseReceipt
                 ? (new PostEmissionState())->snapshot($receipt)
                 : null;
+            $authorizedXmlAvailable = false;
+
+            if ($receipt instanceof NfseReceipt) {
+                try {
+                    $authorizedXmlAvailable = trim((string) $receipt->payload()->value('authorized_xml')) !== '';
+                } catch (\Throwable) {
+                    $authorizedXmlAvailable = false;
+                }
+            }
 
             $content = view('nfse::invoices.partials.native-fiscal-panel', [
                 'invoice' => $invoice,
                 'receipt' => $receipt,
                 'receipts' => $receipts,
                 'postEmissionStatus' => $postEmissionStatus,
+                'authorizedXmlAvailable' => $authorizedXmlAvailable,
             ])->render();
 
             $modalTrigger = view('nfse::invoices.partials.native-fiscal-modal-trigger', [

@@ -12,8 +12,9 @@
     $postEmissionStatus = is_array($postEmissionStatus ?? null) ? $postEmissionStatus : [];
     $postEmissionOverall = (string) ($postEmissionStatus['overall_status'] ?? 'idle');
     $postEmissionActive = ($postEmissionStatus['poll'] ?? false) === true;
-    $xmlReady = trim((string) ($receipt->xml_webdav_path ?? '')) !== '';
-    $danfseReady = trim((string) ($receipt->danfse_webdav_path ?? '')) !== '';
+    $authorizedXmlAvailable = (bool) ($authorizedXmlAvailable ?? false);
+    $xmlReady = $authorizedXmlAvailable || trim((string) ($receipt->xml_webdav_path ?? '')) !== '';
+    $danfseReady = $authorizedXmlAvailable || trim((string) ($receipt->danfse_webdav_path ?? '')) !== '';
 @endphp
 
 @if(session('success'))
