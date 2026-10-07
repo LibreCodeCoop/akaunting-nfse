@@ -12,6 +12,7 @@ use App\Events\Document\DocumentSent;
 use App\Models\Document\Document;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
+use Modules\Nfse\Application\NfseArtifactStorage;
 use Modules\Nfse\Jobs\ProcessNfsePostEmission;
 use Modules\Nfse\Jobs\SendNfseCustomEmail;
 use Modules\Nfse\Models\NfseReceipt;
@@ -44,7 +45,7 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
                 'subject' => 'NFS-e emitida',
                 'body' => 'Documento fiscal disponível.',
             ],
-        ))->handle();
+        ))->handle(new NfseArtifactStorage());
 
         Notification::assertSentTo(
             $invoice->contact->fresh(),
