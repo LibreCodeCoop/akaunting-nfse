@@ -119,7 +119,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         );
     }
 
-    public function testScoperPatcherUsesNamespaceRelativeDompdfDynamicClasses(): void
+    public function testScoperPatcherPrefixesDompdfDynamicClasses(): void
     {
         require_once dirname(__DIR__, 3) . '/vendor-bin/php-scoper/vendor/autoload.php';
 
@@ -130,8 +130,8 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         self::assertCount(2, $patchers);
 
         $source = <<<'PHP'
-            $decorator  = "Dompdf\\FrameDecorator\\{$decorator}";
-            $reflower   = "Dompdf\\FrameReflower\\{$reflower}";
+            $decorator = "Dompdf\\FrameDecorator\\{$decorator}";
+            $reflower = "Dompdf\\FrameReflower\\{$reflower}";
             $class = '\\Dompdf\\Positioner\\'.$type;
             PHP;
 
@@ -146,42 +146,39 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         }
 
         self::assertStringContainsString(
-            "sprintf('%s\\\\FrameDecorator\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$decorator)",
+            '$decorator = "Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\FrameDecorator\\\\{$decorator}";',
             $patchedContent,
         );
         self::assertStringContainsString(
-            "sprintf('%s\\\\FrameReflower\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$reflower)",
+            '$reflower = "Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\FrameReflower\\\\{$reflower}";',
             $patchedContent,
         );
         self::assertStringContainsString(
-            "sprintf('%s\\\\Positioner\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$type)",
+            '$class = \'\\\\Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\Positioner\\\\\'.$type;',
             $patchedContent,
         );
-        self::assertStringNotContainsString('\\\\$decorator', $patchedContent);
-        self::assertStringNotContainsString('\\\\$reflower', $patchedContent);
-        self::assertStringNotContainsString('\\\\$class', $patchedContent);
     }
 
-    public function testBuiltScopedDompdfFactoryContainsNoUnscopedDynamicClassNames(): void
+    public function testBuiltScopedDompdfFactoryIsValidAndFullyPrefixed(): void
     {
         $factoryPath = dirname(__DIR__, 3) . '/3rdparty/scoped/dompdf/dompdf/src/Frame/Factory.php';
         $content = file_get_contents($factoryPath);
 
         self::assertIsString($content);
         self::assertStringContainsString(
-            "sprintf('%s\\\\FrameDecorator\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$decorator)",
+            '$decorator = "Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\FrameDecorator\\\\{$decorator}";',
             $content,
         );
         self::assertStringContainsString(
-            "sprintf('%s\\\\FrameReflower\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$reflower)",
+            '$reflower = "Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\FrameReflower\\\\{$reflower}";',
             $content,
         );
         self::assertStringContainsString(
-            "sprintf('%s\\\\Positioner\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$type)",
+            '$class = \'\\\\Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\Positioner\\\\\'.$type;',
             $content,
         );
-        self::assertStringNotContainsString('"Dompdf\\\\FrameDecorator\\\\$decorator"', $content);
-        self::assertStringNotContainsString('"Dompdf\\\\FrameReflower\\\\$reflower"', $content);
+        self::assertStringNotContainsString('"Dompdf\\\\FrameDecorator\\\\{$decorator}"', $content);
+        self::assertStringNotContainsString('"Dompdf\\\\FrameReflower\\\\{$reflower}"', $content);
 
         exec(
             escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($factoryPath) . ' 2>&1',
@@ -191,4 +188,20 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertSame(0, $lintExitCode, implode("\n", $lintOutput));
     }
-}
+
+    public function testScopedDanfseGeneratorRendersPdf(): void
+    {
+        require_once dirname(__DIR__, 3) . '/3rdparty/scoped/autoload.php';
+
+        $fixturePath = dirname(__DIR__, 3) . '/tests/fixtures/nfse_exemplo.xml';
+        $xml = file_get_contents($fixturePath);
+
+        self::assertIsString($xml);
+
+        $generatorClass = 'Modules\\Nfse\\Vendor\\LibreCodeCoop\\NfsePHP\\Danfse\\DanfseGenerator';
+        $generator = new $generatorClass();
+        $pdf = $generator->generateFromXml($xml);
+
+        self::assertNotSame('', $pdf);
+        self::assertStringStartsWith('%PDF-', $pdf);
+    }}

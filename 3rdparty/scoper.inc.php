@@ -26,28 +26,21 @@ return [
                 return $content;
             }
 
-            $replacements = [
-                '/^\\s*\\$decorator\\s*=\\s*".*FrameDecorator.*";\\s*$/m'
-                    => '        $decorator = sprintf(\'%s\\\\FrameDecorator\\\\%s\', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')), $decorator);',
-                '/^\\s*\\$reflower\\s*=\\s*".*FrameReflower.*";\\s*$/m'
-                    => '        $reflower = sprintf(\'%s\\\\FrameReflower\\\\%s\', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')), $reflower);',
-                '/^\\s*\\$class\\s*=\\s*.*Positioner.*\\$type;\\s*$/m'
-                    => '            $class = sprintf(\'%s\\\\Positioner\\\\%s\', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')), $type);',
-            ];
+            $escapedPrefix = str_replace('\\', '\\\\', $prefix);
 
-            foreach ($replacements as $pattern => $replacement) {
-                $patched = preg_replace_callback(
-                    $pattern,
-                    static fn (): string => $replacement,
-                    $content,
-                );
-
-                if (is_string($patched)) {
-                    $content = $patched;
-                }
-            }
-
-            return $content;
+            return str_replace(
+                [
+                    '$decorator = "Dompdf\\\\FrameDecorator\\\\{$decorator}";',
+                    '$reflower = "Dompdf\\\\FrameReflower\\\\{$reflower}";',
+                    '$class = \'\\\\Dompdf\\\\Positioner\\\\\'.$type;',
+                ],
+                [
+                    '$decorator = "' . $escapedPrefix . '\\\\Dompdf\\\\FrameDecorator\\\\{$decorator}";',
+                    '$reflower = "' . $escapedPrefix . '\\\\Dompdf\\\\FrameReflower\\\\{$reflower}";',
+                    '$class = \'\\\\' . $escapedPrefix . '\\\\Dompdf\\\\Positioner\\\\\'.$type;',
+                ],
+                $content,
+            );
         },
         static function (string $filePath, string $prefix, string $content): string {
             if (!str_ends_with($filePath, 'composer/autoload_real.php')) {
