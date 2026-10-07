@@ -59,6 +59,7 @@ namespace Modules\Nfse\Tests\Unit\Application {
                 logError: static function (string $message, array $context) use (&$errors): void {
                     $errors[] = compact('message', 'context');
                 },
+                settingResolver: static fn (string $key, mixed $default = null): mixed => ControllerIsolationState::$settings[$key] ?? $default,
             );
 
             $storage->store($invoice, $this->receipt('<xml>conteudo</xml>'), $persistedReceipt);
@@ -102,6 +103,7 @@ namespace Modules\Nfse\Tests\Unit\Application {
 
                     return '%PDF-1.4';
                 },
+                settingResolver: static fn (string $key, mixed $default = null): mixed => ControllerIsolationState::$settings[$key] ?? $default,
             );
 
             $storage->store($invoice, $this->receipt('<NFSe>autorizada</NFSe>'), $persistedReceipt);
@@ -135,6 +137,7 @@ namespace Modules\Nfse\Tests\Unit\Application {
                 logError: static function (string $message, array $context) use (&$errors): void {
                     $errors[] = compact('message', 'context');
                 },
+                settingResolver: static fn (string $key, mixed $default = null): mixed => ControllerIsolationState::$settings[$key] ?? $default,
             );
 
             $storage->store($invoice, $this->receipt('<xml>conteudo</xml>'), $persistedReceipt);
