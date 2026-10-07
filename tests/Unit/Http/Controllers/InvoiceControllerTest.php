@@ -177,16 +177,16 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
-        public function testControllerStoresArtifactsAfterPersistingReceipt(): void
+        public function testControllerDispatchesPostEmissionAfterPersistingReceipt(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString(': $this->storeEmittedReceipt($invoice, $receipt);', $content);
             self::assertStringContainsString('(new ReceiptPersistence())->createReplacement(', $content);
-            self::assertStringContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
+            self::assertStringContainsString('$email = $this->preparePostEmitEmail($request, $invoice);', $content);
+            self::assertStringContainsString('$this->dispatchPostEmission(', $content);
             self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
-            self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);', $content);
-            self::assertStringContainsString('$this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);', $content);
+            self::assertStringNotContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
         }
 
         public function testMissingDanfseDownloadRegeneratesPdfFromStoredXml(): void
@@ -5098,11 +5098,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('NFS-e reemitida NF-RE-301 com sucesso.', $response->flash['success'] ?? null);
         }
 
-        public function testReemitSendsNotificationWhenEmailRequested(): void
+        public function testReemitDispatchesEmailPayloadWhenEmailRequested(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 3301,
-                amount: 300.0,
+                amount: 450.0,
                 items: [['name' => 'Servico Reemissao Email']],
                 contactEmail: 'cliente@reemissao.test',
             );
@@ -5115,8 +5115,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return new ReceiptData(
                         nfseNumber: 'NF-RE-3301',
                         chaveAcesso: 'CHAVE-RE-3301',
-                        dataEmissao: '2026-03-21T18:00:00-03:00',
-                        codigoVerificacao: 'RE3301',
+                        dataEmissao: '2026-10-07T10:00:00-03:00',
+                        codigoVerificacao: 'CV-RE-3301',
+                        rawXml: '<NFSe>authorized</NFSe>',
                     );
                 }
 
@@ -5136,10 +5137,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $notificationCalls = [];
+            $dispatchCalls = [];
 
-            $controller = new class ($client, $notificationCalls) extends InvoiceController {
-                public function __construct(private readonly NfseClientInterface $client, private array &$notificationCalls)
+            $controller = new class ($client, $dispatchCalls) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client, private array &$dispatchCalls)
                 {
                 }
 
@@ -5153,13 +5154,15 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return ['isReady' => true, 'checklist' => []];
                 }
 
-                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
-                {
-                    $this->notificationCalls[] = [
+                protected function dispatchPostEmission(
+                    Invoice $invoice,
+                    \Modules\Nfse\Models\NfseReceipt $receipt,
+                    ?array $email,
+                ): void {
+                    $this->dispatchCalls[] = [
                         'invoice_id' => $invoice->id,
-                        'attach_danfse' => $attachDanfse,
-                        'attach_xml' => $attachXml,
-                        'custom_mail' => $customMail,
+                        'receipt' => $receipt,
+                        'email' => $email,
                     ];
                 }
             };
@@ -5175,12 +5178,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->reemit($invoice, $request);
 
-            self::assertCount(1, $notificationCalls);
-            self::assertSame(3301, $notificationCalls[0]['invoice_id']);
-            self::assertTrue($notificationCalls[0]['attach_danfse']);
-            self::assertFalse($notificationCalls[0]['attach_xml']);
-            self::assertSame('destinatario@reemissao.test', $notificationCalls[0]['custom_mail']['to'] ?? null);
-            self::assertSame('Assunto reemissao', $notificationCalls[0]['custom_mail']['subject'] ?? null);
+            self::assertCount(1, $dispatchCalls);
+            self::assertSame(3301, $dispatchCalls[0]['invoice_id']);
+            self::assertTrue($dispatchCalls[0]['email']['attach_danfse']);
+            self::assertFalse($dispatchCalls[0]['email']['attach_xml']);
+            self::assertSame('destinatario@reemissao.test', $dispatchCalls[0]['email']['custom_mail']['to'] ?? null);
+            self::assertSame('Assunto reemissao', $dispatchCalls[0]['email']['custom_mail']['subject'] ?? null);
         }
 
         public function testReemitUsesCustomDescriptionFromRequestWhenProvided(): void

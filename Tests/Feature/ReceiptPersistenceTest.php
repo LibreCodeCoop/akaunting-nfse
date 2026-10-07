@@ -225,6 +225,7 @@ final class ReceiptPersistenceTest extends FeatureTestCase
 
         $fresh = $receipt->fresh();
 
+        self::assertSame($xml, $fresh->authorized_xml);
         self::assertSame('2026-10-01', $fresh->competence_date?->format('Y-m-d'));
         self::assertSame('100.00', $fresh->authorized_fiscal_snapshot['gross_service_value'] ?? null);
         self::assertSame(hash('sha256', $xml), $fresh->authorized_fiscal_snapshot['source_sha256'] ?? null);
