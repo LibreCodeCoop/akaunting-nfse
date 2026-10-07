@@ -30,6 +30,7 @@ use Modules\Nfse\Application\IssqnPayloadResolver;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\IssueInvoiceNfse;
 use Modules\Nfse\Application\PostEmissionDispatcher;
+use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
 use Modules\Nfse\Application\RecoverInvoiceEmission;
@@ -160,6 +161,67 @@ class InvoiceController extends Controller
         $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
 
         return view('nfse::invoices.show', compact('invoice', 'receipt', 'receiptStatusLabel', 'suggestedDiscriminacao', 'emailDefaults', 'artifacts'));
+    }
+
+    public function postEmissionStatus(Invoice $invoice): JsonResponse
+    {
+        $receipt = NfseReceipt::query()
+            ->where('invoice_id', $invoice->id)
+            ->with('payload')
+            ->latest('id')
+            ->first();
+
+        if (!$receipt instanceof NfseReceipt) {
+            return response()->json([
+                'data' => [
+                    'status' => 'idle',
+                    'poll' => false,
+                    'receipt_id' => null,
+                    'nfse_number' => null,
+                    'stages' => [
+                        'artifacts' => null,
+                        'email' => null,
+                    ],
+                    'artifacts' => [
+                        'xml' => ['ready' => false, 'download_url' => null],
+                        'danfse' => ['ready' => false, 'download_url' => null],
+                    ],
+                    'error' => null,
+                ],
+            ]);
+        }
+
+        $snapshot = (new PostEmissionState())->snapshot($receipt);
+        $xmlReady = trim((string) ($receipt->xml_webdav_path ?? '')) !== '';
+        $danfseReady = trim((string) ($receipt->danfse_webdav_path ?? '')) !== '';
+
+        return response()->json([
+            'data' => [
+                'status' => $snapshot['overall_status'],
+                'poll' => $snapshot['poll'],
+                'receipt_id' => (int) $receipt->id,
+                'nfse_number' => (string) ($receipt->nfse_number ?? ''),
+                'stages' => [
+                    'artifacts' => $snapshot['artifacts_status'],
+                    'email' => $snapshot['email_status'],
+                ],
+                'artifacts' => [
+                    'xml' => [
+                        'ready' => $xmlReady,
+                        'download_url' => $xmlReady
+                            ? route('nfse.invoices.artifacts.download', [$invoice->id, 'xml'])
+                            : null,
+                    ],
+                    'danfse' => [
+                        'ready' => $danfseReady,
+                        'download_url' => $danfseReady
+                            ? route('nfse.invoices.artifacts.download', [$invoice->id, 'danfse'])
+                            : null,
+                    ],
+                ],
+                'error' => $snapshot['error'],
+            ],
+        ]);
     }
 
     public function showEmitSuccess(Invoice $invoice): \Illuminate\View\View
@@ -3389,12 +3451,46 @@ class InvoiceController extends Controller
      */
     protected function resolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
     {
+        $postEmission = (new PostEmissionState())->snapshot($receipt);
+
+        if (($postEmission['poll'] ?? false) === true) {
+            return $this->persistedReceiptArtifacts($invoice, $receipt);
+        }
+
         $receiptData = $this->receiptDataFromModel($receipt);
         $basePath = $this->buildWebDavArtifactBasePath($invoice, $receiptData);
 
         return [
             'danfse' => $this->resolveSingleReceiptArtifact($invoice, $receipt, $receiptData, $basePath, 'danfse', 'danfse_webdav_path', 'pdf'),
             'xml' => $this->resolveSingleReceiptArtifact($invoice, $receipt, $receiptData, $basePath, 'xml', 'xml_webdav_path', 'xml'),
+        ];
+    }
+
+    /**
+     * @return array{
+     *   danfse: array{path: ?string, exists: bool, source: ?string, download_url: ?string},
+     *   xml: array{path: ?string, exists: bool, source: ?string, download_url: ?string}
+     * }
+     */
+    protected function persistedReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
+    {
+        $build = static function (mixed $rawPath, string $artifact) use ($invoice): array {
+            $path = is_string($rawPath) ? trim($rawPath) : '';
+            $ready = $path !== '';
+
+            return [
+                'path' => $ready ? $path : null,
+                'exists' => $ready,
+                'source' => $ready ? 'persisted' : null,
+                'download_url' => $ready
+                    ? route('nfse.invoices.artifacts.download', [$invoice->id, $artifact])
+                    : null,
+            ];
+        };
+
+        return [
+            'danfse' => $build($receipt->danfse_webdav_path ?? null, 'danfse'),
+            'xml' => $build($receipt->xml_webdav_path ?? null, 'xml'),
         ];
     }
 

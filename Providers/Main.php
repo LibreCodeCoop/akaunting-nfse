@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\ItemFiscalProfileValidator;
 use Modules\Nfse\Application\ItemFiscalValidationSummary;
+use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Console\Commands\DiagnoseMunicipalParameters;
 use Modules\Nfse\Console\Commands\ProvisionTestHarness;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
@@ -234,6 +235,7 @@ class Main extends Provider
 
             try {
                 $receipts = NfseReceipt::query()
+                    ->with('payload')
                     ->where('invoice_id', $invoiceId)
                     ->latest('id')
                     ->get();
@@ -242,11 +244,15 @@ class Main extends Provider
             }
 
             $receipt = $receipts->first();
+            $postEmissionStatus = $receipt instanceof NfseReceipt
+                ? (new PostEmissionState())->snapshot($receipt)
+                : null;
 
             $content = view('nfse::invoices.partials.native-fiscal-panel', [
                 'invoice' => $invoice,
                 'receipt' => $receipt,
                 'receipts' => $receipts,
+                'postEmissionStatus' => $postEmissionStatus,
             ])->render();
 
             $modalTrigger = view('nfse::invoices.partials.native-fiscal-modal-trigger', [
