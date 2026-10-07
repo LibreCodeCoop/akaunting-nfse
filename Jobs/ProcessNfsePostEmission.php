@@ -8,10 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Jobs;
 
 use App\Models\Document\Document as Invoice;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Modules\Nfse\Application\NfseArtifactStorage;
@@ -29,10 +26,6 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
  */
 final class ProcessNfsePostEmission implements ShouldQueue
 {
-    use InteractsWithQueue;
-    use Queueable;
-    use SerializesModels;
-
     public int $tries = 3;
 
     public int $timeout = 120;
@@ -53,8 +46,6 @@ final class ProcessNfsePostEmission implements ShouldQueue
         if ($invoiceId <= 0 || $receiptId <= 0) {
             throw new \InvalidArgumentException('Invoice and NFS-e receipt are required.');
         }
-
-        $this->onQueue('default');
     }
 
     public function handle(): void
