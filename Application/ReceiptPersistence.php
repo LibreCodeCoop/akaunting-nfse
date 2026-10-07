@@ -25,6 +25,14 @@ final class ReceiptPersistence
         $values = $this->receiptValues($receipt, $resolvedNumber);
 
         if ($existingReceipt instanceof NfseReceipt) {
+            $fiscalIdentityChanged = (string) $existingReceipt->chave_acesso !== (string) $receipt->chaveAcesso
+                || (string) $existingReceipt->nfse_number !== $resolvedNumber;
+
+            if ($fiscalIdentityChanged) {
+                $values['xml_webdav_path'] = null;
+                $values['danfse_webdav_path'] = null;
+            }
+
             $existingReceipt->update($values);
             $persisted = $existingReceipt->fresh();
         } else {
