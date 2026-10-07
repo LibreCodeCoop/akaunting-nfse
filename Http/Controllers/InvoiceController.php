@@ -49,6 +49,7 @@ use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseGenerator;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\GatewayException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
@@ -202,6 +203,16 @@ class InvoiceController extends Controller
 
         $artifactData = $artifacts[$artifact];
         $path = isset($artifactData['path']) && is_string($artifactData['path']) ? trim($artifactData['path']) : '';
+
+        if (
+            $artifact === 'danfse'
+            && ($path === '' || !($artifactData['exists'] ?? false))
+            && $this->generateMissingDanfseArtifact($invoice, $receipt, $artifacts['xml'] ?? null)
+        ) {
+            $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
+            $artifactData = $artifacts['danfse'];
+            $path = isset($artifactData['path']) && is_string($artifactData['path']) ? trim($artifactData['path']) : '';
+        }
 
         if ($path === '' || !($artifactData['exists'] ?? false)) {
             return redirect()->route('invoices.show', $invoice)
@@ -3392,6 +3403,56 @@ class InvoiceController extends Controller
         }
 
         return $client->getDanfse($nfseXml);
+    }
+
+    /**
+     * @param array{path?: ?string, exists?: bool, source?: ?string, download_url?: ?string}|null $xmlArtifact
+     */
+    protected function generateMissingDanfseArtifact(Invoice $invoice, NfseReceipt $receipt, ?array $xmlArtifact): bool
+    {
+        if (!$this->webDavEnabled() || !$this->webDavStorePdfEnabled()) {
+            return false;
+        }
+
+        $xmlPath = is_array($xmlArtifact) && is_string($xmlArtifact['path'] ?? null)
+            ? trim((string) $xmlArtifact['path'])
+            : '';
+
+        if ($xmlPath === '' || !($xmlArtifact['exists'] ?? false)) {
+            return false;
+        }
+
+        try {
+            $webDavClient = $this->makeWebDavClientFromSettings();
+            $xml = trim($webDavClient->get($xmlPath));
+
+            if ($xml === '') {
+                return false;
+            }
+
+            $pdf = (new DanfseGenerator())->generateFromXml($xml);
+
+            if ($pdf === '' || !str_starts_with($pdf, '%PDF-')) {
+                throw new \RuntimeException('Generated DANFSE payload is not a PDF.');
+            }
+
+            $receiptData = $this->receiptDataFromModel($receipt);
+            $basePath = $this->buildWebDavArtifactBasePath($invoice, $receiptData);
+            $danfsePath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receiptData, 'pdf');
+
+            $webDavClient->put($danfsePath, $pdf);
+            $receipt->update(['danfse_webdav_path' => $danfsePath]);
+
+            return true;
+        } catch (\Throwable $throwable) {
+            $this->safeLogError('NFS-e DANFSE on-demand generation failed', [
+                'invoice_id' => $invoice->id,
+                'nfse_number' => (string) ($receipt->nfse_number ?? ''),
+                'message' => $throwable->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 
     /**
