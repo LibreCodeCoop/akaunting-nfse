@@ -133,6 +133,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
             $decorator = "Dompdf\\FrameDecorator\\{$decorator}";
             $reflower = "Dompdf\\FrameReflower\\{$reflower}";
             $class = '\\Dompdf\\Positioner\\'.$type;
+            $class = '\Dompdf\Positioner\\' . $type;
             PHP;
 
         $patchedContent = $source;
@@ -157,6 +158,10 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
             '$class = \'\\\\Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\Positioner\\\\\'.$type;',
             $patchedContent,
         );
+        self::assertStringContainsString(
+            '$class = \'\\\\Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\Positioner\\\\\' . $type;',
+            $patchedContent,
+        );
     }
 
     public function testBuiltScopedDompdfFactoryIsValidAndFullyPrefixed(): void
@@ -174,7 +179,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
             $content,
         );
         self::assertStringContainsString(
-            '$class = \'\\\\Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\Positioner\\\\\'.$type;',
+            '$class = \'\\\\Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\Positioner\\\\\' . $type;',
             $content,
         );
         self::assertStringNotContainsString('"Dompdf\\\\FrameDecorator\\\\{$decorator}"', $content);

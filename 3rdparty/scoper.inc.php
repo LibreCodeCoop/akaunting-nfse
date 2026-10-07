@@ -33,11 +33,13 @@ return [
                     '$decorator = "Dompdf\\\\FrameDecorator\\\\{$decorator}";',
                     '$reflower = "Dompdf\\\\FrameReflower\\\\{$reflower}";',
                     '$class = \'\\\\Dompdf\\\\Positioner\\\\\'.$type;',
+                    '$class = \'\\Dompdf\\Positioner\\\\\' . $type;',
                 ],
                 [
                     '$decorator = "' . $escapedPrefix . '\\\\Dompdf\\\\FrameDecorator\\\\{$decorator}";',
                     '$reflower = "' . $escapedPrefix . '\\\\Dompdf\\\\FrameReflower\\\\{$reflower}";',
                     '$class = \'\\\\' . $escapedPrefix . '\\\\Dompdf\\\\Positioner\\\\\'.$type;',
+                    '$class = \'\\\\' . $escapedPrefix . '\\\\Dompdf\\\\Positioner\\\\\' . $type;',
                 ],
                 $content,
             );
