@@ -17,10 +17,9 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
  */
 final class InvoiceDpsBuilder
 {
-    private const APPLICATION_VERSION = 'LibreCode NFSe 1.0.0';
-
     public function __construct(
         private readonly RuntimeDpsFactory $runtime = new RuntimeDpsFactory(),
+        private readonly ModuleVersion $moduleVersion = new ModuleVersion(),
     ) {
     }
 
@@ -73,7 +72,7 @@ final class InvoiceDpsBuilder
             'discriminacao' => $context['discriminacao'] ?? '',
             'prestadorTelefone' => $context['prestadorTelefone'] ?? '',
             'prestadorEmail' => $context['prestadorEmail'] ?? '',
-            'versaoAplicativo' => self::APPLICATION_VERSION,
+            'versaoAplicativo' => 'LibreCode NFSe ' . $this->moduleVersion->get(),
             'documentoTomador' => $foreignEnabled ? '' : ($context['documentoTomador'] ?? ''),
             'nomeTomador' => $context['nomeTomador'] ?? '',
             'tomadorCodigoMunicipio' => $foreignEnabled ? '' : ($tomador['codigo_municipio'] ?? ''),
