@@ -208,11 +208,6 @@
                 event.preventDefault();
             }
         });
-
-        if (typeof MutationObserver !== 'undefined' && documentRef.body) {
-            const observer = new MutationObserver(() => scan(documentRef, options));
-            observer.observe(documentRef.body, { childList: true, subtree: true });
-        }
     }
 
     return {
