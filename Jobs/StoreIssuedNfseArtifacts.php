@@ -17,7 +17,7 @@ final class StoreIssuedNfseArtifacts implements ShouldQueue
 
     public int $tries = 3;
 
-    public int $timeout = 90;
+    public int $timeout = 60;
 
     /** @var list<int> */
     public array $backoff = [10, 30, 60];

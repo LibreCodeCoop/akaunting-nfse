@@ -20,7 +20,7 @@ final class SendIssuedNfseEmail implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 90;
+    public int $timeout = 60;
 
     /**
      * @param array<string, mixed> $customMail

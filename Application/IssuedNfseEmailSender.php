@@ -34,11 +34,14 @@ class IssuedNfseEmailSender
             }
 
             Notification::route('mail', $recipient)
-                ->notify(new NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
+                ->notifyNow(new NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
 
             return;
         }
 
-        $notifiable->notify(new NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
+        Notification::sendNow(
+            $notifiable,
+            new NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail),
+        );
     }
 }
