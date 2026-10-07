@@ -649,8 +649,8 @@ class InvoiceController extends Controller
 
     protected function pushPostEmissionJob(ProcessNfsePostEmission $job): void
     {
-        // Isolated unit tests intentionally do not bootstrap Laravel's container.
-        if (!function_exists('app')) {
+        // Isolated unit tests intentionally do not ship Laravel's queue subsystem.
+        if (!class_exists(\Illuminate\Queue\QueueManager::class)) {
             return;
         }
 
