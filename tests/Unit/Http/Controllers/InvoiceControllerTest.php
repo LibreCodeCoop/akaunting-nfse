@@ -15,6 +15,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Http\Controllers\InvoiceController;
+    use Modules\Nfse\Jobs\ProcessNfsePostEmission;
     use Modules\Nfse\Models\NfseReceipt;
     use Modules\Nfse\Tests\TestCase;
     use Modules\Nfse\Tests\Unit\Http\Controllers\Support\InvoiceControllerIsolationState;
@@ -4712,7 +4713,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('NFS-e reemitida NF-RE-301 com sucesso.', $response->flash['success'] ?? null);
         }
 
-        public function testReemitSendsNotificationWhenEmailRequested(): void
+        public function testReemitQueuesNotificationPayloadWhenEmailRequested(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 3301,
@@ -4750,10 +4751,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $notificationCalls = [];
+            $queuedJobs = [];
 
-            $controller = new class ($client, $notificationCalls) extends InvoiceController {
-                public function __construct(private readonly NfseClientInterface $client, private array &$notificationCalls)
+            $controller = new class ($client, $queuedJobs) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client, private array &$queuedJobs)
                 {
                 }
 
@@ -4767,14 +4768,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return ['isReady' => true, 'checklist' => []];
                 }
 
-                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
+                protected function pushPostEmissionJob(ProcessNfsePostEmission $job): void
                 {
-                    $this->notificationCalls[] = [
-                        'invoice_id' => $invoice->id,
-                        'attach_danfse' => $attachDanfse,
-                        'attach_xml' => $attachXml,
-                        'custom_mail' => $customMail,
-                    ];
+                    $this->queuedJobs[] = $job;
                 }
             };
 
@@ -4789,12 +4785,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->reemit($invoice, $request);
 
-            self::assertCount(1, $notificationCalls);
-            self::assertSame(3301, $notificationCalls[0]['invoice_id']);
-            self::assertTrue($notificationCalls[0]['attach_danfse']);
-            self::assertFalse($notificationCalls[0]['attach_xml']);
-            self::assertSame('destinatario@reemissao.test', $notificationCalls[0]['custom_mail']['to'] ?? null);
-            self::assertSame('Assunto reemissao', $notificationCalls[0]['custom_mail']['subject'] ?? null);
+            self::assertCount(1, $queuedJobs);
+            self::assertSame(3301, $queuedJobs[0]->invoiceId);
+            self::assertTrue($queuedJobs[0]->email['attach_danfse'] ?? false);
+            self::assertFalse($queuedJobs[0]->email['attach_xml'] ?? true);
+            self::assertSame('destinatario@reemissao.test', $queuedJobs[0]->email['custom_mail']['to'] ?? null);
+            self::assertSame('Assunto reemissao', $queuedJobs[0]->email['custom_mail']['subject'] ?? null);
         }
 
         public function testReemitUsesCustomDescriptionFromRequestWhenProvided(): void
