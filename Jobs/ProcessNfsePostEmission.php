@@ -42,9 +42,6 @@ final class ProcessNfsePostEmission
         public readonly string $authorizedXml,
         public readonly ?array $email = null,
     ) {
-        if ($invoiceId <= 0 || $receiptId <= 0) {
-            throw new \InvalidArgumentException('Invoice and NFS-e receipt are required.');
-        }
     }
 
     public function handle(): void
