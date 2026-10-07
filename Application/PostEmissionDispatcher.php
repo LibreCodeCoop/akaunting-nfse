@@ -13,6 +13,11 @@ use Modules\Nfse\Jobs\StoreIssuedNfseArtifacts;
 
 final class PostEmissionDispatcher
 {
+    public function __construct(
+        private readonly PostEmissionState $state = new PostEmissionState(),
+    ) {
+    }
+
     /**
      * Dispatch post-emission work through Laravel's configured queue.
      *
@@ -31,6 +36,9 @@ final class PostEmissionDispatcher
         int $receiptId,
         ?array $email = null,
     ): void {
+        $emailRequested = $email !== null;
+        $this->state->initialize($receiptId, $emailRequested);
+
         $jobs = [
             new StoreIssuedNfseArtifacts($invoiceId, $receiptId),
         ];
@@ -45,6 +53,16 @@ final class PostEmissionDispatcher
             );
         }
 
-        Bus::chain($jobs)->dispatch();
+        try {
+            Bus::chain($jobs)->dispatch();
+        } catch (\Throwable $throwable) {
+            $this->state->markDispatchFailed(
+                $receiptId,
+                $emailRequested,
+                $throwable->getMessage(),
+            );
+
+            throw $throwable;
+        }
     }
 }
