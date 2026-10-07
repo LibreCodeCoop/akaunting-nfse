@@ -72,6 +72,8 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
             'nfse_number' => '901',
             'chave_acesso' => str_repeat('7', 50),
             'status' => 'emitted',
+            'xml_webdav_path' => 'nfse/901.xml',
+            'danfse_webdav_path' => 'nfse/901.pdf',
         ]);
 
         $this->loginAs()
@@ -89,7 +91,7 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
             ->assertSee('name="cancel_justification"', false);
     }
 
-    public function testNativePanelDisablesArtifactLinksUntilPathsExist(): void
+    public function testNativePanelHidesArtifactActionsWhenNoArtifactExistsAndNothingIsProcessing(): void
     {
         $invoice = Document::factory()->invoice()->draft()->create();
 
@@ -106,10 +108,8 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
 
         $response
             ->assertOk()
-            ->assertSee('data-nfse-artifact="xml"', false)
-            ->assertSee('data-nfse-artifact="danfse"', false)
-            ->assertSee('aria-disabled="true"', false)
-            ->assertSee(trans('nfse::general.invoices.artifact_missing'));
+            ->assertDontSee('data-nfse-artifact="xml"', false)
+            ->assertDontSee('data-nfse-artifact="danfse"', false);
     }
 
     public function testNativePanelKeepsAllReceiptsVisibleWhileLatestDrivesPrimaryActions(): void
