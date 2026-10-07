@@ -120,7 +120,39 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: akaunting/modules/Nfse/package-lock.json
+          cache-dependency-path: |
+            akaunting/modules/Nfse/package-lock.json
+            akaunting/package-lock.json
+
+      - name: Cache compiled Akaunting browser assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            akaunting/public/js/auth/common.min.js
+            akaunting/public/js/common/dashboards.min.js
+            akaunting/public/js/common/documents.min.js
+            akaunting/public/css/app.css
+          key: akaunting-browser-assets-${{ runner.os }}-${{ hashFiles('akaunting/package-lock.json', 'akaunting/webpack.mix.js', 'akaunting/resources/assets/**') }}
+
+      - name: Prepare Akaunting browser assets before server start
+        working-directory: akaunting
+        run: |
+          missing=0
+          for asset in public/js/auth/common.min.js public/js/common/dashboards.min.js public/js/common/documents.min.js; do
+            if [ ! -f "$asset" ]; then
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            npm_bin="$(realpath "$(command -v npm)")"
+            npx --yes node@20 "$npm_bin" ci
+            npx --yes node@20 "$npm_bin" run production
+          fi
+
+          test -f public/js/auth/common.min.js
+          test -f public/js/common/dashboards.min.js
+          test -f public/js/common/documents.min.js
 
       - name: Install Playwright
         working-directory: akaunting/modules/Nfse
