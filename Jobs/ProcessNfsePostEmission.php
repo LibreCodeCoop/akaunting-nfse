@@ -117,7 +117,7 @@ final class ProcessNfsePostEmission implements ShouldQueue
                 return;
             }
 
-            Notification::route('mail', (string) $customMail['to'])
+            Notification::route('mail', $customMail['to'])
                 ->notify($notification);
         } catch (\Throwable $throwable) {
             Log::error('NFS-e post-emission email failed', [
@@ -145,6 +145,4 @@ final class ProcessNfsePostEmission implements ShouldQueue
             rawXml: $this->authorizedXml !== '' ? $this->authorizedXml : null,
         );
     }
-
-
 }
