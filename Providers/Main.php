@@ -19,6 +19,7 @@ use Modules\Nfse\Console\Commands\SyncAdn;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
@@ -250,9 +251,11 @@ class Main extends Provider
 
             if ($receipt instanceof NfseReceipt) {
                 try {
-                    $payload = $receipt->payload()->getResults();
-                    $authorizedXmlAvailable = is_object($payload)
-                        && trim((string) ($payload->authorized_xml ?? '')) !== '';
+                    $payload = NfseReceiptPayload::query()
+                        ->where('receipt_id', (int) $receipt->id)
+                        ->first();
+                    $authorizedXmlAvailable = $payload instanceof NfseReceiptPayload
+                        && trim((string) $payload->authorized_xml) !== '';
                 } catch (\Throwable) {
                     $authorizedXmlAvailable = false;
                 }
