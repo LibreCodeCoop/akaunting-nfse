@@ -31,7 +31,6 @@ final class StoreIssuedNfseArtifacts implements ShouldQueue
     public function __construct(
         public readonly int $invoiceId,
         public readonly int $receiptId,
-        public readonly string $authorizedXml,
     ) {
         if ($invoiceId <= 0 || $receiptId <= 0) {
             throw new \InvalidArgumentException('Invoice and receipt identifiers are required.');
@@ -40,6 +39,6 @@ final class StoreIssuedNfseArtifacts implements ShouldQueue
 
     public function handle(IssuedNfseArtifactStore $store): void
     {
-        $store->store($this->invoiceId, $this->receiptId, $this->authorizedXml);
+        $store->store($this->invoiceId, $this->receiptId);
     }
 }
