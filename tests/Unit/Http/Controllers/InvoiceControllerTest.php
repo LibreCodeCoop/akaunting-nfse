@@ -188,8 +188,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
             self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);', $content);
             self::assertStringContainsString('$this->dispatchPostEmission($invoice, $newReceipt, $persistedReceipt, $postEmitEmail);', $content);
-            self::assertStringContainsString('ProcessNfsePostEmission::dispatch(', $content);
-            self::assertStringContainsString(')->afterCommit();', $content);
+            self::assertStringContainsString('$job = new ProcessNfsePostEmission(', $content);
+            self::assertStringContainsString('$this->pushPostEmissionJob($job);', $content);
+            self::assertStringContainsString("$queue = app('queue');", $content);
+            self::assertStringContainsString('$queue->push($job);', $content);
         }
 
         public function testMissingDanfseDownloadRegeneratesPdfFromStoredXml(): void
