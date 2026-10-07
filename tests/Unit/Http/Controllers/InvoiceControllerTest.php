@@ -635,397 +635,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([$invoice], $response->parameters ?? null);
         }
 
-        public function testStoreArtifactsPersistsXmlEvenWhenDanfseFails(): void
-        {
-            ControllerIsolationState::$settings['nfse.webdav_url'] = 'https://dav.example.com/root';
-            ControllerIsolationState::$settings['nfse.webdav_store_xml'] = true;
-            ControllerIsolationState::$settings['nfse.webdav_store_pdf'] = true;
-
-            $invoice = InvoiceControllerIsolationState::makeInvoice(
-                id: 777,
-                amount: 210.0,
-                items: [['name' => 'Servico X']],
-                contactName: 'Cliente X',
-            );
-            $persistedReceipt = InvoiceControllerIsolationState::makeReceipt(777, 'CHAVE-777', 'emitted');
-            $capturedWrites = [];
-
-            $controller = new class ($capturedWrites) extends InvoiceController {
-                public array $writes = [];
-
-                public function __construct(array $writes)
-                {
-                    $this->writes = $writes;
-                }
-
-                protected function makeWebDavClientFromSettings(): \Modules\Nfse\Support\WebDavClient
-                {
-                    return new \Modules\Nfse\Support\WebDavClient(
-                        baseUrl: 'https://dav.example.com/root',
-                        request: function (string $method, string $url, array $headers, string $body): array {
-                            if ($method === 'PUT') {
-                                $this->writes[] = [$url, $body];
-                            }
-
-                            return [201, ''];
-                        },
-                    );
-                }
-
-                public function callStoreArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
-                {
-                    $this->storeArtifacts($invoice, $receipt, $nfseReceipt, $client);
-                }
-            };
-
-            $client = new class () implements NfseClientInterface {
-                public function emit(DpsData $dps): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function query(string $chaveAcesso): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function cancel(string $chaveAcesso, string $motivo): bool
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function getDanfse(string $nfseXml): string
-                {
-                    throw new \RuntimeException('DANFSE unavailable');
-                }
-            };
-
-            $receipt = new ReceiptData(
-                nfseNumber: 'NF-777',
-                chaveAcesso: 'CHAVE-777',
-                dataEmissao: '2026-04-14T01:45:00-03:00',
-                codigoVerificacao: 'CV777',
-                rawXml: '<xml>conteudo</xml>',
-            );
-
-            $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
-
-            self::assertCount(1, $controller->writes);
-            self::assertStringEndsWith('/chave-777.xml', $controller->writes[0][0]);
-            self::assertSame('<xml>conteudo</xml>', $controller->writes[0][1]);
-            self::assertSame('nfse/12345678000195/2026/04/14/chave-777.xml', $persistedReceipt->xml_webdav_path ?? null);
-            self::assertNull($persistedReceipt->danfse_webdav_path ?? null);
-        }
-
-        public function testGenerateDanfseFromAuthorizedXmlUsesReceiptRawXml(): void
-        {
-            $capturedXml = null;
-
-            $client = new class ($capturedXml) implements NfseClientInterface {
-                public ?string $capturedXml = null;
-
-                public function __construct(?string $capturedXml)
-                {
-                    $this->capturedXml = $capturedXml;
-                }
-
-                public function emit(DpsData $dps): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function query(string $chaveAcesso): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function cancel(string $chaveAcesso, string $motivo): bool
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function getDanfse(string $nfseXml): string
-                {
-                    $this->capturedXml = $nfseXml;
-
-                    return '%PDF-sintetico';
-                }
-            };
-
-            $controller = new class () extends InvoiceController {
-                public function callGenerateDanfseFromAuthorizedXml(NfseClientInterface $client, ReceiptData $receipt): string
-                {
-                    return $this->generateDanfseFromAuthorizedXml($client, $receipt);
-                }
-            };
-
-            $receipt = new ReceiptData(
-                nfseNumber: 'NF-9052',
-                chaveAcesso: 'CHAVE-9052',
-                dataEmissao: '2026-07-01T22:48:25-03:00',
-                codigoVerificacao: 'CV9052',
-                rawXml: '<NFSe>deve-ser-usado</NFSe>',
-            );
-
-            $danfse = $controller->callGenerateDanfseFromAuthorizedXml($client, $receipt);
-
-            self::assertSame('%PDF-sintetico', $danfse);
-            self::assertSame('<NFSe>deve-ser-usado</NFSe>', $client->capturedXml);
-        }
-
-        public function testStoreArtifactsBuildsFilenameFromTemplateUsingSequentialAndAccessKeyPlaceholders(): void
-        {
-            ControllerIsolationState::$settings['nfse.webdav_url'] = 'https://dav.example.com/root';
-            ControllerIsolationState::$settings['nfse.webdav_store_xml'] = true;
-            ControllerIsolationState::$settings['nfse.webdav_store_pdf'] = false;
-            ControllerIsolationState::$settings['nfse.webdav_path_template'] = 'nfse/{year}/{month}/{day}';
-            ControllerIsolationState::$settings['nfse.webdav_filename_template'] = '{nfse_number}-{chave_acesso}';
-
-            $invoice = InvoiceControllerIsolationState::makeInvoice(
-                id: 780,
-                amount: 210.0,
-                items: [['name' => 'Servico X']],
-                contactName: 'Cliente X',
-            );
-            $persistedReceipt = InvoiceControllerIsolationState::makeReceipt(780, 'CHAVE-780', 'emitted');
-
-            $controller = new class () extends InvoiceController {
-                /** @var array<int, array{0: string, 1: string}> */
-                public array $writes = [];
-
-                protected function makeWebDavClientFromSettings(): \Modules\Nfse\Support\WebDavClient
-                {
-                    return new \Modules\Nfse\Support\WebDavClient(
-                        baseUrl: 'https://dav.example.com/root',
-                        request: function (string $method, string $url, array $headers, string $body): array {
-                            if ($method === 'PUT') {
-                                $this->writes[] = [$url, $body];
-                            }
-
-                            return [201, ''];
-                        },
-                    );
-                }
-
-                public function callStoreArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
-                {
-                    $this->storeArtifacts($invoice, $receipt, $nfseReceipt, $client);
-                }
-            };
-
-            $client = new class () implements NfseClientInterface {
-                public function emit(DpsData $dps): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function query(string $chaveAcesso): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function cancel(string $chaveAcesso, string $motivo): bool
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function getDanfse(string $chaveAcesso): string
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-            };
-
-            $receipt = new ReceiptData(
-                nfseNumber: 'NF-780/0001',
-                chaveAcesso: 'CHAVE-780',
-                dataEmissao: '2026-04-14T01:45:00-03:00',
-                codigoVerificacao: 'CV780',
-                rawXml: '<xml>conteudo</xml>',
-            );
-
-            $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
-
-            self::assertCount(1, $controller->writes);
-            self::assertStringEndsWith('/nf-780-0001-chave-780.xml', $controller->writes[0][0]);
-            self::assertSame('nfse/2026/04/14/nf-780-0001-chave-780.xml', $persistedReceipt->xml_webdav_path ?? null);
-        }
-
-        public function testStoreArtifactsDoesNotPersistXmlPathWhenXmlUploadFails(): void
-        {
-            ControllerIsolationState::$settings['nfse.webdav_url'] = 'https://dav.example.com/root';
-            ControllerIsolationState::$settings['nfse.webdav_store_xml'] = true;
-            ControllerIsolationState::$settings['nfse.webdav_store_pdf'] = false;
-
-            $invoice = InvoiceControllerIsolationState::makeInvoice(
-                id: 778,
-                amount: 210.0,
-                items: [['name' => 'Servico X']],
-                contactName: 'Cliente X',
-            );
-            $persistedReceipt = InvoiceControllerIsolationState::makeReceipt(778, 'CHAVE-778', 'emitted');
-
-            $controller = new class () extends InvoiceController {
-                protected function makeWebDavClientFromSettings(): \Modules\Nfse\Support\WebDavClient
-                {
-                    return new \Modules\Nfse\Support\WebDavClient(
-                        baseUrl: 'https://dav.example.com/root',
-                        request: static function (string $method, string $url, array $headers, string $body): array {
-                            if ($method === 'MKCOL') {
-                                return [201, ''];
-                            }
-
-                            if ($method === 'PUT') {
-                                return [500, 'upload failed'];
-                            }
-
-                            return [500, 'unsupported'];
-                        },
-                    );
-                }
-
-                public function callStoreArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
-                {
-                    $this->storeArtifacts($invoice, $receipt, $nfseReceipt, $client);
-                }
-            };
-
-            $client = new class () implements NfseClientInterface {
-                public function emit(DpsData $dps): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function query(string $chaveAcesso): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function cancel(string $chaveAcesso, string $motivo): bool
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function getDanfse(string $chaveAcesso): string
-                {
-                    return '';
-                }
-            };
-
-            $receipt = new ReceiptData(
-                nfseNumber: 'NF-778',
-                chaveAcesso: 'CHAVE-778',
-                dataEmissao: '2026-04-14T01:45:00-03:00',
-                codigoVerificacao: 'CV778',
-                rawXml: '<xml>conteudo</xml>',
-            );
-
-            $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
-
-            self::assertNull($persistedReceipt->xml_webdav_path ?? null);
-            self::assertNull($persistedReceipt->danfse_webdav_path ?? null);
-        }
-
-        public function testStoreArtifactsPersistsPdfWhenDanfseGenerationSucceeds(): void
-        {
-            ControllerIsolationState::$settings['nfse.webdav_url'] = 'https://dav.example.com/root';
-            ControllerIsolationState::$settings['nfse.webdav_store_xml'] = false;
-            ControllerIsolationState::$settings['nfse.webdav_store_pdf'] = true;
-
-            $invoice = InvoiceControllerIsolationState::makeInvoice(
-                id: 779,
-                amount: 210.0,
-                items: [['name' => 'Servico X']],
-                contactName: 'Cliente X',
-            );
-            $persistedReceipt = InvoiceControllerIsolationState::makeReceipt(779, 'CHAVE-779', 'emitted');
-            $writes = new \ArrayObject();
-
-            $controller = new class ($writes) extends InvoiceController {
-                /** @var list<array{message:string,context:array<string,mixed>}> */
-                public array $errors = [];
-
-                public function __construct(private readonly \ArrayObject $writes)
-                {
-                }
-
-                protected function makeWebDavClientFromSettings(): \Modules\Nfse\Support\WebDavClient
-                {
-                    $writes = $this->writes;
-
-                    return new \Modules\Nfse\Support\WebDavClient(
-                        baseUrl: 'https://dav.example.com/root',
-                        request: static function (string $method, string $url, array $headers, string $body) use ($writes): array {
-                            if ($method === 'PUT') {
-                                $writes->append([$url, $body]);
-                            }
-
-                            return [201, ''];
-                        },
-                    );
-                }
-
-                public function callStoreArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
-                {
-                    $this->storeArtifacts($invoice, $receipt, $nfseReceipt, $client);
-                }
-
-                protected function safeLogError(string $message, array $context = []): void
-                {
-                    $this->errors[] = [
-                        'message' => $message,
-                        'context' => $context,
-                    ];
-                }
-            };
-
-            $client = new class () implements NfseClientInterface {
-                public int $calls = 0;
-                public ?string $capturedXml = null;
-
-                public function emit(DpsData $dps): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function query(string $chaveAcesso): ReceiptData
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function cancel(string $chaveAcesso, string $motivo): bool
-                {
-                    throw new \BadMethodCallException('Not used in this test.');
-                }
-
-                public function getDanfse(string $nfseXml): string
-                {
-                    $this->calls++;
-                    $this->capturedXml = $nfseXml;
-
-                    return '%PDF-1.4';
-                }
-            };
-
-            $receipt = new ReceiptData(
-                nfseNumber: 'NF-779',
-                chaveAcesso: 'CHAVE-779',
-                dataEmissao: '2026-04-14T01:45:00-03:00',
-                codigoVerificacao: 'CV779',
-                rawXml: '<xml>conteudo</xml>',
-            );
-
-            $controller->callStoreArtifacts($invoice, $receipt, $persistedReceipt, $client);
-
-            self::assertSame(1, $client->calls);
-            self::assertSame('<xml>conteudo</xml>', $client->capturedXml);
-            self::assertSame([], $controller->errors);
-            self::assertCount(1, $writes);
-            self::assertStringEndsWith('/chave-779.pdf', $writes[0][0]);
-            self::assertSame('%PDF-1.4', $writes[0][1]);
-            self::assertNull($persistedReceipt->xml_webdav_path ?? null);
-            self::assertSame('nfse/12345678000195/2026/04/14/chave-779.pdf', $persistedReceipt->danfse_webdav_path ?? null);
-        }
-
         protected function setUp(): void
         {
             parent::setUp();
@@ -6103,7 +5712,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
         }
 
-        public function testHandlePostEmitEmailCallsSendNotificationWhenEnabledAndRecipientPresent(): void
+        public function testPreparePostEmitEmailBuildsQueuedPayloadAndPersistsPreferences(): void
         {
             InvoiceControllerIsolationState::reset();
 
@@ -6113,301 +5722,90 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 contactEmail: 'cliente@example.com',
             );
 
-            $receipt = InvoiceControllerIsolationState::makeReceipt(55, 'CHAVE-55');
-
             $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
-                'nfse_send_email'         => '1',
-                'nfse_email_to'           => 'destinatario@example.com',
-                'nfse_email_subject'      => 'NFS-e emitida',
-                'nfse_email_body'         => 'Prezado cliente',
+                'nfse_send_email' => '1',
+                'nfse_email_to' => 'destinatario@example.com',
+                'nfse_email_subject' => 'NFS-e emitida',
+                'nfse_email_body' => 'Prezado cliente',
                 'nfse_email_attach_danfse' => '1',
-                'nfse_email_attach_xml'   => '0',
+                'nfse_email_attach_xml' => '0',
             ]);
 
-            $notificationCalls = [];
-
-            $controller = new class ($notificationCalls) extends InvoiceController {
-                public function __construct(private array &$notificationCalls)
+            $controller = new class () extends InvoiceController {
+                public function exposePreparePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
                 {
-                }
-
-                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
-                {
-                    $this->handlePostEmitEmail($request, $invoice, $receipt);
-                }
-
-                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
-                {
-                    $this->notificationCalls[] = [
-                        'invoice_id'   => $invoice->id,
-                        'attach_danfse' => $attachDanfse,
-                        'attach_xml'   => $attachXml,
-                        'custom_mail'  => $customMail,
-                    ];
+                    return $this->preparePostEmitEmail($request, $invoice);
                 }
             };
 
-            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
+            $email = $controller->exposePreparePostEmitEmail($request, $invoice);
 
-            self::assertCount(1, $notificationCalls);
-            self::assertSame(55, $notificationCalls[0]['invoice_id']);
-            self::assertTrue($notificationCalls[0]['attach_danfse']);
-            self::assertFalse($notificationCalls[0]['attach_xml']);
-            self::assertSame('destinatario@example.com', $notificationCalls[0]['custom_mail']['to'] ?? null);
-            self::assertSame('NFS-e emitida', $notificationCalls[0]['custom_mail']['subject'] ?? null);
+            self::assertIsArray($email);
+            self::assertTrue($email['attach_danfse']);
+            self::assertFalse($email['attach_xml']);
+            self::assertSame('destinatario@example.com', $email['custom_mail']['to'] ?? null);
+            self::assertSame('NFS-e emitida', $email['custom_mail']['subject'] ?? null);
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
         }
 
-        public function testHandlePostEmitEmailSkipsWhenSendEmailIsFalse(): void
+        public function testPreparePostEmitEmailReturnsNullWhenSendingIsDisabledButPersistsPreferences(): void
         {
             InvoiceControllerIsolationState::reset();
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(id: 56, amount: 100.0);
-            $receipt = InvoiceControllerIsolationState::makeReceipt(56, 'CHAVE-56');
-
             $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
                 'nfse_send_email' => '0',
-                'nfse_email_to'   => 'alguem@example.com',
-            ]);
-
-            $notificationCalls = [];
-
-            $controller = new class ($notificationCalls) extends InvoiceController {
-                public function __construct(private array &$notificationCalls)
-                {
-                }
-
-                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
-                {
-                    $this->handlePostEmitEmail($request, $invoice, $receipt);
-                }
-
-                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
-                {
-                    $this->notificationCalls[] = true;
-                }
-            };
-
-            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
-
-            self::assertCount(0, $notificationCalls);
-        }
-
-        public function testHandlePostEmitEmailSkipsWhenRecipientIsEmpty(): void
-        {
-            InvoiceControllerIsolationState::reset();
-
-            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 57, amount: 100.0);
-            $receipt = InvoiceControllerIsolationState::makeReceipt(57, 'CHAVE-57');
-
-            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
-                'nfse_send_email' => '1',
-                'nfse_email_to'   => '   ',
-            ]);
-
-            $notificationCalls = [];
-
-            $controller = new class ($notificationCalls) extends InvoiceController {
-                public function __construct(private array &$notificationCalls)
-                {
-                }
-
-                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
-                {
-                    $this->handlePostEmitEmail($request, $invoice, $receipt);
-                }
-
-                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
-                {
-                    $this->notificationCalls[] = true;
-                }
-            };
-
-            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
-
-            self::assertCount(0, $notificationCalls);
-        }
-
-        public function testHandlePostEmitEmailSavesDefaultSettingWhenFlagIsSet(): void
-        {
-            InvoiceControllerIsolationState::reset();
-            ControllerIsolationState::$savedCount = 0;
-
-            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 58, amount: 100.0);
-            $receipt = InvoiceControllerIsolationState::makeReceipt(58, 'CHAVE-58');
-
-            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
-                'nfse_send_email'          => '1',
-                'nfse_email_to'            => 'cli@example.com',
-                'nfse_email_save_default'  => '1',
-            ]);
-
-            $controller = new class () extends InvoiceController {
-                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
-                {
-                    $this->handlePostEmitEmail($request, $invoice, $receipt);
-                }
-
-                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
-                {
-                    // suppress actual notification
-                }
-            };
-
-            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
-
-            self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
-            self::assertSame(1, ControllerIsolationState::$savedCount);
-        }
-
-        public function testHandlePostEmitEmailSavesTemplateSubjectAndBodyWhenFlagIsSet(): void
-        {
-            InvoiceControllerIsolationState::reset();
-            ControllerIsolationState::$savedCount = 0;
-
-            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 60, amount: 100.0);
-            $receipt = InvoiceControllerIsolationState::makeReceipt(60, 'CHAVE-60');
-
-            $template = new \App\Models\Setting\EmailTemplate();
-            $template->subject = 'Original subject';
-            $template->body    = 'Original body';
-            \App\Models\Setting\EmailTemplate::$stubInstance = $template;
-
-            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
-                'nfse_send_email'          => '1',
-                'nfse_email_to'            => 'cli@example.com',
-                'nfse_email_subject'       => 'Novo assunto',
-                'nfse_email_body'          => '<p>Novo corpo</p>',
-                'nfse_email_save_default'  => '1',
-            ]);
-
-            $controller = new class () extends InvoiceController {
-                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
-                {
-                    $this->handlePostEmitEmail($request, $invoice, $receipt);
-                }
-
-                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
-                {
-                    // suppress actual notification
-                }
-            };
-
-            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
-
-            self::assertSame('Novo assunto', $template->subject);
-            self::assertSame('<p>Novo corpo</p>', $template->body);
-
-            \App\Models\Setting\EmailTemplate::$stubInstance = null;
-        }
-
-        public function testHandlePostEmitEmailPersistsAttachmentDefaults(): void
-        {
-            InvoiceControllerIsolationState::reset();
-            ControllerIsolationState::$savedCount = 0;
-
-            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 61, amount: 100.0);
-            $receipt = InvoiceControllerIsolationState::makeReceipt(61, 'CHAVE-61');
-
-            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
-                'nfse_send_email' => '1',
-                'nfse_email_to' => 'cli@example.com',
+                'nfse_email_attach_invoice_pdf' => '0',
                 'nfse_email_attach_danfse' => '0',
                 'nfse_email_attach_xml' => '1',
-                'nfse_email_save_default' => '0',
-            ]);
-
-            $controller = new class () extends InvoiceController {
-                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
-                {
-                    $this->handlePostEmitEmail($request, $invoice, $receipt);
-                }
-
-                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
-                {
-                    // suppress actual notification
-                }
-            };
-
-            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
-
-            self::assertSame('0', ControllerIsolationState::$settings['nfse.email_attach_danfse_on_emit'] ?? null);
-            self::assertSame('1', ControllerIsolationState::$settings['nfse.email_attach_xml_on_emit'] ?? null);
-            self::assertSame(1, ControllerIsolationState::$savedCount);
-        }
-
-        public function testHandlePostEmitEmailAlwaysSavesAllPreferencesEvenWhenSendEmailFalse(): void
-        {
-            InvoiceControllerIsolationState::reset();
-
-            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 62, amount: 100.0);
-            $receipt = InvoiceControllerIsolationState::makeReceipt(62, 'CHAVE-62');
-
-            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
-                'nfse_send_email'              => '0',
-                'nfse_email_attach_invoice_pdf' => '0',
-                'nfse_email_attach_danfse'     => '0',
-                'nfse_email_attach_xml'        => '1',
-                'nfse_email_copy_to_self'      => '1',
-            ]);
-
-            $notificationCalls = [];
-
-            $controller = new class ($notificationCalls) extends InvoiceController {
-                public function __construct(private array &$notificationCalls)
-                {
-                }
-
-                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
-                {
-                    $this->handlePostEmitEmail($request, $invoice, $receipt);
-                }
-
-                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
-                {
-                    $this->notificationCalls[] = true;
-                }
-            };
-
-            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
-
-            self::assertCount(0, $notificationCalls, 'No email should be sent when nfse_send_email is false');
-            self::assertSame('0', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null, 'send_email pref should be saved as 0');
-            self::assertSame('0', ControllerIsolationState::$settings['nfse.email_attach_invoice_pdf_on_emit'] ?? null);
-            self::assertSame('0', ControllerIsolationState::$settings['nfse.email_attach_danfse_on_emit'] ?? null);
-            self::assertSame('1', ControllerIsolationState::$settings['nfse.email_attach_xml_on_emit'] ?? null);
-            self::assertSame('1', ControllerIsolationState::$settings['nfse.email_copy_to_self_on_emit'] ?? null, 'copy_to_self pref should be saved');
-            self::assertGreaterThanOrEqual(1, ControllerIsolationState::$savedCount, 'settings()->save() should be called');
-        }
-
-        public function testHandlePostEmitEmailSavesCopyToSelfPreferenceWhenEnabled(): void
-        {
-            InvoiceControllerIsolationState::reset();
-
-            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 63, amount: 100.0);
-            $receipt = InvoiceControllerIsolationState::makeReceipt(63, 'CHAVE-63');
-
-            // Omit nfse_email_to so the method returns early after persisting settings,
-            // before reaching the user() call in the copy_to_self BCC block.
-            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
-                'nfse_send_email'         => '1',
                 'nfse_email_copy_to_self' => '1',
             ]);
 
             $controller = new class () extends InvoiceController {
-                public function exposeHandlePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
+                public function exposePreparePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
                 {
-                    $this->handlePostEmitEmail($request, $invoice, $receipt);
-                }
-
-                protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
-                {
-                    // suppress
+                    return $this->preparePostEmitEmail($request, $invoice);
                 }
             };
 
-            $controller->exposeHandlePostEmitEmail($request, $invoice, $receipt);
-
+            self::assertNull($controller->exposePreparePostEmitEmail($request, $invoice));
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.email_attach_invoice_pdf_on_emit'] ?? null);
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.email_attach_danfse_on_emit'] ?? null);
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.email_attach_xml_on_emit'] ?? null);
             self::assertSame('1', ControllerIsolationState::$settings['nfse.email_copy_to_self_on_emit'] ?? null);
+        }
+
+        public function testPreparePostEmitEmailCanPersistTemplateDefaults(): void
+        {
+            InvoiceControllerIsolationState::reset();
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 60, amount: 100.0);
+            $template = new \App\Models\Setting\EmailTemplate();
+            $template->subject = 'Original subject';
+            $template->body = 'Original body';
+            \App\Models\Setting\EmailTemplate::$stubInstance = $template;
+
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email' => '1',
+                'nfse_email_to' => 'cli@example.com',
+                'nfse_email_subject' => 'Novo assunto',
+                'nfse_email_body' => '<p>Novo corpo</p>',
+                'nfse_email_save_default' => '1',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposePreparePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
+                {
+                    return $this->preparePostEmitEmail($request, $invoice);
+                }
+            };
+
+            $email = $controller->exposePreparePostEmitEmail($request, $invoice);
+
+            self::assertIsArray($email);
+            self::assertSame('Novo assunto', $template->subject);
+            self::assertSame('<p>Novo corpo</p>', $template->body);
         }
 
         public function testServicePreviewEmailDefaultsReturnsCopyToSelfFromSetting(): void

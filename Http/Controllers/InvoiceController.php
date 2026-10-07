@@ -27,7 +27,6 @@ use Modules\Nfse\Application\InvoiceDpsIdentity;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\IssqnPayloadResolver;
-use Modules\Nfse\Application\IssuedNfseEmailSender;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\IssueInvoiceNfse;
 use Modules\Nfse\Application\PostEmissionDispatcher;
@@ -3335,84 +3334,6 @@ class InvoiceController extends Controller
         );
     }
 
-    protected function storeArtifacts(Invoice $invoice, ReceiptData $receipt, NfseReceipt $nfseReceipt, NfseClientInterface $client): void
-    {
-        if (!$this->webDavEnabled() || $receipt->chaveAcesso === '') {
-            return;
-        }
-
-        $webDavClient = $this->makeWebDavClientFromSettings();
-        $basePath = $this->buildWebDavArtifactBasePath($invoice, $receipt);
-        $xmlPath = null;
-        $danfsePath = null;
-
-        if ($this->webDavStoreXmlEnabled() && $receipt->rawXml !== null && trim($receipt->rawXml) !== '') {
-            try {
-                $candidateXmlPath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'xml');
-                $webDavClient->put($candidateXmlPath, $receipt->rawXml);
-                $xmlPath = $candidateXmlPath;
-            } catch (\Throwable $throwable) {
-                $this->safeLogError('NFS-e XML artifact storage failed', [
-                    'invoice_id' => $invoice->id,
-                    'chave_acesso' => $receipt->chaveAcesso,
-                    'message' => $throwable->getMessage(),
-                ]);
-            }
-        }
-
-        if ($this->webDavStorePdfEnabled()) {
-            try {
-                $danfse = $this->generateDanfseFromAuthorizedXml($client, $receipt);
-
-                if (is_string($danfse) && $danfse !== '') {
-                    $candidateDanfsePath = $this->buildWebDavArtifactFilePath($basePath, $invoice, $receipt, 'pdf');
-                    $webDavClient->put($candidateDanfsePath, $danfse);
-                    $danfsePath = $candidateDanfsePath;
-                }
-            } catch (\Throwable $throwable) {
-                $this->safeLogError('NFS-e DANFSE artifact storage failed', [
-                    'invoice_id' => $invoice->id,
-                    'chave_acesso' => $receipt->chaveAcesso,
-                    'exception_class' => $throwable::class,
-                    'exception_message' => $throwable->getMessage(),
-                    'exception_code' => $throwable->getCode(),
-                    'rawXml_length' => strlen((string) ($receipt->rawXml ?? '')),
-                    'rawXml_sample' => substr((string) ($receipt->rawXml ?? ''), 0, 200),
-                    'trace' => $throwable->getTraceAsString(),
-                ]);
-            }
-        }
-
-        if ($xmlPath !== null || $danfsePath !== null) {
-            try {
-                $nfseReceipt->update([
-                    'xml_webdav_path' => $xmlPath,
-                    'danfse_webdav_path' => $danfsePath,
-                ]);
-            } catch (\Throwable $throwable) {
-                $this->safeLogError('NFS-e artifact path persistence failed', [
-                    'invoice_id' => $invoice->id,
-                    'chave_acesso' => $receipt->chaveAcesso,
-                    'message' => $throwable->getMessage(),
-                ]);
-            }
-        }
-    }
-
-    protected function generateDanfseFromAuthorizedXml(NfseClientInterface $client, ReceiptData $receipt): string
-    {
-        $nfseXml = trim((string) ($receipt->rawXml ?? ''));
-
-        if ($nfseXml === '') {
-            throw new \RuntimeException('DANFSE generation requires authorized NFS-e XML payload.');
-        }
-
-        return $client->getDanfse($nfseXml);
-    }
-
-    /**
-     * @param array{path?: ?string, exists?: bool, source?: ?string, download_url?: ?string}|null $xmlArtifact
-     */
     protected function generateMissingDanfseArtifact(Invoice $invoice, NfseReceipt $receipt, ?array $xmlArtifact): bool
     {
         if (!$this->webDavEnabled() || !$this->webDavStorePdfEnabled()) {
@@ -3814,23 +3735,6 @@ class InvoiceController extends Controller
         ];
     }
 
-    protected function handlePostEmitEmail(?Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
-    {
-        $email = $this->preparePostEmitEmail($request, $invoice);
-
-        if ($email === null) {
-            return;
-        }
-
-        $this->sendNfseIssuedNotification(
-            $invoice,
-            $receipt,
-            $email['attach_danfse'],
-            $email['attach_xml'],
-            $email['custom_mail'],
-        );
-    }
-
     /**
      * @param array{
      *   attach_danfse:bool,
@@ -3921,9 +3825,5 @@ class InvoiceController extends Controller
         return null;
     }
 
-    protected function sendNfseIssuedNotification(Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt, bool $attachDanfse, bool $attachXml, array $customMail): void
-    {
-        (new IssuedNfseEmailSender())->send($invoice, $receipt, $attachDanfse, $attachXml, $customMail);
-    }
 
 }
