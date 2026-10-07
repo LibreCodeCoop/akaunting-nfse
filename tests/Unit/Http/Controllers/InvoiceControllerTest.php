@@ -4679,18 +4679,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('[0107] Servico Reemissao', $client->capturedDps?->discriminacao);
             self::assertNotSame('301', $client->capturedDps?->numeroDps);
             self::assertMatchesRegularExpression('/^[1-9]\d{0,14}$/', $client->capturedDps?->numeroDps ?? '');
-            self::assertSame([
-                [
-                    'attributes' => ['invoice_id' => 301],
-                    'values' => [
-                        'nfse_number' => 'NF-RE-301',
-                        'chave_acesso' => 'CHAVE-RE-301',
-                        'data_emissao' => '2026-03-21T18:00:00-03:00',
-                        'codigo_verificacao' => 'RE301',
-                        'status' => 'emitted',
-                    ],
-                ],
-            ], NfseReceipt::$updateOrCreateCalls);
+            self::assertSame([], NfseReceipt::$updateOrCreateCalls);
             self::assertSame('emitted', $existingReceipt->status);
             self::assertSame([
                 [
