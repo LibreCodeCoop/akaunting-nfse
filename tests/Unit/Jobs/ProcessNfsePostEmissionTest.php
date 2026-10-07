@@ -22,6 +22,7 @@ final class ProcessNfsePostEmissionTest extends TestCase
         self::assertStringContainsString('public readonly ?array $email = null', $content);
         self::assertStringNotContainsString('NfseClientInterface', $content);
         self::assertStringNotContainsString('Request $request', $content);
+        self::assertStringNotContainsString('Dispatchable', $content);
     }
 
     public function testJobStoresArtifactsBeforeSendingEmail(): void
