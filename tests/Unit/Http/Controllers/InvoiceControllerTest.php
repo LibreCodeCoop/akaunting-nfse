@@ -177,16 +177,17 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
-        public function testControllerStoresArtifactsAfterPersistingReceipt(): void
+        public function testControllerDispatchesPostEmissionAfterPersistingReceipt(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString(': $this->storeEmittedReceipt($invoice, $receipt);', $content);
             self::assertStringContainsString('(new ReceiptPersistence())->createReplacement(', $content);
-            self::assertStringContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
+            self::assertStringContainsString('$email = $this->preparePostEmitEmail($request, $invoice);', $content);
+            self::assertStringContainsString('$this->dispatchPostEmission(', $content);
+            self::assertStringContainsString("(string) (\$receipt->rawXml ?? '')", $content);
             self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
-            self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);', $content);
-            self::assertStringContainsString('$this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);', $content);
+            self::assertStringNotContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
         }
 
         public function testMissingDanfseDownloadRegeneratesPdfFromStoredXml(): void
