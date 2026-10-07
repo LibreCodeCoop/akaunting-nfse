@@ -15,7 +15,7 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 
 class IssuedNfseArtifactStore
 {
-    public function store(int $invoiceId, int $receiptId, string $authorizedXml): void
+    public function store(int $invoiceId, int $receiptId): void
     {
         $invoice = Invoice::query()->with('contact')->findOrFail($invoiceId);
         $receipt = NfseReceipt::query()->findOrFail($receiptId);
@@ -28,7 +28,7 @@ class IssuedNfseArtifactStore
             return;
         }
 
-        $xml = trim($authorizedXml);
+        $xml = trim((string) ($receipt->authorized_xml ?? ''));
 
         if ($xml === '') {
             throw new \RuntimeException('Post-emission processing requires the authorized NFS-e XML.');
