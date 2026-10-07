@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Models\Document\Document;
 use Modules\Nfse\Application\ReceiptPersistence;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use Tests\Feature\FeatureTestCase;
 
@@ -225,7 +226,11 @@ final class ReceiptPersistenceTest extends FeatureTestCase
 
         $fresh = $receipt->fresh();
 
-        self::assertSame($xml, $fresh->authorized_xml);
+        self::assertSame(
+            $xml,
+            NfseReceiptPayload::query()->where('receipt_id', $fresh->id)->value('authorized_xml'),
+        );
+        self::assertNull($fresh->authorized_xml);
         self::assertSame('2026-10-01', $fresh->competence_date?->format('Y-m-d'));
         self::assertSame('100.00', $fresh->authorized_fiscal_snapshot['gross_service_value'] ?? null);
         self::assertSame(hash('sha256', $xml), $fresh->authorized_fiscal_snapshot['source_sha256'] ?? null);

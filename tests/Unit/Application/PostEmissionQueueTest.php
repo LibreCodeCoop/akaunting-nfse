@@ -49,7 +49,7 @@ final class PostEmissionQueueTest extends TestCase
         $persistence = (string) file_get_contents(dirname(__DIR__, 3) . '/Application/ReceiptPersistence.php');
         $controller = (string) file_get_contents(dirname(__DIR__, 3) . '/Http/Controllers/InvoiceController.php');
 
-        self::assertStringContainsString("\$values['authorized_xml'] = \$receipt->rawXml;", $persistence);
+        self::assertStringContainsString('NfseReceiptPayload::query()->updateOrCreate(', $persistence);
         self::assertStringContainsString('$email = $this->preparePostEmitEmail($request, $invoice);', $controller);
         self::assertStringContainsString('$this->dispatchPostEmission(', $controller);
         self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $controller);
