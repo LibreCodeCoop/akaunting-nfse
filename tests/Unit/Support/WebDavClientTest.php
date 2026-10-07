@@ -172,6 +172,16 @@ final class WebDavClientTest extends TestCase
         ], $calls);
     }
 
+    public function testLaravelHttpTimeoutIsNormalizedToIntegerSeconds(): void
+    {
+        $content = (string) file_get_contents(dirname(__DIR__, 3) . '/Support/WebDavClient.php');
+
+        self::assertStringContainsString(
+            '->timeout((int) ceil($this->timeoutSeconds))',
+            $content,
+        );
+    }
+
     public function testRejectsNonPositiveTimeout(): void
     {
         $this->expectException(\InvalidArgumentException::class);

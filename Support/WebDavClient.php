@@ -95,7 +95,7 @@ final class WebDavClient
     ): array {
         try {
             $request = Http::withHeaders($headers)
-                ->timeout($this->timeoutSeconds);
+                ->timeout((int) ceil($this->timeoutSeconds));
 
             if ($body !== '') {
                 $request = $request->withBody(
