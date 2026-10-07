@@ -8,17 +8,35 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Unit\Application;
 
 use Modules\Nfse\Application\InvoiceDpsBuilder;
+use Modules\Nfse\Application\ModuleVersion;
 use PHPUnit\Framework\TestCase;
 
 final class InvoiceDpsBuilderTest extends TestCase
 {
     public function testMapsResolvedNationalTakerAndFiscalPayload(): void
     {
-        $dps = (new InvoiceDpsBuilder())->build($this->baseContext());
+        $manifestPath = tempnam(sys_get_temp_dir(), 'nfse-module-');
+
+        if ($manifestPath === false) {
+            self::fail('Unable to create temporary manifest.');
+        }
+
+        file_put_contents(
+            $manifestPath,
+            json_encode(['version' => '2.4.1'], JSON_THROW_ON_ERROR),
+        );
+
+        try {
+            $dps = (new InvoiceDpsBuilder(
+                moduleVersion: new ModuleVersion($manifestPath),
+            ))->build($this->baseContext());
+        } finally {
+            @unlink($manifestPath);
+        }
 
         self::assertSame('11222333000181', $dps->cnpjPrestador);
         self::assertSame('3303302', $dps->municipioIbge);
-        self::assertSame('LibreCode NFSe 1.0.0', $dps->versaoAplicativo);
+        self::assertSame('LibreCode NFSe 2.4.1', $dps->versaoAplicativo);
         self::assertSame('21969203370', $dps->prestadorTelefone);
         self::assertSame('adm@librecode.coop', $dps->prestadorEmail);
         self::assertSame('0107', $dps->itemListaServico);
