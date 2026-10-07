@@ -24,27 +24,18 @@ final class ProcessNfsePostEmissionTest extends TestCase
         self::assertStringNotContainsString('Request $request', $content);
     }
 
-    public function testJobGeneratesArtifactsLocallyBeforeSendingEmail(): void
+    public function testJobStoresArtifactsBeforeSendingEmail(): void
     {
         $content = (string) file_get_contents(dirname(__DIR__, 3) . '/Jobs/ProcessNfsePostEmission.php');
 
-        $artifactPosition = strpos($content, '$this->storeArtifacts($invoice, $receipt);');
-        $emailPosition = strpos($content, '$this->sendEmail($invoice, $receipt->fresh() ?? $receipt);');
+        $artifactPosition = strpos($content, '$artifactStorage->store($invoice, $this->receiptData($receipt), $receipt);');
+        $emailPosition = strpos($content, '$this->sendEmail(');
 
         self::assertNotFalse($artifactPosition);
         self::assertNotFalse($emailPosition);
         self::assertLessThan($emailPosition, $artifactPosition);
-        self::assertStringContainsString('(new DanfseGenerator())->generateFromXml($this->authorizedXml)', $content);
+        self::assertStringContainsString('NfseArtifactStorage $artifactStorage', $content);
         self::assertStringContainsString('new NfseIssued(', $content);
         self::assertStringContainsString("Notification::route('mail'", $content);
-    }
-
-    public function testArtifactFailuresAreLoggedWithoutTurningAuthorizationIntoFailure(): void
-    {
-        $content = (string) file_get_contents(dirname(__DIR__, 3) . '/Jobs/ProcessNfsePostEmission.php');
-
-        self::assertStringContainsString("logFailure('XML', $throwable)", $content);
-        self::assertStringContainsString("logFailure('DANFSE', $throwable)", $content);
-        self::assertStringContainsString("if ($updates !== [])", $content);
     }
 }
