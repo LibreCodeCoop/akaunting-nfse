@@ -10,7 +10,6 @@ namespace Modules\Nfse\Jobs;
 use App\Models\Document\Document as Invoice;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
@@ -30,7 +29,6 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
  */
 final class ProcessNfsePostEmission implements ShouldQueue
 {
-    use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
