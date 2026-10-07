@@ -639,7 +639,7 @@ class InvoiceController extends Controller
     ): void {
         $job = new ProcessNfsePostEmission(
             invoiceId: (int) $invoice->id,
-            receiptId: (int) $persistedReceipt->id,
+            receiptId: (int) ($persistedReceipt->id ?? 0),
             authorizedXml: trim((string) ($receipt->rawXml ?? '')),
             email: $email,
         );
