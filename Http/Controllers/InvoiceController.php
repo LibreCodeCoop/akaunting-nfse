@@ -167,7 +167,6 @@ class InvoiceController extends Controller
     {
         $receipt = NfseReceipt::query()
             ->where('invoice_id', $invoice->id)
-            ->with('payload')
             ->latest('id')
             ->first();
 

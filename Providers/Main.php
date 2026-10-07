@@ -235,7 +235,6 @@ class Main extends Provider
 
             try {
                 $receipts = NfseReceipt::query()
-                    ->with('payload')
                     ->where('invoice_id', $invoiceId)
                     ->latest('id')
                     ->get();
