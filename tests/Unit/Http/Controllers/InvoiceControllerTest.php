@@ -190,7 +190,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('$this->dispatchPostEmission($invoice, $newReceipt, $persistedReceipt, $postEmitEmail);', $content);
             self::assertStringContainsString('$job = new ProcessNfsePostEmission(', $content);
             self::assertStringContainsString('$this->pushPostEmissionJob($job);', $content);
-            self::assertStringContainsString("$queue = app('queue');", $content);
+            self::assertStringContainsString('$queue = app(\'queue\');', $content);
             self::assertStringContainsString('$queue->push($job);', $content);
         }
 
@@ -5719,10 +5719,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString('protected function preparePostEmitEmailPayload(?Request $request, Invoice $invoice): ?array', $content);
-            self::assertStringContainsString("'custom_mail' => $customMail", $content);
-            self::assertStringContainsString("'attach_danfse' => $attachDanfse", $content);
-            self::assertStringContainsString("'attach_xml' => $attachXml", $content);
-            self::assertStringContainsString("authorizedXml: trim((string) ($receipt->rawXml ?? ''))", $content);
+            self::assertStringContainsString("'custom_mail' => \$customMail", $content);
+            self::assertStringContainsString("'attach_danfse' => \$attachDanfse", $content);
+            self::assertStringContainsString("'attach_xml' => \$attachXml", $content);
+            self::assertStringContainsString("authorizedXml: trim((string) (\$receipt->rawXml ?? ''))", $content);
             self::assertStringNotContainsString('ProcessNfsePostEmission::dispatch($request', $content);
         }
 
