@@ -208,13 +208,21 @@ class InvoiceController extends Controller
                     'xml' => [
                         'ready' => $xmlReady,
                         'download_url' => $xmlReady
-                            ? route('nfse.invoices.artifacts.download', [$invoice->id, 'xml'])
+                            ? route('nfse.invoices.artifacts.download', [
+                                'company_id' => $invoice->company_id,
+                                'invoice' => $invoice->id,
+                                'artifact' => 'xml',
+                            ])
                             : null,
                     ],
                     'danfse' => [
                         'ready' => $danfseReady,
                         'download_url' => $danfseReady
-                            ? route('nfse.invoices.artifacts.download', [$invoice->id, 'danfse'])
+                            ? route('nfse.invoices.artifacts.download', [
+                                'company_id' => $invoice->company_id,
+                                'invoice' => $invoice->id,
+                                'artifact' => 'danfse',
+                            ])
                             : null,
                     ],
                 ],
