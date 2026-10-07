@@ -119,7 +119,9 @@ final class PostEmissionState
             && $receipt->relationLoaded('payload')
         ) {
             $payload = $receipt->getRelation('payload');
-        } elseif (method_exists($receipt, 'payload')) {
+        }
+
+        if (!$payload instanceof NfseReceiptPayload && method_exists($receipt, 'payload')) {
             $relation = $receipt->payload();
 
             if (is_object($relation) && method_exists($relation, 'first')) {
