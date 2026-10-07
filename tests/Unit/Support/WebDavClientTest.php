@@ -54,20 +54,27 @@ final class WebDavClientTest extends TestCase
         $client->put('nfse/2026/doc.xml', '<xml/>');
     }
 
-    public function testPutCreatesNestedDirectoriesBeforeUploadingFile(): void
+    public function testPutCreatesOnlyMissingDirectoriesAfterConflict(): void
     {
         $calls = [];
+        $putAttempts = 0;
 
         $client = new WebDavClient(
             baseUrl: 'https://dav.example.com/root',
-            request: static function (string $method, string $url, array $headers, string $body) use (&$calls): array {
+            request: static function (string $method, string $url, array $headers, string $body) use (&$calls, &$putAttempts): array {
                 $calls[] = [$method, $url];
 
-                if ($method === 'MKCOL') {
-                    return [201, ''];
+                if ($method === 'PUT') {
+                    $putAttempts++;
+
+                    return $putAttempts === 1 ? [409, 'missing parent'] : [201, ''];
                 }
 
-                if ($method === 'PUT') {
+                if ($method === 'HEAD') {
+                    return str_ends_with($url, '/nfse') ? [200, ''] : [404, ''];
+                }
+
+                if ($method === 'MKCOL') {
                     return [201, ''];
                 }
 
@@ -78,14 +85,17 @@ final class WebDavClientTest extends TestCase
         $client->put('nfse/2026/04/doc.xml', '<xml/>');
 
         self::assertSame([
-            ['MKCOL', 'https://dav.example.com/root/nfse'],
+            ['PUT', 'https://dav.example.com/root/nfse/2026/04/doc.xml'],
+            ['HEAD', 'https://dav.example.com/root/nfse/2026/04'],
+            ['HEAD', 'https://dav.example.com/root/nfse/2026'],
+            ['HEAD', 'https://dav.example.com/root/nfse'],
             ['MKCOL', 'https://dav.example.com/root/nfse/2026'],
             ['MKCOL', 'https://dav.example.com/root/nfse/2026/04'],
             ['PUT', 'https://dav.example.com/root/nfse/2026/04/doc.xml'],
         ], $calls);
     }
 
-    public function testPutTreatsMkcol400AsExistingDirectoryWhenHeadSucceeds(): void
+    public function testPutSkipsDirectoryDiscoveryWhenParentAlreadyExists(): void
     {
         $calls = [];
 
@@ -94,29 +104,13 @@ final class WebDavClientTest extends TestCase
             request: static function (string $method, string $url, array $headers, string $body) use (&$calls): array {
                 $calls[] = [$method, $url];
 
-                if ($method === 'MKCOL') {
-                    return [400, 'already exists'];
-                }
-
-                if ($method === 'HEAD') {
-                    return [200, ''];
-                }
-
-                if ($method === 'PUT') {
-                    return [201, ''];
-                }
-
-                return [500, 'unsupported'];
+                return [201, ''];
             },
         );
 
         $client->put('nfse/2026/doc.xml', '<xml/>');
 
         self::assertSame([
-            ['MKCOL', 'https://dav.example.com/root/nfse'],
-            ['HEAD', 'https://dav.example.com/root/nfse'],
-            ['MKCOL', 'https://dav.example.com/root/nfse/2026'],
-            ['HEAD', 'https://dav.example.com/root/nfse/2026'],
             ['PUT', 'https://dav.example.com/root/nfse/2026/doc.xml'],
         ], $calls);
     }
@@ -147,7 +141,7 @@ final class WebDavClientTest extends TestCase
         self::assertSame('https://dav.example.com/root/nfse/2026/04%20-%20abril/doc%20final.xml', $capturedUrl);
     }
 
-    public function testPutReusesKnownParentDirectoriesWithinSameClient(): void
+    public function testPutUsesSingleRequestForExistingParentDirectories(): void
     {
         $calls = [];
 
@@ -164,9 +158,6 @@ final class WebDavClientTest extends TestCase
         $client->put('nfse/2026/04/doc.pdf', '%PDF-1.4');
 
         self::assertSame([
-            ['MKCOL', 'https://dav.example.com/root/nfse'],
-            ['MKCOL', 'https://dav.example.com/root/nfse/2026'],
-            ['MKCOL', 'https://dav.example.com/root/nfse/2026/04'],
             ['PUT', 'https://dav.example.com/root/nfse/2026/04/doc.xml'],
             ['PUT', 'https://dav.example.com/root/nfse/2026/04/doc.pdf'],
         ], $calls);

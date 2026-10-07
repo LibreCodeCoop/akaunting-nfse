@@ -33,8 +33,26 @@ final class WebDavClient
 
     public function put(string $path, string $content): void
     {
-        $this->ensureParentDirectories($path);
+        $status = $this->putOnce($path, $content);
 
+        if ($status >= 200 && $status < 300) {
+            return;
+        }
+
+        if (!in_array($status, [404, 409], true)) {
+            throw new \RuntimeException('WebDAV PUT failed with HTTP status ' . $status);
+        }
+
+        $this->ensureParentDirectories($path);
+        $status = $this->putOnce($path, $content);
+
+        if ($status < 200 || $status >= 300) {
+            throw new \RuntimeException('WebDAV PUT failed with HTTP status ' . $status);
+        }
+    }
+
+    private function putOnce(string $path, string $content): int
+    {
         [$status] = ($this->request)(
             'PUT',
             $this->buildUrl($path),
@@ -42,9 +60,7 @@ final class WebDavClient
             $content,
         );
 
-        if ($status < 200 || $status >= 300) {
-            throw new \RuntimeException('WebDAV PUT failed with HTTP status ' . $status);
-        }
+        return $status;
     }
 
     public function get(string $path): string
@@ -150,29 +166,48 @@ final class WebDavClient
 
         array_pop($segments);
 
+        $directories = [];
         $current = '';
+
         foreach ($segments as $segment) {
             $current = $current === '' ? $segment : $current . '/' . $segment;
+            $directories[] = $current;
+        }
 
-            if (isset($this->knownDirectories[$current])) {
-                continue;
+        $deepestExistingIndex = -1;
+
+        for ($index = count($directories) - 1; $index >= 0; $index--) {
+            $directory = $directories[$index];
+
+            if (isset($this->knownDirectories[$directory]) || $this->exists($directory)) {
+                $deepestExistingIndex = $index;
+
+                for ($knownIndex = 0; $knownIndex <= $index; $knownIndex++) {
+                    $this->knownDirectories[$directories[$knownIndex]] = true;
+                }
+
+                break;
             }
+        }
+
+        for ($index = $deepestExistingIndex + 1; $index < count($directories); $index++) {
+            $directory = $directories[$index];
 
             [$status] = ($this->request)(
                 'MKCOL',
-                $this->buildUrl($current),
+                $this->buildUrl($directory),
                 $this->authHeaders(),
                 '',
             );
 
             if (in_array($status, [200, 201, 204, 301, 302, 405], true)) {
-                $this->knownDirectories[$current] = true;
+                $this->knownDirectories[$directory] = true;
 
                 continue;
             }
 
-            if (in_array($status, [400, 409], true) && $this->exists($current)) {
-                $this->knownDirectories[$current] = true;
+            if (in_array($status, [400, 409], true) && $this->exists($directory)) {
+                $this->knownDirectories[$directory] = true;
 
                 continue;
             }
@@ -180,4 +215,5 @@ final class WebDavClient
             throw new \RuntimeException('WebDAV MKCOL failed with HTTP status ' . $status);
         }
     }
+
 }
