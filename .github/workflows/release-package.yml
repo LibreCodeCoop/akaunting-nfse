@@ -1,0 +1,98 @@
+name: Release package
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve release version
+        id: version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "${RELEASE_TAG}" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?)$ ]]; then
+            echo "Release tag must be a SemVer-like tag such as v1.2.3 or v1.2.3-rc.1." >&2
+            exit 1
+          fi
+
+          version="${RELEASE_TAG#v}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Build production dependencies
+        env:
+          COMPOSER_DEV_MODE: '0'
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: Stamp manifest with release version
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          php -r '
+          $path = "module.json";
+          $manifest = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+          $manifest["version"] = getenv("RELEASE_VERSION");
+          file_put_contents(
+              $path,
+              json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL
+          );
+          '
+
+      - name: Assemble module archive
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p build/Nfse
+
+          rsync -a ./ build/Nfse/ \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'build/' \
+            --exclude 'e2e/' \
+            --exclude 'node_modules/' \
+            --exclude 'tests/' \
+            --exclude 'vendor/' \
+            --exclude 'vendor-bin/'
+
+          (
+            cd build
+            zip -qr "../akaunting-nfse-${RELEASE_VERSION}.zip" Nfse
+          )
+
+      - name: Verify packaged version
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          packaged_version="$(
+            unzip -p "akaunting-nfse-${RELEASE_VERSION}.zip" Nfse/module.json |
+              php -r '$manifest = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo $manifest["version"] ?? "";'
+          )"
+
+          test "${packaged_version}" = "${RELEASE_VERSION}"
+
+      - name: Upload package to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release upload "${RELEASE_TAG}" "akaunting-nfse-${RELEASE_VERSION}.zip" --clobber
