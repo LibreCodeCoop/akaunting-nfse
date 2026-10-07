@@ -14,6 +14,7 @@ use Modules\Nfse\Application\ItemFiscalValidationSummary;
 use Modules\Nfse\Console\Commands\ProvisionTestHarness;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Console\Commands\SyncAdn;
+use Modules\Nfse\Console\Commands\DiagnoseMunicipalParameters;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
@@ -65,6 +66,7 @@ class Main extends Provider
                 ProvisionTestHarness::class,
                 ProvisionTestUser::class,
                 SyncAdn::class,
+                DiagnoseMunicipalParameters::class,
             ]);
         }
     }
