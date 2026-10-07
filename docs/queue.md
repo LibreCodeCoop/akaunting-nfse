@@ -24,7 +24,7 @@ O pós-processamento executa:
 - arquivamento do DANFSE em WebDAV;
 - envio do e-mail solicitado pelo usuário.
 
-O XML autorizado fica persistido em `nfse_receipts.authorized_xml`. Assim, uma falha de Redis, worker ou WebDAV depois da autorização não exige uma nova emissão na SEFIN e não perde a fonte necessária para reprocessar os artefatos.
+O XML autorizado fica persistido em `nfse_receipt_payloads.authorized_xml`, numa relação 1:1 com o recibo. O payload grande fica fora da linha quente de `nfse_receipts`, usada por listagens e relatórios. Assim, uma falha de Redis, worker ou WebDAV depois da autorização não exige uma nova emissão na SEFIN e não perde a fonte necessária para reprocessar os artefatos.
 
 ## Compatibilidade sem worker assíncrono
 
@@ -48,6 +48,11 @@ Exemplo:
 QUEUE_CONNECTION=redis
 REDIS_HOST=redis
 REDIS_PORT=6379
+
+# O Akaunting usa a conexão Redis "queue". Estes valores são opcionais
+# quando iguais ao Redis padrão:
+# REDIS_QUEUE_HOST=redis
+# REDIS_QUEUE_PORT=6379
 ```
 
 O hostname precisa resolver de dentro do container PHP. Teste:
@@ -77,7 +82,7 @@ services:
         exec php artisan queue:work redis
         --sleep=1
         --tries=3
-        --timeout=120
+        --timeout=60
         --max-time=3600
     volumes:
       - ./volumes/akaunting:/var/www/html
@@ -108,6 +113,10 @@ docker compose restart akaunting.queue
 
 Workers Laravel são processos de longa duração e não recarregam classes alteradas automaticamente.
 
+No Akaunting, a conexão Redis de fila usa `retry_after=90` por padrão. O worker e os jobs deste módulo usam timeout de 60 segundos para que um job termine ou falhe antes de ficar elegível para nova tentativa.
+
+O provider de filas do próprio Akaunting adiciona o `company_id` ao payload e restaura a empresa atual no worker antes de processar o job. O módulo utiliza esse mecanismo nativo em vez de serializar ou reimplementar contexto de empresa. O Akaunting também configura `after_commit=true` por padrão para Redis, portanto jobs despachados dentro de uma transação só ficam disponíveis depois do commit.
+
 ## Validação
 
 Confirme a conexão configurada:
@@ -135,7 +144,7 @@ Com a fila vazia e o worker saudável, é normal não haver saída em `docker co
 
 `StoreIssuedNfseArtifacts` é idempotente por caminho persistido e aceita até três tentativas. Cada caminho é salvo no recibo logo depois do upload correspondente, portanto uma nova tentativa não repete um artefato que já foi concluído.
 
-`SendIssuedNfseEmail` usa uma única tentativa automática para reduzir risco de e-mails duplicados. Se falhar, o job aparece em `queue:failed` e pode ser avaliado antes de um retry manual.
+`SendIssuedNfseEmail` usa uma única tentativa automática e registra `post_emission_email_sent_at` depois de uma entrega bem-sucedida, reduzindo o risco de e-mails duplicados. A notificação `NfseIssued` do Akaunting é enfileirável por natureza, mas dentro desse job ela é enviada com `sendNow`/`notifyNow`; assim existe uma única fronteira assíncrona e o marcador de envio representa a execução real da notificação. Se falhar, o job aparece em `queue:failed` e pode ser avaliado antes de um retry manual.
 
 Os jobs são encadeados: o e-mail só é executado depois do job de artefatos. Isso garante que anexos fiscais solicitados estejam disponíveis antes da montagem da mensagem.
 
@@ -159,3 +168,7 @@ Antes de repetir qualquer emissão fiscal, consulte o recibo local e, quando nec
 O XML autorizado contém dados fiscais e pode conter dados pessoais. O banco de dados do Akaunting e o WebDAV devem seguir a mesma política de acesso, backup, retenção e criptografia aplicada aos demais documentos fiscais.
 
 O XML não é incluído no payload do job. A fila transporta apenas identificadores do recibo/fatura e os parâmetros necessários para o e-mail.
+
+## WebDAV e throughput
+
+O cliente WebDAV possui timeout de rede de 10 segundos por requisição. Durante uma mesma execução ele também memoriza diretórios já confirmados/criados, evitando repetir `MKCOL` e `HEAD` para o XML e o DANFSE no mesmo caminho. Os paths finais persistidos no recibo tornam o job de artefatos reexecutável sem repetir uploads concluídos.

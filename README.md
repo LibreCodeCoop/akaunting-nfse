@@ -77,7 +77,7 @@ schema v1.01.
 
 ### Processamento pós-emissão e fila
 
-Depois que a SEFIN autoriza a NFS-e, o módulo persiste o recibo e o XML autorizado antes de iniciar DANFSE, WebDAV e e-mail. Essas tarefas usam a fila nativa do Laravel.
+Depois que a SEFIN autoriza a NFS-e, o módulo persiste o recibo e mantém o XML autorizado em uma tabela de payload 1:1 antes de iniciar DANFSE, WebDAV e e-mail. Essas tarefas usam a fila nativa do Laravel/Akaunting.
 
 - `QUEUE_CONNECTION=sync`: funciona sem worker externo e mantém compatibilidade com instalações simples;
 - filas assíncronas como Redis: retiram DANFSE, WebDAV e e-mail do request HTTP;
