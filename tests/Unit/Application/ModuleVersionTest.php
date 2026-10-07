@@ -16,7 +16,7 @@ final class ModuleVersionTest extends TestCase
 {
     public function testUsesPackageVersionWhenNoManifestIsExplicitlyProvided(): void
     {
-        $provider = new class implements PackageVersionProvider {
+        $provider = new class () implements PackageVersionProvider {
             public function get(string $packageName): ?string
             {
                 TestCase::assertSame('librecodeoop/akaunting-nfse', $packageName);
@@ -30,7 +30,7 @@ final class ModuleVersionTest extends TestCase
 
     public function testFallsBackToSourceManifestWhenPackageVersionIsUnavailable(): void
     {
-        $provider = new class implements PackageVersionProvider {
+        $provider = new class () implements PackageVersionProvider {
             public function get(string $packageName): ?string
             {
                 return null;
@@ -43,7 +43,7 @@ final class ModuleVersionTest extends TestCase
     public function testExplicitManifestBypassesPackageVersionProvider(): void
     {
         $path = $this->manifest(['version' => '2.4.1']);
-        $provider = new class implements PackageVersionProvider {
+        $provider = new class () implements PackageVersionProvider {
             public function get(string $packageName): ?string
             {
                 TestCase::fail('Package version provider must not be called for an explicit manifest.');
