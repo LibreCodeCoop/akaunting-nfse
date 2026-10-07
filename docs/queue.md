@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # Processamento pós-emissão e filas
 
 O módulo separa a **autorização fiscal** do trabalho que pode ser executado depois da resposta ao usuário.
