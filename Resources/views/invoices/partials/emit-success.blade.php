@@ -29,7 +29,13 @@ Variables: $invoice, $receipt, $receiptStatusLabel, $artifacts
             <circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
         </svg>
-        <span data-nfse-post-emission-message>{{ trans('nfse::general.invoices.post_processing_processing') }}</span>
+        <span data-nfse-post-emission-message>
+            {{ $postEmissionOverall === 'failed'
+                ? trans('nfse::general.invoices.post_processing_failed')
+                : ($postEmissionOverall === 'completed'
+                    ? trans('nfse::general.invoices.post_processing_completed')
+                    : trans('nfse::general.invoices.post_processing_processing')) }}
+        </span>
         <span class="ml-auto text-xs text-gray-500">
             {{ trans('nfse::general.invoices.post_processing_email') }}:
             <span data-nfse-email-status>{{ trans('nfse::general.invoices.post_processing_stage_' . ($postEmissionStatus['email_status'] ?? 'not_requested')) }}</span>
