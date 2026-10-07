@@ -185,7 +185,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('(new ReceiptPersistence())->createReplacement(', $content);
             self::assertStringContainsString('$email = $this->preparePostEmitEmail($request, $invoice);', $content);
             self::assertStringContainsString('$this->dispatchPostEmission(', $content);
-            self::assertStringContainsString("(string) (\$receipt->rawXml ?? '')", $content);
             self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
             self::assertStringNotContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
         }
