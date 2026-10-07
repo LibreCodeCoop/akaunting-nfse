@@ -3844,11 +3844,21 @@ class InvoiceController extends Controller
         NfseReceipt $receipt,
         ?array $email,
     ): void {
-        (new PostEmissionDispatcher())->dispatch(
-            invoiceId: (int) $invoice->id,
-            receiptId: (int) $receipt->id,
-            email: $email,
-        );
+        try {
+            (new PostEmissionDispatcher())->dispatch(
+                invoiceId: (int) $invoice->id,
+                receiptId: (int) $receipt->id,
+                email: $email,
+            );
+        } catch (\Throwable $throwable) {
+            // The fiscal document is already authorized at this point. Queue
+            // infrastructure failures must never make the user retry issuance.
+            $this->safeLogError('NFS-e post-emission dispatch failed', [
+                'invoice_id' => (int) $invoice->id,
+                'receipt_id' => (int) $receipt->id,
+                'message' => $throwable->getMessage(),
+            ]);
+        }
     }
 
     protected function normalizePostEmitRecipient(mixed $rawRecipient): mixed
