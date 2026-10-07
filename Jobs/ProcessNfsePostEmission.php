@@ -59,8 +59,10 @@ final class ProcessNfsePostEmission implements ShouldQueue
         $this->onQueue('default');
     }
 
-    public function handle(NfseArtifactStorage $artifactStorage): void
+    public function handle(): void
     {
+        $artifactStorage = new NfseArtifactStorage();
+
         $invoice = Invoice::query()
             ->with(['contact', 'company'])
             ->find($this->invoiceId);
