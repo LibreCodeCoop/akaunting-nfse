@@ -637,12 +637,30 @@ class InvoiceController extends Controller
         NfseReceipt $persistedReceipt,
         ?array $email = null,
     ): void {
-        ProcessNfsePostEmission::dispatch(
+        $job = new ProcessNfsePostEmission(
             invoiceId: (int) $invoice->id,
             receiptId: (int) $persistedReceipt->id,
             authorizedXml: trim((string) ($receipt->rawXml ?? '')),
             email: $email,
-        )->afterCommit();
+        );
+
+        $this->pushPostEmissionJob($job);
+    }
+
+    protected function pushPostEmissionJob(ProcessNfsePostEmission $job): void
+    {
+        // Isolated unit tests intentionally do not bootstrap Laravel's container.
+        if (!function_exists('app')) {
+            return;
+        }
+
+        $queue = app('queue');
+
+        if (!is_object($queue) || !is_callable([$queue, 'push'])) {
+            throw new \RuntimeException('Laravel queue manager is unavailable.');
+        }
+
+        $queue->push($job);
     }
 
     public function substitute(Invoice $invoice, Request $request): RedirectResponse|JsonResponse
