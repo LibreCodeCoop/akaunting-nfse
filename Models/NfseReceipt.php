@@ -28,6 +28,7 @@ class NfseReceipt extends Model
         'replaces_receipt_id',
         'competence_date',
         'authorized_fiscal_snapshot',
+        'authorized_xml',
     ];
 
     protected $casts = [
