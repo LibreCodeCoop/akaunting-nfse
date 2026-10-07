@@ -225,7 +225,7 @@
                                 class="mt-1 w-full rounded border px-3 py-2"
                                 required
                             >
-                                <option value="">{{ trans('nfse::general.invoices.cancel_reason_placeholder') }}</option>
+                                <option value="">{{ trans('nfse::general.invoices.cancel_modal_reason_select_placeholder') }}</option>
                                 @foreach(is_array($cancelReasonOptions) ? $cancelReasonOptions : [] as $cancelReasonOption)
                                     <option value="{{ $cancelReasonOption }}">{{ $cancelReasonOption }}</option>
                                 @endforeach

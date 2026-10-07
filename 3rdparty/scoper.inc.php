@@ -30,14 +30,16 @@ return [
 
             return str_replace(
                 [
-                    '"Dompdf\\\\FrameDecorator\\\\$decorator"',
-                    '"Dompdf\\\\FrameReflower\\\\$reflower"',
-                    "'\\\\Dompdf\\\\Positioner\\\\'.\$type",
+                    '$decorator = "Dompdf\\\\FrameDecorator\\\\{$decorator}";',
+                    '$reflower = "Dompdf\\\\FrameReflower\\\\{$reflower}";',
+                    '$class = \'\\\\Dompdf\\\\Positioner\\\\\'.$type;',
+                    '$class = \'\\Dompdf\\Positioner\\\\\' . $type;',
                 ],
                 [
-                    '"' . $escapedPrefix . '\\\\Dompdf\\\\FrameDecorator\\\\$decorator"',
-                    '"' . $escapedPrefix . '\\\\Dompdf\\\\FrameReflower\\\\$reflower"',
-                    "'\\\\" . $escapedPrefix . "\\\\Dompdf\\\\Positioner\\\\'.\$type",
+                    '$decorator = "' . $escapedPrefix . '\\\\Dompdf\\\\FrameDecorator\\\\{$decorator}";',
+                    '$reflower = "' . $escapedPrefix . '\\\\Dompdf\\\\FrameReflower\\\\{$reflower}";',
+                    '$class = \'\\\\' . $escapedPrefix . '\\\\Dompdf\\\\Positioner\\\\\'.$type;',
+                    '$class = \'\\\\' . $escapedPrefix . '\\\\Dompdf\\\\Positioner\\\\\' . $type;',
                 ],
                 $content,
             );

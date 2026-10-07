@@ -189,6 +189,19 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('$this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);', $content);
         }
 
+        public function testMissingDanfseDownloadRegeneratesPdfFromStoredXml(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString(
+                "&& \$this->generateMissingDanfseArtifact(\$invoice, \$receipt, \$artifacts['xml'] ?? null)",
+                $content,
+            );
+            self::assertStringContainsString('(new DanfseGenerator())->generateFromXml($xml)', $content);
+            self::assertStringContainsString("str_starts_with(\$pdf, '%PDF-')", $content);
+            self::assertStringContainsString("\$receipt->update(['danfse_webdav_path' => \$danfsePath]);", $content);
+        }
+
         public function testMakeClientDelegatesFiscalCompositionAndKeepsExplicitCleanup(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
