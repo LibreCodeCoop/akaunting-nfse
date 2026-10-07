@@ -1233,7 +1233,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             ], NfseReceipt::$updateOrCreateCalls);
             self::assertSame('route', $response->target);
-            self::assertSame('invoices.show', $response->route);
+            self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('NFS-e emitida NF-2026-0001', $response->flash['success'] ?? null);
         }
@@ -4795,7 +4795,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame([], $receipt->updatedPayloads);
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame('invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('Nao foi possivel atualizar o status da NFS-e.', $response->flash['error'] ?? null);
         }
