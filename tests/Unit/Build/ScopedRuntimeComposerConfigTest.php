@@ -130,8 +130,8 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         self::assertCount(2, $patchers);
 
         $source = <<<'PHP'
-            $decorator  = "Dompdf\\FrameDecorator\\$decorator";
-            $reflower   = "Dompdf\\FrameReflower\\$reflower";
+            $decorator  = "Dompdf\\FrameDecorator\\{$decorator}";
+            $reflower   = "Dompdf\\FrameReflower\\{$reflower}";
             $class = '\\Dompdf\\Positioner\\'.$type;
             PHP;
 

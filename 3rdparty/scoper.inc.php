@@ -27,9 +27,9 @@ return [
             }
 
             $replacements = [
-                '/^\\s*\\$decorator\\s*=\\s*".*FrameDecorator.*\\$decorator";\\s*$/m'
+                '/^\\s*\\$decorator\\s*=\\s*".*FrameDecorator.*";\\s*$/m'
                     => '        $decorator = substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')) . \'\\\\FrameDecorator\\\\\' . $decorator;',
-                '/^\\s*\\$reflower\\s*=\\s*".*FrameReflower.*\\$reflower";\\s*$/m'
+                '/^\\s*\\$reflower\\s*=\\s*".*FrameReflower.*";\\s*$/m'
                     => '        $reflower = substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')) . \'\\\\FrameReflower\\\\\' . $reflower;',
                 '/^\\s*\\$class\\s*=\\s*.*Positioner.*\\$type;\\s*$/m'
                     => '            $class = substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')) . \'\\\\Positioner\\\\\' . $type;',
