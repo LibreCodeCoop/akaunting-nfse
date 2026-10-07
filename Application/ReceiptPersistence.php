@@ -9,6 +9,7 @@ namespace Modules\Nfse\Application;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 
 /**
@@ -28,10 +29,14 @@ final class ReceiptPersistence
             $existingReceipt->update($values);
         }
 
-        return NfseReceipt::updateOrCreate(
+        $persisted = NfseReceipt::updateOrCreate(
             ['invoice_id' => $invoiceId],
             $values,
         );
+
+        $this->persistAuthorizedXml($persisted, $receipt);
+
+        return $persisted;
     }
 
     public function createGrouped(
@@ -56,17 +61,23 @@ final class ReceiptPersistence
                 }
 
                 $existing->update($this->receiptValues($receipt, $resolvedNumber));
+                $fresh = $existing->fresh();
+                $this->persistAuthorizedXml($fresh, $receipt);
 
-                return $existing->fresh();
+                return $fresh;
             }
 
-            return NfseReceipt::query()->create(array_merge(
+            $created = NfseReceipt::query()->create(array_merge(
                 [
                     'invoice_id' => $invoiceId,
                     'emission_group_key' => $groupKey,
                 ],
                 $this->receiptValues($receipt, $resolvedNumber),
             ));
+
+            $this->persistAuthorizedXml($created, $receipt);
+
+            return $created;
         });
     }
 
@@ -109,7 +120,10 @@ final class ReceiptPersistence
                     $lockedOriginal->update(['status' => 'substituted']);
                 }
 
-                return $existing->fresh();
+                $fresh = $existing->fresh();
+                $this->persistAuthorizedXml($fresh, $receipt);
+
+                return $fresh;
             }
 
             $replacement = NfseReceipt::query()->create(array_merge(
@@ -121,6 +135,7 @@ final class ReceiptPersistence
             ));
 
             $lockedOriginal->update(['status' => 'substituted']);
+            $this->persistAuthorizedXml($replacement, $receipt);
 
             return $replacement;
         });
@@ -133,7 +148,6 @@ final class ReceiptPersistence
      *   data_emissao:string,
      *   codigo_verificacao:?string,
      *   status:string,
-     *   authorized_xml?:string,
      *   competence_date?:?string,
      *   authorized_fiscal_snapshot?:array<string, mixed>
      * }
@@ -149,12 +163,25 @@ final class ReceiptPersistence
         ];
 
         if (is_string($receipt->rawXml) && trim($receipt->rawXml) !== '') {
-            $values['authorized_xml'] = $receipt->rawXml;
             $snapshot = (new AuthorizedFiscalSnapshotExtractor())->extract($receipt->rawXml);
             $values['competence_date'] = $snapshot['competence_date'];
             $values['authorized_fiscal_snapshot'] = $snapshot;
         }
 
         return $values;
+    }
+
+    private function persistAuthorizedXml(NfseReceipt $receipt, ReceiptData $remoteReceipt): void
+    {
+        $xml = is_string($remoteReceipt->rawXml) ? trim($remoteReceipt->rawXml) : '';
+
+        if ($xml === '') {
+            return;
+        }
+
+        NfseReceiptPayload::query()->updateOrCreate(
+            ['receipt_id' => (int) $receipt->id],
+            ['authorized_xml' => $xml],
+        );
     }
 }

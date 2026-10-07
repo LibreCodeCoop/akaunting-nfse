@@ -9,6 +9,7 @@ namespace Modules\Nfse\Application;
 
 use App\Models\Document\Document as Invoice;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseGenerator;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -28,7 +29,13 @@ class IssuedNfseArtifactStore
             return;
         }
 
-        $xml = trim((string) ($receipt->authorized_xml ?? ''));
+        $xml = trim((string) NfseReceiptPayload::query()
+            ->where('receipt_id', $receiptId)
+            ->value('authorized_xml'));
+
+        if ($xml === '') {
+            $xml = trim((string) ($receipt->authorized_xml ?? ''));
+        }
 
         if ($xml === '') {
             throw new \RuntimeException('Post-emission processing requires the authorized NFS-e XML.');
