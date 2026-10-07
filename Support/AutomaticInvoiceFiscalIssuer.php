@@ -102,13 +102,13 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             is_array($group['items'] ?? null) ? $group['items'] : [],
         ), static fn (int $id): bool => $id > 0));
         $amount = (float) ($group['amount'] ?? 0);
-        $simples = (int) $this->setting('nfse.opcao_simples_nacional', 2);
-        $simples = in_array($simples, [1, 2], true) ? $simples : 2;
+        $simples = (int) $this->setting('nfse.opcao_simples_nacional', 1);
+        $simples = in_array($simples, [1, 2, 3], true) ? $simples : 1;
         $sandbox = filter_var($this->setting('nfse.sandbox_mode', true), FILTER_VALIDATE_BOOL);
 
         $federal = (new InvoiceFederalPayloadResolver(
             settingResolver: $this->settingResolver,
-        ))->resolve($invoice, $itemIds, $amount);
+        ))->resolve($invoice, $itemIds, $amount, $group['aliquota'] ?? null);
         $issqn = (new IssqnPayloadResolver())->resolve([
             'tributacao_issqn' => $this->setting('nfse.tributacao_issqn', 1),
             'tipo_retencao_iss' => $this->setting('nfse.tipo_retencao_iss', 1),
@@ -126,9 +126,13 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             'c_class_trib' => $this->setting('nfse.ibs_cbs_c_class_trib', ''),
         ]);
 
+        $providerContact = $this->providerContact();
+
         $baseDps = $this->dpsBuilder->build([
             'cnpjPrestador' => $cnpj,
             'municipioIbge' => $municipio,
+            'prestadorTelefone' => $providerContact['telefone'],
+            'prestadorEmail' => $providerContact['email'],
             'itemListaServico' => (string) ($group['item_lista_servico'] ?? ''),
             'codigoTributacaoNacional' => (string) ($group['codigo_tributacao_nacional'] ?? ''),
             'codigoTributacaoMunicipal' => (string) ($group['codigo_tributacao_municipal'] ?? ''),
@@ -163,6 +167,24 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
         } finally {
             $context->close();
         }
+    }
+
+    /** @return array{telefone:string,email:string} */
+    private function providerContact(): array
+    {
+        try {
+            $company = function_exists('company') ? \company() : null;
+        } catch (\Throwable) {
+            $company = null;
+        }
+
+        $phone = is_object($company) ? trim((string) ($company->phone ?? '')) : '';
+        $email = is_object($company) ? trim((string) ($company->email ?? '')) : '';
+
+        return [
+            'telefone' => preg_replace('/\D+/', '', $phone) ?: '',
+            'email' => $email,
+        ];
     }
 
     private function setting(string $key, mixed $default): mixed

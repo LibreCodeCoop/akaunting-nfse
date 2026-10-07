@@ -65,6 +65,7 @@ final class InvoiceFederalPayloadResolver
         Invoice $invoice,
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
+        mixed $municipalPercentFallback = null,
     ): array {
         $invoiceAmount = $this->serviceAmount($invoice, $documentItemIds, $amountOverride);
         $federalMode = strtolower((string) $this->setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
@@ -81,7 +82,7 @@ final class InvoiceFederalPayloadResolver
             $retentionType = '0';
         }
 
-        $simples = $this->simplesNacional() === 2;
+        $simples = in_array($this->simplesNacional(), [2, 3], true);
         $federalPercent = $this->decimal($this->setting(
             $simples ? 'nfse.tributos_fed_sn' : 'nfse.tributos_fed_p',
             '',
@@ -94,6 +95,10 @@ final class InvoiceFederalPayloadResolver
             $simples ? 'nfse.tributos_mun_sn' : 'nfse.tributos_mun_p',
             '',
         ));
+
+        if (!$simples && $municipalPercent === '') {
+            $municipalPercent = $this->decimal($municipalPercentFallback);
+        }
 
         if ($federalPercent === '' && $snapshot['federal_percent'] !== '') {
             $federalPercent = $snapshot['federal_percent'];
@@ -290,9 +295,9 @@ final class InvoiceFederalPayloadResolver
 
     private function simplesNacional(): int
     {
-        $value = (int) $this->setting('nfse.opcao_simples_nacional', 2);
+        $value = (int) $this->setting('nfse.opcao_simples_nacional', 1);
 
-        return in_array($value, [1, 2], true) ? $value : 2;
+        return in_array($value, [1, 2, 3], true) ? $value : 1;
     }
 
     private function retentionValue(float $amount, string $key): string

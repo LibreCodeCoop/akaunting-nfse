@@ -491,14 +491,19 @@ class InvoiceController extends Controller
             $invoice,
             $selectedDocumentItemIds,
             $serviceAmount,
+            $itemFiscalProfile['aliquota'] ?? null,
         );
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
         $issqnPayload = $this->issqnPayloadValues();
+
+        $providerContact = $this->providerContact();
 
         try {
             $dps = (new InvoiceDpsBuilder())->build([
                 'cnpjPrestador' => $cnpj,
                 'municipioIbge' => $ibge,
+                'prestadorTelefone' => $providerContact['telefone'],
+                'prestadorEmail' => $providerContact['email'],
                 'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
                 'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
                 'codigoTributacaoMunicipal' => (string) ($itemFiscalProfile['codigo_tributacao_municipal'] ?? ''),
@@ -3090,7 +3095,7 @@ class InvoiceController extends Controller
     {
         $configured = (int) setting('nfse.opcao_simples_nacional', 2);
 
-        return in_array($configured, [1, 2], true) ? $configured : 2;
+        return in_array($configured, [1, 2, 3], true) ? $configured : 1;
     }
 
     /**
@@ -3147,12 +3152,32 @@ class InvoiceController extends Controller
         Invoice $invoice,
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
+        mixed $municipalPercentFallback = null,
     ): array {
         return $this->invoiceFederalPayloadResolver()->resolve(
             $invoice,
             $documentItemIds,
             $amountOverride,
+            $municipalPercentFallback,
         );
+    }
+
+    /** @return array{telefone:string,email:string} */
+    protected function providerContact(): array
+    {
+        try {
+            $company = function_exists('company') ? \company() : null;
+        } catch (\Throwable) {
+            $company = null;
+        }
+
+        $phone = is_object($company) ? trim((string) ($company->phone ?? '')) : '';
+        $email = is_object($company) ? trim((string) ($company->email ?? '')) : '';
+
+        return [
+            'telefone' => preg_replace('/\D+/', '', $phone) ?: '',
+            'email' => $email,
+        ];
     }
 
     /**

@@ -292,8 +292,8 @@
                 const selectedOpcaoSimplesNacional = String(config.selectedOpcaoSimplesNacional);
 
                 const syncFederalTributosProfileVisibility = () => {
-                    // Option 2 means Simples Nacional optant.
-                    const isSimplesNacionalOptant = selectedOpcaoSimplesNacional === '2';
+                    // Official DPS codes: 2 = MEI, 3 = ME/EPP.
+                    const isSimplesNacionalOptant = ['2', '3'].includes(selectedOpcaoSimplesNacional);
 
                     federalTributosProfileP?.classList.toggle('hidden', isSimplesNacionalOptant);
                     federalTributosProfileSn?.classList.toggle('hidden', !isSimplesNacionalOptant);

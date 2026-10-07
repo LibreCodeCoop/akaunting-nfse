@@ -19,6 +19,7 @@ final class InvoiceDpsBuilder
 {
     public function __construct(
         private readonly RuntimeDpsFactory $runtime = new RuntimeDpsFactory(),
+        private readonly ModuleVersion $moduleVersion = new ModuleVersion(),
     ) {
     }
 
@@ -69,6 +70,9 @@ final class InvoiceDpsBuilder
             'valorServico' => $context['valorServico'] ?? '',
             'aliquota' => $context['aliquota'] ?? '',
             'discriminacao' => $context['discriminacao'] ?? '',
+            'prestadorTelefone' => $context['prestadorTelefone'] ?? '',
+            'prestadorEmail' => $context['prestadorEmail'] ?? '',
+            'versaoAplicativo' => 'LibreCode NFSe ' . $this->moduleVersion->get(),
             'documentoTomador' => $foreignEnabled ? '' : ($context['documentoTomador'] ?? ''),
             'nomeTomador' => $context['nomeTomador'] ?? '',
             'tomadorCodigoMunicipio' => $foreignEnabled ? '' : ($tomador['codigo_municipio'] ?? ''),
