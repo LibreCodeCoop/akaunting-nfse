@@ -12,6 +12,7 @@ use App\Events\Document\DocumentSent;
 use App\Models\Document\Document;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
+use Modules\Nfse\Jobs\ProcessNfsePostEmission;
 use Modules\Nfse\Jobs\SendNfseCustomEmail;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Notifications\NfseIssued;
@@ -108,4 +109,43 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
 
         Notification::assertNotSentTo($invoice->contact->fresh(), NfseIssued::class);
     }
+    public function testPostEmissionJobSendsEmailWhenWebDavIsDisabled(): void
+    {
+        Notification::fake();
+
+        setting(['nfse.webdav_url' => '']);
+        setting()->save();
+
+        $invoice = Document::factory()->invoice()->create();
+        $invoice->contact->forceFill(['email' => 'customer@example.test'])->saveQuietly();
+
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '102',
+            'chave_acesso' => str_repeat('3', 50),
+            'status' => 'emitted',
+        ]);
+
+        (new ProcessNfsePostEmission(
+            invoiceId: (int) $invoice->id,
+            receiptId: (int) $receipt->id,
+            authorizedXml: '',
+            email: [
+                'attach_danfse' => false,
+                'attach_xml' => false,
+                'custom_mail' => [
+                    'to' => 'customer@example.test',
+                    'subject' => 'NFS-e emitida',
+                    'body' => 'Documento fiscal disponível.',
+                    'attach_invoice_pdf' => false,
+                ],
+            ],
+        ))->handle();
+
+        Notification::assertSentTo(
+            $invoice->contact->fresh(),
+            NfseIssued::class,
+        );
+    }
+
 }
