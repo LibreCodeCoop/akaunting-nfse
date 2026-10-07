@@ -31,10 +31,6 @@ class IssuedNfseArtifactStore
         $xml = trim((string) $receipt->payload()->value('authorized_xml'));
 
         if ($xml === '') {
-            $xml = trim((string) ($receipt->authorized_xml ?? ''));
-        }
-
-        if ($xml === '') {
             throw new \RuntimeException('Post-emission processing requires the authorized NFS-e XML.');
         }
 
