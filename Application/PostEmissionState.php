@@ -111,23 +111,9 @@ final class PostEmissionState
      */
     public function snapshot(NfseReceipt $receipt): array
     {
-        $payload = null;
-
-        if (
-            method_exists($receipt, 'relationLoaded')
-            && method_exists($receipt, 'getRelation')
-            && $receipt->relationLoaded('payload')
-        ) {
-            $payload = $receipt->getRelation('payload');
-        }
-
-        if (!$payload instanceof NfseReceiptPayload && method_exists($receipt, 'payload')) {
-            $relation = $receipt->payload();
-
-            if (is_object($relation) && method_exists($relation, 'first')) {
-                $payload = $relation->first();
-            }
-        }
+        $payload = NfseReceiptPayload::query()
+            ->where('receipt_id', (int) $receipt->id)
+            ->first();
 
         if (!$payload instanceof NfseReceiptPayload) {
             return [
