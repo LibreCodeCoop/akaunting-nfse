@@ -15,7 +15,10 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 
 class IssuedNfseArtifactStore
 {
-    public function store(int $invoiceId, int $receiptId): void
+    /**
+     * @return array{xml: string, danfse: string}
+     */
+    public function store(int $invoiceId, int $receiptId): array
     {
         $invoice = Invoice::query()->with('contact')->findOrFail($invoiceId);
         $receipt = NfseReceipt::query()->findOrFail($receiptId);
@@ -24,8 +27,19 @@ class IssuedNfseArtifactStore
             throw new \RuntimeException('NFS-e receipt does not belong to the requested invoice.');
         }
 
-        if (!$this->webDavEnabled() || trim((string) $receipt->chave_acesso) === '') {
-            return;
+        if (trim((string) $receipt->chave_acesso) === '') {
+            throw new \RuntimeException('Post-emission processing requires the NFS-e access key.');
+        }
+
+        $xmlEnabled = $this->storeXmlEnabled();
+        $pdfEnabled = $this->storePdfEnabled();
+
+        if (!$xmlEnabled && !$pdfEnabled) {
+            return ['xml' => 'not_requested', 'danfse' => 'not_requested'];
+        }
+
+        if (!$this->webDavEnabled()) {
+            throw new \RuntimeException('NFS-e artifact storage is enabled but WebDAV is not configured in the queue worker context.');
         }
 
         $xml = trim((string) $receipt->payload()->value('authorized_xml'));
@@ -38,13 +52,13 @@ class IssuedNfseArtifactStore
         $receiptData = $this->receiptData($receipt, $xml);
         $basePath = $this->buildBasePath($invoice, $receiptData);
 
-        if ($this->storeXmlEnabled() && trim((string) $receipt->xml_webdav_path) === '') {
+        if ($xmlEnabled && trim((string) $receipt->xml_webdav_path) === '') {
             $xmlPath = $this->buildFilePath($basePath, $invoice, $receiptData, 'xml');
             $client->put($xmlPath, $xml);
             $receipt->update(['xml_webdav_path' => $xmlPath]);
         }
 
-        if ($this->storePdfEnabled() && trim((string) $receipt->danfse_webdav_path) === '') {
+        if ($pdfEnabled && trim((string) $receipt->danfse_webdav_path) === '') {
             $pdf = $this->generateDanfse($xml);
 
             if ($pdf === '' || !str_starts_with($pdf, '%PDF-')) {
@@ -55,6 +69,20 @@ class IssuedNfseArtifactStore
             $client->put($pdfPath, $pdf);
             $receipt->update(['danfse_webdav_path' => $pdfPath]);
         }
+
+        $fresh = $receipt->fresh();
+        $xmlStatus = $xmlEnabled
+            ? (trim((string) $fresh->xml_webdav_path) !== '' ? 'completed' : 'failed')
+            : 'not_requested';
+        $danfseStatus = $pdfEnabled
+            ? (trim((string) $fresh->danfse_webdav_path) !== '' ? 'completed' : 'failed')
+            : 'not_requested';
+
+        if ($xmlStatus === 'failed' || $danfseStatus === 'failed') {
+            throw new \RuntimeException('NFS-e artifact processing finished without persisting all configured artifact paths.');
+        }
+
+        return ['xml' => $xmlStatus, 'danfse' => $danfseStatus];
     }
 
     protected function webDavEnabled(): bool
