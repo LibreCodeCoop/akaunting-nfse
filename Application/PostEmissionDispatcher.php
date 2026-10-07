@@ -29,11 +29,10 @@ final class PostEmissionDispatcher
     public function dispatch(
         int $invoiceId,
         int $receiptId,
-        string $authorizedXml,
         ?array $email = null,
     ): void {
         $jobs = [
-            new StoreIssuedNfseArtifacts($invoiceId, $receiptId, $authorizedXml),
+            new StoreIssuedNfseArtifacts($invoiceId, $receiptId),
         ];
 
         if ($email !== null) {
