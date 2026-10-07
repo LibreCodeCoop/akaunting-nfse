@@ -163,6 +163,30 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
             ->assertSessionHas('warning', trans('nfse::general.invoices.artifact_not_found'));
     }
 
+    public function testXmlDownloadUsesAuthorizedPayloadWithoutWebDavPath(): void
+    {
+        $invoice = FiscalScenarioBuilder::invoice();
+        $receipt = FiscalScenarioBuilder::receipt(
+            invoice: $invoice,
+            status: 'emitted',
+            number: '1005',
+            accessKey: str_repeat('6', 50),
+        );
+
+        $receipt->payload()->create([
+            'authorized_xml' => '<NFSe>authorized-payload</NFSe>',
+        ]);
+
+        $this->loginAs()
+            ->get(route('nfse.invoices.artifacts.download', [
+                'invoice' => $invoice,
+                'artifact' => 'xml',
+            ]))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/xml')
+            ->assertSeeText('<NFSe>authorized-payload</NFSe>');
+    }
+
     public function testEmitWithoutItemsIsRejectedBeforeFiscalTransport(): void
     {
         $invoice = FiscalScenarioBuilder::invoice();

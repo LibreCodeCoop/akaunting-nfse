@@ -48,6 +48,33 @@ final class PostEmissionStatusEndpointTest extends FeatureTestCase
         self::assertNull($data['artifacts']['danfse']['download_url']);
     }
 
+    public function testStatusEndpointExposesDownloadsFromAuthorizedXmlBeforeWebDavArchival(): void
+    {
+        $invoice = Document::factory()->invoice()->draft()->create();
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '148',
+            'chave_acesso' => str_repeat('6', 50),
+            'status' => 'emitted',
+            'xml_webdav_path' => null,
+            'danfse_webdav_path' => null,
+        ]);
+        NfseReceiptPayload::query()->create([
+            'receipt_id' => $receipt->id,
+            'authorized_xml' => '<NFSe>authorized</NFSe>',
+            'artifacts_status' => 'processing',
+            'email_status' => 'pending',
+        ]);
+
+        $response = (new InvoiceController())->postEmissionStatus($invoice);
+        $payload = json_decode((string) $response->getContent(), true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertTrue($payload['data']['artifacts']['xml']['ready']);
+        self::assertTrue($payload['data']['artifacts']['danfse']['ready']);
+        self::assertIsString($payload['data']['artifacts']['xml']['download_url']);
+        self::assertIsString($payload['data']['artifacts']['danfse']['download_url']);
+    }
+
     public function testStatusEndpointStopsPollingAfterSuccessfulPostProcessing(): void
     {
         $invoice = Document::factory()->invoice()->draft()->create();
