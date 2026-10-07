@@ -25,21 +25,29 @@ final class NfseArtifactStorage
     /** @var \Closure(string,array<string,mixed>):void */
     private readonly \Closure $logError;
 
+    /** @var \Closure(string,mixed):mixed */
+    private readonly \Closure $settingResolver;
+
     /**
      * @param (\Closure():WebDavClient)|null $webDavFactory
      * @param (\Closure(string):string)|null $danfseGenerator
      * @param (\Closure(string,array<string,mixed>):void)|null $logError
+     * @param (\Closure(string,mixed):mixed)|null $settingResolver
      */
     public function __construct(
         ?\Closure $webDavFactory = null,
         ?\Closure $danfseGenerator = null,
         ?\Closure $logError = null,
+        ?\Closure $settingResolver = null,
     ) {
+        $this->settingResolver = $settingResolver
+            ?? static fn (string $key, mixed $default = null): mixed => setting($key, $default);
+
         $this->webDavFactory = $webDavFactory
-            ?? static fn (): WebDavClient => new WebDavClient(
-                baseUrl: (string) setting('nfse.webdav_url', ''),
-                username: (string) setting('nfse.webdav_username', ''),
-                password: (string) setting('nfse.webdav_password', ''),
+            ?? fn (): WebDavClient => new WebDavClient(
+                baseUrl: (string) $this->setting('nfse.webdav_url', ''),
+                username: (string) $this->setting('nfse.webdav_username', ''),
+                password: (string) $this->setting('nfse.webdav_password', ''),
             );
 
         $this->danfseGenerator = $danfseGenerator
@@ -59,8 +67,8 @@ final class NfseArtifactStorage
 
         $webDav = ($this->webDavFactory)();
         $basePath = (new ArtifactPathBuilder())->basePath(
-            template: (string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'),
-            cnpj: (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
+            template: (string) $this->setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'),
+            cnpj: (string) $this->setting('nfse.cnpj_prestador', 'unknown-cnpj'),
             customerName: (string) ($invoice->contact?->name ?? 'sem-cliente'),
             receipt: $receipt,
         );
@@ -107,7 +115,7 @@ final class NfseArtifactStorage
     ): string {
         return (new ArtifactPathBuilder())->filePath(
             basePath: $basePath,
-            template: (string) setting('nfse.webdav_filename_template', '{chave_acesso}'),
+            template: (string) $this->setting('nfse.webdav_filename_template', '{chave_acesso}'),
             cnpj: (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
             customerName: (string) ($invoice->contact?->name ?? 'sem-cliente'),
             receipt: $receipt,
@@ -117,12 +125,12 @@ final class NfseArtifactStorage
 
     private function webDavEnabled(): bool
     {
-        return trim((string) setting('nfse.webdav_url', '')) !== '';
+        return trim((string) $this->setting('nfse.webdav_url', '')) !== '';
     }
 
     private function booleanSetting(string $key, bool $default): bool
     {
-        $value = setting($key, null);
+        $value = $this->setting($key, null);
 
         if ($value === null) {
             return $default;
@@ -149,6 +157,11 @@ final class NfseArtifactStorage
         }
 
         return (bool) $value;
+    }
+
+    private function setting(string $key, mixed $default = null): mixed
+    {
+        return ($this->settingResolver)($key, $default);
     }
 
     private function logArtifactFailure(
