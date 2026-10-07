@@ -598,6 +598,40 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('CHAVE-9052', $view->data['receipt']->chave_acesso ?? null);
         }
 
+        public function testPersistedArtifactPathDoesNotPerformWebDavExistenceProbe(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 901, amount: 100.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt(901, 'CHAVE-901', 'emitted');
+            $receipt->xml_webdav_path = 'nfse/901.xml';
+
+            $controller = new class () extends InvoiceController {
+                public int $existsCalls = 0;
+
+                public function exposeResolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
+                {
+                    return $this->resolveReceiptArtifacts($invoice, $receipt);
+                }
+
+                protected function webDavEnabled(): bool
+                {
+                    return true;
+                }
+
+                protected function webDavPathExists(string $path): bool
+                {
+                    $this->existsCalls++;
+
+                    return true;
+                }
+            };
+
+            $artifacts = $controller->exposeResolveReceiptArtifacts($invoice, $receipt);
+
+            self::assertTrue($artifacts['xml']['exists']);
+            self::assertSame('persisted', $artifacts['xml']['source']);
+            self::assertSame(0, $controller->existsCalls);
+        }
+
         public function testDownloadArtifactRedirectsToShowWhenArtifactIsUnavailable(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(

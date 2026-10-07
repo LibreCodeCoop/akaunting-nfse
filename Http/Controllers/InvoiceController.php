@@ -3432,7 +3432,9 @@ class InvoiceController extends Controller
             ];
         }
 
-        $exists = $this->webDavEnabled() ? $this->webDavPathExists($path) : false;
+        $exists = $source === 'persisted'
+            ? true
+            : ($this->webDavEnabled() ? $this->webDavPathExists($path) : false);
 
         $downloadUrl = null;
 
