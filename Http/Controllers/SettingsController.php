@@ -496,32 +496,43 @@ class SettingsController extends Controller
         try {
             $client = $context->municipalParametersClient();
 
-            $retencoes = null;
-
-            try {
-                $retencoes = $client->retencoes($municipio, $competence);
-            } catch (QueryException $e) {
-                if ($e->httpStatus !== 404) {
-                    throw $e;
-                }
-
-                // Retention parameters are optional for a municipality/competence.
-                // Preserve the official 404 payload as diagnostic data instead of
-                // failing the entire municipal-parameters query.
-                $retencoes = $e->upstreamPayload;
-            }
-
             return [
                 'municipio_ibge' => $municipio,
                 'service_code' => $serviceCode,
                 'competence' => $competence,
                 'convenio' => $client->convenio($municipio),
-                'aliquota' => $client->aliquota($municipio, $serviceCode, $competence),
-                'regimes_especiais' => $client->regimesEspeciais($municipio, $serviceCode, $competence),
-                'retencoes' => $retencoes,
+                'aliquota' => $this->municipalEndpointResult(
+                    fn (): array => $client->aliquota($municipio, $serviceCode, $competence),
+                ),
+                'regimes_especiais' => $this->municipalEndpointResult(
+                    fn (): array => $client->regimesEspeciais($municipio, $serviceCode, $competence),
+                ),
+                'retencoes' => $this->municipalEndpointResult(
+                    fn (): array => $client->retencoes($municipio, $competence),
+                ),
             ];
         } finally {
             $context->close();
+        }
+    }
+
+    /**
+     * Treat official 404 responses as a valid "no parameters published" result.
+     * Other upstream failures must still fail the aggregate query.
+     *
+     * @param callable(): array<string,mixed> $query
+     * @return array<string,mixed>
+     */
+    protected function municipalEndpointResult(callable $query): array
+    {
+        try {
+            return $query();
+        } catch (QueryException $e) {
+            if ($e->httpStatus !== 404) {
+                throw $e;
+            }
+
+            return $e->upstreamPayload;
         }
     }
 
