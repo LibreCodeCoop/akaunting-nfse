@@ -500,6 +500,8 @@ class InvoiceController extends Controller
 
         $this->safeLogInfo('NFS-e emission payload', [
             'invoice_id' => $invoice->id,
+            'codigo_tributacao_nacional' => $dps->codigoTributacaoNacional,
+            'codigo_tributacao_municipal' => $dps->codigoTributacaoMunicipal,
             'opSimpNac' => $dps->opcaoSimplesNacional,
             'aliquota' => $dps->aliquota,
             'tipoAmbiente' => $dps->tipoAmbiente,
@@ -1304,7 +1306,7 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @return array{item_lista_servico:string,codigo_tributacao_nacional:string,aliquota:string,line_items:list<string>,requires_split:bool}
+     * @return array{item_lista_servico:string,codigo_tributacao_nacional:string,codigo_tributacao_municipal:string,aliquota:string,line_items:list<string>,requires_split:bool}
      */
     protected function resolveInvoiceFiscalProfileFromItems(Invoice $invoice, ?object $defaultService = null): array
     {
@@ -1403,7 +1405,7 @@ class InvoiceController extends Controller
 
     /**
      * @param list<int> $itemIds
-     * @return array<int, array{item_lista_servico:string,codigo_tributacao_nacional:string}>
+     * @return array<int, array{item_lista_servico:string,codigo_tributacao_nacional:string,codigo_tributacao_municipal:string}>
      */
     protected function invoiceItemFiscalProfileMap(int $companyId, array $itemIds): array
     {
@@ -1427,6 +1429,7 @@ class InvoiceController extends Controller
                         $itemId => [
                             'item_lista_servico' => Lc116Code::normalize($profile->item_lista_servico ?? ''),
                             'codigo_tributacao_nacional' => preg_replace('/\D+/', '', (string) ($profile->codigo_tributacao_nacional ?? '')) ?: '',
+                            'codigo_tributacao_municipal' => preg_replace('/\D+/', '', (string) ($profile->codigo_tributacao_municipal ?? '')) ?: '',
                         ],
                     ];
                 })
