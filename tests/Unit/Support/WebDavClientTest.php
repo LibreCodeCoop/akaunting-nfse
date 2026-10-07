@@ -147,6 +147,41 @@ final class WebDavClientTest extends TestCase
         self::assertSame('https://dav.example.com/root/nfse/2026/04%20-%20abril/doc%20final.xml', $capturedUrl);
     }
 
+    public function testPutReusesKnownParentDirectoriesWithinSameClient(): void
+    {
+        $calls = [];
+
+        $client = new WebDavClient(
+            baseUrl: 'https://dav.example.com/root',
+            request: static function (string $method, string $url, array $headers, string $body) use (&$calls): array {
+                $calls[] = [$method, $url];
+
+                return [201, ''];
+            },
+        );
+
+        $client->put('nfse/2026/04/doc.xml', '<xml/>');
+        $client->put('nfse/2026/04/doc.pdf', '%PDF-1.4');
+
+        self::assertSame([
+            ['MKCOL', 'https://dav.example.com/root/nfse'],
+            ['MKCOL', 'https://dav.example.com/root/nfse/2026'],
+            ['MKCOL', 'https://dav.example.com/root/nfse/2026/04'],
+            ['PUT', 'https://dav.example.com/root/nfse/2026/04/doc.xml'],
+            ['PUT', 'https://dav.example.com/root/nfse/2026/04/doc.pdf'],
+        ], $calls);
+    }
+
+    public function testRejectsNonPositiveTimeout(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new WebDavClient(
+            baseUrl: 'https://dav.example.com/root',
+            timeoutSeconds: 0,
+        );
+    }
+
     public function testExistsReturnsFalseWhenResourceIsNotFound(): void
     {
         $client = new WebDavClient(

@@ -12,12 +12,20 @@ final class WebDavClient
     /** @var callable(string, string, array<string, string>, string): array{0:int,1:string} */
     private $request;
 
+    /** @var array<string, true> */
+    private array $knownDirectories = [];
+
     public function __construct(
         private readonly string $baseUrl,
         private readonly ?string $username = null,
         private readonly ?string $password = null,
+        private readonly float $timeoutSeconds = 10.0,
         ?callable $request = null,
     ) {
+        if ($this->timeoutSeconds <= 0) {
+            throw new \InvalidArgumentException('WebDAV timeout must be greater than zero.');
+        }
+
         $this->request = $request ?? [$this, 'requestUsingStreams'];
     }
 
@@ -90,6 +98,7 @@ final class WebDavClient
                 'header' => implode("\r\n", $headerLines),
                 'content' => $body,
                 'ignore_errors' => true,
+                'timeout' => $this->timeoutSeconds,
             ],
         ]);
 
@@ -143,6 +152,11 @@ final class WebDavClient
         $current = '';
         foreach ($segments as $segment) {
             $current = $current === '' ? $segment : $current . '/' . $segment;
+
+            if (isset($this->knownDirectories[$current])) {
+                continue;
+            }
+
             [$status] = ($this->request)(
                 'MKCOL',
                 $this->buildUrl($current),
@@ -151,10 +165,14 @@ final class WebDavClient
             );
 
             if (in_array($status, [200, 201, 204, 301, 302, 405], true)) {
+                $this->knownDirectories[$current] = true;
+
                 continue;
             }
 
             if (in_array($status, [400, 409], true) && $this->exists($current)) {
+                $this->knownDirectories[$current] = true;
+
                 continue;
             }
 
