@@ -117,12 +117,33 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('945.00', $payload['federalPiscofinsValorCofins']);
     }
 
-    public function testRetentionTypeRequiringCsllFallsBackWhenNoCsllValueExists(): void
+    public function testRetentionTypeWithCsllNotRetainedDoesNotFallBackWhenCsllIsAbsent(): void
     {
         $resolver = new InvoiceFederalPayloadResolver(
             settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
                 'nfse.federal_piscofins_situacao_tributaria' => '1',
                 'nfse.federal_piscofins_tipo_retencao' => '4',
+                default => $default,
+            },
+            taxRateResolver: static fn (int $taxId): ?float => null,
+        );
+
+        $invoice = new Document();
+        $invoice->amount = 100.00;
+        $invoice->items = $this->items([]);
+
+        $payload = $resolver->resolve($invoice);
+
+        self::assertSame('4', $payload['federalPiscofinsTipoRetencao']);
+        self::assertSame('', $payload['federalValorCsll']);
+    }
+
+    public function testRetentionTypeRequiringCsllFallsBackWhenNoCsllValueExists(): void
+    {
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
+                'nfse.federal_piscofins_situacao_tributaria' => '1',
+                'nfse.federal_piscofins_tipo_retencao' => '3',
                 default => $default,
             },
             taxRateResolver: static fn (int $taxId): ?float => null,

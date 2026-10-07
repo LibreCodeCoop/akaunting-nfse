@@ -77,7 +77,7 @@ final class InvoiceFederalPayloadResolver
             $csll = $snapshot['csll_value'];
         }
 
-        if (in_array($retentionType, ['4', '5', '6'], true) && $csll === '') {
+        if (in_array($retentionType, ['3', '7', '8', '9'], true) && $csll === '') {
             $retentionType = '0';
         }
 
