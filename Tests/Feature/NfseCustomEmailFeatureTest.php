@@ -12,7 +12,6 @@ use App\Events\Document\DocumentSent;
 use App\Models\Document\Document;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
-use Modules\Nfse\Application\NfseArtifactStorage;
 use Modules\Nfse\Jobs\ProcessNfsePostEmission;
 use Modules\Nfse\Jobs\SendNfseCustomEmail;
 use Modules\Nfse\Models\NfseReceipt;
@@ -142,7 +141,7 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
                     'attach_invoice_pdf' => false,
                 ],
             ],
-        ))->handle(new NfseArtifactStorage());
+        ))->handle();
 
         Notification::assertSentTo(
             $invoice->contact->fresh(),
