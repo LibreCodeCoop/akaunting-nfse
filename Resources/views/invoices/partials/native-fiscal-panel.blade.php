@@ -9,6 +9,11 @@
         'cancelled', 'substituted' => 'bg-gray-100 text-gray-700',
         default => 'bg-yellow-100 text-yellow-700',
     };
+    $postEmissionStatus = is_array($postEmissionStatus ?? null) ? $postEmissionStatus : [];
+    $postEmissionOverall = (string) ($postEmissionStatus['overall_status'] ?? 'idle');
+    $postEmissionActive = ($postEmissionStatus['poll'] ?? false) === true;
+    $xmlReady = !$postEmissionActive || trim((string) ($receipt->xml_webdav_path ?? '')) !== '';
+    $danfseReady = !$postEmissionActive || trim((string) ($receipt->danfse_webdav_path ?? '')) !== '';
 @endphp
 
 @if(session('success'))
@@ -47,6 +52,17 @@
     id="nfse-native-fiscal-panel"
     class="rounded-lg border border-gray-200 bg-white p-4"
     data-nfse-native-panel="true"
+    data-nfse-post-emission-status-url="{{ $hasReceipt ? route('nfse.invoices.post-emission-status', $invoice->id) : '' }}"
+    data-nfse-post-emission-state="{{ $postEmissionOverall }}"
+    data-message-processing="{{ trans('nfse::general.invoices.post_processing_processing') }}"
+    data-message-completed="{{ trans('nfse::general.invoices.post_processing_completed') }}"
+    data-message-failed="{{ trans('nfse::general.invoices.post_processing_failed') }}"
+    data-stage-pending="{{ trans('nfse::general.invoices.post_processing_stage_pending') }}"
+    data-stage-processing="{{ trans('nfse::general.invoices.post_processing_stage_processing') }}"
+    data-stage-retrying="{{ trans('nfse::general.invoices.post_processing_stage_retrying') }}"
+    data-stage-completed="{{ trans('nfse::general.invoices.post_processing_stage_completed') }}"
+    data-stage-failed="{{ trans('nfse::general.invoices.post_processing_stage_failed') }}"
+    data-stage-not-requested="{{ trans('nfse::general.invoices.post_processing_stage_not_requested') }}"
     role="region"
     aria-labelledby="nfse-native-fiscal-panel-title"
 >
@@ -68,6 +84,28 @@
     </div>
 
     @if($hasReceipt)
+        <div
+            class="mt-3 flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm {{ $postEmissionOverall === 'idle' ? 'hidden' : '' }}"
+            data-nfse-post-emission-box
+            aria-live="polite"
+        >
+            <svg data-nfse-post-emission-spinner class="h-4 w-4 animate-spin {{ $postEmissionActive ? '' : 'hidden' }}" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            <span data-nfse-post-emission-message>
+                {{ $postEmissionOverall === 'failed'
+                    ? trans('nfse::general.invoices.post_processing_failed')
+                    : ($postEmissionOverall === 'completed'
+                        ? trans('nfse::general.invoices.post_processing_completed')
+                        : trans('nfse::general.invoices.post_processing_processing')) }}
+            </span>
+            <span class="ml-auto text-xs text-gray-500">
+                {{ trans('nfse::general.invoices.post_processing_email') }}:
+                <span data-nfse-email-status>{{ trans('nfse::general.invoices.post_processing_stage_' . ($postEmissionStatus['email_status'] ?? 'not_requested')) }}</span>
+            </span>
+        </div>
+
         <div class="mt-3 space-y-2" data-nfse-receipt-list="true">
             @foreach($receipts as $linkedReceipt)
                 @php
@@ -119,18 +157,28 @@
         @else
             <a
                 href="{{ route('nfse.invoices.artifacts.download', [$invoice->id, 'danfse']) }}"
-                class="inline-flex items-center rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                class="inline-flex items-center gap-2 rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 {{ $danfseReady ? '' : 'pointer-events-none opacity-60' }}"
                 data-nfse-artifact="danfse"
+                aria-disabled="{{ $danfseReady ? 'false' : 'true' }}"
             >
-                {{ trans('nfse::general.invoices.artifact_danfse_label') }}
+                <svg data-nfse-artifact-spinner class="h-4 w-4 animate-spin {{ $danfseReady ? 'hidden' : '' }}" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <span data-nfse-artifact-label>{{ trans('nfse::general.invoices.artifact_danfse_label') }}</span>
             </a>
 
             <a
                 href="{{ route('nfse.invoices.artifacts.download', [$invoice->id, 'xml']) }}"
-                class="inline-flex items-center rounded bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200"
+                class="inline-flex items-center gap-2 rounded bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200 {{ $xmlReady ? '' : 'pointer-events-none opacity-60' }}"
                 data-nfse-artifact="xml"
+                aria-disabled="{{ $xmlReady ? 'false' : 'true' }}"
             >
-                {{ trans('nfse::general.invoices.artifact_xml_label') }}
+                <svg data-nfse-artifact-spinner class="h-4 w-4 animate-spin {{ $xmlReady ? 'hidden' : '' }}" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <span data-nfse-artifact-label>{{ trans('nfse::general.invoices.artifact_xml_label') }}</span>
             </a>
 
             @if($receiptStatus !== 'cancelled')

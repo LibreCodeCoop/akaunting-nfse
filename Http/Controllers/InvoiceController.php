@@ -229,9 +229,10 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->firstOrFail();
         $receiptStatusLabel = $this->translateReceiptStatus((string) ($receipt->status ?? ''));
+        $postEmissionStatus = (new PostEmissionState())->snapshot($receipt);
         $artifacts = $this->resolveReceiptArtifacts($invoice, $receipt);
 
-        return view('nfse::invoices.partials.emit-success', compact('invoice', 'receipt', 'receiptStatusLabel', 'artifacts'));
+        return view('nfse::invoices.partials.emit-success', compact('invoice', 'receipt', 'receiptStatusLabel', 'artifacts', 'postEmissionStatus'));
     }
 
     protected function translateReceiptStatus(string $status): string
