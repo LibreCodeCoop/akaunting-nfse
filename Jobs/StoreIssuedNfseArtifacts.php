@@ -10,6 +10,7 @@ namespace Modules\Nfse\Jobs;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Modules\Nfse\Application\IssuedNfseArtifactStore;
+use Modules\Nfse\Application\PostEmissionState;
 
 final class StoreIssuedNfseArtifacts implements ShouldQueue
 {
@@ -31,8 +32,29 @@ final class StoreIssuedNfseArtifacts implements ShouldQueue
         }
     }
 
-    public function handle(IssuedNfseArtifactStore $store): void
+    public function handle(IssuedNfseArtifactStore $store, PostEmissionState $state): void
     {
-        $store->store($this->invoiceId, $this->receiptId);
+        $state->markArtifactsProcessing($this->receiptId);
+
+        try {
+            $store->store($this->invoiceId, $this->receiptId);
+            $state->markArtifactsCompleted($this->receiptId);
+        } catch (\Throwable $throwable) {
+            $state->markArtifactsRetrying($this->receiptId, $throwable->getMessage());
+
+            throw $throwable;
+        }
+    }
+
+    public function failed(?\Throwable $throwable): void
+    {
+        try {
+            app(PostEmissionState::class)->markArtifactsFailed(
+                $this->receiptId,
+                $throwable?->getMessage() ?? 'NFS-e artifact processing failed.',
+            );
+        } catch (\Throwable) {
+            // Never mask the original queue failure while recording observability state.
+        }
     }
 }
