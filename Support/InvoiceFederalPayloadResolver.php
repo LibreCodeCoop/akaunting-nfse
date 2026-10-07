@@ -65,6 +65,7 @@ final class InvoiceFederalPayloadResolver
         Invoice $invoice,
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
+        mixed $municipalPercentFallback = null,
     ): array {
         $invoiceAmount = $this->serviceAmount($invoice, $documentItemIds, $amountOverride);
         $federalMode = strtolower((string) $this->setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
@@ -94,6 +95,10 @@ final class InvoiceFederalPayloadResolver
             $simples ? 'nfse.tributos_mun_sn' : 'nfse.tributos_mun_p',
             '',
         ));
+
+        if (!$simples && $municipalPercent === '') {
+            $municipalPercent = $this->decimal($municipalPercentFallback);
+        }
 
         if ($federalPercent === '' && $snapshot['federal_percent'] !== '') {
             $federalPercent = $snapshot['federal_percent'];

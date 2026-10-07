@@ -153,6 +153,47 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('3.65', $payload['totalTributosPercentualFederal']);
     }
 
+    public function testNonSimplesUsesEffectiveIssRateAsMunicipalApproximateTaxFallback(): void
+    {
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
+                'nfse.opcao_simples_nacional' => 1,
+                'nfse.tributos_mun_p' => '',
+                default => $default,
+            },
+            taxRateResolver: static fn (int $taxId): ?float => null,
+        );
+
+        $invoice = new Document();
+        $invoice->amount = 31500.00;
+        $invoice->items = $this->items([]);
+
+        $payload = $resolver->resolve($invoice, null, null, '2.00');
+
+        self::assertSame(2, $payload['indicadorTributacao']);
+        self::assertSame('2.00', $payload['totalTributosPercentualMunicipal']);
+    }
+
+    public function testConfiguredMunicipalApproximateTaxOverridesIssFallback(): void
+    {
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
+                'nfse.opcao_simples_nacional' => 1,
+                'nfse.tributos_mun_p' => '4.25',
+                default => $default,
+            },
+            taxRateResolver: static fn (int $taxId): ?float => null,
+        );
+
+        $invoice = new Document();
+        $invoice->amount = 31500.00;
+        $invoice->items = $this->items([]);
+
+        $payload = $resolver->resolve($invoice, null, null, '2.00');
+
+        self::assertSame('4.25', $payload['totalTributosPercentualMunicipal']);
+    }
+
     public function testRetentionTypeWithCsllNotRetainedDoesNotFallBackWhenCsllIsAbsent(): void
     {
         $resolver = new InvoiceFederalPayloadResolver(
