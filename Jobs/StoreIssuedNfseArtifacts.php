@@ -37,12 +37,8 @@ final class StoreIssuedNfseArtifacts implements ShouldQueue
         $state->markArtifactsProcessing($this->receiptId);
 
         try {
-            $result = $store->store($this->invoiceId, $this->receiptId);
-            $state->markArtifactsCompleted(
-                $this->receiptId,
-                $result['xml'] ?? 'not_requested',
-                $result['danfse'] ?? 'not_requested',
-            );
+            $store->store($this->invoiceId, $this->receiptId);
+            $state->markArtifactsCompleted($this->receiptId);
         } catch (\Throwable $throwable) {
             $state->markArtifactsRetrying($this->receiptId, $throwable->getMessage());
 

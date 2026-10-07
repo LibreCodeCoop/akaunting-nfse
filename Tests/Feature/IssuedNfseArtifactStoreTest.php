@@ -94,6 +94,79 @@ final class IssuedNfseArtifactStoreTest extends FeatureTestCase
         self::assertSame('%PDF-1.4 generated', $puts[1][2]);
     }
 
+    public function testFailsWhenArtifactStorageIsExpectedButWebDavIsUnavailable(): void
+    {
+        $invoice = Document::factory()->invoice()->draft()->create();
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '125',
+            'chave_acesso' => str_repeat('3', 50),
+            'data_emissao' => '2026-10-07T10:00:00-03:00',
+            'status' => 'emitted',
+        ]);
+
+        NfseReceiptPayload::query()->create([
+            'receipt_id' => $receipt->id,
+            'authorized_xml' => '<NFSe>authorized</NFSe>',
+        ]);
+
+        $store = new class () extends IssuedNfseArtifactStore {
+            protected function webDavEnabled(): bool
+            {
+                return false;
+            }
+
+            protected function storeXmlEnabled(): bool
+            {
+                return true;
+            }
+
+            protected function storePdfEnabled(): bool
+            {
+                return true;
+            }
+        };
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('WebDAV is not configured');
+
+        $store->store((int) $invoice->id, (int) $receipt->id);
+    }
+
+    public function testDoesNotRequireWebDavWhenBothArtifactFormatsAreDisabled(): void
+    {
+        $invoice = Document::factory()->invoice()->draft()->create();
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '126',
+            'chave_acesso' => str_repeat('4', 50),
+            'data_emissao' => '2026-10-07T10:00:00-03:00',
+            'status' => 'emitted',
+        ]);
+
+        $store = new class () extends IssuedNfseArtifactStore {
+            protected function webDavEnabled(): bool
+            {
+                return false;
+            }
+
+            protected function storeXmlEnabled(): bool
+            {
+                return false;
+            }
+
+            protected function storePdfEnabled(): bool
+            {
+                return false;
+            }
+        };
+
+        self::assertSame(
+            ['xml' => 'not_requested', 'danfse' => 'not_requested'],
+            $store->store((int) $invoice->id, (int) $receipt->id),
+        );
+    }
+
     public function testFailsFastWhenAuthorizedXmlWasNotPersisted(): void
     {
         $invoice = Document::factory()->invoice()->create();

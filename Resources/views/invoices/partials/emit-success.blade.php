@@ -103,16 +103,15 @@ Variables: $invoice, $receipt, $receiptStatusLabel, $artifacts
                             <svg data-nfse-artifact-spinner class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
                             <span data-nfse-artifact-label>{{ trans('nfse::general.invoices.artifact_download') }}</span>
                         </a>
-                    @else
-                        <a
-                            href="{{ route('nfse.invoices.artifacts.download', [$invoice->id, $artifactKey]) }}"
+                    @elseif($postEmissionActive)
+                        <span
                             data-nfse-artifact="{{ $artifactKey }}"
                             aria-disabled="true"
-                            class="pointer-events-none inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-500 opacity-60"
+                            class="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-500"
                         >
-                            <svg data-nfse-artifact-spinner class="h-3 w-3 animate-spin {{ $postEmissionActive ? '' : 'hidden' }}" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
-                            <span data-nfse-artifact-label>{{ $postEmissionActive ? trans('nfse::general.invoices.post_processing_stage_processing') : trans('nfse::general.invoices.artifact_missing') }}</span>
-                        </a>
+                            <svg data-nfse-artifact-spinner class="h-3 w-3 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                            <span data-nfse-artifact-label>{{ trans('nfse::general.invoices.post_processing_stage_processing') }}</span>
+                        </span>
                     @endif
                 </div>
             @endforeach
