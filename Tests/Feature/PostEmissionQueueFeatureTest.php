@@ -25,7 +25,7 @@ final class PostEmissionQueueFeatureTest extends FeatureTestCase
     {
         Bus::fake();
 
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = Document::factory()->invoice()->draft()->create();
         $receipt = NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
             'nfse_number' => '120',
@@ -66,7 +66,7 @@ final class PostEmissionQueueFeatureTest extends FeatureTestCase
 
     public function testEmailJobDoesNotSendAgainAfterSuccessfulDelivery(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = Document::factory()->invoice()->draft()->create();
         $receipt = NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
             'nfse_number' => '123',
@@ -117,7 +117,7 @@ final class PostEmissionQueueFeatureTest extends FeatureTestCase
 
     public function testArtifactJobMovesFromProcessingToCompleted(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = Document::factory()->invoice()->draft()->create();
         $receipt = NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
             'nfse_number' => '121',
@@ -155,7 +155,7 @@ final class PostEmissionQueueFeatureTest extends FeatureTestCase
 
     public function testStateSnapshotStopsPollingAfterTerminalStages(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = Document::factory()->invoice()->draft()->create();
         $receipt = NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
             'nfse_number' => '122',

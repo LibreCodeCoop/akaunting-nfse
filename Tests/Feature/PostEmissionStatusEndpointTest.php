@@ -17,7 +17,7 @@ final class PostEmissionStatusEndpointTest extends FeatureTestCase
 {
     public function testStatusEndpointReadsOnlyPersistedQueueStateAndArtifactPaths(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = Document::factory()->invoice()->draft()->create();
         $receipt = NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
             'nfse_number' => '146',
@@ -50,7 +50,7 @@ final class PostEmissionStatusEndpointTest extends FeatureTestCase
 
     public function testStatusEndpointStopsPollingAfterSuccessfulPostProcessing(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = Document::factory()->invoice()->draft()->create();
         $receipt = NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
             'nfse_number' => '147',
