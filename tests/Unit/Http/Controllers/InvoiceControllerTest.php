@@ -603,6 +603,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $invoice = InvoiceControllerIsolationState::makeInvoice(id: 901, amount: 100.0);
             $receipt = InvoiceControllerIsolationState::makeReceipt(901, 'CHAVE-901', 'emitted');
             $receipt->xml_webdav_path = 'nfse/901.xml';
+            $receipt->danfse_webdav_path = 'nfse/901.pdf';
 
             $controller = new class () extends InvoiceController {
                 public int $existsCalls = 0;
@@ -4722,6 +4723,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     'data_emissao' => '2026-03-21T18:00:00-03:00',
                     'codigo_verificacao' => 'RE301',
                     'status' => 'emitted',
+                    'xml_webdav_path' => null,
+                    'danfse_webdav_path' => null,
                 ],
             ], $existingReceipt->updatedPayloads);
             self::assertSame('route', $response->target);
