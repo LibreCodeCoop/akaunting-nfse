@@ -28,6 +28,11 @@ class ModuleJsonTest extends TestCase
         self::assertSame('nfse', $this->manifest['alias']);
     }
 
+    public function testSourceManifestUsesDevelopmentVersion(): void
+    {
+        self::assertSame('0.0.0-dev', $this->manifest['version']);
+    }
+
     public function testProvidersContainMain(): void
     {
         self::assertContains(
