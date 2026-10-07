@@ -94,8 +94,10 @@ final class FederalTaxSnapshotBuilder
             }
         }
 
-        $federalTotal = array_sum($totals);
-        $federalRateTotal = array_sum($rateTotals);
+        // Approximate federal tax burden is distinct from withholding.
+        // IRRF/CSLL/CP are retention amounts and must not inflate pTotTribFed.
+        $federalTotal = $totals['pis'] + $totals['cofins'];
+        $federalRateTotal = $rateTotals['pis'] + $rateTotals['cofins'];
 
         return [
             'pis_value' => $this->positiveDecimal($totals['pis']),

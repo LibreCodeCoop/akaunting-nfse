@@ -163,6 +163,13 @@ final class InvoiceFederalPayloadResolver
             $cofinsValue = $snapshot['cofins_value'];
         }
 
+        $socialContributionsRetention = $this->socialContributionsRetentionValue(
+            $retentionType,
+            $pisValue,
+            $cofinsValue,
+            $csll,
+        );
+
         return $this->finalize([
             'federalPiscofinsSituacaoTributaria' => $situacao,
             'federalPiscofinsTipoRetencao' => $retentionType,
@@ -172,7 +179,7 @@ final class InvoiceFederalPayloadResolver
             'federalPiscofinsAliquotaCofins' => $cofinsRate,
             'federalPiscofinsValorCofins' => $cofinsValue,
             'federalValorIrrf' => $irrf,
-            'federalValorCsll' => $retentionType !== '0' ? $csll : '',
+            'federalValorCsll' => $socialContributionsRetention,
             'federalValorCp' => '',
             'indicadorTributacao' => $taxIndicator,
             'totalTributosPercentualFederal' => $federalPercent,
@@ -297,6 +304,30 @@ final class InvoiceFederalPayloadResolver
         }
 
         return number_format($amount * (float) $percentage / 100, 2, '.', '');
+    }
+
+    private function socialContributionsRetentionValue(
+        string $retentionType,
+        string $pisValue,
+        string $cofinsValue,
+        string $csllValue,
+    ): string {
+        $pis = $pisValue !== '' ? (float) $pisValue : 0.0;
+        $cofins = $cofinsValue !== '' ? (float) $cofinsValue : 0.0;
+        $csll = $csllValue !== '' ? (float) $csllValue : 0.0;
+
+        $amount = match ($retentionType) {
+            '1', '4' => $pis + $cofins,
+            '3' => $pis + $cofins + $csll,
+            '5' => $pis,
+            '6' => $cofins,
+            '7' => $cofins + $csll,
+            '8' => $csll,
+            '9' => $pis + $csll,
+            default => 0.0,
+        };
+
+        return $amount > 0 ? number_format($amount, 2, '.', '') : '';
     }
 
     private function select(mixed $value): string
