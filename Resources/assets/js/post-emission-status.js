@@ -221,6 +221,7 @@
         isActiveStatus,
         nextPollDelay,
         scan,
+        setArtifactState,
         shouldPoll,
         start,
     };

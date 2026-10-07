@@ -36,6 +36,7 @@ test('active stage recognition includes retrying but not terminal states', () =>
 test('missing artifact is disabled even when polling already stopped', () => {
     const classes = new Set();
     const spinnerClasses = new Set();
+    const label = { textContent: '' };
 
     const link = {
         attrs: {},
@@ -50,15 +51,13 @@ test('missing artifact is disabled even when polling already stopped', () => {
             if (selector === '[data-nfse-artifact-spinner]') {
                 return {
                     classList: {
-                        add: (value) => spinnerClasses.add(value),
-                        remove: (value) => spinnerClasses.delete(value),
                         toggle: (value, force) => force ? spinnerClasses.add(value) : spinnerClasses.delete(value),
                     },
                 };
             }
 
             if (selector === '[data-nfse-artifact-label]') {
-                return this.label ??= { textContent: '' };
+                return label;
             }
 
             return null;
@@ -70,20 +69,16 @@ test('missing artifact is disabled even when polling already stopped', () => {
             artifactMissing: 'Unavailable',
             artifactProcessing: 'Processing',
         },
-        querySelector() {
-            return link;
+        querySelector(selector) {
+            return selector === '[data-nfse-artifact="xml"]' ? link : null;
         },
     };
 
-    status.applyStatus(root, {
-        status: 'completed',
-        poll: false,
-        stages: { email: 'completed' },
-        artifacts: { xml: { ready: false, download_url: null } },
-    });
+    status.setArtifactState(root, 'xml', { ready: false, download_url: null }, false);
 
     assert.equal(link.attrs['aria-disabled'], 'true');
     assert.equal(classes.has('pointer-events-none'), true);
-    assert.equal(link.label.textContent, 'Unavailable');
+    assert.equal(label.textContent, 'Unavailable');
     assert.equal(spinnerClasses.has('hidden'), true);
 });
+
