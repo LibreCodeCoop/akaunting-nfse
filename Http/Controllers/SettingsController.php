@@ -23,6 +23,7 @@ use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\QueryException;
 use Throwable;
 
 class SettingsController extends Controller
@@ -429,7 +430,7 @@ class SettingsController extends Controller
             ], 422);
         }
 
-        if ($serviceCode === '') {
+        if (preg_match('/^\\d{9}$/', $serviceCode) !== 1) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.settings.municipal_parameters.invalid_service'),
             ], 422);
@@ -456,9 +457,18 @@ class SettingsController extends Controller
             );
 
             return $this->jsonResponse($resolved);
-        } catch (Throwable) {
+        } catch (QueryException $e) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.settings.municipal_parameters.query_failed'),
+                'upstream' => [
+                    'http_status' => $e->httpStatus,
+                    'payload' => $e->upstreamPayload,
+                ],
+            ], 502);
+        } catch (Throwable $e) {
+            return $this->jsonResponse([
+                'message' => trans('nfse::general.settings.municipal_parameters.query_failed'),
+                'detail' => $e->getMessage(),
             ], 502);
         }
     }
@@ -491,12 +501,38 @@ class SettingsController extends Controller
                 'service_code' => $serviceCode,
                 'competence' => $competence,
                 'convenio' => $client->convenio($municipio),
-                'aliquota' => $client->aliquota($municipio, $serviceCode, $competence),
-                'regimes_especiais' => $client->regimesEspeciais($municipio, $serviceCode, $competence),
-                'retencoes' => $client->retencoes($municipio, $competence),
+                'aliquota' => $this->municipalEndpointResult(
+                    fn (): array => $client->aliquota($municipio, $serviceCode, $competence),
+                ),
+                'regimes_especiais' => $this->municipalEndpointResult(
+                    fn (): array => $client->regimesEspeciais($municipio, $serviceCode, $competence),
+                ),
+                'retencoes' => $this->municipalEndpointResult(
+                    fn (): array => $client->retencoes($municipio, $competence),
+                ),
             ];
         } finally {
             $context->close();
+        }
+    }
+
+    /**
+     * Treat official 404 responses as a valid "no parameters published" result.
+     * Other upstream failures must still fail the aggregate query.
+     *
+     * @param callable(): array<string,mixed> $query
+     * @return array<string,mixed>
+     */
+    protected function municipalEndpointResult(callable $query): array
+    {
+        try {
+            return $query();
+        } catch (QueryException $e) {
+            if ($e->httpStatus !== 404) {
+                throw $e;
+            }
+
+            return $e->upstreamPayload;
         }
     }
 

@@ -83,4 +83,27 @@ final class FederalTaxSnapshotBuilderTest extends TestCase
         self::assertSame('5.00', $snapshot['pis_value']);
         self::assertSame('5.00', $snapshot['pis_rate']);
     }
+    public function testApproximateFederalPercentExcludesWithholdingTaxes(): void
+    {
+        $snapshot = (new FederalTaxSnapshotBuilder())->build(
+            items: [
+                [
+                    'id' => 1,
+                    'item_taxes' => [
+                        ['name' => 'PIS', 'amount' => 204.75, 'rate' => 0.65],
+                        ['name' => 'COFINS', 'amount' => 945.00, 'rate' => 3.00],
+                        ['name' => 'IRRF', 'amount' => 472.50, 'rate' => 1.50],
+                    ],
+                ],
+            ],
+            baseAmount: 31500.00,
+            documentItemIds: null,
+            taxRateResolver: static fn (mixed $tax): ?float => is_array($tax) && is_numeric($tax['rate'] ?? null)
+                ? (float) $tax['rate']
+                : null,
+        );
+
+        self::assertSame('3.65', $snapshot['federal_percent']);
+    }
+
 }

@@ -66,7 +66,7 @@ final class InvoiceFederalPayloadResolver
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
     ): array {
-        $invoiceAmount = $amountOverride ?? (float) ($invoice->amount ?? 0.0);
+        $invoiceAmount = $this->serviceAmount($invoice, $documentItemIds, $amountOverride);
         $federalMode = strtolower((string) $this->setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
         $snapshot = $this->snapshot($invoice, $invoiceAmount, $documentItemIds);
         $situacao = $this->select($this->setting('nfse.federal_piscofins_situacao_tributaria', ''));
@@ -77,7 +77,7 @@ final class InvoiceFederalPayloadResolver
             $csll = $snapshot['csll_value'];
         }
 
-        if (in_array($retentionType, ['4', '5', '6'], true) && $csll === '') {
+        if (in_array($retentionType, ['3', '7', '8', '9'], true) && $csll === '') {
             $retentionType = '0';
         }
 
@@ -163,6 +163,13 @@ final class InvoiceFederalPayloadResolver
             $cofinsValue = $snapshot['cofins_value'];
         }
 
+        $socialContributionsRetention = $this->socialContributionsRetentionValue(
+            $retentionType,
+            $pisValue,
+            $cofinsValue,
+            $csll,
+        );
+
         return $this->finalize([
             'federalPiscofinsSituacaoTributaria' => $situacao,
             'federalPiscofinsTipoRetencao' => $retentionType,
@@ -172,13 +179,56 @@ final class InvoiceFederalPayloadResolver
             'federalPiscofinsAliquotaCofins' => $cofinsRate,
             'federalPiscofinsValorCofins' => $cofinsValue,
             'federalValorIrrf' => $irrf,
-            'federalValorCsll' => $retentionType !== '0' ? $csll : '',
+            'federalValorCsll' => $socialContributionsRetention,
             'federalValorCp' => '',
             'indicadorTributacao' => $taxIndicator,
             'totalTributosPercentualFederal' => $federalPercent,
             'totalTributosPercentualEstadual' => $statePercent,
             'totalTributosPercentualMunicipal' => $municipalPercent,
         ]);
+    }
+
+    /**
+     * Resolve the gross service amount used by the DPS and as the PIS/COFINS
+     * calculation base. Akaunting's document amount can already be reduced by
+     * withholding taxes, so it is not a safe fiscal base.
+     *
+     * @param list<int>|null $documentItemIds
+     */
+    public function serviceAmount(
+        Invoice $invoice,
+        ?array $documentItemIds = null,
+        ?float $amountOverride = null,
+    ): float {
+        if ($amountOverride !== null) {
+            return max(0.0, $amountOverride);
+        }
+
+        $amount = 0.0;
+        $hasItemTotal = false;
+
+        foreach ($this->invoiceItems($invoice) as $item) {
+            $documentItemId = is_numeric($item['id'] ?? null) ? (int) $item['id'] : 0;
+
+            if ($documentItemIds !== null && !in_array($documentItemId, $documentItemIds, true)) {
+                continue;
+            }
+
+            $total = $item['total'] ?? null;
+
+            if (!is_numeric($total)) {
+                continue;
+            }
+
+            $amount += (float) $total;
+            $hasItemTotal = true;
+        }
+
+        if ($hasItemTotal && $amount > 0) {
+            return $amount;
+        }
+
+        return max(0.0, (float) ($invoice->amount ?? 0.0));
     }
 
     /**
@@ -254,6 +304,30 @@ final class InvoiceFederalPayloadResolver
         }
 
         return number_format($amount * (float) $percentage / 100, 2, '.', '');
+    }
+
+    private function socialContributionsRetentionValue(
+        string $retentionType,
+        string $pisValue,
+        string $cofinsValue,
+        string $csllValue,
+    ): string {
+        $pis = $pisValue !== '' ? (float) $pisValue : 0.0;
+        $cofins = $cofinsValue !== '' ? (float) $cofinsValue : 0.0;
+        $csll = $csllValue !== '' ? (float) $csllValue : 0.0;
+
+        $amount = match ($retentionType) {
+            '1', '4' => $pis + $cofins,
+            '3' => $pis + $cofins + $csll,
+            '5' => $pis,
+            '6' => $cofins,
+            '7' => $cofins + $csll,
+            '8' => $csll,
+            '9' => $pis + $csll,
+            default => 0.0,
+        };
+
+        return $amount > 0 ? number_format($amount, 2, '.', '') : '';
     }
 
     private function select(mixed $value): string

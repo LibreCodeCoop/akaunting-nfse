@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\ItemFiscalProfileValidator;
 use Modules\Nfse\Application\ItemFiscalValidationSummary;
+use Modules\Nfse\Console\Commands\DiagnoseMunicipalParameters;
 use Modules\Nfse\Console\Commands\ProvisionTestHarness;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Console\Commands\SyncAdn;
@@ -65,6 +66,7 @@ class Main extends Provider
                 ProvisionTestHarness::class,
                 ProvisionTestUser::class,
                 SyncAdn::class,
+                DiagnoseMunicipalParameters::class,
             ]);
         }
     }

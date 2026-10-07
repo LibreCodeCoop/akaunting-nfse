@@ -11,6 +11,38 @@
     };
 @endphp
 
+@if(session('success'))
+    <div class="mb-3 rounded border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800" data-nfse-feedback="success">
+        {{ session('success') }}
+    </div>
+@endif
+
+@if(session('warning'))
+    <div class="mb-3 rounded border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800" data-nfse-feedback="warning">
+        {{ session('warning') }}
+    </div>
+@endif
+
+@if(session('error'))
+    <div class="mb-3 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800" data-nfse-feedback="error">
+        {{ session('error') }}
+        @if(session('nfse_gateway_error_detail'))
+            <p class="mt-2"><strong>Detalhe SEFIN:</strong> {{ session('nfse_gateway_error_detail') }}</p>
+        @endif
+    </div>
+@endif
+
+@if(isset($errors) && ($errors->has('cancel_reason') || $errors->has('cancel_justification')))
+    <div class="mb-3 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800" data-nfse-feedback="validation">
+        @error('cancel_reason')
+            <p>{{ $message }}</p>
+        @enderror
+        @error('cancel_justification')
+            <p>{{ $message }}</p>
+        @enderror
+    </div>
+@endif
+
 <div
     id="nfse-native-fiscal-panel"
     class="rounded-lg border border-gray-200 bg-white p-4"

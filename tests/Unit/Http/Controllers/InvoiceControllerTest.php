@@ -65,6 +65,18 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringNotContainsString("'ssl' => \$this->sslContextOptions()", $content);
         }
 
+        public function testMissingNationalTaxCodeFeedbackIdentifiesTheItemToFix(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+            $pt = (string) file_get_contents(dirname(__DIR__, 4) . '/Resources/lang/pt-BR/general.php');
+
+            self::assertStringContainsString('itemsMissingNationalTaxCode($invoice)', $content);
+            self::assertStringContainsString("'items' => implode(', ', \$items)", $content);
+            self::assertStringContainsString('Edite esse item em Itens', $pt);
+            self::assertStringContainsString('Obrigatório para emissão da NFS-e.', $pt);
+            self::assertStringNotContainsString('Se vazio, o módulo deriva o NBS a partir do LC116.', $pt);
+        }
+
         public function testControllerBuildsFiscalPayloadFromItemProfilesAndNativeItemTaxes(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
@@ -74,6 +86,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('invoiceItemTaxRateMap', $content);
             self::assertStringContainsString('itemFiscalProfile[\'item_lista_servico\']', $content);
             self::assertStringContainsString('itemFiscalProfile[\'codigo_tributacao_nacional\']', $content);
+            self::assertStringContainsString('itemFiscalProfile[\'codigo_tributacao_municipal\']', $content);
             self::assertStringContainsString('itemFiscalProfile[\'aliquota\']', $content);
         }
 
@@ -1190,8 +1203,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
             // IRRF = 1.00% × 1500.25 = 15.0025 → '15.00'
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            // CSLL = 1.00% × 1500.25 = 15.0025 → '15.00' (tipoRetencao '3' ≠ '0')
-            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
+            // vRetCSLL aggregates retained PIS + COFINS + CSLL for retention type 3.
+            self::assertSame('153.77', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
             self::assertSame(0, $client->capturedDps?->ibsCbsFinalidade);
@@ -1767,9 +1780,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // Aliquotas are still from settings
             self::assertSame('1.65', $client->capturedDps?->federalPiscofinsAliquotaPis);
             self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
-            // IRRF and CSLL are calculated from percentage settings (1.00% × 1500.25 = 15.00)
+            // IRRF is retained separately; vRetCSLL aggregates retained PIS + COFINS + CSLL for type 3.
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
+            self::assertSame('153.77', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
             // Federal taxation without explicit tributos_* config still needs totTrib in the XML schema.
@@ -2121,7 +2134,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><pTotTrib><pTotTribFed>0.00</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>0.00</pTotTribMun></pTotTrib></totTrib></trib>', $normalizedXml);
         }
 
-        public function testEmitFallsBackToNoRetentionWhenTypeRequiresCsllButConfiguredValueIsZero(): void
+        public function testEmitPreservesTypeFourAndAggregatesPisCofinsWhenCsllIsZero(): void
         {
             ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] = '4';
             ControllerIsolationState::$settings['nfse.federal_valor_csll'] = '0.00';
@@ -2182,8 +2195,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame('0', $client->capturedDps?->federalPiscofinsTipoRetencao);
-            self::assertSame('', $client->capturedDps?->federalValorCsll);
+            self::assertSame('4', $client->capturedDps?->federalPiscofinsTipoRetencao);
+            self::assertSame('92.50', $client->capturedDps?->federalValorCsll);
         }
 
         public function testEmitUsesFiscalSettingsFallbackWhenItemHasNoFiscalProfile(): void
@@ -3366,7 +3379,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringNotContainsString('normalizedMunicipalTaxationCode', $content);
-            self::assertStringContainsString("'codigoTributacaoMunicipal' => ''", $content);
+            self::assertStringContainsString(
+                "'codigoTributacaoMunicipal' => (string) (\$itemFiscalProfile['codigo_tributacao_municipal'] ?? '')",
+                $content,
+            );
             self::assertStringContainsString("'itemListaServico' => (string) \$itemFiscalProfile['item_lista_servico']", $content);
         }
 
@@ -4779,7 +4795,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame([], $receipt->updatedPayloads);
             self::assertSame('route', $response->target);
-            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame('invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('Nao foi possivel atualizar o status da NFS-e.', $response->flash['error'] ?? null);
         }

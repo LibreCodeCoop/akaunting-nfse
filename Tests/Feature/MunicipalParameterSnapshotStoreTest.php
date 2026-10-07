@@ -19,7 +19,7 @@ final class MunicipalParameterSnapshotStoreTest extends FeatureTestCase
             companyId: 1,
             environment: 'sandbox',
             municipioIbge: '3303302',
-            serviceCode: '010701',
+            serviceCode: '010701000',
             competence: '2026-10-05',
             fetch: static fn (): array => ['aliquota' => ['aliquota' => '2.00']],
         );
@@ -33,7 +33,7 @@ final class MunicipalParameterSnapshotStoreTest extends FeatureTestCase
         self::assertSame(1, $snapshot->company_id);
         self::assertSame('sandbox', $snapshot->environment);
         self::assertSame('3303302', $snapshot->municipio_ibge);
-        self::assertSame('010701', $snapshot->service_code);
+        self::assertSame('010701000', $snapshot->service_code);
         self::assertSame('2026-10-05', $snapshot->competence_date?->format('Y-m-d'));
     }
 
@@ -43,7 +43,7 @@ final class MunicipalParameterSnapshotStoreTest extends FeatureTestCase
             'company_id' => 1,
             'environment' => 'sandbox',
             'municipio_ibge' => '3303302',
-            'service_code' => '010701',
+            'service_code' => '010701000',
             'competence_date' => '2026-10-05',
             'payload' => ['aliquota' => ['aliquota' => '2.00']],
             'fetched_at' => '2026-10-04 12:00:00',
@@ -53,7 +53,7 @@ final class MunicipalParameterSnapshotStoreTest extends FeatureTestCase
             companyId: 1,
             environment: 'sandbox',
             municipioIbge: '3303302',
-            serviceCode: '010701',
+            serviceCode: '010701000',
             competence: '2026-10-05',
             fetch: static function (): array {
                 throw new \RuntimeException('ADN unavailable');
@@ -77,7 +77,7 @@ final class MunicipalParameterSnapshotStoreTest extends FeatureTestCase
             companyId: 1,
             environment: 'sandbox',
             municipioIbge: '3303302',
-            serviceCode: '010701',
+            serviceCode: '010701000',
             competence: '2026-10-05',
             fetch: static fn (): array => ['aliquota' => ['aliquota' => '2.00']],
         );
@@ -93,7 +93,7 @@ final class MunicipalParameterSnapshotStoreTest extends FeatureTestCase
             'company_id' => 2,
             'environment' => 'sandbox',
             'municipio_ibge' => '3303302',
-            'service_code' => '010701',
+            'service_code' => '010701000',
             'competence_date' => '2026-10-05',
             'payload' => ['aliquota' => ['aliquota' => '2.00']],
             'fetched_at' => '2026-10-04 12:00:00',
@@ -105,7 +105,7 @@ final class MunicipalParameterSnapshotStoreTest extends FeatureTestCase
             companyId: 1,
             environment: 'sandbox',
             municipioIbge: '3303302',
-            serviceCode: '010701',
+            serviceCode: '010701000',
             competence: '2026-10-05',
             fetch: static function (): array {
                 throw new \RuntimeException('ADN unavailable');

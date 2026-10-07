@@ -131,7 +131,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             'municipioIbge' => $municipio,
             'itemListaServico' => (string) ($group['item_lista_servico'] ?? ''),
             'codigoTributacaoNacional' => (string) ($group['codigo_tributacao_nacional'] ?? ''),
-            'codigoTributacaoMunicipal' => '',
+            'codigoTributacaoMunicipal' => (string) ($group['codigo_tributacao_municipal'] ?? ''),
             'valorServico' => number_format($amount, 2, '.', ''),
             'aliquota' => (string) ($group['aliquota'] ?? ''),
             'discriminacao' => $this->description($group),

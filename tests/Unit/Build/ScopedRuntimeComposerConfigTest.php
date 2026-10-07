@@ -43,7 +43,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $content = file_get_contents($manifestPath);
 
         self::assertIsString($content);
-        self::assertStringContainsString('"librecodeoop/nfse-php": "dev-main#d774b105629c0b678cf8bf53c56bdb715c02f5ee"', $content);
+        self::assertStringContainsString('"librecodeoop/nfse-php": "dev-main#4ca17300ee3513fb7918c5ba1ad398b1e824bea6"', $content);
         self::assertStringContainsString('"url": "https://github.com/LibreCodeCoop/nfse-php"', $content);
         self::assertMatchesRegularExpression(
             '/"librecodeoop\/nfse-php": "dev-main#[0-9a-f]{40}"/',
@@ -101,16 +101,60 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $patchers = $config['patchers'] ?? null;
 
         self::assertIsArray($patchers);
-        self::assertCount(1, $patchers);
+        self::assertCount(2, $patchers);
 
-        $patchedContent = $patchers[0](
-            'composer/autoload_real.php',
-            'Modules\\Nfse\\Vendor',
-            "if ('Composer\\Autoload\\ClassLoader' === \$class) {",
-        );
+        $patchedContent = "if ('Composer\\Autoload\\ClassLoader' === \$class) {";
+
+        foreach ($patchers as $patcher) {
+            $patchedContent = $patcher(
+                'composer/autoload_real.php',
+                'Modules\\Nfse\\Vendor',
+                $patchedContent,
+            );
+        }
 
         self::assertSame(
             "if ('Composer\\Autoload\\ClassLoader' === \$class || 'Modules\\Nfse\\Vendor\\Composer\\Autoload\\ClassLoader' === \$class) {",
+            $patchedContent,
+        );
+    }
+
+    public function testScoperPatcherPrefixesDompdfDynamicFrameClasses(): void
+    {
+        require_once dirname(__DIR__, 3) . '/vendor-bin/php-scoper/vendor/autoload.php';
+
+        $config = require dirname(__DIR__, 3) . '/3rdparty/scoper.inc.php';
+        $patchers = $config['patchers'] ?? null;
+
+        self::assertIsArray($patchers);
+        self::assertCount(2, $patchers);
+
+        $source = <<<'PHP'
+            $decorator  = "Dompdf\\FrameDecorator\\$decorator";
+            $reflower   = "Dompdf\\FrameReflower\\$reflower";
+            $class = '\\Dompdf\\Positioner\\'.$type;
+            PHP;
+
+        $patchedContent = $source;
+
+        foreach ($patchers as $patcher) {
+            $patchedContent = $patcher(
+                '/vendor/dompdf/dompdf/src/Frame/Factory.php',
+                'Modules\\Nfse\\Vendor',
+                $patchedContent,
+            );
+        }
+
+        self::assertStringContainsString(
+            '"Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\FrameDecorator\\\\$decorator"',
+            $patchedContent,
+        );
+        self::assertStringContainsString(
+            '"Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\FrameReflower\\\\$reflower"',
+            $patchedContent,
+        );
+        self::assertStringContainsString(
+            "'\\\\Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\Positioner\\\\'.\$type",
             $patchedContent,
         );
     }

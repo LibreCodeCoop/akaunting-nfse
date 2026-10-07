@@ -20,12 +20,13 @@ final class InvoiceFiscalGroupBuilder
 {
     /**
      * @param list<array<string,mixed>> $items
-     * @param array<int,array{item_lista_servico:string,codigo_tributacao_nacional:string}> $profileMap
+     * @param array<int,array{item_lista_servico:string,codigo_tributacao_nacional:string,codigo_tributacao_municipal:string}> $profileMap
      * @param array<int,string> $taxRateMap
      * @return list<array{
      *   key:string,
      *   item_lista_servico:string,
      *   codigo_tributacao_nacional:string,
+     *   codigo_tributacao_municipal:string,
      *   aliquota:string,
      *   amount:string,
      *   items:list<array{document_item_id:int,item_id:int,name:string,amount:string}>
@@ -61,12 +62,18 @@ final class InvoiceFiscalGroupBuilder
                 $nationalCode = preg_replace('/\D+/', '', $defaultNationalCode) ?: '';
             }
 
+            $municipalCode = preg_replace(
+                '/\D+/',
+                '',
+                (string) ($profile['codigo_tributacao_municipal'] ?? ''),
+            ) ?: '';
+
             $rate = $itemId > 0 ? trim((string) ($taxRateMap[$itemId] ?? '')) : '';
             if ($rate === '') {
                 $rate = trim($defaultRate);
             }
 
-            $key = 'service:' . $serviceCode . '|tax:' . $nationalCode . '|rate:' . $rate;
+            $key = 'service:' . $serviceCode . '|tax:' . $nationalCode . '|mun:' . $municipalCode . '|rate:' . $rate;
             $minor = $this->decimalToMinor($item['total'] ?? null);
 
             if (!isset($groups[$key])) {
@@ -74,6 +81,7 @@ final class InvoiceFiscalGroupBuilder
                     'key' => $key,
                     'item_lista_servico' => $serviceCode,
                     'codigo_tributacao_nacional' => $nationalCode,
+                    'codigo_tributacao_municipal' => $municipalCode,
                     'aliquota' => $rate,
                     'amount_minor' => 0,
                     'items' => [],
