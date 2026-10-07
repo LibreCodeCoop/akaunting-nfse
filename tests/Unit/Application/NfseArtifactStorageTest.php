@@ -103,6 +103,8 @@ namespace Modules\Nfse\Tests\Unit\Application {
 
                     return '%PDF-1.4';
                 },
+                logError: static function (string $message, array $context): void {
+                },
                 settingResolver: static fn (string $key, mixed $default = null): mixed => ControllerIsolationState::$settings[$key] ?? $default,
             );
 
