@@ -103,18 +103,21 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         self::assertIsArray($patchers);
         self::assertCount(2, $patchers);
 
-        $patchedContent = $patchers[0](
-            'composer/autoload_real.php',
-            'Modules\\Nfse\\Vendor',
-            "if ('Composer\\Autoload\\ClassLoader' === \$class) {",
-        );
+        $patchedContent = "if ('Composer\\Autoload\\ClassLoader' === \$class) {";
+
+        foreach ($patchers as $patcher) {
+            $patchedContent = $patcher(
+                'composer/autoload_real.php',
+                'Modules\\Nfse\\Vendor',
+                $patchedContent,
+            );
+        }
 
         self::assertSame(
             "if ('Composer\\Autoload\\ClassLoader' === \$class || 'Modules\\Nfse\\Vendor\\Composer\\Autoload\\ClassLoader' === \$class) {",
             $patchedContent,
         );
     }
-
 
     public function testScoperPatcherPrefixesDompdfDynamicFrameClasses(): void
     {
@@ -132,22 +135,26 @@ $reflower   = "Dompdf\\FrameReflower\\$reflower";
 $class = '\\Dompdf\\Positioner\\'.$type;
 PHP;
 
-        $patchedContent = $patchers[0](
-            '/vendor/dompdf/dompdf/src/Frame/Factory.php',
-            'Modules\\Nfse\\Vendor',
-            $source,
-        );
+        $patchedContent = $source;
+
+        foreach ($patchers as $patcher) {
+            $patchedContent = $patcher(
+                '/vendor/dompdf/dompdf/src/Frame/Factory.php',
+                'Modules\\Nfse\\Vendor',
+                $patchedContent,
+            );
+        }
 
         self::assertStringContainsString(
-            '"Modules\\Nfse\\Vendor\\Dompdf\\FrameDecorator\\$decorator"',
+            '"Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\FrameDecorator\\\\$decorator"',
             $patchedContent,
         );
         self::assertStringContainsString(
-            '"Modules\\Nfse\\Vendor\\Dompdf\\FrameReflower\\$reflower"',
+            '"Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\FrameReflower\\\\$reflower"',
             $patchedContent,
         );
         self::assertStringContainsString(
-            "'\\Modules\\Nfse\\Vendor\\Dompdf\\Positioner\\'.\$type",
+            "'\\\\Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\Positioner\\\\'.\$type",
             $patchedContent,
         );
     }

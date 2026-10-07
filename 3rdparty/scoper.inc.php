@@ -26,6 +26,8 @@ return [
                 return $content;
             }
 
+            $escapedPrefix = str_replace('\\', '\\\\', $prefix);
+
             return str_replace(
                 [
                     '"Dompdf\\\\FrameDecorator\\\\$decorator"',
@@ -33,9 +35,9 @@ return [
                     "'\\\\Dompdf\\\\Positioner\\\\'.\$type",
                 ],
                 [
-                    '"' . $prefix . '\\\\Dompdf\\\\FrameDecorator\\\\$decorator"',
-                    '"' . $prefix . '\\\\Dompdf\\\\FrameReflower\\\\$reflower"',
-                    "'\\\\' . $prefix . '\\\\Dompdf\\\\Positioner\\\\'.\$type",
+                    '"' . $escapedPrefix . '\\\\Dompdf\\\\FrameDecorator\\\\$decorator"',
+                    '"' . $escapedPrefix . '\\\\Dompdf\\\\FrameReflower\\\\$reflower"',
+                    "'\\\\" . $escapedPrefix . "\\\\Dompdf\\\\Positioner\\\\'.\$type",
                 ],
                 $content,
             );
