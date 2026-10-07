@@ -146,15 +146,15 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         }
 
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\FrameDecorator\\\\' . \$decorator",
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\FrameDecorator\\' . \$decorator",
             $patchedContent,
         );
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\FrameReflower\\\\' . \$reflower",
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\FrameReflower\\' . \$reflower",
             $patchedContent,
         );
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\Positioner\\\\' . \$type",
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\Positioner\\' . \$type",
             $patchedContent,
         );
     }
@@ -166,17 +166,18 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertIsString($content);
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\FrameDecorator\\\\' . \$decorator",
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\FrameDecorator\\' . \$decorator",
             $content,
         );
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\FrameReflower\\\\' . \$reflower",
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\FrameReflower\\' . \$reflower",
             $content,
         );
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\Positioner\\\\' . \$type",
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\Positioner\\' . \$type",
             $content,
         );
         self::assertStringNotContainsString('"Dompdf\\\\FrameDecorator\\\\$decorator"', $content);
         self::assertStringNotContainsString('"Dompdf\\\\FrameReflower\\\\$reflower"', $content);
-    }}
+    }
+}
