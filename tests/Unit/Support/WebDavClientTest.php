@@ -163,12 +163,34 @@ final class WebDavClientTest extends TestCase
         ], $calls);
     }
 
-    public function testLaravelHttpTimeoutIsNormalizedToIntegerSeconds(): void
+    public function testLaravelHttpTimeoutsAreExplicitAndBounded(): void
     {
         $content = (string) file_get_contents(dirname(__DIR__, 3) . '/Support/WebDavClient.php');
 
         self::assertStringContainsString(
-            '->timeout((int) ceil($this->timeoutSeconds))',
+            '$timeoutSeconds = (int) ceil($this->timeoutSeconds);',
+            $content,
+        );
+        self::assertStringContainsString(
+            '$connectTimeoutSeconds = min(15, $timeoutSeconds);',
+            $content,
+        );
+        self::assertStringContainsString(
+            '->connectTimeout($connectTimeoutSeconds)',
+            $content,
+        );
+        self::assertStringContainsString(
+            '->timeout($timeoutSeconds)',
+            $content,
+        );
+    }
+
+    public function testDefaultTimeoutAllowsNormalWebDavLatency(): void
+    {
+        $content = (string) file_get_contents(dirname(__DIR__, 3) . '/Support/WebDavClient.php');
+
+        self::assertStringContainsString(
+            'private readonly float $timeoutSeconds = 20.0',
             $content,
         );
     }

@@ -21,7 +21,7 @@ final class WebDavClient
         private readonly string $baseUrl,
         private readonly ?string $username = null,
         private readonly ?string $password = null,
-        private readonly float $timeoutSeconds = 10.0,
+        private readonly float $timeoutSeconds = 20.0,
         ?callable $request = null,
     ) {
         if ($this->timeoutSeconds <= 0) {
@@ -110,8 +110,12 @@ final class WebDavClient
         string $body,
     ): array {
         try {
+            $timeoutSeconds = (int) ceil($this->timeoutSeconds);
+            $connectTimeoutSeconds = min(15, $timeoutSeconds);
+
             $request = Http::withHeaders($headers)
-                ->timeout((int) ceil($this->timeoutSeconds));
+                ->connectTimeout($connectTimeoutSeconds)
+                ->timeout($timeoutSeconds);
 
             if ($body !== '') {
                 $request = $request->withBody(
