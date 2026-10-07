@@ -111,9 +111,10 @@ final class PostEmissionState
      */
     public function snapshot(NfseReceipt $receipt): array
     {
-        $payload = $receipt->payload()->first();
+        /** @var NfseReceiptPayload|null $payload */
+        $payload = $receipt->payload()->getResults();
 
-        if (!$payload instanceof NfseReceiptPayload) {
+        if (!is_object($payload)) {
             return [
                 'overall_status' => 'idle',
                 'poll' => false,
