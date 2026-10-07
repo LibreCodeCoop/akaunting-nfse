@@ -204,4 +204,5 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertNotSame('', $pdf);
         self::assertStringStartsWith('%PDF-', $pdf);
-    }}
+    }
+}
