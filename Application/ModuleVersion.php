@@ -33,10 +33,12 @@ final class ModuleVersion
             return $this->resolved;
         }
 
-        $composerVersion = $this->composerVersion();
+        if ($this->manifestPath === null) {
+            $composerVersion = $this->composerVersion();
 
-        if ($composerVersion !== null) {
-            return $this->resolved = $composerVersion;
+            if ($composerVersion !== null) {
+                return $this->resolved = $composerVersion;
+            }
         }
 
         $path = $this->manifestPath ?? dirname(__DIR__) . '/module.json';
