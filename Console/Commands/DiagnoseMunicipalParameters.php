@@ -16,7 +16,8 @@ final class DiagnoseMunicipalParameters extends Command
     protected $signature = 'nfse:municipal-diagnose
         {company : Akaunting company ID}
         {service : 9-digit municipal service code}
-        {competence : Competence date in YYYY-MM-DD format}';
+        {competence : Competence date in YYYY-MM-DD format}
+        {--production : Query the production ADN without changing saved settings}';
 
     protected $description = 'Diagnose official ADN municipal-parameter endpoints without the web UI.';
 
@@ -51,7 +52,9 @@ final class DiagnoseMunicipalParameters extends Command
             company($companyId)->makeCurrent();
 
             $municipio = trim((string) setting('nfse.municipio_ibge', ''));
-            $sandbox = $this->booleanSetting(setting('nfse.sandbox_mode', true));
+            $sandbox = $this->option('production')
+                ? false
+                : $this->booleanSetting(setting('nfse.sandbox_mode', true));
 
             if (preg_match('/^\\d{7}$/', $municipio) !== 1) {
                 $this->error('Configured municipality IBGE code is invalid.');
