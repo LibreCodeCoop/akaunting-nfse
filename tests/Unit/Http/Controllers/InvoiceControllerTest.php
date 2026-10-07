@@ -86,6 +86,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('invoiceItemTaxRateMap', $content);
             self::assertStringContainsString('itemFiscalProfile[\'item_lista_servico\']', $content);
             self::assertStringContainsString('itemFiscalProfile[\'codigo_tributacao_nacional\']', $content);
+            self::assertStringContainsString('itemFiscalProfile[\'codigo_tributacao_municipal\']', $content);
             self::assertStringContainsString('itemFiscalProfile[\'aliquota\']', $content);
         }
 
@@ -3378,7 +3379,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringNotContainsString('normalizedMunicipalTaxationCode', $content);
-            self::assertStringContainsString("'codigoTributacaoMunicipal' => ''", $content);
+            self::assertStringContainsString(
+                "'codigoTributacaoMunicipal' => (string) (\$itemFiscalProfile['codigo_tributacao_municipal'] ?? '')",
+                $content,
+            );
             self::assertStringContainsString("'itemListaServico' => (string) \$itemFiscalProfile['item_lista_servico']", $content);
         }
 

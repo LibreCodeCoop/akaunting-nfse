@@ -30,7 +30,7 @@ final class InvoiceFiscalGroupBuilderTest extends TestCase
         );
 
         self::assertCount(1, $groups);
-        self::assertSame('service:0107|tax:010701|rate:2.00', $groups[0]['key']);
+        self::assertSame('service:0107|tax:010701|mun:|rate:2.00', $groups[0]['key']);
         self::assertSame('30.03', $groups[0]['amount']);
         self::assertCount(2, $groups[0]['items']);
     }
@@ -72,8 +72,38 @@ final class InvoiceFiscalGroupBuilderTest extends TestCase
             defaultRate: '2.00',
         );
 
-        self::assertSame('service:0107|tax:010701|rate:2.00', $groups[0]['key']);
+        self::assertSame('service:0107|tax:010701|mun:|rate:2.00', $groups[0]['key']);
         self::assertSame('100.00', $groups[0]['amount']);
+    }
+
+    public function testMunicipalTaxCodeParticipatesInFiscalSignature(): void
+    {
+        $groups = (new InvoiceFiscalGroupBuilder())->build(
+            items: [
+                ['id' => 40, 'item_id' => 1, 'name' => 'A', 'total' => '10.00'],
+                ['id' => 41, 'item_id' => 2, 'name' => 'B', 'total' => '20.00'],
+            ],
+            profileMap: [
+                1 => [
+                    'item_lista_servico' => '0101',
+                    'codigo_tributacao_nacional' => '010101',
+                    'codigo_tributacao_municipal' => '001',
+                ],
+                2 => [
+                    'item_lista_servico' => '0101',
+                    'codigo_tributacao_nacional' => '010101',
+                    'codigo_tributacao_municipal' => '002',
+                ],
+            ],
+            taxRateMap: [1 => '2.00', 2 => '2.00'],
+            defaultServiceCode: '',
+            defaultNationalCode: '',
+            defaultRate: '',
+        );
+
+        self::assertCount(2, $groups);
+        self::assertSame('service:0101|tax:010101|mun:001|rate:2.00', $groups[0]['key']);
+        self::assertSame('service:0101|tax:010101|mun:002|rate:2.00', $groups[1]['key']);
     }
 
     public function testRejectsLineTotalsWithMoreThanTwoDecimalPlaces(): void

@@ -29,6 +29,7 @@ final class ItemFiscalProfileInputTest extends TestCase
         self::assertSame([
             'item_lista_servico' => '0107',
             'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => null,
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
@@ -42,6 +43,7 @@ final class ItemFiscalProfileInputTest extends TestCase
         self::assertSame([
             'item_lista_servico' => '0107',
             'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => null,
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
@@ -55,6 +57,7 @@ final class ItemFiscalProfileInputTest extends TestCase
         self::assertSame([
             'item_lista_servico' => '0107',
             'codigo_tributacao_nacional' => '000701',
+            'codigo_tributacao_municipal' => null,
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
@@ -68,6 +71,7 @@ final class ItemFiscalProfileInputTest extends TestCase
         self::assertSame([
             'item_lista_servico' => '0107',
             'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => null,
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
@@ -81,6 +85,7 @@ final class ItemFiscalProfileInputTest extends TestCase
         self::assertSame([
             'item_lista_servico' => null,
             'codigo_tributacao_nacional' => null,
+            'codigo_tributacao_municipal' => null,
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
@@ -94,6 +99,22 @@ final class ItemFiscalProfileInputTest extends TestCase
         self::assertSame([
             'item_lista_servico' => null,
             'codigo_tributacao_nacional' => null,
+            'codigo_tributacao_municipal' => null,
+        ], ItemFiscalProfileInput::fromRequest($request));
+    }
+
+    public function testNormalizesMunicipalTaxCodeToThreeDigits(): void
+    {
+        $request = $this->request([
+            'nfse_item_lista_servico' => '0101',
+            'nfse_codigo_tributacao_nacional' => '010101',
+            'nfse_codigo_tributacao_municipal' => '1',
+        ]);
+
+        self::assertSame([
+            'item_lista_servico' => '0101',
+            'codigo_tributacao_nacional' => '010101',
+            'codigo_tributacao_municipal' => '001',
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
