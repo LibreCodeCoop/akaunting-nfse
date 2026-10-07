@@ -50,7 +50,7 @@ final class InvoiceFiscalContextResolverTest extends FeatureTestCase
         self::assertFalse($profile['requires_split']);
 
         self::assertCount(1, $groups);
-        self::assertSame('service:0107|tax:010701|rate:5.00', $groups[0]['key']);
+        self::assertSame('service:0107|tax:010701|mun:|rate:5.00', $groups[0]['key']);
         self::assertSame('100.00', $groups[0]['amount']);
         self::assertSame((int) $documentItem->id, $groups[0]['items'][0]['document_item_id']);
     }

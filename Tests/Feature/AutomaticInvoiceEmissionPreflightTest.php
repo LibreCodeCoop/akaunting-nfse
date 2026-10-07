@@ -24,7 +24,7 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
 
         self::assertSame('ready', $result['status']);
         self::assertNull($result['reason']);
-        self::assertSame('service:0107|tax:010701|rate:5.00', $result['group']['key'] ?? null);
+        self::assertSame('service:0107|tax:010701|mun:|rate:5.00', $result['group']['key'] ?? null);
     }
 
     public function testBlocksBeforeGatewayWhenNationalTaxCodeIsMissing(): void

@@ -49,7 +49,7 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         self::assertCount(1, $issuer->calls);
         self::assertSame((int) $invoice->id, $issuer->calls[0]['invoice_id']);
         self::assertSame(
-            'service:0107|tax:010701|rate:5.00',
+            'service:0107|tax:010701|mun:|rate:5.00',
             $issuer->calls[0]['group_key'],
         );
     }
@@ -117,7 +117,7 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
             'nfse_number' => '9001',
             'chave_acesso' => str_repeat('9', 50),
             'status' => 'emitted',
-            'emission_group_key' => 'service:0107|tax:010701|rate:5.00',
+            'emission_group_key' => 'service:0107|tax:010701|mun:|rate:5.00',
         ]);
 
         $issuer = $this->fakeIssuer();
