@@ -11,6 +11,7 @@ use App\Models\Document\Document as Invoice;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Modules\Nfse\Application\IssuedNfseEmailSender;
+use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Models\NfseReceipt;
 
 final class SendIssuedNfseEmail implements ShouldQueue
@@ -36,7 +37,7 @@ final class SendIssuedNfseEmail implements ShouldQueue
         }
     }
 
-    public function handle(IssuedNfseEmailSender $sender): void
+    public function handle(IssuedNfseEmailSender $sender, PostEmissionState $state): void
     {
         $invoice = Invoice::query()->with('contact')->findOrFail($this->invoiceId);
         $receipt = NfseReceipt::query()->findOrFail($this->receiptId);
@@ -48,19 +49,26 @@ final class SendIssuedNfseEmail implements ShouldQueue
         $payload = $receipt->payload()->firstOrCreate();
 
         if ($payload->post_emission_email_sent_at !== null) {
+            $state->markEmailCompleted($this->receiptId);
+
             return;
         }
 
-        $sender->send(
-            $invoice,
-            $receipt,
-            $this->attachDanfse,
-            $this->attachXml,
-            $this->customMail,
-        );
+        $state->markEmailProcessing($this->receiptId);
 
-        $payload->update([
-            'post_emission_email_sent_at' => now(),
-        ]);
+        try {
+            $sender->send(
+                $invoice,
+                $receipt,
+                $this->attachDanfse,
+                $this->attachXml,
+                $this->customMail,
+            );
+            $state->markEmailCompleted($this->receiptId);
+        } catch (\Throwable $throwable) {
+            $state->markEmailFailed($this->receiptId, $throwable->getMessage());
+
+            throw $throwable;
+        }
     }
 }
