@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace Modules\Nfse\Jobs;
 
 use App\Models\Document\Document as Invoice;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Modules\Nfse\Application\NfseArtifactStorage;
@@ -24,7 +23,7 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
  * the HTTP request returns after the receipt is persisted and this work is
  * performed by a queue worker.
  */
-final class ProcessNfsePostEmission implements ShouldQueue
+final class ProcessNfsePostEmission
 {
     public int $tries = 3;
 
