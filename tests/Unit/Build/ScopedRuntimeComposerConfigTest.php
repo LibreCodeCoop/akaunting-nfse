@@ -146,15 +146,15 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         }
 
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\FrameDecorator\\' . \$decorator",
+            "sprintf('%s\\\\FrameDecorator\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$decorator)",
             $patchedContent,
         );
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\FrameReflower\\' . \$reflower",
+            "sprintf('%s\\\\FrameReflower\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$reflower)",
             $patchedContent,
         );
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\Positioner\\' . \$type",
+            "sprintf('%s\\\\Positioner\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$type)",
             $patchedContent,
         );
     }
@@ -166,18 +166,26 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertIsString($content);
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\FrameDecorator\\' . \$decorator",
+            "sprintf('%s\\\\FrameDecorator\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$decorator)",
             $content,
         );
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\FrameReflower\\' . \$reflower",
+            "sprintf('%s\\\\FrameReflower\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$reflower)",
             $content,
         );
         self::assertStringContainsString(
-            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\Frame')) . '\\Positioner\\' . \$type",
+            "sprintf('%s\\\\Positioner\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$type)",
             $content,
         );
         self::assertStringNotContainsString('"Dompdf\\\\FrameDecorator\\\\$decorator"', $content);
         self::assertStringNotContainsString('"Dompdf\\\\FrameReflower\\\\$reflower"', $content);
+
+        exec(
+            escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($factoryPath) . ' 2>&1',
+            $lintOutput,
+            $lintExitCode,
+        );
+
+        self::assertSame(0, $lintExitCode, implode("\n", $lintOutput));
     }
 }

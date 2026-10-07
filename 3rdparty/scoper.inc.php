@@ -28,11 +28,11 @@ return [
 
             $replacements = [
                 '/^\\s*\\$decorator\\s*=\\s*".*FrameDecorator.*";\\s*$/m'
-                    => '        $decorator = substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')) . \'\\\\FrameDecorator\\\\\' . $decorator;',
+                    => "        \\$decorator = sprintf('%s\\\\FrameDecorator\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \\$decorator);",
                 '/^\\s*\\$reflower\\s*=\\s*".*FrameReflower.*";\\s*$/m'
-                    => '        $reflower = substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')) . \'\\\\FrameReflower\\\\\' . $reflower;',
+                    => "        \\$reflower = sprintf('%s\\\\FrameReflower\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \\$reflower);",
                 '/^\\s*\\$class\\s*=\\s*.*Positioner.*\\$type;\\s*$/m'
-                    => '            $class = substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')) . \'\\\\Positioner\\\\\' . $type;',
+                    => "            \\$class = sprintf('%s\\\\Positioner\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \\$type);",
             ];
 
             foreach ($replacements as $pattern => $replacement) {
