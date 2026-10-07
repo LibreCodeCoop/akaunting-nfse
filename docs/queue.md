@@ -169,6 +169,23 @@ O XML autorizado contém dados fiscais e pode conter dados pessoais. O banco de 
 
 O XML não é incluído no payload do job. A fila transporta apenas identificadores do recibo/fatura e os parâmetros necessários para o e-mail.
 
+## Feedback visual e polling
+
+Quando a fila é assíncrona, a autorização fiscal retorna antes de XML, DANFSE e e-mail terminarem. O módulo persiste o estado das etapas no banco e expõe um endpoint leve de status por fatura.
+
+A interface consulta somente esse estado local. O endpoint de polling não consulta Redis, SEFIN nem WebDAV.
+
+O polling usa backoff limitado:
+
+- a cada 2 segundos nos primeiros 15 segundos;
+- a cada 5 segundos até 45 segundos;
+- a cada 10 segundos depois disso;
+- para automaticamente após 90 segundos ou assim que o processamento conclui/falha.
+
+Os links de XML e DANFSE ficam desabilitados com indicador de processamento enquanto o artefato correspondente ainda não possui path persistido. Quando o job salva o path, o polling libera o link sem recarregar a página.
+
+O modal de resultado disparado por AJAX inicia o scanner explicitamente depois de inserir o HTML; não há `MutationObserver` global varrendo a página.
+
 ## WebDAV e throughput
 
 O cliente WebDAV possui timeout de rede de 10 segundos por requisição. Durante uma mesma execução ele também memoriza diretórios já confirmados/criados, evitando repetir `MKCOL` e `HEAD` para o XML e o DANFSE no mesmo caminho. Os paths finais persistidos no recibo tornam o job de artefatos reexecutável sem repetir uploads concluídos.
