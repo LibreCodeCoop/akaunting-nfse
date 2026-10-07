@@ -26,21 +26,24 @@ return [
                 return $content;
             }
 
-            $escapedPrefix = str_replace('\\', '\\\\', $prefix);
+            $replacements = [
+                '/^\\s*\\$decorator\\s*=\\s*".*FrameDecorator.*\\$decorator";\\s*$/m'
+                    => '        $decorator = substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')) . \'\\\\FrameDecorator\\\\\' . $decorator;',
+                '/^\\s*\\$reflower\\s*=\\s*".*FrameReflower.*\\$reflower";\\s*$/m'
+                    => '        $reflower = substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')) . \'\\\\FrameReflower\\\\\' . $reflower;',
+                '/^\\s*\\$class\\s*=\\s*.*Positioner.*\\$type;\\s*$/m'
+                    => '            $class = substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')) . \'\\\\Positioner\\\\\' . $type;',
+            ];
 
-            return str_replace(
-                [
-                    '"Dompdf\\\\FrameDecorator\\\\$decorator"',
-                    '"Dompdf\\\\FrameReflower\\\\$reflower"',
-                    "'\\\\Dompdf\\\\Positioner\\\\'.\$type",
-                ],
-                [
-                    '"' . $escapedPrefix . '\\\\Dompdf\\\\FrameDecorator\\\\$decorator"',
-                    '"' . $escapedPrefix . '\\\\Dompdf\\\\FrameReflower\\\\$reflower"',
-                    "'\\\\" . $escapedPrefix . "\\\\Dompdf\\\\Positioner\\\\'.\$type",
-                ],
-                $content,
-            );
+            foreach ($replacements as $pattern => $replacement) {
+                $patched = preg_replace($pattern, $replacement, $content);
+
+                if (is_string($patched)) {
+                    $content = $patched;
+                }
+            }
+
+            return $content;
         },
         static function (string $filePath, string $prefix, string $content): string {
             if (!str_ends_with($filePath, 'composer/autoload_real.php')) {

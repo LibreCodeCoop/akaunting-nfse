@@ -119,7 +119,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         );
     }
 
-    public function testScoperPatcherPrefixesDompdfDynamicFrameClasses(): void
+    public function testScoperPatcherUsesNamespaceRelativeDompdfDynamicClasses(): void
     {
         require_once dirname(__DIR__, 3) . '/vendor-bin/php-scoper/vendor/autoload.php';
 
@@ -146,16 +146,37 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         }
 
         self::assertStringContainsString(
-            '"Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\FrameDecorator\\\\$decorator"',
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\FrameDecorator\\\\' . \$decorator",
             $patchedContent,
         );
         self::assertStringContainsString(
-            '"Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\FrameReflower\\\\$reflower"',
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\FrameReflower\\\\' . \$reflower",
             $patchedContent,
         );
         self::assertStringContainsString(
-            "'\\\\Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\Positioner\\\\'.\$type",
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\Positioner\\\\' . \$type",
             $patchedContent,
         );
     }
-}
+
+    public function testBuiltScopedDompdfFactoryContainsNoUnscopedDynamicClassNames(): void
+    {
+        $factoryPath = dirname(__DIR__, 3) . '/3rdparty/scoped/dompdf/dompdf/src/Frame/Factory.php';
+        $content = file_get_contents($factoryPath);
+
+        self::assertIsString($content);
+        self::assertStringContainsString(
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\FrameDecorator\\\\' . \$decorator",
+            $content,
+        );
+        self::assertStringContainsString(
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\FrameReflower\\\\' . \$reflower",
+            $content,
+        );
+        self::assertStringContainsString(
+            "substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')) . '\\\\Positioner\\\\' . \$type",
+            $content,
+        );
+        self::assertStringNotContainsString('"Dompdf\\\\FrameDecorator\\\\$decorator"', $content);
+        self::assertStringNotContainsString('"Dompdf\\\\FrameReflower\\\\$reflower"', $content);
+    }}
