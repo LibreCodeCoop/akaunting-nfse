@@ -133,6 +133,7 @@ final class ReceiptPersistence
      *   data_emissao:string,
      *   codigo_verificacao:?string,
      *   status:string,
+     *   authorized_xml?:string,
      *   competence_date?:?string,
      *   authorized_fiscal_snapshot?:array<string, mixed>
      * }
@@ -148,6 +149,7 @@ final class ReceiptPersistence
         ];
 
         if (is_string($receipt->rawXml) && trim($receipt->rawXml) !== '') {
+            $values['authorized_xml'] = $receipt->rawXml;
             $snapshot = (new AuthorizedFiscalSnapshotExtractor())->extract($receipt->rawXml);
             $values['competence_date'] = $snapshot['competence_date'];
             $values['authorized_fiscal_snapshot'] = $snapshot;
