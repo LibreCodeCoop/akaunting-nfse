@@ -28,7 +28,6 @@ class NfseReceipt extends Model
         'replaces_receipt_id',
         'competence_date',
         'authorized_fiscal_snapshot',
-        'authorized_xml',
     ];
 
     protected $casts = [
@@ -50,5 +49,10 @@ class NfseReceipt extends Model
     public function replacement(): HasOne
     {
         return $this->hasOne(self::class, 'replaces_receipt_id');
+    }
+
+    public function payload(): HasOne
+    {
+        return $this->hasOne(NfseReceiptPayload::class, 'receipt_id');
     }
 }
