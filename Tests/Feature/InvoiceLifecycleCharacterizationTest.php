@@ -184,7 +184,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
             ]))
             ->assertOk()
             ->assertHeader('Content-Type', 'application/xml')
-            ->assertSeeText('<NFSe>authorized-payload</NFSe>');
+            ->assertContent('<NFSe>authorized-payload</NFSe>');
     }
 
     public function testDanfseDownloadGeneratesPdfFromAuthorizedPayloadWithoutWebDavPath(): void
@@ -197,7 +197,7 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
             accessKey: str_repeat('7', 50),
         );
 
-        $xml = (string) file_get_contents(__DIR__ . '/../fixtures/nfse_exemplo.xml');
+        $xml = (string) file_get_contents(dirname(__DIR__, 2) . '/tests/fixtures/nfse_exemplo.xml');
         $receipt->payload()->create([
             'authorized_xml' => $xml,
         ]);

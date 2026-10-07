@@ -189,17 +189,14 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringNotContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
         }
 
-        public function testMissingDanfseDownloadRegeneratesPdfFromStoredXml(): void
+        public function testDanfseDownloadUsesAuthorizedXmlBeforeWebDavArtifact(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
-            self::assertStringContainsString(
-                "&& \$this->generateMissingDanfseArtifact(\$invoice, \$receipt, \$artifacts['xml'] ?? null)",
-                $content,
-            );
-            self::assertStringContainsString('(new DanfseGenerator())->generateFromXml($xml)', $content);
-            self::assertStringContainsString("str_starts_with(\$pdf, '%PDF-')", $content);
-            self::assertStringContainsString("\$receipt->update(['danfse_webdav_path' => \$danfsePath]);", $content);
+            self::assertStringContainsString('$authorizedXml = $this->authorizedXmlForReceipt($receipt);', $content);
+            self::assertStringContainsString('(new DanfseGenerator())->generateFromXml($authorizedXml)', $content);
+            self::assertStringContainsString("str_starts_with(\$content, '%PDF-')", $content);
+            self::assertStringContainsString('$this->artifactDownloadResponse($receipt, $artifact, $content)', $content);
         }
 
         public function testMakeClientDelegatesFiscalCompositionAndKeepsExplicitCleanup(): void

@@ -111,9 +111,9 @@ final class PostEmissionState
      */
     public function snapshot(NfseReceipt $receipt): array
     {
-        $relation = $receipt->payload();
+        $payload = $receipt->payload()->first();
 
-        if (!is_object($relation) || !method_exists($relation, 'value')) {
+        if (!$payload instanceof NfseReceiptPayload) {
             return [
                 'overall_status' => 'idle',
                 'poll' => false,
@@ -123,9 +123,9 @@ final class PostEmissionState
             ];
         }
 
-        $artifactsStatus = $this->normalizeStatus($relation->value('artifacts_status'));
-        $emailStatus = $this->normalizeStatus($relation->value('email_status'));
-        $error = $relation->value('post_processing_error');
+        $artifactsStatus = $this->normalizeStatus($payload->artifacts_status);
+        $emailStatus = $this->normalizeStatus($payload->email_status);
+        $error = $payload->post_processing_error;
 
         if ($artifactsStatus === null && $emailStatus === null && $error === null) {
             return [

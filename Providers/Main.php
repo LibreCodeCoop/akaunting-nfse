@@ -250,7 +250,9 @@ class Main extends Provider
 
             if ($receipt instanceof NfseReceipt) {
                 try {
-                    $authorizedXmlAvailable = trim((string) $receipt->payload()->value('authorized_xml')) !== '';
+                    $payload = $receipt->payload()->first();
+                    $authorizedXmlAvailable = $payload !== null
+                        && trim((string) ($payload->authorized_xml ?? '')) !== '';
                 } catch (\Throwable) {
                     $authorizedXmlAvailable = false;
                 }
