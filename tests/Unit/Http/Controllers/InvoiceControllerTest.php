@@ -870,7 +870,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(2, $client->capturedDps?->indicadorTributacao);
             self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
             self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame('4.50', $client->capturedDps?->totalTributosPercentualMunicipal);
             self::assertSame('00001', $client->capturedDps?->serie);
             self::assertSame('42', $client->capturedDps?->numeroDps);
             self::assertSame('2026-02-04', $client->capturedDps?->dataCompetencia);
@@ -1443,7 +1443,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(2, $client->capturedDps?->indicadorTributacao);
             self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
             self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame('4.50', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
         public function testEmitSetsIndicadorTributacaoTwoWhenTributosPercentConfigured(): void
@@ -1718,7 +1718,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(2, $client->capturedDps?->indicadorTributacao);
             self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
             self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame('4.50', $client->capturedDps?->totalTributosPercentualMunicipal);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
         }
