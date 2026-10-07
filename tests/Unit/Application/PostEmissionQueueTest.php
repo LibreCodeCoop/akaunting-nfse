@@ -29,6 +29,8 @@ final class PostEmissionQueueTest extends TestCase
         self::assertStringContainsString('public int $tries = 3;', $artifactJob);
         self::assertStringContainsString('public array $backoff = [10, 30, 60];', $artifactJob);
         self::assertStringContainsString('public int $tries = 1;', $emailJob);
+        self::assertStringContainsString('public int $timeout = 60;', $artifactJob);
+        self::assertStringContainsString('public int $timeout = 60;', $emailJob);
         self::assertStringContainsString('implements ShouldQueue', $artifactJob);
         self::assertStringContainsString('implements ShouldQueue', $emailJob);
     }
@@ -49,7 +51,7 @@ final class PostEmissionQueueTest extends TestCase
         $persistence = (string) file_get_contents(dirname(__DIR__, 3) . '/Application/ReceiptPersistence.php');
         $controller = (string) file_get_contents(dirname(__DIR__, 3) . '/Http/Controllers/InvoiceController.php');
 
-        self::assertStringContainsString('NfseReceiptPayload::query()->updateOrCreate(', $persistence);
+        self::assertStringContainsString('$receipt->payload()->updateOrCreate(', $persistence);
         self::assertStringContainsString('$email = $this->preparePostEmitEmail($request, $invoice);', $controller);
         self::assertStringContainsString('$this->dispatchPostEmission(', $controller);
         self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $controller);

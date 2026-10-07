@@ -12,7 +12,6 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Modules\Nfse\Application\IssuedNfseEmailSender;
 use Modules\Nfse\Models\NfseReceipt;
-use Modules\Nfse\Models\NfseReceiptPayload;
 
 final class SendIssuedNfseEmail implements ShouldQueue
 {
@@ -46,9 +45,7 @@ final class SendIssuedNfseEmail implements ShouldQueue
             throw new \RuntimeException('NFS-e receipt does not belong to the requested invoice.');
         }
 
-        $payload = NfseReceiptPayload::query()->firstOrCreate([
-            'receipt_id' => $this->receiptId,
-        ]);
+        $payload = $receipt->payload()->firstOrCreate();
 
         if ($payload->post_emission_email_sent_at !== null) {
             return;

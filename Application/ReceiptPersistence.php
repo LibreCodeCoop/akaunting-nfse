@@ -9,7 +9,6 @@ namespace Modules\Nfse\Application;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\NfseReceipt;
-use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 
 /**
@@ -182,8 +181,8 @@ final class ReceiptPersistence
             return;
         }
 
-        NfseReceiptPayload::query()->updateOrCreate(
-            ['receipt_id' => (int) $receipt->id],
+        $receipt->payload()->updateOrCreate(
+            [],
             ['authorized_xml' => $xml],
         );
     }

@@ -9,7 +9,6 @@ namespace Modules\Nfse\Application;
 
 use App\Models\Document\Document as Invoice;
 use Modules\Nfse\Models\NfseReceipt;
-use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseGenerator;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -29,9 +28,7 @@ class IssuedNfseArtifactStore
             return;
         }
 
-        $xml = trim((string) NfseReceiptPayload::query()
-            ->where('receipt_id', $receiptId)
-            ->value('authorized_xml'));
+        $xml = trim((string) $receipt->payload()->value('authorized_xml'));
 
         if ($xml === '') {
             $xml = trim((string) ($receipt->authorized_xml ?? ''));
@@ -49,7 +46,6 @@ class IssuedNfseArtifactStore
             $xmlPath = $this->buildFilePath($basePath, $invoice, $receiptData, 'xml');
             $client->put($xmlPath, $xml);
             $receipt->update(['xml_webdav_path' => $xmlPath]);
-            $receipt->refresh();
         }
 
         if ($this->storePdfEnabled() && trim((string) $receipt->danfse_webdav_path) === '') {
