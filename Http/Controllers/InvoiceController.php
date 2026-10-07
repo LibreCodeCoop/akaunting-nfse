@@ -36,6 +36,7 @@ use Modules\Nfse\Application\RefreshInvoiceNfse;
 use Modules\Nfse\Application\RuntimeDpsFactory;
 use Modules\Nfse\Application\SubstituteInvoiceNfse;
 use Modules\Nfse\Application\SubstitutionDpsBuilder;
+use Modules\Nfse\Jobs\ProcessNfsePostEmission;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
@@ -455,11 +456,10 @@ class InvoiceController extends Controller
                 );
 
                 if (!$groupResult['reused'] && $groupResult['remote_receipt'] instanceof ReceiptData) {
-                    $this->storeArtifacts(
+                    $this->dispatchPostEmission(
                         $invoice,
                         $groupResult['remote_receipt'],
                         $groupResult['receipt'],
-                        $client,
                     );
                 }
 
@@ -600,9 +600,9 @@ class InvoiceController extends Controller
                 )
                 : $this->storeEmittedReceipt($invoice, $receipt);
 
-            $this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);
+            $postEmitEmail = $this->preparePostEmitEmailPayload($request, $invoice);
+            $this->dispatchPostEmission($invoice, $receipt, $persistedReceipt, $postEmitEmail);
             $this->markInvoiceSentAfterEmission($invoice);
-            $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
             $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
             $successMessage = $substitutionReceipt instanceof NfseReceipt
                 ? trans('nfse::general.nfse_substituted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])
@@ -622,6 +622,27 @@ class InvoiceController extends Controller
     protected function markInvoiceSentAfterEmission(Invoice $invoice): void
     {
         event(new DocumentMarkedSent($invoice));
+    }
+
+    /**
+     * @param array{
+     *   attach_danfse:bool,
+     *   attach_xml:bool,
+     *   custom_mail:array<string,mixed>
+     * }|null $email
+     */
+    protected function dispatchPostEmission(
+        Invoice $invoice,
+        ReceiptData $receipt,
+        NfseReceipt $persistedReceipt,
+        ?array $email = null,
+    ): void {
+        ProcessNfsePostEmission::dispatch(
+            invoiceId: (int) $invoice->id,
+            receiptId: (int) $persistedReceipt->id,
+            authorizedXml: trim((string) ($receipt->rawXml ?? '')),
+            email: $email,
+        )->afterCommit();
     }
 
     public function substitute(Invoice $invoice, Request $request): RedirectResponse|JsonResponse
@@ -854,7 +875,7 @@ class InvoiceController extends Controller
             $resolvedReceiptNumber = (new ReceiptNumberResolver())->resolve($updatedReceipt);
 
             try {
-                $this->storeArtifacts($invoice, $updatedReceipt, $receipt, $client);
+                $this->dispatchPostEmission($invoice, $updatedReceipt, $receipt);
             } finally {
                 $this->cleanupClientTransportArtifacts();
             }
@@ -1074,8 +1095,8 @@ class InvoiceController extends Controller
 
         try {
             $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
-            $this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);
-            $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
+            $postEmitEmail = $this->preparePostEmitEmailPayload($request, $invoice);
+            $this->dispatchPostEmission($invoice, $newReceipt, $persistedReceipt, $postEmitEmail);
             $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
 
             return $this->ajaxAwareRedirect(
@@ -3724,8 +3745,35 @@ class InvoiceController extends Controller
     }
     protected function handlePostEmitEmail(?Request $request, Invoice $invoice, \Modules\Nfse\Models\NfseReceipt $receipt): void
     {
-        if ($request === null) {
+        $payload = $this->preparePostEmitEmailPayload($request, $invoice);
+
+        if ($payload === null) {
             return;
+        }
+
+        $this->sendNfseIssuedNotification(
+            $invoice,
+            $receipt,
+            $payload['attach_danfse'],
+            $payload['attach_xml'],
+            $payload['custom_mail'],
+        );
+    }
+
+    /**
+     * Persist request-level e-mail preferences synchronously and return only
+     * serializable data that can safely cross a queue boundary.
+     *
+     * @return array{
+     *   attach_danfse:bool,
+     *   attach_xml:bool,
+     *   custom_mail:array<string,mixed>
+     * }|null
+     */
+    protected function preparePostEmitEmailPayload(?Request $request, Invoice $invoice): ?array
+    {
+        if ($request === null) {
+            return null;
         }
 
         $sendEmail = $request->boolean('nfse_send_email', false);
@@ -3745,7 +3793,7 @@ class InvoiceController extends Controller
         setting()->save();
 
         if (!$sendEmail) {
-            return;
+            return null;
         }
 
         if ($saveDefault) {
@@ -3774,7 +3822,7 @@ class InvoiceController extends Controller
         }
 
         if ($recipient === null) {
-            return;
+            return null;
         }
 
         $customMail = [
@@ -3792,7 +3840,11 @@ class InvoiceController extends Controller
             }
         }
 
-        $this->sendNfseIssuedNotification($invoice, $receipt, $attachDanfse, $attachXml, $customMail);
+        return [
+            'attach_danfse' => $attachDanfse,
+            'attach_xml' => $attachXml,
+            'custom_mail' => $customMail,
+        ];
     }
 
     protected function normalizePostEmitRecipient(mixed $rawRecipient): mixed
