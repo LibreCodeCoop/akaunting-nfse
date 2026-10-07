@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Support;
 
+use Illuminate\Support\Facades\Http;
+
 final class WebDavClient
 {
     /** @var callable(string, string, array<string, string>, string): array{0:int,1:string} */
@@ -26,7 +28,7 @@ final class WebDavClient
             throw new \InvalidArgumentException('WebDAV timeout must be greater than zero.');
         }
 
-        $this->request = $request ?? [$this, 'requestUsingStreams'];
+        $this->request = $request ?? [$this, 'requestUsingHttpClient'];
     }
 
     public function put(string $path, string $content): void
@@ -85,34 +87,33 @@ final class WebDavClient
      * @param array<string, string> $headers
      * @return array{0:int,1:string}
      */
-    private function requestUsingStreams(string $method, string $url, array $headers, string $body): array
-    {
-        $headerLines = [];
-        foreach ($headers as $name => $value) {
-            $headerLines[] = $name . ': ' . $value;
+    private function requestUsingHttpClient(
+        string $method,
+        string $url,
+        array $headers,
+        string $body,
+    ): array {
+        try {
+            $request = Http::withHeaders($headers)
+                ->timeout($this->timeoutSeconds);
+
+            if ($body !== '') {
+                $request = $request->withBody(
+                    $body,
+                    $headers['Content-Type'] ?? 'application/octet-stream',
+                );
+            }
+
+            $response = $request->send($method, $url);
+        } catch (\Throwable $throwable) {
+            throw new \RuntimeException(
+                'WebDAV ' . $method . ' transport failed: ' . $throwable->getMessage(),
+                0,
+                $throwable,
+            );
         }
 
-        $context = stream_context_create([
-            'http' => [
-                'method' => $method,
-                'header' => implode("\r\n", $headerLines),
-                'content' => $body,
-                'ignore_errors' => true,
-                'timeout' => $this->timeoutSeconds,
-            ],
-        ]);
-
-        $responseBody = @file_get_contents($url, false, $context);
-        $responseBody = is_string($responseBody) ? $responseBody : '';
-
-        $status = 0;
-        $responseHeaders = $http_response_header ?? [];
-
-        if (isset($responseHeaders[0]) && is_string($responseHeaders[0]) && preg_match('/\s(\d{3})\s/', $responseHeaders[0], $matches) === 1) {
-            $status = (int) $matches[1];
-        }
-
-        return [$status, $responseBody];
+        return [$response->status(), $response->body()];
     }
 
     /** @return array<string, string> */
