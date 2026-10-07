@@ -457,11 +457,10 @@ class InvoiceController extends Controller
                 );
 
                 if (!$groupResult['reused'] && $groupResult['remote_receipt'] instanceof ReceiptData) {
-                    $this->storeArtifacts(
+                    $this->dispatchPostEmission(
                         $invoice,
-                        $groupResult['remote_receipt'],
                         $groupResult['receipt'],
-                        $client,
+                        null,
                     );
                 }
 
@@ -860,7 +859,7 @@ class InvoiceController extends Controller
             $resolvedReceiptNumber = (new ReceiptNumberResolver())->resolve($updatedReceipt);
 
             try {
-                $this->storeArtifacts($invoice, $updatedReceipt, $receipt, $client);
+                $this->dispatchPostEmission($invoice, $receipt, null);
             } finally {
                 $this->cleanupClientTransportArtifacts();
             }
@@ -1080,8 +1079,8 @@ class InvoiceController extends Controller
 
         try {
             $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
-            $this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);
-            $this->handlePostEmitEmail($request, $invoice, $persistedReceipt);
+            $email = $this->preparePostEmitEmail($request, $invoice);
+            $this->dispatchPostEmission($invoice, $persistedReceipt, $email);
             $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
 
             return $this->ajaxAwareRedirect(
