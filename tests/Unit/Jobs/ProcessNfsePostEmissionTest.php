@@ -35,7 +35,8 @@ final class ProcessNfsePostEmissionTest extends TestCase
         self::assertNotFalse($emailPosition);
         self::assertLessThan($emailPosition, $artifactPosition);
         self::assertStringContainsString('(new DanfseGenerator())->generateFromXml($this->authorizedXml)', $content);
-        self::assertStringContainsString('new SendNfseCustomEmail(', $content);
+        self::assertStringContainsString('new NfseIssued(', $content);
+        self::assertStringContainsString("Notification::route('mail'", $content);
     }
 
     public function testArtifactFailuresAreLoggedWithoutTurningAuthorizationIntoFailure(): void
