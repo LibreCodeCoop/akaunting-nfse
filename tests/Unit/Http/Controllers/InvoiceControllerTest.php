@@ -177,16 +177,19 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
-        public function testControllerStoresArtifactsAfterPersistingReceipt(): void
+        public function testControllerDispatchesPostEmissionAfterPersistingReceipt(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString(': $this->storeEmittedReceipt($invoice, $receipt);', $content);
             self::assertStringContainsString('(new ReceiptPersistence())->createReplacement(', $content);
-            self::assertStringContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
+            self::assertStringContainsString('$postEmitEmail = $this->preparePostEmitEmailPayload($request, $invoice);', $content);
+            self::assertStringContainsString('$this->dispatchPostEmission($invoice, $receipt, $persistedReceipt, $postEmitEmail);', $content);
             self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
             self::assertStringContainsString('$persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);', $content);
-            self::assertStringContainsString('$this->storeArtifacts($invoice, $newReceipt, $persistedReceipt, $client);', $content);
+            self::assertStringContainsString('$this->dispatchPostEmission($invoice, $newReceipt, $persistedReceipt, $postEmitEmail);', $content);
+            self::assertStringContainsString('ProcessNfsePostEmission::dispatch(', $content);
+            self::assertStringContainsString(')->afterCommit();', $content);
         }
 
         public function testMissingDanfseDownloadRegeneratesPdfFromStoredXml(): void
@@ -6098,6 +6101,18 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([$invoice], $response->parameters);
             self::assertSame('A NFS-e precisa estar cancelada para reemissao manual.', $response->flash['warning'] ?? null);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
+        }
+
+        public function testPostEmitEmailPayloadIsSerializableAndKeepsRequestPreferencesOutOfTheJob(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            self::assertStringContainsString('protected function preparePostEmitEmailPayload(?Request $request, Invoice $invoice): ?array', $content);
+            self::assertStringContainsString("'custom_mail' => $customMail", $content);
+            self::assertStringContainsString("'attach_danfse' => $attachDanfse", $content);
+            self::assertStringContainsString("'attach_xml' => $attachXml", $content);
+            self::assertStringContainsString("authorizedXml: trim((string) ($receipt->rawXml ?? ''))", $content);
+            self::assertStringNotContainsString('ProcessNfsePostEmission::dispatch($request', $content);
         }
 
         public function testHandlePostEmitEmailCallsSendNotificationWhenEnabledAndRecipientPresent(): void
