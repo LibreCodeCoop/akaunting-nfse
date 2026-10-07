@@ -35,6 +35,8 @@ final class IssuedNfseArtifactStoreTest extends FeatureTestCase
         $requests = [];
 
         $store = new class ($requests) extends IssuedNfseArtifactStore {
+            public ?string $generatedFromXml = null;
+
             public function __construct(private array &$requests)
             {
             }
@@ -68,7 +70,7 @@ final class IssuedNfseArtifactStoreTest extends FeatureTestCase
 
             protected function generateDanfse(string $authorizedXml): string
             {
-                self::assertSame('<NFSe>authorized</NFSe>', $authorizedXml);
+                $this->generatedFromXml = $authorizedXml;
 
                 return '%PDF-1.4 generated';
             }
@@ -80,6 +82,7 @@ final class IssuedNfseArtifactStoreTest extends FeatureTestCase
         $fresh = $receipt->fresh();
         self::assertNotEmpty($fresh->xml_webdav_path);
         self::assertNotEmpty($fresh->danfse_webdav_path);
+        self::assertSame('<NFSe>authorized</NFSe>', $store->generatedFromXml);
 
         $puts = array_values(array_filter(
             $requests,
