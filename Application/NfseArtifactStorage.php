@@ -172,7 +172,7 @@ final class NfseArtifactStorage
     ): void {
         ($this->logError)("NFS-e {$artifact} post-emission processing failed", [
             'invoice_id' => (int) $invoice->id,
-            'receipt_id' => (int) $receipt->id,
+            'receipt_id' => (int) ($receipt->id ?? 0),
             'chave_acesso' => (string) ($receipt->chave_acesso ?? ''),
             'message' => $throwable->getMessage(),
         ]);
