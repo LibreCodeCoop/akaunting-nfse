@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Application;
 
+use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
@@ -31,14 +32,16 @@ final class RefreshInvoiceNfse
             'status' => 'emitted',
         ];
 
-        $receipt->update($values);
+        DB::transaction(function () use ($receipt, $updated, $values): void {
+            $receipt->update($values);
 
-        if (is_string($updated->rawXml) && trim($updated->rawXml) !== '') {
-            NfseReceiptPayload::query()->updateOrCreate(
-                ['receipt_id' => (int) $receipt->id],
-                ['authorized_xml' => trim($updated->rawXml)],
-            );
-        }
+            if (is_string($updated->rawXml) && trim($updated->rawXml) !== '') {
+                NfseReceiptPayload::query()->updateOrCreate(
+                    ['receipt_id' => (int) $receipt->id],
+                    ['authorized_xml' => trim($updated->rawXml)],
+                );
+            }
+        });
 
         return $updated;
     }

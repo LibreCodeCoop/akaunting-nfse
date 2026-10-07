@@ -23,20 +23,23 @@ final class ReceiptPersistence
         string $resolvedNumber,
         ?NfseReceipt $existingReceipt = null,
     ): NfseReceipt {
-        $values = $this->receiptValues($receipt, $resolvedNumber);
+        return DB::transaction(function () use ($invoiceId, $receipt, $resolvedNumber, $existingReceipt): NfseReceipt {
+            $values = $this->receiptValues($receipt, $resolvedNumber);
 
-        if ($existingReceipt instanceof NfseReceipt) {
-            $existingReceipt->update($values);
-        }
+            if ($existingReceipt instanceof NfseReceipt) {
+                $existingReceipt->update($values);
+                $persisted = $existingReceipt->fresh();
+            } else {
+                $persisted = NfseReceipt::updateOrCreate(
+                    ['invoice_id' => $invoiceId],
+                    $values,
+                );
+            }
 
-        $persisted = NfseReceipt::updateOrCreate(
-            ['invoice_id' => $invoiceId],
-            $values,
-        );
+            $this->persistAuthorizedXml($persisted, $receipt);
 
-        $this->persistAuthorizedXml($persisted, $receipt);
-
-        return $persisted;
+            return $persisted;
+        });
     }
 
     public function createGrouped(
