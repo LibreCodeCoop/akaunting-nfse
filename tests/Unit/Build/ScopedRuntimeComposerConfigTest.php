@@ -157,6 +157,9 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
             "sprintf('%s\\\\Positioner\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \$type)",
             $patchedContent,
         );
+        self::assertStringNotContainsString('\\\\$decorator', $patchedContent);
+        self::assertStringNotContainsString('\\\\$reflower', $patchedContent);
+        self::assertStringNotContainsString('\\\\$class', $patchedContent);
     }
 
     public function testBuiltScopedDompdfFactoryContainsNoUnscopedDynamicClassNames(): void

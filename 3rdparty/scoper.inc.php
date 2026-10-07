@@ -28,15 +28,19 @@ return [
 
             $replacements = [
                 '/^\\s*\\$decorator\\s*=\\s*".*FrameDecorator.*";\\s*$/m'
-                    => "        \\$decorator = sprintf('%s\\\\FrameDecorator\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \\$decorator);",
+                    => '        $decorator = sprintf(\'%s\\\\FrameDecorator\\\\%s\', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')), $decorator);',
                 '/^\\s*\\$reflower\\s*=\\s*".*FrameReflower.*";\\s*$/m'
-                    => "        \\$reflower = sprintf('%s\\\\FrameReflower\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \\$reflower);",
+                    => '        $reflower = sprintf(\'%s\\\\FrameReflower\\\\%s\', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')), $reflower);',
                 '/^\\s*\\$class\\s*=\\s*.*Positioner.*\\$type;\\s*$/m'
-                    => "            \\$class = sprintf('%s\\\\Positioner\\\\%s', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, '\\\\Frame')), \\$type);",
+                    => '            $class = sprintf(\'%s\\\\Positioner\\\\%s\', substr(__NAMESPACE__, 0, strrpos(__NAMESPACE__, \'\\\\Frame\')), $type);',
             ];
 
             foreach ($replacements as $pattern => $replacement) {
-                $patched = preg_replace($pattern, $replacement, $content);
+                $patched = preg_replace_callback(
+                    $pattern,
+                    static fn (): string => $replacement,
+                    $content,
+                );
 
                 if (is_string($patched)) {
                     $content = $patched;
