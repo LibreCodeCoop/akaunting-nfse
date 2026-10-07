@@ -252,10 +252,10 @@ class Main extends Provider
             if ($receipt instanceof NfseReceipt) {
                 try {
                     $payload = NfseReceiptPayload::query()
-                        ->where('receipt_id', (int) $receipt->id)
+                        ->where('receipt_id', (int) $receipt->getKey())
                         ->first();
                     $authorizedXmlAvailable = $payload instanceof NfseReceiptPayload
-                        && trim((string) $payload->authorized_xml) !== '';
+                        && trim((string) $payload->getAttribute('authorized_xml')) !== '';
                 } catch (\Throwable) {
                     $authorizedXmlAvailable = false;
                 }
