@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Models\Document\Document;
 use Modules\Nfse\Application\ReceiptPersistence;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use Tests\Feature\FeatureTestCase;
 
@@ -225,9 +226,86 @@ final class ReceiptPersistenceTest extends FeatureTestCase
 
         $fresh = $receipt->fresh();
 
+        self::assertSame(
+            $xml,
+            NfseReceiptPayload::query()->where('receipt_id', $fresh->id)->value('authorized_xml'),
+        );
+        self::assertNull($fresh->authorized_xml);
         self::assertSame('2026-10-01', $fresh->competence_date?->format('Y-m-d'));
         self::assertSame('100.00', $fresh->authorized_fiscal_snapshot['gross_service_value'] ?? null);
         self::assertSame(hash('sha256', $xml), $fresh->authorized_fiscal_snapshot['source_sha256'] ?? null);
+    }
+
+    public function testChangingFiscalIdentityClearsPersistedArtifactPaths(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $persistence = new ReceiptPersistence();
+
+        $existing = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '145',
+            'chave_acesso' => str_repeat('4', 50),
+            'data_emissao' => '2026-10-07T12:00:00-03:00',
+            'codigo_verificacao' => 'OLD',
+            'status' => 'emitted',
+            'xml_webdav_path' => 'NFSe_145.xml',
+            'danfse_webdav_path' => 'NFSe_145.pdf',
+        ]);
+
+        $updated = $persistence->storeCurrent(
+            $invoice->id,
+            new ReceiptData(
+                nfseNumber: '146',
+                chaveAcesso: str_repeat('5', 50),
+                dataEmissao: '2026-10-07T13:18:22-03:00',
+                codigoVerificacao: 'NEW',
+                rawXml: '<NFSe>146</NFSe>',
+            ),
+            '146',
+            $existing,
+        );
+
+        self::assertSame('146', $updated->nfse_number);
+        self::assertNull($updated->xml_webdav_path);
+        self::assertNull($updated->danfse_webdav_path);
+    }
+
+    public function testNewAuthorizedXmlResetsPostEmissionEmailMarker(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $persistence = new ReceiptPersistence();
+
+        $receipt = $persistence->storeCurrent(
+            $invoice->id,
+            new ReceiptData(
+                nfseNumber: '60',
+                chaveAcesso: str_repeat('6', 50),
+                dataEmissao: '2026-10-07T10:00:00-03:00',
+                rawXml: '<NFSe>first</NFSe>',
+            ),
+            '60',
+        );
+
+        $receipt->payload()->update([
+            'post_emission_email_sent_at' => now(),
+        ]);
+
+        $persistence->storeCurrent(
+            $invoice->id,
+            new ReceiptData(
+                nfseNumber: '61',
+                chaveAcesso: str_repeat('7', 50),
+                dataEmissao: '2026-10-07T11:00:00-03:00',
+                rawXml: '<NFSe>second</NFSe>',
+            ),
+            '61',
+            $receipt,
+        );
+
+        $payload = $receipt->payload()->first();
+
+        self::assertSame('<NFSe>second</NFSe>', $payload?->authorized_xml);
+        self::assertNull($payload?->post_emission_email_sent_at);
     }
 
     private function receipt(string $number, string $accessKey): ReceiptData

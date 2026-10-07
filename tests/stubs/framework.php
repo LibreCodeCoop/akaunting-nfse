@@ -114,6 +114,16 @@ class Model
         return $this->table;
     }
 
+    public function getKey(): mixed
+    {
+        return null;
+    }
+
+    public function getAttribute(string $key): mixed
+    {
+        return null;
+    }
+
     public function __get(string $key): mixed
     {
         return null;

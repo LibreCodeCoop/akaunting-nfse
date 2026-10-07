@@ -22,13 +22,22 @@ final class RefreshInvoiceNfse
     {
         $updated = $client->query($receipt->chave_acesso);
 
-        $receipt->update([
+        $values = [
             'nfse_number' => $this->numberResolver->resolve($updated),
             'chave_acesso' => $updated->chaveAcesso,
             'data_emissao' => $updated->dataEmissao,
             'codigo_verificacao' => $updated->codigoVerificacao,
             'status' => 'emitted',
-        ]);
+        ];
+
+        $receipt->update($values);
+
+        if (is_string($updated->rawXml) && trim($updated->rawXml) !== '') {
+            $receipt->payload()->updateOrCreate(
+                [],
+                ['authorized_xml' => trim($updated->rawXml)],
+            );
+        }
 
         return $updated;
     }

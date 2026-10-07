@@ -64,6 +64,7 @@ Route::admin('nfse', function () {
     Route::post('invoices/{invoice}/substitute', [InvoiceController::class, 'substitute'])->name('invoices.substitute');
     Route::get('invoices/{invoice}', [LegacyInvoiceController::class, 'show'])->name('invoices.show');
     Route::get('invoices/{invoice}/emit-success', [InvoiceController::class, 'showEmitSuccess'])->name('invoices.emit-success');
+    Route::get('invoices/{invoice}/post-emission-status', [InvoiceController::class, 'postEmissionStatus'])->name('invoices.post-emission-status');
     Route::get('invoices/{invoice}/adn-events', [AdnController::class, 'events'])->name('invoices.adn-events');
     Route::get('invoices/{invoice}/artifacts/{artifact}', [InvoiceController::class, 'downloadArtifact'])->name('invoices.artifacts.download');
     Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])->name('invoices.cancel');

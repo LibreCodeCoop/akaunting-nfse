@@ -7,24 +7,52 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Support;
 
+use Illuminate\Support\Facades\Http;
+
 final class WebDavClient
 {
     /** @var callable(string, string, array<string, string>, string): array{0:int,1:string} */
     private $request;
 
+    /** @var array<string, true> */
+    private array $knownDirectories = [];
+
     public function __construct(
         private readonly string $baseUrl,
         private readonly ?string $username = null,
         private readonly ?string $password = null,
+        private readonly float $timeoutSeconds = 20.0,
         ?callable $request = null,
     ) {
-        $this->request = $request ?? [$this, 'requestUsingStreams'];
+        if ($this->timeoutSeconds <= 0) {
+            throw new \InvalidArgumentException('WebDAV timeout must be greater than zero.');
+        }
+
+        $this->request = $request ?? [$this, 'requestUsingHttpClient'];
     }
 
     public function put(string $path, string $content): void
     {
-        $this->ensureParentDirectories($path);
+        $status = $this->putOnce($path, $content);
 
+        if ($status >= 200 && $status < 300) {
+            return;
+        }
+
+        if (!in_array($status, [404, 409], true)) {
+            throw new \RuntimeException('WebDAV PUT failed with HTTP status ' . $status);
+        }
+
+        $this->ensureParentDirectories($path);
+        $status = $this->putOnce($path, $content);
+
+        if ($status < 200 || $status >= 300) {
+            throw new \RuntimeException('WebDAV PUT failed with HTTP status ' . $status);
+        }
+    }
+
+    private function putOnce(string $path, string $content): int
+    {
         [$status] = ($this->request)(
             'PUT',
             $this->buildUrl($path),
@@ -32,9 +60,7 @@ final class WebDavClient
             $content,
         );
 
-        if ($status < 200 || $status >= 300) {
-            throw new \RuntimeException('WebDAV PUT failed with HTTP status ' . $status);
-        }
+        return $status;
     }
 
     public function get(string $path): string
@@ -77,33 +103,37 @@ final class WebDavClient
      * @param array<string, string> $headers
      * @return array{0:int,1:string}
      */
-    private function requestUsingStreams(string $method, string $url, array $headers, string $body): array
-    {
-        $headerLines = [];
-        foreach ($headers as $name => $value) {
-            $headerLines[] = $name . ': ' . $value;
+    private function requestUsingHttpClient(
+        string $method,
+        string $url,
+        array $headers,
+        string $body,
+    ): array {
+        try {
+            $timeoutSeconds = (int) ceil($this->timeoutSeconds);
+            $connectTimeoutSeconds = min(15, $timeoutSeconds);
+
+            $request = Http::withHeaders($headers)
+                ->connectTimeout($connectTimeoutSeconds)
+                ->timeout($timeoutSeconds);
+
+            if ($body !== '') {
+                $request = $request->withBody(
+                    $body,
+                    $headers['Content-Type'] ?? 'application/octet-stream',
+                );
+            }
+
+            $response = $request->send($method, $url);
+        } catch (\Throwable $throwable) {
+            throw new \RuntimeException(
+                'WebDAV ' . $method . ' transport failed: ' . $throwable->getMessage(),
+                0,
+                $throwable,
+            );
         }
 
-        $context = stream_context_create([
-            'http' => [
-                'method' => $method,
-                'header' => implode("\r\n", $headerLines),
-                'content' => $body,
-                'ignore_errors' => true,
-            ],
-        ]);
-
-        $responseBody = @file_get_contents($url, false, $context);
-        $responseBody = is_string($responseBody) ? $responseBody : '';
-
-        $status = 0;
-        $responseHeaders = $http_response_header ?? [];
-
-        if (isset($responseHeaders[0]) && is_string($responseHeaders[0]) && preg_match('/\s(\d{3})\s/', $responseHeaders[0], $matches) === 1) {
-            $status = (int) $matches[1];
-        }
-
-        return [$status, $responseBody];
+        return [$response->status(), $response->body()];
     }
 
     /** @return array<string, string> */
@@ -140,25 +170,54 @@ final class WebDavClient
 
         array_pop($segments);
 
+        $directories = [];
         $current = '';
+
         foreach ($segments as $segment) {
             $current = $current === '' ? $segment : $current . '/' . $segment;
+            $directories[] = $current;
+        }
+
+        $deepestExistingIndex = -1;
+
+        for ($index = count($directories) - 1; $index >= 0; $index--) {
+            $directory = $directories[$index];
+
+            if (isset($this->knownDirectories[$directory]) || $this->exists($directory)) {
+                $deepestExistingIndex = $index;
+
+                for ($knownIndex = 0; $knownIndex <= $index; $knownIndex++) {
+                    $this->knownDirectories[$directories[$knownIndex]] = true;
+                }
+
+                break;
+            }
+        }
+
+        for ($index = $deepestExistingIndex + 1; $index < count($directories); $index++) {
+            $directory = $directories[$index];
+
             [$status] = ($this->request)(
                 'MKCOL',
-                $this->buildUrl($current),
+                $this->buildUrl($directory),
                 $this->authHeaders(),
                 '',
             );
 
             if (in_array($status, [200, 201, 204, 301, 302, 405], true)) {
+                $this->knownDirectories[$directory] = true;
+
                 continue;
             }
 
-            if (in_array($status, [400, 409], true) && $this->exists($current)) {
+            if (in_array($status, [400, 409], true) && $this->exists($directory)) {
+                $this->knownDirectories[$directory] = true;
+
                 continue;
             }
 
             throw new \RuntimeException('WebDAV MKCOL failed with HTTP status ' . $status);
         }
     }
+
 }

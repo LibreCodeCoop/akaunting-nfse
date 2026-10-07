@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\ItemFiscalProfileValidator;
 use Modules\Nfse\Application\ItemFiscalValidationSummary;
+use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Console\Commands\DiagnoseMunicipalParameters;
 use Modules\Nfse\Console\Commands\ProvisionTestHarness;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
@@ -18,6 +19,7 @@ use Modules\Nfse\Console\Commands\SyncAdn;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
@@ -242,11 +244,29 @@ class Main extends Provider
             }
 
             $receipt = $receipts->first();
+            $postEmissionStatus = $receipt instanceof NfseReceipt
+                ? (new PostEmissionState())->snapshot($receipt)
+                : null;
+            $authorizedXmlAvailable = false;
+
+            if ($receipt instanceof NfseReceipt) {
+                try {
+                    $payload = NfseReceiptPayload::query()
+                        ->where('receipt_id', (int) $receipt->getKey())
+                        ->first();
+                    $authorizedXmlAvailable = $payload instanceof NfseReceiptPayload
+                        && trim((string) $payload->getAttribute('authorized_xml')) !== '';
+                } catch (\Throwable) {
+                    $authorizedXmlAvailable = false;
+                }
+            }
 
             $content = view('nfse::invoices.partials.native-fiscal-panel', [
                 'invoice' => $invoice,
                 'receipt' => $receipt,
                 'receipts' => $receipts,
+                'postEmissionStatus' => $postEmissionStatus,
+                'authorizedXmlAvailable' => $authorizedXmlAvailable,
             ])->render();
 
             $modalTrigger = view('nfse::invoices.partials.native-fiscal-modal-trigger', [
@@ -266,6 +286,10 @@ class Main extends Provider
             $viewFactory->startPush(
                 'body_end',
                 view('nfse::modals.invoices.partials.issue-modal-script')->render(),
+            );
+            $viewFactory->startPush(
+                'body_end',
+                view('nfse::invoices.partials.post-emission-status-script')->render(),
             );
         });
     }

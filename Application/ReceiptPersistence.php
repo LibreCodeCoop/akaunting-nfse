@@ -25,13 +25,26 @@ final class ReceiptPersistence
         $values = $this->receiptValues($receipt, $resolvedNumber);
 
         if ($existingReceipt instanceof NfseReceipt) {
+            $fiscalIdentityChanged = (string) $existingReceipt->chave_acesso !== (string) $receipt->chaveAcesso
+                || (string) $existingReceipt->nfse_number !== $resolvedNumber;
+
+            if ($fiscalIdentityChanged) {
+                $values['xml_webdav_path'] = null;
+                $values['danfse_webdav_path'] = null;
+            }
+
             $existingReceipt->update($values);
+            $persisted = $existingReceipt->fresh();
+        } else {
+            $persisted = NfseReceipt::updateOrCreate(
+                ['invoice_id' => $invoiceId],
+                $values,
+            );
         }
 
-        return NfseReceipt::updateOrCreate(
-            ['invoice_id' => $invoiceId],
-            $values,
-        );
+        $this->persistAuthorizedXml($persisted, $receipt);
+
+        return $persisted;
     }
 
     public function createGrouped(
@@ -56,17 +69,23 @@ final class ReceiptPersistence
                 }
 
                 $existing->update($this->receiptValues($receipt, $resolvedNumber));
+                $fresh = $existing->fresh();
+                $this->persistAuthorizedXml($fresh, $receipt);
 
-                return $existing->fresh();
+                return $fresh;
             }
 
-            return NfseReceipt::query()->create(array_merge(
+            $created = NfseReceipt::query()->create(array_merge(
                 [
                     'invoice_id' => $invoiceId,
                     'emission_group_key' => $groupKey,
                 ],
                 $this->receiptValues($receipt, $resolvedNumber),
             ));
+
+            $this->persistAuthorizedXml($created, $receipt);
+
+            return $created;
         });
     }
 
@@ -109,7 +128,10 @@ final class ReceiptPersistence
                     $lockedOriginal->update(['status' => 'substituted']);
                 }
 
-                return $existing->fresh();
+                $fresh = $existing->fresh();
+                $this->persistAuthorizedXml($fresh, $receipt);
+
+                return $fresh;
             }
 
             $replacement = NfseReceipt::query()->create(array_merge(
@@ -121,6 +143,7 @@ final class ReceiptPersistence
             ));
 
             $lockedOriginal->update(['status' => 'substituted']);
+            $this->persistAuthorizedXml($replacement, $receipt);
 
             return $replacement;
         });
@@ -154,5 +177,22 @@ final class ReceiptPersistence
         }
 
         return $values;
+    }
+
+    private function persistAuthorizedXml(NfseReceipt $receipt, ReceiptData $remoteReceipt): void
+    {
+        $xml = is_string($remoteReceipt->rawXml) ? trim($remoteReceipt->rawXml) : '';
+
+        if ($xml === '') {
+            return;
+        }
+
+        $receipt->payload()->updateOrCreate(
+            [],
+            [
+                'authorized_xml' => $xml,
+                'post_emission_email_sent_at' => null,
+            ],
+        );
     }
 }

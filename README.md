@@ -75,6 +75,16 @@ definido de acordo com a operacao e as tabelas oficiais. Quando habilitado, o
 plugin envia `finNFSe=0` (NFS-e regular), unico valor atualmente admitido pelo
 schema v1.01.
 
+### Processamento pós-emissão e fila
+
+Depois que a SEFIN autoriza a NFS-e, o módulo persiste o recibo e mantém o XML autorizado em uma tabela de payload 1:1 antes de iniciar DANFSE, WebDAV e e-mail. Essas tarefas usam a fila nativa do Laravel/Akaunting.
+
+- `QUEUE_CONNECTION=sync`: funciona sem worker externo e mantém compatibilidade com instalações simples;
+- filas assíncronas como Redis: retiram DANFSE, WebDAV e e-mail do request HTTP;
+- falhas de fila posteriores à autorização não devem provocar uma nova emissão fiscal.
+
+A configuração completa, exemplo de worker Docker, validação e política de retry estão em [docs/queue.md](docs/queue.md).
+
 ### Diagnóstico oficial e ADN
 
 O módulo inclui recursos de diagnóstico somente leitura para comparar a configuração local e os documentos emitidos com os dados oficiais:

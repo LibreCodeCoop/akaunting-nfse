@@ -138,6 +138,7 @@ JS API: window.nfseOpenResultModal(title, bodyHtml, viewUrl, reloadOnClose)
                             const html = await r.text();
                             if (resultContent)  { resultContent.innerHTML = html; }
                             if (resultLoading)  { resultLoading.classList.add('hidden'); }
+                            window.NfsePostEmissionStatus?.scan?.(document);
                         })
                         .catch(() => {
                             if (resultContent)  { resultContent.textContent = message ?? ''; }

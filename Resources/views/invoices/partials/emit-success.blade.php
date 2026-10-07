@@ -5,7 +5,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 Partial rendered inside the emit-success result modal (no layout).
 Variables: $invoice, $receipt, $receiptStatusLabel, $artifacts
 --}}
-<div class="space-y-4">
+@php
+    $postEmissionStatus = is_array($postEmissionStatus ?? null) ? $postEmissionStatus : [];
+    $postEmissionOverall = (string) ($postEmissionStatus['overall_status'] ?? 'idle');
+    $postEmissionActive = ($postEmissionStatus['poll'] ?? false) === true;
+@endphp
+<div
+    class="space-y-4"
+    data-nfse-post-emission-status-url="{{ route('nfse.invoices.post-emission-status', $invoice->id) }}"
+    data-nfse-post-emission-state="{{ $postEmissionOverall }}"
+    data-message-processing="{{ trans('nfse::general.invoices.post_processing_processing') }}"
+    data-message-completed="{{ trans('nfse::general.invoices.post_processing_completed') }}"
+    data-message-failed="{{ trans('nfse::general.invoices.post_processing_failed') }}"
+    data-stage-pending="{{ trans('nfse::general.invoices.post_processing_stage_pending') }}"
+    data-stage-processing="{{ trans('nfse::general.invoices.post_processing_stage_processing') }}"
+    data-stage-retrying="{{ trans('nfse::general.invoices.post_processing_stage_retrying') }}"
+    data-stage-completed="{{ trans('nfse::general.invoices.post_processing_stage_completed') }}"
+    data-stage-failed="{{ trans('nfse::general.invoices.post_processing_stage_failed') }}"
+    data-stage-not-requested="{{ trans('nfse::general.invoices.post_processing_stage_not_requested') }}"
+    data-artifact-processing="{{ trans('nfse::general.invoices.post_processing_stage_processing') }}"
+    data-artifact-missing="{{ trans('nfse::general.invoices.artifact_missing') }}"
+>
+    <div class="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm {{ $postEmissionOverall === 'idle' ? 'hidden' : '' }}" data-nfse-post-emission-box aria-live="polite">
+        <svg data-nfse-post-emission-spinner class="h-4 w-4 animate-spin {{ $postEmissionActive ? '' : 'hidden' }}" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        <span data-nfse-post-emission-message>
+            {{ $postEmissionOverall === 'failed'
+                ? trans('nfse::general.invoices.post_processing_failed')
+                : ($postEmissionOverall === 'completed'
+                    ? trans('nfse::general.invoices.post_processing_completed')
+                    : trans('nfse::general.invoices.post_processing_processing')) }}
+        </span>
+        <span class="ml-auto text-xs text-gray-500">
+            {{ trans('nfse::general.invoices.post_processing_email') }}:
+            <span data-nfse-email-status>{{ trans('nfse::general.invoices.post_processing_stage_' . ($postEmissionStatus['email_status'] ?? 'not_requested')) }}</span>
+        </span>
+    </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="rounded border bg-gray-50 p-4">
             <h4 class="mb-3 font-semibold text-gray-800">{{ trans('nfse::general.invoices.receipt_data') }}</h4>
@@ -62,11 +99,21 @@ Variables: $invoice, $receipt, $receiptStatusLabel, $artifacts
                         {{ $artifactKey === 'danfse' ? trans('nfse::general.invoices.artifact_danfse_label') : trans('nfse::general.invoices.artifact_xml_label') }}
                     </span>
                     @if(($artifactData['exists'] ?? false) === true && is_string($artifactData['download_url'] ?? null) && ($artifactData['download_url'] ?? '') !== '')
-                        <a href="{{ $artifactData['download_url'] }}" class="inline-flex items-center rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
-                            {{ trans('nfse::general.invoices.artifact_download') }}
+                        <a href="{{ $artifactData['download_url'] }}" data-nfse-artifact="{{ $artifactKey }}"
+                            data-nfse-artifact-processing="{{ $artifactKey === 'danfse' ? trans('nfse::general.invoices.artifact_danfse_processing') : trans('nfse::general.invoices.artifact_xml_processing') }}" aria-disabled="false" class="inline-flex items-center gap-1 rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
+                            <svg data-nfse-artifact-spinner class="hidden h-3 w-3 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                            <span data-nfse-artifact-label>{{ trans('nfse::general.invoices.artifact_download') }}</span>
                         </a>
-                    @else
-                        <span class="inline-flex items-center rounded bg-gray-100 px-2 py-1 text-xs text-gray-500">{{ trans('nfse::general.invoices.artifact_missing') }}</span>
+                    @elseif($postEmissionActive)
+                        <span
+                            data-nfse-artifact="{{ $artifactKey }}"
+                            data-nfse-artifact-processing="{{ $artifactKey === 'danfse' ? trans('nfse::general.invoices.artifact_danfse_processing') : trans('nfse::general.invoices.artifact_xml_processing') }}"
+                            aria-disabled="true"
+                            class="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-500"
+                        >
+                            <svg data-nfse-artifact-spinner class="h-3 w-3 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                            <span data-nfse-artifact-label>{{ $artifactKey === 'danfse' ? trans('nfse::general.invoices.artifact_danfse_processing') : trans('nfse::general.invoices.artifact_xml_processing') }}</span>
+                        </span>
                     @endif
                 </div>
             @endforeach

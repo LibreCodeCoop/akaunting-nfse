@@ -50,4 +50,9 @@ class NfseReceipt extends Model
     {
         return $this->hasOne(self::class, 'replaces_receipt_id');
     }
+
+    public function payload(): HasOne
+    {
+        return $this->hasOne(NfseReceiptPayload::class, 'receipt_id');
+    }
 }

@@ -163,6 +163,58 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
             ->assertSessionHas('warning', trans('nfse::general.invoices.artifact_not_found'));
     }
 
+    public function testXmlDownloadUsesAuthorizedPayloadWithoutWebDavPath(): void
+    {
+        $invoice = FiscalScenarioBuilder::invoice();
+        $receipt = FiscalScenarioBuilder::receipt(
+            invoice: $invoice,
+            status: 'emitted',
+            number: '1005',
+            accessKey: str_repeat('6', 50),
+        );
+
+        $receipt->payload()->create([
+            'authorized_xml' => '<NFSe>authorized-payload</NFSe>',
+        ]);
+
+        $this->loginAs()
+            ->get(route('nfse.invoices.artifacts.download', [
+                'invoice' => $invoice,
+                'artifact' => 'xml',
+            ]))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/xml')
+            ->assertContent('<NFSe>authorized-payload</NFSe>');
+    }
+
+    public function testDanfseDownloadGeneratesPdfFromAuthorizedPayloadWithoutWebDavPath(): void
+    {
+        $invoice = FiscalScenarioBuilder::invoice();
+        $receipt = FiscalScenarioBuilder::receipt(
+            invoice: $invoice,
+            status: 'emitted',
+            number: '1006',
+            accessKey: str_repeat('7', 50),
+        );
+
+        $xml = (string) file_get_contents(dirname(__DIR__, 2) . '/tests/fixtures/nfse_exemplo.xml');
+        $receipt->payload()->create([
+            'authorized_xml' => $xml,
+        ]);
+
+        $response = $this->loginAs()
+            ->get(route('nfse.invoices.artifacts.download', [
+                'invoice' => $invoice,
+                'artifact' => 'danfse',
+            ]));
+
+        $response
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+
+        self::assertStringStartsWith('%PDF-', (string) $response->getContent());
+    }
+
     public function testEmitWithoutItemsIsRejectedBeforeFiscalTransport(): void
     {
         $invoice = FiscalScenarioBuilder::invoice();
