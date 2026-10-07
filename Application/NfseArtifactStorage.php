@@ -46,7 +46,9 @@ final class NfseArtifactStorage
             ?? static fn (string $xml): string => (new DanfseGenerator())->generateFromXml($xml);
 
         $this->logError = $logError
-            ?? static fn (string $message, array $context): mixed => Log::error($message, $context);
+            ?? static function (string $message, array $context): void {
+                Log::error($message, $context);
+            };
     }
 
     public function store(Invoice $invoice, ReceiptData $receipt, NfseReceipt $persistedReceipt): void
