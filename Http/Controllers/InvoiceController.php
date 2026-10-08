@@ -21,6 +21,7 @@ use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\FederalTaxReadiness;
 use Modules\Nfse\Application\FiscalGroupReceiptState;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
+use Modules\Nfse\Application\IbsCbsEmissionReadiness;
 use Modules\Nfse\Application\IbsCbsPayloadResolver;
 use Modules\Nfse\Application\InvoiceDpsBuilder;
 use Modules\Nfse\Application\InvoiceDpsIdentity;
@@ -510,6 +511,35 @@ class InvoiceController extends Controller
             $selectedDocumentItemIds,
             $selectedFiscalAmount,
         );
+
+        $ibsCbsServiceCode = is_array($selectedFiscalGroup)
+            ? (string) ($selectedFiscalGroup['item_lista_servico'] ?? '')
+            : (string) ($itemFiscalProfile['item_lista_servico'] ?? '');
+        $ibsCbsReadiness = (new IbsCbsEmissionReadiness())->evaluate(
+            competenceDate: (string) ($this->competenceDate($invoice) ?? ''),
+            opcaoSimplesNacional: $this->normalizedOpcaoSimplesNacional(),
+            itemListaServico: $ibsCbsServiceCode,
+            settings: is_array(setting('nfse', [])) ? setting('nfse', []) : [],
+        );
+
+        if (($ibsCbsReadiness['isReady'] ?? false) !== true) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('invoices.show', $invoice)
+                    ->with('error', trans('nfse::general.invoices.emit_blocked_ibs_cbs_required', [
+                        'date' => (string) ($ibsCbsReadiness['effective_date'] ?? ''),
+                        'fields' => implode(', ', array_map(
+                            static fn (string $field): string => trans(
+                                'nfse::general.invoices.ibs_cbs_missing_labels.' . $field,
+                            ),
+                            is_array($ibsCbsReadiness['missing'] ?? null)
+                                ? $ibsCbsReadiness['missing']
+                                : [],
+                        )),
+                    ])),
+            );
+        }
+
         $federalTaxReadiness = $this->federalTaxReadinessForInvoice(
             $invoice,
             $selectedDocumentItemIds,
