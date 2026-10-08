@@ -56,18 +56,6 @@ final class AutomaticInvoiceEmissionPreflight
             );
         }
 
-        $profile = $this->context->profile($invoice);
-        $readiness = $this->profileReadiness->evaluate($profile);
-
-        if (($readiness['isReady'] ?? false) !== true) {
-            return $this->blocked(
-                'invalid_profile',
-                is_array($readiness['issues'] ?? null)
-                    ? array_values(array_map('strval', $readiness['issues']))
-                    : [],
-            );
-        }
-
         $groups = $this->context->groups($invoice);
 
         if ($groups === []) {
@@ -100,12 +88,31 @@ final class AutomaticInvoiceEmissionPreflight
         $simples = is_numeric($settings['opcao_simples_nacional'] ?? null)
             ? (int) $settings['opcao_simples_nacional']
             : 1;
+        $category = trim((string) ($group['rtc_supply_category'] ?? ''));
         $ibsCbsReadiness = (new IbsCbsEmissionReadiness())->evaluate(
             competenceDate: (string) ((new InvoiceDpsIdentity())->competenceDate($invoice) ?? ''),
             opcaoSimplesNacional: $simples,
             itemListaServico: (string) ($group['item_lista_servico'] ?? ''),
             settings: $settings,
+            rtcSupplyCategory: $category,
         );
+
+        if ($category !== '' && $category !== 'ordinary_lc116') {
+            return $this->blocked('rtc_supply_category_unsupported', array_values(array_filter([
+                $category,
+                (string) ($ibsCbsReadiness['effective_date'] ?? ''),
+            ])));
+        }
+
+        $readiness = $this->profileReadiness->evaluate($group);
+        if (($readiness['isReady'] ?? false) !== true) {
+            return $this->blocked(
+                'invalid_profile',
+                is_array($readiness['issues'] ?? null)
+                    ? array_values(array_map('strval', $readiness['issues']))
+                    : [],
+            );
+        }
 
         if (($ibsCbsReadiness['isReady'] ?? false) !== true) {
             return $this->blocked(

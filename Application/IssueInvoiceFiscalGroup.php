@@ -40,6 +40,14 @@ final class IssueInvoiceFiscalGroup
         array $group,
     ): array {
         $groupKey = trim((string) ($group['key'] ?? ''));
+        $category = trim((string) ($group['rtc_supply_category'] ?? ''));
+
+        // Enforce capability at the last mutable boundary as well as in the
+        // HTTP/queue preflights; unsupported operations cannot be re-encoded
+        // as ordinary LC116 services by a caller.
+        if ($category !== '' && $category !== 'ordinary_lc116') {
+            throw new \LogicException('Unsupported RTC supply category for LC116 DPS issuance: ' . $category);
+        }
 
         if ($invoiceId <= 0 || $groupKey === '') {
             throw new \InvalidArgumentException('Invoice and fiscal group identity are required.');

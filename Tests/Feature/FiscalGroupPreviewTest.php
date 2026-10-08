@@ -14,6 +14,43 @@ use Tests\Feature\FeatureTestCase;
 
 final class FiscalGroupPreviewTest extends FeatureTestCase
 {
+    public function testPreviewKeepsOtherwiseIdenticalRtcCategoriesSeparate(): void
+    {
+        $this->loginAs();
+        $invoice = Document::factory()->invoice()->create();
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
+
+        foreach (['ordinary_lc116', 'lease'] as $category) {
+            $item = Item::factory()->enabled()->create(['company_id' => $invoice->company_id]);
+            $invoice->items()->create([
+                'company_id' => $invoice->company_id,
+                'type' => $invoice->type,
+                'item_id' => $item->id,
+                'name' => $category,
+                'quantity' => '1',
+                'price' => '50.00',
+                'total' => '50.00',
+                'tax' => '0.00',
+                'discount_rate' => '0.00',
+                'discount_type' => 'normal',
+            ]);
+            ItemFiscalProfile::query()->create([
+                'company_id' => $invoice->company_id,
+                'item_id' => $item->id,
+                'item_lista_servico' => '0107',
+                'codigo_tributacao_nacional' => '010701',
+                'rtc_supply_category' => $category,
+            ]);
+        }
+
+        $invoice->unsetRelation('items');
+        $response = $this->get(route('nfse.invoices.service-preview', $invoice))->assertOk()->json();
+        self::assertTrue($response['requires_split']);
+        self::assertSame(['ordinary_lc116', 'lease'], array_column($response['fiscal_groups'], 'rtc_supply_category'));
+        self::assertNotSame($response['fiscal_groups'][0]['key'], $response['fiscal_groups'][1]['key']);
+    }
+
     public function testServicePreviewReturnsExplicitGroupsForMixedFiscalInvoice(): void
     {
         $this->loginAs();

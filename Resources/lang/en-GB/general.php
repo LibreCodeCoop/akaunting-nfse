@@ -236,6 +236,8 @@ return [
     ],
 
     'invoices' => [
+        'rtc_supply_category_unsupported' => 'Operation :category is not supported by the LC116 DPS emitter. The IBS/CBS obligation date does not establish technical issuance support.',
+
         'title' => 'Service tax receipts',
         'pending_title' => 'Pending invoices for issuance',
         'details_title' => 'NFS-e details',

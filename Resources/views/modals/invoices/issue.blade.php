@@ -96,6 +96,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                         {{ $group['codigo_tributacao_nacional'] ?? '' }}
                                                         — {{ $group['aliquota'] ?? '' }}%
                                                     </span>
+                                                    @php($rtcCategory = (string) ($group['rtc_supply_category'] ?? ''))
+                                                    @if($rtcCategory !== '')
+                                                        <span class="text-xs">{{ trans('nfse::general.items.rtc_' . $rtcCategory) }}</span>
+                                                    @endif
+                                                    @if($rtcCategory !== '' && $rtcCategory !== 'ordinary_lc116')
+                                                        <span class="text-xs text-red-700">{{ trans('nfse::general.invoices.rtc_supply_category_unsupported', ['category' => trans('nfse::general.items.rtc_' . $rtcCategory)]) }}</span>
+                                                    @endif
                                                 </span>
                                                 <span>
                                                     {{ trans('nfse::general.invoices.fiscal_group_amount', ['amount' => $group['amount'] ?? '0.00']) }}

@@ -72,6 +72,22 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
         self::assertSame(['GB'], $result['details']);
     }
 
+    public function testNonLc116CategoryBlocksAutomaticEmissionEvenBeforeEffectiveDate(): void
+    {
+        $invoice = $this->invoiceWithProfile('0107', '010701', '100');
+        \Modules\Nfse\Models\ItemFiscalProfile::query()
+            ->where('company_id', $invoice->company_id)
+            ->update(['rtc_supply_category' => 'lease']);
+        $invoice->forceFill(['issued_at' => '2026-11-30 12:00:00'])->save();
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice->fresh(['items', 'contact']), [
+            'opcao_simples_nacional' => 1,
+            'ibs_cbs_enabled' => false,
+        ]);
+        self::assertSame('blocked', $result['status']);
+        self::assertSame('rtc_supply_category_unsupported', $result['reason']);
+        self::assertContains('lease', $result['details']);
+    }
+
     public function testBlocksRequiredIbsCbsBeforeAutomaticEmission(): void
     {
         $invoice = $this->invoiceWithProfile('0107', '010701', '100');
