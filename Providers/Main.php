@@ -314,17 +314,21 @@ class Main extends Provider
                 return;
             }
 
+            try {
+                $receipts = NfseReceipt::query()
+                    ->whereIn('invoice_id', $invoiceIds)
+                    ->orderByDesc('id')
+                    ->get(['id', 'invoice_id', 'status'])
+                    ->unique('invoice_id')
+                    ->keyBy('invoice_id');
+            } catch (\Throwable) {
+                $receipts = collect();
+            }
+
             $statuses = [];
 
             foreach ($invoiceIds as $invoiceId) {
-                try {
-                    $receipt = NfseReceipt::query()
-                        ->where('invoice_id', $invoiceId)
-                        ->latest('id')
-                        ->first();
-                } catch (\Throwable) {
-                    $receipt = null;
-                }
+                $receipt = $receipts->get($invoiceId);
                 $status = is_object($receipt) ? trim((string) ($receipt->status ?? '')) : 'pending';
 
                 if ($status === '') {
