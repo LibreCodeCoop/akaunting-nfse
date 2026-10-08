@@ -52,7 +52,10 @@ final class ValidatedFiscalItem extends CoreItemRequest
         return $rules;
     }
 
-    /** Preserve a historic code only when its value is unchanged on this company's item. */
+    /**
+     * Preserve a historic code only when its value is unchanged on this company's item.
+     * @psalm-suppress UndefinedMethod Akaunting's Request stub omits Laravel's route() accessor.
+     */
     private function isUnchangedPersistedNationalCode(string $code): bool
     {
         if ($code === '' || !function_exists('company_id')) {
