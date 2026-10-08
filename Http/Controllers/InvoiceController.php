@@ -526,17 +526,7 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect(
                 $request,
                 redirect()->route('invoices.show', $invoice)
-                    ->with('error', trans('nfse::general.invoices.emit_blocked_ibs_cbs_required', [
-                        'date' => (string) ($ibsCbsReadiness['effective_date'] ?? ''),
-                        'fields' => implode(', ', array_map(
-                            static fn (string $field): string => trans(
-                                'nfse::general.invoices.ibs_cbs_missing_labels.' . $field,
-                            ),
-                            is_array($ibsCbsReadiness['missing'] ?? null)
-                                ? $ibsCbsReadiness['missing']
-                                : [],
-                        )),
-                    ])),
+                    ->with('error', $this->ibsCbsBlockedMessage($ibsCbsReadiness)),
             );
         }
 
@@ -1201,6 +1191,25 @@ class InvoiceController extends Controller
             );
         }
 
+        $nfseSettings = setting('nfse', []);
+        $nfseSettings = is_array($nfseSettings) ? $nfseSettings : [];
+        $ibsCbsReadiness = (new IbsCbsEmissionReadiness())->evaluate(
+            competenceDate: (string) ($this->competenceDate($invoice) ?? ''),
+            opcaoSimplesNacional: $opcaoSimplesNacional,
+            itemListaServico: (string) ($itemFiscalProfile['item_lista_servico'] ?? ''),
+            settings: $nfseSettings,
+        );
+
+        if (($ibsCbsReadiness['isReady'] ?? false) !== true) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.show', $invoice)
+                    ->with('error', $this->ibsCbsBlockedMessage($ibsCbsReadiness)),
+            );
+        }
+
+        $ibsCbsPayload = $this->ibsCbsPayloadValues();
+
         try {
             $dps = $this->makeDpsData([
             'cnpjPrestador' => (string) setting('nfse.cnpj_prestador'),
@@ -1241,6 +1250,12 @@ class InvoiceController extends Controller
             'federalValorIrrf' => $federalPayload['federalValorIrrf'],
             'federalValorCsll' => $federalPayload['federalValorCsll'],
             'federalValorCp' => $federalPayload['federalValorCp'],
+            'ibsCbsFinalidade' => $ibsCbsPayload['ibsCbsFinalidade'],
+            'ibsCbsIndFinal' => $ibsCbsPayload['ibsCbsIndFinal'],
+            'ibsCbsCodigoIndicadorOperacao' => $ibsCbsPayload['ibsCbsCodigoIndicadorOperacao'],
+            'ibsCbsIndDest' => $ibsCbsPayload['ibsCbsIndDest'],
+            'ibsCbsCst' => $ibsCbsPayload['ibsCbsCst'],
+            'ibsCbsClassificacaoTributaria' => $ibsCbsPayload['ibsCbsClassificacaoTributaria'],
             ], ['codigoTributacaoMunicipal']);
         } catch (\LogicException $e) {
             $this->safeLogError('NFS-e runtime capability mismatch during reissuance', [
@@ -3229,6 +3244,26 @@ class InvoiceController extends Controller
             'issqn_tipo_imunidade' => setting('nfse.issqn_tipo_imunidade', ''),
             'issqn_tipo_suspensao' => setting('nfse.issqn_tipo_suspensao', ''),
             'issqn_numero_processo_suspensao' => setting('nfse.issqn_numero_processo_suspensao', ''),
+        ]);
+    }
+
+    /**
+     * @param array{effective_date?:?string,missing?:list<string>} $readiness
+     */
+    protected function ibsCbsBlockedMessage(array $readiness): string
+    {
+        $missing = is_array($readiness['missing'] ?? null)
+            ? array_values(array_map('strval', $readiness['missing']))
+            : [];
+
+        return (string) trans('nfse::general.invoices.emit_blocked_ibs_cbs_required', [
+            'date' => (string) ($readiness['effective_date'] ?? ''),
+            'fields' => implode(', ', array_map(
+                static fn (string $field): string => (string) trans(
+                    'nfse::general.invoices.ibs_cbs_missing_labels.' . $field,
+                ),
+                $missing,
+            )),
         ]);
     }
 
