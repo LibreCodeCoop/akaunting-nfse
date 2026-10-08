@@ -142,6 +142,24 @@ final class ItemFiscalProfileTest extends FeatureTestCase
         ]);
     }
 
+    public function testItemUpdateRejectsUnknownRtcCategoryBeforePersistence(): void
+    {
+        $item = Item::factory()->enabled()->create();
+        $request = Item::factory()->enabled()->raw(['name' => $item->name]);
+        $request['nfse_rtc_supply_category'] = 'unsupported_user_input';
+
+        $this->withExceptionHandling();
+        $this->loginAs()
+            ->patchJson(route('items.update', $item->id), $request)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('nfse_rtc_supply_category');
+
+        $this->assertDatabaseMissing('nfse_item_fiscal_profiles', [
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+        ]);
+    }
+
     public function testItemProfilePersistsExplicitRtcCategoryOnNativeUpdate(): void
     {
         $item = Item::factory()->enabled()->create();
