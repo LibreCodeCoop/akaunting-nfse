@@ -31,7 +31,7 @@ final class FiscalProfileEmissionReadiness
      *   source_versions:array<string,string>
      * }
      */
-    public function evaluate(array $profile): array
+    public function evaluate(array $profile, ?array $municipal = null): array
     {
         $validation = ($this->validator ?? new ItemFiscalProfileValidator())->validate(
             is_scalar($profile['item_lista_servico'] ?? null)
@@ -61,9 +61,17 @@ final class FiscalProfileEmissionReadiness
         $missingRequiredNationalCode = in_array('missing_national_code', $issues, true)
             || in_array('missing_profile', $issues, true);
 
+        $municipalRejection = ($municipal['decision'] ?? '') === 'rejected'
+            && ($municipal['binding'] ?? '') === 'exact'
+            && ($municipal['can_attempt'] ?? true) === false;
+
         return array_merge(
-            ['isReady' => $validation['status'] !== 'invalid' && !$missingRequiredNationalCode],
             $validation,
+            [
+                'isReady' => $validation['status'] !== 'invalid' && !$missingRequiredNationalCode && !$municipalRejection,
+                'municipal_decision' => (string) ($municipal['decision'] ?? 'unverifiable'),
+                'municipal_issues' => $municipalRejection ? ['sefin_e0312_this_dps'] : [],
+            ],
         );
     }
 }

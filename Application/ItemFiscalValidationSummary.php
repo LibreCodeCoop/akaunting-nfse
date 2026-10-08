@@ -30,6 +30,9 @@ final class ItemFiscalValidationSummary
         };
 
         return array_merge($national, [
+            'national_status' => $nationalStatus,
+            'municipal_decision' => (string) ($municipal['decision'] ?? 'unverifiable'),
+            'municipal_can_attempt' => ($municipal['can_attempt'] ?? true) === true,
             'status' => $status,
             'municipal_status' => $municipalStatus,
             'municipal_issues' => array_values(
