@@ -34,6 +34,8 @@ final class ItemMunicipalParameterValidator
         if ($payload === null) {
             return [
                 'status' => 'unverifiable',
+                'decision' => 'unverifiable',
+                'can_attempt' => true,
                 'issues' => ['municipal_parameters_unavailable'],
                 'official_rate' => null,
                 'source' => $source,
@@ -45,6 +47,8 @@ final class ItemMunicipalParameterValidator
         if (!is_array($aliquotas)) {
             return [
                 'status' => 'unverifiable',
+                'decision' => 'unverifiable',
+                'can_attempt' => true,
                 'issues' => ['municipal_rate_unavailable'],
                 'official_rate' => null,
                 'source' => $source,
@@ -72,6 +76,8 @@ final class ItemMunicipalParameterValidator
         if (count($rates) !== 1) {
             return [
                 'status' => 'unverifiable',
+                'decision' => 'unverifiable',
+                'can_attempt' => true,
                 'issues' => count($rates) > 1
                     ? ['municipal_rate_ambiguous']
                     : ['municipal_rate_unavailable'],
@@ -86,6 +92,8 @@ final class ItemMunicipalParameterValidator
         if ($configured === null) {
             return [
                 'status' => 'unverifiable',
+                'decision' => 'unverifiable',
+                'can_attempt' => true,
                 'issues' => ['item_tax_rate_unverifiable'],
                 'official_rate' => $officialRate,
                 'source' => $source,
@@ -103,7 +111,9 @@ final class ItemMunicipalParameterValidator
         }
 
         return [
-            'status' => $issues === [] ? 'valid' : 'warning',
+            'status' => $issues === [] ? 'unverifiable' : 'warning',
+            'decision' => 'unverifiable',
+            'can_attempt' => true,
             'issues' => $issues,
             'official_rate' => $officialRate,
             'source' => $source,
