@@ -67,6 +67,21 @@ final class IbsCbsObligationPolicyTest extends TestCase
         ];
     }
 
+    public function testUnverifiableContextBlocksIssuanceInsteadOfGuessing(): void
+    {
+        $result = (new IbsCbsEmissionReadiness())->evaluate(
+            '',
+            1,
+            '',
+            [],
+        );
+
+        self::assertFalse($result['isReady']);
+        self::assertFalse($result['required']);
+        self::assertSame('unverifiable', $result['reason']);
+        self::assertSame(['ibs_cbs_obligation_context'], $result['missing']);
+    }
+
     public function testRequiredOperationBlocksWhenIbsCbsConfigurationIsIncomplete(): void
     {
         $result = (new IbsCbsEmissionReadiness())->evaluate(
