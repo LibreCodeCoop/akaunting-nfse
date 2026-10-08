@@ -76,7 +76,21 @@ final class FiscalLedgerTest extends FeatureTestCase
         ]));
 
         $response->assertOk();
-        self::assertSame('<nfse>original-receipt</nfse>', $response->streamedContent() ?: $response->getContent());
+        self::assertSame('<nfse>original-receipt</nfse>', $response->getContent());
+    }
+
+    public function testLedgerRejectsForeignCompanyReceiptArtifact(): void
+    {
+        $this->loginAs();
+
+        $otherInvoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $otherInvoice->forceFill(['company_id' => (int) company_id() + 1000])->saveQuietly();
+        $receipt = $this->receipt($otherInvoice, '84001', 'emitted');
+
+        $this->get(route('nfse.ledger.artifacts.download', [
+            'receipt' => $receipt->id,
+            'artifact' => 'xml',
+        ]))->assertNotFound();
     }
 
     private function receipt(Document $invoice, string $number, string $status): NfseReceipt
