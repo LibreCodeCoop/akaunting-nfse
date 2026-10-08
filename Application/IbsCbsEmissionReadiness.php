@@ -46,7 +46,10 @@ final class IbsCbsEmissionReadiness
             ];
         }
 
-        if (($obligation['required'] ?? false) !== true) {
+        $required = ($obligation['required'] ?? false) === true;
+        $enabled = $this->booleanSetting($settings['ibs_cbs_enabled'] ?? false);
+
+        if (!$required && !$enabled) {
             return [
                 'isReady' => true,
                 'required' => false,
@@ -58,7 +61,7 @@ final class IbsCbsEmissionReadiness
 
         $missing = [];
 
-        if (!$this->booleanSetting($settings['ibs_cbs_enabled'] ?? false)) {
+        if ($required && !$enabled) {
             $missing[] = 'ibs_cbs_enabled';
         }
 
@@ -89,7 +92,7 @@ final class IbsCbsEmissionReadiness
 
         return [
             'isReady' => $missing === [],
-            'required' => true,
+            'required' => $required,
             'effective_date' => $obligation['effective_date'] ?? null,
             'reason' => (string) ($obligation['reason'] ?? 'required'),
             'missing' => $missing,
