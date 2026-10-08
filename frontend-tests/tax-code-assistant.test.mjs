@@ -39,3 +39,8 @@ test('stale search responses cannot replace the latest result', async () => {
     assert.deepEqual(await b, [{ code: '010702' }]);
     assert.equal(await a, null);
 });
+
+test('search refuses unsuccessful server responses', async () => {
+    const search = createSearch(async () => ({ ok: false }));
+    await assert.rejects(search('/api', { q: 'test' }), /Search failed/);
+});

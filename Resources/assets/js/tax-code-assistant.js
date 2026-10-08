@@ -101,6 +101,7 @@
             const related = lcForNational(national.value);
             if (lcOptions[related] && service.value !== related) updateSelect(service, related, lcOptions[related]);
         });
+        if (digits(service.value).length === 4) scheduled();
     }
     return { digits, lcForNational, debounce, createSearch, init };
 });

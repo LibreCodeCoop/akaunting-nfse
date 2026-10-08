@@ -443,8 +443,10 @@ class SettingsController extends Controller
         $entries = $catalog->searchNationalServices($lc !== '' ? $lc : $query, 500);
         if ($query !== '' && $lc !== '') {
             $term = mb_strtolower($query, 'UTF-8');
-            $entries = array_values(array_filter($entries, static fn (array $entry): bool =>
-                str_contains(mb_strtolower($entry['code'] . ' ' . $entry['description'], 'UTF-8'), $term)
+            $entries = array_values(array_filter(
+                $entries,
+                static fn (array $entry): bool =>
+                    str_contains(mb_strtolower($entry['code'] . ' ' . $entry['description'], 'UTF-8'), $term)
             ));
         }
 
