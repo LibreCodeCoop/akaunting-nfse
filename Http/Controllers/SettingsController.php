@@ -17,13 +17,13 @@ use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\Lc116Code;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog;
 use Modules\Nfse\Support\MunicipalParameterSnapshotStore;
 use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\QueryException;
 use Throwable;
 

@@ -127,6 +127,19 @@ test('post-emission polling unlocks fiscal artifacts after queue completion', as
   await expect(panel.locator('[data-nfse-artifact="danfse"]')).toHaveAttribute('aria-disabled', 'false');
 });
 
+async function openExistingItemFiscalEditor(page: import('@playwright/test').Page): Promise<void> {
+  // Akaunting's plan-limit middleware redirects /common/items/create in the
+  // deterministic CI installation. Editing a seeded item exercises the same
+  // fiscal fields without bypassing the application's access controls.
+  await page.goto('/1/common/items', { waitUntil: 'domcontentloaded' });
+  const edit = page.locator('[id^="index-line-actions-edit-item-"]').first();
+  await expect(edit).toBeAttached();
+  const href = await edit.getAttribute('href');
+  expect(href).toBeTruthy();
+  await page.goto(href!, { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(/\/common\/items\/\d+\/edit/);
+}
+
 test('tax code assistant searches via debounce and selects both fiscal codes', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
   const requests: string[] = [];
@@ -139,7 +152,7 @@ test('tax code assistant searches via debounce and selects both fiscal codes', a
       body: JSON.stringify({ data: [{ code: '010701', description: 'Serviço de teste' }] }),
     });
   });
-  await page.goto('/1/common/items/create', { waitUntil: 'domcontentloaded' });
+  await openExistingItemFiscalEditor(page);
   const root = page.locator('[data-nfse-tax-code-assistant]');
   await expect(root).toBeVisible();
   const search = root.locator('[data-nfse-tax-code-query]');
@@ -166,7 +179,7 @@ test('tax code assistant does not display stale search results', async ({ page }
       body: JSON.stringify({ data: [{ code: q === 'old' ? '010701' : '010702', description: q }] }),
     }).catch(() => {});
   });
-  await page.goto('/1/common/items/create', { waitUntil: 'domcontentloaded' });
+  await openExistingItemFiscalEditor(page);
   const root = page.locator('[data-nfse-tax-code-assistant]');
   await expect(root).toBeVisible();
   const search = root.locator('[data-nfse-tax-code-query]');
