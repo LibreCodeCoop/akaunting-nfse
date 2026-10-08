@@ -56,10 +56,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <td class="p-3">{{ trans('nfse::general.native_invoice.status_' . ($receipt->status ?: 'unknown')) }}</td>
                                 <td class="p-3 text-right">
                                     <a class="text-indigo-700 underline" href="{{ route('invoices.show', $receipt->invoice_id) }}">{{ trans('nfse::general.go_to_invoices') }}</a>
-                                    @if ($receipt->status === 'emitted')
-                                        <a class="ml-3 text-indigo-700 underline" href="{{ route('nfse.invoices.artifacts.download', ['invoice' => $receipt->invoice_id, 'artifact' => 'xml']) }}">XML</a>
-                                        <a class="ml-3 text-indigo-700 underline" href="{{ route('nfse.invoices.artifacts.download', ['invoice' => $receipt->invoice_id, 'artifact' => 'danfse']) }}">DANFSe</a>
-                                    @endif
                                 </td>
                             </tr>
                         @empty
