@@ -29,12 +29,13 @@ final class IbsCbsEmissionReadiness
         int $opcaoSimplesNacional,
         string $itemListaServico,
         array $settings,
+        string $rtcSupplyCategory = '',
     ): array {
-        $obligation = $this->policy->evaluate(
-            $competenceDate,
-            $opcaoSimplesNacional,
-            $itemListaServico,
-        );
+        $category = trim($rtcSupplyCategory);
+        $ordinary = $category === '' || $category === 'ordinary_lc116';
+        $obligation = $ordinary
+            ? $this->policy->evaluate($competenceDate, $opcaoSimplesNacional, $itemListaServico)
+            : (new RtcSupplyCategoryPolicy())->evaluate($category, $competenceDate, $opcaoSimplesNacional);
 
         if (($obligation['reason'] ?? '') === 'unverifiable') {
             return [
@@ -43,6 +44,18 @@ final class IbsCbsEmissionReadiness
                 'effective_date' => null,
                 'reason' => 'unverifiable',
                 'missing' => ['ibs_cbs_obligation_context'],
+            ];
+        }
+
+        // A known legal start date does not make a non-LC116 DPS technically
+        // issuable. The current nfse-php contract encodes an LC116 cTribNac.
+        if (!$ordinary) {
+            return [
+                'isReady' => false,
+                'required' => ($obligation['required'] ?? false) === true,
+                'effective_date' => $obligation['effective_date'] ?? null,
+                'reason' => 'unsupported_rtc_supply_category',
+                'missing' => ['rtc_supply_category'],
             ];
         }
 

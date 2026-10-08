@@ -141,6 +141,62 @@ final class IbsCbsObligationPolicyTest extends TestCase
         self::assertSame(['ibs_cbs_c_ind_op'], $result['missing']);
     }
 
+    /**
+     * @dataProvider nonLc116Categories
+     */
+    public function testNonLc116RtcDateIsKnownButDpsRemainsUnsupported(string $category): void
+    {
+        $readiness = new IbsCbsEmissionReadiness();
+
+        foreach ([
+            '2026-11-30' => false,
+            '2026-12-01' => true,
+        ] as $date => $required) {
+            $result = $readiness->evaluate($date, 1, '0107', [], $category);
+            self::assertFalse($result['isReady']);
+            self::assertSame($required, $result['required']);
+            self::assertSame('2026-12-01', $result['effective_date']);
+            self::assertSame('unsupported_rtc_supply_category', $result['reason']);
+            self::assertSame(['rtc_supply_category'], $result['missing']);
+        }
+    }
+
+    /** @return array<string,array{string}> */
+    public static function nonLc116Categories(): array
+    {
+        return [
+            'platform' => ['digital_platform'],
+            'intangible' => ['non_iss_intangible'],
+            'condominium' => ['condominium_revenue'],
+            'lease' => ['lease'],
+            'residual' => ['residual_service'],
+        ];
+    }
+
+    public function testNonLc116SimplesCalendarDoesNotConferTechnicalSupport(): void
+    {
+        $readiness = new IbsCbsEmissionReadiness();
+        $before = $readiness->evaluate('2026-12-31', 3, '', [], 'lease');
+        $after = $readiness->evaluate('2027-01-01', 3, '', [], 'lease');
+
+        self::assertFalse($before['required']);
+        self::assertTrue($after['required']);
+        self::assertSame('2027-01-01', $after['effective_date']);
+        self::assertFalse($before['isReady']);
+        self::assertFalse($after['isReady']);
+    }
+
+    public function testUnknownRtcCategoryIsUnverifiableInsteadOfOrdinary(): void
+    {
+        $result = (new IbsCbsEmissionReadiness())->evaluate(
+            '2026-12-01', 1, '0107', [], 'not_a_category',
+        );
+
+        self::assertFalse($result['isReady']);
+        self::assertSame('unverifiable', $result['reason']);
+        self::assertSame(['ibs_cbs_obligation_context'], $result['missing']);
+    }
+
     public function testOptionalIbsCbsMayRemainDisabledBeforeCutoff(): void
     {
         $result = (new IbsCbsEmissionReadiness())->evaluate(
