@@ -236,6 +236,8 @@ return [
     ],
 
     'invoices' => [
+        'rtc_supply_category_unsupported' => 'Operação :category não suportada pelo emissor DPS LC 116. A classificação e sua data de obrigação IBS/CBS não tornam a modalidade tecnicamente emitível.',
+
         'title' => 'Notas fiscais de serviço',
         'pending_title' => 'Faturas pendentes para emissão',
         'details_title' => 'Detalhes da NFS-e',
