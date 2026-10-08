@@ -191,7 +191,9 @@ final class FiscalLedgerTest extends FeatureTestCase
         $matchInvoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
         $otherInvoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
         $matchInvoice->contact->forceFill(['name' => 'Ledger Customer ZXQ729'])->saveQuietly();
-        $otherInvoice->contact->forceFill(['name' => 'Other Ledger Customer'])->saveQuietly();
+        // Invoice factories can reuse the same contact. Make the negative case
+        // independent, so changing its name cannot overwrite the search target.
+        $otherInvoice->forceFill(['contact_id' => \App\Models\Common\Contact::factory()->customer()->create(['company_id' => company_id(), 'name' => 'Other Ledger Customer'])->id])->saveQuietly();
 
         $match = $this->receipt($matchInvoice, '95001', 'emitted');
         $this->receipt($matchInvoice, '95002', 'cancelled');
