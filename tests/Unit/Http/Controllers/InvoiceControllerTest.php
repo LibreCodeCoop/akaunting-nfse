@@ -493,15 +493,36 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return new ReceiptData('NF-9902', 'CHAVE-9902', '2026-09-30T12:00:00-03:00');
                 }
 
-                public function query(string $chaveAcesso): ReceiptData { throw new \BadMethodCallException('Not used.'); }
-                public function cancel(string $chaveAcesso, string $motivo): bool { throw new \BadMethodCallException('Not used.'); }
-                public function getDanfse(string $chaveAcesso): string { throw new \BadMethodCallException('Not used.'); }
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
             };
 
             $controller = new class ($client) extends InvoiceController {
-                public function __construct(private readonly NfseClientInterface $client) {}
-                protected function makeClient(bool $sandboxMode): NfseClientInterface { return $this->client; }
-                protected function hasCertificateSecret(string $cnpj): bool { return true; }
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
             };
 
             $controller->emit($invoice, new Request());
