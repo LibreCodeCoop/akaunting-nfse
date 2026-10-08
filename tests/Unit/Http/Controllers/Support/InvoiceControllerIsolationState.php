@@ -61,6 +61,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers\Support {
             ?string $contactCityIbge = null,
             ?string $contactPhone = null,
             ?string $contactEmail = null,
+            ?string $issuedAt = '2026-09-30 12:00:00',
         ): Invoice {
             $contact = null;
 
@@ -76,13 +77,16 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers\Support {
                 ];
             }
 
-            return new Invoice(
+            $invoice = new Invoice(
                 id: $id,
                 amount: $amount,
                 contact: $contact,
                 items: new FakeCollection($items),
                 description: $description,
             );
+            $invoice->issued_at = $issuedAt;
+
+            return $invoice;
         }
 
         public static function makeReceipt(int $invoiceId, string $chaveAcesso, string $status = 'emitted'): NfseReceipt
