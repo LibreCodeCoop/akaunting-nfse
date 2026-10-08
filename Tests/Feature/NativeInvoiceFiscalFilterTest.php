@@ -13,7 +13,7 @@ use Tests\Feature\FeatureTestCase;
 
 final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
 {
-    public function testNativeInvoiceFilterUsesLatestReceiptAndPreservesAccountingSearch(): void
+    public function testNativeInvoiceFilterUsesLatestReceipt(): void
     {
         $this->loginAs();
 
@@ -51,6 +51,34 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
 
             return in_array($withoutReceipt->id, $ids, true)
                 && !in_array($withReceipt->id, $ids, true);
+        });
+    }
+
+    public function testNativeFiscalFilterRespectsNativePagination(): void
+    {
+        $this->loginAs();
+
+        $first = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $second = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $excluded = Document::factory()->invoice()->create(['company_id' => company_id()]);
+
+        $this->receipt($first, 'emitted');
+        $this->receipt($second, 'emitted');
+        $this->receipt($excluded, 'cancelled');
+
+        $response = $this->get(route('invoices.index', [
+            'nfse_status' => 'emitted',
+            'limit' => 1,
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('invoices', static function ($invoices) use ($first, $second): bool {
+            $ids = $invoices->getCollection()->pluck('id')->all();
+            $matches = array_intersect($ids, [$first->id, $second->id]);
+
+            return count($ids) === 1
+                && count($matches) === 1
+                && $invoices->total() >= 2;
         });
     }
 
