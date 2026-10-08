@@ -330,6 +330,7 @@ return [
             'ibs_cbs_ind_dest' => 'indDest',
             'ibs_cbs_cst' => 'IBS/CBS CST',
             'ibs_cbs_c_class_trib' => 'cClassTrib',
+            'ibs_cbs_obligation_context' => 'service competence and tax context',
         ],
         'emit_blocked_invalid_fiscal_profile' => 'Invalid fiscal profile according to official source :version: :issues',
         'emit_blocked_missing_national_code_items' => 'NFS-e issuance was blocked because item :items has no national taxation code. Edit that item under Items, fill in the National taxation code (NBS) field with the official 6-digit code, save it, and try again. Official source: :version.',
