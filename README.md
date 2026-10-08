@@ -233,7 +233,7 @@ O módulo mantém dois pontos de consulta distintos:
   notas fiscais mais recentes da empresa selecionada.
 - **NFS-e → Notas fiscais** (`/nfse/ledger`): consulta os registros de NFS-e
   da empresa selecionada, com paginação e filtros por situação fiscal, número,
-  chave de acesso ou nome do tomador. Cada linha corresponde a **uma NFS-e**,
+  chave de acesso, nome do tomador e intervalo de datas de emissão. Cada linha corresponde a **uma NFS-e**,
   inclusive quando várias notas estão relacionadas à mesma fatura.
 
 Na listagem fiscal, os links **XML** e **DANFSe** (quando a nota está emitida)
@@ -244,7 +244,8 @@ Em **Vendas → Faturas**, o filtro **Situação da NFS-e** atua sobre as fatura
 antes da paginação e pode ser combinado com os filtros contábeis. Quando uma
 fatura tem múltiplos registros fiscais, o filtro considera a **situação do
 registro mais recente**, conforme seu identificador interno. A opção de ausência
-de NFS-e significa apenas que não há recibo vinculado; ela não indica
+de NFS-e significa apenas que não há recibo vinculado; a opção **Desconhecido**
+seleciona registros com situação fiscal não reconhecida. Ela não indica
 automaticamente que há obrigação fiscal pendente.
 
 Os estados contábil e fiscal são independentes: uma fatura paga pode ter uma

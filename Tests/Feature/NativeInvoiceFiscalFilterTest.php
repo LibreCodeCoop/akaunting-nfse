@@ -82,6 +82,27 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         });
     }
 
+    public function testNativeUnknownFiscalStatusDoesNotIncludeAbsentReceipts(): void
+    {
+        $this->loginAs();
+
+        $unknown = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $without = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $known = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $this->receipt($unknown, 'unexpected-provider-state');
+        $this->receipt($known, 'emitted');
+
+        $response = $this->get(route('invoices.index', ['nfse_status' => 'unknown']));
+        $response->assertOk();
+        $response->assertViewHas('invoices', static function ($invoices) use ($unknown, $without, $known): bool {
+            $ids = $invoices->getCollection()->pluck('id')->all();
+
+            return in_array($unknown->id, $ids, true)
+                && !in_array($without->id, $ids, true)
+                && !in_array($known->id, $ids, true);
+        });
+    }
+
     private function receipt(Document $invoice, string $status): void
     {
         NfseReceipt::query()->create([
