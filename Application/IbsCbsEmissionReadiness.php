@@ -36,6 +36,16 @@ final class IbsCbsEmissionReadiness
             $itemListaServico,
         );
 
+        if (($obligation['reason'] ?? '') === 'unverifiable') {
+            return [
+                'isReady' => false,
+                'required' => false,
+                'effective_date' => null,
+                'reason' => 'unverifiable',
+                'missing' => ['ibs_cbs_obligation_context'],
+            ];
+        }
+
         if (($obligation['required'] ?? false) !== true) {
             return [
                 'isReady' => true,
