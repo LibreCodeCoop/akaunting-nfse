@@ -101,6 +101,36 @@ final class FiscalLedgerTest extends FeatureTestCase
         self::assertSame('<nfse>original-receipt</nfse>', $response->getContent());
     }
 
+    public function testLedgerDownloadsDanfseForSelectedReceiptNotNewerReceipt(): void
+    {
+        $this->loginAs();
+
+        $invoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $selected = $this->receipt($invoice, '83011', 'emitted');
+        $newer = $this->receipt($invoice, '83012', 'emitted');
+
+        $fixture = file_get_contents(__DIR__ . '/../../tests/fixtures/nfse_exemplo.xml');
+        self::assertIsString($fixture);
+
+        NfseReceiptPayload::query()->create([
+            'receipt_id' => $selected->id,
+            'authorized_xml' => $fixture,
+        ]);
+        // The newer receipt has deliberately no authorized XML. An incorrect
+        // latest-by-invoice lookup would fail to generate the selected PDF.
+        $response = $this->get(route('nfse.ledger.artifacts.download', [
+            'receipt' => $selected->id,
+            'artifact' => 'danfse',
+        ]));
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/pdf');
+        $response->assertHeader('Content-Disposition', 'attachment; filename="nfse-83011.pdf"');
+        self::assertStringStartsWith('%PDF-', (string) $response->getContent());
+        self::assertGreaterThan(100, strlen((string) $response->getContent()));
+        self::assertNotSame($selected->id, $newer->id);
+    }
+
     public function testLedgerRejectsForeignCompanyReceiptArtifact(): void
     {
         $this->loginAs();
