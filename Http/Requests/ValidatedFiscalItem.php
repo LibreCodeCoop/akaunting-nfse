@@ -59,7 +59,7 @@ final class ValidatedFiscalItem extends CoreItemRequest
             return false;
         }
 
-        $item = $this->route('item');
+        $item = request()->route('item');
         $id = is_object($item) ? ($item->id ?? null) : $item;
         if (!is_numeric($id) || (int) $id <= 0) {
             return false;
@@ -69,6 +69,6 @@ final class ValidatedFiscalItem extends CoreItemRequest
             ->where('company_id', (int) company_id())
             ->where('item_id', (int) $id)
             ->where('codigo_tributacao_nacional', $code)
-            ->exists();
+            ->first() instanceof ItemFiscalProfile;
     }
 }
