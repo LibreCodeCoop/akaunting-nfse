@@ -208,7 +208,7 @@ final class ItemMunicipalValidationResolver
             $rows = DB::select(
                 'SELECT service_code, payload, fetched_at, competence_date FROM nfse_municipal_parameter_snapshots'
                 . ' WHERE company_id = ? AND environment = ? AND municipio_ibge = ?'
-                . ' AND service_code IN (' . $placeholders . ') AND competence_date <= ?'
+                . ' AND service_code IN (' . $placeholders . ') AND DATE(competence_date) <= ?'
                 . ' ORDER BY competence_date DESC, fetched_at DESC, id DESC',
                 $bindings,
             );
