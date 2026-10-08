@@ -111,6 +111,40 @@ final class IbsCbsObligationPolicyTest extends TestCase
         );
     }
 
+    public function testOptionalIbsCbsConfigurationIsValidatedWhenEnabledBeforeCutoff(): void
+    {
+        $result = (new IbsCbsEmissionReadiness())->evaluate(
+            '2026-09-30',
+            1,
+            '0101',
+            [
+                'ibs_cbs_enabled' => true,
+                'ibs_cbs_c_ind_op' => '123',
+                'ibs_cbs_ind_dest' => '0',
+                'ibs_cbs_cst' => '000',
+                'ibs_cbs_c_class_trib' => '000001',
+            ],
+        );
+
+        self::assertFalse($result['isReady']);
+        self::assertFalse($result['required']);
+        self::assertSame(['ibs_cbs_c_ind_op'], $result['missing']);
+    }
+
+    public function testOptionalIbsCbsMayRemainDisabledBeforeCutoff(): void
+    {
+        $result = (new IbsCbsEmissionReadiness())->evaluate(
+            '2026-09-30',
+            1,
+            '0101',
+            ['ibs_cbs_enabled' => false],
+        );
+
+        self::assertTrue($result['isReady']);
+        self::assertFalse($result['required']);
+        self::assertSame([], $result['missing']);
+    }
+
     public function testRequiredOperationRejectsMalformedIbsCbsCodes(): void
     {
         $result = (new IbsCbsEmissionReadiness())->evaluate(
