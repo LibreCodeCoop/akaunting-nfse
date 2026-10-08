@@ -857,8 +857,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
             // IRRF = 1.00% × 1500.25 = 15.0025 → '15.00'
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            // vRetCSLL aggregates retained PIS + COFINS + CSLL for retention type 3.
-            self::assertSame('153.77', $client->capturedDps?->federalValorCsll);
+            // CSLL is retained separately from PIS/COFINS.
+            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
             self::assertSame(0, $client->capturedDps?->ibsCbsFinalidade);
@@ -1434,9 +1434,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // Aliquotas are still from settings
             self::assertSame('1.65', $client->capturedDps?->federalPiscofinsAliquotaPis);
             self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
-            // IRRF is retained separately; vRetCSLL aggregates retained PIS + COFINS + CSLL for type 3.
+            // IRRF and CSLL are retained separately from PIS/COFINS.
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            self::assertSame('153.77', $client->capturedDps?->federalValorCsll);
+            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
             // Federal taxation without explicit tributos_* config still needs totTrib in the XML schema.
@@ -1788,7 +1788,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><pTotTrib><pTotTribFed>0.00</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>0.00</pTotTribMun></pTotTrib></totTrib></trib>', $normalizedXml);
         }
 
-        public function testEmitPreservesTypeFourAndAggregatesPisCofinsWhenCsllIsZero(): void
+        public function testEmitPreservesTypeFourWithoutPopulatingCsllWhenCsllIsZero(): void
         {
             ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] = '4';
             ControllerIsolationState::$settings['nfse.federal_valor_csll'] = '0.00';
@@ -1850,7 +1850,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller->emit($invoice);
 
             self::assertSame('4', $client->capturedDps?->federalPiscofinsTipoRetencao);
-            self::assertSame('92.50', $client->capturedDps?->federalValorCsll);
+            self::assertSame('', $client->capturedDps?->federalValorCsll);
         }
 
         public function testEmitUsesFiscalSettingsFallbackWhenItemHasNoFiscalProfile(): void
