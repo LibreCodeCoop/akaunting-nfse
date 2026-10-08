@@ -452,6 +452,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testEmitBlocksWhenIbsCbsIsRequiredAndConfigurationIsMissing(): void
         {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
+
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 9901,
                 amount: 1200.00,
@@ -4735,6 +4737,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testReemitBlocksWhenIbsCbsIsRequiredAndConfigurationIsMissing(): void
         {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
+
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 3001,
                 amount: 700.45,
