@@ -115,6 +115,15 @@ return [
     ],
 
     'items' => [
+        'rtc_supply_category' => 'Categoria da operação para IBS/CBS',
+        'rtc_supply_category_placeholder' => 'Selecione a categoria aplicável',
+        'rtc_supply_category_hint' => 'Operações fora da LC 116 exigem classificação explícita e ainda não são emitíveis pelo fluxo padrão do módulo.',
+        'rtc_ordinary_lc116' => 'Serviço sujeito ao ISS (LC 116)',
+        'rtc_digital_platform' => 'Plataforma digital ou serviço intermediado',
+        'rtc_non_iss_intangible' => 'Fornecimento imaterial não sujeito ao ISS',
+        'rtc_condominium_revenue' => 'Receita de condomínio edilício',
+        'rtc_lease' => 'Locação, cessão ou arrendamento',
+        'rtc_residual_service' => 'Demais fornecimentos de serviços',
         'assistant' => [
             'search_label' => 'Pesquisar desdobramentos do Código de Tributação Nacional',
             'search_error' => 'Não foi possível consultar o catálogo. Tente novamente.',

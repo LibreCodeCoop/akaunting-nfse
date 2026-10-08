@@ -106,6 +106,28 @@ final class InvoiceFiscalGroupBuilderTest extends TestCase
         self::assertSame('service:0101|tax:010101|mun:002|rate:2.00', $groups[1]['key']);
     }
 
+    public function testExplicitRtcCategoryKeepsOtherwiseIdenticalItemsInSeparateGroups(): void
+    {
+        $groups = (new InvoiceFiscalGroupBuilder())->build(
+            items: [
+                ['id' => 1, 'item_id' => 11, 'name' => 'A', 'total' => '10.00'],
+                ['id' => 2, 'item_id' => 12, 'name' => 'B', 'total' => '20.00'],
+            ],
+            profileMap: [
+                11 => ['item_lista_servico' => '0107', 'codigo_tributacao_nacional' => '010701', 'rtc_supply_category' => 'ordinary_lc116'],
+                12 => ['item_lista_servico' => '0107', 'codigo_tributacao_nacional' => '010701', 'rtc_supply_category' => 'digital_platform'],
+            ],
+            taxRateMap: [],
+            defaultServiceCode: '',
+            defaultNationalCode: '',
+            defaultRate: '2.00',
+        );
+
+        self::assertCount(2, $groups);
+        self::assertSame('ordinary_lc116', $groups[0]['rtc_supply_category']);
+        self::assertSame('digital_platform', $groups[1]['rtc_supply_category']);
+    }
+
     public function testRejectsLineTotalsWithMoreThanTwoDecimalPlaces(): void
     {
         $this->expectException(\InvalidArgumentException::class);

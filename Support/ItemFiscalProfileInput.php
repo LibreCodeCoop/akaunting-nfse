@@ -22,6 +22,7 @@ final class ItemFiscalProfileInput
         $serviceKey = 'nfse_item_lista_servico';
         $nationalKey = 'nfse_codigo_tributacao_nacional';
         $municipalKey = 'nfse_codigo_tributacao_municipal';
+        $categoryKey = 'nfse_rtc_supply_category';
 
         $servicePresent = method_exists($request, 'exists')
             ? (bool) $request->exists($serviceKey)
@@ -33,7 +34,11 @@ final class ItemFiscalProfileInput
             ? (bool) $request->exists($municipalKey)
             : $request->input($municipalKey, null) !== null;
 
-        if (!$servicePresent && !$nationalPresent && !$municipalPresent) {
+        $categoryPresent = method_exists($request, 'exists')
+            ? (bool) $request->exists($categoryKey)
+            : $request->input($categoryKey, null) !== null;
+
+        if (!$servicePresent && !$nationalPresent && !$municipalPresent && !$categoryPresent) {
             return null;
         }
 
@@ -53,10 +58,17 @@ final class ItemFiscalProfileInput
             ? str_pad(substr($municipalCode, 0, 3), 3, '0', STR_PAD_LEFT)
             : null;
 
-        return [
+        $profile = [
             'item_lista_servico' => $serviceCode !== '' ? $serviceCode : null,
             'codigo_tributacao_nacional' => $nationalCode,
             'codigo_tributacao_municipal' => $municipalCode,
         ];
+
+        if ($categoryPresent) {
+            $category = trim((string) $request->input($categoryKey, ''));
+            $profile['rtc_supply_category'] = $category !== '' ? $category : null;
+        }
+
+        return $profile;
     }
 }
