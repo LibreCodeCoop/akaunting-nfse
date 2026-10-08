@@ -236,93 +236,13 @@ class Main extends Provider
             $request->attributes->set($renderOnceKey, true);
 
             try {
-                $receipts = NfseReceipt::query()
-                    ->where('invoice_id', $invoiceId)
-                    ->latest('id')
-                    ->get();
-            } catch (\Throwable) {
-                $receipts = new \Illuminate\Support\Collection();
-            }
-
-            $receipt = $receipts->first();
-            $postEmissionStatus = $receipt instanceof NfseReceipt
-                ? (new PostEmissionState())->snapshot($receipt)
-                : null;
-            $authorizedXmlAvailable = false;
-
-            if ($receipt instanceof NfseReceipt) {
-                try {
-                    $payload = NfseReceiptPayload::query()
-                        ->where('receipt_id', (int) $receipt->getKey())
-                        ->first();
-                    $authorizedXmlAvailable = $payload instanceof NfseReceiptPayload
-                        && trim((string) $payload->getAttribute('authorized_xml')) !== '';
-                } catch (\Throwable) {
-                    $authorizedXmlAvailable = false;
-                }
-            }
-
-            $content = view('nfse::invoices.partials.native-fiscal-panel', [
-                'invoice' => $invoice,
-                'receipt' => $receipt,
-                'receipts' => $receipts,
-                'postEmissionStatus' => $postEmissionStatus,
-                'authorizedXmlAvailable' => $authorizedXmlAvailable,
-            ])->render();
-
-            $modalTrigger = view('nfse::invoices.partials.native-fiscal-modal-trigger', [
-                'invoice' => $invoice,
-            ])->render();
-
-            $viewFactory->startPush('timeline_send_body_button_email_start', $modalTrigger);
-
-            // Akaunting yields status_message_end both from the outer document
-            // content view and from the nested status message component. Using
-            // that stack duplicates the fiscal panel on draft invoices.
-            //
-            // create_start is the next native extension point after the status
-            // area and is yielded exactly once by the document content view.
-            $viewFactory->startPush('create_start', $content);
-
-            $viewFactory->startPush(
-                'body_end',
-                view('nfse::modals.invoices.partials.issue-modal-script')->render(),
-            );
-            $viewFactory->startPush(
-                'body_end',
-                view('nfse::invoices.partials.post-emission-status-script')->render(),
-            );
-        });
-    }
-
-    protected function registerNativeInvoiceFiscalListStatus(): void
-    {
-        $this->app->make('view')->composer('sales.invoices.index', function ($view): void {
-            $invoices = $view->getData()['invoices'] ?? null;
-
-            if (!is_object($invoices) || !method_exists($invoices, 'getCollection')) {
-                return;
-            }
-
-            $invoiceIds = $invoices->getCollection()
-                ->map(static fn ($invoice): int => is_numeric($invoice->id ?? null) ? (int) $invoice->id : 0)
-                ->filter(static fn (int $id): bool => $id > 0)
-                ->values()
-                ->all();
-
-            if ($invoiceIds === []) {
-                return;
-            }
-
-            try {
-                $receipts = NfseReceipt::query()
-                    ->whereIn('invoice_id', $invoiceIds)
+                $receipts = NfseReceipt::whereIn('invoice_id', $invoiceIds)
                     ->orderByDesc('id')
                     ->get(['id', 'invoice_id', 'status'])
                     ->unique('invoice_id')
                     ->keyBy('invoice_id');
             } catch (\Throwable) {
-                $receipts = collect();
+                $receipts = new \Illuminate\Support\Collection();
             }
 
             $statuses = [];
