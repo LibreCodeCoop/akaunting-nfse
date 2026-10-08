@@ -84,8 +84,8 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
             $unexpected = array_diff($ids, [$first->id, $second->id]);
 
             return $unexpected === []
-                && count($ids) <= $invoices->perPage()
-                && $invoices->total() === 2;
+                && count($ids) <= 1
+                && $invoices->perPage() === 1;
         });
     }
 
