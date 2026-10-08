@@ -66,6 +66,10 @@ final class EmissionAttemptJournal
                 throw new \LogicException('Authorized DPS receipt is missing. Reconcile manually; do not repeat POST.');
             }
 
+            if ((string) $existing->status !== 'emitted') {
+                throw new \LogicException('Authorized DPS is already cancelled or substituted; use a new fiscal operation.');
+            }
+
             return ['receipt' => $existing, 'remote_receipt' => null, 'reused' => true];
         }
 

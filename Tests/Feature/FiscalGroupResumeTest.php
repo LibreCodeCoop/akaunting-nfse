@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
+use Illuminate\Auth\Access\AuthorizationException;
 use Modules\Nfse\Application\FiscalGroupDpsIdentity;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Models\NfseReceipt;
@@ -119,6 +120,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
         self::assertSame('60.00', $client->lastDps?->valorServico);
         self::assertSame('0101', $client->lastDps?->itemListaServico);
         self::assertSame('010101', $client->lastDps?->codigoTributacaoNacional);
+        self::assertSame('075', $client->lastDps?->codigoTributacaoMunicipal);
         self::assertSame('Servico fiscal do grupo', $client->lastDps?->discriminacao);
 
         self::assertDatabaseHas('nfse_receipts', [
@@ -152,6 +154,53 @@ final class FiscalGroupResumeTest extends FeatureTestCase
         );
     }
 
+    public function testExistingGroupReceiptCannotBeReadAcrossCompanies(): void
+    {
+        $this->loginAs();
+        $invoice = Document::factory()->invoice()->create(['company_id' => (int) company_id()]);
+        $key = 'service:0107|tax:010701|rate:2.00';
+
+        NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '9901',
+            'chave_acesso' => str_repeat('9', 50),
+            'status' => 'emitted',
+            'emission_group_key' => $key,
+        ]);
+        $invoice->forceFill(['company_id' => (int) company_id() + 1000])->saveQuietly();
+
+        $client = new class () implements NfseClientInterface {
+            public function emit(DpsData $dps): ReceiptData
+            {
+                throw new \LogicException('Must not be posted.');
+            }
+
+            public function query(string $chaveAcesso): ReceiptData
+            {
+                throw new \LogicException('Must not be queried.');
+            }
+
+            public function cancel(string $chaveAcesso, string $motivo): bool
+            {
+                return false;
+            }
+
+            public function getDanfse(string $nfseXml): string
+            {
+                return '';
+            }
+        };
+
+        $this->expectException(AuthorizationException::class);
+
+        (new IssueInvoiceFiscalGroup())->issue(
+            $client,
+            (int) $invoice->id,
+            $this->baseDps(),
+            $this->group($key, '50.00'),
+        );
+    }
+
     private function baseDps(): DpsData
     {
         return new DpsData(
@@ -174,6 +223,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
             'item_lista_servico' => str_contains($key, '0101') ? '0101' : '0107',
             'codigo_tributacao_nacional' => str_contains($key, '010101') ? '010101' : '010701',
             'aliquota' => str_contains($key, '3.00') ? '3.00' : '2.00',
+            'codigo_tributacao_municipal' => '075',
             'amount' => $amount,
             'items' => [
                 [

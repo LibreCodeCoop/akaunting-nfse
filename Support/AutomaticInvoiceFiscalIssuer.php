@@ -57,6 +57,17 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             throw new \InvalidArgumentException('Invoice and fiscal group are required.');
         }
 
+        // Job payloads identify an invoice, but never grant tenant access.
+        // Enforce company context before reusing a pre-existing receipt.
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId > 0 && !Invoice::query()
+            ->whereKey($invoiceId)
+            ->where('company_id', $companyId)
+            ->where('type', 'invoice')
+            ->exists()) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Cannot issue another company invoice.');
+        }
+
         $existing = $this->receipts->findGrouped($invoiceId, $emissionGroupKey);
 
         if ($existing instanceof NfseReceipt) {
