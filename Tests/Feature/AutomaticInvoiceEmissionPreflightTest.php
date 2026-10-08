@@ -70,6 +70,53 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
         self::assertSame(['GB'], $result['details']);
     }
 
+    public function testBlocksRequiredIbsCbsBeforeAutomaticEmission(): void
+    {
+        $invoice = $this->invoiceWithProfile('0107', '010701', '100');
+        $invoice->forceFill(['issued_at' => '2026-10-08 12:00:00'])->save();
+
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice->fresh(['items', 'contact']), [
+            'opcao_simples_nacional' => 1,
+            'ibs_cbs_enabled' => false,
+        ]);
+
+        self::assertSame('blocked', $result['status']);
+        self::assertSame('ibs_cbs_required', $result['reason']);
+        self::assertContains('ibs_cbs_enabled', $result['details']);
+    }
+
+    public function testSimplesDoesNotRequireIbsCbsBefore2027(): void
+    {
+        $invoice = $this->invoiceWithProfile('0107', '010701', '100');
+        $invoice->forceFill(['issued_at' => '2026-10-08 12:00:00'])->save();
+
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice->fresh(['items', 'contact']), [
+            'opcao_simples_nacional' => 3,
+            'ibs_cbs_enabled' => false,
+        ]);
+
+        self::assertSame('ready', $result['status']);
+    }
+
+    public function testAutomaticPreflightAppliesFederalTaxReadiness(): void
+    {
+        $invoice = $this->invoiceWithProfile('0107', '010701', '100');
+        $invoice->forceFill(['issued_at' => '2026-09-30 12:00:00'])->save();
+
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice->fresh(['items', 'contact']), [
+            'opcao_simples_nacional' => 1,
+            'enforce_item_federal_taxes' => true,
+            'federal_piscofins_situacao_tributaria' => '1',
+            'federal_piscofins_tipo_retencao' => '3',
+        ]);
+
+        self::assertSame('blocked', $result['status']);
+        self::assertSame('missing_federal_taxes', $result['reason']);
+        self::assertContains('pis', $result['details']);
+        self::assertContains('cofins', $result['details']);
+        self::assertContains('csll', $result['details']);
+    }
+
     public function testAlreadyIssuedUnitIsIdempotent(): void
     {
         $invoice = $this->invoiceWithProfile('0107', '010701', '100');
