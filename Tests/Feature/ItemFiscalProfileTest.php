@@ -89,6 +89,56 @@ final class ItemFiscalProfileTest extends FeatureTestCase
             ->assertJsonValidationErrors('nfse_codigo_tributacao_nacional');
     }
 
+    public function testInvalidNationalCodeOnUpdatePreservesExistingFiscalProfile(): void
+    {
+        $item = Item::factory()->enabled()->create();
+        ItemFiscalProfile::query()->create([
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+        ]);
+
+        $request = Item::factory()->enabled()->raw(['name' => $item->name]);
+        $request['nfse_item_lista_servico'] = '0101';
+        $request['nfse_codigo_tributacao_nacional'] = '999999';
+
+        $this->loginAs()
+            ->patchJson(route('items.update', $item->id), $request)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('nfse_codigo_tributacao_nacional');
+
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+        ]);
+    }
+
+    public function testEditingItemWithoutFiscalFieldsPreservesHistoricProfile(): void
+    {
+        $item = Item::factory()->enabled()->create();
+        ItemFiscalProfile::query()->create([
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '999999',
+        ]);
+
+        $request = Item::factory()->enabled()->raw(['name' => $item->name]);
+
+        $this->loginAs()
+            ->patch(route('items.update', $item->id), $request)
+            ->assertOk();
+
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'codigo_tributacao_nacional' => '999999',
+        ]);
+    }
+
     public function testNativeItemUpdateCanRemoveFiscalProfile(): void
     {
         $item = Item::factory()->enabled()->create();
