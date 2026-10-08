@@ -117,6 +117,50 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('945.00', $payload['federalPiscofinsValorCofins']);
     }
 
+    public function testCsllIsNotSentWhenRetentionTypeExplicitlyDoesNotRetainCsll(): void
+    {
+        $settings = [
+            'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
+            'nfse.federal_piscofins_situacao_tributaria' => '1',
+            'nfse.federal_piscofins_tipo_retencao' => '4',
+            'nfse.federal_piscofins_aliquota_pis' => '0.65',
+            'nfse.federal_piscofins_aliquota_cofins' => '3.00',
+            'nfse.federal_valor_csll' => '1.00',
+        ];
+
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
+        );
+        $invoice = $this->invoice(31500.00);
+
+        $payload = $resolver->resolve($invoice);
+
+        self::assertSame('4', $payload['federalPiscofinsTipoRetencao']);
+        self::assertSame('', $payload['federalValorCsll']);
+    }
+
+    public function testMissingCsllDoesNotRewriteConfiguredRetentionType(): void
+    {
+        $settings = [
+            'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
+            'nfse.federal_piscofins_situacao_tributaria' => '1',
+            'nfse.federal_piscofins_tipo_retencao' => '3',
+            'nfse.federal_piscofins_aliquota_pis' => '0.65',
+            'nfse.federal_piscofins_aliquota_cofins' => '3.00',
+            'nfse.federal_valor_csll' => '',
+        ];
+
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
+        );
+        $invoice = $this->invoice(1000.00);
+
+        $payload = $resolver->resolve($invoice);
+
+        self::assertSame('3', $payload['federalPiscofinsTipoRetencao']);
+        self::assertSame('', $payload['federalValorCsll']);
+    }
+
     public function testPisCofinsRetentionsDoNotPopulateCsll(): void
     {
         $settings = [
