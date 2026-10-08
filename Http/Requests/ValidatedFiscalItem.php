@@ -19,6 +19,7 @@ final class ValidatedFiscalItem extends CoreItemRequest
 {
     /**
      * @return array<string,mixed>
+     * @psalm-suppress MissingOverrideAttribute External Akaunting compatibility includes PHP 8.2.
      */
     public function rules(): array
     {
