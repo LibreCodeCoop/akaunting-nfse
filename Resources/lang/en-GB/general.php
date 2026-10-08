@@ -83,6 +83,8 @@ return [
     ],
 
     'dashboard' => [
+         'recent_receipts' => 'Recent fiscal receipts',
+        'no_recent_receipts' => 'No fiscal receipts found',
         'menu_title' => 'NFS-e',
         'title' => 'NFS-e operations dashboard',
         'total_receipts' => 'Total issued receipts',

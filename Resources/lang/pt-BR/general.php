@@ -83,6 +83,8 @@ return [
     ],
 
     'dashboard' => [
+        'recent_receipts' => 'Notas fiscais recentes',
+        'no_recent_receipts' => 'Nenhuma nota fiscal encontrada',
         'menu_title' => 'NFS-e',
         'title' => 'Painel operacional NFS-e',
         'total_receipts' => 'Total de notas geradas',

@@ -7,12 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
     <x-slot name="content">
         <div class="mb-4 flex flex-wrap gap-2">
-            <a href="{{ route('invoices.index') }}" class="inline-flex items-center px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
-                {{ trans('nfse::general.go_to_invoices') }}
-            </a>
-            <a href="{{ route('invoices.index') }}" class="inline-flex items-center px-3 py-2 rounded bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-sm">
-                {{ trans('nfse::general.go_to_pending_invoices') }}
-            </a>
             <a href="{{ route('nfse.bulk.index') }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
                 {{ trans('nfse::general.bulk.title') }}
             </a>
@@ -39,5 +33,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <p class="text-lg font-semibold">{{ ($stats['sandbox_mode'] ?? true) ? trans('nfse::general.dashboard.sandbox_on') : trans('nfse::general.dashboard.sandbox_off') }}</p>
             </div>
         </div>
+
+        <section class="bg-white border rounded p-4">
+            <h2 class="text-lg font-semibold mb-3">{{ trans('nfse::general.dashboard.recent_receipts') }}</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead>
+                        <tr>
+                            <th class="text-left p-3">{{ trans('nfse::general.invoices.nfse_number') }}</th>
+                            <th class="text-left p-3">{{ trans('nfse::general.invoices.customer') }}</th>
+                            <th class="text-left p-3">{{ trans('nfse::general.invoices.issue_date') }}</th>
+                            <th class="text-left p-3">{{ trans_choice('general.statuses', 1) }}</th>
+                            <th class="text-right p-3">{{ trans('general.actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse ($recentReceipts as $receipt)
+                            <tr>
+                                <td class="p-3">{{ $receipt->nfse_number ?: '—' }}</td>
+                                <td class="p-3">{{ $receipt->customer_name ?: '—' }}</td>
+                                <td class="p-3">{{ $receipt->data_emissao ?: '—' }}</td>
+                                <td class="p-3">{{ trans('nfse::general.native_invoice.status_' . ($receipt->status ?: 'unknown')) }}</td>
+                                <td class="p-3 text-right">
+                                    <a class="text-indigo-700 underline" href="{{ route('invoices.show', $receipt->invoice_id) }}">{{ trans('nfse::general.go_to_invoices') }}</a>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="p-4 text-gray-500">{{ trans('nfse::general.dashboard.no_recent_receipts') }}</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </x-slot>
 </x-layouts.admin>
