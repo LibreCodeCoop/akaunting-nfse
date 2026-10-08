@@ -312,6 +312,7 @@ class Main extends Provider
                 'cancelled' => trans('nfse::general.ledger.status_cancelled'),
                 'substituted' => trans('nfse::general.ledger.status_substituted'),
                 'absent' => trans('nfse::general.native_invoice.status_pending'),
+                'unknown' => trans('nfse::general.ledger.status_unknown'),
             ];
             $this->app->make('view')->startPush('body_end', view('nfse::invoices.partials.native-status-filter', [
                 'fiscalFilter' => $fiscalFilter,

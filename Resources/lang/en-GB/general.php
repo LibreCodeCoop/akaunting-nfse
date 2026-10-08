@@ -93,6 +93,8 @@ return [
         'title' => 'Fiscal receipts',
         'search' => 'Number, access key or customer',
         'status_unknown' => 'Unknown',
+        'from' => 'Issued from',
+        'to' => 'Issued to',
         'open_invoice' => 'Open invoice',
         'empty' => 'No fiscal receipts found.',
     ],

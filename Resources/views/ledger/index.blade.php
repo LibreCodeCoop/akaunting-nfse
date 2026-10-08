@@ -12,6 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <option value="{{ $option }}" @selected($status === $option)>{{ trans('nfse::general.ledger.status_' . $option) }}</option>
                 @endforeach
             </select>
+            <label>{{ trans('nfse::general.ledger.from') }} <input type="date" name="from" value="{{ $from }}" class="border rounded px-3 py-2" /></label>
+            <label>{{ trans('nfse::general.ledger.to') }} <input type="date" name="to" value="{{ $to }}" class="border rounded px-3 py-2" /></label>
             <button type="submit" class="bg-indigo-600 text-white rounded px-4 py-2">{{ trans('nfse::general.ledger.filter') }}</button>
         </form>
         <div class="bg-white border rounded overflow-x-auto">

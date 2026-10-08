@@ -23,7 +23,7 @@ final class ApplyNativeInvoiceFiscalFilter
         }
 
         $status = request()->query('nfse_status');
-        if (!is_string($status) || !in_array($status, ['emitted', 'processing', 'cancelled', 'substituted', 'absent'], true)) {
+        if (!is_string($status) || !in_array($status, ['emitted', 'processing', 'cancelled', 'substituted', 'absent', 'unknown'], true)) {
             return;
         }
 
@@ -36,6 +36,16 @@ final class ApplyNativeInvoiceFiscalFilter
         if ($status === 'absent') {
             $query->whereRaw(
                 'NOT EXISTS (SELECT 1 FROM nfse_receipts r WHERE r.invoice_id = ' . $table . '.id)',
+            );
+
+            return;
+        }
+
+        if ($status === 'unknown') {
+            $query->whereRaw(
+                '(SELECT r.status FROM nfse_receipts r WHERE r.invoice_id = ' . $table
+                . '.id ORDER BY r.id DESC LIMIT 1) NOT IN (?, ?, ?, ?, ?)',
+                ['pending', 'processing', 'emitted', 'cancelled', 'substituted'],
             );
 
             return;
