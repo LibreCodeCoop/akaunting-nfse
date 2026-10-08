@@ -304,6 +304,20 @@ class Main extends Provider
                 return;
             }
 
+            $fiscalFilter = request()->query('nfse_status');
+            $fiscalStatuses = [
+                '' => trans('nfse::general.ledger.status_all'),
+                'emitted' => trans('nfse::general.ledger.status_emitted'),
+                'processing' => trans('nfse::general.ledger.status_processing'),
+                'cancelled' => trans('nfse::general.ledger.status_cancelled'),
+                'substituted' => trans('nfse::general.ledger.status_substituted'),
+                'absent' => trans('nfse::general.native_invoice.status_pending'),
+            ];
+            $this->app->make('view')->startPush('body_end', view('nfse::invoices.partials.native-status-filter', [
+                'fiscalFilter' => $fiscalFilter,
+                'fiscalStatuses' => $fiscalStatuses,
+            ])->render());
+
             $invoiceIds = $invoices->getCollection()
                 ->map(static fn ($invoice): int => is_numeric($invoice->id ?? null) ? (int) $invoice->id : 0)
                 ->filter(static fn (int $id): bool => $id > 0)
