@@ -1,4 +1,5 @@
 <?php
+
 // SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 declare(strict_types=1);
@@ -95,23 +96,31 @@ final class MunicipalAdmissibilityEvaluatorTest extends TestCase
     {
         $context = $this->context();
         $context['incidence_municipality'] = '';
-        self::assertSame('municipal_context_incomplete',
-            (new MunicipalAdmissibilityEvaluator())->evaluate($context)['reason']);
+        self::assertSame(
+            'municipal_context_incomplete',
+            (new MunicipalAdmissibilityEvaluator())->evaluate($context)['reason']
+        );
         $context = $this->context();
         $context['service_code'] = '010701000';
-        self::assertSame('unverifiable',
-            (new MunicipalAdmissibilityEvaluator())->evaluate($context, $this->evidence('rejected'))['decision']);
+        self::assertSame(
+            'unverifiable',
+            (new MunicipalAdmissibilityEvaluator())->evaluate($context, $this->evidence('rejected'))['decision']
+        );
     }
 
     public function testUntrustedNonSefinUrlAndMissingDpsHashCannotBeDecisive(): void
     {
         $evidence = $this->evidence('rejected');
         $evidence['source_url'] = 'https://example.com/nfse';
-        self::assertSame('unverifiable',
-            (new MunicipalAdmissibilityEvaluator())->evaluate($this->context(), $evidence)['decision']);
+        self::assertSame(
+            'unverifiable',
+            (new MunicipalAdmissibilityEvaluator())->evaluate($this->context(), $evidence)['decision']
+        );
         $context = $this->context();
         $context['dps_sha256'] = '';
-        self::assertSame('unverifiable',
-            (new MunicipalAdmissibilityEvaluator())->evaluate($context, $this->evidence('rejected'))['decision']);
+        self::assertSame(
+            'unverifiable',
+            (new MunicipalAdmissibilityEvaluator())->evaluate($context, $this->evidence('rejected'))['decision']
+        );
     }
 }

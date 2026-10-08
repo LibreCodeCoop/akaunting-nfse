@@ -93,7 +93,7 @@ final class ItemFiscalProfileListValidationTest extends FeatureTestCase
             'environment' => 'sandbox',
             'municipio_ibge' => '3303302',
             'service_code' => '010701000',
-            'competence_date' => '2026-10-05',
+            'competence_date' => date('Y-m-d'),
             'payload' => [
                 'aliquota' => [
                     'aliquotas' => [
@@ -101,7 +101,7 @@ final class ItemFiscalProfileListValidationTest extends FeatureTestCase
                     ],
                 ],
             ],
-            'fetched_at' => '2026-10-05 10:00:00',
+            'fetched_at' => date('Y-m-d H:i:s'),
         ]);
 
         $response = $this->loginAs()
