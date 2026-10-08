@@ -116,6 +116,29 @@ final class FiscalLedgerTest extends FeatureTestCase
         ]));
     }
 
+    public function testLedgerFiltersByIssueDateRange(): void
+    {
+        $this->loginAs();
+
+        $invoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $inside = $this->receipt($invoice, '86001', 'emitted');
+        $outside = $this->receipt($invoice, '86002', 'emitted');
+        $inside->forceFill(['data_emissao' => '2026-06-15 12:00:00'])->save();
+        $outside->forceFill(['data_emissao' => '2026-07-15 12:00:00'])->save();
+
+        $response = $this->get(route('nfse.ledger.index', [
+            'from' => '2026-06-01',
+            'to' => '2026-06-30',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('receipts', static function ($receipts) use ($inside, $outside): bool {
+            $ids = $receipts->getCollection()->pluck('id')->all();
+
+            return in_array($inside->id, $ids, true) && !in_array($outside->id, $ids, true);
+        });
+    }
+
     private function receipt(Document $invoice, string $number, string $status): NfseReceipt
     {
         return NfseReceipt::query()->create([

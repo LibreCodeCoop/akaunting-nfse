@@ -93,6 +93,8 @@ return [
         'title' => 'Notas fiscais',
         'search' => 'Número, chave ou tomador',
         'status_unknown' => 'Desconhecido',
+        'from' => 'Emissão de',
+        'to' => 'Emissão até',
         'open_invoice' => 'Abrir fatura',
         'empty' => 'Nenhuma NFS-e encontrada.',
     ],
