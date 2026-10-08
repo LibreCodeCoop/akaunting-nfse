@@ -31,6 +31,7 @@ use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\IssqnPayloadResolver;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\IssueInvoiceNfse;
+use Modules\Nfse\Application\OfficialIssuanceRejection;
 use Modules\Nfse\Application\PostEmissionDispatcher;
 use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Application\ReceiptNumberResolver;
@@ -713,7 +714,7 @@ class InvoiceController extends Controller
                     $request,
                     redirect()->route('invoices.show', $invoice)
                         ->with('error', trans('nfse::general.nfse_emit_failed'))
-                        ->with('nfse_gateway_error_detail', $this->gatewayErrorDetail($e)),
+                        ->with('nfse_gateway_error_detail', $this->safeIssuanceDetail($e)),
                 );
             } catch (NetworkException) {
                 return $this->ajaxAwareRedirect(
@@ -790,16 +791,16 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
         } catch (GatewayException $e) {
-            $gatewayDetail = $this->gatewayErrorDetail($e);
-            $xmlOrderDebug = $this->dpsXmlOrderDebug($dps);
+            $gatewayDetail = $this->safeIssuanceDetail($e);
 
-            $this->safeLogError('NFS-e issuance rejected by SEFIN', [
-                'invoice_id' => $invoice->id,
-                'http_status' => $e->httpStatus,
-                'upstream_payload' => $e->upstreamPayload,
-                'gateway_detail' => $gatewayDetail,
-                'xml_order_debug' => $xmlOrderDebug,
-            ]);
+            $this->safeLogError(
+                $gatewayDetail !== null ? 'NFS-e issuance rejected by SEFIN' : 'NFS-e issuance result unconfirmed',
+                [
+                    'invoice_id' => $invoice->id,
+                    'http_status' => $e->httpStatus,
+                    'official_code' => (new OfficialIssuanceRejection())->fromException($e)['code'] ?? null,
+                ],
+            );
 
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_emit_failed'))
@@ -815,7 +816,7 @@ class InvoiceController extends Controller
         } catch (NetworkException $e) {
             $this->safeLogError('NFS-e issuance failed after DPS recovery could not resolve the ambiguous outcome', [
                 'invoice_id' => $invoice->id,
-                'message' => $e->getMessage(),
+                'error_class' => $e::class,
                 'dps_recovery_supported' => isset($client) && is_callable([$client, 'queryDps']),
             ]);
 
@@ -1337,16 +1338,16 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
         } catch (GatewayException $e) {
-            $gatewayDetail = $this->gatewayErrorDetail($e);
-            $xmlOrderDebug = $this->dpsXmlOrderDebug($dps);
+            $gatewayDetail = $this->safeIssuanceDetail($e);
 
-            $this->safeLogError('NFS-e reissuance rejected by SEFIN', [
-                'invoice_id' => $invoice->id,
-                'http_status' => $e->httpStatus,
-                'upstream_payload' => $e->upstreamPayload,
-                'gateway_detail' => $gatewayDetail,
-                'xml_order_debug' => $xmlOrderDebug,
-            ]);
+            $this->safeLogError(
+                $gatewayDetail !== null ? 'NFS-e reissuance rejected by SEFIN' : 'NFS-e reissuance result unconfirmed',
+                [
+                    'invoice_id' => $invoice->id,
+                    'http_status' => $e->httpStatus,
+                    'official_code' => (new OfficialIssuanceRejection())->fromException($e)['code'] ?? null,
+                ],
+            );
 
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_reemit_failed'))
@@ -1354,7 +1355,7 @@ class InvoiceController extends Controller
         } catch (NetworkException $e) {
             $this->safeLogError('NFS-e reissuance failed due network/transport error', [
                 'invoice_id' => $invoice->id,
-                'message' => $e->getMessage(),
+                'error_class' => $e::class,
             ]);
 
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
@@ -2378,6 +2379,17 @@ class InvoiceController extends Controller
         } catch (\Throwable) {
             // Logging must never block NFS-e flows in degraded test/runtime contexts.
         }
+    }
+
+    /**
+     * Only a structured, confirmed issuance rejection may reach the operator.
+     * Generic HTTP responses and raw gateway payloads are never surfaced.
+     */
+    protected function safeIssuanceDetail(GatewayException $exception): ?string
+    {
+        $official = (new OfficialIssuanceRejection())->fromException($exception);
+
+        return $official !== null ? $official['code'] . ' - ' . $official['message'] : null;
     }
 
     protected function gatewayErrorDetail(GatewayException $exception): ?string
