@@ -161,6 +161,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
                 $invoiceId,
                 $baseDps,
                 $group,
+                'automatic',
             );
 
             return $result['receipt'];

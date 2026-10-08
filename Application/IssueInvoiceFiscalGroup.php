@@ -26,6 +26,7 @@ final class IssueInvoiceFiscalGroup
         private readonly IssueInvoiceNfse $issuer = new IssueInvoiceNfse(),
         private readonly ReceiptPersistence $persistence = new ReceiptPersistence(),
         private readonly RuntimeDpsFactory $dpsFactory = new RuntimeDpsFactory(),
+        private readonly EmissionAttemptJournal $attempts = new EmissionAttemptJournal(),
     ) {
     }
 
@@ -38,6 +39,7 @@ final class IssueInvoiceFiscalGroup
         int $invoiceId,
         DpsData $baseDps,
         array $group,
+        string $origin = 'manual_group',
     ): array {
         $groupKey = trim((string) ($group['key'] ?? ''));
         $category = trim((string) ($group['rtc_supply_category'] ?? ''));
@@ -85,18 +87,19 @@ final class IssueInvoiceFiscalGroup
         $payload['numeroDps'] = $identity['number'];
 
         $dps = $this->dpsFactory->make($payload);
-        $remote = $this->issuer->issue($client, $dps);
-        $persisted = $this->persistence->createGrouped(
+        return $this->attempts->issue(
+            client: $client,
+            dps: $dps,
             invoiceId: $invoiceId,
-            receipt: $remote,
-            resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
+            origin: $origin,
             groupKey: $groupKey,
+            transmit: fn (): ReceiptData => $this->issuer->issue($client, $dps),
+            persist: fn (ReceiptData $remote): NfseReceipt => $this->persistence->createGrouped(
+                invoiceId: $invoiceId,
+                receipt: $remote,
+                resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
+                groupKey: $groupKey,
+            ),
         );
-
-        return [
-            'receipt' => $persisted,
-            'remote_receipt' => $remote,
-            'reused' => false,
-        ];
     }
 }
