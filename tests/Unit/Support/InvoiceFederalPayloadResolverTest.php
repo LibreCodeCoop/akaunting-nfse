@@ -131,7 +131,9 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         $resolver = new InvoiceFederalPayloadResolver(
             settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
         );
-        $invoice = $this->invoice(31500.00);
+        $invoice = new Document();
+        $invoice->amount = 31500.00;
+        $invoice->items = $this->items([]);
 
         $payload = $resolver->resolve($invoice);
 
@@ -153,7 +155,9 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         $resolver = new InvoiceFederalPayloadResolver(
             settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
         );
-        $invoice = $this->invoice(1000.00);
+        $invoice = new Document();
+        $invoice->amount = 1000.00;
+        $invoice->items = $this->items([]);
 
         $payload = $resolver->resolve($invoice);
 
@@ -259,7 +263,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('', $payload['federalValorCsll']);
     }
 
-    public function testRetentionTypeRequiringCsllFallsBackWhenNoCsllValueExists(): void
+    public function testRetentionTypeRequiringCsllIsNotSilentlyRewrittenWhenValueIsMissing(): void
     {
         $resolver = new InvoiceFederalPayloadResolver(
             settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
@@ -276,7 +280,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $payload = $resolver->resolve($invoice);
 
-        self::assertSame('0', $payload['federalPiscofinsTipoRetencao']);
+        self::assertSame('3', $payload['federalPiscofinsTipoRetencao']);
         self::assertSame('', $payload['federalValorCsll']);
     }
     /**
