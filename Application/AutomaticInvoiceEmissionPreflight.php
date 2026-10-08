@@ -35,7 +35,10 @@ final class AutomaticInvoiceEmissionPreflight
      *   details:list<string>
      * }
      */
-    public function evaluate(Invoice $invoice): array
+    /**
+     * @param array<string,mixed>|null $settings
+     */
+    public function evaluate(Invoice $invoice, ?array $settings = null): array
     {
         $invoiceId = is_numeric($invoice->id ?? null) ? (int) $invoice->id : 0;
 
@@ -94,9 +97,7 @@ final class AutomaticInvoiceEmissionPreflight
         }
 
         $group = $remaining[0];
-        $settings = function_exists('setting') && is_array(setting('nfse', []))
-            ? setting('nfse', [])
-            : [];
+        $settings ??= $this->nfseSettings();
         $simples = is_numeric($settings['opcao_simples_nacional'] ?? null)
             ? (int) $settings['opcao_simples_nacional']
             : 1;
@@ -122,6 +123,18 @@ final class AutomaticInvoiceEmissionPreflight
             'group' => $remaining[0],
             'details' => [],
         ];
+    }
+
+    /** @return array<string,mixed> */
+    private function nfseSettings(): array
+    {
+        if (!function_exists('setting')) {
+            return [];
+        }
+
+        $settings = \setting('nfse', []);
+
+        return is_array($settings) ? $settings : [];
     }
 
     /**
