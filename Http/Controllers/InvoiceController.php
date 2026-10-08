@@ -1320,7 +1320,19 @@ class InvoiceController extends Controller
 
         try {
             $client = $this->makeClient($sandboxReemit);
-            $newReceipt = $client->emit($dps);
+            $issuance = (new EmissionAttemptJournal())->issue(
+                client: $client,
+                dps: $dps,
+                invoiceId: (int) $invoice->id,
+                origin: 'reemit',
+                persist: fn (ReceiptData $authorized): NfseReceipt => (new ReceiptPersistence())->createReemitted(
+                    invoiceId: (int) $invoice->id,
+                    receipt: $authorized,
+                    resolvedNumber: $this->resolveReceiptNfseNumber($authorized),
+                ),
+                transmit: fn (): ReceiptData => (new IssueInvoiceNfse())->issue($client, $dps),
+            );
+            $persistedReceipt = $issuance['receipt'];
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
@@ -1355,10 +1367,11 @@ class InvoiceController extends Controller
         }
 
         try {
-            $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
-            $email = $this->preparePostEmitEmail($request, $invoice);
-            $this->dispatchPostEmission($invoice, $persistedReceipt, $email);
-            $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
+            if (!$issuance['reused']) {
+                $email = $this->preparePostEmitEmail($request, $invoice);
+                $this->dispatchPostEmission($invoice, $persistedReceipt, $email);
+            }
+            $resolvedReceiptNumber = trim((string) $persistedReceipt->nfse_number);
 
             return $this->ajaxAwareRedirect(
                 $request,
@@ -3222,16 +3235,16 @@ class InvoiceController extends Controller
 
     protected function dpsNumberForReemit(Invoice $invoice): string
     {
-        $base = $this->dpsNumber($invoice);
-        $microtimeDigits = preg_replace('/\D+/', '', sprintf('%.6f', microtime(true))) ?: '';
-        $candidate = $base . substr($microtimeDigits, -8);
-        $digits = preg_replace('/\D+/', '', $candidate) ?: $base;
+        // Stable across a crashed/ambiguous retry. A new cancellation has its
+        // own persisted receipt id, so distinct reemission operations differ.
+        $cancelledReceipt = $this->findReceiptForInvoice($invoice);
+        $receiptId = (int) $cancelledReceipt->id;
 
-        if (strlen($digits) > 15) {
-            $digits = substr($digits, -15);
+        if ($receiptId <= 0 || strlen((string) $receiptId) > 14) {
+            throw new \LogicException('Cancelled receipt cannot be mapped to a stable reemission DPS.');
         }
 
-        return ltrim($digits, '0') !== '' ? ltrim($digits, '0') : '1';
+        return '9' . str_pad((string) $receiptId, 14, '0', STR_PAD_LEFT);
     }
 
     protected function competenceDate(Invoice $invoice): ?string

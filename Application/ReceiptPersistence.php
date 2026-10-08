@@ -99,6 +99,43 @@ final class ReceiptPersistence
         return $receipt instanceof NfseReceipt ? $receipt : null;
     }
 
+    /**
+     * Reemission after cancellation is a NEW fiscal document, never a mutation
+     * of the cancelled receipt. This preserves both the original fiscal ledger
+     * and historical attempt -> receipt links.
+     */
+    public function createReemitted(
+        int $invoiceId,
+        ReceiptData $receipt,
+        string $resolvedNumber,
+    ): NfseReceipt {
+        return DB::transaction(function () use ($invoiceId, $receipt, $resolvedNumber): NfseReceipt {
+            DB::table('documents')->where('id', $invoiceId)->lockForUpdate()->first();
+
+            $existing = NfseReceipt::query()
+                ->where('invoice_id', $invoiceId)
+                ->where('chave_acesso', $receipt->chaveAcesso)
+                ->first();
+
+            if ($existing instanceof NfseReceipt) {
+                $existing->update($this->receiptValues($receipt, $resolvedNumber));
+                $updated = $existing->fresh();
+                $this->persistAuthorizedXml($updated, $receipt);
+
+                return $updated;
+            }
+
+            $created = NfseReceipt::query()->create([
+                'invoice_id' => $invoiceId,
+                ...$this->receiptValues($receipt, $resolvedNumber),
+            ]);
+
+            $this->persistAuthorizedXml($created, $receipt);
+
+            return $created;
+        });
+    }
+
     public function createReplacement(
         int $invoiceId,
         ReceiptData $receipt,
