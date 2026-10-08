@@ -90,6 +90,11 @@ return [
         'status_processing' => 'Processing',
         'status_cancelled' => 'Cancelled',
         'status_substituted' => 'Substituted',
+        'title' => 'Fiscal receipts',
+        'search' => 'Number, access key or customer',
+        'status_unknown' => 'Unknown',
+        'open_invoice' => 'Open invoice',
+        'empty' => 'No fiscal receipts found.',
     ],
 
     'dashboard' => [

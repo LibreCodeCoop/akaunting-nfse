@@ -94,6 +94,38 @@ class InvoiceController extends Controller
         );
     }
 
+    public function fiscalLedger(?Request $request = null): \Illuminate\View\View
+    {
+        $request = $this->currentRequest($request);
+        $status = (string) ($request?->query('status', 'all') ?? 'all');
+        if (!in_array($status, ['all', 'emitted', 'cancelled', 'processing', 'substituted'], true)) {
+            $status = 'all';
+        }
+
+        $search = $this->normalizedIndexSearch($request?->query('search'));
+        $query = NfseReceipt::query()
+            ->with('invoice.contact')
+            ->whereHas('invoice', static fn ($query) => $query
+                ->where('company_id', (int) company_id())
+                ->where('type', Invoice::INVOICE_TYPE));
+
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        if ($search !== null) {
+            $query->where(static fn ($query) => $query
+                ->where('nfse_number', 'like', '%' . $search . '%')
+                ->orWhere('chave_acesso', 'like', '%' . $search . '%')
+                ->orWhereHas('invoice.contact', static fn ($contact) => $contact
+                    ->where('name', 'like', '%' . $search . '%')));
+        }
+
+        $receipts = $query->orderByDesc('id')->paginate(25)->withQueryString();
+
+        return view('nfse::ledger.index', compact('receipts', 'status', 'search'));
+    }
+
     public function index(?Request $request = null): \Illuminate\View\View|RedirectResponse
     {
         $request = $this->currentRequest($request);
@@ -284,6 +316,25 @@ class InvoiceController extends Controller
     {
         $this->ensureInvoiceRelationsLoaded($invoice);
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->firstOrFail();
+
+        return $this->downloadReceiptArtifact($invoice, $receipt, $artifact);
+    }
+
+    public function downloadLedgerArtifact(int $receipt, string $artifact): Response|RedirectResponse
+    {
+        $fiscalReceipt = NfseReceipt::query()->where('id', $receipt)
+            ->whereHas('invoice', static fn ($query) => $query
+                ->where('company_id', (int) company_id())
+                ->where('type', Invoice::INVOICE_TYPE))
+            ->firstOrFail();
+        $invoice = Invoice::findOrFail($fiscalReceipt->invoice_id);
+        $this->ensureInvoiceRelationsLoaded($invoice);
+
+        return $this->downloadReceiptArtifact($invoice, $fiscalReceipt, $artifact);
+    }
+
+    protected function downloadReceiptArtifact(Invoice $invoice, NfseReceipt $receipt, string $artifact): Response|RedirectResponse
+    {
 
         if (!in_array($artifact, ['xml', 'danfse'], true)) {
             return redirect()->route('invoices.show', $invoice)

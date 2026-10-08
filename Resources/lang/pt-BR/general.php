@@ -90,6 +90,11 @@ return [
         'status_processing' => 'Em processamento',
         'status_cancelled' => 'Cancelada',
         'status_substituted' => 'Substituída',
+        'title' => 'Notas fiscais',
+        'search' => 'Número, chave ou tomador',
+        'status_unknown' => 'Desconhecido',
+        'open_invoice' => 'Abrir fatura',
+        'empty' => 'Nenhuma NFS-e encontrada.',
     ],
 
     'dashboard' => [

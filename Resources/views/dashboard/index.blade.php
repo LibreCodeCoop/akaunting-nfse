@@ -7,6 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
     <x-slot name="content">
         <div class="mb-4 flex flex-wrap gap-2">
+            <a href="{{ route('nfse.ledger.index') }}" class="inline-flex items-center px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
+                {{ trans('nfse::general.ledger.title') }}
+            </a>
             <a href="{{ route('nfse.bulk.index') }}" class="inline-flex items-center px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm">
                 {{ trans('nfse::general.bulk.title') }}
             </a>
