@@ -21,12 +21,14 @@ final class ItemMunicipalValidationResolver
         string $nationalCode,
         string $municipioIbge,
         bool $sandboxMode,
+        ?string $competence = null,
     ): array {
         $results = $this->resolveMany(
             itemNationalCodes: [$itemId => $nationalCode],
             companyId: $companyId,
             municipioIbge: $municipioIbge,
             sandboxMode: $sandboxMode,
+            competence: $competence,
         );
 
         return $results[$itemId] ?? (new ItemMunicipalParameterValidator())->validate(null, null);
@@ -43,8 +45,15 @@ final class ItemMunicipalValidationResolver
         int $companyId,
         string $municipioIbge,
         bool $sandboxMode,
+        ?string $competence = null,
     ): array {
         if ($companyId <= 0 || preg_match('/^\d{7}$/', $municipioIbge) !== 1 || $itemNationalCodes === []) {
+            return [];
+        }
+
+        $competence ??= date('Y-m-d'); // Item catalogue is explicitly a today-only presentation.
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $competence);
+        if (!$date instanceof \DateTimeImmutable || $date->format('Y-m-d') !== $competence) {
             return [];
         }
 
@@ -82,6 +91,7 @@ final class ItemMunicipalValidationResolver
                 $companyId,
                 $municipioIbge,
                 $environment,
+                $competence,
             )
             : [];
 
@@ -101,9 +111,13 @@ final class ItemMunicipalValidationResolver
                 is_array($snapshot['payload'] ?? null) ? $snapshot['payload'] : null,
                 [
                     'source' => 'cache',
-                    'stale' => (string) ($snapshot['competence_date'] ?? '') !== date('Y-m-d'),
+                    'stale' => (string) ($snapshot['competence_date'] ?? '') !== $competence,
                     'fetched_at' => (string) ($snapshot['fetched_at'] ?? ''),
                     'environment' => $environment,
+                    'competence' => $competence,
+                    'incidence_municipality' => $municipioIbge,
+                    'company_id' => $companyId,
+                    'service_code' => $serviceCodes[$itemId] ?? '',
                 ],
             );
         }
@@ -111,10 +125,6 @@ final class ItemMunicipalValidationResolver
         return $results;
     }
 
-    /**
-     * @param list<int> $itemIds
-     * @return array<int,string>
-     */
     /**
      * @param list<int> $itemIds
      * @return array<int,string>
@@ -200,15 +210,16 @@ final class ItemMunicipalValidationResolver
         int $companyId,
         string $municipioIbge,
         string $environment,
+        string $competence,
     ): array {
         $placeholders = implode(',', array_fill(0, count($serviceCodes), '?'));
-        $bindings = array_merge([$companyId, $environment, $municipioIbge], $serviceCodes, [date('Y-m-d')]);
+        $bindings = array_merge([$companyId, $environment, $municipioIbge], $serviceCodes, [$competence]);
 
         try {
             $rows = DB::select(
                 'SELECT service_code, payload, fetched_at, competence_date FROM nfse_municipal_parameter_snapshots'
                 . ' WHERE company_id = ? AND environment = ? AND municipio_ibge = ?'
-                . ' AND service_code IN (' . $placeholders . ') AND DATE(competence_date) <= ?'
+                . ' AND service_code IN (' . $placeholders . ') AND DATE(competence_date) = ?'
                 . ' ORDER BY competence_date DESC, fetched_at DESC, id DESC',
                 $bindings,
             );
