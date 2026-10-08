@@ -120,6 +120,10 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
             clientContextFactory: static function (): FiscalClientContext {
                 throw new \LogicException('Fiscal client must not open.');
             },
+            settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
+                'nfse.opcao_simples_nacional' => 2,
+                default => $default,
+            },
         );
 
         $this->expectException(\LogicException::class);
