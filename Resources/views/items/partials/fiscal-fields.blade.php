@@ -125,7 +125,8 @@
         {{-- Optional catalog navigation. The saved fiscal fields remain Akaunting's native selects. --}}
         <div class="sm:col-span-6 rounded border p-3" data-nfse-tax-code-assistant
              data-lc-options='@json($lc116Options)'
-             data-national-options='@json($nationalServiceOptions)'
+             data-search-url="{{ route('nfse.national-services') }}"
+             data-error-label="{{ trans('nfse::general.items.assistant.search_error') }}"
              data-matches-label="{{ trans('nfse::general.items.assistant.matches') }}">
             <label for="nfse-tax-code-search" class="block text-sm font-medium">{{ trans('nfse::general.items.assistant.search_label') }}</label>
             <input id="nfse-tax-code-search" type="search" autocomplete="off"

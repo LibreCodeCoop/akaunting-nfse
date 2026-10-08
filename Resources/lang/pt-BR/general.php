@@ -117,6 +117,7 @@ return [
     'items' => [
         'assistant' => [
             'search_label' => 'Pesquisar desdobramentos do Código de Tributação Nacional',
+            'search_error' => 'Não foi possível consultar o catálogo. Tente novamente.',
             'search_placeholder' => 'Digite código ou descrição para filtrar',
             'advisory' => 'A seleção relaciona os quatro primeiros dígitos ao subitem LC 116. A disponibilidade municipal depende de validação separada.',
             'results' => 'Desdobramentos nacionais disponíveis',

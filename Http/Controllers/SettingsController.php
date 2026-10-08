@@ -17,6 +17,7 @@ use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\Lc116Code;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog;
 use Modules\Nfse\Support\MunicipalParameterSnapshotStore;
 use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\PfxReader;
@@ -416,6 +417,38 @@ class SettingsController extends Controller
         return $this->jsonResponse([
             'data' => $lc116Catalog->search(is_string($query) ? $query : null, $limit),
         ]);
+    }
+
+    public function nationalServices(Request $request, OfficialDomainCatalog $catalog): JsonResponse
+    {
+        $rawLc = $request->query('lc116', '');
+        $rawQuery = $request->query('q', '');
+        $lc = is_string($rawLc) ? Lc116Code::normalize($rawLc) : '';
+        $query = is_string($rawQuery) ? trim($rawQuery) : '';
+
+        if ($lc !== '' && preg_match('/^\\d{4}$/', $lc) !== 1) {
+            return $this->jsonResponse(['data' => []], 422);
+        }
+
+        if (mb_strlen($query) > 100) {
+            return $this->jsonResponse(['data' => []], 422);
+        }
+
+        // The official catalog API applies a maximum result cap; querying by LC
+        // prefix first preserves related codes before additional text filtering.
+        if ($lc === '' && mb_strlen($query) < 2) {
+            return $this->jsonResponse(['data' => []]);
+        }
+
+        $entries = $catalog->searchNationalServices($lc !== '' ? $lc : $query, 500);
+        if ($query !== '' && $lc !== '') {
+            $term = mb_strtolower($query, 'UTF-8');
+            $entries = array_values(array_filter($entries, static fn (array $entry): bool =>
+                str_contains(mb_strtolower($entry['code'] . ' ' . $entry['description'], 'UTF-8'), $term)
+            ));
+        }
+
+        return $this->jsonResponse(['data' => array_slice($entries, 0, 50)]);
     }
 
     public function municipalParameters(Request $request): JsonResponse

@@ -117,6 +117,7 @@ return [
     'items' => [
         'assistant' => [
             'search_label' => 'Search national taxation code subdivisions',
+            'search_error' => 'Unable to search the catalog. Please try again.',
             'search_placeholder' => 'Enter a code or description',
             'advisory' => 'The selection associates the first four digits with LC 116. Municipal eligibility requires separate validation.',
             'results' => 'Available national subdivisions',
