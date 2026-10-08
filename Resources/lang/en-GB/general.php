@@ -72,7 +72,7 @@ return [
             'cnpj_prestador' => 'Service provider CNPJ is valid',
             'certificate_cnpj_matches' => 'Certificate CNPJ matches the configured service provider',
             'municipio_ibge' => 'IBGE municipality configured',
-            'codigo_tributacao_nacional' => 'National tax code (NBS) configured',
+            'codigo_tributacao_nacional' => 'National Taxation Code (cTribNac) configured',
             'bao_addr' => 'OpenBao address configured',
             'bao_mount' => 'OpenBao mount configured',
             'vault_auth' => 'Vault authentication configured',
@@ -97,11 +97,11 @@ return [
 
     'items' => [
         'fiscal_title' => 'NFS-e fiscal data',
-        'fiscal_description' => 'Configure LC116 and national tax code (NBS) directly on the item.',
+        'fiscal_description' => 'Configure LC116 and the National Taxation Code (cTribNac) directly on the item.',
         'item_lista_servico' => 'Service list item (LC116)',
         'item_lista_servico_placeholder' => 'Example: 1.07 - Technical IT support',
         'item_lista_servico_hint' => 'Use the official LC116 code. Only 4 digits are stored.',
-        'codigo_tributacao_nacional' => 'National tax code (NBS)',
+        'codigo_tributacao_nacional' => 'National Taxation Code (cTribNac)',
         'codigo_tributacao_nacional_placeholder' => 'Example: 010701',
         'codigo_tributacao_municipal' => 'Municipal taxation code',
         'codigo_tributacao_municipal_placeholder' => 'Example: 001',

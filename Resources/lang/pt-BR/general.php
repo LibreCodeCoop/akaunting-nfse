@@ -72,7 +72,7 @@ return [
             'cnpj_prestador' => 'CNPJ do prestador válido',
             'certificate_cnpj_matches' => 'CNPJ do certificado corresponde ao prestador configurado',
             'municipio_ibge' => 'Município IBGE configurado',
-            'codigo_tributacao_nacional' => 'Código de tributação nacional (NBS) configurado',
+            'codigo_tributacao_nacional' => 'Código de Tributação Nacional (cTribNac) configurado',
             'bao_addr' => 'Endereço OpenBao configurado',
             'bao_mount' => 'Mount OpenBao configurado',
             'vault_auth' => 'Autenticação do Vault configurada',
@@ -97,11 +97,11 @@ return [
 
     'items' => [
         'fiscal_title' => 'Dados fiscais da NFS-e',
-        'fiscal_description' => 'Configure o código LC116 e o código nacional (NBS) diretamente no item.',
+        'fiscal_description' => 'Configure o código LC116 e o Código de Tributação Nacional (cTribNac) diretamente no item.',
         'item_lista_servico' => 'Item da lista de serviço (LC116)',
         'item_lista_servico_placeholder' => 'Ex.: 1.07 - Suporte técnico em informática',
         'item_lista_servico_hint' => 'Use o código oficial da lista LC116. Apenas os 4 dígitos são salvos.',
-        'codigo_tributacao_nacional' => 'Código de tributação nacional (NBS)',
+        'codigo_tributacao_nacional' => 'Código de Tributação Nacional (cTribNac)',
         'codigo_tributacao_nacional_placeholder' => 'Ex.: 010701',
         'codigo_tributacao_municipal' => 'Código de tributação municipal',
         'codigo_tributacao_municipal_placeholder' => 'Ex.: 001',

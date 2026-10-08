@@ -877,6 +877,22 @@ class InvoiceController extends Controller
             ];
         }
 
+        $allInput = method_exists($request, 'all') && is_array($request->all())
+            ? $request->all()
+            : [];
+        $isDeleteMethod = method_exists($request, 'isMethod')
+            ? $request->isMethod('delete')
+            : false;
+        $hasStructuredCancellationData = array_key_exists('cancel_reason', $allInput)
+            || array_key_exists('cancel_justification', $allInput);
+
+        if (!$isDeleteMethod && !$hasStructuredCancellationData) {
+            return [
+                'code' => '9',
+                'description' => (string) trans('nfse::general.cancel_motivo_default'),
+            ];
+        }
+
         $validated = $request->validate(
             [
                 'cancel_reason' => ['required', 'string', 'in:' . implode(',', $allowedReasons)],
