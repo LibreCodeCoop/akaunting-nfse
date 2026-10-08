@@ -61,6 +61,34 @@ final class ItemFiscalProfileTest extends FeatureTestCase
         ]);
     }
 
+    public function testUnknownNationalCodeIsRejectedBeforeCreatingAnItem(): void
+    {
+        $request = Item::factory()->enabled()->raw();
+        $request['nfse_item_lista_servico'] = '1.07';
+        $request['nfse_codigo_tributacao_nacional'] = '999999';
+
+        $this->loginAs()
+            ->postJson(route('items.store'), $request)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('nfse_codigo_tributacao_nacional');
+
+        $this->assertDatabaseMissing('items', [
+            'company_id' => company_id(),
+            'name' => $request['name'],
+        ]);
+    }
+
+    public function testMalformedNationalCodeIsRejectedWithoutSilentTruncation(): void
+    {
+        $request = Item::factory()->enabled()->raw();
+        $request['nfse_codigo_tributacao_nacional'] = '0107019';
+
+        $this->loginAs()
+            ->postJson(route('items.store'), $request)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('nfse_codigo_tributacao_nacional');
+    }
+
     public function testNativeItemUpdateCanRemoveFiscalProfile(): void
     {
         $item = Item::factory()->enabled()->create();
