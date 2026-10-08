@@ -27,6 +27,13 @@ final class ApplyNativeInvoiceFiscalFilter
             return;
         }
 
+        // Akaunting inserts the default unpaid-tab search before reaching this event.
+        // A fiscal-only filter must span all commercial invoice statuses.
+        // Preserve searches and tabs explicitly chosen by the operator.
+        if (request()->input('programmatic') === '1') {
+            request()->merge(['search' => '', 'list_records' => 'all']);
+        }
+
         $query = $event->query;
         if (!$query->getModel() instanceof Document) {
             return;

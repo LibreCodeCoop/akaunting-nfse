@@ -13,6 +13,21 @@ use Tests\Feature\FeatureTestCase;
 
 final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
 {
+    public function testFiscalOnlyFilterDoesNotInheritDefaultUnpaidTab(): void
+    {
+        $this->loginAs();
+
+        $invoice = Document::factory()->invoice()->create([
+            'company_id' => company_id(),
+            'status' => 'draft',
+        ]);
+        $this->receipt($invoice, 'emitted');
+
+        $ids = $this->invoiceIdsAcrossPages('emitted');
+
+        self::assertContains($invoice->id, $ids);
+    }
+
     public function testNativeInvoiceFilterUsesLatestReceipt(): void
     {
         $this->loginAs();
