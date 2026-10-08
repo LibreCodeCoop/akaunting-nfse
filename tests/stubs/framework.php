@@ -150,6 +150,10 @@ class Model
         return new static(array_merge($attributes, $values));
     }
 
+    public static function saving(callable $callback): void
+    {
+    }
+
     public static function saved(callable $callback): void
     {
     }
