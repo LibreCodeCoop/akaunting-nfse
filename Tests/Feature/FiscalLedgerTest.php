@@ -174,7 +174,7 @@ final class FiscalLedgerTest extends FeatureTestCase
         }
         $this->receipt($invoice, '94000', 'cancelled');
 
-        $response = $this->get(route('nfse.ledger.index', ['status' => 'emitted', 'page' => 2]));
+        $response = $this->get(route('nfse.ledger.index', ['status' => 'emitted', 'search' => '93000-', 'page' => 2]));
         $response->assertOk();
         $response->assertViewHas('receipts', static function ($receipts): bool {
             return $receipts->total() === 27
