@@ -35,7 +35,7 @@ final class PersistItemFiscalProfile
         }
 
         try {
-            if ($profile['item_lista_servico'] === null && $profile['codigo_tributacao_nacional'] === null && $profile['codigo_tributacao_municipal'] === null) {
+            if ($profile['item_lista_servico'] === null && $profile['codigo_tributacao_nacional'] === null && $profile['codigo_tributacao_municipal'] === null && ($profile['rtc_supply_category'] ?? null) === null) {
                 ItemFiscalProfile::query()
                     ->where('company_id', $companyId)
                     ->where('item_id', $itemId)

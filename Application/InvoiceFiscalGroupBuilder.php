@@ -73,7 +73,8 @@ final class InvoiceFiscalGroupBuilder
                 $rate = trim($defaultRate);
             }
 
-            $key = 'service:' . $serviceCode . '|tax:' . $nationalCode . '|mun:' . $municipalCode . '|rate:' . $rate;
+            $rtcCategory = trim((string) ($profile['rtc_supply_category'] ?? ''));
+            $key = 'service:' . $serviceCode . '|tax:' . $nationalCode . '|mun:' . $municipalCode . '|rate:' . $rate . ($rtcCategory !== '' ? '|rtc:' . $rtcCategory : '');
             $minor = $this->decimalToMinor($item['total'] ?? null);
 
             if (!isset($groups[$key])) {
@@ -83,6 +84,7 @@ final class InvoiceFiscalGroupBuilder
                     'codigo_tributacao_nacional' => $nationalCode,
                     'codigo_tributacao_municipal' => $municipalCode,
                     'aliquota' => $rate,
+                    'rtc_supply_category' => $rtcCategory,
                     'amount_minor' => 0,
                     'items' => [],
                 ];
