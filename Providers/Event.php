@@ -14,6 +14,10 @@ use Modules\Nfse\Listeners\PersistItemFiscalProfile;
 class Event extends Provider
 {
     protected $listen = [
+        'App\\Events\\Common\\SearchStringApplying' => [
+            \Modules\Nfse\Listeners\ApplyNativeInvoiceFiscalFilter::class,
+        ],
+
         'App\\Events\\Document\\DocumentSending' => [
             EmitNfseBeforeDocumentSend::class,
         ],

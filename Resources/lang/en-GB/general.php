@@ -82,6 +82,16 @@ return [
         ],
     ],
 
+    'ledger' => [
+        'filter_fiscal_status' => 'NFS-e status',
+        'filter' => 'Filter',
+        'status_all' => 'All',
+        'status_emitted' => 'Issued',
+        'status_processing' => 'Processing',
+        'status_cancelled' => 'Cancelled',
+        'status_substituted' => 'Substituted',
+    ],
+
     'dashboard' => [
          'recent_receipts' => 'Recent fiscal receipts',
         'no_recent_receipts' => 'No fiscal receipts found',

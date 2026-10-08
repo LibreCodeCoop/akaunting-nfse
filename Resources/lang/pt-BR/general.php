@@ -82,6 +82,16 @@ return [
         ],
     ],
 
+    'ledger' => [
+        'filter_fiscal_status' => 'Situação da NFS-e',
+        'filter' => 'Filtrar',
+        'status_all' => 'Todas',
+        'status_emitted' => 'Emitida',
+        'status_processing' => 'Em processamento',
+        'status_cancelled' => 'Cancelada',
+        'status_substituted' => 'Substituída',
+    ],
+
     'dashboard' => [
         'recent_receipts' => 'Notas fiscais recentes',
         'no_recent_receipts' => 'Nenhuma nota fiscal encontrada',
