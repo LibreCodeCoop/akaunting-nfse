@@ -118,6 +118,42 @@ final class ItemFiscalProfileInputTest extends TestCase
         ], ItemFiscalProfileInput::fromRequest($request));
     }
 
+    public function testPartialFiscalPayloadPreservesAllOmittedFields(): void
+    {
+        $request = $this->request(['nfse_rtc_supply_category' => 'lease']);
+        $existing = [
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '999999',
+            'codigo_tributacao_municipal' => '123',
+            'rtc_supply_category' => 'ordinary_lc116',
+        ];
+
+        self::assertSame([
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '999999',
+            'codigo_tributacao_municipal' => '123',
+            'rtc_supply_category' => 'lease',
+        ], ItemFiscalProfileInput::fromRequest($request, $existing));
+    }
+
+    public function testExplicitlyEmptyNationalCodePreservesOtherFiscalFields(): void
+    {
+        $request = $this->request(['nfse_codigo_tributacao_nacional' => '']);
+        $existing = [
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => '123',
+            'rtc_supply_category' => 'ordinary_lc116',
+        ];
+
+        self::assertSame([
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => null,
+            'codigo_tributacao_municipal' => '123',
+            'rtc_supply_category' => 'ordinary_lc116',
+        ], ItemFiscalProfileInput::fromRequest($request, $existing));
+    }
+
     public function testNonRequestObjectIsIgnored(): void
     {
         self::assertNull(ItemFiscalProfileInput::fromRequest(new \stdClass()));

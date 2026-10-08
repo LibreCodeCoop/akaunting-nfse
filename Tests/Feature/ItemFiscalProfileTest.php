@@ -177,6 +177,82 @@ final class ItemFiscalProfileTest extends FeatureTestCase
         ]);
     }
 
+    public function testLegacyNationalCodeCanBeResubmittedUnchanged(): void
+    {
+        $item = Item::factory()->enabled()->create();
+        ItemFiscalProfile::query()->create([
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '999999',
+        ]);
+
+        $request = Item::factory()->enabled()->raw(['name' => $item->name]);
+        $request['nfse_item_lista_servico'] = '0107';
+        $request['nfse_codigo_tributacao_nacional'] = '999999';
+
+        $this->loginAs()->patch(route('items.update', $item->id), $request)->assertOk();
+
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'codigo_tributacao_nacional' => '999999',
+        ]);
+    }
+
+    public function testEditingLegacyItemCannotReplaceCodeWithAnotherUnknownCode(): void
+    {
+        $item = Item::factory()->enabled()->create();
+        ItemFiscalProfile::query()->create([
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '999999',
+        ]);
+
+        $request = Item::factory()->enabled()->raw(['name' => 'Should not persist invalid update']);
+        $request['nfse_codigo_tributacao_nacional'] = '888888';
+
+        $this->withExceptionHandling();
+        $this->loginAs()->patchJson(route('items.update', $item->id), $request)
+            ->assertStatus(422)->assertJsonValidationErrors('nfse_codigo_tributacao_nacional');
+
+        $this->assertDatabaseMissing('items', [
+            'id' => $item->id,
+            'name' => 'Should not persist invalid update',
+        ]);
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'item_id' => $item->id,
+            'codigo_tributacao_nacional' => '999999',
+        ]);
+    }
+
+    public function testUpdatingOnlyRtcCategoryDoesNotEraseExistingFiscalCodes(): void
+    {
+        $item = Item::factory()->enabled()->create();
+        ItemFiscalProfile::query()->create([
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => '123',
+        ]);
+
+        $request = Item::factory()->enabled()->raw(['name' => $item->name]);
+        $request['nfse_rtc_supply_category'] = 'digital_platform';
+
+        $this->loginAs()->patch(route('items.update', $item->id), $request)->assertOk();
+
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => '123',
+            'rtc_supply_category' => 'digital_platform',
+        ]);
+    }
+
     public function testNativeItemUpdateCanRemoveFiscalProfile(): void
     {
         $item = Item::factory()->enabled()->create();
