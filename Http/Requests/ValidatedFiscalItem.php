@@ -42,6 +42,11 @@ final class ValidatedFiscalItem extends CoreItemRequest
             },
         ];
 
+        $rules['nfse_rtc_supply_category'] = [
+            'nullable',
+            'in:ordinary_lc116,digital_platform,non_iss_intangible,condominium_revenue,lease,residual_service',
+        ];
+
         return $rules;
     }
 }

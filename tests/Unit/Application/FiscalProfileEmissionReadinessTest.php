@@ -60,6 +60,31 @@ final class FiscalProfileEmissionReadinessTest extends TestCase
         self::assertContains('missing_national_code', $result['issues']);
     }
 
+    public function testExplicitUnsupportedRtcSupplyCategoryBlocksOrdinaryIssuance(): void
+    {
+        $result = (new FiscalProfileEmissionReadiness())->evaluate([
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+            'rtc_supply_category' => 'digital_platform',
+        ]);
+
+        self::assertFalse($result['isReady']);
+        self::assertSame('unverifiable', $result['status']);
+        self::assertContains('unsupported_rtc_supply_category', $result['issues']);
+    }
+
+    public function testExplicitOrdinaryLc116CategoryPreservesExistingEmissionRules(): void
+    {
+        $result = (new FiscalProfileEmissionReadiness())->evaluate([
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+            'rtc_supply_category' => 'ordinary_lc116',
+        ]);
+
+        self::assertTrue($result['isReady']);
+        self::assertSame('valid', $result['status']);
+    }
+
     public function testMissingProfileBlocksEmissionBecauseNationalCodeCannotBeProduced(): void
     {
         $result = (new FiscalProfileEmissionReadiness())->evaluate([]);

@@ -40,6 +40,7 @@ final class InvoiceFiscalProfileSelector
             'codigo_tributacao_nacional' => $defaultNationalCode,
             'codigo_tributacao_municipal' => '',
             'aliquota' => $defaultRate,
+            'rtc_supply_category' => '',
         ];
 
         foreach ($items as $item) {
@@ -72,7 +73,8 @@ final class InvoiceFiscalProfileSelector
                 ? '[' . $serviceCode . '] ' . $itemName
                 : $itemName;
 
-            $signature = $serviceCode . '|' . $nationalCode . '|' . $municipalCode . '|' . $rate;
+            $rtcCategory = trim((string) ($profile['rtc_supply_category'] ?? ''));
+            $signature = $serviceCode . '|' . $nationalCode . '|' . $municipalCode . '|' . $rate . '|' . $rtcCategory;
 
             if ($signature === '||') {
                 continue;
@@ -86,6 +88,7 @@ final class InvoiceFiscalProfileSelector
                     'codigo_tributacao_nacional' => $nationalCode,
                     'codigo_tributacao_municipal' => $municipalCode,
                     'aliquota' => $rate,
+                    'rtc_supply_category' => $rtcCategory,
                 ];
             }
         }
@@ -95,6 +98,7 @@ final class InvoiceFiscalProfileSelector
             'codigo_tributacao_nacional' => $selected['codigo_tributacao_nacional'] !== '' ? $selected['codigo_tributacao_nacional'] : $defaultNationalCode,
             'codigo_tributacao_municipal' => $selected['codigo_tributacao_municipal'] ?? '',
             'aliquota' => $selected['aliquota'] !== '' ? $selected['aliquota'] : $defaultRate,
+            'rtc_supply_category' => $selected['rtc_supply_category'],
             'line_items' => $lineItems,
             'requires_split' => count($signatures) > 1,
         ];

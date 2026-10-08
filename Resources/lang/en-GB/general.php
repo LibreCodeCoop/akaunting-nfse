@@ -115,6 +115,15 @@ return [
     ],
 
     'items' => [
+        'rtc_supply_category' => 'IBS/CBS supply category',
+        'rtc_supply_category_placeholder' => 'Select the applicable category',
+        'rtc_supply_category_hint' => 'Non-LC116 supplies require explicit classification and are not yet issuable through the module standard flow.',
+        'rtc_ordinary_lc116' => 'ISS-taxable service (LC 116)',
+        'rtc_digital_platform' => 'Digital platform or intermediated supply',
+        'rtc_non_iss_intangible' => 'Non-ISS intangible supply',
+        'rtc_condominium_revenue' => 'Condominium revenue',
+        'rtc_lease' => 'Lease or rental',
+        'rtc_residual_service' => 'Other service supply',
         'assistant' => [
             'search_label' => 'Search national taxation code subdivisions',
             'search_error' => 'Unable to search the catalog. Please try again.',

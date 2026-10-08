@@ -42,6 +42,18 @@ final class FiscalProfileEmissionReadiness
                 : null,
         );
 
+        $category = trim((string) ($profile['rtc_supply_category'] ?? ''));
+        if ($category !== '' && $category !== 'ordinary_lc116') {
+            return array_merge(
+                $validation,
+                [
+                    'isReady' => false,
+                    'status' => 'unverifiable',
+                    'issues' => array_merge($validation['issues'], ['unsupported_rtc_supply_category']),
+                ],
+            );
+        }
+
         $issues = is_array($validation['issues'] ?? null)
             ? array_values(array_map('strval', $validation['issues']))
             : [];

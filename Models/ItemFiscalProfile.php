@@ -19,6 +19,7 @@ class ItemFiscalProfile extends Model
         'item_lista_servico',
         'codigo_tributacao_nacional',
         'codigo_tributacao_municipal',
+        'rtc_supply_category',
     ];
 
     protected $casts = [

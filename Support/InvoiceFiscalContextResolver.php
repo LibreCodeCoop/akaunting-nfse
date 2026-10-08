@@ -144,6 +144,7 @@ final class InvoiceFiscalContextResolver
                                 '',
                                 (string) ($profile->codigo_tributacao_nacional ?? ''),
                             ) ?: '',
+                            'rtc_supply_category' => trim((string) ($profile->rtc_supply_category ?? '')),
                             'codigo_tributacao_municipal' => preg_replace(
                                 '/\D+/',
                                 '',

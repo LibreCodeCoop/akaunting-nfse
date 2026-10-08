@@ -64,6 +64,7 @@
                 @endif
             @endif
         </div>
+        @php($selectedRtcSupplyCategory = old('nfse_rtc_supply_category', $nfseItemFiscalProfile->rtc_supply_category ?? ''))
         @php($profileServiceCode = (string) ($nfseItemFiscalProfile->item_lista_servico ?? ''))
         @php($profileNationalCode = (string) ($nfseItemFiscalProfile->codigo_tributacao_nacional ?? ''))
         @php($profileMunicipalCode = (string) ($nfseItemFiscalProfile->codigo_tributacao_municipal ?? ''))
@@ -89,6 +90,27 @@
                 @php($lc116Options['lc:' . $entryCode] = (string) ($entry['display_code'] ?? $entryCode) . ' - ' . (string) ($entry['description'] ?? ''))
             @endif
         @endforeach
+
+        <x-form.group.select
+            name="nfse_rtc_supply_category"
+            label="{{ trans('nfse::general.items.rtc_supply_category') }}"
+            :options="collect([
+                'ordinary_lc116' => trans('nfse::general.items.rtc_ordinary_lc116'),
+                'digital_platform' => trans('nfse::general.items.rtc_digital_platform'),
+                'non_iss_intangible' => trans('nfse::general.items.rtc_non_iss_intangible'),
+                'condominium_revenue' => trans('nfse::general.items.rtc_condominium_revenue'),
+                'lease' => trans('nfse::general.items.rtc_lease'),
+                'residual_service' => trans('nfse::general.items.rtc_residual_service'),
+            ])"
+            :selected="$selectedRtcSupplyCategory"
+            placeholder="{{ trans('nfse::general.items.rtc_supply_category_placeholder') }}"
+            form-group-class="sm:col-span-6"
+            not-required
+        />
+
+        <div class="sm:col-span-6 -mt-3">
+            <p class="text-xs text-gray-500">{{ trans('nfse::general.items.rtc_supply_category_hint') }}</p>
+        </div>
 
         <x-form.group.select
             name="nfse_item_lista_servico"
