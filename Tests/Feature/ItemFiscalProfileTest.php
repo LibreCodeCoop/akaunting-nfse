@@ -142,6 +142,23 @@ final class ItemFiscalProfileTest extends FeatureTestCase
         ]);
     }
 
+    public function testItemProfilePersistsExplicitRtcCategoryOnNativeUpdate(): void
+    {
+        $item = Item::factory()->enabled()->create();
+        $request = Item::factory()->enabled()->raw(['name' => $item->name]);
+        $request['nfse_item_lista_servico'] = '0107';
+        $request['nfse_codigo_tributacao_nacional'] = '010701';
+        $request['nfse_rtc_supply_category'] = 'digital_platform';
+
+        $this->loginAs()->patch(route('items.update', $item->id), $request)->assertOk();
+
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'rtc_supply_category' => 'digital_platform',
+        ]);
+    }
+
     public function testNativeItemUpdateCanRemoveFiscalProfile(): void
     {
         $item = Item::factory()->enabled()->create();
