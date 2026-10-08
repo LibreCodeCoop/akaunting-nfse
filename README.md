@@ -225,6 +225,34 @@ Entre em contato: **comercial@librecodecoop.org.br**
 
 ---
 
+## Consulta fiscal e filtros de faturas
+
+O módulo mantém dois pontos de consulta distintos:
+
+- **NFS-e → Painel operacional** (`/nfse`): apresenta indicadores e as dez
+  notas fiscais mais recentes da empresa selecionada.
+- **NFS-e → Notas fiscais** (`/nfse/ledger`): consulta os registros de NFS-e
+  da empresa selecionada, com paginação e filtros por situação fiscal, número,
+  chave de acesso ou nome do tomador. Cada linha corresponde a **uma NFS-e**,
+  inclusive quando várias notas estão relacionadas à mesma fatura.
+
+Na listagem fiscal, os links **XML** e **DANFSe** (quando a nota está emitida)
+referem-se ao registro fiscal daquela linha, e não necessariamente à nota mais
+recente da fatura. A ação **Abrir fatura** acessa o documento contábil nativo.
+
+Em **Vendas → Faturas**, o filtro **Situação da NFS-e** atua sobre as faturas
+antes da paginação e pode ser combinado com os filtros contábeis. Quando uma
+fatura tem múltiplos registros fiscais, o filtro considera a **situação do
+registro mais recente**, conforme seu identificador interno. A opção de ausência
+de NFS-e significa apenas que não há recibo vinculado; ela não indica
+automaticamente que há obrigação fiscal pendente.
+
+Os estados contábil e fiscal são independentes: uma fatura paga pode ter uma
+NFS-e em processamento ou cancelada. A consulta de notas fiscais não substitui
+os fluxos de emissão, cancelamento e gestão da fatura no Akaunting.
+
+---
+
 ## Testes E2E (Playwright)
 
 O módulo inclui uma suíte E2E opcional com Playwright para validar o fluxo visível no frontend (login + tela de configurações NFS-e).
