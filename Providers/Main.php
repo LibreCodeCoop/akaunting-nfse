@@ -314,21 +314,33 @@ class Main extends Provider
                 return;
             }
 
+            $receiptStatuses = [];
+
             try {
-                $receipts = NfseReceipt::whereIn('invoice_id', $invoiceIds)
-                    ->orderByDesc('id')
-                    ->get(['id', 'invoice_id', 'status'])
-                    ->unique('invoice_id')
-                    ->keyBy('invoice_id');
+                $placeholders = implode(',', array_fill(0, count($invoiceIds), '?'));
+                $rows = DB::select(
+                    'SELECT receipt.invoice_id, receipt.status'
+                    . ' FROM nfse_receipts AS receipt'
+                    . ' INNER JOIN ('
+                    . ' SELECT invoice_id, MAX(id) AS latest_id'
+                    . ' FROM nfse_receipts'
+                    . ' WHERE invoice_id IN (' . $placeholders . ')'
+                    . ' GROUP BY invoice_id'
+                    . ' ) AS latest ON latest.latest_id = receipt.id',
+                    $invoiceIds,
+                );
+
+                foreach ($rows as $row) {
+                    $receiptStatuses[(int) $row->invoice_id] = trim((string) $row->status);
+                }
             } catch (\Throwable) {
-                $receipts = new \Illuminate\Support\Collection();
+                // Keep the native invoice page available when fiscal data cannot be read.
             }
 
             $statuses = [];
 
             foreach ($invoiceIds as $invoiceId) {
-                $receipt = $receipts->get($invoiceId);
-                $status = is_object($receipt) ? trim((string) ($receipt->status ?? '')) : 'pending';
+                $status = $receiptStatuses[$invoiceId] ?? 'pending';
 
                 if ($status === '') {
                     $status = 'pending';
