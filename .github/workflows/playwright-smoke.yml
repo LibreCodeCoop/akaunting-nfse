@@ -131,6 +131,7 @@ jobs:
             akaunting/public/js/auth/common.min.js
             akaunting/public/js/common/dashboards.min.js
             akaunting/public/js/common/documents.min.js
+            akaunting/public/js/common/items.min.js
             akaunting/public/css/app.css
           key: akaunting-browser-assets-${{ runner.os }}-${{ hashFiles('akaunting/package-lock.json', 'akaunting/webpack.mix.js', 'akaunting/resources/assets/**') }}
 
@@ -138,7 +139,7 @@ jobs:
         working-directory: akaunting
         run: |
           missing=0
-          for asset in public/js/auth/common.min.js public/js/common/dashboards.min.js public/js/common/documents.min.js; do
+          for asset in public/js/auth/common.min.js public/js/common/dashboards.min.js public/js/common/documents.min.js public/js/common/items.min.js; do
             if [ ! -f "$asset" ]; then
               missing=1
             fi
@@ -153,6 +154,7 @@ jobs:
           test -f public/js/auth/common.min.js
           test -f public/js/common/dashboards.min.js
           test -f public/js/common/documents.min.js
+          test -f public/js/common/items.min.js
 
       - name: Install Playwright
         working-directory: akaunting/modules/Nfse
