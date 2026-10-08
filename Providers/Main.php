@@ -31,6 +31,7 @@ use Modules\Nfse\Support\Testing\EnvironmentFixtureSecretStore;
 use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\HttpTransportInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NativeStreamTransport;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
@@ -458,6 +459,7 @@ class Main extends Provider
             }
 
             $catalog = (new Lc116Catalog())->search(null, 400);
+            $nationalServiceCatalog = (new OfficialDomainCatalog())->searchNationalServices(null, 400);
             $validation = (new ItemFiscalProfileValidator())->validate(
                 is_object($profile) ? (string) ($profile->item_lista_servico ?? '') : null,
                 is_object($profile) ? (string) ($profile->codigo_tributacao_nacional ?? '') : null,
@@ -475,6 +477,7 @@ class Main extends Provider
             }
 
             $view->with('nfseLc116Catalog', $catalog);
+            $view->with('nfseNationalServiceCatalog', $nationalServiceCatalog);
             $view->with('nfseItemFiscalProfile', $profile);
             $view->with('nfseItemFiscalValidation', $validation);
         });

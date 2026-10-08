@@ -72,6 +72,16 @@
         @php($selectedServiceOption = $normalizedServiceCode !== '' ? 'lc:' . $normalizedServiceCode : '')
         @php($oldNationalCode = old('nfse_codigo_tributacao_nacional', $profileNationalCode))
         @php($oldMunicipalCode = old('nfse_codigo_tributacao_municipal', $profileMunicipalCode))
+        @php($nationalServiceOptions = [])
+        @foreach(($nfseNationalServiceCatalog ?? []) as $entry)
+            @php($entryCode = preg_replace('/\D+/', '', (string) ($entry['code'] ?? '')) ?? '')
+            @if(strlen($entryCode) === 6)
+                @php($nationalServiceOptions[$entryCode] = $entryCode . ' - ' . (string) ($entry['description'] ?? ''))
+            @endif
+        @endforeach
+        @if($oldNationalCode !== '' && !array_key_exists((string) $oldNationalCode, $nationalServiceOptions))
+            @php($nationalServiceOptions[(string) $oldNationalCode] = (string) $oldNationalCode . ' - ' . trans('nfse::general.items.codigo_tributacao_nacional_legacy'))
+        @endif
         @php($lc116Options = [])
         @foreach(($nfseLc116Catalog ?? []) as $entry)
             @php($entryCode = \Modules\Nfse\Support\Lc116Code::normalize($entry['code'] ?? ''))
@@ -96,12 +106,14 @@
             <p class="text-xs text-gray-500">{{ trans('nfse::general.items.item_lista_servico_hint') }}</p>
         </div>
 
-        <x-form.group.text
+        <x-form.group.select
             name="nfse_codigo_tributacao_nacional"
             label="{{ trans('nfse::general.items.codigo_tributacao_nacional') }}"
-            :value="$oldNationalCode"
+            :options="$nationalServiceOptions"
+            :selected="$oldNationalCode"
             placeholder="{{ trans('nfse::general.items.codigo_tributacao_nacional_placeholder') }}"
-            maxlength="6"
+            searchable
+            sort-options="false"
             form-group-class="sm:col-span-6"
             not-required
         />
