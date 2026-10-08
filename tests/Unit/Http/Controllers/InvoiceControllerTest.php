@@ -450,6 +450,66 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ];
         }
 
+        public function testEmitBlocksWhenIbsCbsIsRequiredAndConfigurationIsMissing(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 9901,
+                amount: 1200.00,
+                items: [['name' => 'Servico sujeito ao cronograma geral']],
+                issuedAt: '2026-10-08 12:00:00',
+            );
+
+            $controller = new class () extends InvoiceController {
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->emit($invoice, new Request());
+
+            self::assertSame('route', $response->target ?? null);
+            self::assertSame('invoices.show', $response->route ?? null);
+            self::assertStringContainsString('IBS/CBS obrigatorio desde 2026-10-01', (string) ($response->flash['error'] ?? ''));
+            self::assertStringContainsString('cIndOp', (string) ($response->flash['error'] ?? ''));
+        }
+
+        public function testEmitDoesNotRequireIbsCbsBeforeGeneralEffectiveDate(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 9902,
+                amount: 1200.00,
+                items: [['name' => 'Servico antes da vigencia']],
+                issuedAt: '2026-09-30 12:00:00',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-9902', 'CHAVE-9902', '2026-09-30T12:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData { throw new \BadMethodCallException('Not used.'); }
+                public function cancel(string $chaveAcesso, string $motivo): bool { throw new \BadMethodCallException('Not used.'); }
+                public function getDanfse(string $chaveAcesso): string { throw new \BadMethodCallException('Not used.'); }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client) {}
+                protected function makeClient(bool $sandboxMode): NfseClientInterface { return $this->client; }
+                protected function hasCertificateSecret(string $cnpj): bool { return true; }
+            };
+
+            $controller->emit($invoice, new Request());
+
+            self::assertNotNull($client->capturedDps);
+            self::assertNull($client->capturedDps?->ibsCbsFinalidade);
+        }
+
         public function testEmitBlocksWhenRequiredFederalTaxesAreMissingInInvoiceItems(): void
         {
             ControllerIsolationState::$settings['nfse.enforce_item_federal_taxes'] = true;
@@ -686,6 +746,15 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.cancel_motivo_default' => 'Cancelamento padrao',
                 'nfse::general.service_default' => 'Servico padrao',
                 'nfse::general.invoices.emit_blocked_not_ready' => 'Existem configuracoes pendentes para liberar a emissao.',
+                'nfse::general.invoices.emit_blocked_ibs_cbs_required' => 'IBS/CBS obrigatorio desde :date. Configure: :fields.',
+                'nfse::general.invoices.emit_blocked_ibs_cbs_unverifiable' => 'Nao foi possivel determinar IBS/CBS. Revise: :fields.',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_enabled' => 'envio de IBS/CBS',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_ind_final' => 'indFinal',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_c_ind_op' => 'cIndOp',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_ind_dest' => 'indDest',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_cst' => 'CST IBS/CBS',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_c_class_trib' => 'cClassTrib',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_obligation_context' => 'competencia e enquadramento do servico',
                 'nfse::general.invoices.emit_blocked_no_items' => 'A fatura precisa ter ao menos um item para emitir NFS-e.',
                 'nfse::general.invoices.emit_blocked_missing_federal_taxes' => 'A fatura nao possui os tributos federais necessarios para emissao da NFS-e.',
                 'nfse::general.invoices.emit_blocked_missing_federal_taxes_with_list' => 'A fatura nao possui os tributos federais necessarios para emissao da NFS-e (:taxes).',
