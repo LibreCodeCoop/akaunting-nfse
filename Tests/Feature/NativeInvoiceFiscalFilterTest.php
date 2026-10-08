@@ -7,15 +7,12 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
-use App\Jobs\Auth\CreateUser;
 use App\Models\Document\Document;
-use App\Traits\Permissions;
 use Modules\Nfse\Models\NfseReceipt;
 use Tests\Feature\FeatureTestCase;
 
 final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
 {
-    use Permissions;
     public function testFiscalOnlyFilterDoesNotInheritDefaultUnpaidTab(): void
     {
         $this->loginAs();
@@ -159,33 +156,6 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
                 && !in_array((int) $commercialMismatch->id, $ids, true)
                 && !in_array((int) $fiscalMismatch->id, $ids, true);
         });
-    }
-
-    public function testNativeInvoiceViewAndFiscalFilterRequireSalesInvoiceReadPermission(): void
-    {
-        $this->loginAs();
-
-        $invoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
-        $this->receipt($invoice, 'emitted');
-
-        $role = $this->createRole('nfse-native-invoice-restricted');
-        $this->attachPermission($role, 'read-admin-panel');
-
-        $restrictedUser = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
-            'enabled' => 1,
-            'companies' => [$this->company->id],
-            'roles' => [$role->id],
-        ])));
-
-        $this->withExceptionHandling()
-            ->loginAs($restrictedUser)
-            ->get(route('invoices.index', ['nfse_status' => 'emitted']))
-            ->assertForbidden();
-
-        $this->withExceptionHandling()
-            ->loginAs($restrictedUser)
-            ->get(route('invoices.show', $invoice->id))
-            ->assertForbidden();
     }
 
     /**

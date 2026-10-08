@@ -7,12 +7,14 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Console\Commands;
 
+use App\Models\Auth\Permission;
 use App\Models\Common\Company;
 use App\Models\Common\Contact;
 use App\Models\Common\Item;
 use App\Models\Document\Document;
 use App\Models\Setting\Category;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Artisan;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
@@ -194,6 +196,33 @@ final class ProvisionTestHarness extends Command
             ]);
 
             $payload['unknown_invoice_id'] = (int) $unknown->id;
+
+            $roleModel = role_model_class();
+            $restrictedRole = $roleModel::firstOrCreate(
+                ['name' => 'nfse-e2e-restricted'],
+                [
+                    'display_name' => 'NFS-e E2E Restricted',
+                    'description' => 'Deterministic role without invoice-read permission',
+                ],
+            );
+            $adminPanelPermission = Permission::query()
+                ->where('name', 'read-admin-panel')
+                ->first();
+
+            if ($adminPanelPermission instanceof Permission
+                && !$restrictedRole->hasPermission('read-admin-panel')) {
+                $restrictedRole->attachPermission($adminPanelPermission);
+            }
+
+            Artisan::call('nfse:test-user:provision', [
+                '--company-id' => (string) $companyId,
+                '--email' => 'nfse-e2e-restricted@example.test',
+                '--password' => 'NfseE2ERestricted!123456',
+                '--name' => 'NFS-e E2E Restricted',
+                '--role' => (string) $restrictedRole->getKey(),
+                '--landing-page' => 'dashboard',
+                '--json' => true,
+            ]);
         }
 
         if ((bool) $this->option('grouped-invoice-fixture')) {

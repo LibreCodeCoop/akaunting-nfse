@@ -12,6 +12,14 @@ export async function loginToAkaunting(page: Page, testInfo: TestInfo): Promise<
     return;
   }
 
+  await loginToAkauntingWithCredentials(page, email, password);
+}
+
+export async function loginToAkauntingWithCredentials(
+  page: Page,
+  email: string,
+  password: string,
+): Promise<void> {
   await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(password);

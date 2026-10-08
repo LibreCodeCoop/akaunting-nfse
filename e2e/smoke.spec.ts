@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { expect, test } from '@playwright/test';
-import { loginToAkaunting } from './support/auth';
+import { loginToAkaunting, loginToAkauntingWithCredentials } from './support/auth';
 
 test('login page is reachable', async ({ page }) => {
   await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
@@ -50,6 +50,24 @@ test('native fiscal status facet distinguishes absent receipts from unknown stat
 
   await expect(page.getByText('NFSE-E2E-FISCAL-UNKNOWN', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('NFSE-E2E-PENDING', { exact: true })).toHaveCount(0);
+});
+
+test('native invoice routes reject users without sales invoice read permission', async ({ page }) => {
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+
+  expect(invoiceId).toMatch(/^\d+$/);
+
+  await loginToAkauntingWithCredentials(
+    page,
+    'nfse-e2e-restricted@example.test',
+    'NfseE2ERestricted!123456',
+  );
+
+  const listResponse = await page.goto('/1/sales/invoices?list_records=all', { waitUntil: 'domcontentloaded' });
+  expect(listResponse?.status()).toBe(403);
+
+  const showResponse = await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
+  expect(showResponse?.status()).toBe(403);
 });
 
 test('native fiscal action opens the NFS-e modal', async ({ page }, testInfo) => {
