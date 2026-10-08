@@ -346,6 +346,18 @@ class MailMessage
 
 namespace Illuminate\Support\Facades;
 
+class DB
+{
+    /**
+     * @param list<mixed> $bindings
+     * @return list<object>
+     */
+    public static function select(string $query, array $bindings = []): array
+    {
+        return [];
+    }
+}
+
 class Notification
 {
     public static function route(string $channel, mixed $route): object
