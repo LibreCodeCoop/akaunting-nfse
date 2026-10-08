@@ -139,6 +139,51 @@ final class FiscalLedgerTest extends FeatureTestCase
         });
     }
 
+    public function testLedgerSearchesAccessKeyWithinSelectedFiscalStatus(): void
+    {
+        $this->loginAs();
+
+        $invoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $matched = $this->receipt($invoice, '90001', 'emitted');
+        $differentStatus = $this->receipt($invoice, '90002', 'cancelled');
+        $unrelated = $this->receipt($invoice, '90003', 'emitted');
+
+        $matched->forceFill(['chave_acesso' => str_repeat('7', 50)])->save();
+        $differentStatus->forceFill(['chave_acesso' => str_repeat('7', 50)])->save();
+        $unrelated->forceFill(['chave_acesso' => str_repeat('8', 50)])->save();
+
+        $response = $this->get(route('nfse.ledger.index', [
+            'status' => 'emitted',
+            'search' => str_repeat('7', 20),
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('receipts', static function ($receipts) use ($matched): bool {
+            return $receipts->total() === 1
+                && $receipts->getCollection()->pluck('id')->all() === [$matched->id];
+        });
+    }
+
+    public function testLedgerPaginationTotalsAreComputedAfterStatusFilter(): void
+    {
+        $this->loginAs();
+
+        $invoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        for ($i = 0; $i < 27; ++$i) {
+            $this->receipt($invoice, '93000-' . $i, 'emitted');
+        }
+        $this->receipt($invoice, '94000', 'cancelled');
+
+        $response = $this->get(route('nfse.ledger.index', ['status' => 'emitted', 'page' => 2]));
+        $response->assertOk();
+        $response->assertViewHas('receipts', static function ($receipts): bool {
+            return $receipts->total() === 27
+                && $receipts->lastPage() === 2
+                && $receipts->currentPage() === 2
+                && $receipts->count() === 2;
+        });
+    }
+
     private function receipt(Document $invoice, string $number, string $status): NfseReceipt
     {
         return NfseReceipt::query()->create([
