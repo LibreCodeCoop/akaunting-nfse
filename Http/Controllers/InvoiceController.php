@@ -3275,9 +3275,11 @@ class InvoiceController extends Controller
             ? array_values(array_map('strval', $readiness['missing']))
             : [];
 
-        $key = ($readiness['reason'] ?? '') === 'unverifiable'
-            ? 'nfse::general.invoices.emit_blocked_ibs_cbs_unverifiable'
-            : 'nfse::general.invoices.emit_blocked_ibs_cbs_required';
+        $key = match ($readiness['reason'] ?? '') {
+            'unverifiable' => 'nfse::general.invoices.emit_blocked_ibs_cbs_unverifiable',
+            'invalid_configuration' => 'nfse::general.invoices.emit_blocked_ibs_cbs_invalid',
+            default => 'nfse::general.invoices.emit_blocked_ibs_cbs_required',
+        };
 
         return (string) trans($key, [
             'date' => (string) ($readiness['effective_date'] ?? ''),
