@@ -166,6 +166,34 @@ final class ProvisionTestHarness extends Command
                 ->delete();
 
             $payload['pending_invoice_id'] = (int) $invoice->id;
+
+            $unknown = Document::query()
+                ->where('company_id', $companyId)
+                ->where('type', 'invoice')
+                ->where('document_number', 'NFSE-E2E-FISCAL-UNKNOWN')
+                ->first();
+
+            if (!$unknown instanceof Document) {
+                $unknown = Document::factory()->invoice()->create([
+                    'company_id' => $companyId,
+                    'document_number' => 'NFSE-E2E-FISCAL-UNKNOWN',
+                    'status' => 'sent',
+                    'amount' => 100.00,
+                ]);
+            }
+
+            $unknown->forceFill(['status' => 'sent'])->saveQuietly();
+            NfseReceipt::query()
+                ->where('invoice_id', (int) $unknown->id)
+                ->delete();
+            NfseReceipt::query()->create([
+                'invoice_id' => (int) $unknown->id,
+                'nfse_number' => 'E2E-UNKNOWN',
+                'chave_acesso' => str_repeat('9', 50),
+                'status' => 'unexpected-provider-state',
+            ]);
+
+            $payload['unknown_invoice_id'] = (int) $unknown->id;
         }
 
         if ((bool) $this->option('grouped-invoice-fixture')) {

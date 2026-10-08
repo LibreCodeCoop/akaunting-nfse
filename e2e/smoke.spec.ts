@@ -23,6 +23,35 @@ test('legacy pending invoices route redirects to native Akaunting invoices', asy
 });
 
 
+test('native fiscal status facet distinguishes absent receipts from unknown statuses', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+
+  await page.goto('/1/sales/invoices?list_records=all', { waitUntil: 'domcontentloaded' });
+  const form = page.locator('#nfse-fiscal-status-filter');
+  const select = form.locator('#nfse-status-option');
+  const submit = form.locator('button[type="submit"]');
+
+  await expect(form).toBeVisible();
+
+  await select.selectOption('absent');
+  await Promise.all([
+    page.waitForURL(url => url.searchParams.get('nfse_status') === 'absent'),
+    submit.click(),
+  ]);
+
+  await expect(page.getByText('NFSE-E2E-PENDING', { exact: true })).toBeVisible();
+  await expect(page.getByText('NFSE-E2E-FISCAL-UNKNOWN', { exact: true })).toHaveCount(0);
+
+  await select.selectOption('unknown');
+  await Promise.all([
+    page.waitForURL(url => url.searchParams.get('nfse_status') === 'unknown'),
+    submit.click(),
+  ]);
+
+  await expect(page.getByText('NFSE-E2E-FISCAL-UNKNOWN', { exact: true })).toBeVisible();
+  await expect(page.getByText('NFSE-E2E-PENDING', { exact: true })).toHaveCount(0);
+});
+
 test('native fiscal action opens the NFS-e modal', async ({ page }, testInfo) => {
   const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
 
