@@ -326,6 +326,7 @@ return [
         'refresh_not_allowed_for_cancelled' => 'Cancelled NFS-e cannot be refreshed. Use reissue when applicable.',
         'emit_blocked_not_ready' => 'There are pending settings before issuance can continue.',
         'emit_blocked_ibs_cbs_required' => 'This NFS-e cannot be issued. IBS/CBS information has been mandatory for this operation since :date. Configure: :fields.',
+        'emit_blocked_ibs_cbs_unverifiable' => 'IBS/CBS applicability cannot be determined for this NFS-e. Review: :fields.',
         'ibs_cbs_missing_labels' => [
             'ibs_cbs_enabled' => 'IBS/CBS submission',
             'ibs_cbs_c_ind_op' => 'cIndOp',
