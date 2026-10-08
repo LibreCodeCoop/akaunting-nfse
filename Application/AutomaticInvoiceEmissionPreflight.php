@@ -93,6 +93,29 @@ final class AutomaticInvoiceEmissionPreflight
             );
         }
 
+        $group = $remaining[0];
+        $settings = function_exists('setting') && is_array(setting('nfse', []))
+            ? setting('nfse', [])
+            : [];
+        $simples = is_numeric($settings['opcao_simples_nacional'] ?? null)
+            ? (int) $settings['opcao_simples_nacional']
+            : 1;
+        $ibsCbsReadiness = (new IbsCbsEmissionReadiness())->evaluate(
+            competenceDate: (string) ((new InvoiceDpsIdentity())->competenceDate($invoice) ?? ''),
+            opcaoSimplesNacional: $simples,
+            itemListaServico: (string) ($group['item_lista_servico'] ?? ''),
+            settings: $settings,
+        );
+
+        if (($ibsCbsReadiness['isReady'] ?? false) !== true) {
+            return $this->blocked(
+                'ibs_cbs_required',
+                is_array($ibsCbsReadiness['missing'] ?? null)
+                    ? array_values(array_map('strval', $ibsCbsReadiness['missing']))
+                    : [],
+            );
+        }
+
         return [
             'status' => 'ready',
             'reason' => null,
