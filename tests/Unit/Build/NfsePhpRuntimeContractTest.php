@@ -68,6 +68,7 @@ final class NfsePhpRuntimeContractTest extends TestCase
         self::assertTrue(method_exists(NfseClient::class, 'queryEvent'));
         self::assertTrue(method_exists(NfseClient::class, 'cancel'));
         self::assertTrue(method_exists(NfseClient::class, 'cancelWithReason'));
+        self::assertTrue(method_exists(\Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog::class, 'searchNationalServices'));
     }
 
     public function testAdnClientExposesDistributionCapabilities(): void

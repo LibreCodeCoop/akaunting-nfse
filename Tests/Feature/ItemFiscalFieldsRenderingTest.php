@@ -18,7 +18,8 @@ final class ItemFiscalFieldsRenderingTest extends FeatureTestCase
             ->get(route('items.create'))
             ->assertOk()
             ->assertSee('name="nfse_item_lista_servico"', false)
-            ->assertSee('name="nfse_codigo_tributacao_nacional"', false);
+            ->assertSee('name="nfse_codigo_tributacao_nacional"', false)
+            ->assertSee('010101', false);
     }
 
     public function testEditItemPageRendersNfseFiscalFields(): void
@@ -29,6 +30,7 @@ final class ItemFiscalFieldsRenderingTest extends FeatureTestCase
             ->get(route('items.edit', $item))
             ->assertOk()
             ->assertSee('name="nfse_item_lista_servico"', false)
-            ->assertSee('name="nfse_codigo_tributacao_nacional"', false);
+            ->assertSee('name="nfse_codigo_tributacao_nacional"', false)
+            ->assertSee('010101', false);
     }
 }
