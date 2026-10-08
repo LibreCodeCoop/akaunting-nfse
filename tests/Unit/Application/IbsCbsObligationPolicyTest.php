@@ -137,6 +137,7 @@ final class IbsCbsObligationPolicyTest extends TestCase
 
         self::assertFalse($result['isReady']);
         self::assertFalse($result['required']);
+        self::assertSame('invalid_configuration', $result['reason']);
         self::assertSame(['ibs_cbs_c_ind_op'], $result['missing']);
     }
 
