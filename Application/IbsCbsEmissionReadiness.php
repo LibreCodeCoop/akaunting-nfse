@@ -62,7 +62,13 @@ final class IbsCbsEmissionReadiness
             $missing[] = 'ibs_cbs_enabled';
         }
 
-        if (trim((string) ($settings['ibs_cbs_c_ind_op'] ?? '')) === '') {
+        $indFinal = trim((string) ($settings['ibs_cbs_ind_final'] ?? ''));
+        if ($indFinal !== '' && !in_array($indFinal, ['0', '1'], true)) {
+            $missing[] = 'ibs_cbs_ind_final';
+        }
+
+        $cIndOp = trim((string) ($settings['ibs_cbs_c_ind_op'] ?? ''));
+        if (preg_match('/^\d{6}$/', $cIndOp) !== 1) {
             $missing[] = 'ibs_cbs_c_ind_op';
         }
 
@@ -71,11 +77,13 @@ final class IbsCbsEmissionReadiness
             $missing[] = 'ibs_cbs_ind_dest';
         }
 
-        if (trim((string) ($settings['ibs_cbs_cst'] ?? '')) === '') {
+        $cst = trim((string) ($settings['ibs_cbs_cst'] ?? ''));
+        if (preg_match('/^\d{3}$/', $cst) !== 1) {
             $missing[] = 'ibs_cbs_cst';
         }
 
-        if (trim((string) ($settings['ibs_cbs_c_class_trib'] ?? '')) === '') {
+        $cClassTrib = trim((string) ($settings['ibs_cbs_c_class_trib'] ?? ''));
+        if (preg_match('/^\d{6}$/', $cClassTrib) !== 1) {
             $missing[] = 'ibs_cbs_c_class_trib';
         }
 
