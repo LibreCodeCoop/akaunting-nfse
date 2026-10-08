@@ -28,15 +28,13 @@ final class AutomaticInvoiceEmissionPreflight
     }
 
     /**
+     * @param array<string,mixed>|null $settings
      * @return array{
      *   status:'ready'|'blocked'|'already_issued',
      *   reason:?string,
      *   group:?array<string,mixed>,
      *   details:list<string>
      * }
-     */
-    /**
-     * @param array<string,mixed>|null $settings
      */
     public function evaluate(Invoice $invoice, ?array $settings = null): array
     {
@@ -110,7 +108,9 @@ final class AutomaticInvoiceEmissionPreflight
 
         if (($ibsCbsReadiness['isReady'] ?? false) !== true) {
             return $this->blocked(
-                'ibs_cbs_required',
+                ($ibsCbsReadiness['reason'] ?? '') === 'unverifiable'
+                    ? 'ibs_cbs_unverifiable'
+                    : 'ibs_cbs_required',
                 is_array($ibsCbsReadiness['missing'] ?? null)
                     ? array_values(array_map('strval', $ibsCbsReadiness['missing']))
                     : [],
