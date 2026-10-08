@@ -67,6 +67,9 @@ test('native Akaunting selection events trigger assistant listeners', () => {
     const callbacks = {};
     const field = {
         __vue__: {
+            selected: '',
+            sorted_options: [],
+            change() {},
             $on(event, callback) { callbacks[event] = callback; },
         },
         addEventListener() { throw new Error('Vue custom select must use Vue events'); },
