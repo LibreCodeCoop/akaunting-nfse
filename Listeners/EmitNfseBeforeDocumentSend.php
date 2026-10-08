@@ -34,6 +34,30 @@ final class EmitNfseBeforeDocumentSend
                 : $default;
     }
 
+    /** @return array<string,mixed> */
+    private function nfseSettings(): array
+    {
+        $keys = [
+            'opcao_simples_nacional',
+            'ibs_cbs_enabled',
+            'ibs_cbs_ind_final',
+            'ibs_cbs_ind_dest',
+            'ibs_cbs_c_ind_op',
+            'ibs_cbs_cst',
+            'ibs_cbs_c_class_trib',
+            'enforce_item_federal_taxes',
+            'federal_piscofins_situacao_tributaria',
+            'federal_piscofins_tipo_retencao',
+        ];
+        $settings = [];
+
+        foreach ($keys as $key) {
+            $settings[$key] = ($this->settingResolver)('nfse.' . $key, null);
+        }
+
+        return $settings;
+    }
+
     public function handle(object $event): void
     {
         $document = $event->document ?? null;
@@ -51,7 +75,7 @@ final class EmitNfseBeforeDocumentSend
             return;
         }
 
-        $result = $this->preflight->evaluate($document);
+        $result = $this->preflight->evaluate($document, $this->nfseSettings());
         $status = (string) ($result['status'] ?? 'blocked');
 
         if ($status === 'already_issued') {
