@@ -4733,6 +4733,34 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('Atualizacao parcial: 1 atualizadas e 1 falharam.', $response->flash['warning'] ?? null);
         }
 
+        public function testReemitBlocksWhenIbsCbsIsRequiredAndConfigurationIsMissing(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 3001,
+                amount: 700.45,
+                items: [['name' => 'Servico Reemissao']],
+                issuedAt: '2026-10-08 12:00:00',
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(3001, 'CHAVE-3001', 'cancelled');
+
+            $controller = new class () extends InvoiceController {
+                protected function emissionReadiness(): array
+                {
+                    return ['isReady' => true, 'checklist' => []];
+                }
+            };
+
+            $response = $controller->reemit($invoice);
+
+            self::assertSame('route', $response->target ?? null);
+            self::assertSame('nfse.invoices.show', $response->route ?? null);
+            self::assertStringContainsString(
+                'IBS/CBS obrigatorio desde 2026-10-01',
+                (string) ($response->flash['error'] ?? ''),
+            );
+        }
+
         public function testReemitBuildsDpsForCancelledReceiptAndRedirectsToShow(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
