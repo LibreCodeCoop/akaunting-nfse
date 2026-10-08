@@ -189,3 +189,47 @@ test('tax code assistant does not display stale search results', async ({ page }
   await expect(root.locator('[data-nfse-tax-code-results]')).toContainText('010702');
   await expect(root.locator('[data-nfse-tax-code-results]')).not.toContainText('010701');
 });
+
+test('edited fiscal item persists selected LC 116 and cTribNac after reopening', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+  await page.route('**/nfse/national-services?**', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [{ code: '010101', description: 'Serviço de teste' }] }),
+    });
+  });
+
+  await openExistingItemFiscalEditor(page);
+  const editUrl = page.url();
+  const root = page.locator('[data-nfse-tax-code-assistant]');
+  await expect(root).toBeVisible();
+
+  await root.locator('[data-nfse-tax-code-query]').fill('010101');
+  await expect(root.locator('[data-nfse-tax-code-results] button')).toHaveCount(1);
+  await root.locator('[data-nfse-tax-code-results] button').click();
+
+  const national = page.locator('[name="nfse_codigo_tributacao_nacional"]');
+  const service = page.locator('[name="nfse_item_lista_servico"]');
+  const valueOf = (name: string) =>
+    page.locator('[name="' + name + '"]').evaluate(el => (window as any).NfseTaxCodeAssistant.selectedValue(el));
+
+  await expect.poll(() => valueOf('nfse_codigo_tributacao_nacional')).toBe('010101');
+  await expect.poll(() => valueOf('nfse_item_lista_servico')).toBe('lc:0101');
+
+  const save = page.locator('form#item button[type="submit"]').last();
+  await expect(save).toBeEnabled();
+  const savedResponse = page.waitForResponse(response =>
+    response.url().includes('/common/items/') && ['POST', 'PATCH', 'PUT'].includes(response.request().method()),
+  );
+  await save.click();
+  const result = await savedResponse;
+  expect(result.ok()).toBeTruthy();
+  const payload = await result.json();
+  expect(payload.success).toBe(true);
+
+  await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
+  await expect(root).toBeVisible();
+  await expect.poll(() => valueOf('nfse_codigo_tributacao_nacional')).toBe('010101');
+  await expect.poll(() => valueOf('nfse_item_lista_servico')).toBe('lc:0101');
+});
