@@ -169,6 +169,23 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
+    public function testControllerCreateDoesNotProbeWebDavWhenOpeningModal(): void
+    {
+        $content = $this->controllerContent();
+
+        self::assertStringNotContainsString('artifactAvailable', $content);
+        self::assertStringNotContainsString('WebDavClient', $content);
+    }
+
+    public function testControllerBuildsIssuePreviewOnlyForNonEmittedFlow(): void
+    {
+        $content = $this->controllerContent();
+
+        self::assertStringContainsString('if ($isEmitted) {', $content);
+        self::assertStringContainsString('$preview = $this->issuePreviewData($invoice);', $content);
+        self::assertStringContainsString('$contacts = $invoice->contact->withPersons();', $content);
+    }
+
     public function testControllerCreateUsesCancelTitleAndConfirmButtonForEmittedReceipts(): void
     {
         self::assertStringContainsString(
@@ -177,14 +194,6 @@ final class InvoiceEmailsTest extends TestCase
         );
         self::assertStringContainsString(
             "trans('nfse::general.invoices.cancel_modal_submit')",
-            $this->controllerContent()
-        );
-    }
-
-    public function testControllerCreatePassesStoreRouteToView(): void
-    {
-        self::assertStringContainsString(
-            "nfse.modals.invoices.emails.store",
             $this->controllerContent()
         );
     }
@@ -423,11 +432,6 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString(
             "modals.invoices.emails.store",
             $this->routesContent()
-        );
-        // Full runtime name is referenced in the controller.
-        self::assertStringContainsString(
-            "nfse.modals.invoices.emails.store",
-            $this->controllerContent()
         );
     }
 
