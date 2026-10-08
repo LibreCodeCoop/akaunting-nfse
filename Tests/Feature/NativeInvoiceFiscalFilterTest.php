@@ -43,7 +43,7 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         $withReceipt = Document::factory()->invoice()->create(['company_id' => company_id()]);
         $this->receipt($withReceipt, 'emitted');
 
-        $response = $this->get(route('invoices.index', ['nfse_status' => 'absent']));
+        $response = $this->get(route('invoices.index', ['nfse_status' => 'absent', 'limit' => 1000]));
 
         $response->assertOk();
         $response->assertViewHas('invoices', static function ($invoices) use ($withoutReceipt, $withReceipt): bool {
@@ -106,7 +106,7 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         $this->receipt($unknown, 'unexpected-provider-state');
         $this->receipt($known, 'emitted');
 
-        $response = $this->get(route('invoices.index', ['nfse_status' => 'unknown']));
+        $response = $this->get(route('invoices.index', ['nfse_status' => 'unknown', 'limit' => 1000]));
         $response->assertOk();
         $response->assertViewHas('invoices', static function ($invoices) use ($unknown, $without, $known): bool {
             $ids = $invoices->getCollection()->pluck('id')->all();
