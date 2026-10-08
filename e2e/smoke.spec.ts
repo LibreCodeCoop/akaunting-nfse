@@ -126,3 +126,66 @@ test('post-emission polling unlocks fiscal artifacts after queue completion', as
   await expect(panel.locator('[data-nfse-artifact="xml"]')).toHaveAttribute('aria-disabled', 'false');
   await expect(panel.locator('[data-nfse-artifact="danfse"]')).toHaveAttribute('aria-disabled', 'false');
 });
+
+async function openExistingItemFiscalEditor(page: import('@playwright/test').Page): Promise<void> {
+  // Akaunting's plan-limit middleware redirects /common/items/create in the
+  // deterministic CI installation. Editing a seeded item exercises the same
+  // fiscal fields without bypassing the application's access controls.
+  await page.goto('/1/common/items', { waitUntil: 'domcontentloaded' });
+  const edit = page.locator('[id^="index-line-actions-edit-item-"]').first();
+  await expect(edit).toBeAttached();
+  const href = await edit.getAttribute('href');
+  expect(href).toBeTruthy();
+  await page.goto(href!, { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(/\/common\/items\/\d+\/edit/);
+}
+
+test('tax code assistant searches via debounce and selects both fiscal codes', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+  const requests: string[] = [];
+  await page.route('**/nfse/national-services?**', async (route) => {
+    const url = new URL(route.request().url());
+    requests.push(url.searchParams.get('q') ?? '');
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [{ code: '010701', description: 'Serviço de teste' }] }),
+    });
+  });
+  await openExistingItemFiscalEditor(page);
+  const root = page.locator('[data-nfse-tax-code-assistant]');
+  await expect(root).toBeVisible();
+  const search = root.locator('[data-nfse-tax-code-query]');
+  await search.fill('0');
+  await search.fill('01');
+  await search.fill('0107');
+  await expect(root.locator('[data-nfse-tax-code-results] button')).toHaveCount(1);
+  expect(requests.filter(query => query !== '')).toEqual(['0107']);
+  await root.locator('[data-nfse-tax-code-results] button').click();
+  await expect.poll(() => page.locator('[name="nfse_codigo_tributacao_nacional"]').evaluate(el => (window as any).NfseTaxCodeAssistant.selectedValue(el))).toBe('010701');
+  await expect.poll(() => page.locator('[name="nfse_item_lista_servico"]').evaluate(el => (window as any).NfseTaxCodeAssistant.selectedValue(el))).toBe('lc:0107');
+});
+
+test('tax code assistant does not display stale search results', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+  await page.route('**/nfse/national-services?**', async (route) => {
+    const q = new URL(route.request().url()).searchParams.get('q');
+    if (q === 'old') {
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [{ code: q === 'old' ? '010701' : '010702', description: q }] }),
+    }).catch(() => {});
+  });
+  await openExistingItemFiscalEditor(page);
+  const root = page.locator('[data-nfse-tax-code-assistant]');
+  await expect(root).toBeVisible();
+  const search = root.locator('[data-nfse-tax-code-query]');
+  await search.fill('old');
+  await page.waitForRequest(request => request.url().includes('/nfse/national-services?') && request.url().includes('q=old'));
+  await search.fill('new');
+  await expect(root.locator('[data-nfse-tax-code-results]')).toContainText('010702');
+  await expect(root.locator('[data-nfse-tax-code-results]')).not.toContainText('010701');
+});

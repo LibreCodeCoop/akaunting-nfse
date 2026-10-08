@@ -492,7 +492,13 @@ class Main extends Provider
             }
 
             $catalog = (new Lc116Catalog())->search(null, 400);
-            $nationalServiceCatalog = (new OfficialDomainCatalog())->searchNationalServices(null, 400);
+            $nationalServiceCatalog = [];
+            if (is_object($profile) && trim((string) ($profile->codigo_tributacao_nacional ?? '')) !== '') {
+                $saved = (new OfficialDomainCatalog())->nationalService((string) $profile->codigo_tributacao_nacional);
+                if ($saved !== null) {
+                    $nationalServiceCatalog[] = $saved;
+                }
+            }
             $validation = (new ItemFiscalProfileValidator())->validate(
                 is_object($profile) ? (string) ($profile->item_lista_servico ?? '') : null,
                 is_object($profile) ? (string) ($profile->codigo_tributacao_nacional ?? '') : null,

@@ -32,6 +32,7 @@ Route::admin('nfse', function () {
     Route::get('ibge/ufs', [SettingsController::class, 'ufs'])->name('ibge.ufs');
     Route::get('ibge/municipalities/{uf}', [SettingsController::class, 'municipalities'])->name('ibge.municipalities');
     Route::get('lc116/services', [SettingsController::class, 'lc116Services'])->name('lc116.services');
+    Route::get('national-services', [SettingsController::class, 'nationalServices'])->name('national-services');
     Route::get('municipal-parameters', [SettingsController::class, 'municipalParameters'])->name('municipal-parameters');
 
     // Certificate management

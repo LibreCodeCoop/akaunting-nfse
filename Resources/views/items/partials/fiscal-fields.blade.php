@@ -109,7 +109,7 @@
         <x-form.group.select
             name="nfse_codigo_tributacao_nacional"
             label="{{ trans('nfse::general.items.codigo_tributacao_nacional') }}"
-            :options="$nationalServiceOptions"
+            :options="collect($nationalServiceOptions)"
             :selected="$oldNationalCode"
             placeholder="{{ trans('nfse::general.items.codigo_tributacao_nacional_placeholder') }}"
             searchable
@@ -121,6 +121,24 @@
         <div class="sm:col-span-6 -mt-3">
             <p class="text-xs text-gray-500">{{ trans('nfse::general.items.codigo_tributacao_nacional_hint') }}</p>
         </div>
+
+        {{-- Optional catalog navigation. The saved fiscal fields remain Akaunting's native selects. --}}
+        <div class="sm:col-span-6 rounded border p-3" data-nfse-tax-code-assistant
+             data-lc-options='@json($lc116Options)'
+             data-search-url="{{ route('nfse.national-services') }}"
+             data-error-label="{{ trans('nfse::general.items.assistant.search_error') }}"
+             data-matches-label="{{ trans('nfse::general.items.assistant.matches') }}">
+            <label for="nfse-tax-code-search" class="block text-sm font-medium">{{ trans('nfse::general.items.assistant.search_label') }}</label>
+            <input id="nfse-tax-code-search" type="search" autocomplete="off"
+                   class="mt-1 w-full rounded border px-3 py-2"
+                   placeholder="{{ trans('nfse::general.items.assistant.search_placeholder') }}"
+                   data-nfse-tax-code-query>
+            <p class="mt-2 text-xs text-gray-600">{{ trans('nfse::general.items.assistant.advisory') }}</p>
+            <p class="mt-2 text-sm" data-nfse-tax-code-summary role="status" aria-live="polite"></p>
+            <div class="mt-2 max-h-56 overflow-y-auto" data-nfse-tax-code-results role="group"
+                 aria-label="{{ trans('nfse::general.items.assistant.results') }}"></div>
+        </div>
+        <script src="{{ asset('modules/Nfse/Resources/assets/js/tax-code-assistant.js?v=' . module_version('nfse')) }}" defer></script>
 
         <x-form.group.text
             name="nfse_codigo_tributacao_municipal"

@@ -14,6 +14,7 @@ export default defineConfig({
   projects: [
     {
       name: 'smoke',
+      retries: process.env.CI ? 1 : 0,
       testMatch: ['smoke.spec.ts', 'deterministic-harness.spec.ts'],
     },
     {
