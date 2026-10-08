@@ -109,9 +109,11 @@ final class AutomaticInvoiceEmissionPreflight
 
         if (($ibsCbsReadiness['isReady'] ?? false) !== true) {
             return $this->blocked(
-                ($ibsCbsReadiness['reason'] ?? '') === 'unverifiable'
-                    ? 'ibs_cbs_unverifiable'
-                    : 'ibs_cbs_required',
+                match ($ibsCbsReadiness['reason'] ?? '') {
+                    'unverifiable' => 'ibs_cbs_unverifiable',
+                    'invalid_configuration' => 'ibs_cbs_invalid',
+                    default => 'ibs_cbs_required',
+                },
                 is_array($ibsCbsReadiness['missing'] ?? null)
                     ? array_values(array_map('strval', $ibsCbsReadiness['missing']))
                     : [],
