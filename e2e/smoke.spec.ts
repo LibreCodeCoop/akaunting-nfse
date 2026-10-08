@@ -209,8 +209,6 @@ test('edited fiscal item persists selected LC 116 and cTribNac after reopening',
   await expect(root.locator('[data-nfse-tax-code-results] button')).toHaveCount(1);
   await root.locator('[data-nfse-tax-code-results] button').click();
 
-  const national = page.locator('[name="nfse_codigo_tributacao_nacional"]');
-  const service = page.locator('[name="nfse_item_lista_servico"]');
   const valueOf = (name: string) =>
     page.locator('[name="' + name + '"]').evaluate(el => (window as any).NfseTaxCodeAssistant.selectedValue(el));
 
@@ -225,9 +223,8 @@ test('edited fiscal item persists selected LC 116 and cTribNac after reopening',
   await save.click();
   const result = await savedResponse;
   expect(result.ok()).toBeTruthy();
-  const payload = await result.json();
-  expect(payload.success).toBe(true);
-
+  // Akaunting redirects after save; response body can be released by Chromium
+  // during navigation. Verify persistence by reloading the server-backed form.
   await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
   await expect(root).toBeVisible();
   await expect.poll(() => valueOf('nfse_codigo_tributacao_nacional')).toBe('010101');
