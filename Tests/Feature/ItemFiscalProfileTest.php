@@ -227,6 +227,32 @@ final class ItemFiscalProfileTest extends FeatureTestCase
         ]);
     }
 
+    public function testUpdatingOnlyRtcCategoryDoesNotEraseExistingFiscalCodes(): void
+    {
+        $item = Item::factory()->enabled()->create();
+        ItemFiscalProfile::query()->create([
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => '123',
+        ]);
+
+        $request = Item::factory()->enabled()->raw(['name' => $item->name]);
+        $request['nfse_rtc_supply_category'] = 'digital_platform';
+
+        $this->loginAs()->patch(route('items.update', $item->id), $request)->assertOk();
+
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => '123',
+            'rtc_supply_category' => 'digital_platform',
+        ]);
+    }
+
     public function testNativeItemUpdateCanRemoveFiscalProfile(): void
     {
         $item = Item::factory()->enabled()->create();

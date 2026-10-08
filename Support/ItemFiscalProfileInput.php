@@ -11,9 +11,10 @@ final class ItemFiscalProfileInput
 {
     /**
      * @param mixed $request Akaunting request object carrying item form input.
-     * @return null|array{item_lista_servico:?string,codigo_tributacao_nacional:?string,codigo_tributacao_municipal:?string}
+     * @param array<string,mixed>|null $existing The stored fiscal profile, never a profile inferred from submitted fields.
+     * @return null|array{item_lista_servico:?string,codigo_tributacao_nacional:?string,codigo_tributacao_municipal:?string,rtc_supply_category?:?string}
      */
-    public static function fromRequest(mixed $request): ?array
+    public static function fromRequest(mixed $request, ?array $existing = null): ?array
     {
         if (!is_object($request) || !method_exists($request, 'input')) {
             return null;
@@ -42,30 +43,47 @@ final class ItemFiscalProfileInput
             return null;
         }
 
-        $rawServiceCode = $request->input($serviceKey, null);
-        $rawNationalCode = $request->input($nationalKey, null);
-        $rawMunicipalCode = $request->input($municipalKey, null);
+        // Akaunting can submit only the fields that changed. Omitted fields
+        // must never delete unrelated persisted fiscal data.
+        $rawServiceCode = $servicePresent ? $request->input($serviceKey) : ($existing['item_lista_servico'] ?? null);
+        $rawNationalCode = $nationalPresent ? $request->input($nationalKey) : ($existing['codigo_tributacao_nacional'] ?? null);
+        $rawMunicipalCode = $municipalPresent ? $request->input($municipalKey) : ($existing['codigo_tributacao_municipal'] ?? null);
 
         $serviceCode = Lc116Code::normalize($rawServiceCode);
+        if ($existing !== null && (string) $rawServiceCode === (string) ($existing['item_lista_servico'] ?? '')) {
+            $serviceCode = (string) ($existing['item_lista_servico'] ?? '');
+        }
 
-        $nationalCode = preg_replace('/\D+/', '', (string) $rawNationalCode) ?: '';
-        $nationalCode = $nationalCode !== ''
-            ? str_pad(substr($nationalCode, 0, 6), 6, '0', STR_PAD_LEFT)
-            : null;
+        // Preserve a historic code byte-for-byte when the user has not changed
+        // it. A new value still follows the current normalization/validation.
+        if ($existing !== null && (string) $rawNationalCode === (string) ($existing['codigo_tributacao_nacional'] ?? '')) {
+            $nationalCode = (string) ($existing['codigo_tributacao_nacional'] ?? '');
+        } else {
+            $nationalCode = preg_replace('/\D+/', '', (string) $rawNationalCode) ?: '';
+            $nationalCode = $nationalCode !== ''
+                ? str_pad(substr($nationalCode, 0, 6), 6, '0', STR_PAD_LEFT)
+                : null;
+        }
 
-        $municipalCode = preg_replace('/\D+/', '', (string) $rawMunicipalCode) ?: '';
-        $municipalCode = $municipalCode !== ''
-            ? str_pad(substr($municipalCode, 0, 3), 3, '0', STR_PAD_LEFT)
-            : null;
+        if ($existing !== null && (string) $rawMunicipalCode === (string) ($existing['codigo_tributacao_municipal'] ?? '')) {
+            $municipalCode = (string) ($existing['codigo_tributacao_municipal'] ?? '');
+        } else {
+            $municipalCode = preg_replace('/\D+/', '', (string) $rawMunicipalCode) ?: '';
+            $municipalCode = $municipalCode !== ''
+                ? str_pad(substr($municipalCode, 0, 3), 3, '0', STR_PAD_LEFT)
+                : null;
+        }
 
         $profile = [
             'item_lista_servico' => $serviceCode !== '' ? $serviceCode : null,
-            'codigo_tributacao_nacional' => $nationalCode,
-            'codigo_tributacao_municipal' => $municipalCode,
+            'codigo_tributacao_nacional' => $nationalCode !== '' ? $nationalCode : null,
+            'codigo_tributacao_municipal' => $municipalCode !== '' ? $municipalCode : null,
         ];
 
-        if ($categoryPresent) {
-            $category = trim((string) $request->input($categoryKey, ''));
+        if ($categoryPresent || ($existing !== null && array_key_exists('rtc_supply_category', $existing))) {
+            $category = trim((string) ($categoryPresent
+                ? $request->input($categoryKey, '')
+                : ($existing['rtc_supply_category'] ?? '')));
             $profile['rtc_supply_category'] = $category !== '' ? $category : null;
         }
 

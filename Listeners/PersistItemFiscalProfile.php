@@ -28,13 +28,23 @@ final class PersistItemFiscalProfile
             return;
         }
 
-        $profile = ItemFiscalProfileInput::fromRequest($request);
-
-        if ($profile === null) {
-            return;
-        }
-
         try {
+            $stored = ItemFiscalProfile::query()
+                ->where('company_id', $companyId)
+                ->where('item_id', $itemId)
+                ->first();
+            $existing = $stored instanceof ItemFiscalProfile ? [
+                'item_lista_servico' => $stored->item_lista_servico,
+                'codigo_tributacao_nacional' => $stored->codigo_tributacao_nacional,
+                'codigo_tributacao_municipal' => $stored->codigo_tributacao_municipal,
+                'rtc_supply_category' => $stored->rtc_supply_category,
+            ] : null;
+            $profile = ItemFiscalProfileInput::fromRequest($request, $existing);
+
+            if ($profile === null) {
+                return;
+            }
+
             if ($profile['item_lista_servico'] === null && $profile['codigo_tributacao_nacional'] === null && $profile['codigo_tributacao_municipal'] === null && ($profile['rtc_supply_category'] ?? null) === null) {
                 ItemFiscalProfile::query()
                     ->where('company_id', $companyId)
