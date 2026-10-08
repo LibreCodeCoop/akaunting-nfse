@@ -317,6 +317,25 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->firstOrFail();
 
+        return $this->downloadReceiptArtifact($invoice, $receipt, $artifact);
+    }
+
+    public function downloadLedgerArtifact(int $receipt, string $artifact): Response|RedirectResponse
+    {
+        $fiscalReceipt = NfseReceipt::query()->where('id', $receipt)
+            ->whereHas('invoice', static fn ($query) => $query
+                ->where('company_id', (int) company_id())
+                ->where('type', Invoice::INVOICE_TYPE))
+            ->firstOrFail();
+        $invoice = Invoice::findOrFail($fiscalReceipt->invoice_id);
+        $this->ensureInvoiceRelationsLoaded($invoice);
+
+        return $this->downloadReceiptArtifact($invoice, $fiscalReceipt, $artifact);
+    }
+
+    protected function downloadReceiptArtifact(Invoice $invoice, NfseReceipt $receipt, string $artifact): Response|RedirectResponse
+    {
+
         if (!in_array($artifact, ['xml', 'danfse'], true)) {
             return redirect()->route('invoices.show', $invoice)
                 ->with('warning', trans('nfse::general.invoices.artifact_invalid_type'));

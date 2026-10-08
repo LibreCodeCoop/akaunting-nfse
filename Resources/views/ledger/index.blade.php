@@ -30,7 +30,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <td class="p-3">{{ $receipt->invoice?->contact?->name ?? '—' }}</td>
                         <td class="p-3">{{ $receipt->data_emissao?->format('d/m/Y') ?? '—' }}</td>
                         <td class="p-3">{{ trans('nfse::general.ledger.status_' . ($receipt->status ?: 'unknown')) }}</td>
-                        <td class="p-3 text-right"><a class="text-indigo-700 underline" href="{{ route('invoices.show', $receipt->invoice_id) }}">{{ trans('nfse::general.ledger.open_invoice') }}</a></td>
+                        <td class="p-3 text-right">
+                            <a class="text-indigo-700 underline" href="{{ route('invoices.show', $receipt->invoice_id) }}">{{ trans('nfse::general.ledger.open_invoice') }}</a>
+                            @if ($receipt->status === 'emitted')
+                                <a class="ml-3 text-indigo-700 underline" href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $receipt->id, 'artifact' => 'xml']) }}">XML</a>
+                                <a class="ml-3 text-indigo-700 underline" href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $receipt->id, 'artifact' => 'danfse']) }}">DANFSe</a>
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr><td colspan="5" class="p-4">{{ trans('nfse::general.ledger.empty') }}</td></tr>

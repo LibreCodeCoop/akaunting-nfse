@@ -55,6 +55,7 @@ Route::admin('nfse', function () {
 
     // Receipt-oriented fiscal ledger; accounting invoices remain native to Akaunting.
     Route::get('ledger', [InvoiceController::class, 'fiscalLedger'])->name('ledger.index');
+    Route::get('ledger/{receipt}/artifacts/{artifact}', [InvoiceController::class, 'downloadLedgerArtifact'])->name('ledger.artifacts.download');
 
     // NFS-e issuance
     Route::get('invoices', [LegacyInvoiceController::class, 'index'])->name('invoices.index');
