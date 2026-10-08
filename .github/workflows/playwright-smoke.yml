@@ -125,7 +125,7 @@ jobs:
             akaunting/package-lock.json
 
       - name: Cache compiled Akaunting browser assets
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             akaunting/public/js/auth/common.min.js
