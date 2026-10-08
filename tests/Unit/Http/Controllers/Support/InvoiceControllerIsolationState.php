@@ -27,6 +27,35 @@ namespace {
     }
 }
 
+namespace Modules\Nfse\Application {
+    // Unit controller isolation replaces the database-backed journal; real
+    // journal persistence and idempotency have feature-level coverage.
+    if (!class_exists(EmissionAttemptJournal::class, false)) {
+        final class EmissionAttemptJournal
+        {
+            public function issue(
+                \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface $client,
+                \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData $dps,
+                int $invoiceId,
+                string $origin,
+                callable $persist,
+                ?string $groupKey = null,
+                ?callable $transmit = null,
+            ): array {
+                $remote = $transmit !== null
+                    ? $transmit()
+                    : (new IssueInvoiceNfse())->issue($client, $dps);
+
+                return [
+                    'receipt' => $persist($remote),
+                    'remote_receipt' => $remote,
+                    'reused' => false,
+                ];
+            }
+        }
+    }
+}
+
 namespace Modules\Nfse\Tests\Unit\Http\Controllers\Support {
     use App\Models\Sale\FakeCollection;
     use App\Models\Sale\Invoice;
