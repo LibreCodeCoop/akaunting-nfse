@@ -20,6 +20,7 @@ final class CancelInvoiceNfseTest extends TestCase
     {
         $client = new class () implements NfseClientInterface {
             public string $accessKey = '';
+            public string $reasonCode = '';
             public string $reason = '';
 
             public function emit(DpsData $dps): ReceiptData
@@ -34,7 +35,13 @@ final class CancelInvoiceNfseTest extends TestCase
 
             public function cancel(string $chaveAcesso, string $motivo): bool
             {
+                throw new \LogicException('Legacy cancellation path must not be used.');
+            }
+
+            public function cancelWithReason(string $chaveAcesso, string $codigoMotivo, string $motivo): bool
+            {
                 $this->accessKey = $chaveAcesso;
+                $this->reasonCode = $codigoMotivo;
                 $this->reason = $motivo;
 
                 return true;
@@ -48,9 +55,10 @@ final class CancelInvoiceNfseTest extends TestCase
 
         $receipt = $this->receipt('ACCESS-42', 'emitted');
 
-        (new CancelInvoiceNfse())->cancel($client, $receipt, 'Erro na emissão - teste');
+        (new CancelInvoiceNfse())->cancel($client, $receipt, '1', 'Erro na emissão - teste');
 
         self::assertSame('ACCESS-42', $client->accessKey);
+        self::assertSame('1', $client->reasonCode);
         self::assertSame('Erro na emissão - teste', $client->reason);
         self::assertSame('cancelled', $receipt->status);
     }
@@ -70,6 +78,11 @@ final class CancelInvoiceNfseTest extends TestCase
 
             public function cancel(string $chaveAcesso, string $motivo): bool
             {
+                throw new \LogicException('Legacy cancellation path must not be used.');
+            }
+
+            public function cancelWithReason(string $chaveAcesso, string $codigoMotivo, string $motivo): bool
+            {
                 throw new \RuntimeException('SEFIN unavailable');
             }
 
@@ -82,7 +95,7 @@ final class CancelInvoiceNfseTest extends TestCase
         $receipt = $this->receipt('ACCESS-42', 'emitted');
 
         try {
-            (new CancelInvoiceNfse())->cancel($client, $receipt, 'Erro na emissão');
+            (new CancelInvoiceNfse())->cancel($client, $receipt, '2', 'Serviço não prestado');
             self::fail('Expected cancellation failure.');
         } catch (\RuntimeException $exception) {
             self::assertSame('SEFIN unavailable', $exception->getMessage());

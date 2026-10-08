@@ -283,8 +283,8 @@
                                 required
                             >
                                 <option value="">{{ trans('nfse::general.invoices.cancel_modal_reason_select_placeholder') }}</option>
-                                @foreach(is_array($cancelReasonOptions) ? $cancelReasonOptions : [] as $cancelReasonOption)
-                                    <option value="{{ $cancelReasonOption }}">{{ $cancelReasonOption }}</option>
+                                @foreach(is_array($cancelReasonOptions) ? $cancelReasonOptions : [] as $cancelReasonCode => $cancelReasonOption)
+                                    <option value="{{ $cancelReasonCode }}">{{ $cancelReasonOption }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -296,10 +296,15 @@
                             <textarea
                                 id="nfse-native-cancel-justification-{{ $invoice->id }}"
                                 name="cancel_justification"
-                                maxlength="1000"
+                                minlength="15"
+                                maxlength="255"
+                                aria-describedby="nfse-native-cancel-justification-help-{{ $invoice->id }}"
                                 class="mt-1 w-full rounded border px-3 py-2"
                                 required
                             ></textarea>
+                            <p id="nfse-native-cancel-justification-help-{{ $invoice->id }}" class="mt-1 text-xs text-gray-500">
+                                {{ trans('nfse::general.invoices.cancel_justification_length') }}
+                            </p>
                         </div>
 
                         <button type="submit" class="rounded bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">

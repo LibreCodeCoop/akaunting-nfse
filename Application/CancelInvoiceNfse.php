@@ -21,9 +21,14 @@ final class CancelInvoiceNfse
     public function cancel(
         NfseClientInterface $client,
         NfseReceipt $receipt,
-        string $reason,
+        string $reasonCode,
+        string $reasonDescription,
     ): void {
-        $client->cancel($receipt->chave_acesso, $reason);
+        if (method_exists($client, 'cancelWithReason')) {
+            $client->cancelWithReason($receipt->chave_acesso, $reasonCode, $reasonDescription);
+        } else {
+            $client->cancel($receipt->chave_acesso, $reasonDescription);
+        }
         $receipt->update(['status' => 'cancelled']);
     }
 }

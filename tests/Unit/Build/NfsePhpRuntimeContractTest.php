@@ -67,6 +67,7 @@ final class NfsePhpRuntimeContractTest extends TestCase
         self::assertTrue(method_exists(NfseClient::class, 'existsDps'));
         self::assertTrue(method_exists(NfseClient::class, 'queryEvent'));
         self::assertTrue(method_exists(NfseClient::class, 'cancel'));
+        self::assertTrue(method_exists(NfseClient::class, 'cancelWithReason'));
     }
 
     public function testAdnClientExposesDistributionCapabilities(): void
