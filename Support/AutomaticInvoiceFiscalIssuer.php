@@ -198,6 +198,15 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             'ibs_cbs_c_ind_op' => $this->setting('nfse.ibs_cbs_c_ind_op', ''),
             'ibs_cbs_cst' => $this->setting('nfse.ibs_cbs_cst', ''),
             'ibs_cbs_c_class_trib' => $this->setting('nfse.ibs_cbs_c_class_trib', ''),
+            'enforce_item_federal_taxes' => $this->setting('nfse.enforce_item_federal_taxes', true),
+            'federal_piscofins_situacao_tributaria' => $this->setting(
+                'nfse.federal_piscofins_situacao_tributaria',
+                '',
+            ),
+            'federal_piscofins_tipo_retencao' => $this->setting(
+                'nfse.federal_piscofins_tipo_retencao',
+                '',
+            ),
         ];
     }
 
