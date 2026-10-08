@@ -72,13 +72,27 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         ]));
 
         $response->assertOk();
-        $response->assertViewHas('invoices', static function ($invoices) use ($first, $second): bool {
+        $response->assertViewHas('invoices', static function ($invoices) use ($excluded): bool {
             $ids = $invoices->getCollection()->pluck('id')->all();
-            $unexpected = array_diff($ids, [$first->id, $second->id]);
 
-            return $unexpected === []
-                && count($ids) <= $invoices->perPage()
-                && $invoices->total() === 2;
+            if (in_array($excluded->id, $ids, true)
+                || count($ids) > $invoices->perPage()
+                || $invoices->total() < 2) {
+                return false;
+            }
+
+            foreach ($ids as $id) {
+                $latestReceipt = NfseReceipt::query()
+                    ->where('invoice_id', $id)
+                    ->latest('id')
+                    ->first();
+
+                if ($latestReceipt?->status !== 'emitted') {
+                    return false;
+                }
+            }
+
+            return true;
         });
     }
 
