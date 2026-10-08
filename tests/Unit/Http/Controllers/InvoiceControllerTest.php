@@ -4191,10 +4191,15 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     ];
                 }
 
+                protected function dashboardRecentReceipts(): array
+                {
+                    return [];
+                }
             };
 
             $response = $controller->dashboard();
 
+            self::assertSame([], $response->data['recentReceipts'] ?? null);
             self::assertSame('nfse::dashboard.index', $response->name);
             self::assertSame([
                 'total' => 9,

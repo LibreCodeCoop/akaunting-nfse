@@ -72,8 +72,26 @@ class InvoiceController extends Controller
     public function dashboard(): \Illuminate\View\View
     {
         $stats = $this->dashboardStats();
+        $recentReceipts = $this->dashboardRecentReceipts();
 
-        return view('nfse::dashboard.index', compact('stats'));
+        return view('nfse::dashboard.index', compact('stats', 'recentReceipts'));
+    }
+
+    /**
+     * @return list<object>
+     */
+    protected function dashboardRecentReceipts(): array
+    {
+        return DB::select(
+            'SELECT receipt.id, receipt.invoice_id, receipt.nfse_number, receipt.status,'
+            . ' receipt.data_emissao, document.document_number, contact.name AS customer_name'
+            . ' FROM nfse_receipts AS receipt'
+            . ' INNER JOIN documents AS document ON document.id = receipt.invoice_id'
+            . ' LEFT JOIN contacts AS contact ON contact.id = document.contact_id'
+            . ' WHERE document.company_id = ? AND document.type = ?'
+            . ' ORDER BY receipt.id DESC LIMIT 10',
+            [(int) company_id(), Invoice::INVOICE_TYPE],
+        );
     }
 
     public function index(?Request $request = null): \Illuminate\View\View|RedirectResponse
