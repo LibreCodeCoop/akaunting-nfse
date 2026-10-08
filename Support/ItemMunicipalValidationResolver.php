@@ -60,20 +60,36 @@ final class ItemMunicipalValidationResolver
             return [];
         }
 
+        // Municipal parameters use the nine-digit service identifier:
+        // six national digits followed by the three-digit municipal complement.
+        $suffixes = $this->municipalSuffixes(array_keys($normalizedCodes), $companyId);
+        $serviceCodes = [];
+        foreach ($normalizedCodes as $itemId => $national) {
+            $suffix = $suffixes[$itemId] ?? '';
+            if (preg_match('/^\\d{6}$/', $national) !== 1
+                || ($suffix !== '' && preg_match('/^\\d{3}$/', $suffix) !== 1)) {
+                continue;
+            }
+
+            $serviceCodes[$itemId] = $national . ($suffix !== '' ? $suffix : '000');
+        }
+
         $ratesByItem = $this->itemRates(array_keys($normalizedCodes), $companyId);
         $environment = $sandboxMode ? 'sandbox' : 'production';
-        $snapshotsByCode = $this->snapshots(
-            array_values(array_unique($normalizedCodes)),
-            $companyId,
-            $municipioIbge,
-            $environment,
-        );
+        $snapshotsByCode = $serviceCodes !== []
+            ? $this->snapshots(
+                array_values(array_unique($serviceCodes)),
+                $companyId,
+                $municipioIbge,
+                $environment,
+            )
+            : [];
 
         $validator = new ItemMunicipalParameterValidator();
         $results = [];
 
         foreach ($normalizedCodes as $itemId => $code) {
-            $snapshot = $snapshotsByCode[$code] ?? null;
+            $snapshot = $snapshotsByCode[$serviceCodes[$itemId] ?? ''] ?? null;
 
             if (!is_array($snapshot)) {
                 $results[$itemId] = $validator->validate($ratesByItem[$itemId] ?? null, null);
@@ -85,7 +101,7 @@ final class ItemMunicipalValidationResolver
                 is_array($snapshot['payload'] ?? null) ? $snapshot['payload'] : null,
                 [
                     'source' => 'cache',
-                    'stale' => false,
+                    'stale' => (string) ($snapshot['competence_date'] ?? '') !== date('Y-m-d'),
                     'fetched_at' => (string) ($snapshot['fetched_at'] ?? ''),
                     'environment' => $environment,
                 ],
@@ -99,6 +115,36 @@ final class ItemMunicipalValidationResolver
      * @param list<int> $itemIds
      * @return array<int,string>
      */
+    /**
+     * @param list<int> $itemIds
+     * @return array<int,string>
+     */
+    private function municipalSuffixes(array $itemIds, int $companyId): array
+    {
+        if ($itemIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($itemIds), '?'));
+        try {
+            $rows = DB::select(
+                'SELECT item_id, codigo_tributacao_municipal FROM nfse_item_fiscal_profiles'
+                . ' WHERE company_id = ? AND item_id IN (' . $placeholders . ')',
+                array_merge([$companyId], $itemIds),
+            );
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $suffixes = [];
+        foreach ($rows as $row) {
+            $id = (int) ($row->item_id ?? 0);
+            $suffixes[$id] = trim((string) ($row->codigo_tributacao_municipal ?? ''));
+        }
+
+        return $suffixes;
+    }
+
     private function itemRates(array $itemIds, int $companyId): array
     {
         $placeholders = implode(',', array_fill(0, count($itemIds), '?'));
@@ -156,14 +202,14 @@ final class ItemMunicipalValidationResolver
         string $environment,
     ): array {
         $placeholders = implode(',', array_fill(0, count($serviceCodes), '?'));
-        $bindings = array_merge([$companyId, $environment, $municipioIbge], $serviceCodes);
+        $bindings = array_merge([$companyId, $environment, $municipioIbge], $serviceCodes, [date('Y-m-d')]);
 
         try {
             $rows = DB::select(
-                'SELECT service_code, payload, fetched_at FROM nfse_municipal_parameter_snapshots'
+                'SELECT service_code, payload, fetched_at, competence_date FROM nfse_municipal_parameter_snapshots'
                 . ' WHERE company_id = ? AND environment = ? AND municipio_ibge = ?'
-                . ' AND service_code IN (' . $placeholders . ')'
-                . ' ORDER BY fetched_at DESC, id DESC',
+                . ' AND service_code IN (' . $placeholders . ') AND DATE(competence_date) <= ?'
+                . ' ORDER BY competence_date DESC, fetched_at DESC, id DESC',
                 $bindings,
             );
         } catch (\Throwable) {
@@ -190,6 +236,7 @@ final class ItemMunicipalValidationResolver
             $snapshots[$code] = [
                 'payload' => $payload,
                 'fetched_at' => is_scalar($row->fetched_at ?? null) ? (string) $row->fetched_at : '',
+                'competence_date' => substr((string) ($row->competence_date ?? ''), 0, 10),
             ];
         }
 
