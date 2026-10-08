@@ -9,6 +9,7 @@ namespace Modules\Nfse\Http\Requests;
 
 use App\Http\Requests\Common\Item as CoreItemRequest;
 use Closure;
+use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog;
 
 /**
@@ -28,15 +29,16 @@ final class ValidatedFiscalItem extends CoreItemRequest
 
         $rules['nfse_codigo_tributacao_nacional'] = [
             'nullable',
-            static function (string $attribute, mixed $value, Closure $fail): void {
+            function (string $attribute, mixed $value, Closure $fail): void {
                 if (!is_string($value) && !is_numeric($value)) {
                     $fail('O Código de Tributação Nacional deve conter seis dígitos.');
                     return;
                 }
 
                 $code = (string) $value;
-                if (preg_match('/^\\d{6}$/D', $code) !== 1
-                    || !(new OfficialDomainCatalog())->hasNationalService($code)) {
+                if (!(preg_match('/^\d{6}$/D', $code) === 1
+                    && (new OfficialDomainCatalog())->hasNationalService($code))
+                    && !$this->isUnchangedPersistedNationalCode($code)) {
                     $fail('Selecione um Código de Tributação Nacional válido no catálogo oficial.');
                 }
             },
@@ -48,5 +50,25 @@ final class ValidatedFiscalItem extends CoreItemRequest
         ];
 
         return $rules;
+    }
+
+    /** Preserve a historic code only when its value is unchanged on this company's item. */
+    private function isUnchangedPersistedNationalCode(string $code): bool
+    {
+        if ($code === '' || !function_exists('company_id')) {
+            return false;
+        }
+
+        $item = $this->route('item');
+        $id = is_object($item) ? ($item->id ?? null) : $item;
+        if (!is_numeric($id) || (int) $id <= 0) {
+            return false;
+        }
+
+        return ItemFiscalProfile::query()
+            ->where('company_id', (int) company_id())
+            ->where('item_id', (int) $id)
+            ->where('codigo_tributacao_nacional', $code)
+            ->exists();
     }
 }
