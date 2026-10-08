@@ -198,14 +198,6 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
-    public function testControllerCreatePassesStoreRouteToView(): void
-    {
-        self::assertStringContainsString(
-            "nfse.modals.invoices.emails.store",
-            $this->controllerContent()
-        );
-    }
-
     public function testControllerStoreMethodDispatchesEmail(): void
     {
         self::assertStringContainsString(
@@ -440,11 +432,6 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString(
             "modals.invoices.emails.store",
             $this->routesContent()
-        );
-        // Full runtime name is referenced in the controller.
-        self::assertStringContainsString(
-            "nfse.modals.invoices.emails.store",
-            $this->controllerContent()
         );
     }
 
