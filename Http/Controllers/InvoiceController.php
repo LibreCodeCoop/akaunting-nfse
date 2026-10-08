@@ -1202,6 +1202,19 @@ class InvoiceController extends Controller
         $serviceAmount = $this->invoiceServiceAmount($invoice);
         $federalPayload = $this->federalPayloadValues($invoice, null, $serviceAmount);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
+        // Reemission must not collapse distinct persisted RTC operation types
+        // into a synthetic ordinary-LC116 invoice.
+        foreach ($this->invoiceFiscalGroups($invoice) as $fiscalGroup) {
+            $category = trim((string) ($fiscalGroup['rtc_supply_category'] ?? ''));
+            if ($category !== '' && $category !== 'ordinary_lc116') {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('nfse.invoices.show', $invoice)
+                        ->with('error', $this->rtcUnsupportedCategoryMessage($category)),
+                );
+            }
+        }
+
         $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($itemFiscalProfile);
 
         if (($fiscalProfileReadiness['isReady'] ?? false) !== true) {
