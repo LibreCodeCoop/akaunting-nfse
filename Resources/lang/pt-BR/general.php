@@ -324,6 +324,7 @@ return [
         'emit_blocked_not_ready' => 'Existem configurações pendentes para liberar a emissão.',
         'emit_blocked_ibs_cbs_required' => 'Não é possível emitir esta NFS-e. As informações de IBS/CBS são obrigatórias para esta operação desde :date. Configure: :fields.',
         'emit_blocked_ibs_cbs_unverifiable' => 'Não é possível determinar a obrigatoriedade de IBS/CBS para esta NFS-e. Revise: :fields.',
+        'emit_blocked_ibs_cbs_invalid' => 'A configuração de IBS/CBS informada para esta NFS-e é inválida. Revise: :fields.',
         'ibs_cbs_missing_labels' => [
             'ibs_cbs_enabled' => 'envio de IBS/CBS',
             'ibs_cbs_c_ind_op' => 'cIndOp',
