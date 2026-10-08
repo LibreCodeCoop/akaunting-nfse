@@ -276,7 +276,8 @@ final class EmissionAttemptJournal
             ->whereHas('invoice', static fn ($query) => $query
                 ->where('company_id', $companyId)
                 ->where('type', 'invoice'))
-            ->orderBy('id')
+            ->orderByDesc('id')
+            ->limit(100)
             ->get();
     }
 }
