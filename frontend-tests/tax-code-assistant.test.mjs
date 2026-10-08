@@ -76,3 +76,11 @@ test('native Akaunting selection events trigger assistant listeners', () => {
     callbacks.change();
     assert.equal(updates, 1);
 });
+
+test('resolves native Akaunting select component through nested rendered inputs', () => {
+    const { selectComponent } = require('../Resources/assets/js/tax-code-assistant.js');
+    const component = { selected: '010701', sorted_options: [], change() {} };
+    const host = { __vue__: { $parent: component }, parentElement: null };
+    const field = { parentElement: host };
+    assert.equal(selectComponent(field), component);
+});

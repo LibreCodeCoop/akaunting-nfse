@@ -41,12 +41,23 @@
             }
         };
     }
+    function selectComponent(element) {
+        for (let node = element; node; node = node.parentElement) {
+            for (let component = node.__vue__; component; component = component.$parent) {
+                if (Array.isArray(component.sorted_options) && typeof component.change === 'function') {
+                    return component;
+                }
+            }
+        }
+        return null;
+    }
     function selectedValue(element) {
-        return element.__vue__ ? String(element.__vue__.selected ?? '') : String(element.value ?? '');
+        const component = selectComponent(element);
+        return component ? String(component.selected ?? '') : String(element.value ?? '');
     }
     function selectValue(element, value, label) {
-        const component = element.__vue__;
-        if (!component || !Array.isArray(component.sorted_options)) return false;
+        const component = selectComponent(element);
+        if (!component) return false;
         const option = { key: value, value: label, option: { key: value, value: label } };
         if (!component.sorted_options.some(item => item.key === value)) component.sorted_options.push(option);
         if (Array.isArray(component.full_options)
@@ -56,7 +67,7 @@
         return true;
     }
     function listenToSelect(element, callback) {
-        const component = element.__vue__;
+        const component = selectComponent(element);
         if (component && typeof component.$on === 'function') {
             component.$on('change', callback);
         } else {
@@ -120,5 +131,5 @@
         });
         if (digits(selectedValue(service)).length === 4) scheduled();
     }
-    return { digits, lcForNational, debounce, createSearch, selectedValue, selectValue, listenToSelect, init };
+    return { digits, lcForNational, debounce, createSearch, selectComponent, selectedValue, selectValue, listenToSelect, init };
 });
