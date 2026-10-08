@@ -67,6 +67,15 @@ final class IbsCbsObligationPolicyTest extends TestCase
         ];
     }
 
+    public function testUnknownSimplesRegimeIsUnverifiable(): void
+    {
+        $result = (new IbsCbsObligationPolicy())->evaluate('2026-10-08', 9, '0101');
+
+        self::assertFalse($result['required']);
+        self::assertSame('unverifiable', $result['reason']);
+        self::assertNull($result['effective_date']);
+    }
+
     public function testUnverifiableContextBlocksIssuanceInsteadOfGuessing(): void
     {
         $result = (new IbsCbsEmissionReadiness())->evaluate(
