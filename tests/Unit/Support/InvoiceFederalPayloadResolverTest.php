@@ -117,7 +117,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('945.00', $payload['federalPiscofinsValorCofins']);
     }
 
-    public function testPisCofinsRetentionsAreAggregatedIntoSocialContributionsRetention(): void
+    public function testPisCofinsRetentionsDoNotPopulateCsll(): void
     {
         $settings = [
             'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
@@ -148,7 +148,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         $payload = $resolver->resolve($invoice);
 
         self::assertSame('4', $payload['federalPiscofinsTipoRetencao']);
-        self::assertSame('1149.75', $payload['federalValorCsll']);
+        self::assertSame('', $payload['federalValorCsll']);
         self::assertSame('472.50', $payload['federalValorIrrf']);
         self::assertSame('3.65', $payload['totalTributosPercentualFederal']);
     }
