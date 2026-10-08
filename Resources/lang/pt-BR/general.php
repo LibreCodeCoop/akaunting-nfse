@@ -327,6 +327,7 @@ return [
             'ibs_cbs_ind_dest' => 'indDest',
             'ibs_cbs_cst' => 'CST IBS/CBS',
             'ibs_cbs_c_class_trib' => 'cClassTrib',
+            'ibs_cbs_obligation_context' => 'competência e enquadramento do serviço',
         ],
         'emit_blocked_invalid_fiscal_profile' => 'Perfil fiscal inválido conforme a fonte oficial :version: :issues',
         'emit_blocked_missing_national_code_items' => 'Não foi possível emitir a NFS-e porque o item :items está sem o Código de tributação nacional. Edite esse item em Itens, preencha o campo Código de Tributação Nacional (cTribNac) com o código oficial de 6 dígitos e salve antes de tentar novamente. Fonte oficial: :version.',
