@@ -94,7 +94,9 @@ final class IbsCbsEmissionReadiness
             'isReady' => $missing === [],
             'required' => $required,
             'effective_date' => $obligation['effective_date'] ?? null,
-            'reason' => (string) ($obligation['reason'] ?? 'required'),
+            'reason' => !$required && $missing !== []
+                ? 'invalid_configuration'
+                : (string) ($obligation['reason'] ?? 'required'),
             'missing' => $missing,
         ];
     }
