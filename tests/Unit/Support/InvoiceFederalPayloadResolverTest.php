@@ -117,7 +117,55 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('945.00', $payload['federalPiscofinsValorCofins']);
     }
 
-    public function testPisCofinsRetentionsAreAggregatedIntoSocialContributionsRetention(): void
+    public function testCsllIsNotSentWhenRetentionTypeExplicitlyDoesNotRetainCsll(): void
+    {
+        $settings = [
+            'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
+            'nfse.federal_piscofins_situacao_tributaria' => '1',
+            'nfse.federal_piscofins_tipo_retencao' => '4',
+            'nfse.federal_piscofins_aliquota_pis' => '0.65',
+            'nfse.federal_piscofins_aliquota_cofins' => '3.00',
+            'nfse.federal_valor_csll' => '1.00',
+        ];
+
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
+        );
+        $invoice = new Document();
+        $invoice->amount = 31500.00;
+        $invoice->items = $this->items([]);
+
+        $payload = $resolver->resolve($invoice);
+
+        self::assertSame('4', $payload['federalPiscofinsTipoRetencao']);
+        self::assertSame('', $payload['federalValorCsll']);
+    }
+
+    public function testMissingCsllDoesNotRewriteConfiguredRetentionType(): void
+    {
+        $settings = [
+            'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
+            'nfse.federal_piscofins_situacao_tributaria' => '1',
+            'nfse.federal_piscofins_tipo_retencao' => '3',
+            'nfse.federal_piscofins_aliquota_pis' => '0.65',
+            'nfse.federal_piscofins_aliquota_cofins' => '3.00',
+            'nfse.federal_valor_csll' => '',
+        ];
+
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
+        );
+        $invoice = new Document();
+        $invoice->amount = 1000.00;
+        $invoice->items = $this->items([]);
+
+        $payload = $resolver->resolve($invoice);
+
+        self::assertSame('3', $payload['federalPiscofinsTipoRetencao']);
+        self::assertSame('', $payload['federalValorCsll']);
+    }
+
+    public function testPisCofinsRetentionsDoNotPopulateCsll(): void
     {
         $settings = [
             'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
@@ -148,7 +196,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         $payload = $resolver->resolve($invoice);
 
         self::assertSame('4', $payload['federalPiscofinsTipoRetencao']);
-        self::assertSame('1149.75', $payload['federalValorCsll']);
+        self::assertSame('', $payload['federalValorCsll']);
         self::assertSame('472.50', $payload['federalValorIrrf']);
         self::assertSame('3.65', $payload['totalTributosPercentualFederal']);
     }
@@ -215,7 +263,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('', $payload['federalValorCsll']);
     }
 
-    public function testRetentionTypeRequiringCsllFallsBackWhenNoCsllValueExists(): void
+    public function testRetentionTypeRequiringCsllIsNotSilentlyRewrittenWhenValueIsMissing(): void
     {
         $resolver = new InvoiceFederalPayloadResolver(
             settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
@@ -232,7 +280,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $payload = $resolver->resolve($invoice);
 
-        self::assertSame('0', $payload['federalPiscofinsTipoRetencao']);
+        self::assertSame('3', $payload['federalPiscofinsTipoRetencao']);
         self::assertSame('', $payload['federalValorCsll']);
     }
     /**

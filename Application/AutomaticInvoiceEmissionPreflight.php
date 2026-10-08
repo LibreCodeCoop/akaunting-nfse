@@ -9,6 +9,7 @@ namespace Modules\Nfse\Application;
 
 use App\Models\Document\Document as Invoice;
 use Modules\Nfse\Support\InvoiceAutomaticTakerEligibility;
+use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 
 /**
@@ -28,6 +29,7 @@ final class AutomaticInvoiceEmissionPreflight
     }
 
     /**
+     * @param array<string,mixed>|null $settings
      * @return array{
      *   status:'ready'|'blocked'|'already_issued',
      *   reason:?string,
@@ -35,7 +37,7 @@ final class AutomaticInvoiceEmissionPreflight
      *   details:list<string>
      * }
      */
-    public function evaluate(Invoice $invoice): array
+    public function evaluate(Invoice $invoice, ?array $settings = null): array
     {
         $invoiceId = is_numeric($invoice->id ?? null) ? (int) $invoice->id : 0;
 
@@ -93,12 +95,97 @@ final class AutomaticInvoiceEmissionPreflight
             );
         }
 
+        $group = $remaining[0];
+        $settings ??= $this->nfseSettings();
+        $simples = is_numeric($settings['opcao_simples_nacional'] ?? null)
+            ? (int) $settings['opcao_simples_nacional']
+            : 1;
+        $ibsCbsReadiness = (new IbsCbsEmissionReadiness())->evaluate(
+            competenceDate: (string) ((new InvoiceDpsIdentity())->competenceDate($invoice) ?? ''),
+            opcaoSimplesNacional: $simples,
+            itemListaServico: (string) ($group['item_lista_servico'] ?? ''),
+            settings: $settings,
+        );
+
+        if (($ibsCbsReadiness['isReady'] ?? false) !== true) {
+            return $this->blocked(
+                match ($ibsCbsReadiness['reason'] ?? '') {
+                    'unverifiable' => 'ibs_cbs_unverifiable',
+                    'invalid_configuration' => 'ibs_cbs_invalid',
+                    default => 'ibs_cbs_required',
+                },
+                is_array($ibsCbsReadiness['missing'] ?? null)
+                    ? array_values(array_map('strval', $ibsCbsReadiness['missing']))
+                    : [],
+            );
+        }
+
+        $federalReadiness = $this->federalReadiness($invoice, $group, $settings);
+
+        if (($federalReadiness['isReady'] ?? false) !== true) {
+            return $this->blocked(
+                'missing_federal_taxes',
+                is_array($federalReadiness['missing'] ?? null)
+                    ? array_values(array_map('strval', $federalReadiness['missing']))
+                    : [],
+            );
+        }
+
         return [
             'status' => 'ready',
             'reason' => null,
             'group' => $remaining[0],
             'details' => [],
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $group
+     * @param array<string,mixed> $settings
+     * @return array{isReady:bool,missing:list<string>}
+     */
+    private function federalReadiness(Invoice $invoice, array $group, array $settings): array
+    {
+        $documentItemIds = array_values(array_filter(array_map(
+            static fn (array $item): int => is_numeric($item['document_item_id'] ?? null)
+                ? (int) $item['document_item_id']
+                : 0,
+            is_array($group['items'] ?? null) ? $group['items'] : [],
+        ), static fn (int $id): bool => $id > 0));
+        $amount = is_numeric($group['amount'] ?? null) ? (float) $group['amount'] : 0.0;
+
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static function (string $key, mixed $default) use ($settings): mixed {
+                $prefix = 'nfse.';
+                $name = str_starts_with($key, $prefix) ? substr($key, strlen($prefix)) : $key;
+
+                return array_key_exists($name, $settings) ? $settings[$name] : $default;
+            },
+        );
+        $snapshot = $resolver->snapshot(
+            $invoice,
+            $amount > 0 ? $amount : $resolver->serviceAmount($invoice, $documentItemIds),
+            $documentItemIds,
+        );
+        $required = (new FederalTaxReadiness())->requiredBuckets(
+            $settings['enforce_item_federal_taxes'] ?? true,
+            trim((string) ($settings['federal_piscofins_situacao_tributaria'] ?? '')),
+            trim((string) ($settings['federal_piscofins_tipo_retencao'] ?? '')),
+        );
+
+        return (new FederalTaxReadiness())->evaluate($snapshot, $required);
+    }
+
+    /** @return array<string,mixed> */
+    private function nfseSettings(): array
+    {
+        if (!function_exists('setting')) {
+            return [];
+        }
+
+        $settings = \setting('nfse', []);
+
+        return is_array($settings) ? $settings : [];
     }
 
     /**

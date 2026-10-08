@@ -125,6 +125,7 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
     {
         $invoice = Document::factory()->invoice()->create([
             'company_id' => (int) $this->company->id,
+            'issued_at' => '2026-09-30 12:00:00',
         ]);
         $contact = Contact::factory()->customer()->enabled()->create([
             'company_id' => (int) $this->company->id,

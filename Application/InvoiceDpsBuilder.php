@@ -59,6 +59,17 @@ final class InvoiceDpsBuilder
             ]);
         }
 
+        if (($ibsCbs['enabled'] ?? false) === true) {
+            $required = array_merge($required, [
+                'ibsCbsFinalidade',
+                'ibsCbsIndFinal',
+                'ibsCbsCodigoIndicadorOperacao',
+                'ibsCbsIndDest',
+                'ibsCbsCst',
+                'ibsCbsClassificacaoTributaria',
+            ]);
+        }
+
         $required = array_values(array_unique($required));
 
         return $this->runtime->make([

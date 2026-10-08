@@ -130,7 +130,9 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
 
     private function invoiceWithProfile(): Document
     {
-        $invoice = Document::factory()->invoice()->create();
+        $invoice = Document::factory()->invoice()->create([
+            'issued_at' => '2026-09-30 12:00:00',
+        ]);
         $invoice->contact->forceFill(['country' => 'BR'])->saveQuietly();
         $invoice->unsetRelation('contact');
         $invoice->items()->delete();

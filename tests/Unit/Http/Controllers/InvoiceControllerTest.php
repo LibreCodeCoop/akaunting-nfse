@@ -450,6 +450,89 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ];
         }
 
+        public function testEmitBlocksWhenIbsCbsIsRequiredAndConfigurationIsMissing(): void
+        {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 9901,
+                amount: 1200.00,
+                items: [['name' => 'Servico sujeito ao cronograma geral']],
+                issuedAt: '2026-10-08 12:00:00',
+            );
+
+            $controller = new class () extends InvoiceController {
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $response = $controller->emit($invoice, new Request());
+
+            self::assertSame('route', $response->target ?? null);
+            self::assertSame('invoices.show', $response->route ?? null);
+            self::assertStringContainsString('IBS/CBS obrigatorio desde 2026-10-01', (string) ($response->flash['error'] ?? ''));
+            self::assertStringContainsString('cIndOp', (string) ($response->flash['error'] ?? ''));
+        }
+
+        public function testEmitDoesNotRequireIbsCbsBeforeGeneralEffectiveDate(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 9902,
+                amount: 1200.00,
+                items: [['name' => 'Servico antes da vigencia']],
+                issuedAt: '2026-09-30 12:00:00',
+            );
+
+            $client = new class () implements NfseClientInterface {
+                public ?DpsData $capturedDps = null;
+
+                public function emit(DpsData $dps): ReceiptData
+                {
+                    $this->capturedDps = $dps;
+
+                    return new ReceiptData('NF-9902', 'CHAVE-9902', '2026-09-30T12:00:00-03:00');
+                }
+
+                public function query(string $chaveAcesso): ReceiptData
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function cancel(string $chaveAcesso, string $motivo): bool
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+
+                public function getDanfse(string $chaveAcesso): string
+                {
+                    throw new \BadMethodCallException('Not used.');
+                }
+            };
+
+            $controller = new class ($client) extends InvoiceController {
+                public function __construct(private readonly NfseClientInterface $client)
+                {
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    return $this->client;
+                }
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    return true;
+                }
+            };
+
+            $controller->emit($invoice, new Request());
+
+            self::assertNotNull($client->capturedDps);
+            self::assertNull($client->capturedDps?->ibsCbsFinalidade);
+        }
+
         public function testEmitBlocksWhenRequiredFederalTaxesAreMissingInInvoiceItems(): void
         {
             ControllerIsolationState::$settings['nfse.enforce_item_federal_taxes'] = true;
@@ -686,6 +769,15 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse::general.cancel_motivo_default' => 'Cancelamento padrao',
                 'nfse::general.service_default' => 'Servico padrao',
                 'nfse::general.invoices.emit_blocked_not_ready' => 'Existem configuracoes pendentes para liberar a emissao.',
+                'nfse::general.invoices.emit_blocked_ibs_cbs_required' => 'IBS/CBS obrigatorio desde :date. Configure: :fields.',
+                'nfse::general.invoices.emit_blocked_ibs_cbs_unverifiable' => 'Nao foi possivel determinar IBS/CBS. Revise: :fields.',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_enabled' => 'envio de IBS/CBS',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_ind_final' => 'indFinal',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_c_ind_op' => 'cIndOp',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_ind_dest' => 'indDest',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_cst' => 'CST IBS/CBS',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_c_class_trib' => 'cClassTrib',
+                'nfse::general.invoices.ibs_cbs_missing_labels.ibs_cbs_obligation_context' => 'competencia e enquadramento do servico',
                 'nfse::general.invoices.emit_blocked_no_items' => 'A fatura precisa ter ao menos um item para emitir NFS-e.',
                 'nfse::general.invoices.emit_blocked_missing_federal_taxes' => 'A fatura nao possui os tributos federais necessarios para emissao da NFS-e.',
                 'nfse::general.invoices.emit_blocked_missing_federal_taxes_with_list' => 'A fatura nao possui os tributos federais necessarios para emissao da NFS-e (:taxes).',
@@ -857,8 +949,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
             // IRRF = 1.00% × 1500.25 = 15.0025 → '15.00'
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            // vRetCSLL aggregates retained PIS + COFINS + CSLL for retention type 3.
-            self::assertSame('153.77', $client->capturedDps?->federalValorCsll);
+            // CSLL is retained separately from PIS/COFINS.
+            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
             self::assertSame(0, $client->capturedDps?->ibsCbsFinalidade);
@@ -1434,9 +1526,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // Aliquotas are still from settings
             self::assertSame('1.65', $client->capturedDps?->federalPiscofinsAliquotaPis);
             self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
-            // IRRF is retained separately; vRetCSLL aggregates retained PIS + COFINS + CSLL for type 3.
+            // IRRF and CSLL are retained separately from PIS/COFINS.
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            self::assertSame('153.77', $client->capturedDps?->federalValorCsll);
+            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
             // Federal taxation without explicit tributos_* config still needs totTrib in the XML schema.
@@ -1788,7 +1880,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><pTotTrib><pTotTribFed>0.00</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>0.00</pTotTribMun></pTotTrib></totTrib></trib>', $normalizedXml);
         }
 
-        public function testEmitPreservesTypeFourAndAggregatesPisCofinsWhenCsllIsZero(): void
+        public function testEmitPreservesTypeFourWithoutPopulatingCsllWhenCsllIsZero(): void
         {
             ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] = '4';
             ControllerIsolationState::$settings['nfse.federal_valor_csll'] = '0.00';
@@ -1850,7 +1942,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller->emit($invoice);
 
             self::assertSame('4', $client->capturedDps?->federalPiscofinsTipoRetencao);
-            self::assertSame('92.50', $client->capturedDps?->federalValorCsll);
+            self::assertSame('', $client->capturedDps?->federalValorCsll);
         }
 
         public function testEmitUsesFiscalSettingsFallbackWhenItemHasNoFiscalProfile(): void
@@ -4641,6 +4733,36 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.index', $response->route);
             self::assertSame('Atualizacao parcial: 1 atualizadas e 1 falharam.', $response->flash['warning'] ?? null);
+        }
+
+        public function testReemitBlocksWhenIbsCbsIsRequiredAndConfigurationIsMissing(): void
+        {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 3001,
+                amount: 700.45,
+                items: [['name' => 'Servico Reemissao']],
+                issuedAt: '2026-10-08 12:00:00',
+            );
+
+            InvoiceControllerIsolationState::makeReceipt(3001, 'CHAVE-3001', 'cancelled');
+
+            $controller = new class () extends InvoiceController {
+                protected function emissionReadiness(): array
+                {
+                    return ['isReady' => true, 'checklist' => []];
+                }
+            };
+
+            $response = $controller->reemit($invoice);
+
+            self::assertSame('route', $response->target ?? null);
+            self::assertSame('nfse.invoices.show', $response->route ?? null);
+            self::assertStringContainsString(
+                'IBS/CBS obrigatorio desde 2026-10-01',
+                (string) ($response->flash['error'] ?? ''),
+            );
         }
 
         public function testReemitBuildsDpsForCancelledReceiptAndRedirectsToShow(): void

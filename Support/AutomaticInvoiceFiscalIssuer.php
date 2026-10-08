@@ -72,7 +72,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             throw new \InvalidArgumentException('Invoice not found.');
         }
 
-        $preflight = $this->preflight->evaluate($invoice);
+        $preflight = $this->preflight->evaluate($invoice, $this->nfseSettings());
 
         if (($preflight['status'] ?? '') !== 'ready' || !is_array($preflight['group'] ?? null)) {
             throw new \LogicException(
@@ -184,6 +184,29 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
         return [
             'telefone' => preg_replace('/\D+/', '', $phone) ?: '',
             'email' => $email,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function nfseSettings(): array
+    {
+        return [
+            'opcao_simples_nacional' => $this->setting('nfse.opcao_simples_nacional', 1),
+            'ibs_cbs_enabled' => $this->setting('nfse.ibs_cbs_enabled', false),
+            'ibs_cbs_ind_final' => $this->setting('nfse.ibs_cbs_ind_final', ''),
+            'ibs_cbs_ind_dest' => $this->setting('nfse.ibs_cbs_ind_dest', ''),
+            'ibs_cbs_c_ind_op' => $this->setting('nfse.ibs_cbs_c_ind_op', ''),
+            'ibs_cbs_cst' => $this->setting('nfse.ibs_cbs_cst', ''),
+            'ibs_cbs_c_class_trib' => $this->setting('nfse.ibs_cbs_c_class_trib', ''),
+            'enforce_item_federal_taxes' => $this->setting('nfse.enforce_item_federal_taxes', true),
+            'federal_piscofins_situacao_tributaria' => $this->setting(
+                'nfse.federal_piscofins_situacao_tributaria',
+                '',
+            ),
+            'federal_piscofins_tipo_retencao' => $this->setting(
+                'nfse.federal_piscofins_tipo_retencao',
+                '',
+            ),
         ];
     }
 
