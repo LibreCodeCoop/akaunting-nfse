@@ -326,3 +326,15 @@ Isso ajuda outros desenvolvedores a encontrar o projeto e encoraja a equipe a co
 
 GNU Affero General Public License v3.0 ou superior — veja [LICENSES/AGPL-3.0-or-later.txt](LICENSES/AGPL-3.0-or-later.txt).
 &copy; 2026 LibreCode Coop e colaboradores.
+
+
+### Seleção assistida de códigos fiscais
+
+No cadastro do item, é possível filtrar os desdobramentos do Código de Tributação
+Nacional (cTribNac) a partir do subitem LC 116 selecionado, e pesquisar pelo código
+ou descrição. Ao escolher um cTribNac, a interface também seleciona o subitem LC 116
+correspondente aos quatro primeiros dígitos quando ele existir no catálogo.
+A interface mantém os campos nativos e não altera automaticamente a classificação
+tributária apenas por digitar; a escolha final é explícita. O vínculo é auxiliar
+para navegação no catálogo e **não** comprova que o município aceite o código.
+A validação municipal e a competência continuam independentes.

@@ -22,6 +22,16 @@ final class ItemFiscalFieldsRenderingTest extends FeatureTestCase
             ->assertSee('010101', false);
     }
 
+    public function testCreateItemPageIncludesAssistedNationalTaxCodeSelection(): void
+    {
+        $this->loginAs()
+            ->get(route('items.create'))
+            ->assertOk()
+            ->assertSee('data-nfse-tax-code-assistant', false)
+            ->assertSee('data-nfse-tax-code-results', false)
+            ->assertSee('data-nfse-tax-code-query', false);
+    }
+
     public function testEditItemPageRendersNfseFiscalFields(): void
     {
         $item = Item::factory()->create();

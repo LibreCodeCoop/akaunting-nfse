@@ -115,6 +115,14 @@ return [
     ],
 
     'items' => [
+        'assistant' => [
+            'search_label' => 'Pesquisar desdobramentos do Código de Tributação Nacional',
+            'search_placeholder' => 'Digite código ou descrição para filtrar',
+            'advisory' => 'A seleção relaciona os quatro primeiros dígitos ao subitem LC 116. A disponibilidade municipal depende de validação separada.',
+            'results' => 'Desdobramentos nacionais disponíveis',
+            'matches' => 'opções do catálogo nacional',
+            'select_lc' => 'Selecione um subitem LC 116 ou pesquise todos os códigos nacionais',
+        ],
         'fiscal_title' => 'Dados fiscais da NFS-e',
         'fiscal_description' => 'Configure o código LC116 e o Código de Tributação Nacional (cTribNac) diretamente no item.',
         'item_lista_servico' => 'Item da lista de serviço (LC116)',

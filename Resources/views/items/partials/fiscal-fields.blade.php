@@ -122,6 +122,86 @@
             <p class="text-xs text-gray-500">{{ trans('nfse::general.items.codigo_tributacao_nacional_hint') }}</p>
         </div>
 
+        {{-- Optional catalog navigation. The saved fiscal fields remain Akaunting's native selects. --}}
+        <div class="sm:col-span-6 rounded border p-3" data-nfse-tax-code-assistant
+             data-lc-options='@json($lc116Options)'
+             data-national-options='@json($nationalServiceOptions)'>
+            <label for="nfse-tax-code-search" class="block text-sm font-medium">{{ trans('nfse::general.items.assistant.search_label') }}</label>
+            <input id="nfse-tax-code-search" type="search" autocomplete="off"
+                   class="mt-1 w-full rounded border px-3 py-2"
+                   placeholder="{{ trans('nfse::general.items.assistant.search_placeholder') }}"
+                   data-nfse-tax-code-query>
+            <p class="mt-2 text-xs text-gray-600">{{ trans('nfse::general.items.assistant.advisory') }}</p>
+            <p class="mt-2 text-sm" data-nfse-tax-code-summary role="status" aria-live="polite"></p>
+            <div class="mt-2 max-h-56 overflow-y-auto" data-nfse-tax-code-results role="group"
+                 aria-label="{{ trans('nfse::general.items.assistant.results') }}"></div>
+        </div>
+        <script>
+            (() => {
+                const root = document.querySelector('[data-nfse-tax-code-assistant]');
+                if (!root || root.dataset.initialized === 'true') return;
+                root.dataset.initialized = 'true';
+                const national = JSON.parse(root.dataset.nationalOptions || '{}');
+                const lc = JSON.parse(root.dataset.lcOptions || '{}');
+                const input = root.querySelector('[data-nfse-tax-code-query]');
+                const results = root.querySelector('[data-nfse-tax-code-results]');
+                const summary = root.querySelector('[data-nfse-tax-code-summary]');
+                const getField = (name) => document.querySelector('[name="' + name + '"]');
+                const digits = (value) => String(value || '').replace(/\\D/g, '');
+                const nativeLc = () => getField('nfse_item_lista_servico');
+                const nativeNational = () => getField('nfse_codigo_tributacao_nacional');
+                const setNative = (element, value) => {
+                    if (!element || !Array.from(element.options || []).some(option => option.value === value)) return;
+                    element.value = value;
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    element.dispatchEvent(new Event('change', { bubbles: true }));
+                };
+                const refresh = () => {
+                    const lcValue = digits(nativeLc()?.value).slice(0, 4);
+                    const chosen = digits(nativeNational()?.value);
+                    const query = input.value.trim().toLocaleLowerCase('pt-BR');
+                    const available = Object.entries(national).filter(([code, description]) =>
+                        (!lcValue || code.startsWith(lcValue)) &&
+                        (!query || (code + ' ' + description).toLocaleLowerCase('pt-BR').includes(query))
+                    );
+                    const matchingLc = chosen.length === 6 ? 'lc:' + chosen.slice(0, 4) : '';
+                    summary.textContent = lcValue
+                        ? available.length + ' {{ trans('nfse::general.items.assistant.matches') }}'
+                        : '{{ trans('nfse::general.items.assistant.select_lc') }}';
+                    if (matchingLc && lc[matchingLc]) {
+                        summary.textContent += ' · ' + lc[matchingLc];
+                    }
+                    results.replaceChildren();
+                    for (const [code, description] of available.slice(0, 60)) {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'block w-full rounded px-2 py-2 text-left text-sm hover:bg-gray-100 focus:outline focus:outline-2';
+                        button.textContent = description;
+                        button.setAttribute('aria-pressed', String(code === chosen));
+                        button.addEventListener('click', () => {
+                            setNative(nativeNational(), code);
+                            const matching = 'lc:' + code.slice(0, 4);
+                            if (lc[matching]) setNative(nativeLc(), matching);
+                            refresh();
+                        });
+                        results.append(button);
+                    }
+                };
+                input.addEventListener('input', refresh);
+                document.addEventListener('change', (event) => {
+                    const element = event.target;
+                    if (!(element instanceof HTMLSelectElement)) return;
+                    if (element.name === 'nfse_codigo_tributacao_nacional') {
+                        const code = digits(element.value);
+                        const key = 'lc:' + code.slice(0, 4);
+                        if (code.length === 6 && lc[key]) setNative(nativeLc(), key);
+                    }
+                    if (element.name === 'nfse_item_lista_servico' || element.name === 'nfse_codigo_tributacao_nacional') refresh();
+                });
+                refresh();
+            })();
+        </script>
+
         <x-form.group.text
             name="nfse_codigo_tributacao_municipal"
             label="{{ trans('nfse::general.items.codigo_tributacao_municipal') }}"
