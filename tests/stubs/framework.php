@@ -523,3 +523,15 @@ namespace {
         return new StubFlasher();
     }
 }
+
+namespace App\Http\Requests\Common;
+
+/** Psalm-only stand-in for Akaunting core's request, installed in feature tests. */
+class Item
+{
+    /** @return array<string, mixed> */
+    public function rules(): array
+    {
+        return [];
+    }
+}
