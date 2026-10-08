@@ -46,8 +46,25 @@ namespace Modules\Nfse\Application {
                     ? $transmit()
                     : (new IssueInvoiceNfse())->issue($client, $dps);
 
+                if ($origin === 'reemit') {
+                    // The real reissue creates another row, not a mutation of
+                    // the cancelled receipt; unit controller isolation has
+                    // no Eloquent/database runtime.
+                    $receipt = new \Modules\Nfse\Models\NfseReceipt();
+                    $receipt->id = count(\Modules\Nfse\Models\NfseReceipt::$records) + 1;
+                    $receipt->invoice_id = $invoiceId;
+                    $receipt->nfse_number = $remote->nfseNumber;
+                    $receipt->chave_acesso = $remote->chaveAcesso;
+                    $receipt->data_emissao = $remote->dataEmissao;
+                    $receipt->codigo_verificacao = $remote->codigoVerificacao;
+                    $receipt->status = 'emitted';
+                    \Modules\Nfse\Models\NfseReceipt::$records[] = $receipt;
+                } else {
+                    $receipt = $persist($remote);
+                }
+
                 return [
-                    'receipt' => $persist($remote),
+                    'receipt' => $receipt,
                     'remote_receipt' => $remote,
                     'reused' => false,
                 ];
