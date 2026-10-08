@@ -55,6 +55,14 @@
         component.change();
         return true;
     }
+    function listenToSelect(element, callback) {
+        const component = element.__vue__;
+        if (component && typeof component.$on === 'function') {
+            component.$on('change', callback);
+        } else {
+            element.addEventListener('change', callback);
+        }
+    }
     function init(doc, fetcher = fetch) {
         const root = doc.querySelector('[data-nfse-tax-code-assistant]');
         if (!root || root.dataset.initialized === 'true') return;
@@ -105,12 +113,12 @@
         }
         const scheduled = debounce(refresh, 300);
         input.addEventListener('input', scheduled);
-        service.addEventListener('change', scheduled);
-        national.addEventListener('change', () => {
+        listenToSelect(service, scheduled);
+        listenToSelect(national, () => {
             const related = lcForNational(selectedValue(national));
             if (lcOptions[related] && selectedValue(service) !== related) updateSelect(service, related, lcOptions[related]);
         });
         if (digits(selectedValue(service)).length === 4) scheduled();
     }
-    return { digits, lcForNational, debounce, createSearch, selectedValue, selectValue, init };
+    return { digits, lcForNational, debounce, createSearch, selectedValue, selectValue, listenToSelect, init };
 });

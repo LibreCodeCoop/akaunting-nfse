@@ -61,3 +61,18 @@ test('native Akaunting Vue select receives chosen value and reports form change'
     assert.deepEqual(notifications, ['010701']);
     assert.equal(require('../Resources/assets/js/tax-code-assistant.js').selectValue({}, '010701', ''), false);
 });
+
+test('native Akaunting selection events trigger assistant listeners', () => {
+    const { listenToSelect } = require('../Resources/assets/js/tax-code-assistant.js');
+    const callbacks = {};
+    const field = {
+        __vue__: {
+            $on(event, callback) { callbacks[event] = callback; },
+        },
+        addEventListener() { throw new Error('Vue custom select must use Vue events'); },
+    };
+    let updates = 0;
+    listenToSelect(field, () => { updates += 1; });
+    callbacks.change();
+    assert.equal(updates, 1);
+});
