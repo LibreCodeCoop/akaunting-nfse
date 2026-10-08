@@ -109,7 +109,7 @@
         <x-form.group.select
             name="nfse_codigo_tributacao_nacional"
             label="{{ trans('nfse::general.items.codigo_tributacao_nacional') }}"
-            :options="$nationalServiceOptions"
+            :options="collect($nationalServiceOptions)"
             :selected="$oldNationalCode"
             placeholder="{{ trans('nfse::general.items.codigo_tributacao_nacional_placeholder') }}"
             searchable
