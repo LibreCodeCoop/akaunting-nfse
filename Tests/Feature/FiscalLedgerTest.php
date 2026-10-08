@@ -57,6 +57,28 @@ final class FiscalLedgerTest extends FeatureTestCase
         });
     }
 
+    public function testLedgerCombinesFiscalStatusAndReceiptNumberSearch(): void
+    {
+        $this->loginAs();
+
+        $invoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $match = $this->receipt($invoice, '85001', 'emitted');
+        $this->receipt($invoice, '85002', 'emitted');
+        $this->receipt($invoice, '85001-OLD', 'cancelled');
+
+        $response = $this->get(route('nfse.ledger.index', [
+            'status' => 'emitted',
+            'search' => '85001',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('receipts', static function ($receipts) use ($match): bool {
+            $ids = $receipts->getCollection()->pluck('id')->all();
+
+            return $ids === [$match->id];
+        });
+    }
+
     public function testLedgerDownloadsXmlFromSelectedReceiptInsteadOfLatestInvoiceReceipt(): void
     {
         $this->loginAs();
