@@ -7,13 +7,16 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Jobs\Auth\CreateUser;
 use App\Models\Document\Document;
+use App\Traits\Permissions;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Models\NfseReceiptPayload;
 use Tests\Feature\FeatureTestCase;
 
 final class FiscalLedgerTest extends FeatureTestCase
 {
+    use Permissions;
     public function testLedgerOnlyShowsReceiptsFromCurrentCompanyIncludingMultipleForOneInvoice(): void
     {
         $this->loginAs();
@@ -239,6 +242,37 @@ final class FiscalLedgerTest extends FeatureTestCase
             return $receipts->total() === 1
                 && $receipts->getCollection()->pluck('id')->all() === [$match->id];
         });
+    }
+
+
+    public function testLedgerAndArtifactDownloadRequireSalesInvoiceReadPermission(): void
+    {
+        $this->loginAs();
+
+        $invoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $receipt = $this->receipt($invoice, '96001', 'emitted');
+
+        $role = $this->createRole('nfse-ledger-restricted');
+        $this->attachPermission($role, 'read-admin-panel');
+
+        $restrictedUser = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
+            'enabled' => 1,
+            'companies' => [$this->company->id],
+            'roles' => [$role->id],
+        ])));
+
+        $this->withExceptionHandling()
+            ->loginAs($restrictedUser)
+            ->get(route('nfse.ledger.index'))
+            ->assertForbidden();
+
+        $this->withExceptionHandling()
+            ->loginAs($restrictedUser)
+            ->get(route('nfse.ledger.artifacts.download', [
+                'receipt' => $receipt->id,
+                'artifact' => 'xml',
+            ]))
+            ->assertForbidden();
     }
 
     private function receipt(Document $invoice, string $number, string $status): NfseReceipt
