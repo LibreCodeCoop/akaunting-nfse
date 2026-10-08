@@ -474,16 +474,6 @@ class InvoiceController extends Controller
         $this->persistDefaultDescriptionFromRequest($request);
 
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
-        $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($itemFiscalProfile);
-
-        if (($fiscalProfileReadiness['isReady'] ?? false) !== true) {
-            return $this->ajaxAwareRedirect(
-                $request,
-                redirect()->route('invoices.show', $invoice)
-                    ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness, $invoice)),
-            );
-        }
-
         $fiscalGroups = $this->invoiceFiscalGroups($invoice);
         $selectedFiscalGroup = null;
 
@@ -504,6 +494,25 @@ class InvoiceController extends Controller
                         ->with('error', trans('nfse::general.invoices.fiscal_group_selection_required')),
                 );
             }
+        }
+
+        $emissionProfile = is_array($selectedFiscalGroup) ? $selectedFiscalGroup : $itemFiscalProfile;
+        $rtcCategory = trim((string) ($emissionProfile['rtc_supply_category'] ?? ''));
+        if ($rtcCategory !== '' && $rtcCategory !== 'ordinary_lc116') {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('invoices.show', $invoice)
+                    ->with('error', $this->rtcUnsupportedCategoryMessage($rtcCategory)),
+            );
+        }
+
+        $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($emissionProfile);
+        if (($fiscalProfileReadiness['isReady'] ?? false) !== true) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('invoices.show', $invoice)
+                    ->with('error', $this->invalidFiscalProfileMessage($fiscalProfileReadiness, $invoice)),
+            );
         }
 
         $selectedDocumentItemIds = is_array($selectedFiscalGroup)
@@ -531,6 +540,7 @@ class InvoiceController extends Controller
             opcaoSimplesNacional: $this->normalizedOpcaoSimplesNacional(),
             itemListaServico: $ibsCbsServiceCode,
             settings: is_array(setting('nfse', [])) ? setting('nfse', []) : [],
+            rtcSupplyCategory: $rtcCategory,
         );
 
         if (($ibsCbsReadiness['isReady'] ?? false) !== true) {
@@ -604,11 +614,11 @@ class InvoiceController extends Controller
                 'municipioIbge' => $ibge,
                 'prestadorTelefone' => $providerContact['telefone'],
                 'prestadorEmail' => $providerContact['email'],
-                'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
-                'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
-                'codigoTributacaoMunicipal' => (string) ($itemFiscalProfile['codigo_tributacao_municipal'] ?? ''),
+                'itemListaServico' => (string) $emissionProfile['item_lista_servico'],
+                'codigoTributacaoNacional' => (string) $emissionProfile['codigo_tributacao_nacional'],
+                'codigoTributacaoMunicipal' => (string) ($emissionProfile['codigo_tributacao_municipal'] ?? ''),
                 'valorServico' => number_format($serviceAmount, 2, '.', ''),
-                'aliquota' => (string) $itemFiscalProfile['aliquota'],
+                'aliquota' => (string) $emissionProfile['aliquota'],
                 'discriminacao' => $this->buildDiscriminacao(
                     $invoice,
                     $itemFiscalProfile['line_items'] ?? [],
@@ -1696,6 +1706,7 @@ class InvoiceController extends Controller
                             'item_lista_servico' => Lc116Code::normalize($profile->item_lista_servico ?? ''),
                             'codigo_tributacao_nacional' => preg_replace('/\D+/', '', (string) ($profile->codigo_tributacao_nacional ?? '')) ?: '',
                             'codigo_tributacao_municipal' => preg_replace('/\D+/', '', (string) ($profile->codigo_tributacao_municipal ?? '')) ?: '',
+                            'rtc_supply_category' => trim((string) ($profile->rtc_supply_category ?? '')),
                         ],
                     ];
                 })
@@ -2063,6 +2074,14 @@ class InvoiceController extends Controller
     /**
      * @param array{issues?:list<string>,source_versions?:array<string,string>} $readiness
      */
+    protected function rtcUnsupportedCategoryMessage(string $category): string
+    {
+        $label = trans('nfse::general.items.rtc_' . $category);
+        return (string) trans('nfse::general.invoices.rtc_supply_category_unsupported', [
+            'category' => $label !== 'nfse::general.items.rtc_' . $category ? $label : $category,
+        ]);
+    }
+
     protected function invalidFiscalProfileMessage(array $readiness, ?Invoice $invoice = null): string
     {
         $issueCodes = is_array($readiness['issues'] ?? null)
