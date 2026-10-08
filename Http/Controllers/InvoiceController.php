@@ -104,6 +104,10 @@ class InvoiceController extends Controller
         }
 
         $search = $this->normalizedIndexSearch($request?->query('search'));
+        $from = $request?->query('from');
+        $to = $request?->query('to');
+        $from = is_string($from) && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $from) && checkdate((int) substr($from, 5, 2), (int) substr($from, 8, 2), (int) substr($from, 0, 4)) ? $from : null;
+        $to = is_string($to) && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $to) && checkdate((int) substr($to, 5, 2), (int) substr($to, 8, 2), (int) substr($to, 0, 4)) ? $to : null;
         $query = NfseReceipt::query()
             ->with('invoice.contact')
             ->whereHas('invoice', static fn ($query) => $query
@@ -122,9 +126,16 @@ class InvoiceController extends Controller
                     ->where('name', 'like', '%' . $search . '%')));
         }
 
+        if ($from !== null) {
+            $query->whereDate('data_emissao', '>=', $from);
+        }
+        if ($to !== null) {
+            $query->whereDate('data_emissao', '<=', $to);
+        }
+
         $receipts = $query->orderByDesc('id')->paginate(25)->withQueryString();
 
-        return view('nfse::ledger.index', compact('receipts', 'status', 'search'));
+        return view('nfse::ledger.index', compact('receipts', 'status', 'search', 'from', 'to'));
     }
 
     public function index(?Request $request = null): \Illuminate\View\View|RedirectResponse

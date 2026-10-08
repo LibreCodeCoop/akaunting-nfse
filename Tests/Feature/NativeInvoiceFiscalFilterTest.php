@@ -13,11 +13,19 @@ use Tests\Feature\FeatureTestCase;
 
 final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
 {
-    protected function setUp(): void
+    public function testFiscalOnlyFilterDoesNotInheritDefaultUnpaidTab(): void
     {
-        parent::setUp();
+        $this->loginAs();
 
-        NfseReceipt::query()->delete();
+        $invoice = Document::factory()->invoice()->create([
+            'company_id' => company_id(),
+            'status' => 'draft',
+        ]);
+        $this->receipt($invoice, 'emitted');
+
+        $ids = $this->invoiceIdsAcrossPages('emitted');
+
+        self::assertContains($invoice->id, $ids);
     }
 
     public function testNativeInvoiceFilterUsesLatestReceipt(): void
@@ -50,15 +58,10 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         $withReceipt = Document::factory()->invoice()->create(['company_id' => company_id()]);
         $this->receipt($withReceipt, 'emitted');
 
-        $response = $this->get(route('invoices.index', ['nfse_status' => 'absent']));
+        $ids = $this->invoiceIdsAcrossPages('absent');
 
-        $response->assertOk();
-        $response->assertViewHas('invoices', static function ($invoices) use ($withoutReceipt, $withReceipt): bool {
-            $ids = $invoices->getCollection()->pluck('id')->all();
-
-            return in_array($withoutReceipt->id, $ids, true)
-                && !in_array($withReceipt->id, $ids, true);
-        });
+        self::assertContains($withoutReceipt->id, $ids);
+        self::assertNotContains($withReceipt->id, $ids);
     }
 
     public function testNativeFiscalFilterRespectsNativePagination(): void
@@ -73,20 +76,61 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         $this->receipt($second, 'emitted');
         $this->receipt($excluded, 'cancelled');
 
-        $response = $this->get(route('invoices.index', [
-            'nfse_status' => 'emitted',
-            'limit' => 1,
-        ]));
+        $ids = $this->invoiceIdsAcrossPages('emitted');
 
-        $response->assertOk();
-        $response->assertViewHas('invoices', static function ($invoices) use ($first, $second): bool {
-            $ids = $invoices->getCollection()->pluck('id')->all();
-            $unexpected = array_diff($ids, [$first->id, $second->id]);
+        self::assertContains($first->id, $ids);
+        self::assertContains($second->id, $ids);
+        self::assertNotContains($excluded->id, $ids);
+    }
 
-            return $unexpected === []
-                && count($ids) <= 1
-                && $invoices->perPage() === 1;
-        });
+    public function testNativeUnknownFiscalStatusDoesNotIncludeAbsentReceipts(): void
+    {
+        $this->loginAs();
+
+        $unknown = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $without = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $known = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $this->receipt($unknown, 'unexpected-provider-state');
+        $this->receipt($known, 'emitted');
+
+        $ids = $this->invoiceIdsAcrossPages('unknown');
+
+        self::assertContains($unknown->id, $ids);
+        self::assertNotContains($without->id, $ids);
+        self::assertNotContains($known->id, $ids);
+    }
+
+    /**
+     * Collect all native Akaunting pages rather than relying on the first page
+     * or assuming the native controller honors a custom limit parameter.
+     *
+     * @return list<int>
+     */
+    private function invoiceIdsAcrossPages(string $status): array
+    {
+        $ids = [];
+        $page = 1;
+
+        do {
+            $response = $this->get(route('invoices.index', [
+                'nfse_status' => $status,
+                'page' => $page,
+            ]));
+            $response->assertOk();
+
+            $invoices = $response->viewData('invoices');
+            self::assertNotNull($invoices);
+            self::assertTrue(method_exists($invoices, 'lastPage'));
+
+            foreach ($invoices->getCollection() as $invoice) {
+                $ids[] = (int) $invoice->id;
+            }
+
+            $lastPage = $invoices->lastPage();
+            ++$page;
+        } while ($page <= $lastPage);
+
+        return $ids;
     }
 
     private function receipt(Document $invoice, string $status): void
