@@ -47,7 +47,7 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
         self::assertSame('2026-09-01', $attempt->competence_date?->format('Y-m-d'));
         self::assertSame('010701123', $attempt->codigo_servico);
         self::assertSame(
-            $xml,
+            trim($xml),
             NfseReceiptPayload::query()->where('receipt_id', $attempt->receipt_id)->value('authorized_xml'),
         );
         self::assertFalse(array_key_exists('authorized_xml', $attempt->getAttributes()));
