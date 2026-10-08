@@ -166,7 +166,7 @@ final class AutomaticInvoiceEmissionPreflight
             $documentItemIds,
         );
         $required = (new FederalTaxReadiness())->requiredBuckets(
-            $settings['enforce_item_federal_taxes'] ?? false,
+            $settings['enforce_item_federal_taxes'] ?? true,
             trim((string) ($settings['federal_piscofins_situacao_tributaria'] ?? '')),
             trim((string) ($settings['federal_piscofins_tipo_retencao'] ?? '')),
         );
