@@ -39,7 +39,7 @@ test('native fiscal status facet distinguishes absent receipts from unknown stat
     submit.click(),
   ]);
 
-  await expect(page.getByText('NFSE-E2E-PENDING', { exact: true })).toBeVisible();
+  await expect(page.getByText('NFSE-E2E-PENDING', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('NFSE-E2E-FISCAL-UNKNOWN', { exact: true })).toHaveCount(0);
 
   await select.selectOption('unknown');
@@ -48,7 +48,7 @@ test('native fiscal status facet distinguishes absent receipts from unknown stat
     submit.click(),
   ]);
 
-  await expect(page.getByText('NFSE-E2E-FISCAL-UNKNOWN', { exact: true })).toBeVisible();
+  await expect(page.getByText('NFSE-E2E-FISCAL-UNKNOWN', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('NFSE-E2E-PENDING', { exact: true })).toHaveCount(0);
 });
 
