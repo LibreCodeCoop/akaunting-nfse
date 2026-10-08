@@ -92,7 +92,7 @@ final class ItemFiscalProfileListValidationTest extends FeatureTestCase
             'company_id' => $item->company_id,
             'environment' => 'sandbox',
             'municipio_ibge' => '3303302',
-            'service_code' => '010701',
+            'service_code' => '010701000',
             'competence_date' => '2026-10-05',
             'payload' => [
                 'aliquota' => [
@@ -114,6 +114,33 @@ final class ItemFiscalProfileListValidationTest extends FeatureTestCase
             false,
         );
         $response->assertSee('data-nfse-municipal-fetched-at=', false);
+    }
+
+    public function testItemEditDoesNotTreatLegacySixDigitSnapshotAsCurrentMunicipalData(): void
+    {
+        $item = Item::factory()->create();
+        ItemFiscalProfile::query()->create([
+            'company_id' => $item->company_id,
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+        ]);
+
+        setting(['nfse.municipio_ibge' => '3303302', 'nfse.sandbox_mode' => true]);
+        setting()->save();
+
+        MunicipalParameterSnapshot::query()->create([
+            'company_id' => $item->company_id,
+            'environment' => 'sandbox',
+            'municipio_ibge' => '3303302',
+            'service_code' => '010701',
+            'competence_date' => date('Y-m-d'),
+            'payload' => ['aliquota' => ['aliquotas' => [['Aliq' => 2.0]]]],
+            'fetched_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->loginAs()->get(route('items.edit', $item))->assertOk()
+            ->assertSee('data-nfse-municipal-validation="unverifiable"', false);
     }
 
     public function testItemListMarksMissingProfileAsUnverifiableWithoutChangingItem(): void
