@@ -14,6 +14,6 @@
     "test:e2e:live": "playwright test -c playwright.config.ts --project=live-fiscal"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1"
+    "@playwright/test": "^1.54.2"
   }
 }
