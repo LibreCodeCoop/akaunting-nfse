@@ -163,7 +163,7 @@ test('tax code assistant searches via debounce and selects both fiscal codes', a
   expect(requests.filter(query => query !== '')).toEqual(['0107']);
   await root.locator('[data-nfse-tax-code-results] button').click();
   await expect.poll(() => page.locator('[name="nfse_codigo_tributacao_nacional"]').evaluate(el => (window as any).NfseTaxCodeAssistant.selectedValue(el))).toBe('010701');
-  await expect.poll(() => page.locator('[name="nfse_item_lista_servico"]').evaluate(el => (el as any).__vue__?.selected)).toBe('lc:0107');
+  await expect.poll(() => page.locator('[name="nfse_item_lista_servico"]').evaluate(el => (window as any).NfseTaxCodeAssistant.selectedValue(el))).toBe('lc:0107');
 });
 
 test('tax code assistant does not display stale search results', async ({ page }, testInfo) => {
