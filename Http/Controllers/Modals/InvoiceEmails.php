@@ -17,7 +17,6 @@ use Illuminate\Http\Request;
 use Modules\Nfse\Http\Controllers\InvoiceController as NfseInvoiceController;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Notifications\NfseIssued;
-use Modules\Nfse\Support\WebDavClient;
 
 class InvoiceEmails extends Controller
 {
@@ -35,8 +34,6 @@ class InvoiceEmails extends Controller
     {
         $request ??= request();
 
-        $contacts = $invoice->contact->withPersons();
-
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->first()
             ?? new NfseReceipt(['invoice_id' => $invoice->id]);
 
@@ -44,28 +41,27 @@ class InvoiceEmails extends Controller
             $receipt = new NfseReceipt(['invoice_id' => $invoice->id]);
         }
 
-        $notification = new NfseIssued($invoice, $receipt);
-
-        $hasReceipt   = $receipt->exists;
-        $isEmitted    = $hasReceipt && (string) ($receipt->status ?? '') === 'emitted';
-        $isCancelled  = $hasReceipt && (string) ($receipt->status ?? '') === 'cancelled';
-        $hasDanfse    = $hasReceipt && $this->artifactAvailable($receipt, 'danfse');
-        $hasXml       = $hasReceipt && $this->artifactAvailable($receipt, 'xml');
-        $preview      = $this->issuePreviewData($invoice);
-
-        $store_route = 'nfse.modals.invoices.emails.store';
-        $cancel_route = 'nfse.invoices.cancel';
-        $issue_route = $isCancelled ? 'nfse.invoices.reemit' : 'nfse.invoices.emit';
+        $hasReceipt = $receipt->exists;
+        $isEmitted = $hasReceipt && (string) ($receipt->status ?? '') === 'emitted';
+        $isCancelled = $hasReceipt && (string) ($receipt->status ?? '') === 'cancelled';
         $submit_text = $isCancelled ? trans('nfse::general.invoices.reemit') : trans('nfse::general.invoices.emit_now');
-        $redirect_after_cancel = $this->cancelRedirectTarget($invoice, $request);
 
-        $html = $isEmitted
-            ? view('nfse::modals.invoices.cancel', compact(
+        if ($isEmitted) {
+            $cancel_route = 'nfse.invoices.cancel';
+            $redirect_after_cancel = $this->cancelRedirectTarget($invoice, $request);
+
+            $html = view('nfse::modals.invoices.cancel', compact(
                 'invoice',
                 'cancel_route',
                 'redirect_after_cancel',
-            ))->render()
-            : view('nfse::modals.invoices.issue', compact(
+            ))->render();
+        } else {
+            $contacts = $invoice->contact->withPersons();
+            $notification = new NfseIssued($invoice, $receipt);
+            $preview = $this->issuePreviewData($invoice);
+            $issue_route = $isCancelled ? 'nfse.invoices.reemit' : 'nfse.invoices.emit';
+
+            $html = view('nfse::modals.invoices.issue', compact(
                 'invoice',
                 'contacts',
                 'notification',
@@ -73,6 +69,7 @@ class InvoiceEmails extends Controller
                 'issue_route',
                 'isCancelled',
             ))->render();
+        }
 
         return response()->json([
             'success' => true,
@@ -206,26 +203,6 @@ class InvoiceEmails extends Controller
         }
 
         return response()->json($response);
-    }
-
-    private function artifactAvailable(NfseReceipt $receipt, string $type): bool
-    {
-        $field = $type === 'danfse' ? 'danfse_webdav_path' : 'xml_webdav_path';
-        $path  = trim((string) ($receipt->{$field} ?? ''));
-
-        if ($path === '') {
-            return false;
-        }
-
-        try {
-            return (new WebDavClient(
-                baseUrl: (string) setting('nfse.webdav_url', ''),
-                username: (string) setting('nfse.webdav_username', ''),
-                password: (string) setting('nfse.webdav_password', ''),
-            ))->exists($path);
-        } catch (\Throwable) {
-            return false;
-        }
     }
 
     /**

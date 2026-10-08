@@ -169,6 +169,23 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
+    public function testControllerCreateDoesNotProbeWebDavWhenOpeningModal(): void
+    {
+        $content = $this->controllerContent();
+
+        self::assertStringNotContainsString('artifactAvailable', $content);
+        self::assertStringNotContainsString('WebDavClient', $content);
+    }
+
+    public function testControllerBuildsIssuePreviewOnlyForNonEmittedFlow(): void
+    {
+        $content = $this->controllerContent();
+
+        self::assertStringContainsString('if ($isEmitted) {', $content);
+        self::assertStringContainsString('$preview = $this->issuePreviewData($invoice);', $content);
+        self::assertStringContainsString('$contacts = $invoice->contact->withPersons();', $content);
+    }
+
     public function testControllerCreateUsesCancelTitleAndConfirmButtonForEmittedReceipts(): void
     {
         self::assertStringContainsString(
