@@ -304,9 +304,14 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
         ]);
     }
 
-    private function client(): NfseClientInterface
+    private function client(): FakeEmissionClient
     {
-        return new class () implements NfseClientInterface {
+        return new FakeEmissionClient();
+    }
+}
+
+final class FakeEmissionClient implements NfseClientInterface
+{
             public int $emits = 0;
             public int $dpsQueries = 0;
             public ?\Throwable $emitError = null;
@@ -349,6 +354,4 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
             {
                 throw new \LogicException('Not used.');
             }
-        };
-    }
 }

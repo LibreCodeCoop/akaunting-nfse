@@ -11,6 +11,7 @@ use App\Models\Document\Document;
 use Modules\Nfse\Application\FiscalGroupDpsIdentity;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -127,6 +128,11 @@ final class FiscalGroupResumeTest extends FeatureTestCase
             'status' => 'emitted',
         ]);
 
+        $attempt = NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->sole();
+        self::assertSame('manual_group', $attempt->origin);
+        self::assertSame('authorized', $attempt->status);
+        self::assertSame((int) $result['receipt']->id, (int) $attempt->receipt_id);
+
         $retry = (new IssueInvoiceFiscalGroup())->issue(
             $client,
             (int) $invoice->id,
@@ -136,6 +142,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
 
         self::assertTrue($retry['reused']);
         self::assertSame(1, $client->emits);
+        self::assertSame(1, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
         self::assertSame(
             1,
             NfseReceipt::query()

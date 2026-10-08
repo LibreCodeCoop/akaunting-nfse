@@ -15,6 +15,8 @@ use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Jobs\ProcessBulkEmissionUnit;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\IssuanceException;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 use Tests\Feature\FeatureTestCase;
@@ -200,6 +202,62 @@ final class BulkEmissionUnitProcessorTest extends FeatureTestCase
             BulkEmissionStatusPolicy::ISSUED,
             $recorded['units'][0]->fresh()?->status,
         );
+    }
+
+    public function testOfficialE0312MarksBatchUnitRejectedWithoutFakeReceipt(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $recorded = (new BulkEmissionRunRecorder())->create(
+            companyId: (int) $invoice->company_id,
+            requestedBy: null,
+            units: [['invoice_id' => (int) $invoice->id, 'emission_group_key' => 'group-e0312']],
+        );
+
+        $issuer = new class () implements BulkEmissionUnitIssuerInterface {
+            public function issue(int $invoiceId, string $emissionGroupKey): NfseReceipt
+            {
+                throw new IssuanceException(
+                    'Generic upstream failure',
+                    NfseErrorCode::IssuanceRejected,
+                    422,
+                    ['erros' => [['codigo' => 'E0312', 'descricao' => 'Servico nao administrado na competencia']]],
+                );
+            }
+        };
+
+        $unit = (new BulkEmissionUnitProcessor($issuer))->process((int) $recorded['units'][0]->id);
+        self::assertSame(BulkEmissionStatusPolicy::REJECTED, $unit->status);
+        self::assertSame('official_rejection', $unit->error_type);
+        self::assertStringContainsString('E0312', (string) $unit->error_message);
+        self::assertNull($unit->receipt_id);
+    }
+
+    public function testUnconfirmedBatchHttp503CannotBecomeOfficialRejection(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $recorded = (new BulkEmissionRunRecorder())->create(
+            companyId: (int) $invoice->company_id,
+            requestedBy: null,
+            units: [['invoice_id' => (int) $invoice->id, 'emission_group_key' => 'group-503']],
+        );
+
+        $issuer = new class () implements BulkEmissionUnitIssuerInterface {
+            public function issue(int $invoiceId, string $emissionGroupKey): NfseReceipt
+            {
+                throw new IssuanceException(
+                    'Gateway temporarily failed',
+                    NfseErrorCode::IssuanceRejected,
+                    503,
+                    ['erros' => [['codigo' => 'E0312', 'descricao' => 'Not a confirmed rejection']]],
+                );
+            }
+        };
+
+        $unit = (new BulkEmissionUnitProcessor($issuer))->process((int) $recorded['units'][0]->id);
+        self::assertSame(BulkEmissionStatusPolicy::RETRYABLE_READ_ERROR, $unit->status);
+        self::assertSame('gateway_unconfirmed', $unit->error_type);
+        self::assertNull($unit->receipt_id);
+        self::assertSame(1, (new ProcessBulkEmissionUnit((int) $unit->id))->tries);
     }
 
     public function testTerminalUnitIsIdempotentAndDoesNotInvokeIssuerAgain(): void
