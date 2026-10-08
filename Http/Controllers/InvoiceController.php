@@ -3259,7 +3259,7 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @param array{effective_date?:?string,missing?:list<string>} $readiness
+     * @param array{effective_date?:?string,reason?:string,missing?:list<string>} $readiness
      */
     protected function ibsCbsBlockedMessage(array $readiness): string
     {
@@ -3267,7 +3267,11 @@ class InvoiceController extends Controller
             ? array_values(array_map('strval', $readiness['missing']))
             : [];
 
-        return (string) trans('nfse::general.invoices.emit_blocked_ibs_cbs_required', [
+        $key = ($readiness['reason'] ?? '') === 'unverifiable'
+            ? 'nfse::general.invoices.emit_blocked_ibs_cbs_unverifiable'
+            : 'nfse::general.invoices.emit_blocked_ibs_cbs_required';
+
+        return (string) trans($key, [
             'date' => (string) ($readiness['effective_date'] ?? ''),
             'fields' => implode(', ', array_map(
                 static fn (string $field): string => (string) trans(
