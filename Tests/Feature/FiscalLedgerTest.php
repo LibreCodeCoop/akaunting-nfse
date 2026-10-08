@@ -184,6 +184,31 @@ final class FiscalLedgerTest extends FeatureTestCase
         });
     }
 
+    public function testLedgerSearchesCustomerWithinCompanyAndFiscalStatus(): void
+    {
+        $this->loginAs();
+
+        $matchInvoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $otherInvoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $matchInvoice->contact->forceFill(['name' => 'Ledger Customer ZXQ729'])->saveQuietly();
+        $otherInvoice->contact->forceFill(['name' => 'Other Ledger Customer'])->saveQuietly();
+
+        $match = $this->receipt($matchInvoice, '95001', 'emitted');
+        $this->receipt($matchInvoice, '95002', 'cancelled');
+        $this->receipt($otherInvoice, '95003', 'emitted');
+
+        $response = $this->get(route('nfse.ledger.index', [
+            'status' => 'emitted',
+            'search' => 'ZXQ729',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('receipts', static function ($receipts) use ($match): bool {
+            return $receipts->total() === 1
+                && $receipts->getCollection()->pluck('id')->all() === [$match->id];
+        });
+    }
+
     private function receipt(Document $invoice, string $number, string $status): NfseReceipt
     {
         return NfseReceipt::query()->create([
