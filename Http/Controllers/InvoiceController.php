@@ -1267,7 +1267,15 @@ class InvoiceController extends Controller
             'ibsCbsIndDest' => $ibsCbsPayload['ibsCbsIndDest'],
             'ibsCbsCst' => $ibsCbsPayload['ibsCbsCst'],
             'ibsCbsClassificacaoTributaria' => $ibsCbsPayload['ibsCbsClassificacaoTributaria'],
-            ], ['codigoTributacaoMunicipal']);
+            ], array_values(array_filter([
+                'codigoTributacaoMunicipal',
+                $ibsCbsPayload['enabled'] ? 'ibsCbsFinalidade' : null,
+                $ibsCbsPayload['enabled'] ? 'ibsCbsIndFinal' : null,
+                $ibsCbsPayload['enabled'] ? 'ibsCbsCodigoIndicadorOperacao' : null,
+                $ibsCbsPayload['enabled'] ? 'ibsCbsIndDest' : null,
+                $ibsCbsPayload['enabled'] ? 'ibsCbsCst' : null,
+                $ibsCbsPayload['enabled'] ? 'ibsCbsClassificacaoTributaria' : null,
+            ])));
         } catch (\LogicException $e) {
             $this->safeLogError('NFS-e runtime capability mismatch during reissuance', [
                 'invoice_id' => $invoice->id,
