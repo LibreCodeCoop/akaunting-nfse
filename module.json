@@ -1,7 +1,7 @@
 {
     "alias": "nfse",
     "icon": "receipt_long",
-    "version": "1.0.0",
+    "version": "0.0.0-dev",
     "active": 1,
     "providers": [
         "Modules\\Nfse\\Providers\\Main",

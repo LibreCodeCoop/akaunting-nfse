@@ -18,17 +18,31 @@ use RuntimeException;
  */
 final class ModuleVersion
 {
+    private const PACKAGE_NAME = 'librecodeoop/akaunting-nfse';
+
     private ?string $resolved = null;
+
+    private readonly PackageVersionProvider $packageVersions;
 
     public function __construct(
         private readonly ?string $manifestPath = null,
+        ?PackageVersionProvider $packageVersions = null,
     ) {
+        $this->packageVersions = $packageVersions ?? new ComposerPackageVersionProvider();
     }
 
     public function get(): string
     {
         if ($this->resolved !== null) {
             return $this->resolved;
+        }
+
+        if ($this->manifestPath === null) {
+            $composerVersion = $this->packageVersions->get(self::PACKAGE_NAME);
+
+            if ($composerVersion !== null) {
+                return $this->resolved = $composerVersion;
+            }
         }
 
         $path = $this->manifestPath ?? dirname(__DIR__) . '/module.json';
@@ -55,4 +69,6 @@ final class ModuleVersion
 
         return $this->resolved = trim($version);
     }
+
 }
+
