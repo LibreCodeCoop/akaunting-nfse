@@ -14,6 +14,98 @@ use Tests\Feature\FeatureTestCase;
 
 final class ItemFiscalProfileTest extends FeatureTestCase
 {
+
+    public function testFailedFiscalInsertRollsBackCommercialCreateAndReportsFailure(): void
+    {
+        $request = Item::factory()->enabled()->raw(['name' => 'NFS-e atomic create regression']);
+        $request['nfse_codigo_tributacao_nacional'] = '010701';
+
+        $event = static function (ItemFiscalProfile $profile): void {
+            throw new \RuntimeException('Simulated fiscal insert failure');
+        };
+        ItemFiscalProfile::creating($event);
+
+        try {
+            $response = $this->loginAs()->postJson(route('items.store'), $request);
+            $response->assertOk()->assertJsonPath('success', false)->assertJsonPath('error', true);
+            self::assertStringContainsString('fiscal', strtolower((string) $response->json('message')));
+            $this->assertDatabaseMissing('items', [
+                'company_id' => company_id(),
+                'name' => $request['name'],
+            ]);
+            $this->assertDatabaseMissing('nfse_item_fiscal_profiles', [
+                'codigo_tributacao_nacional' => '010701',
+                'item_lista_servico' => null,
+            ]);
+        } finally {
+            ItemFiscalProfile::flushEventListeners();
+        }
+    }
+
+    public function testFailedFiscalUpdateRollsBackCommercialAndFiscalEdits(): void
+    {
+        $item = Item::factory()->enabled()->create(['name' => 'Unchanged commercial item']);
+        ItemFiscalProfile::query()->create([
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+        ]);
+
+        $request = Item::factory()->enabled()->raw(['name' => 'Should rollback commercial item']);
+        $request['nfse_codigo_tributacao_nacional'] = '010101';
+
+        $event = static function (ItemFiscalProfile $profile): void {
+            throw new \RuntimeException('Simulated fiscal update failure');
+        };
+        ItemFiscalProfile::updating($event);
+
+        try {
+            $response = $this->loginAs()->patchJson(route('items.update', $item->id), $request);
+            $response->assertOk()->assertJsonPath('success', false)->assertJsonPath('error', true);
+            self::assertStringContainsString('fiscal', strtolower((string) $response->json('message')));
+            $this->assertDatabaseHas('items', [
+                'id' => $item->id,
+                'name' => 'Unchanged commercial item',
+            ]);
+            $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+                'company_id' => company_id(),
+                'item_id' => $item->id,
+                'codigo_tributacao_nacional' => '010701',
+            ]);
+        } finally {
+            ItemFiscalProfile::flushEventListeners();
+        }
+    }
+
+    public function testCommercialOnlyUpdateSkipsFiscalPersistence(): void
+    {
+        $item = Item::factory()->enabled()->create(['name' => 'Before commercial change']);
+        ItemFiscalProfile::query()->create([
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'codigo_tributacao_nacional' => '999999',
+        ]);
+
+        ItemFiscalProfile::updating(static function (ItemFiscalProfile $profile): void {
+            throw new \RuntimeException('Fiscal persistence should not be reached');
+        });
+
+        try {
+            $request = Item::factory()->enabled()->raw(['name' => 'Commercial change succeeds']);
+            $this->loginAs()->patchJson(route('items.update', $item->id), $request)
+                ->assertOk()->assertJsonPath('success', true);
+            $this->assertDatabaseHas('items', ['id' => $item->id, 'name' => 'Commercial change succeeds']);
+            $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+                'company_id' => company_id(),
+                'item_id' => $item->id,
+                'codigo_tributacao_nacional' => '999999',
+            ]);
+        } finally {
+            ItemFiscalProfile::flushEventListeners();
+        }
+    }
+
     public function testNativeItemCreatePersistsFiscalProfileThroughAkauntingEvent(): void
     {
         $request = Item::factory()->enabled()->raw();

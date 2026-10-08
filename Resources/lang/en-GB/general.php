@@ -133,6 +133,7 @@ return [
             'matches' => 'national catalog options',
             'select_lc' => 'Select an LC 116 item or search all national codes',
         ],
+        'fiscal_save_failed' => 'Could not save the item fiscal data. No changes were committed. Try again or contact support.',
         'fiscal_title' => 'NFS-e fiscal data',
         'fiscal_description' => 'Configure LC116 and the National Taxation Code (cTribNac) directly on the item.',
         'item_lista_servico' => 'Service list item (LC116)',

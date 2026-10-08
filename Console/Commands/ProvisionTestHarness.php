@@ -442,6 +442,11 @@ final class ProvisionTestHarness extends Command
             ])->saveQuietly();
         }
 
+        // Pin the bulk-only fixture to a pre-RTC competence: the bulk UI
+        // exercise must not start requiring IBS/CBS simply as time advances.
+        // RTC policy and its date-specific tests are left untouched.
+        $invoice->forceFill(['issued_at' => '2026-09-30 12:00:00'])->saveQuietly();
+
         $invoice->unsetRelation('contact');
         $invoice->items()->delete();
         $invoice->unsetRelation('items');

@@ -38,8 +38,26 @@ component slot, event, or module hook at the form-section boundary where a
 module can insert this section.
 
 Because no narrower supported seam exists, the overrides remain compatibility
-adapters. Fiscal profile persistence itself does **not** depend on these views:
-it uses Akaunting's native `ItemCreated` and `ItemUpdated` events.
+adapters. Fiscal profile persistence itself does **not** depend on these views.
+Akaunting's native `ItemCreating` and `ItemUpdating` events run *before*
+the transaction in `CreateItem`/`UpdateItem`; the post-save `ItemCreated`
+and `ItemUpdated` events run *after* it. The NFS-e request-scoped listener
+receives the native pre-save event and persists the fiscal profile from Eloquent
+`Item::saved` **inside** the native `DB::transaction`. The `Item::saving`
+hook checks that the native transaction is active and uses the fiscal table's
+connection before commercial persistence. Fiscal exceptions propagate through
+the native transaction, rolling back commercial and fiscal writes and causing
+the native `ajaxDispatch` to return `success: false`, including API/AJAX.
+
+Only explicit fiscal fields in a `ValidatedFiscalItem` request arm the
+persistence listener. Imports, non-HTTP operations, other-company items and
+commercial-only edits must not trigger fiscal changes. `ItemFiscalProfileInput`
+continues to preserve unchanged historical codes, omitted fiscal fields, RTC
+category and explicit removal. A transaction protects database writes only:
+native image/filesystem side effects cannot be rolled back, and queue settings
+must be assessed when upgrading Akaunting. In particular, jobs dispatched
+asynchronously may need a separately supported integration boundary; do not
+claim their external effects are atomic.
 
 When Akaunting exposes a form-extension seam, these two overrides should be
 removed rather than kept in sync indefinitely.

@@ -133,6 +133,7 @@ return [
             'matches' => 'opções do catálogo nacional',
             'select_lc' => 'Selecione um subitem LC 116 ou pesquise todos os códigos nacionais',
         ],
+        'fiscal_save_failed' => 'Nao foi possivel salvar os dados fiscais do item. Nenhuma alteracao foi confirmada. Tente novamente ou contate o suporte.',
         'fiscal_title' => 'Dados fiscais da NFS-e',
         'fiscal_description' => 'Configure o código LC116 e o Código de Tributação Nacional (cTribNac) diretamente no item.',
         'item_lista_servico' => 'Item da lista de serviço (LC116)',

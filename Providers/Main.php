@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Providers;
 
 use App\Http\Requests\Common\Item as CoreItemRequest;
+use App\Models\Common\Item;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\ItemFiscalProfileValidator;
@@ -19,6 +20,7 @@ use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Console\Commands\SyncAdn;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Http\Requests\ValidatedFiscalItem;
+use Modules\Nfse\Listeners\PersistItemFiscalProfile;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Models\NfseReceiptPayload;
@@ -53,6 +55,7 @@ class Main extends Provider
         $this->registerNativeInvoiceFiscalPanel();
         $this->registerNativeInvoiceFiscalListStatus();
         $this->registerItemFiscalFieldInjection();
+        $this->registerItemFiscalPersistence();
         $this->registerItemFiscalListValidation();
         $this->syncEmailTemplates();
     }
@@ -64,6 +67,7 @@ class Main extends Provider
     {
         $this->loadModuleVendorAutoload();
         $this->app->bind(CoreItemRequest::class, ValidatedFiscalItem::class);
+        $this->app->scoped(PersistItemFiscalProfile::class, PersistItemFiscalProfile::class);
         $this->registerFiscalClientComposition();
         $this->loadRoutes();
 
@@ -467,6 +471,25 @@ class Main extends Provider
             ])->render();
 
             $this->app->make('view')->startPush('body_end', $content);
+        });
+    }
+
+    /**
+     * Native before events carry the request; Eloquent saves run within the
+     * native CreateItem/UpdateItem DB::transaction, not after its commit.
+     */
+    protected function registerItemFiscalPersistence(): void
+    {
+        Item::saving(static function (Item $item): void {
+            /** @var PersistItemFiscalProfile $listener */
+            $listener = app(PersistItemFiscalProfile::class);
+            $listener->beforeSave($item);
+        });
+
+        Item::saved(static function (Item $item): void {
+            /** @var PersistItemFiscalProfile $listener */
+            $listener = app(PersistItemFiscalProfile::class);
+            $listener->afterSave($item);
         });
     }
 

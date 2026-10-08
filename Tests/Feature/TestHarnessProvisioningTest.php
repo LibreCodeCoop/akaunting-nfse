@@ -7,6 +7,9 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Models\Document\Document;
+use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
+use Modules\Nfse\Application\InvoiceDpsIdentity;
 use Tests\Feature\FeatureTestCase;
 
 final class TestHarnessProvisioningTest extends FeatureTestCase
@@ -54,6 +57,33 @@ final class TestHarnessProvisioningTest extends FeatureTestCase
         self::assertTrue(openssl_pkcs12_read($pkcs12, $certificates, 'browser-test-password'));
         self::assertArrayHasKey('cert', $certificates);
         self::assertArrayHasKey('pkey', $certificates);
+    }
+
+    public function testBulkFixtureUsesStableCompetenceAndPreflightOutcomes(): void
+    {
+        \putenv('NFSE_TEST_HARNESS=1');
+
+        $this->artisan('nfse:test-harness:provision', [
+            '--company-id' => (string) $this->company->id,
+            '--bulk-emission-fixture' => true,
+        ])->assertSuccessful();
+
+        $ready = Document::query()
+            ->where('company_id', $this->company->id)
+            ->where('document_number', 'NFSE-E2E-BULK-READY')
+            ->firstOrFail();
+        $blocked = Document::query()
+            ->where('company_id', $this->company->id)
+            ->where('document_number', 'NFSE-E2E-BULK-BLOCKED')
+            ->firstOrFail();
+
+        self::assertSame('2026-09-30', (new InvoiceDpsIdentity())->competenceDate($ready));
+
+        $preflight = new AutomaticInvoiceEmissionPreflight();
+        self::assertSame('ready', $preflight->evaluate($ready)['status']);
+        $blockedResult = $preflight->evaluate($blocked);
+        self::assertSame('blocked', $blockedResult['status']);
+        self::assertSame('foreign_taker_requires_review', $blockedResult['reason']);
     }
 
     public function testProvisionCommandRefusesToRunWithoutExplicitHarnessFlag(): void

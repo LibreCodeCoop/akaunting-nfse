@@ -7,28 +7,69 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Listeners;
 
+use App\Models\Common\Item;
+use Modules\Nfse\Http\Requests\ValidatedFiscalItem;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Support\ItemFiscalProfileInput;
 
+/**
+ * Request-scoped bridge from Akaunting's pre-transaction ItemCreating /
+ * ItemUpdating events into its in-transaction Eloquent saving/saved events.
+ */
 final class PersistItemFiscalProfile
 {
-    public function handle(object $event): void
+    private ?ValidatedFiscalItem $request = null;
+
+    private ?string $operation = null;
+
+    private ?int $expectedItemId = null;
+
+    private int $companyId = 0;
+
+    public function creating(object $event): void
     {
-        $item = $event->item ?? null;
-        $request = $event->request ?? null;
+        $this->capture($event->request ?? null, 'create');
+    }
 
-        if (!is_object($item)) {
+    public function updating(object $event): void
+    {
+        $this->capture($event->request ?? null, 'update', $event->item ?? null);
+    }
+
+    /**
+     * Guard before the commercial INSERT/UPDATE against an upstream core
+     * change that removes the enclosing native transaction.
+     */
+    public function beforeSave(Item $item): void
+    {
+        if (!$this->matches($item)) {
             return;
         }
 
-        $companyId = is_numeric($item->company_id ?? null) ? (int) $item->company_id : 0;
-        $itemId = is_numeric($item->id ?? null) ? (int) $item->id : 0;
+        $this->assertCompany($item);
 
-        if ($companyId <= 0 || $itemId <= 0) {
+        $connection = $item->getConnection();
+        if ($connection->transactionLevel() < 1
+            || $connection->getName() !== (new ItemFiscalProfile())->getConnection()->getName()) {
+            $this->clear();
+            throw new \RuntimeException(trans('nfse::general.items.fiscal_save_failed'));
+        }
+    }
+
+    public function afterSave(Item $item): void
+    {
+        if (!$this->matches($item)) {
             return;
         }
+
+        $this->assertCompany($item);
+        $request = $this->request;
+        $this->clear();
 
         try {
+            $companyId = (int) $item->company_id;
+            $itemId = (int) $item->id;
+
             $stored = ItemFiscalProfile::query()
                 ->where('company_id', $companyId)
                 ->where('item_id', $itemId)
@@ -45,7 +86,10 @@ final class PersistItemFiscalProfile
                 return;
             }
 
-            if ($profile['item_lista_servico'] === null && $profile['codigo_tributacao_nacional'] === null && $profile['codigo_tributacao_municipal'] === null && ($profile['rtc_supply_category'] ?? null) === null) {
+            if ($profile['item_lista_servico'] === null
+                && $profile['codigo_tributacao_nacional'] === null
+                && $profile['codigo_tributacao_municipal'] === null
+                && ($profile['rtc_supply_category'] ?? null) === null) {
                 ItemFiscalProfile::query()
                     ->where('company_id', $companyId)
                     ->where('item_id', $itemId)
@@ -55,18 +99,77 @@ final class PersistItemFiscalProfile
             }
 
             ItemFiscalProfile::updateOrCreate(
-                [
-                    'company_id' => $companyId,
-                    'item_id' => $itemId,
-                ],
+                ['company_id' => $companyId, 'item_id' => $itemId],
                 $profile,
             );
         } catch (\Throwable $e) {
-            // Preserve Akaunting item save semantics while making fiscal persistence
-            // failures observable to the configured exception reporter.
-            if (function_exists('report')) {
-                report($e);
-            }
+            // The exception must escape to Akaunting's DB::transaction and
+            // ajaxDispatch, which returns success=false to AJAX/API clients.
+            report($e);
+            throw new \RuntimeException(trans('nfse::general.items.fiscal_save_failed'), 0, $e);
         }
+    }
+
+    private function capture(mixed $request, string $operation, mixed $item = null): void
+    {
+        $this->clear();
+
+        // No request inference: exclude imports, unrelated background jobs and
+        // ordinary commercial updates with no NFS-e fields.
+        if (!$request instanceof ValidatedFiscalItem
+            || ItemFiscalProfileInput::fromRequest($request) === null
+            || !function_exists('company_id')) {
+            return;
+        }
+
+        $companyId = (int) company_id();
+        if ($companyId <= 0) {
+            return;
+        }
+
+        if ($operation === 'update') {
+            $itemId = is_object($item) && is_numeric($item->id ?? null) ? (int) $item->id : 0;
+            if ($itemId <= 0) {
+                return;
+            }
+            $this->expectedItemId = $itemId;
+        }
+
+        $this->request = $request;
+        $this->operation = $operation;
+        $this->companyId = $companyId;
+    }
+
+    private function matches(Item $item): bool
+    {
+        if ($this->request === null) {
+            return false;
+        }
+
+        if ($this->operation === 'create') {
+            return !$item->exists || $item->wasRecentlyCreated;
+        }
+
+        return $this->operation === 'update'
+            && $item->exists
+            && (int) $item->id === $this->expectedItemId;
+    }
+
+    private function assertCompany(Item $item): void
+    {
+        if ((int) $item->company_id === $this->companyId) {
+            return;
+        }
+
+        $this->clear();
+        throw new \RuntimeException(trans('nfse::general.items.fiscal_save_failed'));
+    }
+
+    private function clear(): void
+    {
+        $this->request = null;
+        $this->operation = null;
+        $this->expectedItemId = null;
+        $this->companyId = 0;
     }
 }

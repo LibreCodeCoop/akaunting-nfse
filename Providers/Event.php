@@ -21,11 +21,11 @@ class Event extends Provider
         'App\\Events\\Document\\DocumentSending' => [
             EmitNfseBeforeDocumentSend::class,
         ],
-        'App\\Events\\Common\\ItemCreated' => [
-            PersistItemFiscalProfile::class,
+        'App\\Events\\Common\\ItemCreating' => [
+            PersistItemFiscalProfile::class . '@creating',
         ],
-        'App\\Events\\Common\\ItemUpdated' => [
-            PersistItemFiscalProfile::class,
+        'App\\Events\\Common\\ItemUpdating' => [
+            PersistItemFiscalProfile::class . '@updating',
         ],
     ];
 
