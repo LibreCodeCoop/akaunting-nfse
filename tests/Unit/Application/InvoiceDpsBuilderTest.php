@@ -47,6 +47,29 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertSame('10.00', $dps->federalPiscofinsValorPis);
     }
 
+    public function testMapsEnabledIbsCbsPayloadIntoDps(): void
+    {
+        $context = $this->baseContext();
+        $context['ibsCbs'] = [
+            'enabled' => true,
+            'ibsCbsFinalidade' => 0,
+            'ibsCbsIndFinal' => 0,
+            'ibsCbsCodigoIndicadorOperacao' => '010101',
+            'ibsCbsIndDest' => 0,
+            'ibsCbsCst' => '000',
+            'ibsCbsClassificacaoTributaria' => '000001',
+        ];
+
+        $dps = (new InvoiceDpsBuilder())->build($context);
+
+        self::assertSame(0, $dps->ibsCbsFinalidade);
+        self::assertSame(0, $dps->ibsCbsIndFinal);
+        self::assertSame('010101', $dps->ibsCbsCodigoIndicadorOperacao);
+        self::assertSame(0, $dps->ibsCbsIndDest);
+        self::assertSame('000', $dps->ibsCbsCst);
+        self::assertSame('000001', $dps->ibsCbsClassificacaoTributaria);
+    }
+
     public function testForeignTakerClearsNationalIdentityAndUsesExteriorAddress(): void
     {
         $context = $this->baseContext();
