@@ -189,7 +189,11 @@ final class IbsCbsObligationPolicyTest extends TestCase
     public function testUnknownRtcCategoryIsUnverifiableInsteadOfOrdinary(): void
     {
         $result = (new IbsCbsEmissionReadiness())->evaluate(
-            '2026-12-01', 1, '0107', [], 'not_a_category',
+            '2026-12-01',
+            1,
+            '0107',
+            [],
+            'not_a_category',
         );
 
         self::assertFalse($result['isReady']);
