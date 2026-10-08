@@ -18,6 +18,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
+use Modules\Nfse\Application\EmissionAttemptJournal;
 use Modules\Nfse\Application\FederalTaxReadiness;
 use Modules\Nfse\Application\FiscalGroupReceiptState;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
@@ -763,13 +764,28 @@ class InvoiceController extends Controller
 
         try {
             $client = $this->makeClient($sandbox);
-            $receipt = $substitutionReceipt instanceof NfseReceipt
-                ? (new SubstituteInvoiceNfse())->issue(
-                    client: $client,
-                    replacementDps: $dps,
-                    originalAccessKey: (string) $substitutionReceipt->chave_acesso,
-                )
-                : (new IssueInvoiceNfse())->issue($client, $dps);
+            $issuance = (new EmissionAttemptJournal())->issue(
+                client: $client,
+                dps: $dps,
+                invoiceId: (int) $invoice->id,
+                origin: $substitutionReceipt instanceof NfseReceipt ? 'substitution' : 'manual',
+                persist: fn (ReceiptData $authorized): NfseReceipt => $substitutionReceipt instanceof NfseReceipt
+                    ? (new ReceiptPersistence())->createReplacement(
+                        invoiceId: (int) $invoice->id,
+                        receipt: $authorized,
+                        resolvedNumber: $this->resolveReceiptNfseNumber($authorized),
+                        original: $substitutionReceipt,
+                    )
+                    : $this->storeEmittedReceipt($invoice, $authorized),
+                transmit: fn (): ReceiptData => $substitutionReceipt instanceof NfseReceipt
+                    ? (new SubstituteInvoiceNfse())->issue(
+                        client: $client,
+                        replacementDps: $dps,
+                        originalAccessKey: (string) $substitutionReceipt->chave_acesso,
+                    )
+                    : (new IssueInvoiceNfse())->issue($client, $dps),
+            );
+            $persistedReceipt = $issuance['receipt'];
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
@@ -813,23 +829,16 @@ class InvoiceController extends Controller
         }
 
         try {
-            $persistedReceipt = $substitutionReceipt instanceof NfseReceipt
-                ? (new ReceiptPersistence())->createReplacement(
-                    invoiceId: (int) $invoice->id,
-                    receipt: $receipt,
-                    resolvedNumber: $this->resolveReceiptNfseNumber($receipt),
-                    original: $substitutionReceipt,
-                )
-                : $this->storeEmittedReceipt($invoice, $receipt);
-
-            $email = $this->preparePostEmitEmail($request, $invoice);
-            $this->dispatchPostEmission(
-                $invoice,
-                $persistedReceipt,
-                $email,
-            );
+            if (!$issuance['reused']) {
+                $email = $this->preparePostEmitEmail($request, $invoice);
+                $this->dispatchPostEmission(
+                    $invoice,
+                    $persistedReceipt,
+                    $email,
+                );
+            }
             $this->markInvoiceSentAfterEmission($invoice);
-            $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
+            $resolvedReceiptNumber = trim((string) $persistedReceipt->nfse_number);
             $successMessage = $substitutionReceipt instanceof NfseReceipt
                 ? trans('nfse::general.nfse_substituted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])
                 : trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso]);
