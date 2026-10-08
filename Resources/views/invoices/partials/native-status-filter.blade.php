@@ -2,7 +2,7 @@
 {{-- SPDX-License-Identifier: AGPL-3.0-or-later --}}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const main = document.querySelector('main');
+    const main = document.getElementById('app');
     if (!main || document.getElementById('nfse-fiscal-status-filter')) return;
     const form = document.createElement('form');
     form.id = 'nfse-fiscal-status-filter';

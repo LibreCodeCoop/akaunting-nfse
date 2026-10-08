@@ -100,6 +100,64 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         self::assertNotContains($known->id, $ids);
     }
 
+
+    public function testNativeInvoiceFiscalFilterCombinesCommercialStatusSearchSortingAndPaginationWithoutDuplicates(): void
+    {
+        $this->loginAs();
+
+        $expected = [];
+
+        for ($i = 1; $i <= 27; ++$i) {
+            $invoice = Document::factory()->invoice()->create([
+                'company_id' => company_id(),
+                'document_number' => sprintf('NFSE364-%03d', $i),
+                'status' => 'paid',
+            ]);
+
+            if ($i === 1) {
+                $this->receipt($invoice, 'cancelled');
+            }
+
+            $this->receipt($invoice, 'emitted');
+            $expected[] = (int) $invoice->id;
+        }
+
+        $commercialMismatch = Document::factory()->invoice()->create([
+            'company_id' => company_id(),
+            'document_number' => 'NFSE364-DRAFT',
+            'status' => 'draft',
+        ]);
+        $this->receipt($commercialMismatch, 'emitted');
+
+        $fiscalMismatch = Document::factory()->invoice()->create([
+            'company_id' => company_id(),
+            'document_number' => 'NFSE364-CANCELLED',
+            'status' => 'paid',
+        ]);
+        $this->receipt($fiscalMismatch, 'cancelled');
+
+        $response = $this->get(route('invoices.index', [
+            'nfse_status' => 'emitted',
+            'search' => 'status:paid NFSE364-',
+            'sort' => 'document_number',
+            'direction' => 'asc',
+            'page' => 2,
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('invoices', static function ($invoices) use ($expected, $commercialMismatch, $fiscalMismatch): bool {
+            $ids = $invoices->getCollection()->pluck('id')->map(static fn ($id): int => (int) $id)->all();
+
+            return $invoices->total() === 27
+                && $invoices->currentPage() === 2
+                && $invoices->count() === 2
+                && count($ids) === count(array_unique($ids))
+                && $ids === array_slice($expected, 25, 2)
+                && !in_array((int) $commercialMismatch->id, $ids, true)
+                && !in_array((int) $fiscalMismatch->id, $ids, true);
+        });
+    }
+
     /**
      * Collect all native Akaunting pages rather than relying on the first page
      * or assuming the native controller honors a custom limit parameter.

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { expect, test } from '@playwright/test';
-import { loginToAkaunting } from './support/auth';
+import { loginToAkaunting, loginToAkauntingWithCredentials } from './support/auth';
 
 test('login page is reachable', async ({ page }) => {
   await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
@@ -22,6 +22,53 @@ test('legacy pending invoices route redirects to native Akaunting invoices', asy
   await expect(page).toHaveURL(/\/1\/sales\/invoices(?:\?.*)?$/);
 });
 
+
+test('native fiscal status facet distinguishes absent receipts from unknown statuses', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+
+  await page.goto('/1/sales/invoices?list_records=all', { waitUntil: 'domcontentloaded' });
+  const form = page.locator('#nfse-fiscal-status-filter');
+  const select = form.locator('#nfse-status-option');
+  const submit = form.locator('button[type="submit"]');
+
+  await expect(form).toBeVisible();
+
+  await select.selectOption('absent');
+  await Promise.all([
+    page.waitForURL(url => url.searchParams.get('nfse_status') === 'absent'),
+    submit.click(),
+  ]);
+
+  await expect(page.getByText('NFSE-E2E-PENDING', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('NFSE-E2E-FISCAL-UNKNOWN', { exact: true })).toHaveCount(0);
+
+  await select.selectOption('unknown');
+  await Promise.all([
+    page.waitForURL(url => url.searchParams.get('nfse_status') === 'unknown'),
+    submit.click(),
+  ]);
+
+  await expect(page.getByText('NFSE-E2E-FISCAL-UNKNOWN', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('NFSE-E2E-PENDING', { exact: true })).toHaveCount(0);
+});
+
+test('native invoice routes reject users without sales invoice read permission', async ({ page }) => {
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+
+  expect(invoiceId).toMatch(/^\d+$/);
+
+  await loginToAkauntingWithCredentials(
+    page,
+    'nfse-e2e-restricted@example.test',
+    'NfseE2ERestricted!123456',
+  );
+
+  const listResponse = await page.goto('/1/sales/invoices?list_records=all', { waitUntil: 'domcontentloaded' });
+  expect(listResponse?.status()).toBe(403);
+
+  const showResponse = await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
+  expect(showResponse?.status()).toBe(403);
+});
 
 test('native fiscal action opens the NFS-e modal', async ({ page }, testInfo) => {
   const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
