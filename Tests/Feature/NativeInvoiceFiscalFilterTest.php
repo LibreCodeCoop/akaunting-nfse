@@ -13,6 +13,13 @@ use Tests\Feature\FeatureTestCase;
 
 final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        NfseReceipt::query()->delete();
+    }
+
     public function testNativeInvoiceFilterUsesLatestReceipt(): void
     {
         $this->loginAs();
