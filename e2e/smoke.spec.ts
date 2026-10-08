@@ -223,8 +223,9 @@ test('edited fiscal item persists selected LC 116 and cTribNac after reopening',
   await save.click();
   const result = await savedResponse;
   expect(result.ok()).toBeTruthy();
-  // Akaunting redirects after save; response body can be released by Chromium
-  // during navigation. Verify persistence by reloading the server-backed form.
+  // Let Akaunting complete its own post-save navigation before revisiting the
+  // persisted record; competing navigations cause net::ERR_ABORTED in CI.
+  await expect(page).not.toHaveURL(editUrl, { timeout: 15_000 });
   await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
   await expect(root).toBeVisible();
   await expect.poll(() => valueOf('nfse_codigo_tributacao_nacional')).toBe('010101');
