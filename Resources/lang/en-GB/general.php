@@ -82,6 +82,20 @@ return [
         ],
     ],
 
+    'ledger' => [
+        'title' => 'Fiscal receipts',
+        'search' => 'Number, access key or customer',
+        'filter' => 'Filter',
+        'status_all' => 'All',
+        'status_emitted' => 'Issued',
+        'status_processing' => 'Processing',
+        'status_cancelled' => 'Cancelled',
+        'status_substituted' => 'Substituted',
+        'status_unknown' => 'Unknown',
+        'open_invoice' => 'Open invoice',
+        'empty' => 'No fiscal receipts found.',
+    ],
+
     'dashboard' => [
          'recent_receipts' => 'Recent fiscal receipts',
         'no_recent_receipts' => 'No fiscal receipts found',

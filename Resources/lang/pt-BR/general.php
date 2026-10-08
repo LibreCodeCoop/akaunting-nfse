@@ -82,6 +82,20 @@ return [
         ],
     ],
 
+    'ledger' => [
+        'title' => 'Notas fiscais',
+        'search' => 'Número, chave ou tomador',
+        'filter' => 'Filtrar',
+        'status_all' => 'Todas',
+        'status_emitted' => 'Emitidas',
+        'status_processing' => 'Em processamento',
+        'status_cancelled' => 'Canceladas',
+        'status_substituted' => 'Substituídas',
+        'status_unknown' => 'Desconhecido',
+        'open_invoice' => 'Abrir fatura',
+        'empty' => 'Nenhuma NFS-e encontrada.',
+    ],
+
     'dashboard' => [
         'recent_receipts' => 'Notas fiscais recentes',
         'no_recent_receipts' => 'Nenhuma nota fiscal encontrada',
