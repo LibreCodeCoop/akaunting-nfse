@@ -783,12 +783,17 @@ class InvoiceController extends Controller
         $request = $this->currentRequest($request);
         $receipt = $this->findReceiptForInvoice($invoice);
 
-        $cancelReason = $this->cancellationReasonForGateway($request);
+        $cancellation = $this->cancellationDataForGateway($request);
         $redirect = $this->cancellationRedirect($invoice, $request);
 
         try {
             $client = $this->makeClient($this->sandboxModeEnabled());
-            (new CancelInvoiceNfse())->cancel($client, $receipt, $cancelReason);
+            (new CancelInvoiceNfse())->cancel(
+                $client,
+                $receipt,
+                $cancellation['code'],
+                $cancellation['description'],
+            );
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect(
                 $request,
@@ -857,59 +862,39 @@ class InvoiceController extends Controller
         };
     }
 
-    protected function cancellationReasonForGateway(?Request $request = null): string
+    /**
+     * @return array{code:string,description:string}
+     */
+    protected function cancellationDataForGateway(?Request $request = null): array
     {
         $request = $this->currentRequest($request);
-        $allowedReasons = $this->cancellationReasonOptions();
+        $allowedReasons = ['1', '2', '9'];
 
         if (!$request instanceof Request) {
-            return (string) trans('nfse::general.cancel_motivo_default');
+            return [
+                'code' => '9',
+                'description' => (string) trans('nfse::general.cancel_motivo_default'),
+            ];
         }
 
-        $allInput = method_exists($request, 'all') && is_array($request->all())
-            ? $request->all()
-            : [];
+        $validated = $request->validate(
+            [
+                'cancel_reason' => ['required', 'string', 'in:' . implode(',', $allowedReasons)],
+                'cancel_justification' => ['required', 'string', 'min:15', 'max:255'],
+            ],
+            [
+                'cancel_reason.required' => (string) trans('nfse::general.invoices.cancel_reason_required'),
+                'cancel_reason.in' => (string) trans('nfse::general.invoices.cancel_reason_invalid'),
+                'cancel_justification.required' => (string) trans('nfse::general.invoices.cancel_justification_required'),
+                'cancel_justification.min' => (string) trans('nfse::general.invoices.cancel_justification_length'),
+                'cancel_justification.max' => (string) trans('nfse::general.invoices.cancel_justification_length'),
+            ],
+        );
 
-        $isDeleteMethod = method_exists($request, 'isMethod')
-            ? $request->isMethod('delete')
-            : false;
-
-        $hasStructuredCancellationData = array_key_exists('cancel_reason', $allInput)
-            || array_key_exists('cancel_justification', $allInput);
-
-        $requiresStructuredCancellationData = $isDeleteMethod || $hasStructuredCancellationData;
-
-        if (!$requiresStructuredCancellationData) {
-            return (string) trans('nfse::general.cancel_motivo_default');
-        }
-
-        if (method_exists($request, 'validate')) {
-            $validated = $request->validate(
-                [
-                    'cancel_reason' => ['required', 'string', 'max:120', 'in:' . implode(',', $allowedReasons)],
-                    'cancel_justification' => ['required', 'string', 'max:1000'],
-                ],
-                [
-                    'cancel_reason.required' => (string) trans('nfse::general.invoices.cancel_reason_required'),
-                    'cancel_reason.in' => (string) trans('nfse::general.invoices.cancel_reason_invalid'),
-                    'cancel_justification.required' => (string) trans('nfse::general.invoices.cancel_justification_required'),
-                ],
-            );
-
-            $reason = trim((string) ($validated['cancel_reason'] ?? ''));
-            $justification = trim((string) ($validated['cancel_justification'] ?? ''));
-
-            return $reason . ' - ' . $justification;
-        }
-
-        $reason = trim((string) ($allInput['cancel_reason'] ?? ''));
-        $justification = trim((string) ($allInput['cancel_justification'] ?? ''));
-
-        if ($reason === '' || $justification === '' || !in_array($reason, $allowedReasons, true)) {
-            return (string) trans('nfse::general.cancel_motivo_default');
-        }
-
-        return $reason . ' - ' . $justification;
+        return [
+            'code' => trim((string) $validated['cancel_reason']),
+            'description' => trim((string) $validated['cancel_justification']),
+        ];
     }
 
     protected function currentRequest(?Request $request = null): ?Request

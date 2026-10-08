@@ -22,6 +22,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 :label="trans('nfse::general.invoices.cancel_modal_justification')"
                 :placeholder="trans('nfse::general.invoices.cancel_modal_justification_placeholder')"
                 rows="4"
+                minlength="15"
+                maxlength="255"
                 form-group-class="sm:col-span-6"
             />
         </x-slot>
