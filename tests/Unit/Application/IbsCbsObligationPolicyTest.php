@@ -111,6 +111,34 @@ final class IbsCbsObligationPolicyTest extends TestCase
         );
     }
 
+    public function testRequiredOperationRejectsMalformedIbsCbsCodes(): void
+    {
+        $result = (new IbsCbsEmissionReadiness())->evaluate(
+            '2026-10-08',
+            1,
+            '0101',
+            [
+                'ibs_cbs_enabled' => true,
+                'ibs_cbs_ind_final' => '2',
+                'ibs_cbs_c_ind_op' => '123',
+                'ibs_cbs_ind_dest' => '0',
+                'ibs_cbs_cst' => '00',
+                'ibs_cbs_c_class_trib' => 'ABC001',
+            ],
+        );
+
+        self::assertFalse($result['isReady']);
+        self::assertSame(
+            [
+                'ibs_cbs_ind_final',
+                'ibs_cbs_c_ind_op',
+                'ibs_cbs_cst',
+                'ibs_cbs_c_class_trib',
+            ],
+            $result['missing'],
+        );
+    }
+
     public function testRequiredOperationIsReadyWithCompleteIbsCbsConfiguration(): void
     {
         $result = (new IbsCbsEmissionReadiness())->evaluate(
