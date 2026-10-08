@@ -19,10 +19,12 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
     public function testReturnsOneReadyUnitForUnambiguousPendingInvoice(): void
     {
         $invoice = $this->invoiceWithProfile('0107', '010701', '100');
+        // A ready baseline must not change when RTC obligations become effective.
+        $invoice->forceFill(['issued_at' => '2026-09-30 12:00:00'])->save();
 
-        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice);
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice->fresh(['items', 'contact']));
 
-        self::assertSame('ready', $result['status']);
+        self::assertSame('ready', $result['status'], json_encode($result, JSON_THROW_ON_ERROR));
         self::assertNull($result['reason']);
         self::assertSame('service:0107|tax:010701|mun:|rate:5.00', $result['group']['key'] ?? null);
     }
