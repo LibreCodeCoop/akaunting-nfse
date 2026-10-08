@@ -44,7 +44,11 @@ final class IbsCbsObligationPolicy
         $service = Lc116Code::normalize($itemListaServico);
         $competence = $this->date($competenceDate);
 
-        if ($service === '' || $competence === null) {
+        if (
+            $service === ''
+            || $competence === null
+            || !in_array($opcaoSimplesNacional, [1, 2, 3], true)
+        ) {
             return [
                 'required' => false,
                 'effective_date' => null,
