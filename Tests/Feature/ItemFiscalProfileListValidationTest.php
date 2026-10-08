@@ -178,7 +178,7 @@ final class ItemFiscalProfileListValidationTest extends FeatureTestCase
         ]);
 
         $this->loginAs()->get(route('items.edit', $item))->assertOk()
-            ->assertSee('data-nfse-municipal-validation="valid"', false)
+            ->assertSee('data-nfse-municipal-validation="unverifiable"', false)
             ->assertSee('data-nfse-municipal-fetched-at=', false);
     }
 

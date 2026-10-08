@@ -12,14 +12,14 @@ use PHPUnit\Framework\TestCase;
 
 final class ItemMunicipalParameterValidatorTest extends TestCase
 {
-    public function testMatchingUniqueOfficialRateIsValid(): void
+    public function testMatchingUniqueOfficialRateIsOnlyConsultative(): void
     {
         $result = (new ItemMunicipalParameterValidator())->validate(
             '5.00',
             ['aliquota' => ['aliquotas' => [['Aliq' => 5.0]]]],
         );
 
-        self::assertSame('valid', $result['status']);
+        self::assertSame('unverifiable', $result['status']);
         self::assertSame('5.00', $result['official_rate']);
     }
 
