@@ -67,6 +67,7 @@ final class ItemFiscalProfileTest extends FeatureTestCase
         $request['nfse_item_lista_servico'] = '1.07';
         $request['nfse_codigo_tributacao_nacional'] = '999999';
 
+        $this->withExceptionHandling();
         $this->loginAs()
             ->postJson(route('items.store'), $request)
             ->assertStatus(422)
@@ -83,6 +84,7 @@ final class ItemFiscalProfileTest extends FeatureTestCase
         $request = Item::factory()->enabled()->raw();
         $request['nfse_codigo_tributacao_nacional'] = '0107019';
 
+        $this->withExceptionHandling();
         $this->loginAs()
             ->postJson(route('items.store'), $request)
             ->assertStatus(422)
@@ -103,6 +105,7 @@ final class ItemFiscalProfileTest extends FeatureTestCase
         $request['nfse_item_lista_servico'] = '0101';
         $request['nfse_codigo_tributacao_nacional'] = '999999';
 
+        $this->withExceptionHandling();
         $this->loginAs()
             ->patchJson(route('items.update', $item->id), $request)
             ->assertStatus(422)
