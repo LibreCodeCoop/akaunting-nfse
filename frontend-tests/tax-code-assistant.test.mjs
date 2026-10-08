@@ -25,3 +25,55 @@ test('normalization handles dotted service values without losing leading zeros',
     assert.equal(assistant.digits('1.07'), '107');
     assert.equal(assistant.digits('010701'), '010701');
 });
+
+test('assistant initializes safely without fiscal fields', () => {
+    let queried = 0;
+    const doc = {
+        querySelector(selector) {
+            ++queried;
+            return selector === '[data-nfse-tax-code-assistant]'
+                ? { dataset: { lcOptions: '{}', nationalOptions: '{}' }, querySelector: () => null }
+                : null;
+        },
+    };
+    assistant.init(doc);
+    assert.ok(queried >= 1);
+});
+
+test('assistant initialization is idempotent and does not overwrite existing choices', () => {
+    const listeners = [];
+    const service = { value: 'lc:0107', options: [{ value: 'lc:0107' }], addEventListener() {} };
+    const code = { value: '010702', options: [{ value: '010702' }], addEventListener() {} };
+    const query = { value: '', addEventListener(name, cb) { listeners.push([name, cb]); } };
+    const results = { replaceChildren() {}, append() {} };
+    const summary = { textContent: '' };
+    const root = {
+        dataset: {
+            lcOptions: '{"lc:0107":"1.07 - Support"}',
+            nationalOptions: '{}',
+            matchesLabel: 'opções',
+        },
+        querySelector(selector) {
+            return {
+                '[data-nfse-tax-code-query]': query,
+                '[data-nfse-tax-code-results]': results,
+                '[data-nfse-tax-code-summary]': summary,
+            }[selector];
+        },
+    };
+    const doc = {
+        querySelector(selector) {
+            return {
+                '[data-nfse-tax-code-assistant]': root,
+                '[name="nfse_item_lista_servico"]': service,
+                '[name="nfse_codigo_tributacao_nacional"]': code,
+            }[selector];
+        },
+    };
+    assistant.init(doc);
+    assistant.init(doc);
+    assert.equal(service.value, 'lc:0107');
+    assert.equal(code.value, '010702');
+    assert.equal(summary.textContent, '0 opções');
+    assert.equal(listeners.length, 1);
+});

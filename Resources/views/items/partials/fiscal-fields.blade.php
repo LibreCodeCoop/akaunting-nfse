@@ -137,7 +137,7 @@
             <div class="mt-2 max-h-56 overflow-y-auto" data-nfse-tax-code-results role="group"
                  aria-label="{{ trans('nfse::general.items.assistant.results') }}"></div>
         </div>
-        <script src="{{ asset('modules/Nfse/Resources/assets/js/tax-code-assistant.js') }}" defer></script>
+        <script src="{{ asset('modules/Nfse/Resources/assets/js/tax-code-assistant.js?v=' . module_version('nfse')) }}" defer></script>
 
         <x-form.group.text
             name="nfse_codigo_tributacao_municipal"
