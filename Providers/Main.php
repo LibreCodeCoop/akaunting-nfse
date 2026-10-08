@@ -333,8 +333,11 @@ class Main extends Provider
                 foreach ($rows as $row) {
                     $receiptStatuses[(int) $row->invoice_id] = trim((string) $row->status);
                 }
-            } catch (\Throwable) {
-                // Keep the native invoice page available when fiscal data cannot be read.
+            } catch (\Throwable $exception) {
+                // A failed fiscal lookup is not equivalent to an unissued NFS-e.
+                // Keep the invoice listing available, but display unknown instead of pending.
+                $receiptStatuses = array_fill_keys($invoiceIds, 'unknown');
+                error_log('NFS-e fiscal status lookup failed: ' . $exception->getMessage());
             }
 
             $statuses = [];
