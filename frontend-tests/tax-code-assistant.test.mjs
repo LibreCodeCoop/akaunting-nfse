@@ -44,3 +44,20 @@ test('search refuses unsuccessful server responses', async () => {
     const search = createSearch(async () => ({ ok: false }));
     await assert.rejects(search('/api', { q: 'test' }), /Search failed/);
 });
+
+test('native Akaunting Vue select receives chosen value and reports form change', () => {
+    const notifications = [];
+    const component = {
+        selected: '',
+        sorted_options: [],
+        full_options: [],
+        change() { notifications.push(this.selected); },
+    };
+    const field = { __vue__: component };
+    assert.equal(require('../Resources/assets/js/tax-code-assistant.js').selectValue(field, '010701', '010701 - Test'), true);
+    assert.equal(component.selected, '010701');
+    assert.equal(component.sorted_options[0].key, '010701');
+    assert.equal(component.full_options[0].key, '010701');
+    assert.deepEqual(notifications, ['010701']);
+    assert.equal(require('../Resources/assets/js/tax-code-assistant.js').selectValue({}, '010701', ''), false);
+});

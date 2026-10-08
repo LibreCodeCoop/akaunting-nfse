@@ -41,6 +41,20 @@
             }
         };
     }
+    function selectedValue(element) {
+        return element.__vue__ ? String(element.__vue__.selected ?? '') : String(element.value ?? '');
+    }
+    function selectValue(element, value, label) {
+        const component = element.__vue__;
+        if (!component || !Array.isArray(component.sorted_options)) return false;
+        const option = { key: value, value: label, option: { key: value, value: label } };
+        if (!component.sorted_options.some(item => item.key === value)) component.sorted_options.push(option);
+        if (Array.isArray(component.full_options)
+            && !component.full_options.some(item => item.key === value)) component.full_options.push(option);
+        component.selected = value;
+        component.change();
+        return true;
+    }
     function init(doc, fetcher = fetch) {
         const root = doc.querySelector('[data-nfse-tax-code-assistant]');
         if (!root || root.dataset.initialized === 'true') return;
@@ -56,12 +70,7 @@
         root.dataset.initialized = 'true';
 
         function updateSelect(select, value, label) {
-            if (!Array.from(select.options).some(option => option.value === value)) {
-                select.add(new Option(label, value));
-            }
-            select.value = value;
-            select.dispatchEvent(new Event('input', { bubbles: true }));
-            select.dispatchEvent(new Event('change', { bubbles: true }));
+            return selectValue(select, value, label);
         }
         function render(entries) {
             results.replaceChildren();
@@ -83,7 +92,7 @@
             const current = ++revision;
             try {
                 const entries = await search(root.dataset.searchUrl, {
-                    lc116: digits(service.value).slice(0, 4),
+                    lc116: digits(selectedValue(service)).slice(0, 4),
                     q: input.value.trim(),
                 });
                 if (current === revision && entries !== null) render(entries);
@@ -98,10 +107,10 @@
         input.addEventListener('input', scheduled);
         service.addEventListener('change', scheduled);
         national.addEventListener('change', () => {
-            const related = lcForNational(national.value);
-            if (lcOptions[related] && service.value !== related) updateSelect(service, related, lcOptions[related]);
+            const related = lcForNational(selectedValue(national));
+            if (lcOptions[related] && selectedValue(service) !== related) updateSelect(service, related, lcOptions[related]);
         });
-        if (digits(service.value).length === 4) scheduled();
+        if (digits(selectedValue(service)).length === 4) scheduled();
     }
-    return { digits, lcForNational, debounce, createSearch, init };
+    return { digits, lcForNational, debounce, createSearch, selectedValue, selectValue, init };
 });
