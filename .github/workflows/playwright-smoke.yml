@@ -206,7 +206,7 @@ jobs:
           NFSE_E2E_PASSWORD: 'NfseE2E!123456'
           NFSE_E2E_PENDING_INVOICE_ID: ${{ env.NFSE_E2E_PENDING_INVOICE_ID }}
         run: |
-          npx playwright test --project=smoke --retries=0
+          npx playwright test --project=smoke
 
       - name: Upload browser artifacts
         if: failure()

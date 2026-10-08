@@ -441,6 +441,12 @@ class SettingsController extends Controller
         }
 
         $entries = $catalog->searchNationalServices($lc !== '' ? $lc : $query, 500);
+        if ($lc !== '') {
+            $entries = array_values(array_filter(
+                $entries,
+                static fn (array $entry): bool => str_starts_with($entry['code'], $lc)
+            ));
+        }
         if ($query !== '' && $lc !== '') {
             $term = mb_strtolower($query, 'UTF-8');
             $entries = array_values(array_filter(
