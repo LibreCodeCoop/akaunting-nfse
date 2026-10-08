@@ -74,11 +74,11 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         $response->assertOk();
         $response->assertViewHas('invoices', static function ($invoices) use ($first, $second): bool {
             $ids = $invoices->getCollection()->pluck('id')->all();
-            $matches = array_intersect($ids, [$first->id, $second->id]);
+            $unexpected = array_diff($ids, [$first->id, $second->id]);
 
-            return count($ids) === 1
-                && count($matches) === 1
-                && $invoices->total() >= 2;
+            return $unexpected === []
+                && count($ids) <= $invoices->perPage()
+                && $invoices->total() === 2;
         });
     }
 

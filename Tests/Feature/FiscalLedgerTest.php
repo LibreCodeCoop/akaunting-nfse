@@ -109,10 +109,11 @@ final class FiscalLedgerTest extends FeatureTestCase
         $otherInvoice->forceFill(['company_id' => (int) company_id() + 1000])->saveQuietly();
         $receipt = $this->receipt($otherInvoice, '84001', 'emitted');
 
+        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
         $this->get(route('nfse.ledger.artifacts.download', [
             'receipt' => $receipt->id,
             'artifact' => 'xml',
-        ]))->assertNotFound();
+        ]));
     }
 
     private function receipt(Document $invoice, string $number, string $status): NfseReceipt
