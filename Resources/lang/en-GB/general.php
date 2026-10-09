@@ -5,6 +5,10 @@
 
 return [
     'name'                  => 'NFS-e',
+    'contacts' => [
+        'municipal_registration' => 'Municipal registration (NFS-e)',
+        'legal_name' => 'Legal name for NFS-e',
+    ],
     'description'           => 'NFS-e issuance and settings',
     'saved'                 => 'Settings saved successfully.',
     'vault_saved_continue'  => 'Vault configuration saved. You can now upload the certificate and complete fiscal settings.',

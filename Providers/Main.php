@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Providers;
 
 use App\Http\Requests\Common\Item as CoreItemRequest;
+use App\Models\Common\Contact;
 use App\Models\Common\Item;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
@@ -20,11 +21,13 @@ use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Console\Commands\SyncAdn;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Http\Requests\ValidatedFiscalItem;
+use Modules\Nfse\Listeners\PersistContactFiscalProfile;
 use Modules\Nfse\Listeners\PersistItemFiscalProfile;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
+use Modules\Nfse\Support\ContactFiscalProfileStore;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\ItemMunicipalValidationResolver;
@@ -56,6 +59,8 @@ class Main extends Provider
         $this->registerNativeInvoiceFiscalListStatus();
         $this->registerItemFiscalFieldInjection();
         $this->registerItemFiscalPersistence();
+        $this->registerContactFiscalPersistence();
+        $this->registerContactFiscalFieldInjection();
         $this->registerItemFiscalListValidation();
         $this->syncEmailTemplates();
     }
@@ -68,6 +73,7 @@ class Main extends Provider
         $this->loadModuleVendorAutoload();
         $this->app->bind(CoreItemRequest::class, ValidatedFiscalItem::class);
         $this->app->scoped(PersistItemFiscalProfile::class, PersistItemFiscalProfile::class);
+        $this->app->scoped(PersistContactFiscalProfile::class, PersistContactFiscalProfile::class);
         $this->registerFiscalClientComposition();
         $this->loadRoutes();
 
@@ -490,6 +496,29 @@ class Main extends Provider
             /** @var PersistItemFiscalProfile $listener */
             $listener = app(PersistItemFiscalProfile::class);
             $listener->afterSave($item);
+        });
+    }
+
+    protected function registerContactFiscalPersistence(): void
+    {
+        Contact::saving(static function (Contact $contact): void {
+            app(PersistContactFiscalProfile::class)->beforeSave($contact);
+        });
+        Contact::saved(static function (Contact $contact): void {
+            app(PersistContactFiscalProfile::class)->afterSave($contact);
+        });
+    }
+
+    protected function registerContactFiscalFieldInjection(): void
+    {
+        $this->app->make('view')->composer('components.contacts.form.address', static function ($view): void {
+            $data = $view->getData();
+            if (($data['type'] ?? '') !== Contact::CUSTOMER_TYPE) {
+                return;
+            }
+            $profile = (new ContactFiscalProfileStore())->forContact($data['contact'] ?? null);
+            $view->with('nfseMunicipalRegistration', $profile['municipal_registration']);
+            $view->with('nfseLegalName', $profile['legal_name']);
         });
     }
 

@@ -2659,7 +2659,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->servicePreview($invoice);
             $payload = $response->getData(true);
 
-            self::assertSame('Descricao padrao generica', $payload['suggested_description'] ?? null);
+            self::assertSame("Descricao da fatura\n\nDescricao padrao generica", $payload['suggested_description'] ?? null);
         }
 
         public function testServicePreviewEmailDefaultsFallsBackWhenNoTemplate(): void

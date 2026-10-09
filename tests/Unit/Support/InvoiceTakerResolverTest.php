@@ -12,6 +12,24 @@ use PHPUnit\Framework\TestCase;
 
 final class InvoiceTakerResolverTest extends TestCase
 {
+    public function testFiscalProfileCanSupplyMunicipalRegistrationWithoutChangingCommercialContact(): void
+    {
+        $contact = (object) [
+            'name' => 'Assessoria',
+            'city_ibge' => '3550308',
+            'zip_code' => '04578-000',
+            'address' => 'Rua Exemplo, 10, Centro',
+        ];
+        $resolver = new InvoiceTakerResolver(
+            static fn (?object $resolvedContact): array => [
+                'municipal_registration' => '009001',
+                'legal_name' => 'CLIENTE EXEMPLO LTDA',
+            ],
+        );
+        self::assertSame('009001', $resolver->payload($contact)['inscricao_municipal']);
+        self::assertSame('Assessoria', $contact->name);
+    }
+
     public function testBuildsNationalTakerPayloadFromContactFields(): void
     {
         $contact = (object) [

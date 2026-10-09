@@ -9,11 +9,18 @@ namespace Modules\Nfse\Providers;
 
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as Provider;
 use Modules\Nfse\Listeners\EmitNfseBeforeDocumentSend;
+use Modules\Nfse\Listeners\PersistContactFiscalProfile;
 use Modules\Nfse\Listeners\PersistItemFiscalProfile;
 
 class Event extends Provider
 {
     protected $listen = [
+        'App\\Events\\Common\\ContactCreating' => [
+            PersistContactFiscalProfile::class . '@creating',
+        ],
+        'App\\Events\\Common\\ContactUpdating' => [
+            PersistContactFiscalProfile::class . '@updating',
+        ],
         'App\\Events\\Common\\SearchStringApplying' => [
             \Modules\Nfse\Listeners\ApplyNativeInvoiceFiscalFilter::class,
         ],

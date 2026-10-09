@@ -316,6 +316,11 @@ class EventServiceProvider extends \Illuminate\Support\ServiceProvider
 
 namespace App\Models\Common;
 
+class Contact extends \Illuminate\Database\Eloquent\Model
+{
+    public const CUSTOMER_TYPE = 'customer';
+}
+
 class Item extends \Illuminate\Database\Eloquent\Model
 {
 }
