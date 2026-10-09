@@ -3,80 +3,70 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# Atualizar o runtime nfse-php sem ativar a NT009 em producao
+# Atualização do runtime nfse-php
 
-O modulo usa `librecodeoop/nfse-php` isolado pelo PHP-Scoper em
-`3rdparty/scoped/`. A revisao efetivamente usada fica fixada em
-`3rdparty/composer.json`; nao depende do `composer.json` do Akaunting.
+O módulo usa `librecodeoop/nfse-php` sob `3rdparty/`, isolado pelo
+PHP-Scoper. A revisão pretendida é definida em `3rdparty/composer.json`,
+e a revisão instalada é registrada no lock local do mesmo diretório. A
+versão do Akaunting e o `composer.json` da aplicação não substituem esse
+contrato.
 
-Revisao avaliada: `443465b05cef00f159bb412db77a0c5d3c3bb089` (nfse-php PR #105, dependente
-de merge antes da instalacao deste modulo). O runtime anterior
-`2f9324a2eed77625ba7120eb1a92ec75f15207e1` veio do merge
-do PR #104, depois da revisao `f179d7f723bec80f5b19a25dfbc385a612c2447f`.
+## Procedimento de atualização
 
-A versao atual acrescenta o catalogo versionado do Anexo VII v1.03.00 e
-um modelo de **pre-visualizacao nao emissora** da NT009 v1.01.
-Tambem corrige o recibo do contrato vigente, obtendo o numero nNFSe
-do XML autorizado e rejeitando uma resposta 2xx incompleta. O contrato
-`NfseClient::emit(DpsData)`, o serializador normal
-`XmlBuilder::buildDps(DpsData)` e o XSD de producao permanecem os mesmos.
-Nao configure o modulo para emitir a estrutura de preview: falta comprovar
-o esquema oficialmente ativo em cada ambiente, a data de ativacao e a
-aceitacao real pelo gateway.
+Antes da mudança, revise o PR do módulo, os testes de integração, o backup
+de arquivos/banco e o plano de retorno. Realize o procedimento primeiro em
+homologação, com certificado e ambiente próprios. Pare os workers de fila
+e coloque a aplicação em manutenção durante a troca de código.
 
-## Atualizacao do modulo e das dependencias
-
-Requer PHP >= 8.2, Composer e as extensoes PHP indicadas no nfse-php.
-Faça backup do banco de dados e dos arquivos persistentes do Akaunting.
-Interrompa os workers de fila e coloque a aplicacao em manutencao durante
-a janela de troca de codigo, seguindo o procedimento de operacao local.
-
-**Depois do merge do PR deste modulo**, no checkout existente:
+Na instalação existente, ajuste o caminho do módulo ao seu ambiente:
 
 ```bash
 cd /var/www/html/modules/Nfse
 git fetch origin main
 git pull --ff-only origin main
 
-# Atualize tambem o lock local (nao versionado) para que 'composer install'
-# nao continue resolvendo a antiga revisao de nfse-php.
+# Atualize a revisão do pacote e o lock local (não versionado).
+composer install --no-dev --no-scripts --prefer-dist --no-interaction --no-progress
 composer --working-dir=3rdparty update librecodeoop/nfse-php --with-all-dependencies --no-dev --prefer-dist --no-interaction --no-progress --no-scripts
+
+# Atualize as ferramentas de build e regenere a dependência isolada.
 composer runtime-tools:install
 composer thirdparty:scope
 
-# Confira a revisao instalada pelo Composer (source.reference).
+# Confira o commit realmente instalado pelo Composer.
 composer --working-dir=3rdparty show librecodeoop/nfse-php --format=json
 ```
 
-Verifique no JSON acima que `source.reference` corresponde ao commit
-`443465b05cef00f159bb412db77a0c5d3c3bb089`. Caso nao corresponda,
-**nao retome a emissao**: investigue o lock local antes de prosseguir.
-Apenas atualizar o arquivo `3rdparty/composer.json` nao recompila o
-runtime em `3rdparty/scoped/`.
+Compare `source.reference` do comando final com a referência fixada
+em `3rdparty/composer.json`. Se divergirem, não retome a emissão:
+investigue e resolva o lock/cache local. Alterar apenas o manifesto
+não recompila `3rdparty/scoped/`.
 
-A partir da raiz do Akaunting, com o mesmo ambiente PHP e variaveis da
-aplicacao:
+Na raiz da aplicação, depois de verificar o ambiente:
 
 ```bash
 php artisan optimize:clear
 php artisan queue:restart
 ```
 
-Reinicie os processos PHP-FPM/filas conforme o orquestrador e verifique
-em homologacao a consulta, emissao com fixture controlada, XML assinado,
-retorno SEFIN, recuperacao de tentativa ambigua e downloads de artefatos.
-So remova a manutencao depois da verificacao. Nao repita emissoes de
-resultado ambiguo; execute antes a conciliacao oficial por identificador DPS.
+Reinicie o PHP-FPM e os workers pelo serviço/contêiner apropriado e
+valide o painel, a montagem da DPS, consultas, resposta autorizada,
+recuperação de tentativas ambíguas e geração de artefatos em homologação.
+Retire a manutenção somente após os checks de saúde.
 
-## Reversao
+## Compatibilidade e retorno
 
-Guarde o SHA anterior do modulo e um backup dos arquivos de configuracao
-e do banco. Para reverter **somente o runtime**, fixe novamente
-`dev-main#2f9324a2eed77625ba7120eb1a92ec75f15207e1` no manifest
-local, atualize a dependencia (comando `composer --working-dir=3rdparty
-update librecodeoop/nfse-php --with-all-dependencies ...`) e refaca
-`composer thirdparty:scope`. Prefira reverter pelo commit do modulo
-validado em vez de editar codigo de producao. Nao execute rollback de
-migracoes sem verificar compatibilidade de dados e sem backup.
+Mudanças nos domínios e estruturas de pré-visualização da NT009 **não**
+autorizam, por si só, a transmissão do novo leiaute. O emissor de produção
+deve usar apenas o contrato efetivamente vigente e aceito pela SEFIN.
+Verifique independentemente o XSD ativo, o ambiente e as condições fiscais
+antes de habilitar um serializador diferente.
 
-Consulte `docs/queue.md` para a politica local de workers e retries.
+Para reverter, restaure o commit anterior **aprovado** do módulo e seu
+conjunto de dependências, regenere `3rdparty/scoped/`, reinicie os
+processos e revalide a aplicação. Guarde os SHAs e backups no registro
+de implantação, não neste guia versionado. Não reverta migrações ou
+retransmita DPS de resultado incerto automaticamente.
+
+Consulte [filas e pós-emissão](queue.md) para o comportamento de workers
+e recuperação.
