@@ -958,8 +958,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
             // IRRF = 1.00% × 1500.25 = 15.0025 → '15.00'
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            // CSLL is retained separately from PIS/COFINS.
-            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
+            // Legacy percentage settings cannot manufacture withholding: NT007
+            // requires real PIS+COFINS+CSLL retained amounts in vRetCSLL.
+            self::assertSame('', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
             self::assertSame(0, $client->capturedDps?->ibsCbsFinalidade);
@@ -1535,9 +1536,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // Aliquotas are still from settings
             self::assertSame('1.65', $client->capturedDps?->federalPiscofinsAliquotaPis);
             self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
-            // IRRF and CSLL are retained separately from PIS/COFINS.
+            // A configured CSLL rate is not proof of a retained contribution.
             self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
-            self::assertSame('15.00', $client->capturedDps?->federalValorCsll);
+            self::assertSame('', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
             // Federal taxation without explicit tributos_* config still needs totTrib in the XML schema.

@@ -71,6 +71,12 @@ final class InvoiceFederalPayloadResolver
                     return [];
                 }
 
+                // Plain unit tests intentionally do not load Laravel. Actual
+                // Akaunting HTTP/queue runtimes always provide this facade.
+                if (!class_exists(DB::class)) {
+                    return [];
+                }
+
                 $query = DB::table('document_item_taxes as dit')
                     ->join('taxes as t', static function (JoinClause $join): void {
                         $join->on('t.id', '=', 'dit.tax_id')
@@ -111,9 +117,12 @@ final class InvoiceFederalPayloadResolver
         // PIS + COFINS + CSLL, not the individual CSLL contribution.
         // Use actual Akaunting withholding tax rows, never tax names/rates
         // alone (normal tax entries must not become retained amounts).
+        $retentionRows = in_array($retentionType, ['', '0', '2'], true)
+            ? []
+            : ($this->withholdingRowsResolver)($invoice, $documentItemIds);
         $retentions = (new FederalSocialRetentionCalculator())->calculate(
             $retentionType,
-            ($this->withholdingRowsResolver)($invoice, $documentItemIds),
+            $retentionRows,
         );
         $csll = $retentions['total'];
 
