@@ -82,6 +82,16 @@ final class InvoiceTakerResolver
                 ['district', 'bairro', 'neighborhood'],
                 ['contact_district', 'contact_neighborhood'],
             );
+
+            if ($numero === '' || $bairro === '') {
+                $parsed = (new NationalTakerAddressParser())->parse($logradouro);
+                if ($parsed !== null) {
+                    $logradouro = $parsed['logradouro'];
+                    $numero = $numero !== '' ? $numero : $parsed['numero'];
+                    $bairro = $bairro !== '' ? $bairro : $parsed['bairro'];
+                    $complemento = $complemento !== '' ? $complemento : $parsed['complemento'];
+                }
+            }
         } else {
             $codigoMunicipio = '';
             $cep = '';
@@ -136,15 +146,22 @@ final class InvoiceTakerResolver
 
     private function municipalityCode(?object $contact, ?object $invoice): string
     {
-        $raw = $this->contactOrInvoiceStringField(
-            $contact,
-            $invoice,
-            ['municipio_ibge', 'city_ibge', 'ibge_code', 'city_code', 'city'],
-            ['contact_municipio_ibge', 'contact_city_ibge', 'contact_ibge_code', 'contact_city_code', 'contact_city'],
-        );
-        $digits = preg_replace('/\D+/', '', $raw) ?: '';
+        foreach ([
+            $this->objectStringField($contact, ['municipio_ibge', 'city_ibge', 'ibge_code', 'city_code']),
+            $this->objectStringField($invoice, ['contact_municipio_ibge', 'contact_city_ibge', 'contact_ibge_code', 'contact_city_code']),
+        ] as $code) {
+            if (preg_match('/^\d{7}$/D', $code) === 1) {
+                return $code;
+            }
+        }
 
-        return strlen($digits) === 7 ? $digits : '';
+        $city = $this->contactOrInvoiceStringField($contact, $invoice, ['city'], ['contact_city']);
+        if (preg_match('/^\d{7}$/D', $city) === 1) {
+            return $city;
+        }
+
+        $state = $this->contactOrInvoiceStringField($contact, $invoice, ['state'], ['contact_state']);
+        return (new MunicipalityNameResolver())->resolve($city, $state);
     }
 
     private function normalizeCep(string $cep): string
