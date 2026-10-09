@@ -37,6 +37,19 @@ composer thirdparty:scope
 composer --working-dir=3rdparty show librecodeoop/nfse-php --format=json
 ```
 
+Confirme também que o arquivo de template e o PNG foram realmente instalados:
+
+```bash
+php scripts/diagnose-danfse-runtime.php
+```
+
+O diagnóstico é local e somente leitura; não acessa dados fiscais nem emite
+NFS-e. Ele compara o commit do manifesto ao lock do Composer, identifica o
+caminho da classe e o template carregado pelo CLI e verifica o PNG. **Não**
+detecta o OPcache que permanece ativo nos processos PHP-FPM ou workers:
+reinicie ambos após a atualização. Para notas já arquivadas, o WebDAV
+continua entregando o PDF anterior; não reemita para mudar apenas o layout.
+
 Compare `source.reference` do comando final com a referência fixada
 em `3rdparty/composer.json`. Se divergirem, não retome a emissão:
 investigue e resolva o lock/cache local. Alterar apenas o manifesto
