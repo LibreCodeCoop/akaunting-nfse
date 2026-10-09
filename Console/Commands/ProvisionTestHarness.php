@@ -15,6 +15,7 @@ use App\Models\Document\Document;
 use App\Models\Setting\Category;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
@@ -33,6 +34,7 @@ final class ProvisionTestHarness extends Command
         {--substitution-fixture : Create an emitted invoice fixture for substitution UI tests}
         {--adn-review-fixture : Create a received NFS-e review fixture and explicit accounting mappings}
         {--item-validation-fixture : Create an item with a deterministic valid NFS-e fiscal profile}
+        {--item-atomicity-fixture : Create legacy and rollback browser item fixtures (SQLite only)}
         {--grouped-invoice-fixture : Create an invoice with two persisted fiscal-group receipts}
         {--pending-invoice-fixture : Create a pending invoice for modal accessibility tests}
         {--bulk-emission-fixture : Create deterministic ready and blocked invoices for bulk UI tests}
