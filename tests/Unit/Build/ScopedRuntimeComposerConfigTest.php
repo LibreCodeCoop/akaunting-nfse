@@ -199,6 +199,14 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         $configClass = 'Modules\\Nfse\\Vendor\\LibreCodeCoop\\NfsePHP\\Danfse\\Config\\DanfseConfig';
         $config = new $configClass();
+        $configPath = (new \ReflectionClass($configClass))->getFileName();
+        self::assertIsString($configPath);
+        $asset = dirname($configPath) . '/../Assets/nfse-horizontal.png';
+        self::assertFileExists($asset);
+        $info = getimagesize($asset);
+        self::assertIsArray($info);
+        self::assertSame('image/png', $info['mime']);
+        self::assertFileDoesNotExist($asset . '.base64');
         self::assertIsString($config->logoDataUri);
         self::assertStringStartsWith('data:image/png;base64,', $config->logoDataUri);
 
