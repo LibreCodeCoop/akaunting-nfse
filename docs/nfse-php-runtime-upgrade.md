@@ -9,12 +9,15 @@ O modulo usa `librecodeoop/nfse-php` isolado pelo PHP-Scoper em
 `3rdparty/scoped/`. A revisao efetivamente usada fica fixada em
 `3rdparty/composer.json`; nao depende do `composer.json` do Akaunting.
 
-Revisao avaliada: `2f9324a2eed77625ba7120eb1a92ec75f15207e1` (merge
-do nfse-php PR #104). A versao anterior era
-`f179d7f723bec80f5b19a25dfbc385a612c2447f`.
+Revisao avaliada: `443465b05cef00f159bb412db77a0c5d3c3bb089` (nfse-php PR #105, dependente
+de merge antes da instalacao deste modulo). O runtime anterior
+`2f9324a2eed77625ba7120eb1a92ec75f15207e1` veio do merge
+do PR #104, depois da revisao `f179d7f723bec80f5b19a25dfbc385a612c2447f`.
 
 A versao atual acrescenta o catalogo versionado do Anexo VII v1.03.00 e
-um modelo de **pre-visualizacao nao emissora** da NT009 v1.01. O contrato
+um modelo de **pre-visualizacao nao emissora** da NT009 v1.01.
+Tambem corrige o recibo do contrato vigente, obtendo o numero nNFSe
+do XML autorizado e rejeitando uma resposta 2xx incompleta. O contrato
 `NfseClient::emit(DpsData)`, o serializador normal
 `XmlBuilder::buildDps(DpsData)` e o XSD de producao permanecem os mesmos.
 Nao configure o modulo para emitir a estrutura de preview: falta comprovar
@@ -46,7 +49,7 @@ composer --working-dir=3rdparty show librecodeoop/nfse-php --format=json
 ```
 
 Verifique no JSON acima que `source.reference` corresponde ao commit
-`2f9324a2eed77625ba7120eb1a92ec75f15207e1`. Caso nao corresponda,
+`443465b05cef00f159bb412db77a0c5d3c3bb089`. Caso nao corresponda,
 **nao retome a emissao**: investigue o lock local antes de prosseguir.
 Apenas atualizar o arquivo `3rdparty/composer.json` nao recompila o
 runtime em `3rdparty/scoped/`.
@@ -69,7 +72,7 @@ resultado ambiguo; execute antes a conciliacao oficial por identificador DPS.
 
 Guarde o SHA anterior do modulo e um backup dos arquivos de configuracao
 e do banco. Para reverter **somente o runtime**, fixe novamente
-`dev-main#f179d7f723bec80f5b19a25dfbc385a612c2447f` no manifest
+`dev-main#2f9324a2eed77625ba7120eb1a92ec75f15207e1` no manifest
 local, atualize a dependencia (comando `composer --working-dir=3rdparty
 update librecodeoop/nfse-php --with-all-dependencies ...`) e refaca
 `composer thirdparty:scope`. Prefira reverter pelo commit do modulo

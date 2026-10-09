@@ -127,6 +127,9 @@ Configure os campos da aba **NFS-e → Configurações**:
 
 ### Prontidão operacional antes de emitir
 
+Para diagnosticar e emitir notas **com o contrato nacional vigente**, siga o [guia operacional de emissão](docs/emissao-vigente.md). A NT009 publicada é uma evolução de leiaute distinta; seus grupos ainda não estão habilitados na API de emissão do módulo. A correção de leitura do recibo oficial depende da versão verificada de `nfse-php` na composição escopada.
+
+
 Antes de emitir NFS-e, valide a tela **NFS-e -> Configuracoes -> Prontidao operacional**.
 
 Ela precisa indicar **Sim** para todos os itens de configuracao global, incluindo:

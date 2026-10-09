@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Models\Document\Document;
 use Illuminate\Auth\Access\AuthorizationException;
 use Modules\Nfse\Application\EmissionAttemptJournal;
+use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
 use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Models\NfseReceipt;
@@ -166,6 +167,81 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
         self::assertSame(1, NfseEmissionAttempt::query()->count());
     }
 
+    public function testIncompleteSuccessfulResponseRemainsAmbiguousAndPreventsSecondPost(): void
+    {
+        $invoice = $this->invoice();
+        $client = $this->client();
+        $client->emitted = new ReceiptData('', str_repeat('1', 50), '2026-10-09T09:30:00-03:00');
+
+        try {
+            $this->issue($invoice, $client);
+            self::fail('A 2xx-shaped receipt without an NFS-e number is not authorization.');
+        } catch (NetworkException $error) {
+            self::assertStringContainsString('Incomplete authorized NFS-e receipt', $error->getMessage());
+        }
+
+        self::assertSame(1, $client->emits);
+        self::assertSame(0, NfseReceipt::query()->count());
+        self::assertSame(EmissionAttemptJournal::AMBIGUOUS, NfseEmissionAttempt::query()->sole()->status);
+        self::assertSame('incomplete_receipt', NfseEmissionAttempt::query()->sole()->failure_class);
+
+        try {
+            $this->issue($invoice, $client);
+            self::fail('Unresolved DPS must use read-only recovery, not a second POST.');
+        } catch (NetworkException $error) {
+            self::assertStringContainsString('reconcile without repeating POST', $error->getMessage());
+        }
+
+        self::assertSame(1, $client->emits);
+        self::assertGreaterThanOrEqual(1, $client->dpsQueries);
+        self::assertSame(0, NfseReceipt::query()->count());
+
+        $client->recovered = $this->receipt('117', '7');
+        $reconciled = $this->issue($invoice, $client);
+
+        self::assertSame('117', $reconciled['receipt']->nfse_number);
+        self::assertSame(1, $client->emits);
+        self::assertSame(EmissionAttemptJournal::AUTHORIZED, NfseEmissionAttempt::query()->sole()->status);
+    }
+
+    public function testSuccessfulResponseWithoutAccessKeyCannotPersistReceipt(): void
+    {
+        $invoice = $this->invoice();
+        $client = $this->client();
+        $client->emitted = new ReceiptData('42', '', '2026-10-09T09:30:00-03:00');
+
+        $this->expectException(NetworkException::class);
+        $this->expectExceptionMessage('Incomplete authorized NFS-e receipt');
+
+        try {
+            $this->issue($invoice, $client);
+        } finally {
+            self::assertSame(1, $client->emits);
+            self::assertSame(0, NfseReceipt::query()->count());
+            self::assertSame(EmissionAttemptJournal::AMBIGUOUS, NfseEmissionAttempt::query()->sole()->status);
+        }
+    }
+
+    public function testSuccessfulResponseNumberMayBeRecoveredFromAuthorizedXml(): void
+    {
+        $invoice = $this->invoice();
+        $client = $this->client();
+        $authorizedXml = file_get_contents(__DIR__ . '/../../tests/fixtures/nfse_exemplo.xml');
+        self::assertIsString($authorizedXml);
+        $client->emitted = new ReceiptData(
+            '',
+            str_repeat('2', 50),
+            '2026-10-09T09:30:00-03:00',
+            rawXml: $authorizedXml,
+        );
+
+        $result = $this->issue($invoice, $client);
+
+        self::assertSame('10', $result['receipt']->nfse_number);
+        self::assertSame('emitted', $result['receipt']->status);
+        self::assertSame(1, $client->emits);
+    }
+
     public function testLocalTechnicalFailureIsNotAnOfficialRejection(): void
     {
         $invoice = $this->invoice();
@@ -263,7 +339,7 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
             persist: static fn (ReceiptData $remote): NfseReceipt => (new ReceiptPersistence())->createGrouped(
                 invoiceId: (int) $invoice->id,
                 receipt: $remote,
-                resolvedNumber: $remote->nfseNumber,
+                resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
                 groupKey: 'group-a',
             ),
         );
