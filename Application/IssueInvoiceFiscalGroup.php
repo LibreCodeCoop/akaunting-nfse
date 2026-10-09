@@ -91,6 +91,13 @@ final class IssueInvoiceFiscalGroup
                 (string) $group['codigo_tributacao_municipal'],
             ) ?: '';
         }
+        $payload['codigoNbs'] = trim((string) ($group['codigo_nbs'] ?? ''));
+        if (!(new \Modules\Nfse\Support\NbsEmissionReadiness())->valid(
+            $payload['codigoNbs'],
+            ($payload['ibsCbsFinalidade'] ?? null) !== null,
+        )) {
+            throw new \InvalidArgumentException('Missing or invalid NBS service code for IBS/CBS emission.');
+        }
         $payload['valorServico'] = trim((string) ($group['amount'] ?? ''));
         $payload['aliquota'] = trim((string) ($group['aliquota'] ?? ''));
         $groupItems = is_array($group['items'] ?? null) ? $group['items'] : [];

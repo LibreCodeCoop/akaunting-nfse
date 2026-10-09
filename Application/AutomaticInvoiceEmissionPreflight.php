@@ -127,6 +127,13 @@ final class AutomaticInvoiceEmissionPreflight
             );
         }
 
+        if (!(new \Modules\Nfse\Support\NbsEmissionReadiness())->valid(
+            (string) ($group['codigo_nbs'] ?? ''),
+            filter_var($settings['ibs_cbs_enabled'] ?? false, FILTER_VALIDATE_BOOL),
+        )) {
+            return $this->blocked('missing_or_invalid_nbs', ['codigo_nbs']);
+        }
+
         $federalReadiness = $this->federalReadiness($invoice, $group, $settings);
 
         if (($federalReadiness['isReady'] ?? false) !== true) {
