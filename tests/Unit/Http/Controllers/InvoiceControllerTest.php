@@ -893,6 +893,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
+                protected function resolveInvoiceFiscalProfileFromItems(Invoice $invoice, ?object $defaultService = null): array
+                {
+                    return array_merge(parent::resolveInvoiceFiscalProfileFromItems($invoice, $defaultService), [
+                        'codigo_nbs' => '115011000',
+                    ]);
+                }
+
                 protected function makeClient(bool $sandboxMode): NfseClientInterface
                 {
                     $this->clientCalls[] = ['sandbox' => $sandboxMode];
@@ -921,6 +928,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('3303302', $client->capturedDps?->municipioIbge);
             self::assertSame('0107', $client->capturedDps?->itemListaServico);
             self::assertSame('010701', $client->capturedDps?->codigoTributacaoNacional);
+            self::assertSame('115011000', $client->capturedDps?->codigoNbs);
             self::assertSame('1500.25', $client->capturedDps?->valorServico);
             self::assertSame('4.50', $client->capturedDps?->aliquota);
             self::assertSame('[0107] Servico A | [0107] Servico B', $client->capturedDps?->discriminacao);
