@@ -85,6 +85,9 @@ Depois que a SEFIN autoriza a NFS-e, o módulo persiste o recibo e mantém o XML
 
 A configuração completa, exemplo de worker Docker, validação e política de retry estão em [docs/queue.md](docs/queue.md).
 
+As garantias e limites de emissão, recuperação, validação municipal e
+contingência estão descritos em [segurança fiscal](docs/fiscal-safety.md).
+
 ### Diagnóstico oficial e ADN
 
 O módulo inclui recursos de diagnóstico somente leitura para comparar a configuração local e os documentos emitidos com os dados oficiais:

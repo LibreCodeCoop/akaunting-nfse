@@ -194,7 +194,7 @@ O cliente WebDAV possui timeout de rede de 10 segundos por requisição. Durante
 
 O histórico de POST fiscal, respostas ambíguas e rejeições oficiais é persistido
 em `nfse_emission_attempts`, separado dos recibos autorizados. Detalhes,
-reconciliação somente por leitura e retenção: [emission-attempt-provenance.md](emission-attempt-provenance.md).
+reconciliação somente por leitura e retenção: [segurança fiscal](fiscal-safety.md).
 A rota GET `/nfse/invoices/{invoice}/emission-attempts` expõe no máximo as
 100 tentativas mais recentes ao administrador da empresa com permissão
 `read-sales-invoices`. Não há replay automático do POST por falhas de fila.
