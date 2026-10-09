@@ -9,14 +9,18 @@ namespace Modules\Nfse\Tests\Unit\Build;
 
 use Modules\Nfse\Tests\TestCase;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\HttpTransportInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\HttpRequestData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\HttpResponseData;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\Nt009DpsPreview;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\Nt009DpsPreviewData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\AdnClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\MunicipalParametersClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NativeStreamTransport;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Support\GzipBase64;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlSignatureVerifier;
 
 /**
@@ -110,6 +114,41 @@ final class NfsePhpRuntimeContractTest extends TestCase
 
             self::assertContains('transport', $parameterNames, 'Missing injectable transport on ' . $clientClass);
         }
+    }
+
+    public function testCurrentRuntimeProvidesBothExplicitlyVersionedOperationIndicatorCatalogs(): void
+    {
+        $catalog = new OfficialDomainCatalog();
+
+        // Production retains the earlier table by default; the NT009
+        // indicators cannot silently change already approved operations.
+        self::assertSame('ANEXO_C v1.01 (20260122)', OfficialDomainCatalog::OPERATION_INDICATOR_VERSION);
+        self::assertSame('ANEXO_VII v1.03.00 (NT009 v1.01)', OfficialDomainCatalog::OPERATION_INDICATOR_NT009_VERSION);
+        self::assertNotNull($catalog->operationIndicator('020101'));
+        self::assertNull($catalog->operationIndicator('010101'));
+        self::assertSame(
+            '010101',
+            $catalog->operationIndicator('010101', OfficialDomainCatalog::OPERATION_INDICATOR_NT009_VERSION)['code'],
+        );
+    }
+
+    public function testNt009PreviewIsNotTheProductionEmissionContract(): void
+    {
+        // A published NT009 annex is not proof that the corresponding SEFIN
+        // schema is active. The new surface deliberately returns a review-only
+        // object instead of a string that NfseClient::emit() can submit.
+        $previewMethod = new \ReflectionMethod(XmlBuilder::class, 'previewNt009Dps');
+        self::assertSame(Nt009DpsPreview::class, (string) $previewMethod->getReturnType());
+
+        $parameters = $previewMethod->getParameters();
+        self::assertCount(2, $parameters);
+        self::assertSame(DpsData::class, (string) $parameters[0]->getType());
+        self::assertSame(Nt009DpsPreviewData::class, (string) $parameters[1]->getType());
+
+        $emitParameters = (new \ReflectionMethod(NfseClient::class, 'emit'))->getParameters();
+        self::assertCount(1, $emitParameters);
+        self::assertSame(DpsData::class, (string) $emitParameters[0]->getType());
+        self::assertSame('buildDps', (new \ReflectionMethod(XmlBuilder::class, 'buildDps'))->getName());
     }
 
     public function testSecurityAndPayloadHelpersRequiredByTheModuleAreAvailable(): void
