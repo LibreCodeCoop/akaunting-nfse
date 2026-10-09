@@ -88,7 +88,7 @@ final readonly class OfficialMunicipalIssuanceEvidence
     {
         return match ($environment) {
             'production' => 'https://sefin.nfse.gov.br/SefinNacional/nfse',
-            'sandbox' => 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional/nfse',
+            'sandbox' => 'https://sefin.producaorestrita.nfse.gov.br/SefinNacional/nfse',
             default => '',
         };
     }
