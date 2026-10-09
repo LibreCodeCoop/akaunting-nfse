@@ -320,3 +320,27 @@ test('unchanged historical cTribNac survives native save and reopen', async ({ p
   await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
   await expect.poll(() => fiscalSelectedValue(page, 'nfse_item_lista_servico')).toBe('lc:0107');
 });
+
+test('commercial-only browser edit preserves historical fiscal values', async ({ page }, testInfo) => {
+  const itemId = process.env.NFSE_E2E_LEGACY_ITEM_ID ?? '';
+  expect(itemId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await openExistingItemFiscalEditor(page, itemId);
+  const editUrl = page.url();
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
+
+  const changedName = 'NFSE E2E Updated Commercial Item';
+  await page.locator('input[name="name"]').fill(changedName);
+  const saveResponse = waitForItemUpdate(page);
+  await page.locator('form#item button[type="submit"]').last().click();
+  const result = await saveResponse;
+  expect(result.status()).toBe(200);
+  expect((await result.json()).success).toBe(true);
+  await expect(page).not.toHaveURL(editUrl, { timeout: 15_000 });
+
+  await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('input[name="name"]')).toHaveValue(changedName);
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_item_lista_servico')).toBe('lc:0107');
+});
