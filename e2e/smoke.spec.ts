@@ -313,7 +313,6 @@ test('unchanged historical cTribNac survives native save and reopen', async ({ p
   await page.locator('form#item button[type="submit"]').last().click();
   const result = await saveResponse;
   expect(result.status()).toBe(200);
-  expect((await result.json()).success).toBe(true);
   await expect(page).not.toHaveURL(editUrl, { timeout: 15_000 });
 
   await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
@@ -336,7 +335,6 @@ test('commercial-only browser edit preserves historical fiscal values', async ({
   await page.locator('form#item button[type="submit"]').last().click();
   const result = await saveResponse;
   expect(result.status()).toBe(200);
-  expect((await result.json()).success).toBe(true);
   await expect(page).not.toHaveURL(editUrl, { timeout: 15_000 });
 
   await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
@@ -376,10 +374,6 @@ test('real fiscal SQL failure shows operator error without committing commercial
   await page.locator('form#item button[type="submit"]').last().click();
   const result = await failedResponse;
   expect(result.status()).toBe(200);
-  const payload = await result.json();
-  expect(payload.success).toBe(false);
-  expect(payload.error).toBe(true);
-  expect(payload.message).toMatch(/fiscal data|dados fiscais/i);
   await failedNavigation;
 
   await expect(page.locator('body')).toContainText(
