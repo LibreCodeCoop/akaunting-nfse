@@ -315,6 +315,7 @@ return [
         'emit_modal_foreign_district' => 'Bairro / distrito',
         'emit_foreign_taker_invalid' => 'Dados do tomador estrangeiro inválidos: :reason.',
         'taker_address_incomplete' => 'O endereço fiscal do tomador está incompleto (:fields). Corrija o cadastro do cliente antes de emitir a NFS-e.',
+                'reemit_requires_separate_fiscal_groups' => 'A reemissão manual não pode combinar serviços com classificações fiscais diferentes, inclusive NBS. Revise os grupos fiscais antes de emitir.',
         'emit_blocked_missing_nbs' => 'A DPS contém IBS/CBS, mas o código NBS do item está ausente ou inválido. Abra Itens, edite o serviço da fatura, selecione a NBS oficial e salve antes de reemitir.',
         'emit_runtime_unsupported' => 'Este módulo NFS-e precisa de uma versão mais recente do runtime nfse-php para os dados selecionados. Atualize as dependências de runtime do módulo e tente novamente.',
         'emit_modal_email_section' => 'Envio por e-mail',

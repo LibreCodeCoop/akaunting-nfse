@@ -314,6 +314,7 @@ return [
         'emit_modal_foreign_complement' => 'Complement',
         'emit_modal_foreign_district' => 'District',
         'emit_foreign_taker_invalid' => 'Invalid foreign service taker data: :reason.',
+                'reemit_requires_separate_fiscal_groups' => 'Manual reissuance cannot combine services with different fiscal classifications, including NBS. Review fiscal groups before issuing.',
         'emit_blocked_missing_nbs' => 'The DPS includes IBS/CBS but the NBS code for this item is missing or invalid. Edit the associated service under Items, choose the official NBS, save, then retry.',
         'emit_runtime_unsupported' => 'This NFS-e module requires a newer nfse-php runtime for the selected issuance data. Update the module runtime dependencies and try again.',
         'emit_modal_email_section' => 'Email delivery',
