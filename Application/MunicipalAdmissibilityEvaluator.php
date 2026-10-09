@@ -21,10 +21,22 @@ final class MunicipalAdmissibilityEvaluator
      * @param array<string,mixed> $context Company, environment, incidence municipality,
      *   competence, six-digit national code, three-digit complement, nine-digit
      *   service code and (for issuance evidence) DPS ID and SHA-256 digest.
+     * @param array<string,mixed>|OfficialMunicipalIssuanceEvidence|null $evidence
+     * @return array<string,mixed>
+     */
+    public function evaluate(array $context, array|OfficialMunicipalIssuanceEvidence|null $evidence = null): array
+    {
+        $trustedOutcome = $evidence instanceof OfficialMunicipalIssuanceEvidence;
+        $evidence = $trustedOutcome ? $evidence->attributes() : $evidence;
+
+        return $this->evaluateEvidence($context, $evidence, $trustedOutcome);
+    }
+
+    /**
      * @param array<string,mixed>|null $evidence
      * @return array<string,mixed>
      */
-    public function evaluate(array $context, ?array $evidence = null): array
+    private function evaluateEvidence(array $context, ?array $evidence, bool $trustedOutcome): array
     {
         $normalized = $this->normalizeContext($context);
         $complete = $this->isComplete($normalized);
@@ -64,6 +76,15 @@ final class MunicipalAdmissibilityEvaluator
             return $result;
         }
 
+        // A caller-controlled array, even with a plausible official host and
+        // HTTP code, is not authenticated issuer evidence. The factories on
+        // OfficialMunicipalIssuanceEvidence are the trust boundary.
+        if (!$trustedOutcome) {
+            $result['reason'] = 'untrusted_official_claim';
+
+            return $result;
+        }
+
         // A rejection or authorization for another company, municipality,
         // competence, environment, service or DPS cannot be reused.
         $actual = is_array($evidence['context'] ?? null)
@@ -86,11 +107,12 @@ final class MunicipalAdmissibilityEvaluator
         }
 
         $result['binding'] = 'exact';
+        $result['verified_via'] = (string) ($evidence['verified_via'] ?? '');
         $decision = $evidence['outcome'] ?? null;
         $httpStatus = $source['http_status'];
 
         if ($decision === 'authorized'
-            && in_array($httpStatus, [200, 201], true)
+            && ($evidence['verified_via'] ?? '') === 'issuer_receipt'
             && is_string($evidence['access_key'] ?? null)
             && trim($evidence['access_key']) !== '') {
             return array_merge($result, [
@@ -101,9 +123,9 @@ final class MunicipalAdmissibilityEvaluator
         }
 
         if ($decision === 'rejected'
+            && ($evidence['verified_via'] ?? '') === 'issuer_exception'
             && ($evidence['error_code'] ?? null) === 'E0312'
-            && is_int($httpStatus)
-            && $httpStatus >= 400 && $httpStatus < 500) {
+            && in_array($httpStatus, [400, 422], true)) {
             return array_merge($result, [
                 'decision' => 'rejected',
                 'can_attempt' => false,
