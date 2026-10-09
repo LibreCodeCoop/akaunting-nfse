@@ -15,6 +15,15 @@ use App\Models\Document\Document as Invoice;
  */
 final class InvoiceTakerResolver
 {
+    /** @var \Closure(?object):array<string,string> */
+    private readonly \Closure $fiscalProfileResolver;
+
+    public function __construct(?\Closure $fiscalProfileResolver = null)
+    {
+        $this->fiscalProfileResolver = $fiscalProfileResolver
+            ?? static fn (?object $contact): array => (new ContactFiscalProfileStore())->forContact($contact);
+    }
+
     public function document(Invoice $invoice): string
     {
         return $this->normalizeDocument(
@@ -29,6 +38,11 @@ final class InvoiceTakerResolver
 
     public function name(Invoice $invoice): string
     {
+        $fiscalName = $this->fiscalProfile($invoice->contact)['legal_name'] ?? '';
+        if ($fiscalName !== '') {
+            return $fiscalName;
+        }
+
         return $this->contactOrInvoiceStringField(
             $invoice->contact,
             $invoice,
@@ -42,6 +56,7 @@ final class InvoiceTakerResolver
      */
     public function payload(?object $contact, ?object $invoice = null): array
     {
+        $fiscalRegistration = $this->fiscalProfile($contact)['municipal_registration'] ?? '';
         $codigoMunicipio = $this->municipalityCode($contact, $invoice);
         $cep = $this->normalizeCep(
             $this->contactOrInvoiceStringField(
@@ -104,7 +119,7 @@ final class InvoiceTakerResolver
             'numero' => $numero,
             'complemento' => $complemento,
             'bairro' => $bairro,
-            'inscricao_municipal' => $this->contactOrInvoiceStringField(
+            'inscricao_municipal' => $fiscalRegistration !== '' ? $fiscalRegistration : $this->contactOrInvoiceStringField(
                 $contact,
                 $invoice,
                 ['inscricao_municipal', 'municipal_registration', 'im'],
@@ -127,6 +142,13 @@ final class InvoiceTakerResolver
                 ),
             ),
         ];
+    }
+
+    /** @return array<string,string> */
+    private function fiscalProfile(?object $contact): array
+    {
+        $profile = ($this->fiscalProfileResolver)($contact);
+        return is_array($profile) ? $profile : [];
     }
 
     public function normalizeDocument(?string $document): string
