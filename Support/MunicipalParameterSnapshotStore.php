@@ -9,14 +9,17 @@ namespace Modules\Nfse\Support;
 
 use Modules\Nfse\Models\MunicipalParameterSnapshot;
 
+/**
+ * Advisory official municipal-query cache, keyed by the exact fiscal context.
+ *
+ * The provenance is historical evidence of a *consultation*, never an issuer
+ * authorization, rejection or a municipality-wide code blacklist.
+ */
 final class MunicipalParameterSnapshotStore
 {
     /**
-     * @param callable():array<string,mixed> $fetch
-     * @return array{
-     *   data:array<string,mixed>,
-     *   meta:array{source:string,stale:bool,fetched_at:string,environment:string}
-     * }
+     * @param callable():array<string,mixed>|MunicipalParameterConsultation $fetch
+     * @return array{data:array<string,mixed>,meta:array<string,mixed>}
      */
     public function resolve(
         int $companyId,
@@ -26,8 +29,18 @@ final class MunicipalParameterSnapshotStore
         string $competence,
         callable $fetch,
     ): array {
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $competence);
+        if ($companyId <= 0
+            || !in_array($environment, ['sandbox', 'production'], true)
+            || preg_match('/^\d{7}$/D', $municipioIbge) !== 1
+            || preg_match('/^\d{9}$/D', $serviceCode) !== 1
+            || !$date instanceof \DateTimeImmutable
+            || $date->format('Y-m-d') !== $competence) {
+            throw new \InvalidArgumentException('Invalid municipal snapshot identity.');
+        }
+
         try {
-            $data = $fetch();
+            $resolved = $fetch();
         } catch (\Throwable $fetchError) {
             try {
                 $snapshot = MunicipalParameterSnapshot::query()
@@ -45,18 +58,30 @@ final class MunicipalParameterSnapshotStore
                 throw $fetchError;
             }
 
-            $payload = is_array($snapshot->payload) ? $snapshot->payload : [];
-
             return [
-                'data' => $payload,
-                'meta' => $this->metadata($snapshot, 'cache', true),
+                'data' => is_array($snapshot->payload) ? $snapshot->payload : [],
+                'meta' => $this->metadata(
+                    $companyId,
+                    $environment,
+                    $municipioIbge,
+                    $serviceCode,
+                    $competence,
+                    'cache',
+                    true,
+                    $snapshot->fetched_at?->toAtomString() ?? '',
+                    is_array($snapshot->source_provenance) ? $snapshot->source_provenance : [],
+                    'official_query_failed',
+                ),
             ];
         }
 
+        $data = $resolved instanceof MunicipalParameterConsultation ? $resolved->data : $resolved;
+        $provenance = $resolved instanceof MunicipalParameterConsultation ? $resolved->provenance : [];
         $fetchedAt = new \DateTimeImmutable('now');
+        $timestamp = $fetchedAt->format(DATE_ATOM);
 
         try {
-            $snapshot = MunicipalParameterSnapshot::query()->updateOrCreate(
+            MunicipalParameterSnapshot::query()->updateOrCreate(
                 [
                     'company_id' => $companyId,
                     'environment' => $environment,
@@ -66,43 +91,68 @@ final class MunicipalParameterSnapshotStore
                 ],
                 [
                     'payload' => $data,
+                    'source_provenance' => $provenance !== [] ? $provenance : null,
                     'fetched_at' => $fetchedAt,
                 ],
             );
-
-            return [
-                'data' => $data,
-                'meta' => $this->metadata($snapshot, 'live', false),
-            ];
         } catch (\Throwable) {
-            // Snapshot persistence is advisory. A successful official query
-            // must never become an operational failure because the cache is
-            // unavailable or has not been migrated yet.
-            return [
-                'data' => $data,
-                'meta' => [
-                    'source' => 'live',
-                    'stale' => false,
-                    'fetched_at' => $fetchedAt->format(DATE_ATOM),
-                    'environment' => $environment,
-                ],
-            ];
+            // Cache persistence is advisory. An official successful response
+            // must remain usable when a migration or cache is unavailable.
         }
+
+        return [
+            'data' => $data,
+            'meta' => $this->metadata(
+                $companyId,
+                $environment,
+                $municipioIbge,
+                $serviceCode,
+                $competence,
+                'live',
+                false,
+                $timestamp,
+                $provenance,
+                null,
+            ),
+        ];
     }
 
     /**
-     * @return array{source:string,stale:bool,fetched_at:string,environment:string}
+     * @param array<string,mixed> $provenance
+     * @return array<string,mixed>
      */
     private function metadata(
-        MunicipalParameterSnapshot $snapshot,
+        int $companyId,
+        string $environment,
+        string $municipioIbge,
+        string $serviceCode,
+        string $competence,
         string $source,
         bool $stale,
+        string $fetchedAt,
+        array $provenance,
+        ?string $fallbackReason,
     ): array {
+        $endpoints = is_array($provenance['endpoints'] ?? null) ? $provenance['endpoints'] : [];
+        $aliquota = is_array($endpoints['aliquota'] ?? null) ? $endpoints['aliquota'] : [];
+
         return [
             'source' => $source,
             'stale' => $stale,
-            'fetched_at' => $snapshot->fetched_at?->toAtomString() ?? '',
-            'environment' => (string) $snapshot->environment,
+            'fetched_at' => $fetchedAt,
+            'company_id' => $companyId,
+            'environment' => $environment,
+            'municipio_ibge' => $municipioIbge,
+            'service_code' => $serviceCode,
+            'competence' => $competence,
+            'http_status' => is_int($aliquota['http_status'] ?? null) ? $aliquota['http_status'] : null,
+            'endpoint_responses' => $endpoints,
+            'contract_version' => is_string($provenance['contract_version'] ?? null)
+                ? $provenance['contract_version']
+                : null,
+            'valid_from' => is_string($provenance['valid_from'] ?? null) ? $provenance['valid_from'] : null,
+            'valid_until' => is_string($provenance['valid_until'] ?? null) ? $provenance['valid_until'] : null,
+            'fallback_reason' => $fallbackReason,
         ];
     }
 }

@@ -20,6 +20,7 @@ final class MunicipalParameterSnapshot extends Model
         'service_code',
         'competence_date',
         'payload',
+        'source_provenance',
         'fetched_at',
     ];
 
@@ -27,6 +28,7 @@ final class MunicipalParameterSnapshot extends Model
         'company_id' => 'integer',
         'competence_date' => 'date',
         'payload' => 'array',
+        'source_provenance' => 'array',
         'fetched_at' => 'datetime',
     ];
 }
