@@ -49,6 +49,7 @@ use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
 use Modules\Nfse\Support\InvoiceTakerResolver;
 use Modules\Nfse\Support\Lc116Code;
 use Modules\Nfse\Support\OperationalReadinessResolver;
+use Modules\Nfse\Support\TakerAddressReadiness;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
@@ -607,6 +608,16 @@ class InvoiceController extends Controller
         );
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
         $issqnPayload = $this->issqnPayloadValues();
+
+        if (!$foreignTomador['enabled']) {
+            $missingAddress = (new TakerAddressReadiness())->missing($tomadorPayload, $ibsCbsPayload);
+            if ($missingAddress !== []) {
+                return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                    ->with('error', trans('nfse::general.invoices.taker_address_incomplete', [
+                        'fields' => implode(', ', $missingAddress),
+                    ])));
+            }
+        }
 
         $providerContact = $this->providerContact();
 
@@ -1253,6 +1264,14 @@ class InvoiceController extends Controller
         }
 
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
+
+        $missingAddress = (new TakerAddressReadiness())->missing($tomadorPayload, $ibsCbsPayload);
+        if ($missingAddress !== []) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.taker_address_incomplete', [
+                    'fields' => implode(', ', $missingAddress),
+                ])));
+        }
 
         try {
             $dps = $this->makeDpsData([

@@ -52,6 +52,48 @@ final class InvoiceTakerResolverTest extends TestCase
         self::assertSame('', $payload['logradouro']);
     }
 
+    public function testRealAkauntingAddressCanResolveMunicipalityAndSeparatedFields(): void
+    {
+        $contact = (object) [
+            'city' => 'São Paulo',
+            'state' => 'São Paulo',
+            'zip_code' => '04578-000',
+            'address' => 'Avenida Das Nacoes Unidas, 11541, Conj 61/62 e 71/72 Andar 6 e 7, Brooklin Novo',
+        ];
+
+        $payload = (new InvoiceTakerResolver())->payload($contact);
+
+        self::assertSame('3550308', $payload['codigo_municipio']);
+        self::assertSame('04578000', $payload['cep']);
+        self::assertSame('Avenida Das Nacoes Unidas', $payload['logradouro']);
+        self::assertSame('11541', $payload['numero']);
+        self::assertSame('Conj 61/62 e 71/72 Andar 6 e 7', $payload['complemento']);
+        self::assertSame('Brooklin Novo', $payload['bairro']);
+    }
+
+    public function testTextCityWithoutStateDoesNotGuessMunicipality(): void
+    {
+        $payload = (new InvoiceTakerResolver())->payload((object) [
+            'city' => 'São Paulo',
+            'zip_code' => '04578-000',
+            'address' => 'Avenida Das Nacoes Unidas, 11541, Centro',
+        ]);
+        self::assertSame('', $payload['codigo_municipio']);
+        self::assertSame('', $payload['cep']);
+    }
+
+    public function testFreeTextWithoutSeparatelyDelimitedAddressRemainsUnresolved(): void
+    {
+        $payload = (new InvoiceTakerResolver())->payload((object) [
+            'city_ibge' => '3550308',
+            'zip_code' => '04578-000',
+            'address' => 'Avenida Das Nacoes Unidas 11541 Brooklin Novo',
+        ]);
+        self::assertSame('3550308', $payload['codigo_municipio']);
+        self::assertSame('', $payload['numero']);
+        self::assertSame('', $payload['bairro']);
+    }
+
     public function testNormalizesCpfAndCnpjCompatibleDocuments(): void
     {
         $resolver = new InvoiceTakerResolver();
