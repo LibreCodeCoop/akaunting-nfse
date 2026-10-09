@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Test fixtures and CI performance budget
 
-Issue: #182
 
 ## Shared test data
 
