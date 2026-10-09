@@ -23,6 +23,7 @@ final class ItemFiscalProfileInput
         $serviceKey = 'nfse_item_lista_servico';
         $nationalKey = 'nfse_codigo_tributacao_nacional';
         $municipalKey = 'nfse_codigo_tributacao_municipal';
+        $nbsKey = 'nfse_codigo_nbs';
         $categoryKey = 'nfse_rtc_supply_category';
 
         $servicePresent = method_exists($request, 'exists')
@@ -35,11 +36,15 @@ final class ItemFiscalProfileInput
             ? (bool) $request->exists($municipalKey)
             : $request->input($municipalKey, null) !== null;
 
+        $nbsPresent = method_exists($request, 'exists')
+            ? (bool) $request->exists($nbsKey)
+            : $request->input($nbsKey, null) !== null;
+
         $categoryPresent = method_exists($request, 'exists')
             ? (bool) $request->exists($categoryKey)
             : $request->input($categoryKey, null) !== null;
 
-        if (!$servicePresent && !$nationalPresent && !$municipalPresent && !$categoryPresent) {
+        if (!$servicePresent && !$nationalPresent && !$municipalPresent && !$nbsPresent && !$categoryPresent) {
             return null;
         }
 
@@ -79,6 +84,11 @@ final class ItemFiscalProfileInput
             'codigo_tributacao_nacional' => $nationalCode !== '' ? $nationalCode : null,
             'codigo_tributacao_municipal' => $municipalCode !== '' ? $municipalCode : null,
         ];
+
+        if ($nbsPresent || ($existing !== null && array_key_exists('codigo_nbs', $existing))) {
+            $nbs = trim((string) ($nbsPresent ? $request->input($nbsKey, '') : ($existing['codigo_nbs'] ?? '')));
+            $profile['codigo_nbs'] = $nbs !== '' ? $nbs : null;
+        }
 
         if ($categoryPresent || ($existing !== null && array_key_exists('rtc_supply_category', $existing))) {
             $category = trim((string) ($categoryPresent

@@ -78,6 +78,7 @@ final class PersistItemFiscalProfile
                 'item_lista_servico' => $stored->item_lista_servico,
                 'codigo_tributacao_nacional' => $stored->codigo_tributacao_nacional,
                 'codigo_tributacao_municipal' => $stored->codigo_tributacao_municipal,
+                'codigo_nbs' => $stored->codigo_nbs,
                 'rtc_supply_category' => $stored->rtc_supply_category,
             ] : null;
             $profile = ItemFiscalProfileInput::fromRequest($request, $existing);
@@ -89,6 +90,7 @@ final class PersistItemFiscalProfile
             if ($profile['item_lista_servico'] === null
                 && $profile['codigo_tributacao_nacional'] === null
                 && $profile['codigo_tributacao_municipal'] === null
+                && ($profile['codigo_nbs'] ?? null) === null
                 && ($profile['rtc_supply_category'] ?? null) === null) {
                 ItemFiscalProfile::query()
                     ->where('company_id', $companyId)

@@ -12,6 +12,29 @@ use PHPUnit\Framework\TestCase;
 
 final class InvoiceFiscalGroupBuilderTest extends TestCase
 {
+    public function testDifferentNbsCodesMustNotBeMergedIntoOneFiscalDps(): void
+    {
+        $groups = (new InvoiceFiscalGroupBuilder())->build(
+            items: [
+                ['id' => 1, 'item_id' => 100, 'name' => 'Consultoria', 'total' => '40.00'],
+                ['id' => 2, 'item_id' => 101, 'name' => 'Suporte', 'total' => '60.00'],
+            ],
+            profileMap: [
+                100 => ['item_lista_servico' => '0107', 'codigo_tributacao_nacional' => '010701', 'codigo_nbs' => '115011000'],
+                101 => ['item_lista_servico' => '0107', 'codigo_tributacao_nacional' => '010701', 'codigo_nbs' => '115013000'],
+            ],
+            taxRateMap: [100 => '2.00', 101 => '2.00'],
+            defaultServiceCode: '',
+            defaultNationalCode: '',
+            defaultRate: '',
+        );
+
+        self::assertCount(2, $groups);
+        self::assertSame('115011000', $groups[0]['codigo_nbs']);
+        self::assertSame('115013000', $groups[1]['codigo_nbs']);
+        self::assertNotSame($groups[0]['key'], $groups[1]['key']);
+    }
+
     public function testOneFiscalSignatureKeepsAllItemsInOneGroup(): void
     {
         $groups = (new InvoiceFiscalGroupBuilder())->build(

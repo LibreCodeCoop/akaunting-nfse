@@ -39,6 +39,7 @@ final class InvoiceFiscalProfileSelector
             'item_lista_servico' => $defaultServiceCode,
             'codigo_tributacao_nacional' => $defaultNationalCode,
             'codigo_tributacao_municipal' => '',
+            'codigo_nbs' => '',
             'aliquota' => $defaultRate,
             'rtc_supply_category' => '',
         ];
@@ -73,8 +74,9 @@ final class InvoiceFiscalProfileSelector
                 ? '[' . $serviceCode . '] ' . $itemName
                 : $itemName;
 
+            $nbsCode = trim((string) ($profile['codigo_nbs'] ?? ''));
             $rtcCategory = trim((string) ($profile['rtc_supply_category'] ?? ''));
-            $signature = $serviceCode . '|' . $nationalCode . '|' . $municipalCode . '|' . $rate . '|' . $rtcCategory;
+            $signature = $serviceCode . '|' . $nationalCode . '|' . $municipalCode . '|' . $rate . '|' . $rtcCategory . ($nbsCode !== '' ? '|nbs:' . $nbsCode : '');
 
             if ($signature === '||') {
                 continue;
@@ -87,6 +89,7 @@ final class InvoiceFiscalProfileSelector
                     'item_lista_servico' => $serviceCode,
                     'codigo_tributacao_nacional' => $nationalCode,
                     'codigo_tributacao_municipal' => $municipalCode,
+                    'codigo_nbs' => $nbsCode,
                     'aliquota' => $rate,
                     'rtc_supply_category' => $rtcCategory,
                 ];
@@ -97,6 +100,7 @@ final class InvoiceFiscalProfileSelector
             'item_lista_servico' => $selected['item_lista_servico'] !== '' ? $selected['item_lista_servico'] : $defaultServiceCode,
             'codigo_tributacao_nacional' => $selected['codigo_tributacao_nacional'] !== '' ? $selected['codigo_tributacao_nacional'] : $defaultNationalCode,
             'codigo_tributacao_municipal' => $selected['codigo_tributacao_municipal'] ?? '',
+            'codigo_nbs' => $selected['codigo_nbs'] ?? '',
             'aliquota' => $selected['aliquota'] !== '' ? $selected['aliquota'] : $defaultRate,
             'rtc_supply_category' => $selected['rtc_supply_category'],
             'line_items' => $lineItems,
