@@ -344,3 +344,47 @@ test('commercial-only browser edit preserves historical fiscal values', async ({
   await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
   await expect.poll(() => fiscalSelectedValue(page, 'nfse_item_lista_servico')).toBe('lc:0107');
 });
+
+test('real fiscal SQL failure shows operator error without committing commercial changes', async ({ page }, testInfo) => {
+  const itemId = process.env.NFSE_E2E_FAILING_ITEM_ID ?? '';
+  expect(itemId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await page.route('**/nfse/national-services?**', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [{ code: '010101', description: 'Serviço de teste' }] }),
+    });
+  });
+
+  await openExistingItemFiscalEditor(page, itemId);
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('010701');
+  await page.locator('input[name="name"]').fill('NFSE E2E Should Roll Back');
+
+  const assistant = page.locator('[data-nfse-tax-code-assistant]');
+  await assistant.locator('[data-nfse-tax-code-query]').fill('010101');
+  await expect(assistant.locator('[data-nfse-tax-code-results] button')).toHaveCount(1);
+  await assistant.locator('[data-nfse-tax-code-results] button').click();
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('010101');
+
+  const failedResponse = waitForItemUpdate(page);
+  // The core's AJAX handler redirects back to edit on persistence failures.
+  const failedNavigation = page.waitForEvent('framenavigated', frame =>
+    frame === page.mainFrame() && frame.url().includes('/common/items/' + itemId + '/edit'),
+  );
+  await page.locator('form#item button[type="submit"]').last().click();
+  const result = await failedResponse;
+  expect(result.status()).toBe(200);
+  const payload = await result.json();
+  expect(payload.success).toBe(false);
+  expect(payload.error).toBe(true);
+  expect(payload.message).toMatch(/fiscal data|dados fiscais/i);
+  await failedNavigation;
+
+  await expect(page.locator('body')).toContainText(
+    /Could not save the item fiscal data|N[aã]o foi poss[ií]vel salvar os dados fiscais/i,
+  );
+  await expect(page.locator('input[name="name"]')).toHaveValue('NFSE E2E Failing Fiscal Item');
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('010701');
+});
