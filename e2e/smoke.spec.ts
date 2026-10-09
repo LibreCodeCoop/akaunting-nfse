@@ -194,6 +194,29 @@ async function openExistingItemFiscalEditor(page: import('@playwright/test').Pag
   await expect(page).toHaveURL(/\/common\/items\/\d+\/edit/);
 }
 
+test('native national tax code dropdown includes official code without prior selection', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+  await openExistingItemFiscalEditor(page);
+  // Vue replaces the original <akaunting-select> tag at runtime. Inspect
+  // the same live component used by the tax code assistant, not a template tag.
+  const national = page.locator('[name="nfse_codigo_tributacao_nacional"]');
+  await expect(national).toHaveCount(1);
+  const options = await national.evaluate(element => {
+    const api = (window as any).NfseTaxCodeAssistant;
+    const component = api?.selectComponent(element);
+    const sorted = Array.isArray(component?.sorted_options) ? component.sorted_options : [];
+    const full = Array.isArray(component?.full_options) ? component.full_options : [];
+    return [...sorted, ...full].map(option => ({
+      code: String(option.key),
+      label: String(option.value),
+    }));
+  });
+  expect(options).toEqual(expect.arrayContaining([
+    { code: '010101', label: expect.stringContaining('Análise e desenvolvimento de sistemas') },
+    { code: '010601', label: expect.stringContaining('Assessoria e consultoria') },
+  ]));
+});
+
 test('tax code assistant searches via debounce and selects both fiscal codes', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
   const requests: string[] = [];
