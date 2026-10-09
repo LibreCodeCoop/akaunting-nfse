@@ -8,7 +8,9 @@ declare(strict_types=1);
 namespace Modules\Nfse\Support;
 
 use App\Models\Document\Document as Invoice;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Application\FederalSocialRetentionCalculator;
 use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
 
 /**
@@ -25,14 +27,19 @@ final class InvoiceFederalPayloadResolver
     /** @var \Closure(int):?float */
     private readonly \Closure $taxRateResolver;
 
+    /** @var \Closure(Invoice,?array):array */
+    private readonly \Closure $withholdingRowsResolver;
+
     /**
      * @param (\Closure(string,mixed):mixed)|null $settingResolver
      * @param (\Closure(int):?float)|null $taxRateResolver
+     * @param (\Closure(Invoice,?array):array)|null $withholdingRowsResolver
      */
     public function __construct(
         private readonly FederalTaxSnapshotBuilder $snapshotBuilder = new FederalTaxSnapshotBuilder(),
         ?\Closure $settingResolver = null,
         ?\Closure $taxRateResolver = null,
+        ?\Closure $withholdingRowsResolver = null,
     ) {
         $this->settingResolver = $settingResolver
             ?? static fn (string $key, mixed $default): mixed => function_exists('setting')
@@ -55,6 +62,40 @@ final class InvoiceFederalPayloadResolver
 
                 return $normalized > 0 ? $normalized : null;
             };
+
+        $this->withholdingRowsResolver = $withholdingRowsResolver
+            ?? static function (Invoice $invoice, ?array $documentItemIds): array {
+                $invoiceId = (int) ($invoice->id ?? 0);
+                $companyId = (int) ($invoice->company_id ?? 0);
+                if ($invoiceId <= 0 || $companyId <= 0 || $documentItemIds === []) {
+                    return [];
+                }
+
+                // Plain unit tests intentionally do not load Laravel. Actual
+                // Akaunting HTTP/queue runtimes always provide this facade.
+                if (!class_exists(DB::class)) {
+                    return [];
+                }
+
+                $query = DB::table('document_item_taxes as dit')
+                    ->join('taxes as t', static function (JoinClause $join): void {
+                        $join->on('t.id', '=', 'dit.tax_id')
+                            ->on('t.company_id', '=', 'dit.company_id');
+                    })
+                    ->where('dit.document_id', $invoiceId)
+                    ->where('dit.company_id', $companyId)
+                    ->where('t.type', 'withholding')
+                    ->whereNull('dit.deleted_at')
+                    ->whereNull('t.deleted_at');
+
+                if ($documentItemIds !== null) {
+                    $query->whereIn('dit.document_item_id', $documentItemIds);
+                }
+
+                return $query->get(['dit.document_item_id', 'dit.name', 'dit.amount'])
+                    ->map(static fn (object $row): array => (array) $row)
+                    ->all();
+            };
     }
 
     /**
@@ -72,17 +113,18 @@ final class InvoiceFederalPayloadResolver
         $snapshot = $this->snapshot($invoice, $invoiceAmount, $documentItemIds);
         $situacao = $this->select($this->setting('nfse.federal_piscofins_situacao_tributaria', ''));
         $retentionType = $this->select($this->setting('nfse.federal_piscofins_tipo_retencao', ''));
-        $csll = $this->retentionValue($invoiceAmount, 'nfse.federal_valor_csll');
-
-        if ($csll === '' && $snapshot['csll_value'] !== '') {
-            $csll = $snapshot['csll_value'];
-        }
-
-        $csllRetained = in_array($retentionType, ['3', '7', '8', '9'], true);
-
-        if ($retentionType !== '' && !$csllRetained) {
-            $csll = '';
-        }
+        // NT SE/CGNFS-e 007/2026: vRetCSLL is the TOTAL of withheld
+        // PIS + COFINS + CSLL, not the individual CSLL contribution.
+        // Use actual Akaunting withholding tax rows, never tax names/rates
+        // alone (normal tax entries must not become retained amounts).
+        $retentionRows = in_array($retentionType, ['', '0', '2'], true)
+            ? []
+            : ($this->withholdingRowsResolver)($invoice, $documentItemIds);
+        $retentions = (new FederalSocialRetentionCalculator())->calculate(
+            $retentionType,
+            $retentionRows,
+        );
+        $csll = $retentions['total'];
 
         $simples = in_array($this->simplesNacional(), [2, 3], true);
         $federalPercent = $this->decimal($this->setting(
@@ -168,6 +210,20 @@ final class InvoiceFederalPayloadResolver
 
         if (($federalMode === 'per_invoice_amounts' || $cofinsValue === '') && $snapshot['cofins_value'] !== '') {
             $cofinsValue = $snapshot['cofins_value'];
+        }
+
+        // vPis/vCofins describe the provider's own PIS/COFINS assessment.
+        // Values retained by the taker are sent only in vRetCSLL, never twice.
+        // Explicit configured-rate assessments remain independent.
+        if ($federalMode === 'per_invoice_amounts') {
+            $pisValue = $this->subtractRetainedAmount($pisValue, $retentions['pis']);
+            $cofinsValue = $this->subtractRetainedAmount($cofinsValue, $retentions['cofins']);
+            if ($pisValue === '') {
+                $pisRate = '';
+            }
+            if ($cofinsValue === '') {
+                $cofinsRate = '';
+            }
         }
 
         return $this->finalize([
@@ -311,6 +367,18 @@ final class InvoiceFederalPayloadResolver
         $normalized = trim((string) $value);
 
         return preg_match('/^\d+$/', $normalized) === 1 ? $normalized : '';
+    }
+
+    private function subtractRetainedAmount(string $assessment, string $retained): string
+    {
+        if ($assessment === '' || $retained === '') {
+            return $assessment;
+        }
+
+        $ownCents = (int) round((float) $assessment * 100)
+            - (int) round((float) $retained * 100);
+
+        return $ownCents > 0 ? number_format($ownCents / 100, 2, '.', '') : '';
     }
 
     private function decimal(mixed $value): string

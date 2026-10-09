@@ -117,6 +117,48 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('945.00', $payload['federalPiscofinsValorCofins']);
     }
 
+    public function testNt007ConsolidatesPisAndCofinsWhenCsllIsNotRetained(): void
+    {
+        $settings = [
+            'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
+            'nfse.federal_piscofins_situacao_tributaria' => '1',
+            'nfse.federal_piscofins_tipo_retencao' => '4',
+        ];
+
+        $invoice = new Document();
+        $invoice->id = 2329;
+        $invoice->company_id = 1;
+        $invoice->amount = 29877.75;
+        $invoice->items = $this->items([
+            [
+                'id' => 37386,
+                'total' => 31500.00,
+                'item_taxes' => [
+                    ['name' => 'PIS', 'amount' => 204.75, 'rate' => 0.65],
+                    ['name' => 'COFINS', 'amount' => 945.00, 'rate' => 3.00],
+                    ['name' => 'IRRF', 'amount' => 472.50, 'rate' => 1.50],
+                ],
+            ],
+        ]);
+
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
+            taxRateResolver: static fn (int $taxId): ?float => null,
+            withholdingRowsResolver: static fn (Document $invoice, ?array $itemIds): array => [
+                ['document_item_id' => 37386, 'name' => 'PIS', 'amount' => 204.75],
+                ['document_item_id' => 37386, 'name' => 'COFINS', 'amount' => 945.00],
+                ['document_item_id' => 37386, 'name' => 'IRRF', 'amount' => 472.50],
+            ],
+        );
+
+        $payload = $resolver->resolve($invoice);
+        self::assertSame('4', $payload['federalPiscofinsTipoRetencao']);
+        self::assertSame('1149.75', $payload['federalValorCsll']);
+        self::assertSame('', $payload['federalPiscofinsValorPis']);
+        self::assertSame('', $payload['federalPiscofinsValorCofins']);
+        self::assertSame('472.50', $payload['federalValorIrrf']);
+    }
+
     public function testCsllIsNotSentWhenRetentionTypeExplicitlyDoesNotRetainCsll(): void
     {
         $settings = [
