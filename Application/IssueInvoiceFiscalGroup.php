@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Application;
 
+use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
@@ -26,6 +27,7 @@ final class IssueInvoiceFiscalGroup
         private readonly IssueInvoiceNfse $issuer = new IssueInvoiceNfse(),
         private readonly ReceiptPersistence $persistence = new ReceiptPersistence(),
         private readonly RuntimeDpsFactory $dpsFactory = new RuntimeDpsFactory(),
+        private readonly EmissionAttemptJournal $attempts = new EmissionAttemptJournal(),
     ) {
     }
 
@@ -38,6 +40,7 @@ final class IssueInvoiceFiscalGroup
         int $invoiceId,
         DpsData $baseDps,
         array $group,
+        string $origin = 'manual_group',
     ): array {
         $groupKey = trim((string) ($group['key'] ?? ''));
         $category = trim((string) ($group['rtc_supply_category'] ?? ''));
@@ -51,6 +54,16 @@ final class IssueInvoiceFiscalGroup
 
         if ($invoiceId <= 0 || $groupKey === '') {
             throw new \InvalidArgumentException('Invoice and fiscal group identity are required.');
+        }
+
+        // Even a cached authorized receipt must not be returned cross-tenant.
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId > 0 && !DB::table('documents')
+            ->where('id', $invoiceId)
+            ->where('type', 'invoice')
+            ->where('company_id', $companyId)
+            ->exists()) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Cannot issue another company invoice.');
         }
 
         $existing = $this->persistence->findGrouped($invoiceId, $groupKey);
@@ -71,6 +84,13 @@ final class IssueInvoiceFiscalGroup
             '',
             (string) ($group['codigo_tributacao_nacional'] ?? ''),
         ) ?: '';
+        if (array_key_exists('codigo_tributacao_municipal', $group)) {
+            $payload['codigoTributacaoMunicipal'] = preg_replace(
+                '/\D+/',
+                '',
+                (string) $group['codigo_tributacao_municipal'],
+            ) ?: '';
+        }
         $payload['valorServico'] = trim((string) ($group['amount'] ?? ''));
         $payload['aliquota'] = trim((string) ($group['aliquota'] ?? ''));
         $groupItems = is_array($group['items'] ?? null) ? $group['items'] : [];
@@ -85,18 +105,19 @@ final class IssueInvoiceFiscalGroup
         $payload['numeroDps'] = $identity['number'];
 
         $dps = $this->dpsFactory->make($payload);
-        $remote = $this->issuer->issue($client, $dps);
-        $persisted = $this->persistence->createGrouped(
+        return $this->attempts->issue(
+            client: $client,
+            dps: $dps,
             invoiceId: $invoiceId,
-            receipt: $remote,
-            resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
+            origin: $origin,
             groupKey: $groupKey,
+            transmit: fn (): ReceiptData => $this->issuer->issue($client, $dps),
+            persist: fn (ReceiptData $remote): NfseReceipt => $this->persistence->createGrouped(
+                invoiceId: $invoiceId,
+                receipt: $remote,
+                resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
+                groupKey: $groupKey,
+            ),
         );
-
-        return [
-            'receipt' => $persisted,
-            'remote_receipt' => $remote,
-            'reused' => false,
-        ];
     }
 }

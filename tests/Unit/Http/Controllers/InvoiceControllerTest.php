@@ -181,7 +181,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
-            self::assertStringContainsString(': $this->storeEmittedReceipt($invoice, $receipt);', $content);
+            self::assertStringContainsString('(new EmissionAttemptJournal())->issue(', $content);
+            self::assertStringContainsString(': $this->storeEmittedReceipt($invoice, $authorized),', $content);
             self::assertStringContainsString('(new ReceiptPersistence())->createReplacement(', $content);
             self::assertStringContainsString('$email = $this->preparePostEmitEmail($request, $invoice);', $content);
             self::assertStringContainsString('$this->dispatchPostEmission(', $content);
@@ -4836,21 +4837,15 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->reemit($invoice);
 
             self::assertSame('[0107] Servico Reemissao', $client->capturedDps?->discriminacao);
-            self::assertNotSame('301', $client->capturedDps?->numeroDps);
-            self::assertMatchesRegularExpression('/^[1-9]\d{0,14}$/', $client->capturedDps?->numeroDps ?? '');
+            self::assertSame('9' . str_pad((string) $existingReceipt->id, 14, '0', STR_PAD_LEFT), $client->capturedDps?->numeroDps);
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
-            self::assertSame('emitted', $existingReceipt->status);
-            self::assertSame([
-                [
-                    'nfse_number' => 'NF-RE-301',
-                    'chave_acesso' => 'CHAVE-RE-301',
-                    'data_emissao' => '2026-03-21T18:00:00-03:00',
-                    'codigo_verificacao' => 'RE301',
-                    'status' => 'emitted',
-                    'xml_webdav_path' => null,
-                    'danfse_webdav_path' => null,
-                ],
-            ], $existingReceipt->updatedPayloads);
+            self::assertSame('cancelled', $existingReceipt->status);
+            self::assertSame([], $existingReceipt->updatedPayloads);
+            self::assertCount(2, NfseReceipt::$records);
+            $reissued = NfseReceipt::$records[1];
+            self::assertSame('emitted', $reissued->status);
+            self::assertSame('NF-RE-301', $reissued->nfse_number);
+            self::assertSame('CHAVE-RE-301', $reissued->chave_acesso);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);

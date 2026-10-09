@@ -54,14 +54,20 @@ final class BulkEmissionUnitProcessor
                 unitId: $unitId,
                 target: BulkEmissionStatusPolicy::RETRYABLE_READ_ERROR,
                 errorType: 'network',
-                errorMessage: $e->getMessage(),
+                errorMessage: 'DPS outcome unknown; use read-only reconciliation before retry.',
             );
         } catch (GatewayException $e) {
+            $rejection = (new OfficialIssuanceRejection())->fromException($e);
+
             return $this->state->transition(
                 unitId: $unitId,
-                target: BulkEmissionStatusPolicy::REJECTED,
-                errorType: 'gateway',
-                errorMessage: $e->getMessage(),
+                target: $rejection !== null
+                    ? BulkEmissionStatusPolicy::REJECTED
+                    : BulkEmissionStatusPolicy::RETRYABLE_READ_ERROR,
+                errorType: $rejection !== null ? 'official_rejection' : 'gateway_unconfirmed',
+                errorMessage: $rejection !== null
+                    ? $rejection['code'] . ': ' . $rejection['message']
+                    : 'Unconfirmed SEFIN response; reconcile by DPS, not by another POST.',
             );
         } catch (SecretStoreException|PfxImportException $e) {
             return $this->state->transition(

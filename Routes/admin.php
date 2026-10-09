@@ -10,6 +10,7 @@ use Modules\Nfse\Http\Controllers\AdnController;
 use Modules\Nfse\Http\Controllers\BulkEmissionController;
 use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\ClosingController;
+use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\LegacyInvoiceController;
 use Modules\Nfse\Http\Controllers\SettingsController;
@@ -74,6 +75,9 @@ Route::admin('nfse', function () {
     Route::get('invoices/{invoice}', [LegacyInvoiceController::class, 'show'])->name('invoices.show');
     Route::get('invoices/{invoice}/emit-success', [InvoiceController::class, 'showEmitSuccess'])->name('invoices.emit-success');
     Route::get('invoices/{invoice}/post-emission-status', [InvoiceController::class, 'postEmissionStatus'])->name('invoices.post-emission-status');
+    Route::get('invoices/{invoice}/emission-attempts', [EmissionAttemptController::class, 'index'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('invoices.emission-attempts');
     Route::get('invoices/{invoice}/adn-events', [AdnController::class, 'events'])->name('invoices.adn-events');
     Route::get('invoices/{invoice}/artifacts/{artifact}', [InvoiceController::class, 'downloadArtifact'])->name('invoices.artifacts.download');
     Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])->name('invoices.cancel');

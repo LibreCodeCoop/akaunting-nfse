@@ -12,6 +12,7 @@ use App\Models\Document\Document;
 use Modules\Nfse\Application\BulkEmissionUnitProcessor;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
 use Modules\Nfse\Support\FiscalClientContext;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
@@ -105,11 +106,16 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
         self::assertSame('0107', $client->lastDps?->itemListaServico);
         self::assertSame('010701', $client->lastDps?->codigoTributacaoNacional);
         self::assertSame(1, $closed);
+        $attempt = NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->sole();
+        self::assertSame('automatic', $attempt->origin);
+        self::assertSame('authorized', $attempt->status);
+        self::assertSame((int) $receipt->id, (int) $attempt->receipt_id);
 
         $retry = $issuer->issue((int) $invoice->id, (string) $group['key']);
 
         self::assertSame($receipt->id, $retry->id);
         self::assertSame(1, $client->emits);
+        self::assertSame(1, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
         self::assertSame(1, $closed);
     }
 

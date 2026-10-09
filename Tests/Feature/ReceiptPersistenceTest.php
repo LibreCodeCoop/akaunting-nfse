@@ -37,6 +37,36 @@ final class ReceiptPersistenceTest extends FeatureTestCase
         self::assertSame(str_repeat('2', 50), $second->fresh()->chave_acesso);
     }
 
+    public function testReemissionAfterCancellationKeepsHistoricalReceiptImmutable(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $cancelled = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '99',
+            'chave_acesso' => str_repeat('9', 50),
+            'status' => 'cancelled',
+        ]);
+
+        $new = (new ReceiptPersistence())->createReemitted(
+            (int) $invoice->id,
+            $this->receipt('100', str_repeat('1', 50)),
+            '100',
+        );
+
+        self::assertNotSame($cancelled->id, $new->id);
+        self::assertSame('cancelled', $cancelled->fresh()->status);
+        self::assertSame(str_repeat('9', 50), $cancelled->fresh()->chave_acesso);
+        self::assertSame(2, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
+
+        $retry = (new ReceiptPersistence())->createReemitted(
+            (int) $invoice->id,
+            $this->receipt('100', str_repeat('1', 50)),
+            '100',
+        );
+        self::assertSame($new->id, $retry->id);
+        self::assertSame(2, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
+    }
+
     public function testGroupedFlowCreatesIndependentReceiptPerGroup(): void
     {
         $invoice = Document::factory()->invoice()->create();

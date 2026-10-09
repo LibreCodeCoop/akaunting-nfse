@@ -18,6 +18,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
+use Modules\Nfse\Application\EmissionAttemptJournal;
 use Modules\Nfse\Application\FederalTaxReadiness;
 use Modules\Nfse\Application\FiscalGroupReceiptState;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
@@ -30,6 +31,7 @@ use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\IssqnPayloadResolver;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\IssueInvoiceNfse;
+use Modules\Nfse\Application\OfficialIssuanceRejection;
 use Modules\Nfse\Application\PostEmissionDispatcher;
 use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Application\ReceiptNumberResolver;
@@ -712,7 +714,7 @@ class InvoiceController extends Controller
                     $request,
                     redirect()->route('invoices.show', $invoice)
                         ->with('error', trans('nfse::general.nfse_emit_failed'))
-                        ->with('nfse_gateway_error_detail', $this->gatewayErrorDetail($e)),
+                        ->with('nfse_gateway_error_detail', $this->safeIssuanceDetail($e)),
                 );
             } catch (NetworkException) {
                 return $this->ajaxAwareRedirect(
@@ -763,27 +765,42 @@ class InvoiceController extends Controller
 
         try {
             $client = $this->makeClient($sandbox);
-            $receipt = $substitutionReceipt instanceof NfseReceipt
-                ? (new SubstituteInvoiceNfse())->issue(
-                    client: $client,
-                    replacementDps: $dps,
-                    originalAccessKey: (string) $substitutionReceipt->chave_acesso,
-                )
-                : (new IssueInvoiceNfse())->issue($client, $dps);
+            $issuance = (new EmissionAttemptJournal())->issue(
+                client: $client,
+                dps: $dps,
+                invoiceId: (int) $invoice->id,
+                origin: $substitutionReceipt instanceof NfseReceipt ? 'substitution' : 'manual',
+                persist: fn (ReceiptData $authorized): NfseReceipt => $substitutionReceipt instanceof NfseReceipt
+                    ? (new ReceiptPersistence())->createReplacement(
+                        invoiceId: (int) $invoice->id,
+                        receipt: $authorized,
+                        resolvedNumber: $this->resolveReceiptNfseNumber($authorized),
+                        original: $substitutionReceipt,
+                    )
+                    : $this->storeEmittedReceipt($invoice, $authorized),
+                transmit: fn (): ReceiptData => $substitutionReceipt instanceof NfseReceipt
+                    ? (new SubstituteInvoiceNfse())->issue(
+                        client: $client,
+                        replacementDps: $dps,
+                        originalAccessKey: (string) $substitutionReceipt->chave_acesso,
+                    )
+                    : (new IssueInvoiceNfse())->issue($client, $dps),
+            );
+            $persistedReceipt = $issuance['receipt'];
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
         } catch (GatewayException $e) {
-            $gatewayDetail = $this->gatewayErrorDetail($e);
-            $xmlOrderDebug = $this->dpsXmlOrderDebug($dps);
+            $gatewayDetail = $this->safeIssuanceDetail($e);
 
-            $this->safeLogError('NFS-e issuance rejected by SEFIN', [
-                'invoice_id' => $invoice->id,
-                'http_status' => $e->httpStatus,
-                'upstream_payload' => $e->upstreamPayload,
-                'gateway_detail' => $gatewayDetail,
-                'xml_order_debug' => $xmlOrderDebug,
-            ]);
+            $this->safeLogError(
+                $gatewayDetail !== null ? 'NFS-e issuance rejected by SEFIN' : 'NFS-e issuance result unconfirmed',
+                [
+                    'invoice_id' => $invoice->id,
+                    'http_status' => $e->httpStatus,
+                    'official_code' => (new OfficialIssuanceRejection())->fromException($e)['code'] ?? null,
+                ],
+            );
 
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_emit_failed'))
@@ -799,7 +816,7 @@ class InvoiceController extends Controller
         } catch (NetworkException $e) {
             $this->safeLogError('NFS-e issuance failed after DPS recovery could not resolve the ambiguous outcome', [
                 'invoice_id' => $invoice->id,
-                'message' => $e->getMessage(),
+                'error_class' => $e::class,
                 'dps_recovery_supported' => isset($client) && is_callable([$client, 'queryDps']),
             ]);
 
@@ -813,23 +830,16 @@ class InvoiceController extends Controller
         }
 
         try {
-            $persistedReceipt = $substitutionReceipt instanceof NfseReceipt
-                ? (new ReceiptPersistence())->createReplacement(
-                    invoiceId: (int) $invoice->id,
-                    receipt: $receipt,
-                    resolvedNumber: $this->resolveReceiptNfseNumber($receipt),
-                    original: $substitutionReceipt,
-                )
-                : $this->storeEmittedReceipt($invoice, $receipt);
-
-            $email = $this->preparePostEmitEmail($request, $invoice);
-            $this->dispatchPostEmission(
-                $invoice,
-                $persistedReceipt,
-                $email,
-            );
+            if (!$issuance['reused']) {
+                $email = $this->preparePostEmitEmail($request, $invoice);
+                $this->dispatchPostEmission(
+                    $invoice,
+                    $persistedReceipt,
+                    $email,
+                );
+            }
             $this->markInvoiceSentAfterEmission($invoice);
-            $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($receipt);
+            $resolvedReceiptNumber = trim((string) $persistedReceipt->nfse_number);
             $successMessage = $substitutionReceipt instanceof NfseReceipt
                 ? trans('nfse::general.nfse_substituted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso])
                 : trans('nfse::general.nfse_emitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $receipt->chaveAcesso]);
@@ -1311,21 +1321,33 @@ class InvoiceController extends Controller
 
         try {
             $client = $this->makeClient($sandboxReemit);
-            $newReceipt = $client->emit($dps);
+            $issuance = (new EmissionAttemptJournal())->issue(
+                client: $client,
+                dps: $dps,
+                invoiceId: (int) $invoice->id,
+                origin: 'reemit',
+                persist: fn (ReceiptData $authorized): NfseReceipt => (new ReceiptPersistence())->createReemitted(
+                    invoiceId: (int) $invoice->id,
+                    receipt: $authorized,
+                    resolvedNumber: $this->resolveReceiptNfseNumber($authorized),
+                ),
+                transmit: fn (): ReceiptData => (new IssueInvoiceNfse())->issue($client, $dps),
+            );
+            $persistedReceipt = $issuance['receipt'];
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
         } catch (GatewayException $e) {
-            $gatewayDetail = $this->gatewayErrorDetail($e);
-            $xmlOrderDebug = $this->dpsXmlOrderDebug($dps);
+            $gatewayDetail = $this->safeIssuanceDetail($e);
 
-            $this->safeLogError('NFS-e reissuance rejected by SEFIN', [
-                'invoice_id' => $invoice->id,
-                'http_status' => $e->httpStatus,
-                'upstream_payload' => $e->upstreamPayload,
-                'gateway_detail' => $gatewayDetail,
-                'xml_order_debug' => $xmlOrderDebug,
-            ]);
+            $this->safeLogError(
+                $gatewayDetail !== null ? 'NFS-e reissuance rejected by SEFIN' : 'NFS-e reissuance result unconfirmed',
+                [
+                    'invoice_id' => $invoice->id,
+                    'http_status' => $e->httpStatus,
+                    'official_code' => (new OfficialIssuanceRejection())->fromException($e)['code'] ?? null,
+                ],
+            );
 
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_reemit_failed'))
@@ -1333,7 +1355,7 @@ class InvoiceController extends Controller
         } catch (NetworkException $e) {
             $this->safeLogError('NFS-e reissuance failed due network/transport error', [
                 'invoice_id' => $invoice->id,
-                'message' => $e->getMessage(),
+                'error_class' => $e::class,
             ]);
 
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
@@ -1346,10 +1368,11 @@ class InvoiceController extends Controller
         }
 
         try {
-            $persistedReceipt = $this->storeEmittedReceipt($invoice, $newReceipt, $receipt);
-            $email = $this->preparePostEmitEmail($request, $invoice);
-            $this->dispatchPostEmission($invoice, $persistedReceipt, $email);
-            $resolvedReceiptNumber = $this->resolveReceiptNfseNumber($newReceipt);
+            if (!$issuance['reused']) {
+                $email = $this->preparePostEmitEmail($request, $invoice);
+                $this->dispatchPostEmission($invoice, $persistedReceipt, $email);
+            }
+            $resolvedReceiptNumber = trim((string) $persistedReceipt->nfse_number);
 
             return $this->ajaxAwareRedirect(
                 $request,
@@ -2358,6 +2381,17 @@ class InvoiceController extends Controller
         }
     }
 
+    /**
+     * Only a structured, confirmed issuance rejection may reach the operator.
+     * Generic HTTP responses and raw gateway payloads are never surfaced.
+     */
+    protected function safeIssuanceDetail(GatewayException $exception): ?string
+    {
+        $official = (new OfficialIssuanceRejection())->fromException($exception);
+
+        return $official !== null ? $official['code'] . ' - ' . $official['message'] : null;
+    }
+
     protected function gatewayErrorDetail(GatewayException $exception): ?string
     {
         $payload = $exception->upstreamPayload;
@@ -3213,16 +3247,16 @@ class InvoiceController extends Controller
 
     protected function dpsNumberForReemit(Invoice $invoice): string
     {
-        $base = $this->dpsNumber($invoice);
-        $microtimeDigits = preg_replace('/\D+/', '', sprintf('%.6f', microtime(true))) ?: '';
-        $candidate = $base . substr($microtimeDigits, -8);
-        $digits = preg_replace('/\D+/', '', $candidate) ?: $base;
+        // Stable across a crashed/ambiguous retry. A new cancellation has its
+        // own persisted receipt id, so distinct reemission operations differ.
+        $cancelledReceipt = $this->findReceiptForInvoice($invoice);
+        $receiptId = (int) $cancelledReceipt->id;
 
-        if (strlen($digits) > 15) {
-            $digits = substr($digits, -15);
+        if ($receiptId <= 0 || strlen((string) $receiptId) > 14) {
+            throw new \LogicException('Cancelled receipt cannot be mapped to a stable reemission DPS.');
         }
 
-        return ltrim($digits, '0') !== '' ? ltrim($digits, '0') : '1';
+        return '9' . str_pad((string) $receiptId, 14, '0', STR_PAD_LEFT);
     }
 
     protected function competenceDate(Invoice $invoice): ?string

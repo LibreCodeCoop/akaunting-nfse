@@ -8,9 +8,11 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
+use Illuminate\Auth\Access\AuthorizationException;
 use Modules\Nfse\Application\FiscalGroupDpsIdentity;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -118,6 +120,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
         self::assertSame('60.00', $client->lastDps?->valorServico);
         self::assertSame('0101', $client->lastDps?->itemListaServico);
         self::assertSame('010101', $client->lastDps?->codigoTributacaoNacional);
+        self::assertSame('075', $client->lastDps?->codigoTributacaoMunicipal);
         self::assertSame('Servico fiscal do grupo', $client->lastDps?->discriminacao);
 
         self::assertDatabaseHas('nfse_receipts', [
@@ -126,6 +129,11 @@ final class FiscalGroupResumeTest extends FeatureTestCase
             'nfse_number' => '8001',
             'status' => 'emitted',
         ]);
+
+        $attempt = NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->sole();
+        self::assertSame('manual_group', $attempt->origin);
+        self::assertSame('authorized', $attempt->status);
+        self::assertSame((int) $result['receipt']->id, (int) $attempt->receipt_id);
 
         $retry = (new IssueInvoiceFiscalGroup())->issue(
             $client,
@@ -136,12 +144,60 @@ final class FiscalGroupResumeTest extends FeatureTestCase
 
         self::assertTrue($retry['reused']);
         self::assertSame(1, $client->emits);
+        self::assertSame(1, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
         self::assertSame(
             1,
             NfseReceipt::query()
                 ->where('invoice_id', $invoice->id)
                 ->where('emission_group_key', $groupKey)
                 ->count(),
+        );
+    }
+
+    public function testExistingGroupReceiptCannotBeReadAcrossCompanies(): void
+    {
+        $this->loginAs();
+        $invoice = Document::factory()->invoice()->create(['company_id' => (int) company_id()]);
+        $key = 'service:0107|tax:010701|rate:2.00';
+
+        NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '9901',
+            'chave_acesso' => str_repeat('9', 50),
+            'status' => 'emitted',
+            'emission_group_key' => $key,
+        ]);
+        $invoice->forceFill(['company_id' => (int) company_id() + 1000])->saveQuietly();
+
+        $client = new class () implements NfseClientInterface {
+            public function emit(DpsData $dps): ReceiptData
+            {
+                throw new \LogicException('Must not be posted.');
+            }
+
+            public function query(string $chaveAcesso): ReceiptData
+            {
+                throw new \LogicException('Must not be queried.');
+            }
+
+            public function cancel(string $chaveAcesso, string $motivo): bool
+            {
+                return false;
+            }
+
+            public function getDanfse(string $nfseXml): string
+            {
+                return '';
+            }
+        };
+
+        $this->expectException(AuthorizationException::class);
+
+        (new IssueInvoiceFiscalGroup())->issue(
+            $client,
+            (int) $invoice->id,
+            $this->baseDps(),
+            $this->group($key, '50.00'),
         );
     }
 
@@ -167,6 +223,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
             'item_lista_servico' => str_contains($key, '0101') ? '0101' : '0107',
             'codigo_tributacao_nacional' => str_contains($key, '010101') ? '010101' : '010701',
             'aliquota' => str_contains($key, '3.00') ? '3.00' : '2.00',
+            'codigo_tributacao_municipal' => '075',
             'amount' => $amount,
             'items' => [
                 [
