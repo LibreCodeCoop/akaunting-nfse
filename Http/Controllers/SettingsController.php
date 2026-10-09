@@ -486,7 +486,10 @@ class SettingsController extends Controller
             ], 422);
         }
 
-        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $companyId = $this->municipalCompanyId();
+        if ($companyId <= 0) {
+            return $this->jsonResponse(['message' => 'Municipal company context is unavailable.'], 422);
+        }
         $environment = $this->sandboxModeEnabled() ? 'sandbox' : 'production';
 
         try {
@@ -620,6 +623,11 @@ class SettingsController extends Controller
 
             return $e->upstreamPayload;
         }
+    }
+
+    protected function municipalCompanyId(): int
+    {
+        return function_exists('company_id') ? (int) company_id() : 0;
     }
 
     protected function makeFiscalClientFactory(): FiscalClientFactory
