@@ -1432,8 +1432,9 @@ class InvoiceController extends Controller
         }
 
         $defaultDescription = $this->defaultEmitDescription();
+        $invoiceNotes = $this->normalizeDescriptionText((string) ($invoice->notes ?? ''));
 
-        if ($defaultDescription !== null) {
+        if ($defaultDescription !== null || $invoiceNotes !== null) {
             $serviceDescription = $this->normalizeDescriptionText((string) ($invoice->description ?? ''));
 
             if ($serviceDescription === null && $lineItems !== []) {
@@ -1444,9 +1445,12 @@ class InvoiceController extends Controller
                 $serviceDescription = $this->normalizeDescriptionText(implode(' | ', $invoice->items->pluck('name')->toArray()));
             }
 
-            return $serviceDescription !== null && $serviceDescription !== $defaultDescription
-                ? $serviceDescription . "\n\n" . $defaultDescription
-                : $defaultDescription;
+            $parts = array_values(array_unique(array_filter(
+                [$serviceDescription, $invoiceNotes, $defaultDescription],
+                static fn (?string $part): bool => $part !== null && $part !== '',
+            )));
+
+            return implode("\n\n", $parts);
         }
 
         if ($lineItems !== []) {

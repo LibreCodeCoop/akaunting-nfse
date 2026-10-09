@@ -2608,6 +2608,30 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertTrue($payload['email_defaults']['attach_xml']);
         }
 
+        public function testDiscriminacaoPreservesNativeInvoiceNotes(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Dados para pagamento';
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 153,
+                amount: 31500.0,
+                items: [['name' => 'Analise de sistemas']],
+                description: 'Servico contratado',
+            );
+            $invoice->notes = 'Centro de custo: CGIBR - Assessoria Geral';
+
+            $controller = new class () extends InvoiceController {
+                public function describe(Invoice $invoice): string
+                {
+                    return $this->buildDiscriminacao($invoice, ['Servico do item']);
+                }
+            };
+            self::assertSame(
+                "Servico contratado\n\nCentro de custo: CGIBR - Assessoria Geral\n\nDados para pagamento",
+                $controller->describe($invoice),
+            );
+        }
+
         public function testServicePreviewUsesSavedDefaultDescriptionWhenAvailable(): void
         {
             InvoiceControllerIsolationState::reset();
