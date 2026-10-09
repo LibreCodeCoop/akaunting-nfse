@@ -518,13 +518,12 @@ class Main extends Provider
             }
 
             $catalog = (new Lc116Catalog())->search(null, 400);
-            $nationalServiceCatalog = [];
-            if (is_object($profile) && trim((string) ($profile->codigo_tributacao_nacional ?? '')) !== '') {
-                $saved = (new OfficialDomainCatalog())->nationalService((string) $profile->codigo_tributacao_nacional);
-                if ($saved !== null) {
-                    $nationalServiceCatalog[] = $saved;
-                }
-            }
+            // Native Akaunting selects only search their preloaded options.
+            // Loading just the persisted value makes an unset cTribNac
+            // appear as "No data" even when the official code exists.
+            // ANEXO_B v1.01 has fewer than 500 entries; expose the full
+            // offline catalog so users can choose a valid code directly.
+            $nationalServiceCatalog = (new OfficialDomainCatalog())->searchNationalServices(null, 500);
             $validation = (new ItemFiscalProfileValidator())->validate(
                 is_object($profile) ? (string) ($profile->item_lista_servico ?? '') : null,
                 is_object($profile) ? (string) ($profile->codigo_tributacao_nacional ?? '') : null,

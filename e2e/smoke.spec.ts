@@ -194,6 +194,18 @@ async function openExistingItemFiscalEditor(page: import('@playwright/test').Pag
   await expect(page).toHaveURL(/\/common\/items\/\d+\/edit/);
 }
 
+test('native national tax code dropdown includes official code without prior selection', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+  await openExistingItemFiscalEditor(page);
+  const national = page.locator('akaunting-select[name="nfse_codigo_tributacao_nacional"]');
+  await expect(national).toBeVisible();
+  const options = await national.getAttribute(':options');
+  expect(options).toBeTruthy();
+  const catalog = JSON.parse(options ?? '{}');
+  expect(catalog['010101']).toContain('Análise e desenvolvimento de sistemas');
+  expect(catalog['010601']).toContain('Assessoria e consultoria');
+});
+
 test('tax code assistant searches via debounce and selects both fiscal codes', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
   const requests: string[] = [];
