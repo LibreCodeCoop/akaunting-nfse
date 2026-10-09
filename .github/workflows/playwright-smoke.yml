@@ -45,6 +45,19 @@ jobs:
         with:
           path: akaunting/modules/Nfse
 
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            akaunting/modules/Nfse/package-lock.json
+            akaunting/package-lock.json
+
+      - name: Test smoke environment setup
+        working-directory: akaunting/modules/Nfse
+        run: node --test frontend-tests/playwright-smoke-setup.test.mjs
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -54,18 +67,8 @@ jobs:
           tools: composer
 
       - name: Prepare Akaunting test environment
-        working-directory: akaunting
-        run: |
-          cp .env.testing .env
-          touch database/playwright.sqlite
-          sed -i "s#^DB_CONNECTION=.*#DB_CONNECTION=sqlite#" .env
-          sed -i "s#^DB_DATABASE=.*#DB_DATABASE=${PWD}/database/playwright.sqlite#" .env
-          sed -i "s#^APP_URL=.*#APP_URL=http://127.0.0.1:8082#" .env
-          {
-            echo "MAIL_MAILER=array"
-            echo "MAIL_FROM_ADDRESS=nfse-e2e@example.test"
-            echo 'MAIL_FROM_NAME="NFS-e E2E"'
-          } >> .env
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs prepare-env
 
       - name: Install Akaunting dependencies
         working-directory: akaunting
@@ -85,44 +88,9 @@ jobs:
           php artisan migrate:fresh --force
           php artisan db:seed --class='\Database\Seeds\TestCompany' --force
 
-      - name: Provision deterministic NFS-e test user
-        working-directory: akaunting
-        run: |
-          php artisan nfse:test-user:provision \
-            --company-id=1 \
-            --email=nfse-e2e@example.test \
-            --password=NfseE2E!123456 \
-            --role=admin \
-            --landing-page=dashboard \
-            --json
-
-      - name: Provision deterministic NFS-e fiscal harness
-        working-directory: akaunting
-        env:
-          NFSE_TEST_HARNESS: '1'
-        run: |
-          FIXTURE_JSON="$(php artisan nfse:test-harness:provision \
-            --company-id=1 \
-            --cnpj=11222333000181 \
-            --municipio=3303302 \
-            --item-lista=0107 \
-            --codigo-nacional=010701 \
-            --password=nfse-test-password \
-            --pending-invoice-fixture \
-            --json)"
-          printf '%s\n' "$FIXTURE_JSON"
-          PENDING_INVOICE_ID="$(printf '%s' "$FIXTURE_JSON" | php -r '$payload = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR); echo (int) ($payload["pending_invoice_id"] ?? 0);')"
-          test "$PENDING_INVOICE_ID" -gt 0
-          echo "NFSE_E2E_PENDING_INVOICE_ID=$PENDING_INVOICE_ID" >> "$GITHUB_ENV"
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: |
-            akaunting/modules/Nfse/package-lock.json
-            akaunting/package-lock.json
+      - name: Provision deterministic NFS-e user and fiscal fixtures
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs provision
 
       - name: Cache compiled Akaunting browser assets
         uses: actions/cache@v6
@@ -135,26 +103,9 @@ jobs:
             akaunting/public/css/app.css
           key: akaunting-browser-assets-${{ runner.os }}-${{ hashFiles('akaunting/package-lock.json', 'akaunting/webpack.mix.js', 'akaunting/resources/assets/**') }}
 
-      - name: Prepare Akaunting browser assets before server start
-        working-directory: akaunting
-        run: |
-          missing=0
-          for asset in public/js/auth/common.min.js public/js/common/dashboards.min.js public/js/common/documents.min.js public/js/common/items.min.js; do
-            if [ ! -f "$asset" ]; then
-              missing=1
-            fi
-          done
-
-          if [ "$missing" -ne 0 ]; then
-            npm_bin="$(realpath "$(command -v npm)")"
-            npx --yes node@20 "$npm_bin" ci
-            npx --yes node@20 "$npm_bin" run production
-          fi
-
-          test -f public/js/auth/common.min.js
-          test -f public/js/common/dashboards.min.js
-          test -f public/js/common/documents.min.js
-          test -f public/js/common/items.min.js
+      - name: Prepare Akaunting browser assets
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs assets
 
       - name: Install Playwright
         working-directory: akaunting/modules/Nfse
@@ -163,39 +114,16 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Verify persistent smoke database
-        working-directory: akaunting
-        run: |
-          php artisan tinker --execute='
-            if (!\Illuminate\Support\Facades\Schema::hasTable("users")) { throw new RuntimeException("users table missing from Playwright SQLite database"); }
-            $userModel = user_model_class();
-            if (!$userModel::query()->where("email", "nfse-e2e@example.test")->exists()) { throw new RuntimeException("Playwright test user missing from persistent database"); }
-          '
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs verify-db
 
       - name: Expose module browser assets
-        working-directory: akaunting
-        run: |
-          mkdir -p public/modules
-          ln -sfn "${PWD}/modules/Nfse" public/modules/Nfse
-          test -f public/modules/Nfse/Resources/assets/js/adn-distribution-browser.js
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs expose-assets
 
       - name: Start Akaunting
-        working-directory: akaunting
-        env:
-          NFSE_TEST_HARNESS: '1'
-          NFSE_TEST_CNPJ: '11222333000181'
-          NFSE_TEST_PFX_PASSWORD: 'nfse-test-password'
-        run: |
-          export NFSE_TEST_PFX_PATH="${PWD}/storage/app/nfse/pfx/11222333000181.pfx"
-          nohup php artisan serve --host=127.0.0.1 --port=8082 > storage/logs/playwright-server.log 2>&1 &
-          echo $! > /tmp/akaunting-playwright.pid
-          for attempt in {1..40}; do
-            if curl --fail --silent http://127.0.0.1:8082/auth/login >/dev/null; then
-              exit 0
-            fi
-            sleep 1
-          done
-          cat storage/logs/playwright-server.log
-          exit 1
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs start-server
 
       - name: Run deterministic browser smoke
         working-directory: akaunting/modules/Nfse
@@ -204,9 +132,7 @@ jobs:
           NFSE_E2E_BASE_URL: http://127.0.0.1:8082
           NFSE_E2E_EMAIL: nfse-e2e@example.test
           NFSE_E2E_PASSWORD: 'NfseE2E!123456'
-          NFSE_E2E_PENDING_INVOICE_ID: ${{ env.NFSE_E2E_PENDING_INVOICE_ID }}
-        run: |
-          npx playwright test --project=smoke
+        run: npx playwright test --project=smoke
 
       - name: Upload browser artifacts
         if: failure()

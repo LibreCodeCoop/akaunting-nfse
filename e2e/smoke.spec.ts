@@ -174,7 +174,14 @@ test('post-emission polling unlocks fiscal artifacts after queue completion', as
   await expect(panel.locator('[data-nfse-artifact="danfse"]')).toHaveAttribute('aria-disabled', 'false');
 });
 
-async function openExistingItemFiscalEditor(page: import('@playwright/test').Page): Promise<void> {
+async function openExistingItemFiscalEditor(page: import('@playwright/test').Page, itemId?: string): Promise<void> {
+  const targetId = itemId ?? process.env.NFSE_E2E_VALID_ITEM_ID;
+  if (targetId) {
+    expect(targetId).toMatch(/^\d+$/);
+    await page.goto('/1/common/items/' + targetId + '/edit', { waitUntil: 'domcontentloaded' });
+    await expect(page).toHaveURL(/\/common\/items\/\d+\/edit/);
+    return;
+  }
   // Akaunting's plan-limit middleware redirects /common/items/create in the
   // deterministic CI installation. Editing a seeded item exercises the same
   // fiscal fields without bypassing the application's access controls.
@@ -277,4 +284,101 @@ test('edited fiscal item persists selected LC 116 and cTribNac after reopening',
   await expect(root).toBeVisible();
   await expect.poll(() => valueOf('nfse_codigo_tributacao_nacional')).toBe('010101');
   await expect.poll(() => valueOf('nfse_item_lista_servico')).toBe('lc:0101');
+});
+function fiscalSelectedValue(page: import('@playwright/test').Page, field: string): Promise<string> {
+  return page.locator('[name="' + field + '"]').evaluate(
+    el => (window as any).NfseTaxCodeAssistant.selectedValue(el),
+  );
+}
+
+function waitForItemUpdate(page: import('@playwright/test').Page) {
+  return page.waitForResponse(response =>
+    response.url().includes('/common/items/') && ['POST', 'PATCH', 'PUT'].includes(response.request().method()),
+  );
+}
+
+test('unchanged historical cTribNac survives native save and reopen', async ({ page }, testInfo) => {
+  const itemId = process.env.NFSE_E2E_LEGACY_ITEM_ID ?? '';
+  expect(itemId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await openExistingItemFiscalEditor(page, itemId);
+  const editUrl = page.url();
+
+  // 999999 is deliberately not in the current official national catalog.
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_item_lista_servico')).toBe('lc:0107');
+
+  const saveResponse = waitForItemUpdate(page);
+  await page.locator('form#item button[type="submit"]').last().click();
+  const result = await saveResponse;
+  expect(result.status()).toBe(200);
+  await expect(page).not.toHaveURL(editUrl, { timeout: 15_000 });
+
+  await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_item_lista_servico')).toBe('lc:0107');
+});
+
+test('commercial-only browser edit preserves historical fiscal values', async ({ page }, testInfo) => {
+  const itemId = process.env.NFSE_E2E_LEGACY_ITEM_ID ?? '';
+  expect(itemId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await openExistingItemFiscalEditor(page, itemId);
+  const editUrl = page.url();
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
+
+  const changedName = 'NFSE E2E Updated Commercial Item';
+  await page.locator('input[name="name"]').fill(changedName);
+  const saveResponse = waitForItemUpdate(page);
+  await page.locator('form#item button[type="submit"]').last().click();
+  const result = await saveResponse;
+  expect(result.status()).toBe(200);
+  await expect(page).not.toHaveURL(editUrl, { timeout: 15_000 });
+
+  await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('input[name="name"]')).toHaveValue(changedName);
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_item_lista_servico')).toBe('lc:0107');
+});
+
+test('real fiscal SQL failure shows operator error without committing commercial changes', async ({ page }, testInfo) => {
+  const itemId = process.env.NFSE_E2E_FAILING_ITEM_ID ?? '';
+  expect(itemId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await page.route('**/nfse/national-services?**', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [{ code: '010101', description: 'Serviço de teste' }] }),
+    });
+  });
+
+  await openExistingItemFiscalEditor(page, itemId);
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('010701');
+  await page.locator('input[name="name"]').fill('NFSE E2E Should Roll Back');
+
+  const assistant = page.locator('[data-nfse-tax-code-assistant]');
+  await assistant.locator('[data-nfse-tax-code-query]').fill('010101');
+  await expect(assistant.locator('[data-nfse-tax-code-results] button')).toHaveCount(1);
+  await assistant.locator('[data-nfse-tax-code-results] button').click();
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('010101');
+
+  const failedResponse = waitForItemUpdate(page);
+  // The core's AJAX handler redirects back to edit on persistence failures.
+  const failedNavigation = page.waitForEvent('framenavigated', frame =>
+    frame === page.mainFrame() && frame.url().includes('/common/items/' + itemId + '/edit'),
+  );
+  await page.locator('form#item button[type="submit"]').last().click();
+  const result = await failedResponse;
+  expect(result.status()).toBe(200);
+  await failedNavigation;
+
+  await expect(page.locator('body')).toContainText(
+    /Could not save the item fiscal data|N[aã]o foi poss[ií]vel salvar os dados fiscais/i,
+  );
+  await expect(page.locator('input[name="name"]')).toHaveValue('NFSE E2E Failing Fiscal Item');
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('010701');
 });

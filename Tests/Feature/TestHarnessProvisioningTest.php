@@ -86,6 +86,56 @@ final class TestHarnessProvisioningTest extends FeatureTestCase
         self::assertSame('foreign_taker_requires_review', $blockedResult['reason']);
     }
 
+    public function testAtomicityBrowserFixtureCreatesLegacyItemAndInjectsIsolatedSqlFailure(): void
+    {
+        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() !== 'sqlite') {
+            $this->markTestSkipped('The browser fault fixture is SQLite-only.');
+        }
+
+        \putenv('NFSE_TEST_HARNESS=1');
+
+        $this->artisan('nfse:test-harness:provision', [
+            '--company-id' => (string) $this->company->id,
+            '--item-atomicity-fixture' => true,
+        ])->assertSuccessful();
+
+        $legacy = \App\Models\Common\Item::query()
+            ->where('company_id', $this->company->id)
+            ->where('name', 'NFSE E2E Legacy Fiscal Item')
+            ->firstOrFail();
+        $failing = \App\Models\Common\Item::query()
+            ->where('company_id', $this->company->id)
+            ->where('name', 'NFSE E2E Failing Fiscal Item')
+            ->firstOrFail();
+
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'company_id' => $this->company->id,
+            'item_id' => $legacy->id,
+            'codigo_tributacao_nacional' => '999999',
+        ]);
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'company_id' => $this->company->id,
+            'item_id' => $failing->id,
+            'codigo_tributacao_nacional' => '010701',
+        ]);
+
+        try {
+            \Modules\Nfse\Models\ItemFiscalProfile::query()
+                ->where('company_id', $this->company->id)
+                ->where('item_id', $failing->id)
+                ->update(['codigo_tributacao_nacional' => '010101']);
+            self::fail('Expected the synthetic fiscal UPDATE to fail.');
+        } catch (\Illuminate\Database\QueryException $error) {
+            self::assertStringContainsString('Synthetic fiscal persistence failure', $error->getMessage());
+        }
+
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'company_id' => $this->company->id,
+            'item_id' => $failing->id,
+            'codigo_tributacao_nacional' => '010701',
+        ]);
+    }
+
     public function testProvisionCommandRefusesToRunWithoutExplicitHarnessFlag(): void
     {
         \putenv('NFSE_TEST_HARNESS');

@@ -15,6 +15,7 @@ use App\Models\Document\Document;
 use App\Models\Setting\Category;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
@@ -33,6 +34,7 @@ final class ProvisionTestHarness extends Command
         {--substitution-fixture : Create an emitted invoice fixture for substitution UI tests}
         {--adn-review-fixture : Create a received NFS-e review fixture and explicit accounting mappings}
         {--item-validation-fixture : Create an item with a deterministic valid NFS-e fiscal profile}
+        {--item-atomicity-fixture : Create legacy and rollback browser item fixtures (SQLite only)}
         {--grouped-invoice-fixture : Create an invoice with two persisted fiscal-group receipts}
         {--pending-invoice-fixture : Create a pending invoice for modal accessibility tests}
         {--bulk-emission-fixture : Create deterministic ready and blocked invoices for bulk UI tests}
@@ -84,6 +86,10 @@ final class ProvisionTestHarness extends Command
 
         if ($password === '') {
             return $this->fail('Synthetic PKCS#12 password cannot be empty.');
+        }
+
+        if ((bool) $this->option('item-atomicity-fixture') && DB::connection()->getDriverName() !== 'sqlite') {
+            return $this->fail('The item atomicity browser fixture requires SQLite.');
         }
 
         $directory = storage_path('app/nfse/pfx');
@@ -317,6 +323,49 @@ final class ProvisionTestHarness extends Command
             );
 
             $payload['item_validation_item_id'] = (int) $item->id;
+        }
+
+        if ((bool) $this->option('item-atomicity-fixture')) {
+            // Only active in the deterministic harness: production code has
+            // no special failure-injection hooks.
+            foreach ([
+                'legacy' => ['name' => 'NFSE E2E Legacy Fiscal Item', 'national' => '999999'],
+                'failing' => ['name' => 'NFSE E2E Failing Fiscal Item', 'national' => $codigoNacional],
+            ] as $key => $fixture) {
+                $item = Item::query()
+                    ->where('company_id', $companyId)
+                    ->where('name', $fixture['name'])
+                    ->first();
+
+                if (!$item instanceof Item) {
+                    $item = Item::factory()->enabled()->create([
+                        'company_id' => $companyId,
+                        'name' => $fixture['name'],
+                        'sale_price' => 100.00,
+                    ]);
+                }
+
+                ItemFiscalProfile::query()->updateOrCreate(
+                    ['company_id' => $companyId, 'item_id' => (int) $item->id],
+                    [
+                        'item_lista_servico' => $itemLista,
+                        'codigo_tributacao_nacional' => $fixture['national'],
+                    ],
+                );
+
+                $payload['item_' . $key . '_id'] = (int) $item->id;
+            }
+
+            // Abort the fiscal SQL UPDATE for just this synthetic item after
+            // the commercial UPDATE, proving the native transaction's rollback.
+            DB::unprepared('DROP TRIGGER IF EXISTS nfse_e2e_item_fiscal_failure');
+            DB::unprepared(
+                'CREATE TRIGGER nfse_e2e_item_fiscal_failure '
+                . 'BEFORE UPDATE ON nfse_item_fiscal_profiles '
+                . 'WHEN NEW.company_id = ' . $companyId
+                . ' AND NEW.item_id = ' . (int) $payload['item_failing_id']
+                . " BEGIN SELECT RAISE(ABORT, 'Synthetic fiscal persistence failure'); END",
+            );
         }
 
         if ((bool) $this->option('adn-review-fixture')) {
