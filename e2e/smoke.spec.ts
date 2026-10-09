@@ -285,3 +285,38 @@ test('edited fiscal item persists selected LC 116 and cTribNac after reopening',
   await expect.poll(() => valueOf('nfse_codigo_tributacao_nacional')).toBe('010101');
   await expect.poll(() => valueOf('nfse_item_lista_servico')).toBe('lc:0101');
 });
+function fiscalSelectedValue(page: import('@playwright/test').Page, field: string): Promise<string> {
+  return page.locator('[name="' + field + '"]').evaluate(
+    el => (window as any).NfseTaxCodeAssistant.selectedValue(el),
+  );
+}
+
+function waitForItemUpdate(page: import('@playwright/test').Page) {
+  return page.waitForResponse(response =>
+    response.url().includes('/common/items/') && ['POST', 'PATCH', 'PUT'].includes(response.request().method()),
+  );
+}
+
+test('unchanged historical cTribNac survives native save and reopen', async ({ page }, testInfo) => {
+  const itemId = process.env.NFSE_E2E_LEGACY_ITEM_ID ?? '';
+  expect(itemId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await openExistingItemFiscalEditor(page, itemId);
+  const editUrl = page.url();
+
+  // 999999 is deliberately not in the current official national catalog.
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_item_lista_servico')).toBe('lc:0107');
+
+  const saveResponse = waitForItemUpdate(page);
+  await page.locator('form#item button[type="submit"]').last().click();
+  const result = await saveResponse;
+  expect(result.status()).toBe(200);
+  expect((await result.json()).success).toBe(true);
+  await expect(page).not.toHaveURL(editUrl, { timeout: 15_000 });
+
+  await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
+  await expect.poll(() => fiscalSelectedValue(page, 'nfse_item_lista_servico')).toBe('lc:0107');
+});
