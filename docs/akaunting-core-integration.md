@@ -3,89 +3,47 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# Akaunting core integration audit
+# Compatibilidade com o Akaunting
 
-This document records the upgrade-sensitive Akaunting integration seams tracked by
-issue #190. The reference core is the Akaunting `main` layout reviewed on
-2026-10-04.
+O módulo integra a emissão NFS-e ao fluxo de documentos e itens do
+Akaunting sem substituir as funções comerciais nativas.
 
-## Invoice send lifecycle
+## Faturas
 
-The native Akaunting Send action is no longer repurposed as a fiscal button.
+A ação nativa **Enviar** continua responsável pela entrega comercial.
+As ações fiscais manuais ficam no painel NFS-e da fatura. Quando a
+política `emit_on_send` está habilitada, o evento nativo
+`DocumentSending` é o ponto de entrada para o preflight e a emissão.
+Falhas fiscais devem interromper o envio comercial quando essa
+política exige emissão prévia; reenvios não devem criar uma nova DPS
+para documento já autorizado.
 
-Fiscal actions live in the NFS-e panel injected into the native invoice page. In
-manual policy mode, the operator emits/re-emits/cancels from that panel while
-Akaunting Send keeps its ordinary customer-delivery semantics.
+## Itens
 
-With `emit_on_send`, the module listens to Akaunting's native
-`DocumentSending` event. Fiscal preflight and issuance therefore happen before
-customer delivery, and a failure aborts the normal send job. Repeated sends reuse
-an already-issued receipt.
-
-The NFS-e custom email path also dispatches `DocumentSending`/`DocumentSent`
-so it cannot bypass the authoritative lifecycle.
-
-## Item create/edit views
-
-Remaining overrides:
+A personalização dos formulários de criação e edição utiliza atualmente
+os adaptadores:
 
 - `Resources/overrides/common/items/create.blade.php`
 - `Resources/overrides/common/items/edit.blade.php`
 
-The only intentional behavioral addition is the NFS-e fiscal-fields partial.
-Current Akaunting item create/edit templates do not expose a Blade stack,
-component slot, event, or module hook at the form-section boundary where a
-module can insert this section.
+São pontos sensíveis a mudanças do template do Akaunting. Se a versão
+suportada passar a oferecer um ponto de extensão oficial para esses
+campos, deve-se preferi-lo aos overrides.
 
-Because no narrower supported seam exists, the overrides remain compatibility
-adapters. Fiscal profile persistence itself does **not** depend on these views.
-Akaunting's native `ItemCreating` and `ItemUpdating` events run *before*
-the transaction in `CreateItem`/`UpdateItem`; the post-save `ItemCreated`
-and `ItemUpdated` events run *after* it. The NFS-e request-scoped listener
-receives the native pre-save event and persists the fiscal profile from Eloquent
-`Item::saved` **inside** the native `DB::transaction`. The `Item::saving`
-hook checks that the native transaction is active and uses the fiscal table's
-connection before commercial persistence. Fiscal exceptions propagate through
-the native transaction, rolling back commercial and fiscal writes and causing
-the native `ajaxDispatch` to return `success: false`, including API/AJAX.
+Persistência e validação de perfil fiscal devem ocorrer no mesmo
+limite transacional dos dados comerciais do item para evitar sucesso
+parcial. Operações que não enviam campos fiscais não devem sobrescrever
+um perfil preexistente. Arquivos e efeitos externos não são revertidos
+por uma transação de banco de dados; jobs assíncronos exigem validação
+do ciclo de vida ao atualizar o Akaunting.
 
-Only explicit fiscal fields in a `ValidatedFiscalItem` request arm the
-persistence listener. Imports, non-HTTP operations, other-company items and
-commercial-only edits must not trigger fiscal changes. `ItemFiscalProfileInput`
-continues to preserve unchanged historical codes, omitted fiscal fields, RTC
-category and explicit removal. A transaction protects database writes only:
-native image/filesystem side effects cannot be rolled back, and queue settings
-must be assessed when upgrading Akaunting. In particular, jobs dispatched
-asynchronously may need a separately supported integration boundary; do not
-claim their external effects are atomic.
+## Verificação antes de atualizar o núcleo
 
-When Akaunting exposes a form-extension seam, these two overrides should be
-removed rather than kept in sync indefinitely.
+1. Compare os adaptadores de item com os templates da versão de destino.
+2. Reavalie eventos e transações das ações nativas de itens/documentos.
+3. Verifique permissões, isolamento entre empresas e funcionamento da fila.
+4. Execute testes de integração com Akaunting e os cenários determinísticos
+   de navegador antes de aprovar o upgrade.
 
-## Document send components
-
-The module no longer overrides Akaunting's
-`components/documents/show/send.blade.php` or `more-buttons.blade.php`.
-Those compatibility overrides became unnecessary once manual fiscal actions
-moved into the native fiscal panel and automatic issuance moved into
-`DocumentSending`.
-
-This restores core Send/Mark Sent behavior and removes an upgrade-sensitive
-template seam.
-
-## Global Blade path
-
-The global override path remains only for the item create/edit compatibility
-files listed above. It must not be used for new small UI additions. New
-integrations should prefer Akaunting events, jobs, stacks, components, or scoped
-view composers.
-
-## Upgrade checklist
-
-For each supported Akaunting upgrade:
-
-1. compare the two item create/edit overrides with their new core counterparts;
-2. check whether a native form/action extension seam now exists;
-3. remove an override as soon as a narrower seam can preserve behavior;
-4. run Akaunting Feature and deterministic Playwright tiers before accepting the
-   upgrade.
+Registre divergências específicas da versão nas issues e nos PRs.
+Este guia descreve o contrato mantido, não o histórico de auditorias.
