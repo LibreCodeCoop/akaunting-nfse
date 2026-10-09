@@ -54,6 +54,13 @@ valide o painel, a montagem da DPS, consultas, resposta autorizada,
 recuperação de tentativas ambíguas e geração de artefatos em homologação.
 Retire a manutenção somente após os checks de saúde.
 
+### Atualização da DANFSe do portal nacional
+
+O novo layout e a marca oficial NFS-e estão no runtime `nfse-php` e dependem
+da reconstrução completa de `3rdparty/scoped/`. O CI confirma que a identidade
+visual chega ao gerador isolado. A atualização não altera XML autorizado nem
+regenera PDFs já arquivados no WebDAV (caminhos não vazios são preservados).
+
 ## Compatibilidade e retorno
 
 Mudanças nos domínios e estruturas de pré-visualização da NT009 **não**

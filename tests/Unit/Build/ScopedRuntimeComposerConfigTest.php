@@ -193,6 +193,26 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         self::assertSame(0, $lintExitCode, implode("\n", $lintOutput));
     }
 
+    public function testScopedDanfseIncludesTheNationalLogoAndLayout(): void
+    {
+        require_once dirname(__DIR__, 3) . '/3rdparty/scoped/autoload.php';
+
+        $configClass = 'Modules\\Nfse\\Vendor\\LibreCodeCoop\\NfsePHP\\Danfse\\Config\\DanfseConfig';
+        $config = new $configClass();
+        self::assertIsString($config->logoDataUri);
+        self::assertStringStartsWith('data:image/png;base64,', $config->logoDataUri);
+
+        $xml = file_get_contents(dirname(__DIR__, 3) . '/tests/fixtures/nfse_exemplo.xml');
+        self::assertIsString($xml);
+
+        $generatorClass = 'Modules\\Nfse\\Vendor\\LibreCodeCoop\\NfsePHP\\Danfse\\DanfseGenerator';
+        $html = (new $generatorClass())->generateHtml($xml);
+        self::assertStringContainsString('alt="Logo NFS-e"', $html);
+        self::assertStringContainsString('PRESTADOR / FORNECEDOR', $html);
+        self::assertStringContainsString('TRIBUTAÇÃO MUNICIPAL (ISSQN)', $html);
+        self::assertStringContainsString('Nº NFS-e / CHAVE NFS-e', $html);
+    }
+
     public function testScopedDanfseGeneratorRendersPdf(): void
     {
         require_once dirname(__DIR__, 3) . '/3rdparty/scoped/autoload.php';
