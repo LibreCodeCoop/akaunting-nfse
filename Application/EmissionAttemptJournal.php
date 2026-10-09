@@ -123,6 +123,18 @@ final class EmissionAttemptJournal
             }
         }
 
+        // A typed 2xx response is not enough to claim fiscal authorization.
+        // Some gateway/library versions omit nNFSe from JSON and must read
+        // the actual authorized XML. Never persist a receipt without a number
+        // and access key, including when the client was injected by callers.
+        if (trim($remote->chaveAcesso) === '' || (new ReceiptNumberResolver())->resolve($remote) === '') {
+            $this->transition($attempt, self::AMBIGUOUS, ['failure_class' => 'incomplete_receipt']);
+
+            throw new NetworkException(
+                'Incomplete authorized NFS-e receipt; reconcile by DPS before retrying issuance.',
+            );
+        }
+
         try {
             return DB::transaction(function () use ($attempt, $remote, $invoiceId, $persist, $reconciled): array {
                 $receipt = $persist($remote);
