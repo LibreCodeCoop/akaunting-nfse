@@ -174,7 +174,14 @@ test('post-emission polling unlocks fiscal artifacts after queue completion', as
   await expect(panel.locator('[data-nfse-artifact="danfse"]')).toHaveAttribute('aria-disabled', 'false');
 });
 
-async function openExistingItemFiscalEditor(page: import('@playwright/test').Page): Promise<void> {
+async function openExistingItemFiscalEditor(page: import('@playwright/test').Page, itemId?: string): Promise<void> {
+  const targetId = itemId ?? process.env.NFSE_E2E_VALID_ITEM_ID;
+  if (targetId) {
+    expect(targetId).toMatch(/^\d+$/);
+    await page.goto('/1/common/items/' + targetId + '/edit', { waitUntil: 'domcontentloaded' });
+    await expect(page).toHaveURL(/\/common\/items\/\d+\/edit/);
+    return;
+  }
   // Akaunting's plan-limit middleware redirects /common/items/create in the
   // deterministic CI installation. Editing a seeded item exercises the same
   // fiscal fields without bypassing the application's access controls.
