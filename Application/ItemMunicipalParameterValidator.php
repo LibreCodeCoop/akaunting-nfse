@@ -29,6 +29,22 @@ final class ItemMunicipalParameterValidator
             'stale' => (bool) ($meta['stale'] ?? false),
             'fetched_at' => is_scalar($meta['fetched_at'] ?? null) ? trim((string) $meta['fetched_at']) : '',
             'environment' => is_scalar($meta['environment'] ?? null) ? trim((string) $meta['environment']) : '',
+            'queried_municipality' => is_scalar($meta['queried_municipality'] ?? null)
+                ? trim((string) $meta['queried_municipality'])
+                : '',
+            'service_code' => is_scalar($meta['service_code'] ?? null)
+                ? trim((string) $meta['service_code'])
+                : '',
+            'competence' => is_scalar($meta['competence'] ?? null)
+                ? trim((string) $meta['competence'])
+                : '',
+            'company_id' => is_numeric($meta['company_id'] ?? null) ? (int) $meta['company_id'] : 0,
+            'endpoint_responses' => is_array($meta['endpoint_responses'] ?? null)
+                ? $meta['endpoint_responses']
+                : [],
+            'contract_version' => is_string($meta['contract_version'] ?? null)
+                ? $meta['contract_version']
+                : null,
         ];
 
         if ($payload === null) {

@@ -115,9 +115,13 @@ final class ItemMunicipalValidationResolver
                     'fetched_at' => (string) ($snapshot['fetched_at'] ?? ''),
                     'environment' => $environment,
                     'competence' => $competence,
-                    'incidence_municipality' => $municipioIbge,
+                    'queried_municipality' => $municipioIbge,
                     'company_id' => $companyId,
                     'service_code' => $serviceCodes[$itemId] ?? '',
+                    'endpoint_responses' => is_array($snapshot['source_provenance']['endpoints'] ?? null)
+                        ? $snapshot['source_provenance']['endpoints']
+                        : [],
+                    'contract_version' => $snapshot['source_provenance']['contract_version'] ?? null,
                 ],
             );
         }
@@ -217,7 +221,7 @@ final class ItemMunicipalValidationResolver
 
         try {
             $rows = DB::select(
-                'SELECT service_code, payload, fetched_at, competence_date FROM nfse_municipal_parameter_snapshots'
+                'SELECT service_code, payload, fetched_at, competence_date, source_provenance FROM nfse_municipal_parameter_snapshots'
                 . ' WHERE company_id = ? AND environment = ? AND municipio_ibge = ?'
                 . ' AND service_code IN (' . $placeholders . ') AND DATE(competence_date) = ?'
                 . ' ORDER BY competence_date DESC, fetched_at DESC, id DESC',
@@ -244,7 +248,12 @@ final class ItemMunicipalValidationResolver
                 continue;
             }
 
+            $sourceProvenance = is_string($row->source_provenance ?? null)
+                ? json_decode((string) $row->source_provenance, true)
+                : null;
+
             $snapshots[$code] = [
+                'source_provenance' => is_array($sourceProvenance) ? $sourceProvenance : [],
                 'payload' => $payload,
                 'fetched_at' => is_scalar($row->fetched_at ?? null) ? (string) $row->fetched_at : '',
                 'competence_date' => substr((string) ($row->competence_date ?? ''), 0, 10),
