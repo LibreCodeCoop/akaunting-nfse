@@ -693,6 +693,11 @@ class InvoiceController extends Controller
                     invoiceId: (int) $invoice->id,
                     baseDps: $dps,
                     group: $selectedFiscalGroup,
+                    additionalDescription: implode("\n\n", array_values(array_unique(array_filter([
+                        $this->normalizeDescriptionText((string) ($invoice->notes ?? '')),
+                        $this->defaultEmitDescription(),
+                    ], static fn (?string $part): bool => $part !== null && $part !== '')))),
+                    descriptionOverride: $customDiscriminacao,
                 );
 
                 if (!$groupResult['reused'] && $groupResult['remote_receipt'] instanceof ReceiptData) {

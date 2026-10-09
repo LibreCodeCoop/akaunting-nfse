@@ -112,6 +112,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
             (int) $invoice->id,
             $this->baseDps(),
             $this->group($groupKey, '60.00'),
+            additionalDescription: 'Centro de custo: CGIBR - Assessoria Geral',
         );
 
         self::assertFalse($result['reused']);
@@ -121,7 +122,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
         self::assertSame('0101', $client->lastDps?->itemListaServico);
         self::assertSame('010101', $client->lastDps?->codigoTributacaoNacional);
         self::assertSame('075', $client->lastDps?->codigoTributacaoMunicipal);
-        self::assertSame('Servico fiscal do grupo', $client->lastDps?->discriminacao);
+        self::assertSame("Servico fiscal do grupo\n\nCentro de custo: CGIBR - Assessoria Geral", $client->lastDps?->discriminacao);
 
         self::assertDatabaseHas('nfse_receipts', [
             'invoice_id' => $invoice->id,
