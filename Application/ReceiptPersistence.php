@@ -96,7 +96,24 @@ final class ReceiptPersistence
             ->where('emission_group_key', $groupKey)
             ->first();
 
-        return $receipt instanceof NfseReceipt ? $receipt : null;
+        if ($receipt instanceof NfseReceipt) {
+            return $receipt;
+        }
+
+        // A fiscal item may acquire its NBS after an earlier grouped invoice
+        // was authorized. Its new signature must not appear pending merely
+        // because old receipt keys did not contain |nbs:<code>.
+        $legacyKey = preg_replace('/\|nbs:\d{9}$/D', '', $groupKey) ?? $groupKey;
+        if ($legacyKey === $groupKey) {
+            return null;
+        }
+
+        $legacyReceipt = NfseReceipt::query()
+            ->where('invoice_id', $invoiceId)
+            ->where('emission_group_key', $legacyKey)
+            ->first();
+
+        return $legacyReceipt instanceof NfseReceipt ? $legacyReceipt : null;
     }
 
     /**

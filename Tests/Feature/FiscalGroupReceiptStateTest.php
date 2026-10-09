@@ -41,6 +41,33 @@ final class FiscalGroupReceiptStateTest extends FeatureTestCase
         self::assertNull($annotated[1]['receipt_id']);
     }
 
+    public function testAddingNbsNeverResubmitsAlreadyIssuedLegacyGroup(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $legacyKey = 'service:0107|tax:010701|mun:|rate:2.00';
+
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '9003',
+            'chave_acesso' => str_repeat('7', 50),
+            'status' => 'emitted',
+            'emission_group_key' => $legacyKey,
+        ]);
+
+        $groups = [
+            ['key' => $legacyKey . '|nbs:115011000'],
+            ['key' => $legacyKey . '|nbs:115013000'],
+        ];
+
+        $state = new FiscalGroupReceiptState();
+        $annotated = $state->annotate((int) $invoice->id, $groups);
+
+        self::assertTrue($annotated[0]['issued']);
+        self::assertTrue($annotated[1]['issued']);
+        self::assertSame($receipt->id, $annotated[0]['receipt_id']);
+        self::assertSame([], $state->remaining((int) $invoice->id, $groups));
+    }
+
     public function testRemainingReturnsOnlyUnitsWithoutReceipt(): void
     {
         $invoice = Document::factory()->invoice()->create();
