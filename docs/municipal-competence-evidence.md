@@ -103,7 +103,10 @@ MEI / Simples regimes do not create blanket allowance or refusal.
 `ItemMunicipalValidationResolver::resolveMany(..., competence: 'YYYY-MM-DD')`
 queries exact company, sandbox/production, queried IBGE municipality,
 full **nine-digit** code and competence. The item-screen default is **today
-only**, not evidence about any invoice's tax-incidence municipality. The
+only**, not evidence about any invoice's tax-incidence municipality. A cached
+snapshot is flagged stale when its **fetch date** is not today; matching the
+DPS competence alone never proves current freshness. This is an advisory
+cache-recency indicator, **not** an official validity period. The
 rate comparison remains advisory; even a perfect rate match cannot become
 `authorized` or a normative `valid` municipal decision.
 

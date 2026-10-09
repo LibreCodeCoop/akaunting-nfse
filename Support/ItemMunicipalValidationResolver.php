@@ -111,7 +111,7 @@ final class ItemMunicipalValidationResolver
                 is_array($snapshot['payload'] ?? null) ? $snapshot['payload'] : null,
                 [
                     'source' => 'cache',
-                    'stale' => (string) ($snapshot['competence_date'] ?? '') !== $competence,
+                    'stale' => $this->snapshotFetchIsStale((string) ($snapshot['fetched_at'] ?? '')),
                     'fetched_at' => (string) ($snapshot['fetched_at'] ?? ''),
                     'environment' => $environment,
                     'competence' => $competence,
@@ -127,6 +127,17 @@ final class ItemMunicipalValidationResolver
         }
 
         return $results;
+    }
+
+    /**
+     * Cache observation age is independent from the DPS competence.
+     * Exact competence matching does not imply a recently fetched snapshot.
+     */
+    private function snapshotFetchIsStale(string $fetchedAt): bool
+    {
+        $timestamp = strtotime($fetchedAt);
+
+        return $timestamp === false || date('Y-m-d', $timestamp) !== date('Y-m-d');
     }
 
     /**

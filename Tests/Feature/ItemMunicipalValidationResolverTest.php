@@ -68,6 +68,7 @@ final class ItemMunicipalValidationResolverTest extends FeatureTestCase
         self::assertSame('2.00', $february['official_rate']);
         self::assertSame('5.00', $march['official_rate']);
         self::assertSame('2026-02-01', $february['source']['competence']);
+        self::assertTrue($february['source']['stale']);
         self::assertSame('3303302', $february['source']['queried_municipality']);
         self::assertSame('010701123', $february['source']['service_code']);
         self::assertSame((int) $item->company_id, $february['source']['company_id']);
