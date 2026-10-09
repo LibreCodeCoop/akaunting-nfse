@@ -44,6 +44,17 @@ final class ValidatedFiscalItem extends CoreItemRequest
             },
         ];
 
+        $rules['nfse_codigo_nbs'] = [
+            'nullable',
+            function (string $attribute, mixed $value, Closure $fail): void {
+                $code = is_scalar($value) ? trim((string) $value) : '';
+                if (preg_match('/^\d{9}$/D', $code) !== 1
+                    || !(new OfficialDomainCatalog())->hasNbs($code)) {
+                    $fail('Selecione um código NBS válido (9 dígitos) do catálogo oficial NBS 2.0.');
+                }
+            },
+        ];
+
         $rules['nfse_rtc_supply_category'] = [
             'nullable',
             'in:ordinary_lc116,digital_platform,non_iss_intangible,condominium_revenue,lease,residual_service',

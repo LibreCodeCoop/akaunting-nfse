@@ -607,6 +607,10 @@ class InvoiceController extends Controller
             $itemFiscalProfile['aliquota'] ?? null,
         );
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
+        if ($ibsCbsPayload['enabled'] && !(new \Modules\Nfse\Support\NbsEmissionReadiness())->valid((string) ($emissionProfile['codigo_nbs'] ?? ''), true)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.emit_blocked_missing_nbs')));
+        }
         $issqnPayload = $this->issqnPayloadValues();
 
         if (!$foreignTomador['enabled']) {
@@ -630,6 +634,7 @@ class InvoiceController extends Controller
                 'itemListaServico' => (string) $emissionProfile['item_lista_servico'],
                 'codigoTributacaoNacional' => (string) $emissionProfile['codigo_tributacao_nacional'],
                 'codigoTributacaoMunicipal' => (string) ($emissionProfile['codigo_tributacao_municipal'] ?? ''),
+                'codigoNbs' => (string) ($emissionProfile['codigo_nbs'] ?? ''),
                 'valorServico' => number_format($serviceAmount, 2, '.', ''),
                 'aliquota' => (string) $emissionProfile['aliquota'],
                 'discriminacao' => $this->buildDiscriminacao(
@@ -1223,6 +1228,11 @@ class InvoiceController extends Controller
         $serviceAmount = $this->invoiceServiceAmount($invoice);
         $federalPayload = $this->federalPayloadValues($invoice, null, $serviceAmount);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
+        if (($itemFiscalProfile['requires_split'] ?? false) === true) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.reemit_requires_separate_fiscal_groups')));
+        }
+
         // Reemission must not collapse distinct persisted RTC operation types
         // into a synthetic ordinary-LC116 invoice.
         foreach ($this->invoiceFiscalGroups($invoice) as $fiscalGroup) {
@@ -1264,6 +1274,10 @@ class InvoiceController extends Controller
         }
 
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
+        if ($ibsCbsPayload['enabled'] && !(new \Modules\Nfse\Support\NbsEmissionReadiness())->valid((string) ($itemFiscalProfile['codigo_nbs'] ?? ''), true)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.emit_blocked_missing_nbs')));
+        }
 
         $missingAddress = (new TakerAddressReadiness())->missing($tomadorPayload, $ibsCbsPayload);
         if ($missingAddress !== []) {
@@ -1280,6 +1294,7 @@ class InvoiceController extends Controller
             'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'codigoTributacaoMunicipal' => (string) ($itemFiscalProfile['codigo_tributacao_municipal'] ?? ''),
+            'codigoNbs' => (string) ($itemFiscalProfile['codigo_nbs'] ?? ''),
             'valorServico' => number_format($serviceAmount, 2, '.', ''),
             'aliquota' => (string) $itemFiscalProfile['aliquota'],
             'discriminacao' => $this->buildDiscriminacao($invoice, $itemFiscalProfile['line_items'] ?? [], $customDiscriminacao),
@@ -1321,6 +1336,7 @@ class InvoiceController extends Controller
             'ibsCbsClassificacaoTributaria' => $ibsCbsPayload['ibsCbsClassificacaoTributaria'],
             ], array_values(array_filter([
                 'codigoTributacaoMunicipal',
+                $ibsCbsPayload['enabled'] ? 'codigoNbs' : null,
                 $ibsCbsPayload['enabled'] ? 'ibsCbsFinalidade' : null,
                 $ibsCbsPayload['enabled'] ? 'ibsCbsIndFinal' : null,
                 $ibsCbsPayload['enabled'] ? 'ibsCbsCodigoIndicadorOperacao' : null,
@@ -1761,6 +1777,7 @@ class InvoiceController extends Controller
                             'item_lista_servico' => Lc116Code::normalize($profile->item_lista_servico ?? ''),
                             'codigo_tributacao_nacional' => preg_replace('/\D+/', '', (string) ($profile->codigo_tributacao_nacional ?? '')) ?: '',
                             'codigo_tributacao_municipal' => preg_replace('/\D+/', '', (string) ($profile->codigo_tributacao_municipal ?? '')) ?: '',
+                            'codigo_nbs' => trim((string) ($profile->codigo_nbs ?? '')),
                             'rtc_supply_category' => trim((string) ($profile->rtc_supply_category ?? '')),
                         ],
                     ];

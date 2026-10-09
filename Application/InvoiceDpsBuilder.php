@@ -61,6 +61,7 @@ final class InvoiceDpsBuilder
 
         if (($ibsCbs['enabled'] ?? false) === true) {
             $required = array_merge($required, [
+                'codigoNbs',
                 'ibsCbsFinalidade',
                 'ibsCbsIndFinal',
                 'ibsCbsCodigoIndicadorOperacao',
@@ -78,6 +79,7 @@ final class InvoiceDpsBuilder
             'itemListaServico' => $context['itemListaServico'] ?? '',
             'codigoTributacaoNacional' => $context['codigoTributacaoNacional'] ?? '',
             'codigoTributacaoMunicipal' => $context['codigoTributacaoMunicipal'] ?? '',
+            'codigoNbs' => $context['codigoNbs'] ?? '',
             'valorServico' => $context['valorServico'] ?? '',
             'aliquota' => $context['aliquota'] ?? '',
             'discriminacao' => $context['discriminacao'] ?? '',

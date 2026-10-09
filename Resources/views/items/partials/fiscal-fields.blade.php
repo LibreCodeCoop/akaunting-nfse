@@ -68,11 +68,17 @@
         @php($profileServiceCode = (string) ($nfseItemFiscalProfile->item_lista_servico ?? ''))
         @php($profileNationalCode = (string) ($nfseItemFiscalProfile->codigo_tributacao_nacional ?? ''))
         @php($profileMunicipalCode = (string) ($nfseItemFiscalProfile->codigo_tributacao_municipal ?? ''))
+        @php($profileNbsCode = (string) ($nfseItemFiscalProfile->codigo_nbs ?? ''))
         @php($oldServiceCode = old('nfse_item_lista_servico', $profileServiceCode))
         @php($normalizedServiceCode = \Modules\Nfse\Support\Lc116Code::normalize($oldServiceCode))
         @php($selectedServiceOption = $normalizedServiceCode !== '' ? 'lc:' . $normalizedServiceCode : '')
         @php($oldNationalCode = old('nfse_codigo_tributacao_nacional', $profileNationalCode))
         @php($oldMunicipalCode = old('nfse_codigo_tributacao_municipal', $profileMunicipalCode))
+        @php($oldNbsCode = old('nfse_codigo_nbs', $profileNbsCode))
+        @php($nbsOptions = [])
+        @foreach((new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog())->searchNbs() as $entry)
+            @php($nbsOptions[(string) $entry['code']] = $entry['code'] . ' - ' . ($entry['description'] ?: trans('nfse::general.items.codigo_nbs_generic')))
+        @endforeach
         @php($nationalServiceOptions = [])
         @foreach(($nfseNationalServiceCatalog ?? []) as $entry)
             @php($entryCode = preg_replace('/\D+/', '', (string) ($entry['code'] ?? '')) ?? '')
@@ -142,6 +148,22 @@
 
         <div class="sm:col-span-6 -mt-3">
             <p class="text-xs text-gray-500">{{ trans('nfse::general.items.codigo_tributacao_nacional_hint') }}</p>
+        </div>
+
+        <x-form.group.select
+            name="nfse_codigo_nbs"
+            label="{{ trans('nfse::general.items.codigo_nbs') }}"
+            :options="collect($nbsOptions)"
+            :selected="$oldNbsCode"
+            placeholder="{{ trans('nfse::general.items.codigo_nbs_placeholder') }}"
+            searchable
+            sort-options="false"
+            form-group-class="sm:col-span-6"
+            not-required
+        />
+
+        <div class="sm:col-span-6 -mt-3">
+            <p class="text-xs text-gray-500">{{ trans('nfse::general.items.codigo_nbs_hint') }}</p>
         </div>
 
         {{-- Optional catalog navigation. The saved fiscal fields remain Akaunting's native selects. --}}

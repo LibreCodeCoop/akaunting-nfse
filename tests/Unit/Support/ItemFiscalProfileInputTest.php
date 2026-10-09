@@ -154,6 +154,26 @@ final class ItemFiscalProfileInputTest extends TestCase
         ], ItemFiscalProfileInput::fromRequest($request, $existing));
     }
 
+    public function testNbsIsPersistedAndRetainedDuringPartialUpdates(): void
+    {
+        $creation = ItemFiscalProfileInput::fromRequest($this->request([
+            'nfse_item_lista_servico' => '0107',
+            'nfse_codigo_nbs' => '115013000',
+        ]));
+
+        self::assertSame('115013000', $creation['codigo_nbs'] ?? null);
+
+        $update = ItemFiscalProfileInput::fromRequest($this->request([
+            'nfse_codigo_tributacao_municipal' => '001',
+        ]), [
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => null,
+            'codigo_nbs' => '115013000',
+        ]);
+        self::assertSame('115013000', $update['codigo_nbs'] ?? null);
+    }
+
     public function testNonRequestObjectIsIgnored(): void
     {
         self::assertNull(ItemFiscalProfileInput::fromRequest(new \stdClass()));

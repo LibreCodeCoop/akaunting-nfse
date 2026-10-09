@@ -58,6 +58,7 @@ final class NfsePhpRuntimeContractTest extends TestCase
             'ibsCbsCst',
             'ibsCbsClassificacaoTributaria',
             'codigoTributacaoMunicipal',
+            'codigoNbs',
         ] as $requiredField) {
             self::assertContains($requiredField, $parameters, 'Missing nfse-php DpsData field: ' . $requiredField);
         }
@@ -73,6 +74,7 @@ final class NfsePhpRuntimeContractTest extends TestCase
         self::assertTrue(method_exists(NfseClient::class, 'cancel'));
         self::assertTrue(method_exists(NfseClient::class, 'cancelWithReason'));
         self::assertTrue(method_exists(\Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog::class, 'searchNationalServices'));
+        self::assertTrue(method_exists(\Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog::class, 'searchNbs'));
     }
 
     public function testAdnClientExposesDistributionCapabilities(): void

@@ -153,6 +153,44 @@ final class ItemFiscalProfileTest extends FeatureTestCase
         ]);
     }
 
+    public function testOfficialNbsPersistsThroughNativeItemCreation(): void
+    {
+        $request = Item::factory()->enabled()->raw();
+        $request['nfse_item_lista_servico'] = '1.07';
+        $request['nfse_codigo_tributacao_nacional'] = '010701';
+        $request['nfse_codigo_nbs'] = '115013000';
+
+        $this->loginAs()->post(route('items.store'), $request)->assertStatus(200);
+
+        $item = Item::query()
+            ->where('company_id', company_id())
+            ->where('name', $request['name'])
+            ->firstOrFail();
+
+        $this->assertDatabaseHas('nfse_item_fiscal_profiles', [
+            'company_id' => company_id(),
+            'item_id' => $item->id,
+            'codigo_nbs' => '115013000',
+        ]);
+    }
+
+    public function testUnknownNbsIsRejectedBeforeCreatingAnItem(): void
+    {
+        $request = Item::factory()->enabled()->raw();
+        $request['nfse_codigo_nbs'] = '123456789';
+
+        $this->withExceptionHandling();
+        $this->loginAs()
+            ->postJson(route('items.store'), $request)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('nfse_codigo_nbs');
+
+        $this->assertDatabaseMissing('items', [
+            'company_id' => company_id(),
+            'name' => $request['name'],
+        ]);
+    }
+
     public function testUnknownNationalCodeIsRejectedBeforeCreatingAnItem(): void
     {
         $request = Item::factory()->enabled()->raw();
