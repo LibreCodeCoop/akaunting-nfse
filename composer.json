@@ -54,12 +54,14 @@
         "thirdparty:build:prod": [
             "@thirdparty:install",
             "@runtime-tools:install",
-            "@thirdparty:scope"
+            "@thirdparty:scope",
+            "@php scripts/diagnose-danfse-runtime.php"
         ],
         "thirdparty:build": [
             "@thirdparty:install",
             "@dev-tools:install",
-            "@thirdparty:scope"
+            "@thirdparty:scope",
+            "@php scripts/diagnose-danfse-runtime.php"
         ],
         "thirdparty:build:auto": [
             "if [ \"${COMPOSER_DEV_MODE:-1}\" = \"0\" ]; then composer thirdparty:build:prod; else composer thirdparty:build; fi"
