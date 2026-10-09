@@ -8,19 +8,19 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Unit\Build;
 
 use Modules\Nfse\Tests\TestCase;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\Nt009DpsPreview;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\Nt009DpsPreviewData;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\HttpTransportInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\HttpRequestData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\HttpResponseData;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\Nt009DpsPreview;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\Nt009DpsPreviewData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\AdnClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\MunicipalParametersClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NativeStreamTransport;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Support\GzipBase64;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlSignatureVerifier;
 
 /**
