@@ -17,11 +17,13 @@ use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\Lc116Code;
+use Modules\Nfse\Support\MunicipalParameterConsultation;
 use Modules\Nfse\Support\MunicipalParameterSnapshotStore;
 use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\MunicipalParametersConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\QueryException;
@@ -484,7 +486,10 @@ class SettingsController extends Controller
             ], 422);
         }
 
-        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $companyId = $this->municipalCompanyId();
+        if ($companyId <= 0) {
+            return $this->jsonResponse(['message' => 'Municipal company context is unavailable.'], 422);
+        }
         $environment = $this->sandboxModeEnabled() ? 'sandbox' : 'production';
 
         try {
@@ -494,7 +499,7 @@ class SettingsController extends Controller
                 municipioIbge: $municipio,
                 serviceCode: $serviceCode,
                 competence: $competence,
-                fetch: fn (): array => $this->fetchMunicipalParameters($municipio, $serviceCode, $competence),
+                fetch: fn (): array|MunicipalParameterConsultation => $this->fetchMunicipalParameters($municipio, $serviceCode, $competence),
             );
 
             return $this->jsonResponse($resolved);
@@ -515,56 +520,97 @@ class SettingsController extends Controller
     }
 
     /**
-     * @return array{
-     *   municipio_ibge: string,
-     *   service_code: string,
-     *   competence: string,
-     *   convenio: array<string, mixed>,
-     *   aliquota: array<string, mixed>,
-     *   regimes_especiais: array<string, mixed>,
-     *   retencoes: array<string, mixed>
-     * }
+     * @return array<string,mixed>|MunicipalParameterConsultation
      */
-    protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
+    protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array|MunicipalParameterConsultation
     {
         $cnpj = trim((string) setting('nfse.cnpj_prestador', ''));
         if ($cnpj === '') {
             throw new \RuntimeException('Service provider CNPJ is not configured.');
         }
 
-        $context = $this->makeFiscalClientFactory()->municipalParameters($this->sandboxModeEnabled());
+        $sandbox = $this->sandboxModeEnabled();
+        $context = $this->makeFiscalClientFactory()->municipalParameters($sandbox);
 
         try {
             $client = $context->municipalParametersClient();
+            $convenioStatus = null;
+            $aliquotaStatus = null;
+            $regimesStatus = null;
+            $retencoesStatus = null;
 
-            return [
+            // Keep the existing public JSON data contract unchanged. Status
+            // and API provenance are returned separately to the snapshot store.
+            $data = [
                 'municipio_ibge' => $municipio,
                 'service_code' => $serviceCode,
                 'competence' => $competence,
-                'convenio' => $client->convenio($municipio),
+                'convenio' => $this->municipalEndpointResult(
+                    fn (): array => $client->convenio($municipio),
+                    $convenioStatus,
+                ),
                 'aliquota' => $this->municipalEndpointResult(
                     fn (): array => $client->aliquota($municipio, $serviceCode, $competence),
+                    $aliquotaStatus,
                 ),
                 'regimes_especiais' => $this->municipalEndpointResult(
                     fn (): array => $client->regimesEspeciais($municipio, $serviceCode, $competence),
+                    $regimesStatus,
                 ),
                 'retencoes' => $this->municipalEndpointResult(
                     fn (): array => $client->retencoes($municipio, $competence),
+                    $retencoesStatus,
                 ),
             ];
+
+            $baseUrl = (new MunicipalParametersConfig(sandboxMode: $sandbox))->baseUrl;
+            $servicePath = sprintf(
+                '%s.%s.%s.%s',
+                substr($serviceCode, 0, 2),
+                substr($serviceCode, 2, 2),
+                substr($serviceCode, 4, 2),
+                substr($serviceCode, 6, 3),
+            );
+            $root = $baseUrl . '/' . $municipio;
+
+            $endpoints = [];
+            foreach ([
+                'convenio' => [$root . '/convenio', $convenioStatus],
+                'aliquota' => [$root . '/' . $servicePath . '/' . $competence . '/aliquota', $aliquotaStatus],
+                'regimes_especiais' => [$root . '/' . $servicePath . '/' . $competence . '/regimes_especiais', $regimesStatus],
+                'retencoes' => [$root . '/' . $competence . '/retencoes', $retencoesStatus],
+            ] as $name => [$url, $status]) {
+                $endpoints[$name] = [
+                    'source_url' => $url,
+                    // nfse-php returns only a decoded body on success; its
+                    // exact HTTP status cannot be recovered. Do not invent 200.
+                    'http_status' => $status,
+                    'outcome' => $status === 404 ? 'http_404' : 'decoded_response',
+                ];
+            }
+
+            return new MunicipalParameterConsultation($data, [
+                'endpoints' => $endpoints,
+                // The endpoint does not expose a reliable schema version or
+                // validity period in the currently consumed SDK responses.
+                'contract_version' => null,
+                'valid_from' => null,
+                'valid_until' => null,
+            ]);
         } finally {
             $context->close();
         }
     }
 
     /**
-     * Treat official 404 responses as a valid "no parameters published" result.
-     * Other upstream failures must still fail the aggregate query.
+     * A municipal GET returning HTTP 404 is inconclusive, not a refusal.
+     * Other upstream failures still fail the aggregate query, enabling only
+     * an exact-context stale-cache fallback.
      *
      * @param callable(): array<string,mixed> $query
      * @return array<string,mixed>
      */
-    protected function municipalEndpointResult(callable $query): array
+    protected function municipalEndpointResult(callable $query, ?int &$httpStatus = null): array
     {
         try {
             return $query();
@@ -573,8 +619,15 @@ class SettingsController extends Controller
                 throw $e;
             }
 
+            $httpStatus = 404;
+
             return $e->upstreamPayload;
         }
+    }
+
+    protected function municipalCompanyId(): int
+    {
+        return function_exists('company_id') ? (int) company_id() : 0;
     }
 
     protected function makeFiscalClientFactory(): FiscalClientFactory

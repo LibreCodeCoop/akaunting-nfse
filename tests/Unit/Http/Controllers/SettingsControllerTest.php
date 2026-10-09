@@ -1101,6 +1101,41 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('0101', $response->getData(true)['data'][0]['code']);
         }
 
+        public function testMunicipalParametersRejectsMissingCompanyContextBeforeOfficialFetch(): void
+        {
+            ControllerIsolationState::$settings['nfse.municipio_ibge'] = '3303302';
+
+            $controller = new class () extends SettingsController {
+                public bool $queried = false;
+
+                protected function municipalCompanyId(): int
+                {
+                    return 0;
+                }
+
+                protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
+                {
+                    $this->queried = true;
+
+                    return [];
+                }
+
+                protected function jsonResponse(array $payload, int $status = 200): JsonResponse
+                {
+                    return new JsonResponse($payload, $status);
+                }
+            };
+
+            $response = $controller->municipalParameters(new Request([
+                'municipio_ibge' => '3303302',
+                'service_code' => '010701000',
+                'competence' => '2026-10-05',
+            ]));
+
+            self::assertSame(422, $response->getStatusCode());
+            self::assertFalse($controller->queried);
+        }
+
         public function testMunicipalParametersReturnsReadOnlyOfficialDiagnostics(): void
         {
             ControllerIsolationState::$settings['nfse.municipio_ibge'] = '3303302';
@@ -1108,6 +1143,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller = new class () extends SettingsController {
                 /** @var array<string, string> */
                 public array $received = [];
+
+                protected function municipalCompanyId(): int
+                {
+                    return 1;
+                }
 
                 protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
                 {
@@ -1156,6 +1196,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ControllerIsolationState::$settings['nfse.municipio_ibge'] = '3303302';
 
             $controller = new class () extends SettingsController {
+                protected function municipalCompanyId(): int
+                {
+                    return 1;
+                }
+
                 protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
                 {
                     throw new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\QueryException(
