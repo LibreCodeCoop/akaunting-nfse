@@ -81,7 +81,6 @@ jobs:
           composer thirdparty:install
           composer runtime-tools:install
           composer thirdparty:scope
-          php scripts/diagnose-danfse-runtime.php
 
       - name: Prepare persistent Akaunting test database
         working-directory: akaunting

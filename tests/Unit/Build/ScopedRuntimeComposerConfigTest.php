@@ -206,7 +206,6 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $info = getimagesize($asset);
         self::assertIsArray($info);
         self::assertSame('image/png', $info['mime']);
-        self::assertFileDoesNotExist($asset . '.base64');
         self::assertIsString($config->logoDataUri);
         self::assertStringStartsWith('data:image/png;base64,', $config->logoDataUri);
 

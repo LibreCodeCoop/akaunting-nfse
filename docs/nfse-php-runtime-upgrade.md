@@ -5,88 +5,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Atualização do runtime nfse-php
 
-O módulo usa `librecodeoop/nfse-php` sob `3rdparty/`, isolado pelo
-PHP-Scoper. A revisão pretendida é definida em `3rdparty/composer.json`,
-e a revisão instalada é registrada no lock local do mesmo diretório. A
-versão do Akaunting e o `composer.json` da aplicação não substituem esse
-contrato.
+O módulo utiliza `librecodeoop/nfse-php` em `3rdparty/`, isolado pelo
+PHP-Scoper em `3rdparty/scoped/`. A revisão esperada é declarada em
+`3rdparty/composer.json`. O `composer.lock` desse diretório é local e não
+versionado; confirme sua compatibilidade em cada ambiente.
 
-## Procedimento de atualização
+## Atualização
 
-Antes da mudança, revise o PR do módulo, os testes de integração, o backup
-de arquivos/banco e o plano de retorno. Realize o procedimento primeiro em
-homologação, com certificado e ambiente próprios. Pare os workers de fila
-e coloque a aplicação em manutenção durante a troca de código.
-
-Na instalação existente, ajuste o caminho do módulo ao seu ambiente:
+Com os backups conferidos, suspenda emissões e workers. Atualize o código
+do módulo no host e, dentro do contêiner, no diretório
+`/var/www/html/modules/Nfse`, execute:
 
 ```bash
-cd /var/www/html/modules/Nfse
-git fetch origin main
-git pull --ff-only origin main
-
-# Atualize a revisão do pacote e o lock local (não versionado).
-composer install --no-dev --no-scripts --prefer-dist --no-interaction --no-progress
-composer --working-dir=3rdparty update librecodeoop/nfse-php --with-all-dependencies --no-dev --prefer-dist --no-interaction --no-progress --no-scripts
-
-# Atualize as ferramentas de build e regenere a dependência isolada.
-composer runtime-tools:install
-composer thirdparty:scope
-
-# Confira o commit realmente instalado pelo Composer.
+composer thirdparty:build:prod
 composer --working-dir=3rdparty show librecodeoop/nfse-php --format=json
 ```
 
-Confirme também que o arquivo de template e o PNG foram realmente instalados:
+Confirme que `source.reference` corresponde à revisão fixada no manifesto.
+Se o lock local estiver desatualizado, resolva a divergência antes de retomar
+as emissões. O PHP-Scoper reconstrói os arquivos, mas não invalida o OPcache:
+limpe os caches da aplicação e reinicie PHP-FPM e workers.
 
-```bash
-php scripts/diagnose-danfse-runtime.php
-```
+## Documentos históricos e retorno
 
-O diagnóstico é local e somente leitura; não acessa dados fiscais nem emite
-NFS-e. Ele compara o commit do manifesto ao lock do Composer, identifica o
-caminho da classe e o template carregado pelo CLI e verifica o PNG. **Não**
-detecta o OPcache que permanece ativo nos processos PHP-FPM ou workers:
-reinicie ambos após a atualização. Para notas já arquivadas, o WebDAV
-continua entregando o PDF anterior; não reemita para mudar apenas o layout.
+O PDF DANFSe é produzido a partir do XML autorizado. A presença de um caminho
+de PDF no WebDAV preserva o arquivo já armazenado. Para validar alterações
+visuais, gere um novo PDF local de um XML autorizado, sem retransmitir a DPS
+ou sobrescrever automaticamente documentos antigos.
 
-Compare `source.reference` do comando final com a referência fixada
-em `3rdparty/composer.json`. Se divergirem, não retome a emissão:
-investigue e resolva o lock/cache local. Alterar apenas o manifesto
-não recompila `3rdparty/scoped/`.
-
-Na raiz da aplicação, depois de verificar o ambiente:
-
-```bash
-php artisan optimize:clear
-php artisan queue:restart
-```
-
-Reinicie o PHP-FPM e os workers pelo serviço/contêiner apropriado e
-valide o painel, a montagem da DPS, consultas, resposta autorizada,
-recuperação de tentativas ambíguas e geração de artefatos em homologação.
-Retire a manutenção somente após os checks de saúde.
-
-### Atualização da DANFSe do portal nacional
-
-O novo layout e a marca oficial NFS-e estão no runtime `nfse-php` e dependem
-da reconstrução completa de `3rdparty/scoped/`. O CI confirma que a identidade
-visual chega ao gerador isolado. A atualização não altera XML autorizado nem
-regenera PDFs já arquivados no WebDAV (caminhos não vazios são preservados).
-
-## Compatibilidade e retorno
-
-Mudanças nos domínios e estruturas de pré-visualização da NT009 **não**
-autorizam, por si só, a transmissão do novo leiaute. O emissor de produção
-deve usar apenas o contrato efetivamente vigente e aceito pela SEFIN.
-Verifique independentemente o XSD ativo, o ambiente e as condições fiscais
-antes de habilitar um serializador diferente.
-
-Para reverter, restaure o commit anterior **aprovado** do módulo e seu
-conjunto de dependências, regenere `3rdparty/scoped/`, reinicie os
-processos e revalide a aplicação. Guarde os SHAs e backups no registro
-de implantação, não neste guia versionado. Não reverta migrações ou
-retransmita DPS de resultado incerto automaticamente.
-
-Consulte [filas e pós-emissão](queue.md) para o comportamento de workers
-e recuperação.
+Para reverter, restaure uma revisão aprovada do módulo e das dependências,
+reconstrua o runtime e reinicie os processos antes de retomar as emissões.
+Não reverta migrações nem reemita notas automaticamente.
