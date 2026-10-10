@@ -37,6 +37,10 @@ final class InvoiceDpsBuilder
 
         $required = ['codigoTributacaoMunicipal'];
 
+        if (trim((string) ($context['prestadorInscricaoMunicipal'] ?? '')) !== '') {
+            $required[] = 'prestadorInscricaoMunicipal';
+        }
+
         if ($foreignEnabled) {
             $required = array_merge($required, [
                 'tomadorNif',
@@ -85,6 +89,7 @@ final class InvoiceDpsBuilder
             'discriminacao' => $context['discriminacao'] ?? '',
             'prestadorTelefone' => $context['prestadorTelefone'] ?? '',
             'prestadorEmail' => $context['prestadorEmail'] ?? '',
+            'prestadorInscricaoMunicipal' => $context['prestadorInscricaoMunicipal'] ?? '',
             'versaoAplicativo' => substr('LibreCode/' . $this->moduleVersion->get(), 0, 20),
             'documentoTomador' => $foreignEnabled ? '' : ($context['documentoTomador'] ?? ''),
             'nomeTomador' => $context['nomeTomador'] ?? '',

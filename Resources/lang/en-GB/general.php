@@ -508,6 +508,12 @@ return [
     ],
 
     'settings' => [
+        'issuer_company_context' => 'Active Akaunting company',
+        'issuer_company_context_help' => 'Fiscal settings belong to the currently selected company. Switch companies in Akaunting to configure another entity.',
+        'issuer_phone' => 'Provider phone (NFS-e)',
+        'issuer_email' => 'Provider e-mail (NFS-e)',
+        'issuer_municipal_registration' => 'Provider municipal registration',
+        'issuer_municipal_registration_help' => 'Optional; leave blank if the business has no municipal registration. Publishing this value in a DPS requires updated nfse-php.',
         'title'                 => 'NFS-e Settings',
         'cnpj_prestador'        => 'Service Provider CNPJ',
         'cnpj_from_certificate' => 'CNPJ (extracted from certificate)',

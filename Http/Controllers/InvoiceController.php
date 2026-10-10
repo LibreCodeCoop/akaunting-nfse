@@ -632,6 +632,7 @@ class InvoiceController extends Controller
                 'municipioIbge' => $ibge,
                 'prestadorTelefone' => $providerContact['telefone'],
                 'prestadorEmail' => $providerContact['email'],
+                'prestadorInscricaoMunicipal' => trim((string) setting('nfse.prestador_inscricao_municipal', '')),
                 'itemListaServico' => (string) $emissionProfile['item_lista_servico'],
                 'codigoTributacaoNacional' => (string) $emissionProfile['codigo_tributacao_nacional'],
                 'codigoTributacaoMunicipal' => (string) ($emissionProfile['codigo_tributacao_municipal'] ?? ''),
@@ -1268,6 +1269,7 @@ class InvoiceController extends Controller
         }
 
         $sandboxReemit = $this->sandboxModeEnabled();
+        $providerContact = $this->providerContact();
         $tomadorDocument = $this->resolvedTomadorDocument($invoice);
         $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
@@ -1337,6 +1339,9 @@ class InvoiceController extends Controller
             $dps = $this->makeDpsData([
             'cnpjPrestador' => (string) setting('nfse.cnpj_prestador'),
             'municipioIbge' => (string) setting('nfse.municipio_ibge'),
+            'prestadorTelefone' => $providerContact['telefone'],
+            'prestadorEmail' => $providerContact['email'],
+            'prestadorInscricaoMunicipal' => trim((string) setting('nfse.prestador_inscricao_municipal', '')),
             'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'codigoTributacaoMunicipal' => (string) ($itemFiscalProfile['codigo_tributacao_municipal'] ?? ''),
@@ -1382,6 +1387,7 @@ class InvoiceController extends Controller
             'ibsCbsClassificacaoTributaria' => $ibsCbsPayload['ibsCbsClassificacaoTributaria'],
             ], array_values(array_filter([
                 'codigoTributacaoMunicipal',
+                trim((string) setting('nfse.prestador_inscricao_municipal', '')) !== '' ? 'prestadorInscricaoMunicipal' : null,
                 $ibsCbsPayload['enabled'] ? 'codigoNbs' : null,
                 $ibsCbsPayload['enabled'] ? 'ibsCbsFinalidade' : null,
                 $ibsCbsPayload['enabled'] ? 'ibsCbsIndFinal' : null,
@@ -3482,8 +3488,15 @@ class InvoiceController extends Controller
             $company = null;
         }
 
-        $phone = is_object($company) ? trim((string) ($company->phone ?? '')) : '';
-        $email = is_object($company) ? trim((string) ($company->email ?? '')) : '';
+        $phone = trim((string) setting('nfse.prestador_telefone', ''));
+        $email = trim((string) setting('nfse.prestador_email', ''));
+
+        if ($phone === '' && is_object($company)) {
+            $phone = trim((string) ($company->phone ?? ''));
+        }
+        if ($email === '' && is_object($company)) {
+            $email = trim((string) ($company->email ?? ''));
+        }
 
         return [
             'telefone' => preg_replace('/\D+/', '', $phone) ?: '',

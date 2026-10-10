@@ -405,10 +405,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         @csrf
                         @method('PATCH')
 
+                        <div class="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900" data-nfse-active-company="true">
+                            <strong>{{ trans('nfse::general.settings.issuer_company_context') }}:</strong>
+                            {{ company()->name ?? '—' }} (ID {{ company_id() }})
+                            <p class="mt-1 text-xs">{{ trans('nfse::general.settings.issuer_company_context_help') }}</p>
+                        </div>
+
                         <div>
                             <label class="block text-sm font-medium mb-1" for="cnpj_prestador">{{ trans('nfse::general.settings.cnpj_from_certificate') }}</label>
                             <input id="cnpj_prestador" name="nfse[cnpj_prestador]" type="text" class="w-full border rounded px-3 py-2 bg-gray-50 text-gray-500" value="{{ old('nfse.cnpj_prestador', setting('nfse.cnpj_prestador')) }}" readonly>
                             <p class="text-xs text-gray-400 mt-1">{{ trans('nfse::general.cnpj_from_certificate') }}</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-nfse-issuer-identity="true">
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="prestador_telefone">{{ trans('nfse::general.settings.issuer_phone') }}</label>
+                                <input id="prestador_telefone" name="nfse[prestador_telefone]" type="tel" maxlength="25" class="w-full border rounded px-3 py-2"
+                                    value="{{ old('nfse.prestador_telefone', setting('nfse.prestador_telefone', '')) }}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="prestador_email">{{ trans('nfse::general.settings.issuer_email') }}</label>
+                                <input id="prestador_email" name="nfse[prestador_email]" type="email" maxlength="255" class="w-full border rounded px-3 py-2"
+                                    value="{{ old('nfse.prestador_email', setting('nfse.prestador_email', '')) }}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="prestador_inscricao_municipal">{{ trans('nfse::general.settings.issuer_municipal_registration') }}</label>
+                                <input id="prestador_inscricao_municipal" name="nfse[prestador_inscricao_municipal]" type="text" maxlength="15" class="w-full border rounded px-3 py-2"
+                                    value="{{ old('nfse.prestador_inscricao_municipal', setting('nfse.prestador_inscricao_municipal', '')) }}">
+                                <p class="mt-1 text-xs text-gray-600">{{ trans('nfse::general.settings.issuer_municipal_registration_help') }}</p>
+                            </div>
                         </div>
 
                         <div>
