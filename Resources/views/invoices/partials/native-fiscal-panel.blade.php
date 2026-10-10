@@ -137,7 +137,7 @@
                         {{ trans('nfse::general.invoices.access_key') }}:
                         {{ $linkedReceipt->chave_acesso ?: '—' }}
                     </div>
-                    @if(in_array($linkedStatus, ['emitted', 'cancelled', 'substituted'], true))
+                    @if(in_array($linkedStatus, ['cancelled', 'substituted'], true))
                         <details class="mt-2 text-sm" data-nfse-history-artifacts="{{ $linkedReceipt->id }}">
                             <summary class="cursor-pointer text-gray-700">{{ trans('nfse::general.invoices.artifacts_title') }}</summary>
                             <div class="mt-2 flex flex-wrap gap-3">
@@ -167,6 +167,9 @@
                 {{ trans('nfse::general.native_invoice.emit') }}
             </button>
         @else
+            <div class="w-full text-xs text-gray-600" data-nfse-current-artifacts-label>
+                {{ trans('nfse::general.invoices.artifacts_current_receipt', ['number' => $receipt->nfse_number ?: '—']) }}
+            </div>
             @if($danfseReady || $postEmissionActive)
                 <a
                     href="{{ route('nfse.invoices.artifacts.download', [$invoice->id, 'danfse']) }}"
