@@ -107,7 +107,8 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
         self::assertSame('100.00', $client->lastDps?->valorServico);
         self::assertSame('0107', $client->lastDps?->itemListaServico);
         self::assertSame('010701', $client->lastDps?->codigoTributacaoNacional);
-        self::assertStringContainsString('Centro de custo: TESTE-001', (string) $client->lastDps?->discriminacao);
+        self::assertStringNotContainsString('Centro de custo: TESTE-001', (string) $client->lastDps?->discriminacao);
+        self::assertStringContainsString('Consultoria', (string) $client->lastDps?->discriminacao);
         self::assertStringContainsString('Observação geral de faturamento', (string) $client->lastDps?->discriminacao);
         self::assertSame(1, $closed);
         $attempt = NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->sole();
