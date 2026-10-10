@@ -27,9 +27,10 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $view = (string) file_get_contents(dirname(__DIR__, 3) . '/Resources/views/invoices/partials/native-fiscal-panel.blade.php');
 
             self::assertStringContainsString('data-nfse-history-artifacts=', $view);
+            self::assertStringContainsString('data-nfse-current-artifacts-label', $view);
             self::assertStringContainsString("'nfse.ledger.artifacts.download'", $view);
             self::assertStringContainsString("'receipt' => \$linkedReceipt->id", $view);
-            self::assertStringContainsString("['emitted', 'cancelled', 'substituted']", $view);
+            self::assertStringContainsString("['cancelled', 'substituted']", $view);
         }
 
         public function testInvoicesIndexViewKeepsFiltersInPagination(): void
