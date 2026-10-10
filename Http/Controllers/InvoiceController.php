@@ -1478,11 +1478,11 @@ class InvoiceController extends Controller
             $contactId = (int) ($invoice->contact_id ?? 0);
             $companyId = (int) ($invoice->company_id ?? 0);
             if ($contactId <= 0 || $companyId <= 0 || (int) company_id() !== $companyId) {
-                throw new \\InvalidArgumentException('A valid customer from the current company is required.');
+                throw new \InvalidArgumentException('A valid customer from the current company is required.');
             }
             $settingKey = 'nfse.customer_description.' . $companyId . '.' . $contactId;
         } elseif ($scope !== 'general') {
-            throw new \\InvalidArgumentException('Invalid NFS-e description scope.');
+            throw new \InvalidArgumentException('Invalid NFS-e description scope.');
         }
 
         setting([$settingKey => $this->normalizeDescriptionText($rawValue) ?? '']);
