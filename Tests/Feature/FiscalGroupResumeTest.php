@@ -122,7 +122,8 @@ final class FiscalGroupResumeTest extends FeatureTestCase
         self::assertSame('0101', $client->lastDps?->itemListaServico);
         self::assertSame('010101', $client->lastDps?->codigoTributacaoNacional);
         self::assertSame('075', $client->lastDps?->codigoTributacaoMunicipal);
-        self::assertSame("Descrição do item de teste\n\nObservação geral de faturamento", $client->lastDps?->discriminacao);
+        self::assertSame("Servico fiscal do grupo\n\nObservação geral de faturamento", $client->lastDps?->discriminacao);
+        self::assertStringNotContainsString("Descrição do item de teste", (string) $client->lastDps?->discriminacao);
 
         self::assertDatabaseHas('nfse_receipts', [
             'invoice_id' => $invoice->id,
