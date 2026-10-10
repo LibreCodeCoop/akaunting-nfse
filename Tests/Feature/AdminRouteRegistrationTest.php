@@ -56,6 +56,8 @@ final class AdminRouteRegistrationTest extends FeatureTestCase
             'nfse.certificate.upload' => 'permission:update-nfse-settings',
             'nfse.certificate.parse' => 'permission:update-nfse-settings',
             'nfse.certificate.destroy' => 'permission:delete-nfse-settings',
+            'nfse.invoices.emit' => 'permission:update-sales-invoices',
+            'nfse.invoices.refresh-all' => 'permission:update-sales-invoices',
             'nfse.invoices.refresh' => 'permission:update-sales-invoices',
             'nfse.invoices.reemit' => 'permission:update-sales-invoices',
             'nfse.invoices.substitute' => 'permission:update-sales-invoices',

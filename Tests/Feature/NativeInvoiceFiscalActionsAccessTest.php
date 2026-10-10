@@ -33,6 +33,8 @@ final class NativeInvoiceFiscalActionsAccessTest extends FeatureTestCase
             ->assertDontSee('data-nfse-native-substitute="true"', false)
             ->assertDontSee('data-nfse-native-cancel="true"', false);
 
+        $this->post(route('nfse.invoices.emit', $invoice->id))->assertForbidden();
+        $this->post(route('nfse.invoices.refresh-all'))->assertForbidden();
         $this->post(route('nfse.invoices.refresh', $invoice->id))->assertForbidden();
         $this->post(route('nfse.invoices.substitute', $invoice->id))->assertForbidden();
         $this->delete(route('nfse.invoices.cancel', $invoice->id))->assertForbidden();

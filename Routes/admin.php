@@ -75,9 +75,11 @@ Route::admin('nfse', function () {
     // NFS-e issuance
     Route::get('invoices', [LegacyInvoiceController::class, 'index'])->name('invoices.index');
     Route::get('invoices/pending', [LegacyInvoiceController::class, 'pending'])->name('invoices.pending');
-    Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])->name('invoices.emit');
+    Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.emit');
     Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])->name('invoices.service-preview');
-    Route::post('invoices/refresh-all', [InvoiceController::class, 'refreshAll'])->name('invoices.refresh-all');
+    Route::post('invoices/refresh-all', [InvoiceController::class, 'refreshAll'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.refresh-all');
     Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])
         ->middleware('permission:update-sales-invoices')->name('invoices.refresh');
     Route::post('invoices/{invoice}/reemit', [InvoiceController::class, 'reemit'])
