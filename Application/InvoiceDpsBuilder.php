@@ -85,7 +85,7 @@ final class InvoiceDpsBuilder
             'discriminacao' => $context['discriminacao'] ?? '',
             'prestadorTelefone' => $context['prestadorTelefone'] ?? '',
             'prestadorEmail' => $context['prestadorEmail'] ?? '',
-            'versaoAplicativo' => 'LibreCode NFSe ' . $this->moduleVersion->get(),
+            'versaoAplicativo' => substr('LC-NFSe/' . $this->moduleVersion->get(), 0, 20),
             'documentoTomador' => $foreignEnabled ? '' : ($context['documentoTomador'] ?? ''),
             'nomeTomador' => $context['nomeTomador'] ?? '',
             'tomadorCodigoMunicipio' => $foreignEnabled ? '' : ($tomador['codigo_municipio'] ?? ''),
