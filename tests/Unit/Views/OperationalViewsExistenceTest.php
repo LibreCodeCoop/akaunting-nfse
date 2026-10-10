@@ -69,7 +69,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringNotContainsString('data-nfse-current-artifacts-label', $view);
             self::assertStringContainsString("['receipt' => \$linkedReceipt->id, 'artifact' => 'xml']", $view);
             self::assertStringContainsString("['receipt' => \$linkedReceipt->id, 'artifact' => 'danfse']", $view);
-            self::assertStringContainsString("if($danfseReady || $postEmissionActive)", $view);
+            self::assertStringContainsString('if($danfseReady || $postEmissionActive)', $view);
         }
 
         public function testInvoicesIndexViewKeepsFiltersInPagination(): void
