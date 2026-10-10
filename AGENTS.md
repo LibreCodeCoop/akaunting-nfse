@@ -11,7 +11,7 @@ Regras para agentes de IA e contribuições neste módulo do **Akaunting** (escr
 
 - Este é um módulo do Akaunting, não uma biblioteca fiscal PHP autônoma. A API e o protocolo fiscal genérico pertencem a [nfse-php](https://github.com/LibreCodeCoop/nfse-php). Evite duplicar serialização, assinatura e regras de protocolo aqui; use a biblioteca e os contratos públicos.
 - Respeite extensões/eventos oficiais do Akaunting sem alterar arquivos do Core. Minimize overrides de views nativas. Confira a versão de Core realmente integrada antes de propor hooks ou tabelas novos.
-- `document_items.description` é a descrição da linha da fatura; `documents.notes` contém observações da fatura. O nome comercial do item é fallback, não substituto. Mantenha descrição por grupo fiscal isolada e composição deduplicada em componentes testáveis, não em filtros aninhados no controller.
+- `document_items.description` pertence à linha da fatura e nunca deve compor automaticamente a discriminação da NFS-e. O nome comercial do item pode identificar o serviço por padrão; preserve a descrição informada na emissão e as configurações gerais. `documents.notes` contém observações da fatura. Mantenha a composição por grupo fiscal isolada e testável.
 - A inscrição municipal e o nome fiscal do tomador devem vir de cadastros autorizados e permanecer isolados por empresa. Nunca invente dados ausentes, atravesse tenant boundaries ou permita que campos de um cliente apareçam em outro.
 - Trate NFS-e autorizada, fatura financeira, artefato PDF e estados de recuperação como entidades distintas. Resposta fiscal ambígua exige reconciliação, não retransmissão cega; não gere outra NFS-e para testar layout.
 
