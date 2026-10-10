@@ -252,6 +252,7 @@ return [
         'details_title' => 'NFS-e details',
         'receipt_data' => 'NFS-e data',
         'invoice_data' => 'Invoice data',
+        'artifacts_current_receipt' => 'Documents for current NFS-e no. :number',
         'artifacts_title' => 'NFS-e artifacts',
         'artifact_danfse_label' => 'DANFSE (PDF)',
         'artifact_xml_label' => 'NFS-e XML',
