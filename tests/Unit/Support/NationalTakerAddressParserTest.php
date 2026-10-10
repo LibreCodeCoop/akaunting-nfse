@@ -15,19 +15,19 @@ final class NationalTakerAddressParserTest extends TestCase
     public function testParsesOnlyClearlySeparatedStreetNumberComplementAndDistrict(): void
     {
         self::assertSame([
-            'logradouro' => 'Avenida Das Nacoes Unidas',
-            'numero' => '11541',
-            'complemento' => 'Conj 61/62 e 71/72 Andar 6 e 7',
-            'bairro' => 'Brooklin Novo',
+            'logradouro' => 'Rua Ficticia',
+            'numero' => '123',
+            'complemento' => 'Sala 45',
+            'bairro' => 'Bairro Exemplo',
         ], (new NationalTakerAddressParser())->parse(
-            'Avenida Das Nacoes Unidas, 11541, Conj 61/62 e 71/72 Andar 6 e 7, Brooklin Novo',
+            'Rua Ficticia, 123, Sala 45, Bairro Exemplo',
         ));
     }
 
     public function testRefusesAmbiguousFreeFormAddresses(): void
     {
         $parser = new NationalTakerAddressParser();
-        self::assertNull($parser->parse('Avenida Nacoes Unidas 11541 Brooklin Novo'));
+        self::assertNull($parser->parse('Rua Ficticia 123 Bairro Exemplo'));
         self::assertNull($parser->parse('Rua Teste, 3, Sala 2'));
     }
 }

@@ -76,17 +76,17 @@ final class InvoiceTakerResolverTest extends TestCase
             'city' => 'São Paulo',
             'state' => 'São Paulo',
             'zip_code' => '04578-000',
-            'address' => 'Avenida Das Nacoes Unidas, 11541, Conj 61/62 e 71/72 Andar 6 e 7, Brooklin Novo',
+            'address' => 'Rua Ficticia, 123, Sala 45, Bairro Exemplo',
         ];
 
         $payload = (new InvoiceTakerResolver())->payload($contact);
 
         self::assertSame('3550308', $payload['codigo_municipio']);
         self::assertSame('04578000', $payload['cep']);
-        self::assertSame('Avenida Das Nacoes Unidas', $payload['logradouro']);
-        self::assertSame('11541', $payload['numero']);
-        self::assertSame('Conj 61/62 e 71/72 Andar 6 e 7', $payload['complemento']);
-        self::assertSame('Brooklin Novo', $payload['bairro']);
+        self::assertSame('Rua Ficticia', $payload['logradouro']);
+        self::assertSame('123', $payload['numero']);
+        self::assertSame('Sala 45', $payload['complemento']);
+        self::assertSame('Bairro Exemplo', $payload['bairro']);
     }
 
     public function testTextCityWithoutStateDoesNotGuessMunicipality(): void
@@ -94,7 +94,7 @@ final class InvoiceTakerResolverTest extends TestCase
         $payload = (new InvoiceTakerResolver())->payload((object) [
             'city' => 'São Paulo',
             'zip_code' => '04578-000',
-            'address' => 'Avenida Das Nacoes Unidas, 11541, Centro',
+            'address' => 'Rua Ficticia, 123, Centro',
         ]);
         self::assertSame('', $payload['codigo_municipio']);
         self::assertSame('', $payload['cep']);
@@ -105,7 +105,7 @@ final class InvoiceTakerResolverTest extends TestCase
         $payload = (new InvoiceTakerResolver())->payload((object) [
             'city_ibge' => '3550308',
             'zip_code' => '04578-000',
-            'address' => 'Avenida Das Nacoes Unidas 11541 Brooklin Novo',
+            'address' => 'Rua Ficticia 123 Bairro Exemplo',
         ]);
         self::assertSame('3550308', $payload['codigo_municipio']);
         self::assertSame('', $payload['numero']);
