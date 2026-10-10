@@ -66,6 +66,36 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertLessThanOrEqual(20, strlen($dps->versaoAplicativo));
     }
 
+    public function testProviderMunicipalRegistrationIsOptionalWhenNotConfigured(): void
+    {
+        $dps = (new InvoiceDpsBuilder())->build($this->baseContext());
+
+        self::assertSame('', $dps->prestadorInscricaoMunicipal ?? '');
+    }
+
+    public function testConfiguredProviderMunicipalRegistrationIsNeverSilentlyDiscarded(): void
+    {
+        $context = $this->baseContext();
+        $context['prestadorInscricaoMunicipal'] = '123456';
+
+        if ((new \ReflectionMethod(\Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData::class, '__construct'))
+            ->getParameters() !== []) {
+            $supported = array_map(
+                static fn (\ReflectionParameter $p): string => $p->getName(),
+                (new \ReflectionMethod(\Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData::class, '__construct'))->getParameters(),
+            );
+            if (in_array('prestadorInscricaoMunicipal', $supported, true)) {
+                $dps = (new InvoiceDpsBuilder())->build($context);
+                self::assertSame('123456', $dps->prestadorInscricaoMunicipal);
+                return;
+            }
+        }
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('prestadorInscricaoMunicipal');
+        (new InvoiceDpsBuilder())->build($context);
+    }
+
     public function testMapsEnabledIbsCbsPayloadIntoDps(): void
     {
         $context = $this->baseContext();
