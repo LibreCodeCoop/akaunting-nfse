@@ -41,6 +41,8 @@ final class IssueInvoiceFiscalGroup
         DpsData $baseDps,
         array $group,
         string $origin = 'manual_group',
+        ?string $additionalDescription = null,
+        ?string $descriptionOverride = null,
     ): array {
         $groupKey = trim((string) ($group['key'] ?? ''));
         $category = trim((string) ($group['rtc_supply_category'] ?? ''));
@@ -101,12 +103,10 @@ final class IssueInvoiceFiscalGroup
         $payload['valorServico'] = trim((string) ($group['amount'] ?? ''));
         $payload['aliquota'] = trim((string) ($group['aliquota'] ?? ''));
         $groupItems = is_array($group['items'] ?? null) ? $group['items'] : [];
-        $payload['discriminacao'] = implode(
-            ' | ',
-            array_values(array_filter(array_map(
-                static fn (array $item): string => trim((string) ($item['name'] ?? '')),
-                $groupItems,
-            ), static fn (string $line): bool => $line !== '')),
+        $payload['discriminacao'] = (new FiscalDescriptionComposer())->group(
+            $groupItems,
+            $additionalDescription,
+            $descriptionOverride,
         );
         $payload['serie'] = $identity['series'];
         $payload['numeroDps'] = $identity['number'];

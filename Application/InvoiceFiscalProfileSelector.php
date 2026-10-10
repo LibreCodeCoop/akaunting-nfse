@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Application;
 
+use Modules\Nfse\Support\InvoiceItemDescription;
 use Modules\Nfse\Support\Lc116Code;
 
 /**
@@ -46,7 +47,7 @@ final class InvoiceFiscalProfileSelector
 
         foreach ($items as $item) {
             $itemId = is_numeric($item['item_id'] ?? null) ? (int) $item['item_id'] : 0;
-            $itemName = trim((string) ($item['name'] ?? ''));
+            $itemName = InvoiceItemDescription::fromItem($item);
             $itemName = $itemName !== '' ? $itemName : $unnamedItemLabel;
 
             $profile = $itemId > 0 ? ($profileMap[$itemId] ?? null) : null;

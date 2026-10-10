@@ -1074,7 +1074,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 contactPhone: '',
                 contactEmail: '',
             );
-            $invoice->contact_name = 'Assessoria Snapshot';
+            $invoice->contact_name = 'Empresa Exemplo';
             $invoice->contact_tax_number = '99887766000155';
             $invoice->contact_address = 'Rua do Snapshot, 100';
             $invoice->contact_zip_code = '24020-077';
@@ -1127,7 +1127,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller->emit($invoice);
 
             self::assertSame('99887766000155', $client->capturedDps?->documentoTomador);
-            self::assertSame('Assessoria Snapshot', $client->capturedDps?->nomeTomador);
+            self::assertSame('Empresa Exemplo', $client->capturedDps?->nomeTomador);
             self::assertSame('3303302', $client->capturedDps?->tomadorCodigoMunicipio);
             self::assertSame('24020077', $client->capturedDps?->tomadorCep);
             self::assertSame('Rua do Snapshot, 100', $client->capturedDps?->tomadorLogradouro);
@@ -2606,6 +2606,30 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertFalse($payload['email_defaults']['attach_danfse']);
             self::assertTrue($payload['email_defaults']['attach_xml']);
+        }
+
+        public function testDiscriminacaoPreservesNativeInvoiceNotes(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Dados para pagamento';
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 7,
+                amount: 123.45,
+                items: [['name' => 'Analise de sistemas']],
+                description: 'Servico contratado',
+            );
+            $invoice->notes = 'Centro de custo: TESTE-001';
+
+            $controller = new class () extends InvoiceController {
+                public function describe(Invoice $invoice): string
+                {
+                    return $this->buildDiscriminacao($invoice, ['Servico do item']);
+                }
+            };
+            self::assertSame(
+                "Servico contratado\n\nCentro de custo: TESTE-001\n\nDados para pagamento",
+                $controller->describe($invoice),
+            );
         }
 
         public function testServicePreviewUsesSavedDefaultDescriptionWhenAvailable(): void
@@ -4101,10 +4125,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $response = $controller->index(new Request(['search' => '  "Assessoria"  ']));
+            $response = $controller->index(new Request(['search' => '  "Empresa Exemplo"  ']));
 
-            self::assertSame('Assessoria', $controller->capturedSearch);
-            self::assertSame('Assessoria', $response->data['search'] ?? null);
+            self::assertSame('Empresa Exemplo', $controller->capturedSearch);
+            self::assertSame('Empresa Exemplo', $response->data['search'] ?? null);
             self::assertSame(['quoted-search'], $response->data['receipts'] ?? null);
         }
 

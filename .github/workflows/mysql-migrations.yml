@@ -22,6 +22,8 @@ jobs:
     timeout-minutes: 10
     services:
       mysql:
+        # Use the canonical Docker Official Image; the earlier pull limit
+        # alone does not justify changing the registry for all CI runs.
         image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: migration-tests

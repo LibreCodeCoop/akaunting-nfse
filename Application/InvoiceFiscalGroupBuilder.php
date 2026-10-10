@@ -29,7 +29,7 @@ final class InvoiceFiscalGroupBuilder
      *   codigo_tributacao_municipal:string,
      *   aliquota:string,
      *   amount:string,
-     *   items:list<array{document_item_id:int,item_id:int,name:string,amount:string}>
+     *   items:list<array{document_item_id:int,item_id:int,name:string,description:string,amount:string}>
      * }>
      */
     public function build(
@@ -97,6 +97,7 @@ final class InvoiceFiscalGroupBuilder
                 'document_item_id' => $documentItemId,
                 'item_id' => $itemId,
                 'name' => trim((string) ($item['name'] ?? '')),
+                'description' => trim((string) ($item['description'] ?? '')),
                 'amount' => $this->formatMinor($minor),
             ];
         }

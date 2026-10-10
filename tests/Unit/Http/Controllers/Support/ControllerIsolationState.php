@@ -6,44 +6,7 @@
 declare(strict_types=1);
 
 namespace {
-    if (!class_exists(\App\Abstracts\Http\Controller::class, true)) {
-        eval('namespace App\\Abstracts\\Http; abstract class Controller {}');
-    }
-
-    if (!class_exists(\Modules\Nfse\Http\Controllers\ControllerIsolationFakeApplication::class, false)) {
-        eval('namespace Modules\\Nfse\\Http\\Controllers; final class ControllerIsolationFakeApplication { public function basePath(string $path = ""): string { return rtrim(ControllerIsolationState::$storageRoot, "/") . ($path !== "" ? "/" . ltrim($path, "/") : ""); } }');
-    }
-
-    if (!function_exists('app')) {
-        function app(): \Modules\Nfse\Http\Controllers\ControllerIsolationFakeApplication
-        {
-            return new \Modules\Nfse\Http\Controllers\ControllerIsolationFakeApplication();
-        }
-    }
-
-    if (!class_exists(\Illuminate\Http\Request::class, false)) {
-        eval('namespace Illuminate\\Http; class Request { public function __construct(private array $inputs = [], private array $files = [], private array $serverVars = []) {} public static function create(string $uri, string $method = \'GET\', array $parameters = []): static { return new static($parameters); } public function validate(array $rules): void {} public function input(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } public function has(string $key): bool { return array_key_exists($key, $this->inputs); } public function boolean(string $key, bool $default = false): bool { if (!array_key_exists($key, $this->inputs)) { return $default; } return (bool)(int)$this->inputs[$key]; } public function file(string $key): mixed { return $this->files[$key] ?? null; } public function query(string $key, mixed $default = null): mixed { return $this->inputs[$key] ?? $default; } public function header(string $key, mixed $default = null): mixed { $server = strtoupper(str_replace(\'-\', \'_\', $key)); return $this->serverVars[\'HTTP_\' . $server] ?? $this->serverVars[$server] ?? $default; } public function isXmlHttpRequest(): bool { return ($this->serverVars[\'HTTP_X_REQUESTED_WITH\'] ?? \'\') === \'XMLHttpRequest\'; } }');
-    }
-
-    if (!class_exists(\Illuminate\Http\UploadedFile::class, false)) {
-        eval('namespace Illuminate\\Http; class UploadedFile { public function __construct(private string|false $realPath) {} public function getRealPath(): string|false { return $this->realPath; } }');
-    }
-
-    if (!class_exists(\Illuminate\Http\RedirectResponse::class, false)) {
-        eval('namespace Illuminate\\Http; class RedirectResponse { public bool $withInputCalled = false; public array $flash = []; public ?string $route = null; public ?string $target = null; public array $parameters = []; public function withInput(): self { $this->withInputCalled = true; return $this; } public function with(string $key, mixed $value): self { $this->flash[$key] = $value; return $this; } public function getTargetUrl(): string { if ($this->route !== null) { return \'route://\' . $this->route; } return \'back://\'; } }');
-    }
-
-    if (!class_exists(\Illuminate\Http\JsonResponse::class, false)) {
-        eval('namespace Illuminate\\Http; class JsonResponse { public function __construct(public array $payload = [], public int $status = 200) {} public function getData(bool $assoc = false): object|array { return $assoc ? $this->payload : (object) $this->payload; } public function getStatusCode(): int { return $this->status; } }');
-    }
-
-    if (!class_exists(\Illuminate\View\View::class, false)) {
-        eval('namespace Illuminate\\View; class View { public function __construct(public string $name, public array $data = []) {} }');
-    }
-
-    if (!class_exists(\App\Events\Document\DocumentMarkedSent::class, false)) {
-        eval('namespace App\\Events\\Document; class DocumentMarkedSent { public function __construct(public mixed $document) {} }');
-    }
+    require_once __DIR__ . '/Stubs/bootstrap.php';
 }
 
 namespace Modules\Nfse\Http\Controllers {
@@ -73,61 +36,6 @@ namespace Modules\Nfse\Http\Controllers {
             if (!is_dir(self::$storageRoot)) {
                 mkdir(self::$storageRoot, 0o777, true);
             }
-        }
-    }
-
-    final class ControllerIsolationRedirector
-    {
-        public function back(): \Illuminate\Http\RedirectResponse
-        {
-            $response = new \Illuminate\Http\RedirectResponse();
-            $response->target = 'back';
-
-            return $response;
-        }
-
-        public function route(string $name, mixed ...$parameters): \Illuminate\Http\RedirectResponse
-        {
-            $response = new \Illuminate\Http\RedirectResponse();
-            $response->target = 'route';
-            $response->route = $name;
-            $response->parameters = $parameters;
-
-            return $response;
-        }
-    }
-
-    final class ControllerIsolationFakeSettings
-    {
-        public function forget(string $key): void
-        {
-            unset(ControllerIsolationState::$settings[$key]);
-        }
-
-        public function save(): void
-        {
-            ControllerIsolationState::$savedCount++;
-        }
-    }
-
-    final class ControllerIsolationFakeSession
-    {
-        public function flash(string $key, mixed $value): void
-        {
-            ControllerIsolationState::$sessionFlash[$key] = $value;
-        }
-
-        public function get(string $key, mixed $default = null): mixed
-        {
-            return ControllerIsolationState::$sessionFlash[$key] ?? $default;
-        }
-    }
-
-    final class ControllerIsolationResponseFactory
-    {
-        public function json(array $payload, int $status = 200): \Illuminate\Http\JsonResponse
-        {
-            return new \Illuminate\Http\JsonResponse($payload, $status);
         }
     }
 

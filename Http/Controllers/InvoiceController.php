@@ -20,6 +20,7 @@ use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\EmissionAttemptJournal;
 use Modules\Nfse\Application\FederalTaxReadiness;
+use Modules\Nfse\Application\FiscalDescriptionComposer;
 use Modules\Nfse\Application\FiscalGroupReceiptState;
 use Modules\Nfse\Application\FiscalProfileEmissionReadiness;
 use Modules\Nfse\Application\IbsCbsEmissionReadiness;
@@ -693,6 +694,11 @@ class InvoiceController extends Controller
                     invoiceId: (int) $invoice->id,
                     baseDps: $dps,
                     group: $selectedFiscalGroup,
+                    additionalDescription: (new FiscalDescriptionComposer())->additional(
+                        $this->normalizeDescriptionText((string) ($invoice->notes ?? '')),
+                        $this->defaultEmitDescription(),
+                    ),
+                    descriptionOverride: $customDiscriminacao,
                 );
 
                 if (!$groupResult['reused'] && $groupResult['remote_receipt'] instanceof ReceiptData) {
@@ -1427,35 +1433,15 @@ class InvoiceController extends Controller
      */
     protected function buildDiscriminacao(Invoice $invoice, array $lineItems = [], ?string $customDescription = null): string
     {
-        if ($customDescription !== null) {
-            return $customDescription;
-        }
-
-        $defaultDescription = $this->defaultEmitDescription();
-
-        if ($defaultDescription !== null) {
-            $serviceDescription = $this->normalizeDescriptionText((string) ($invoice->description ?? ''));
-
-            if ($serviceDescription === null && $lineItems !== []) {
-                $serviceDescription = $this->normalizeDescriptionText(implode(' | ', $lineItems));
-            }
-
-            if ($serviceDescription === null) {
-                $serviceDescription = $this->normalizeDescriptionText(implode(' | ', $invoice->items->pluck('name')->toArray()));
-            }
-
-            return $serviceDescription !== null && $serviceDescription !== $defaultDescription
-                ? $serviceDescription . "\n\n" . $defaultDescription
-                : $defaultDescription;
-        }
-
-        if ($lineItems !== []) {
-            return implode(' | ', $lineItems);
-        }
-
-        return implode(' | ', $invoice->items->pluck('name')->toArray())
-            ?: $invoice->description
-            ?: trans('nfse::general.service_default');
+        return (new FiscalDescriptionComposer())->invoice(
+            (string) ($invoice->description ?? ''),
+            $lineItems,
+            $invoice->items->pluck('name')->toArray(),
+            $this->normalizeDescriptionText((string) ($invoice->notes ?? '')),
+            $this->defaultEmitDescription(),
+            $customDescription,
+            trans('nfse::general.service_default'),
+        );
     }
 
     protected function defaultEmitDescription(): ?string

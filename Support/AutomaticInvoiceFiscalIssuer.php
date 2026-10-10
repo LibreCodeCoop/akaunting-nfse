@@ -9,6 +9,7 @@ namespace Modules\Nfse\Support;
 
 use App\Models\Document\Document as Invoice;
 use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
+use Modules\Nfse\Application\FiscalDescriptionComposer;
 use Modules\Nfse\Application\IbsCbsPayloadResolver;
 use Modules\Nfse\Application\InvoiceDpsBuilder;
 use Modules\Nfse\Application\InvoiceDpsIdentity;
@@ -138,6 +139,11 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
         ]);
 
         $providerContact = $this->providerContact();
+        $groupItems = is_array($group['items'] ?? null) ? $group['items'] : [];
+        $description = (new FiscalDescriptionComposer())->group(
+            $groupItems,
+            (string) ($invoice->notes ?? ''),
+        );
 
         $baseDps = $this->dpsBuilder->build([
             'cnpjPrestador' => $cnpj,
@@ -150,7 +156,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             'codigoNbs' => (string) ($group['codigo_nbs'] ?? ''),
             'valorServico' => number_format($amount, 2, '.', ''),
             'aliquota' => (string) ($group['aliquota'] ?? ''),
-            'discriminacao' => $this->description($group),
+            'discriminacao' => $description,
             'documentoTomador' => $this->taker->document($invoice),
             'nomeTomador' => $this->taker->name($invoice),
             'tomador' => $this->taker->payload($invoice->contact ?? null, $invoice),
@@ -174,6 +180,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
                 $baseDps,
                 $group,
                 'automatic',
+                descriptionOverride: $description,
             );
 
             return $result['receipt'];
@@ -228,14 +235,4 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
         return ($this->settingResolver)($key, $default);
     }
 
-    /** @param array<string,mixed> $group */
-    private function description(array $group): string
-    {
-        $items = is_array($group['items'] ?? null) ? $group['items'] : [];
-
-        return implode(' | ', array_values(array_filter(array_map(
-            static fn (array $item): string => trim((string) ($item['name'] ?? '')),
-            $items,
-        ), static fn (string $name): bool => $name !== '')));
-    }
 }
