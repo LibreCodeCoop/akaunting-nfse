@@ -47,6 +47,25 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertSame('10.00', $dps->federalPiscofinsValorPis);
     }
 
+    public function testDevelopmentVersionRespectsOfficialVerAplicMaximumLength(): void
+    {
+        $manifestPath = tempnam(sys_get_temp_dir(), 'nfse-module-');
+        if ($manifestPath === false) {
+            self::fail('Unable to create temporary manifest.');
+        }
+
+        file_put_contents($manifestPath, json_encode(['version' => 'dev-main'], JSON_THROW_ON_ERROR));
+        try {
+            $dps = (new InvoiceDpsBuilder(moduleVersion: new ModuleVersion($manifestPath)))
+                ->build($this->baseContext());
+        } finally {
+            @unlink($manifestPath);
+        }
+
+        self::assertSame('LC-NFSe/dev-main', $dps->versaoAplicativo);
+        self::assertLessThanOrEqual(20, strlen($dps->versaoAplicativo));
+    }
+
     public function testMapsEnabledIbsCbsPayloadIntoDps(): void
     {
         $context = $this->baseContext();
