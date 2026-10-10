@@ -196,11 +196,7 @@ test('editor event reconciliation runs after component handlers', () => {
     assert.doesNotMatch(source, /\}, true\);\s*\}\);/);
 });
 
-test('substitution AJAX handles success, rejection, duplicate and transport uncertainty', async () => {
-    const previousFetch = globalThis.fetch;
-    const previousFormData = globalThis.FormData;
-    const previousWindow = globalThis.window;
-    const listeners = {};
+function substitutionFixture() {
     const messages = [];
     const button = { disabled: false };
     const form = {
@@ -208,64 +204,80 @@ test('substitution AJAX handles success, rejection, duplicate and transport unce
         dataset: {},
         matches: (selector) => selector === '[data-nfse-substitution-form="true"]',
         querySelector: (selector) => selector === 'button[type="submit"]' ? button : null,
-        appendChild: (message) => messages.push(message),
+        appendChild(message) { messages.push(message); },
     };
-    const doc = {
-        addEventListener(type, callback) { listeners[type] = callback; },
+    const documentRef = {
         createElement() { return { dataset: {}, setAttribute() {}, textContent: '' }; },
-        querySelectorAll() { return []; },
-        getElementById() { return null; },
-        defaultView: {},
     };
     let prevented = 0;
-    let requests = 0;
-    const navigations = [];
     const event = { target: form, preventDefault() { prevented++; } };
-    globalThis.FormData = class { constructor(received) { assert.equal(received, form); } };
-    globalThis.window = { location: { assign: (url) => navigations.push(url) } };
-    try {
-        modal.boot(doc);
-        assert.equal(typeof listeners.submit, 'function');
-        globalThis.fetch = async (url, options) => {
-            requests++;
-            assert.equal(url, form.action);
-            assert.equal(options.method, 'POST');
-            assert.equal(options.credentials, 'same-origin');
-            assert.equal(options.headers['X-Requested-With'], 'XMLHttpRequest');
-            return { ok: true, json: async () => ({ success: true, redirect: '/invoice/1' }) };
-        };
-        await listeners.submit(event);
-        assert.equal(requests, 1);
-        assert.deepEqual(navigations, ['/invoice/1']);
-        assert.equal(button.disabled, false);
+    return { form, button, messages, documentRef, event, prevented: () => prevented };
+}
 
-        globalThis.fetch = async () => {
-            requests++;
-            return { ok: true, json: async () => ({ success: false, message: 'Rejeição fiscal' }) };
-        };
-        await listeners.submit(event);
-        assert.equal(navigations.length, 1);
-        assert.equal(messages.at(-1).textContent, 'Rejeição fiscal');
+const formDataFactory = () => 'test-body';
 
-        form.dataset.nfseSubmitting = 'true';
-        await listeners.submit(event);
-        assert.equal(requests, 2);
-        form.dataset.nfseSubmitting = 'false';
+test('substitution request sends authenticated AJAX and returns success', async () => {
+    const x = substitutionFixture();
+    const result = await modal.requestSubstitution(x.form, async (url, init) => {
+        assert.equal(url, x.form.action);
+        assert.equal(init.method, 'POST');
+        assert.equal(init.credentials, 'same-origin');
+        assert.equal(init.headers['X-Requested-With'], 'XMLHttpRequest');
+        assert.equal(init.body, 'test-body');
+        return { ok: true, json: async () => ({ success: true, redirect: '/invoice/1' }) };
+    }, formDataFactory);
+    assert.deepEqual(result, { kind: 'success', redirect: '/invoice/1' });
+});
 
-        globalThis.fetch = async () => { requests++; throw new Error('connection interrupted'); };
-        await listeners.submit(event);
-        assert.equal(requests, 3);
-        assert.match(messages.at(-1).textContent, /Resultado não confirmado/);
-        assert.equal(navigations.length, 1);
-        assert.equal(button.disabled, false);
-        assert.equal(prevented, 4);
+test('substitution request distinguishes rejection from uncertain responses', async () => {
+    const x = substitutionFixture();
+    assert.deepEqual(await modal.requestSubstitution(x.form,
+        async () => ({ ok: false, json: async () => ({ error: true, message: 'E1235' }) }),
+        formDataFactory), { kind: 'rejected', message: 'E1235' });
+    assert.deepEqual(await modal.requestSubstitution(x.form,
+        async () => ({ ok: false, json: async () => { throw new Error('not JSON'); } }),
+        formDataFactory), { kind: 'uncertain' });
+    assert.deepEqual(await modal.requestSubstitution(x.form,
+        async () => { throw new Error('connection dropped'); }, formDataFactory), { kind: 'uncertain' });
+});
 
-        const unrelated = { target: { matches: () => false }, preventDefault: () => assert.fail('not a fiscal form') };
-        await listeners.submit(unrelated);
-        assert.equal(requests, 3);
-    } finally {
-        globalThis.fetch = previousFetch;
-        globalThis.FormData = previousFormData;
-        globalThis.window = previousWindow;
-    }
+test('substitution controller navigates on success and releases busy state', async () => {
+    const x = substitutionFixture();
+    const navigations = [];
+    const ok = await modal.submitSubstitution(x.event, x.documentRef, {
+        fetchImpl: async () => ({ ok: true, json: async () => ({ success: true, redirect: '/invoice/1' }) }),
+        formDataFactory,
+        navigate: (url) => navigations.push(url),
+    });
+    assert.equal(ok, true);
+    assert.deepEqual(navigations, ['/invoice/1']);
+    assert.equal(x.button.disabled, false);
+    assert.equal(x.form.dataset.nfseSubmitting, 'false');
+    assert.equal(x.prevented(), 1);
+});
+
+test('substitution controller preserves uncertain state without navigation or retry', async () => {
+    const x = substitutionFixture();
+    let requests = 0;
+    const ok = await modal.submitSubstitution(x.event, x.documentRef, {
+        fetchImpl: async () => { requests++; throw new Error('offline'); },
+        formDataFactory,
+        navigate: () => assert.fail('must not navigate'),
+    });
+    assert.equal(ok, false);
+    assert.equal(requests, 1);
+    assert.match(x.messages.at(-1).textContent, /Resultado não confirmado/);
+    assert.equal(x.button.disabled, false);
+});
+
+test('substitution controller blocks duplicates and ignores unrelated forms', async () => {
+    const x = substitutionFixture();
+    x.form.dataset.nfseSubmitting = 'true';
+    let requests = 0;
+    const dependencies = { fetchImpl: async () => { requests++; }, formDataFactory };
+    assert.equal(await modal.submitSubstitution(x.event, x.documentRef, dependencies), false);
+    x.form.dataset.nfseSubmitting = 'false';
+    x.form.matches = () => false;
+    assert.equal(await modal.submitSubstitution(x.event, x.documentRef, dependencies), false);
+    assert.equal(requests, 0);
 });
