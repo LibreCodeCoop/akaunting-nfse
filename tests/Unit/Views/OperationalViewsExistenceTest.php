@@ -72,6 +72,20 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('if($danfseReady || $postEmissionActive)', $view);
         }
 
+        public function testNativeFiscalPanelUsesReadableReceiptHierarchyAndGroupedActions(): void
+        {
+            $view = (string) file_get_contents(dirname(__DIR__, 3) . '/Resources/views/invoices/partials/native-fiscal-panel.blade.php');
+
+            self::assertStringContainsString('receipt_list_title', $view);
+            self::assertStringContainsString('receipt_list_count', $view);
+            self::assertStringContainsString('artifacts_show_documents', $view);
+            self::assertStringContainsString('data-nfse-actions="true"', $view);
+            self::assertStringContainsString('data-nfse-current-artifacts=', $view);
+            self::assertStringContainsString('group-open:rotate-180', $view);
+            self::assertStringContainsString('break-all font-mono', $view);
+            self::assertStringContainsString('data-nfse-receipt-id=', $view);
+        }
+
         public function testInvoicesIndexViewKeepsFiltersInPagination(): void
         {
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
