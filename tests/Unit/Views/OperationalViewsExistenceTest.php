@@ -22,6 +22,16 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/modals/invoices/issue.blade.php');
         }
 
+        public function testHistoricalReceiptsUseReceiptScopedArtifactLinks(): void
+        {
+            $view = (string) file_get_contents(dirname(__DIR__, 3) . '/Resources/views/invoices/partials/native-fiscal-panel.blade.php');
+
+            self::assertStringContainsString('data-nfse-history-artifacts=', $view);
+            self::assertStringContainsString("'nfse.ledger.artifacts.download'", $view);
+            self::assertStringContainsString("'receipt' => \$linkedReceipt->id", $view);
+            self::assertStringContainsString("['emitted', 'cancelled', 'substituted']", $view);
+        }
+
         public function testInvoicesIndexViewKeepsFiltersInPagination(): void
         {
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
