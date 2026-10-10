@@ -35,6 +35,30 @@ final class InvoiceFiscalGroupBuilderTest extends TestCase
         self::assertNotSame($groups[0]['key'], $groups[1]['key']);
     }
 
+    public function testSeparateTaxGroupsRetainOnlyTheirInvoiceLineDescriptions(): void
+    {
+        $groups = (new InvoiceFiscalGroupBuilder())->build(
+            items: [
+                ['id' => 1, 'item_id' => 11, 'name' => 'Serviço A', 'description' => 'Atividade do grupo A', 'total' => '10.00'],
+                ['id' => 2, 'item_id' => 12, 'name' => 'Serviço B', 'description' => 'Atividade do grupo B', 'total' => '20.00'],
+            ],
+            profileMap: [
+                11 => ['item_lista_servico' => '0107', 'codigo_tributacao_nacional' => '010701'],
+                12 => ['item_lista_servico' => '0101', 'codigo_tributacao_nacional' => '010101'],
+            ],
+            taxRateMap: [],
+            defaultServiceCode: '',
+            defaultNationalCode: '',
+            defaultRate: '2.00',
+        );
+
+        self::assertCount(2, $groups);
+        self::assertSame('Atividade do grupo A', $groups[0]['items'][0]['description']);
+        self::assertSame('Atividade do grupo B', $groups[1]['items'][0]['description']);
+        self::assertSame('Serviço A', $groups[0]['items'][0]['name']);
+        self::assertSame('Serviço B', $groups[1]['items'][0]['name']);
+    }
+
     public function testOneFiscalSignatureKeepsAllItemsInOneGroup(): void
     {
         $groups = (new InvoiceFiscalGroupBuilder())->build(
