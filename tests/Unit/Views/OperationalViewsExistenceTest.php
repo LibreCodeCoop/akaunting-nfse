@@ -22,6 +22,19 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/modals/invoices/issue.blade.php');
         }
 
+        public function testDescriptionScopeControlsArePresentInBothEmissionModalPaths(): void
+        {
+            $base = dirname(__DIR__, 3) . '/Resources/views/';
+            $nativeModal = (string) file_get_contents($base . 'modals/invoices/issue.blade.php');
+            $invoiceIndex = (string) file_get_contents($base . 'invoices/index.blade.php');
+
+            self::assertStringContainsString('name="nfse_description_scope"', $nativeModal);
+            self::assertStringContainsString('value="customer"', $nativeModal);
+            self::assertStringContainsString('data-emit-description-scope-input', $invoiceIndex);
+            self::assertStringContainsString('id="nfse_emit_description_scope"', $invoiceIndex);
+            self::assertStringContainsString('descriptionScopeInput.value =', $invoiceIndex);
+        }
+
         public function testInvoicesIndexViewKeepsFiltersInPagination(): void
         {
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';

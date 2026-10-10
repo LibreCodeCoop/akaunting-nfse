@@ -160,6 +160,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_save_default') }}</span>
                         </div>
 
+                        <div class="sm:col-span-6">
+                            <label for="nfse-description-scope" class="block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_scope') }}</label>
+                            <select id="nfse-description-scope" name="nfse_description_scope" class="mt-1 w-full rounded border border-gray-200 px-3 py-2">
+                                <option value="general">{{ trans('nfse::general.invoices.emit_modal_description_scope_general') }}</option>
+                                <option value="customer">{{ trans('nfse::general.invoices.emit_modal_description_scope_customer') }}</option>
+                            </select>
+                        </div>
+
                         <div id="nfse-description-default-hint" class="sm:col-span-6 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
                             {{ trans('nfse::general.invoices.emit_modal_description_save_default_hint') }}
                         </div>
