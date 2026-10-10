@@ -391,6 +391,50 @@
 
         documentRef.__nfseIssueModalBooted = true;
 
+        documentRef.addEventListener('submit', async (event) => {
+            const form = event.target;
+            if (!form?.matches?.('[data-nfse-substitution-form="true"]')) {
+                return;
+            }
+
+            event.preventDefault();
+            if (form.dataset.nfseSubmitting === 'true') {
+                return;
+            }
+            form.dataset.nfseSubmitting = 'true';
+            const button = form.querySelector('button[type="submit"]');
+            if (button) button.disabled = true;
+            const message = documentRef.createElement('p');
+            message.setAttribute('role', 'status');
+            message.className = 'text-sm text-gray-700';
+            form.querySelector('[data-nfse-substitution-message]')?.remove();
+            message.dataset.nfseSubstitutionMessage = 'true';
+            form.appendChild(message);
+            message.textContent = 'Processando solicitação fiscal…';
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    credentials: 'same-origin',
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const payload = await response.json();
+                if (!response.ok || !payload?.success || !payload.redirect) {
+                    message.textContent = String(payload?.message || 'Não foi possível concluir a substituição.');
+                    return;
+                }
+                // Full-page navigation reuses the existing receipt status and bounded polling.
+                window.location.assign(payload.redirect);
+            } catch {
+                // The outcome could be ambiguous. Never automatically resubmit a fiscal operation.
+                message.textContent = 'Resultado não confirmado. Consulte o histórico fiscal antes de tentar novamente.';
+            } finally {
+                form.dataset.nfseSubmitting = 'false';
+                if (button) button.disabled = false;
+            }
+        });
+
         documentRef.addEventListener('click', (event) => {
             const nativeFiscalAction = event.target && event.target.closest
                 ? event.target.closest('[data-nfse-native-emit="true"]')
