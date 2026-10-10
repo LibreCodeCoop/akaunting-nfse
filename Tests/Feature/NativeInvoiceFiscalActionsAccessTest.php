@@ -127,7 +127,7 @@ final class NativeInvoiceFiscalActionsAccessTest extends FeatureTestCase
         self::assertSame('nfse.invoices.show', $controller->redirectTarget($legacy));
     }
 
-    public function testProcessingReceiptStillOffersReadOnlySeFinDataConsultation(): void
+    public function testProcessingReceiptStillOffersSeFinDataSynchronization(): void
     {
         $this->loginAs();
         $invoice = Document::factory()->invoice()->create();
