@@ -17,9 +17,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             {{ trans('nfse::general.adn.title') }}
         </x-link>
 
+        @can('read-nfse-settings')
         <x-link href="{{ route('nfse.settings.edit') }}" id="index-more-actions-open-nfse-settings">
             {{ trans('nfse::general.go_to_settings') }}
         </x-link>
+        @endcan
     </x-slot>
 
     <x-slot name="content">

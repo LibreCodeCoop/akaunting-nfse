@@ -44,6 +44,31 @@ final class AdminRouteRegistrationTest extends FeatureTestCase
         ];
     }
 
+    public function testSensitiveFiscalRoutesEnforcePermissions(): void
+    {
+        $permissions = [
+            'nfse.settings.edit' => 'permission:read-nfse-settings',
+            'nfse.settings.update' => 'permission:update-nfse-settings',
+            'nfse.settings.vault' => 'permission:update-nfse-settings',
+            'nfse.settings.fiscal' => 'permission:update-nfse-settings',
+            'nfse.settings.federal' => 'permission:update-nfse-settings',
+            'nfse.settings.artifacts' => 'permission:update-nfse-settings',
+            'nfse.certificate.upload' => 'permission:update-nfse-settings',
+            'nfse.certificate.parse' => 'permission:update-nfse-settings',
+            'nfse.certificate.destroy' => 'permission:delete-nfse-settings',
+            'nfse.invoices.refresh' => 'permission:update-sales-invoices',
+            'nfse.invoices.reemit' => 'permission:update-sales-invoices',
+            'nfse.invoices.substitute' => 'permission:update-sales-invoices',
+            'nfse.invoices.cancel' => 'permission:update-sales-invoices',
+        ];
+
+        foreach ($permissions as $name => $permission) {
+            $route = app('router')->getRoutes()->getByName($name);
+            self::assertInstanceOf(Route::class, $route);
+            self::assertContains($permission, $route->gatherMiddleware(), $name);
+        }
+    }
+
     /**
      * @dataProvider registeredRoutes
      */

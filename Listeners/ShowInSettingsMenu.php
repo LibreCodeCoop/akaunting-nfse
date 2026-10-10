@@ -9,10 +9,12 @@ namespace Modules\Nfse\Listeners;
 
 use App\Events\Menu\SettingsCreated as Event;
 use App\Traits\Modules;
+use App\Traits\Permissions;
 
 class ShowInSettingsMenu
 {
     use Modules;
+    use Permissions;
 
     public function handle(Event $event): void
     {
@@ -21,6 +23,10 @@ class ShowInSettingsMenu
         }
 
         $title = $this->menuTitle();
+
+        if (!$this->canAccessMenuItem($title, 'read-nfse-settings')) {
+            return;
+        }
 
         $event->menu->route(
             'nfse.settings.edit',
