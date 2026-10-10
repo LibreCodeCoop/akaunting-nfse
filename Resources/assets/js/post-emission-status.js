@@ -60,13 +60,17 @@
             link.classList.remove('pointer-events-none', 'opacity-60');
             spinner?.classList.add('hidden');
 
-            if (label && rootNode.dataset.artifactReady) {
-                label.textContent = rootNode.dataset.artifactReady;
+            const readyLabel = link.dataset?.nfseArtifactReadyLabel || rootNode.dataset.artifactReady;
+
+            if (label && readyLabel) {
+                label.textContent = readyLabel;
             }
 
             return;
         }
 
+        // aria-disabled and pointer-events alone do not prevent keyboard activation.
+        link.removeAttribute('href');
         link.setAttribute('aria-disabled', 'true');
         link.classList.add('pointer-events-none', 'opacity-60');
         spinner?.classList.toggle('hidden', !polling);

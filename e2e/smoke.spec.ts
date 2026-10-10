@@ -79,6 +79,12 @@ test('native fiscal action opens the NFS-e modal', async ({ page }, testInfo) =>
   await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
+  const receiptActionsLoaded = await page.evaluate(() => {
+    const fiscalWindow = window as typeof window & { NfseReceiptActions?: { boot?: unknown } };
+    return typeof fiscalWindow.NfseReceiptActions?.boot === 'function';
+  });
+  expect(receiptActionsLoaded).toBe(true);
+
   const emitAction = page.locator('#nfse-native-fiscal-panel [data-nfse-native-emit="true"]');
   await expect(emitAction).toBeVisible();
   await emitAction.click();

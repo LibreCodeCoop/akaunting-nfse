@@ -305,6 +305,10 @@ class Main extends Provider
                 'body_end',
                 view('nfse::invoices.partials.post-emission-status-script')->render(),
             );
+            $viewFactory->startPush(
+                'body_end',
+                view('nfse::invoices.partials.receipt-actions-script')->render(),
+            );
         });
     }
 

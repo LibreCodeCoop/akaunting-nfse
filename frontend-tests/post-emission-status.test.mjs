@@ -39,7 +39,8 @@ test('missing artifact is disabled even when polling already stopped', () => {
     const label = { textContent: '' };
 
     const link = {
-        attrs: {},
+        attrs: { href: '/stale-download' },
+        dataset: { nfseArtifactReadyLabel: 'Ready XML' },
         classList: {
             add: (...values) => values.forEach((value) => classes.add(value)),
             remove: (...values) => values.forEach((value) => classes.delete(value)),
@@ -47,11 +48,15 @@ test('missing artifact is disabled even when polling already stopped', () => {
         setAttribute(name, value) {
             this.attrs[name] = value;
         },
+        removeAttribute(name) {
+            delete this.attrs[name];
+        },
         querySelector(selector) {
             if (selector === '[data-nfse-artifact-spinner]') {
                 return {
                     classList: {
                         toggle: (value, force) => force ? spinnerClasses.add(value) : spinnerClasses.delete(value),
+                        add: (value) => spinnerClasses.add(value),
                     },
                 };
             }
@@ -77,8 +82,18 @@ test('missing artifact is disabled even when polling already stopped', () => {
     status.setArtifactState(root, 'xml', { ready: false, download_url: null }, false);
 
     assert.equal(link.attrs['aria-disabled'], 'true');
+    assert.equal(link.attrs.href, undefined);
     assert.equal(classes.has('pointer-events-none'), true);
     assert.equal(label.textContent, 'Unavailable');
     assert.equal(spinnerClasses.has('hidden'), true);
+
+    status.setArtifactState(root, 'xml', { ready: true, download_url: '/fresh-download' }, false);
+    assert.equal(link.attrs.href, '/fresh-download');
+    assert.equal(link.attrs['aria-disabled'], 'false');
+    assert.equal(label.textContent, 'Ready XML');
+
+    status.setArtifactState(root, 'xml', { ready: false, download_url: null }, false);
+    assert.equal(link.attrs.href, undefined);
+    assert.equal(link.attrs['aria-disabled'], 'true');
 });
 
