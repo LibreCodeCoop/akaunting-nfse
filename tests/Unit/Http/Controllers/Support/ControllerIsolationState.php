@@ -39,61 +39,6 @@ namespace Modules\Nfse\Http\Controllers {
         }
     }
 
-    final class ControllerIsolationRedirector
-    {
-        public function back(): \Illuminate\Http\RedirectResponse
-        {
-            $response = new \Illuminate\Http\RedirectResponse();
-            $response->target = 'back';
-
-            return $response;
-        }
-
-        public function route(string $name, mixed ...$parameters): \Illuminate\Http\RedirectResponse
-        {
-            $response = new \Illuminate\Http\RedirectResponse();
-            $response->target = 'route';
-            $response->route = $name;
-            $response->parameters = $parameters;
-
-            return $response;
-        }
-    }
-
-    final class ControllerIsolationFakeSettings
-    {
-        public function forget(string $key): void
-        {
-            unset(ControllerIsolationState::$settings[$key]);
-        }
-
-        public function save(): void
-        {
-            ControllerIsolationState::$savedCount++;
-        }
-    }
-
-    final class ControllerIsolationFakeSession
-    {
-        public function flash(string $key, mixed $value): void
-        {
-            ControllerIsolationState::$sessionFlash[$key] = $value;
-        }
-
-        public function get(string $key, mixed $default = null): mixed
-        {
-            return ControllerIsolationState::$sessionFlash[$key] ?? $default;
-        }
-    }
-
-    final class ControllerIsolationResponseFactory
-    {
-        public function json(array $payload, int $status = 200): \Illuminate\Http\JsonResponse
-        {
-            return new \Illuminate\Http\JsonResponse($payload, $status);
-        }
-    }
-
     if (!function_exists(__NAMESPACE__ . '\\setting')) {
         function setting(string|array|null $key = null, mixed $default = null): mixed
         {

@@ -15,6 +15,11 @@ namespace {
     require_once __DIR__ . '/Illuminate/View/View.php';
     require_once __DIR__ . '/App/Events/Document/DocumentMarkedSent.php';
 
+    require_once __DIR__ . '/Modules/Nfse/Http/Controllers/ControllerIsolationRedirector.php';
+    require_once __DIR__ . '/Modules/Nfse/Http/Controllers/ControllerIsolationFakeSettings.php';
+    require_once __DIR__ . '/Modules/Nfse/Http/Controllers/ControllerIsolationFakeSession.php';
+    require_once __DIR__ . '/Modules/Nfse/Http/Controllers/ControllerIsolationResponseFactory.php';
+
     if (!function_exists('app')) {
         function app(): \Modules\Nfse\Http\Controllers\ControllerIsolationFakeApplication
         {
