@@ -1342,6 +1342,7 @@ class InvoiceController extends Controller
             'prestadorTelefone' => $providerContact['telefone'],
             'prestadorEmail' => $providerContact['email'],
             'prestadorInscricaoMunicipal' => trim((string) setting('nfse.prestador_inscricao_municipal', '')),
+            'versaoAplicativo' => substr('LibreCode/' . (new \Modules\Nfse\Application\ModuleVersion())->get(), 0, 20),
             'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
             'codigoTributacaoMunicipal' => (string) ($itemFiscalProfile['codigo_tributacao_municipal'] ?? ''),
