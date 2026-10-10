@@ -188,6 +188,7 @@
                                     @endif
                                     class="inline-flex items-center gap-2 rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 {{ $danfseReady ? '' : 'pointer-events-none opacity-60' }}"
                                     data-nfse-artifact="danfse"
+                                    data-nfse-artifact-ready-label="{{ trans('nfse::general.invoices.artifact_danfse_label') }}"
                                     data-nfse-artifact-processing="{{ trans('nfse::general.invoices.artifact_danfse_processing') }}"
                                     aria-disabled="{{ $danfseReady ? 'false' : 'true' }}"
                                 >
@@ -206,6 +207,7 @@
                                     @endif
                                     class="inline-flex items-center gap-2 rounded bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200 {{ $xmlReady ? '' : 'pointer-events-none opacity-60' }}"
                                     data-nfse-artifact="xml"
+                                    data-nfse-artifact-ready-label="{{ trans('nfse::general.invoices.artifact_xml_label') }}"
                                     data-nfse-artifact-processing="{{ trans('nfse::general.invoices.artifact_xml_processing') }}"
                                     aria-disabled="{{ $xmlReady ? 'false' : 'true' }}"
                                 >

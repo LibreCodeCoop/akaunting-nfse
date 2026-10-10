@@ -60,8 +60,10 @@
             link.classList.remove('pointer-events-none', 'opacity-60');
             spinner?.classList.add('hidden');
 
-            if (label && rootNode.dataset.artifactReady) {
-                label.textContent = rootNode.dataset.artifactReady;
+            const readyLabel = link.dataset?.nfseArtifactReadyLabel || rootNode.dataset.artifactReady;
+
+            if (label && readyLabel) {
+                label.textContent = readyLabel;
             }
 
             return;

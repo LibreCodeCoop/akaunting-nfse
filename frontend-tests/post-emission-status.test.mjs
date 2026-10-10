@@ -40,6 +40,7 @@ test('missing artifact is disabled even when polling already stopped', () => {
 
     const link = {
         attrs: { href: '/stale-download' },
+        dataset: { nfseArtifactReadyLabel: 'Ready XML' },
         classList: {
             add: (...values) => values.forEach((value) => classes.add(value)),
             remove: (...values) => values.forEach((value) => classes.delete(value)),
@@ -89,6 +90,7 @@ test('missing artifact is disabled even when polling already stopped', () => {
     status.setArtifactState(root, 'xml', { ready: true, download_url: '/fresh-download' }, false);
     assert.equal(link.attrs.href, '/fresh-download');
     assert.equal(link.attrs['aria-disabled'], 'false');
+    assert.equal(label.textContent, 'Ready XML');
 
     status.setArtifactState(root, 'xml', { ready: false, download_url: null }, false);
     assert.equal(link.attrs.href, undefined);
