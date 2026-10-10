@@ -113,10 +113,10 @@ final class InvoiceFederalPayloadResolver
         $snapshot = $this->snapshot($invoice, $invoiceAmount, $documentItemIds);
         $situacao = $this->select($this->setting('nfse.federal_piscofins_situacao_tributaria', ''));
         $retentionType = $this->select($this->setting('nfse.federal_piscofins_tipo_retencao', ''));
-        // NT SE/CGNFS-e 007/2026: vRetCSLL is the TOTAL of withheld
-        // PIS + COFINS + CSLL, not the individual CSLL contribution.
-        // Use actual Akaunting withholding tax rows, never tax names/rates
-        // alone (normal tax entries must not become retained amounts).
+        // Per the bundled official NFS-e XSD, vRetCSLL contains ONLY
+        // retained CSLL. PIS/COFINS retention is represented separately by
+        // tpRetPisCofins; never total their amounts into the CSLL field.
+        // Use actual withholding rows rather than tax names/rates alone.
         $retentionRows = in_array($retentionType, ['', '0', '2'], true)
             ? []
             : ($this->withholdingRowsResolver)($invoice, $documentItemIds);
@@ -124,7 +124,7 @@ final class InvoiceFederalPayloadResolver
             $retentionType,
             $retentionRows,
         );
-        $csll = $retentions['total'];
+        $csll = $retentions['csll'];
 
         $simples = in_array($this->simplesNacional(), [2, 3], true);
         $federalPercent = $this->decimal($this->setting(
@@ -213,7 +213,7 @@ final class InvoiceFederalPayloadResolver
         }
 
         // vPis/vCofins describe the provider's own PIS/COFINS assessment.
-        // Values retained by the taker are sent only in vRetCSLL, never twice.
+        // vRetCSLL is reserved for CSLL and must not aggregate PIS/COFINS.
         // Explicit configured-rate assessments remain independent.
         if ($federalMode === 'per_invoice_amounts') {
             $pisValue = $this->subtractRetainedAmount($pisValue, $retentions['pis']);
