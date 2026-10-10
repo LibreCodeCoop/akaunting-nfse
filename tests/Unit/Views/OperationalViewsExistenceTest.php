@@ -46,17 +46,30 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("['cancelled', 'substituted']", $view);
         }
 
-        public function testCancelledCurrentReceiptKeepsDirectFiscalDownloadsEvenWithoutReadyFlags(): void
+        public function testHistoricalArtifactDisclosureHasChevronAndButtonStyleDownloads(): void
         {
             $view = (string) file_get_contents(dirname(__DIR__, 3) . '/Resources/views/invoices/partials/native-fiscal-panel.blade.php');
 
-            self::assertStringContainsString("data-nfse-cancelled-artifact=\"danfse\"", $view);
-            self::assertStringContainsString("data-nfse-cancelled-artifact=\"xml\"", $view);
-            self::assertStringContainsString("['receipt' => \$receipt->id, 'artifact' => 'danfse']", $view);
-            self::assertStringContainsString("['receipt' => \$receipt->id, 'artifact' => 'xml']", $view);
-            self::assertStringContainsString("if($receiptStatus === 'cancelled')", $view);
+            self::assertStringContainsString('data-nfse-history-artifacts=', $view);
+            self::assertStringContainsString('group-open:rotate-180', $view);
+            self::assertStringContainsString('bg-indigo-600', $view);
+            self::assertStringContainsString('bg-gray-100', $view);
+            self::assertStringContainsString("'receipt' => \$linkedReceipt->id", $view);
+        }
+
+        public function testCurrentReceiptDownloadsStayInsideTheReceiptCard(): void
+        {
+            $view = (string) file_get_contents(dirname(__DIR__, 3) . '/Resources/views/invoices/partials/native-fiscal-panel.blade.php');
+
+            $articleEnd = strpos($view, '</article>');
+            $downloads = strpos($view, 'data-nfse-current-artifacts=');
+            self::assertNotFalse($articleEnd);
+            self::assertNotFalse($downloads);
+            self::assertLessThan($articleEnd, $downloads);
+            self::assertStringNotContainsString('data-nfse-current-artifacts-label', $view);
+            self::assertStringContainsString("['receipt' => \$linkedReceipt->id, 'artifact' => 'xml']", $view);
+            self::assertStringContainsString("['receipt' => \$linkedReceipt->id, 'artifact' => 'danfse']", $view);
             self::assertStringContainsString("if($danfseReady || $postEmissionActive)", $view);
-            self::assertStringContainsString("data-nfse-history-artifacts=", $view);
         }
 
         public function testInvoicesIndexViewKeepsFiltersInPagination(): void
