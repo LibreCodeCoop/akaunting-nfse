@@ -244,8 +244,8 @@
                     @endif
                     @if($receipt !== null && (int) $receipt->id === (int) $linkedReceipt->id)
                         @can('update-sales-invoices')
-                            @if($linkedStatus === 'emitted')
-                                <section class="mt-4 border-t border-green-200 pt-3" data-nfse-receipt-actions="{{ $linkedReceipt->id }}" data-nfse-actions="true">
+                            @if($linkedStatus !== 'cancelled')
+                                <section class="mt-4 border-t border-gray-200 pt-3" data-nfse-receipt-actions="{{ $linkedReceipt->id }}" data-nfse-actions="true">
                                     <h5 class="text-xs font-semibold text-gray-800">{{ trans('nfse::general.invoices.receipt_action_title', ['number' => $linkedReceipt->nfse_number ?: '—']) }}</h5>
                                     <form method="POST" action="{{ route('nfse.invoices.refresh', $invoice->id) }}" class="mt-2">
                                         @csrf
@@ -266,6 +266,7 @@
                                     <p class="mt-1 text-xs leading-relaxed text-gray-600">
                                         {{ trans('nfse::general.invoices.refresh_from_sefin_hint', ['number' => $linkedReceipt->nfse_number ?: '—']) }}
                                     </p>
+                                    @if($linkedStatus === 'emitted')
                                     <div class="mt-3 space-y-2">
                                         <details class="group w-full overflow-hidden rounded-md border border-gray-200" data-nfse-native-substitute="true">
                                             <summary class="flex list-none cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
@@ -378,6 +379,7 @@
                                         </details>
 
                                     </div>
+                                    @endif
                                 </section>
                             @elseif($linkedStatus === 'cancelled')
                                 <div class="mt-3 border-t border-gray-200 pt-3" data-nfse-receipt-actions="{{ $linkedReceipt->id }}">

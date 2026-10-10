@@ -127,6 +127,22 @@ final class NativeInvoiceFiscalActionsAccessTest extends FeatureTestCase
         self::assertSame('nfse.invoices.show', $controller->redirectTarget($legacy));
     }
 
+    public function testProcessingReceiptStillOffersReadOnlySeFinDataConsultation(): void
+    {
+        $this->loginAs();
+        $invoice = Document::factory()->invoice()->create();
+        $receipt = $this->receipt($invoice, '155', 'processing');
+
+        $content = $this->get(route('invoices.show', $invoice->id))
+            ->assertOk()->getContent();
+        $card = $this->receiptCard($content, $receipt);
+
+        self::assertStringContainsString('data-nfse-native-refresh="true"', $card);
+        self::assertStringContainsString('name="nfse_receipt_id" value="' . $receipt->id . '"', $card);
+        self::assertStringNotContainsString('data-nfse-native-substitute="true"', $card);
+        self::assertStringNotContainsString('data-nfse-native-cancel="true"', $card);
+    }
+
     public function testLatestCancelledReceiptOffersReissueInsideItsCardOnly(): void
     {
         $this->loginAs();
