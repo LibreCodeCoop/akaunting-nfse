@@ -195,3 +195,77 @@ test('editor event reconciliation runs after component handlers', () => {
 
     assert.doesNotMatch(source, /\}, true\);\s*\}\);/);
 });
+
+test('substitution AJAX handles success, rejection, duplicate and transport uncertainty', async () => {
+    const previousFetch = globalThis.fetch;
+    const previousFormData = globalThis.FormData;
+    const previousWindow = globalThis.window;
+    const listeners = {};
+    const messages = [];
+    const button = { disabled: false };
+    const form = {
+        action: '/nfse/substitute',
+        dataset: {},
+        matches: (selector) => selector === '[data-nfse-substitution-form="true"]',
+        querySelector: (selector) => selector === 'button[type="submit"]' ? button : null,
+        appendChild: (message) => messages.push(message),
+    };
+    const doc = {
+        addEventListener(type, callback) { listeners[type] = callback; },
+        createElement() { return { dataset: {}, setAttribute() {}, textContent: '' }; },
+        querySelectorAll() { return []; },
+        getElementById() { return null; },
+        defaultView: {},
+    };
+    let prevented = 0;
+    let requests = 0;
+    const navigations = [];
+    const event = { target: form, preventDefault() { prevented++; } };
+    globalThis.FormData = class { constructor(received) { assert.equal(received, form); } };
+    globalThis.window = { location: { assign: (url) => navigations.push(url) } };
+    try {
+        modal.boot(doc);
+        assert.equal(typeof listeners.submit, 'function');
+        globalThis.fetch = async (url, options) => {
+            requests++;
+            assert.equal(url, form.action);
+            assert.equal(options.method, 'POST');
+            assert.equal(options.credentials, 'same-origin');
+            assert.equal(options.headers['X-Requested-With'], 'XMLHttpRequest');
+            return { ok: true, json: async () => ({ success: true, redirect: '/invoice/1' }) };
+        };
+        await listeners.submit(event);
+        assert.equal(requests, 1);
+        assert.deepEqual(navigations, ['/invoice/1']);
+        assert.equal(button.disabled, false);
+
+        globalThis.fetch = async () => {
+            requests++;
+            return { ok: true, json: async () => ({ success: false, message: 'Rejeição fiscal' }) };
+        };
+        await listeners.submit(event);
+        assert.equal(navigations.length, 1);
+        assert.equal(messages.at(-1).textContent, 'Rejeição fiscal');
+
+        form.dataset.nfseSubmitting = 'true';
+        await listeners.submit(event);
+        assert.equal(requests, 2);
+        form.dataset.nfseSubmitting = 'false';
+
+        globalThis.fetch = async () => { requests++; throw new Error('connection interrupted'); };
+        await listeners.submit(event);
+        assert.equal(requests, 3);
+        assert.match(messages.at(-1).textContent, /Resultado não confirmado/);
+        assert.equal(navigations.length, 1);
+        assert.equal(button.disabled, false);
+        assert.equal(prevented, 4);
+
+        const unrelated = { target: { matches: () => false }, preventDefault: () => assert.fail('not a fiscal form') };
+        await listeners.submit(unrelated);
+        assert.equal(requests, 3);
+    } finally {
+        globalThis.fetch = previousFetch;
+        globalThis.FormData = previousFormData;
+        globalThis.window = previousWindow;
+    }
+});
