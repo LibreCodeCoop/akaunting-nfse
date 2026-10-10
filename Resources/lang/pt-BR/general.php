@@ -7,7 +7,7 @@ return [
     'name'                  => 'NFS-e',
     'contacts' => [
         'municipal_registration' => 'Inscrição Municipal (NFS-e)',
-        'legal_name' => 'Razão social fiscal (NFS-e)',
+        'legal_name' => 'Razão social',
     ],
     'description'           => 'Emissão e configurações de NFS-e',
     'saved'                 => 'Configurações salvas com sucesso.',

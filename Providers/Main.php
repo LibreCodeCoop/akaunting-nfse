@@ -520,7 +520,14 @@ class Main extends Provider
             if (($data['type'] ?? '') !== Contact::CUSTOMER_TYPE) {
                 return;
             }
-            $profile = (new ContactFiscalProfileStore())->forContact($data['contact'] ?? null);
+            // The native address component receives only "type": its Contact
+            // is owned by the parent form component, not passed as a direct prop.
+            $contact = $data['contact'] ?? null;
+            if (!$contact instanceof Contact) {
+                $parentModel = app('view')->getConsumableComponentData('model');
+                $contact = $parentModel instanceof Contact ? $parentModel : null;
+            }
+            $profile = (new ContactFiscalProfileStore())->forContact($contact);
             $view->with('nfseMunicipalRegistration', $profile['municipal_registration']);
             $view->with('nfseLegalName', $profile['legal_name']);
         });

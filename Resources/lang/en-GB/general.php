@@ -7,7 +7,7 @@ return [
     'name'                  => 'NFS-e',
     'contacts' => [
         'municipal_registration' => 'Municipal registration (NFS-e)',
-        'legal_name' => 'Legal name for NFS-e',
+        'legal_name' => 'Legal name',
     ],
     'description'           => 'NFS-e issuance and settings',
     'saved'                 => 'Settings saved successfully.',
