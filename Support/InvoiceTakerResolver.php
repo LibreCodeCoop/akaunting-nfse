@@ -246,7 +246,10 @@ final class InvoiceTakerResolver
                 continue;
             }
 
-            return trim((string) $object->{$field});
+            $value = trim((string) $object->{$field});
+            if ($value !== '') {
+                return $value;
+            }
         }
 
         return '';
