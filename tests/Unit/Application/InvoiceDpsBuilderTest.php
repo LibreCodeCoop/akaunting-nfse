@@ -36,7 +36,7 @@ final class InvoiceDpsBuilderTest extends TestCase
 
         self::assertSame('11222333000181', $dps->cnpjPrestador);
         self::assertSame('3303302', $dps->municipioIbge);
-        self::assertSame('LibreCode NFSe 2.4.1', $dps->versaoAplicativo);
+        self::assertSame('LC-NFSe/2.4.1', $dps->versaoAplicativo);
         self::assertSame('21969203370', $dps->prestadorTelefone);
         self::assertSame('adm@librecode.coop', $dps->prestadorEmail);
         self::assertSame('0107', $dps->itemListaServico);
