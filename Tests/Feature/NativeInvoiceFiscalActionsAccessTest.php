@@ -106,6 +106,25 @@ final class NativeInvoiceFiscalActionsAccessTest extends FeatureTestCase
         self::assertStringNotContainsString('data-nfse-settings-link="true"', $current);
     }
 
+    public function testLatestCancelledReceiptOffersReissueInsideItsCardOnly(): void
+    {
+        $this->loginAs();
+        $invoice = Document::factory()->invoice()->create();
+        $older = $this->receipt($invoice, '153', 'cancelled');
+        $latest = $this->receipt($invoice, '154', 'cancelled');
+
+        $content = $this->get(route('invoices.show', $invoice->id))
+            ->assertOk()->getContent();
+
+        $previous = $this->receiptCard($content, $older);
+        $current = $this->receiptCard($content, $latest);
+
+        self::assertStringNotContainsString('data-nfse-native-emit="true"', $previous);
+        self::assertStringContainsString('data-nfse-native-emit="true"', $current);
+        self::assertStringNotContainsString('data-nfse-native-cancel="true"', $current);
+        self::assertStringNotContainsString('data-nfse-native-refresh="true"', $current);
+    }
+
     public function testStaleReceiptSubmissionsCannotRefreshCancelOrSubstituteAnotherEmission(): void
     {
         $this->loginAs();

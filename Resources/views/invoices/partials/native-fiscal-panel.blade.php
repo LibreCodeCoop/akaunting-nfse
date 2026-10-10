@@ -266,115 +266,115 @@
                                         {{ trans('nfse::general.invoices.refresh_from_sefin_hint', ['number' => $linkedReceipt->nfse_number ?: '—']) }}
                                     </p>
                                     <div class="mt-3 space-y-2">
-                        <details class="group w-full overflow-hidden rounded-md border border-gray-200" data-nfse-native-substitute="true">
-                            <summary class="flex list-none cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
-                                <span>{{ trans('nfse::general.invoices.substitute_receipt', ['number' => $linkedReceipt->nfse_number ?: '—']) }}</span>
-                                <svg data-nfse-disclosure-chevron class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                    <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </summary>
+                                        <details class="group w-full overflow-hidden rounded-md border border-gray-200" data-nfse-native-substitute="true">
+                                            <summary class="flex list-none cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
+                                                <span>{{ trans('nfse::general.invoices.substitute_receipt', ['number' => $linkedReceipt->nfse_number ?: '—']) }}</span>
+                                                <svg data-nfse-disclosure-chevron class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                                    <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            </summary>
 
-                            <form method="POST" action="{{ route('nfse.invoices.substitute', $invoice->id) }}" class="space-y-3 border-t border-gray-200 p-3" data-nfse-substitution-form="true">
-                                @csrf
-                                <input type="hidden" name="nfse_substitution_receipt_id" value="{{ $linkedReceipt->id }}">
+                                            <form method="POST" action="{{ route('nfse.invoices.substitute', $invoice->id) }}" class="space-y-3 border-t border-gray-200 p-3" data-nfse-substitution-form="true">
+                                                @csrf
+                                                <input type="hidden" name="nfse_substitution_receipt_id" value="{{ $linkedReceipt->id }}">
 
-                                <div>
-                                    <label for="nfse-substitution-reason-{{ $invoice->id }}" class="block text-sm font-medium">
-                                        {{ trans('nfse::general.invoices.substitution_reason') }}
-                                    </label>
-                                    <select id="nfse-substitution-reason-{{ $invoice->id }}" name="nfse_substitution_reason" class="mt-1 w-full rounded border px-3 py-2" required>
-                                        @foreach(['01', '02', '03', '04', '05', '99'] as $reason)
-                                            <option value="{{ $reason }}">
-                                                {{ trans('nfse::general.invoices.substitution_reason_' . $reason) }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
+                                                <div>
+                                                    <label for="nfse-substitution-reason-{{ $invoice->id }}" class="block text-sm font-medium">
+                                                        {{ trans('nfse::general.invoices.substitution_reason') }}
+                                                    </label>
+                                                    <select id="nfse-substitution-reason-{{ $invoice->id }}" name="nfse_substitution_reason" class="mt-1 w-full rounded border px-3 py-2" required>
+                                                        @foreach(['01', '02', '03', '04', '05', '99'] as $reason)
+                                                            <option value="{{ $reason }}">
+                                                                {{ trans('nfse::general.invoices.substitution_reason_' . $reason) }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
 
-                                <div>
-                                    <label for="nfse-substitution-description-{{ $invoice->id }}" class="block text-sm font-medium">
-                                        {{ trans('nfse::general.invoices.substitution_description') }}
-                                    </label>
-                                    <textarea
-                                        id="nfse-substitution-description-{{ $invoice->id }}"
-                                        name="nfse_substitution_description"
-                                        minlength="15"
-                                        maxlength="255"
-                                        class="mt-1 w-full rounded border px-3 py-2"
-                                        placeholder="{{ trans('nfse::general.invoices.substitution_description_hint') }}"
-                                    ></textarea>
-                                </div>
+                                                <div>
+                                                    <label for="nfse-substitution-description-{{ $invoice->id }}" class="block text-sm font-medium">
+                                                        {{ trans('nfse::general.invoices.substitution_description') }}
+                                                    </label>
+                                                    <textarea
+                                                        id="nfse-substitution-description-{{ $invoice->id }}"
+                                                        name="nfse_substitution_description"
+                                                        minlength="15"
+                                                        maxlength="255"
+                                                        class="mt-1 w-full rounded border px-3 py-2"
+                                                        placeholder="{{ trans('nfse::general.invoices.substitution_description_hint') }}"
+                                                    ></textarea>
+                                                </div>
 
-                                <p class="text-xs text-gray-600">
-                                    {{ trans('nfse::general.invoices.substitution_audit_hint') }}
-                                </p>
+                                                <p class="text-xs text-gray-600">
+                                                    {{ trans('nfse::general.invoices.substitution_audit_hint') }}
+                                                </p>
 
-                                <button type="submit" class="rounded bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700">
-                                    {{ trans('nfse::general.invoices.substitute_confirm') }}
-                                </button>
-                            </form>
-                        </details>
+                                                <button type="submit" class="rounded bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700">
+                                                    {{ trans('nfse::general.invoices.substitute_confirm') }}
+                                                </button>
+                                            </form>
+                                        </details>
 
-                        <details class="group w-full overflow-hidden rounded-md border border-red-200" data-nfse-native-cancel="true">
-                            <summary class="flex list-none cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500">
-                                <span>{{ trans('nfse::general.invoices.cancel_receipt', ['number' => $linkedReceipt->nfse_number ?: '—']) }}</span>
-                                <svg data-nfse-disclosure-chevron class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                    <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </summary>
+                                        <details class="group w-full overflow-hidden rounded-md border border-red-200" data-nfse-native-cancel="true">
+                                            <summary class="flex list-none cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500">
+                                                <span>{{ trans('nfse::general.invoices.cancel_receipt', ['number' => $linkedReceipt->nfse_number ?: '—']) }}</span>
+                                                <svg data-nfse-disclosure-chevron class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                                    <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            </summary>
 
-                            @php($cancelReasonOptions = trans('nfse::general.invoices.cancel_reason_options'))
+                                            @php($cancelReasonOptions = trans('nfse::general.invoices.cancel_reason_options'))
 
-                            <form method="POST" action="{{ route('nfse.invoices.cancel', $invoice->id) }}" class="space-y-3 border-t border-red-200 p-3">
-                                @csrf
-                                @method('DELETE')
-                                <input type="hidden" name="redirect_after_cancel" value="invoice_show">
-                                <input type="hidden" name="nfse_receipt_id" value="{{ $linkedReceipt->id }}">
+                                            <form method="POST" action="{{ route('nfse.invoices.cancel', $invoice->id) }}" class="space-y-3 border-t border-red-200 p-3">
+                                                @csrf
+                                                @method('DELETE')
+                                                <input type="hidden" name="redirect_after_cancel" value="invoice_show">
+                                                <input type="hidden" name="nfse_receipt_id" value="{{ $linkedReceipt->id }}">
 
-                                <p class="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                                    {{ trans('nfse::general.invoices.cancel_receipt_warning', ['number' => $linkedReceipt->nfse_number ?: '—']) }}
-                                </p>
+                                                <p class="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                                                    {{ trans('nfse::general.invoices.cancel_receipt_warning', ['number' => $linkedReceipt->nfse_number ?: '—']) }}
+                                                </p>
 
-                                <div>
-                                    <label for="nfse-native-cancel-reason-{{ $invoice->id }}" class="block text-sm font-medium text-gray-700">
-                                        {{ trans('nfse::general.invoices.cancel_modal_reason') }}
-                                    </label>
-                                    <select
-                                        id="nfse-native-cancel-reason-{{ $invoice->id }}"
-                                        name="cancel_reason"
-                                        class="mt-1 w-full rounded border px-3 py-2"
-                                        required
-                                    >
-                                        <option value="">{{ trans('nfse::general.invoices.cancel_modal_reason_select_placeholder') }}</option>
-                                        @foreach(is_array($cancelReasonOptions) ? $cancelReasonOptions : [] as $cancelReasonCode => $cancelReasonOption)
-                                            <option value="{{ $cancelReasonCode }}">{{ $cancelReasonOption }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
+                                                <div>
+                                                    <label for="nfse-native-cancel-reason-{{ $invoice->id }}" class="block text-sm font-medium text-gray-700">
+                                                        {{ trans('nfse::general.invoices.cancel_modal_reason') }}
+                                                    </label>
+                                                    <select
+                                                        id="nfse-native-cancel-reason-{{ $invoice->id }}"
+                                                        name="cancel_reason"
+                                                        class="mt-1 w-full rounded border px-3 py-2"
+                                                        required
+                                                    >
+                                                        <option value="">{{ trans('nfse::general.invoices.cancel_modal_reason_select_placeholder') }}</option>
+                                                        @foreach(is_array($cancelReasonOptions) ? $cancelReasonOptions : [] as $cancelReasonCode => $cancelReasonOption)
+                                                            <option value="{{ $cancelReasonCode }}">{{ $cancelReasonOption }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
 
-                                <div>
-                                    <label for="nfse-native-cancel-justification-{{ $invoice->id }}" class="block text-sm font-medium text-gray-700">
-                                        {{ trans('nfse::general.invoices.cancel_modal_justification') }}
-                                    </label>
-                                    <textarea
-                                        id="nfse-native-cancel-justification-{{ $invoice->id }}"
-                                        name="cancel_justification"
-                                        minlength="15"
-                                        maxlength="255"
-                                        aria-describedby="nfse-native-cancel-justification-help-{{ $invoice->id }}"
-                                        class="mt-1 w-full rounded border px-3 py-2"
-                                        required
-                                    ></textarea>
-                                    <p id="nfse-native-cancel-justification-help-{{ $invoice->id }}" class="mt-1 text-xs text-gray-500">
-                                        {{ trans('nfse::general.invoices.cancel_justification_length') }}
-                                    </p>
-                                </div>
+                                                <div>
+                                                    <label for="nfse-native-cancel-justification-{{ $invoice->id }}" class="block text-sm font-medium text-gray-700">
+                                                        {{ trans('nfse::general.invoices.cancel_modal_justification') }}
+                                                    </label>
+                                                    <textarea
+                                                        id="nfse-native-cancel-justification-{{ $invoice->id }}"
+                                                        name="cancel_justification"
+                                                        minlength="15"
+                                                        maxlength="255"
+                                                        aria-describedby="nfse-native-cancel-justification-help-{{ $invoice->id }}"
+                                                        class="mt-1 w-full rounded border px-3 py-2"
+                                                        required
+                                                    ></textarea>
+                                                    <p id="nfse-native-cancel-justification-help-{{ $invoice->id }}" class="mt-1 text-xs text-gray-500">
+                                                        {{ trans('nfse::general.invoices.cancel_justification_length') }}
+                                                    </p>
+                                                </div>
 
-                                <button type="submit" class="rounded bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">
-                                    {{ trans('nfse::general.invoices.cancel_modal_submit') }}
-                                </button>
-                            </form>
-                        </details>
+                                                <button type="submit" class="rounded bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">
+                                                    {{ trans('nfse::general.invoices.cancel_modal_submit') }}
+                                                </button>
+                                            </form>
+                                        </details>
 
                                     </div>
                                 </section>
