@@ -45,7 +45,7 @@ final class ContactFiscalProfileInputTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         ContactFiscalProfileInput::fromRequest(Request::create('/', 'POST', [
-            'nfse_municipal_registration' => str_repeat('9', 41),
+            'nfse_municipal_registration' => str_repeat('9', 16),
             'nfse_legal_name' => 'Cliente',
         ]));
     }

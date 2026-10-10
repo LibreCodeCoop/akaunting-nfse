@@ -25,7 +25,7 @@ final class ContactFiscalProfileInput
         }
         $registration = trim($registration);
         $legalName = trim($legalName);
-        if (mb_strlen($registration) > 40 || mb_strlen($legalName) > 255
+        if (mb_strlen($registration) > 15 || mb_strlen($legalName) > 255
             || preg_match('/[\x00-\x1f\x7f]/', $registration) === 1
             || preg_match('/[\x00-\x1f\x7f]/', $legalName) === 1) {
             throw new \InvalidArgumentException('Invalid NFS-e contact fiscal fields.');
