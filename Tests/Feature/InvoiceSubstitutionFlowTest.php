@@ -57,7 +57,7 @@ final class InvoiceSubstitutionFlowTest extends FeatureTestCase
     public function testNativeInvoiceShowsSubstitutionActionOnlyForEmittedReceipt(): void
     {
         $invoice = Document::factory()->invoice()->create();
-        NfseReceipt::query()->create([
+        $receipt = NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
             'nfse_number' => '102',
             'chave_acesso' => str_repeat('3', 50),
@@ -67,7 +67,9 @@ final class InvoiceSubstitutionFlowTest extends FeatureTestCase
         $this->loginAs()
             ->get(route('invoices.show', $invoice))
             ->assertOk()
-            ->assertSee(trans('nfse::general.invoices.substitute'))
+            ->assertSee(trans('nfse::general.invoices.substitute_receipt', ['number' => '102']))
+            ->assertSee('data-nfse-native-substitute="true"', false)
+            ->assertSee('name="nfse_substitution_receipt_id" value="' . $receipt->id . '"', false)
             ->assertSee(route('nfse.invoices.substitute', $invoice));
     }
 }
