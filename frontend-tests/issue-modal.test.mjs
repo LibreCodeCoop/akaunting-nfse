@@ -195,3 +195,89 @@ test('editor event reconciliation runs after component handlers', () => {
 
     assert.doesNotMatch(source, /\}, true\);\s*\}\);/);
 });
+
+function substitutionFixture() {
+    const messages = [];
+    const button = { disabled: false };
+    const form = {
+        action: '/nfse/substitute',
+        dataset: {},
+        matches: (selector) => selector === '[data-nfse-substitution-form="true"]',
+        querySelector: (selector) => selector === 'button[type="submit"]' ? button : null,
+        appendChild(message) { messages.push(message); },
+    };
+    const documentRef = {
+        createElement() { return { dataset: {}, setAttribute() {}, textContent: '' }; },
+    };
+    let prevented = 0;
+    const event = { target: form, preventDefault() { prevented++; } };
+    return { form, button, messages, documentRef, event, prevented: () => prevented };
+}
+
+const formDataFactory = () => 'test-body';
+
+test('substitution request sends authenticated AJAX and returns success', async () => {
+    const x = substitutionFixture();
+    const result = await modal.requestSubstitution(x.form, async (url, init) => {
+        assert.equal(url, x.form.action);
+        assert.equal(init.method, 'POST');
+        assert.equal(init.credentials, 'same-origin');
+        assert.equal(init.headers['X-Requested-With'], 'XMLHttpRequest');
+        assert.equal(init.body, 'test-body');
+        return { ok: true, json: async () => ({ success: true, redirect: '/invoice/1' }) };
+    }, formDataFactory);
+    assert.deepEqual(result, { kind: 'success', redirect: '/invoice/1' });
+});
+
+test('substitution request distinguishes rejection from uncertain responses', async () => {
+    const x = substitutionFixture();
+    assert.deepEqual(await modal.requestSubstitution(x.form,
+        async () => ({ ok: false, json: async () => ({ error: true, message: 'E1235' }) }),
+        formDataFactory), { kind: 'rejected', message: 'E1235' });
+    assert.deepEqual(await modal.requestSubstitution(x.form,
+        async () => ({ ok: false, json: async () => { throw new Error('not JSON'); } }),
+        formDataFactory), { kind: 'uncertain' });
+    assert.deepEqual(await modal.requestSubstitution(x.form,
+        async () => { throw new Error('connection dropped'); }, formDataFactory), { kind: 'uncertain' });
+});
+
+test('substitution controller navigates on success and releases busy state', async () => {
+    const x = substitutionFixture();
+    const navigations = [];
+    const ok = await modal.submitSubstitution(x.event, x.documentRef, {
+        fetchImpl: async () => ({ ok: true, json: async () => ({ success: true, redirect: '/invoice/1' }) }),
+        formDataFactory,
+        navigate: (url) => navigations.push(url),
+    });
+    assert.equal(ok, true);
+    assert.deepEqual(navigations, ['/invoice/1']);
+    assert.equal(x.button.disabled, false);
+    assert.equal(x.form.dataset.nfseSubmitting, 'false');
+    assert.equal(x.prevented(), 1);
+});
+
+test('substitution controller preserves uncertain state without navigation or retry', async () => {
+    const x = substitutionFixture();
+    let requests = 0;
+    const ok = await modal.submitSubstitution(x.event, x.documentRef, {
+        fetchImpl: async () => { requests++; throw new Error('offline'); },
+        formDataFactory,
+        navigate: () => assert.fail('must not navigate'),
+    });
+    assert.equal(ok, false);
+    assert.equal(requests, 1);
+    assert.match(x.messages.at(-1).textContent, /Resultado não confirmado/);
+    assert.equal(x.button.disabled, false);
+});
+
+test('substitution controller blocks duplicates and ignores unrelated forms', async () => {
+    const x = substitutionFixture();
+    x.form.dataset.nfseSubmitting = 'true';
+    let requests = 0;
+    const dependencies = { fetchImpl: async () => { requests++; }, formDataFactory };
+    assert.equal(await modal.submitSubstitution(x.event, x.documentRef, dependencies), false);
+    x.form.dataset.nfseSubmitting = 'false';
+    x.form.matches = () => false;
+    assert.equal(await modal.submitSubstitution(x.event, x.documentRef, dependencies), false);
+    assert.equal(requests, 0);
+});

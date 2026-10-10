@@ -384,12 +384,86 @@
         return true;
     }
 
+    async function requestSubstitution(form, fetchImpl, formDataFactory) {
+        let response;
+        try {
+            response = await fetchImpl(form.action, {
+                method: 'POST',
+                body: formDataFactory(form),
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+        } catch {
+            return { kind: 'uncertain' };
+        }
+
+        // A non-JSON response can also mean the fiscal operation completed remotely.
+        let payload;
+        try {
+            payload = await response.json();
+        } catch {
+            return { kind: 'uncertain' };
+        }
+        if (response.ok && payload?.success === true && typeof payload.redirect === 'string' && payload.redirect !== '') {
+            return { kind: 'success', redirect: payload.redirect };
+        }
+        if (payload?.error === true || payload?.success === false) {
+            return { kind: 'rejected', message: String(payload.message || 'Não foi possível concluir a substituição.') };
+        }
+        return { kind: 'uncertain' };
+    }
+
+    function renderSubstitutionStatus(form, documentRef, text) {
+        form.querySelector('[data-nfse-substitution-message]')?.remove();
+        const message = documentRef.createElement('p');
+        message.setAttribute('role', 'status');
+        message.dataset.nfseSubstitutionMessage = 'true';
+        message.className = 'text-sm text-gray-700';
+        message.textContent = text;
+        form.appendChild(message);
+        return message;
+    }
+
+    async function submitSubstitution(event, documentRef, dependencies = {}) {
+        const form = event.target;
+        if (!form?.matches?.('[data-nfse-substitution-form="true"]')) return false;
+        event.preventDefault();
+        if (form.dataset.nfseSubmitting === 'true') return false;
+
+        form.dataset.nfseSubmitting = 'true';
+        const button = form.querySelector('button[type="submit"]');
+        if (button) button.disabled = true;
+        const status = renderSubstitutionStatus(form, documentRef, 'Processando solicitação fiscal…');
+        try {
+            const result = await requestSubstitution(
+                form,
+                dependencies.fetchImpl ?? globalThis.fetch,
+                dependencies.formDataFactory ?? ((node) => new FormData(node)),
+            );
+            if (result.kind === 'success') {
+                (dependencies.navigate ?? ((url) => globalThis.location.assign(url)))(result.redirect);
+                return true;
+            }
+            status.textContent = result.kind === 'rejected'
+                ? result.message
+                : 'Resultado não confirmado. Consulte o histórico fiscal antes de tentar novamente.';
+            return false;
+        } finally {
+            form.dataset.nfseSubmitting = 'false';
+            if (button) button.disabled = false;
+        }
+    }
+
     function boot(documentRef) {
         if (!documentRef || documentRef.__nfseIssueModalBooted) {
             return;
         }
 
         documentRef.__nfseIssueModalBooted = true;
+
+        documentRef.addEventListener('submit', (event) => {
+            void submitSubstitution(event, documentRef);
+        });
 
         documentRef.addEventListener('click', (event) => {
             const nativeFiscalAction = event.target && event.target.closest
@@ -566,6 +640,8 @@
 
     return {
         activateTab,
+        requestSubstitution,
+        submitSubstitution,
         applySendEmailState,
         boot,
         focusErrorSummary,
