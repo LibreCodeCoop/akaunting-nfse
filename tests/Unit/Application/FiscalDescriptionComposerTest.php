@@ -20,10 +20,10 @@ final class FiscalDescriptionComposerTest extends TestCase
         $this->composer = new FiscalDescriptionComposer();
     }
 
-    public function testGroupPrefersPersistedItemDescriptionsOverCatalogNames(): void
+    public function testGroupUsesNamesAndIgnoresItemDescriptions(): void
     {
         self::assertSame(
-            "Atividade contratada\nCentro de custo: TESTE-001 | Item B | Segunda atividade\n\nObservação geral",
+            "Item A | Item B | Item C\n\nObservação geral",
             $this->composer->group([
                 ['name' => 'Item A', 'description' => 'Atividade contratada\nCentro de custo: TESTE-001'],
                 ['name' => 'Item B', 'description' => ''],
