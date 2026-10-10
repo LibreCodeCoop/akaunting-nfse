@@ -15,7 +15,7 @@ final class InvoiceTakerResolverTest extends TestCase
     public function testFiscalProfileCanSupplyMunicipalRegistrationWithoutChangingCommercialContact(): void
     {
         $contact = (object) [
-            'name' => 'Assessoria',
+            'name' => 'Empresa Exemplo',
             'city_ibge' => '3550308',
             'zip_code' => '04578-000',
             'address' => 'Rua Exemplo, 10, Centro',
@@ -27,7 +27,7 @@ final class InvoiceTakerResolverTest extends TestCase
             ],
         );
         self::assertSame('009001', $resolver->payload($contact)['inscricao_municipal']);
-        self::assertSame('Assessoria', $contact->name);
+        self::assertSame('Empresa Exemplo', $contact->name);
     }
 
     public function testBuildsNationalTakerPayloadFromContactFields(): void

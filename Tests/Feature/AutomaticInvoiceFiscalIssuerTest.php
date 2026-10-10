@@ -42,7 +42,7 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
     public function testIssuesOneResolvedGroupAndReusesPersistedReceipt(): void
     {
         $invoice = $this->invoiceWithProfile();
-        $invoice->notes = 'Centro de custo: CGIBR - Assessoria Geral';
+        $invoice->notes = 'Observação geral de faturamento';
         $invoice->save();
         $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
         $client = new class () implements NfseClientInterface {
@@ -107,7 +107,8 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
         self::assertSame('100.00', $client->lastDps?->valorServico);
         self::assertSame('0107', $client->lastDps?->itemListaServico);
         self::assertSame('010701', $client->lastDps?->codigoTributacaoNacional);
-        self::assertStringContainsString('Centro de custo: CGIBR - Assessoria Geral', (string) $client->lastDps?->discriminacao);
+        self::assertStringContainsString('Centro de custo: TESTE-001', (string) $client->lastDps?->discriminacao);
+        self::assertStringContainsString('Observação geral de faturamento', (string) $client->lastDps?->discriminacao);
         self::assertSame(1, $closed);
         $attempt = NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->sole();
         self::assertSame('automatic', $attempt->origin);
@@ -153,6 +154,7 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
             'type' => 'item',
             'item_id' => $item->id,
             'name' => 'Consultoria',
+            'description' => 'Serviço técnico\nCentro de custo: TESTE-001',
             'quantity' => 1,
             'price' => '100.00',
             'total' => '100.00',

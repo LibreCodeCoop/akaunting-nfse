@@ -43,6 +43,21 @@ final class InvoiceFiscalProfileSelectorTest extends TestCase
         self::assertFalse($result['requires_split']);
     }
 
+    public function testReadsDescriptionFromPersistedInvoiceLine(): void
+    {
+        $result = $this->selector->select(
+            items: [['item_id' => 10, 'name' => 'Nome curto', 'description' => 'Serviço contratado\\nCentro de custo: TESTE-001']],
+            profileMap: [],
+            taxRateMap: [],
+            defaultServiceCode: '0107',
+            defaultNationalCode: '010701',
+            defaultRate: '2.00',
+            unnamedItemLabel: 'N/A',
+        );
+
+        self::assertSame(["[0107] Serviço contratado\nCentro de custo: TESTE-001"], $result['line_items']);
+    }
+
     public function testFallsBackToConfiguredDefaultsWithoutFrameworkState(): void
     {
         $result = $this->selector->select(
