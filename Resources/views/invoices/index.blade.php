@@ -349,6 +349,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <input type="hidden" name="nfse_item_service_assignments" value="" data-emit-assignments>
                                             <input type="hidden" name="nfse_discriminacao_custom" value="" data-emit-description-input>
                                             <input type="hidden" name="nfse_save_default_description" value="0" data-emit-description-save-default-input>
+                                            <input type="hidden" name="nfse_description_scope" value="general" data-emit-description-scope-input>
                                             <input type="hidden" name="nfse_tomador_foreign" value="0" data-emit-foreign-enabled-input>
                                             <input type="hidden" name="nfse_tomador_nif" value="" data-emit-foreign-nif-input>
                                             <input type="hidden" name="nfse_tomador_nao_nif" value="" data-emit-foreign-no-nif-input>
@@ -695,6 +696,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 <input type="hidden" name="nfse_item_service_assignments" value="" data-emit-assignments>
                                                 <input type="hidden" name="nfse_discriminacao_custom" value="" data-emit-description-input>
                                                 <input type="hidden" name="nfse_save_default_description" value="0" data-emit-description-save-default-input>
+                                            <input type="hidden" name="nfse_description_scope" value="general" data-emit-description-scope-input>
                                                 <input type="hidden" name="nfse_send_email" value="0" data-emit-email-send-input>
                                                 <input type="hidden" name="nfse_email_to" value="" data-emit-email-to-input>
                                                 <input type="hidden" name="nfse_email_subject" value="" data-emit-email-subject-input>
@@ -818,6 +820,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <p class="mt-2 text-xs text-gray-500">{{ trans('nfse::general.invoices.emit_modal_description_help') }}</p>
                                         </div>
 
+                                        <div>
+                                            <label for="nfse_emit_description_scope" class="block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_scope') }}</label>
+                                            <select id="nfse_emit_description_scope" class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                <option value="general">{{ trans('nfse::general.invoices.emit_modal_description_scope_general') }}</option>
+                                                <option value="customer">{{ trans('nfse::general.invoices.emit_modal_description_scope_customer') }}</option>
+                                            </select>
+                                        </div>
                                         <div class="flex items-center gap-3">
                                             <label for="nfse_emit_save_description_default" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
                                                 <input id="nfse_emit_save_description_default" type="checkbox" class="sr-only">
@@ -1293,6 +1302,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const emitModalAttachXmlInput = document.getElementById('nfse_emit_attach_xml');
                 const emitModalSaveDefaultInput = document.getElementById('nfse_emit_save_default');
                 const emitModalSaveDescriptionDefaultInput = document.getElementById('nfse_emit_save_description_default');
+                const emitModalDescriptionScope = document.getElementById('nfse_emit_description_scope');
                 const emitModalForeignEnabledInput = document.getElementById('nfse_emit_foreign_taker');
                 const emitModalForeignFields = document.getElementById('nfse_emit_foreign_fields');
                 const emitModalForeignNifInput = document.getElementById('nfse_emit_foreign_nif');
@@ -1659,6 +1669,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const assignmentsInput = form?.querySelector('[data-emit-assignments]');
                     const descriptionInput = form?.querySelector('[data-emit-description-input]');
                     const saveDescriptionDefaultInput = form?.querySelector('[data-emit-description-save-default-input]');
+                    const descriptionScopeInput = form?.querySelector('[data-emit-description-scope-input]');
                     const foreignEnabledInput = form?.querySelector('[data-emit-foreign-enabled-input]');
                     const foreignNifInput = form?.querySelector('[data-emit-foreign-nif-input]');
                     const foreignNoNifInput = form?.querySelector('[data-emit-foreign-no-nif-input]');
@@ -1698,6 +1709,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     if (saveDescriptionDefaultInput) {
                         saveDescriptionDefaultInput.value = saveDescriptionDefaultField?.checked ? '1' : '0';
+                    }
+                    if (descriptionScopeInput) {
+                        descriptionScopeInput.value = emitModalDescriptionScope?.value === 'customer' ? 'customer' : 'general';
                     }
 
                     const foreignEnabled = Boolean(emitModalForeignEnabledInput?.checked);
