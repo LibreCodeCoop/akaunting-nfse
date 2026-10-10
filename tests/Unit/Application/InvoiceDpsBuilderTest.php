@@ -36,7 +36,7 @@ final class InvoiceDpsBuilderTest extends TestCase
 
         self::assertSame('11222333000181', $dps->cnpjPrestador);
         self::assertSame('3303302', $dps->municipioIbge);
-        self::assertSame('LibreCode NFSe 2.4.1', $dps->versaoAplicativo);
+        self::assertSame('LibreCode/2.4.1', $dps->versaoAplicativo);
         self::assertSame('21969203370', $dps->prestadorTelefone);
         self::assertSame('adm@librecode.coop', $dps->prestadorEmail);
         self::assertSame('0107', $dps->itemListaServico);
@@ -45,6 +45,25 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertSame('Cliente Teste', $dps->nomeTomador);
         self::assertSame('3303302', $dps->tomadorCodigoMunicipio);
         self::assertSame('10.00', $dps->federalPiscofinsValorPis);
+    }
+
+    public function testDevelopmentVersionRespectsOfficialVerAplicMaximumLength(): void
+    {
+        $manifestPath = tempnam(sys_get_temp_dir(), 'nfse-module-');
+        if ($manifestPath === false) {
+            self::fail('Unable to create temporary manifest.');
+        }
+
+        file_put_contents($manifestPath, json_encode(['version' => 'dev-main'], JSON_THROW_ON_ERROR));
+        try {
+            $dps = (new InvoiceDpsBuilder(moduleVersion: new ModuleVersion($manifestPath)))
+                ->build($this->baseContext());
+        } finally {
+            @unlink($manifestPath);
+        }
+
+        self::assertSame('LibreCode/dev-main', $dps->versaoAplicativo);
+        self::assertLessThanOrEqual(20, strlen($dps->versaoAplicativo));
     }
 
     public function testMapsEnabledIbsCbsPayloadIntoDps(): void
