@@ -3,332 +3,52 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# akaunting-nfse
+# NFS-e Nacional no Akaunting — akaunting-nfse
 
-> Módulo Akaunting para emissão, consulta, cancelamento e diagnóstico de **Nota Fiscal de Serviço Eletrônica (NFS-e)** no padrão nacional, com integração SEFIN/ADN.
+**Emita e acompanhe Notas Fiscais de Serviço Eletrônicas (NFS-e) pelo padrão nacional sem sair do Akaunting.** O módulo livre **akaunting-nfse** conecta o gerenciamento financeiro e as faturas do Akaunting aos fluxos nacionais de emissão, consulta e cancelamento de NFS-e.
 
-[![Latest Version](https://img.shields.io/packagist/v/librecodeoop/akaunting-nfse?style=flat-square)](https://packagist.org/packages/librecodeoop/akaunting-nfse)
-[![PHP Version](https://img.shields.io/packagist/php-v/librecodeoop/akaunting-nfse?style=flat-square)](https://packagist.org/packages/librecodeoop/akaunting-nfse)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=flat-square)](https://www.gnu.org/licenses/agpl-3.0)
 [![CI](https://github.com/LibreCodeCoop/akaunting-nfse/actions/workflows/phpunit.yml/badge.svg)](https://github.com/LibreCodeCoop/akaunting-nfse/actions/workflows/phpunit.yml)
+[![Versão Packagist](https://img.shields.io/packagist/v/librecodeoop/akaunting-nfse)](https://packagist.org/packages/librecodeoop/akaunting-nfse)
 
----
+> **English:** Open-source Brazilian National NFS-e integration for Akaunting: issue and manage electronic service invoices, generate DANFSe PDFs and use fiscal data within your invoicing workflow.
 
-## O que é?
+## Por que usar o módulo NFS-e para Akaunting?
 
-O **akaunting-nfse** integra o seu [Akaunting](https://github.com/LibreCodeCoop/akaunting-docker) (self-hosted) com o gateway SEFIN Nacional, permitindo que sua empresa emita NFS-e **sem sair do sistema contábil**.
+Sua equipe já organiza clientes, serviços e faturas no Akaunting. O módulo conecta essas informações à **Nota Fiscal de Serviço Eletrônica Nacional**, reduzindo a necessidade de alternar entre sistemas para acompanhar a documentação fiscal.
 
-Diferenciais:
-- **Credenciais isoladas** — a senha do certificado ICP-Brasil **nunca** vai para o banco de dados; ela é armazenada em [OpenBao](https://openbao.org/) / HashiCorp Vault KV v2
-- **Interface nativa Akaunting** — emissão, consulta, cancelamento, reemissão, configurações e diagnóstico operacional integrados ao painel
-- **NFS-e Nacional atual** — suporte ao layout DPS/NFS-e v1.01, CNPJ alfanumérico, IBS/CBS, cenários especiais de ISSQN e tomador estrangeiro
-- **ADN** — consulta de documentos por NSU, eventos oficiais, reconciliação somente leitura com recibos locais e diagnóstico de integridade XMLDSig
-- **DANFSe v2.0** — geração local alinhada à NT 008, incluindo exibição de IBS/CBS quando presente no XML autorizado
-- **Auditoria completa** — XMLs e artefatos de emissão podem ser arquivados em WebDAV configurável
+Ele permite integrar o trabalho financeiro ao acompanhamento de NFS-e, com rastreabilidade dos documentos autorizados e regras de segurança que evitam confundir uma fatura comercial com uma nota fiscal emitida.
 
----
+## Principais recursos
 
-## Requisitos
+- **Emissão de NFS-e Nacional** a partir de faturas e serviços cadastrados no Akaunting, com validações antes de transmitir a DPS.
+- **Consulta e cancelamento** e acompanhamento da situação dos documentos fiscais.
+- **DANFSe em PDF** gerada a partir do XML autorizado, com possibilidade de arquivamento de artefatos fiscais.
+- **Perfis fiscais por serviço e dados fiscais do tomador**, mantendo o cadastro comercial separado da identificação tributária necessária.
+- **Acompanhamento por fatura e por nota fiscal**, sem confundir situação financeira com situação fiscal.
+- **Integrações com SEFIN e ADN**, incluindo consultas oficiais e funcionalidades de reconciliação.
+- **Gestão de segredos** com OpenBao ou HashiCorp Vault para cenários que utilizem certificados digitais.
 
-| Dependência | Versão |
-|---|---|
-| Akaunting | ^4.0 |
-| PHP | ^8.2 |
-| ext-openssl | * |
-| Secret store | OpenBao or HashiCorp Vault with KV v2 |
+As informações tributárias dependem dos cadastros e da operação concreta. O módulo não substitui a análise fiscal nem promete ativar automaticamente novos leiautes publicados.
 
----
+## Funciona com seu Akaunting
 
-## Instalação
+O projeto é um módulo para o [Akaunting](https://akaunting.com/) e utiliza a biblioteca [nfse-php](https://github.com/LibreCodeCoop/nfse-php) para integração ao protocolo nacional. A biblioteca é independente; este módulo acrescenta os fluxos e as telas do Akaunting.
 
-1. Baixe o módulo na loja Akaunting (em breve) ou instale via Composer:
+Para requisitos de versão, instalação e atualização do módulo, consulte a [documentação operacional](docs/operacao-e-configuracao.md). Para atualização da biblioteca isolada, veja [Atualização do runtime](docs/nfse-php-runtime-upgrade.md).
 
-```bash
-composer require librecodeoop/akaunting-nfse
-```
+## Documentação
 
-2. Habilite o módulo em **Configurações → Módulos → NFS-e**
-3. Configure o certificado e o secret store (OpenBao/Vault) em **NFS-e → Configurações**
+- [Configuração e operação da NFS-e no Akaunting](docs/operacao-e-configuracao.md)
+- [Emissão e requisitos fiscais](docs/emissao-vigente.md)
+- [Garantias de segurança fiscal](docs/fiscal-safety.md)
+- [Processamento assíncrono e filas](docs/queue.md)
+- [Dados fiscais adicionais do cliente](docs/contact-fiscal-profile.md)
+- [Integração com o Core do Akaunting](docs/akaunting-core-integration.md)
 
----
+## Suporte e implantação profissional
 
-## Configuração
+A [LibreCode](https://librecodecoop.org.br) desenvolve soluções livres, presta consultoria, suporte, integração e manutenção. Para implantar NFS-e no Akaunting, revisar procedimentos fiscais, integrar outros sistemas ou contratar atendimento especializado:
 
-### Certificado ICP-Brasil
+**[comercial@librecodecoop.org.br](mailto:comercial@librecodecoop.org.br)**
 
-Faça upload do arquivo `.pfx` em **NFS-e → Configurações → Certificado**.
-A senha é enviada diretamente ao OpenBao — o servidor nunca armazena em texto claro.
-
-### IBS/CBS (Reforma Tributaria)
-
-Para operacoes sujeitas as regras RTC, configure na aba **Tributacao**:
-
-- habilitacao do grupo IBS/CBS;
-- `cIndOp` (6 digitos), conforme a tabela oficial de indicador da operacao;
-- `indDest` (0 ou 1);
-- `CST` (3 digitos);
-- `cClassTrib` (6 digitos);
-- `indFinal` (opcional, 0 ou 1).
-
-O modulo nao infere esses codigos automaticamente. O enquadramento fiscal deve ser
-definido de acordo com a operacao e as tabelas oficiais. Quando habilitado, o
-plugin envia `finNFSe=0` (NFS-e regular), unico valor atualmente admitido pelo
-schema v1.01.
-
-### Processamento pós-emissão e fila
-
-Depois que a SEFIN autoriza a NFS-e, o módulo persiste o recibo e mantém o XML autorizado em uma tabela de payload 1:1 antes de iniciar DANFSE, WebDAV e e-mail. Essas tarefas usam a fila nativa do Laravel/Akaunting.
-
-- `QUEUE_CONNECTION=sync`: funciona sem worker externo e mantém compatibilidade com instalações simples;
-- filas assíncronas como Redis: retiram DANFSE, WebDAV e e-mail do request HTTP;
-- falhas de fila posteriores à autorização não devem provocar uma nova emissão fiscal.
-
-A configuração completa, exemplo de worker Docker, validação e política de retry estão em [docs/queue.md](docs/queue.md).
-
-As garantias e limites de emissão, recuperação, validação municipal e
-contingência estão descritos em [segurança fiscal](docs/fiscal-safety.md).
-
-### Diagnóstico oficial e ADN
-
-O módulo inclui recursos de diagnóstico somente leitura para comparar a configuração local e os documentos emitidos com os dados oficiais:
-
-- consulta de parametrização municipal no ADN;
-- consulta de eventos oficiais por chave de acesso;
-- distribuição de documentos por NSU;
-- reconciliação de documentos ADN com recibos locais pela chave de acesso;
-- verificação de integridade XMLDSig dos XMLs recebidos.
-
-Essas funções não alteram automaticamente o enquadramento fiscal nem importam/cancelam documentos locais.
-
-### Tomador estrangeiro e cenários especiais de ISSQN
-
-A emissão suporta, quando aplicável:
-
-- tomador estrangeiro com NIF, país e endereço exterior;
-- imunidade;
-- exportação de serviços com país de resultado;
-- exigibilidade suspensa com tipo e número de processo;
-- retenção de ISSQN tratada separadamente da tributação da operação.
-
-### OpenBao / Vault
-
-O módulo consome um OpenBao/Vault já existente. Ele não instala nem inicializa
-esse serviço como parte do Akaunting.
-
-Configure os campos da aba **NFS-e → Configurações**:
-
-| Campo | Descrição |
-|---|---|
-| Endereço OpenBao / Vault | URL do servidor (ex.: `http://openbao:8200`) |
-| Mount KV v2 | Path do mount (ex.: `/nfse`) |
-| Token | Token estático — use apenas em desenvolvimento ou CI |
-| AppRole Role ID | Role ID gerado pelo AppRole (produção) |
-| AppRole Secret ID | Secret ID gerado pelo AppRole (produção) |
-
-### Prontidão operacional antes de emitir
-
-Para diagnosticar e emitir notas **com o contrato nacional vigente**, siga o [guia operacional de emissão](docs/emissao-vigente.md). A NT009 publicada é uma evolução de leiaute distinta; seus grupos ainda não estão habilitados na API de emissão do módulo. A correção de leitura do recibo oficial depende da versão verificada de `nfse-php` na composição escopada.
-
-
-Antes de emitir NFS-e, valide a tela **NFS-e -> Configuracoes -> Prontidao operacional**.
-
-Ela precisa indicar **Sim** para todos os itens de configuracao global, incluindo:
-
-- CNPJ do prestador salvo
-- Municipio IBGE configurado
-- Endereco OpenBao configurado
-- Mount OpenBao configurado
-- Certificado local disponivel
-- Segredo do certificado disponivel no Vault/OpenBao
-
-A classificacao fiscal do servico, incluindo o item da lista LC 116, pertence ao perfil fiscal de cada item e e validada no contexto da fatura antes da emissao.
-
-Se o ultimo item global estiver pendente, a emissao sera bloqueada para evitar falha em tempo de envio.
-
-### Mapeamento de tributos federais por nome
-
-Na emissao da NFS-e, os tributos federais (PIS/COFINS/IRRF/CSLL) sao derivados dos impostos dos itens da fatura.
-
-Se os tributos federais exigidos para o perfil configurado nao estiverem presentes nos itens, o botao de emissao nao e exibido na listagem pendente e a emissao/reemissao e bloqueada no backend.
-
-Como o cadastro padrao de impostos do Akaunting (`taxes`) nao possui um campo estruturado para codigo fiscal (mantem principalmente `name`, `rate` e `type`), a classificacao e feita pelo texto do nome do imposto.
-
-Termos reconhecidos (com normalizacao de acentos e caixa):
-
-| Tributo | Termos/variantes reconhecidos |
-|---|---|
-| PIS | `pis`, `pasep`, `programa de integracao social` |
-| COFINS | `cofins`, `financiamento da seguridade social` |
-| IRRF | `irrf`, `imposto de renda retido na fonte`, `renda retida na fonte` |
-| CSLL | `csll`, `contribuicao social sobre o lucro liquido` |
-| CP (previdenciaria) | `inss`, `contribuicao previdenciaria`, `previdencia social` |
-
-Hints de codigo textual aceitos no nome do imposto:
-
-| Padrao | Exemplo |
-|---|---|
-| Prefixo `cod:` | `cod:pis` |
-| Prefixo `codigo` | `codigo irrf` |
-| Prefixo `cst:` | `cst:cofins` |
-| Marcador em colchetes | `[csll]` |
-
-Recomendacao para reduzir ambiguidades:
-
-- Inclua sempre o identificador explicito no nome do imposto (ex.: `IRRF - Servicos` ou `cod:irrf - Servicos PJ`).
-- Evite depender apenas de codigos numericos no nome (ex.: apenas `0561`), pois esses codigos variam por contexto fiscal e nao sao suficientes, sozinhos, para classificacao automatica segura no modulo.
-
-#### Desenvolvimento
-
-O [akaunting-docker](https://github.com/LibreCodeCoop/akaunting-docker) sobe o
-Akaunting sem OpenBao por padrão. Para desenvolvimento do NFS-e, habilite
-explicitamente o setup opcional de OpenBao documentado naquele repositório.
-
-Esse setup usa armazenamento persistente e Static Key Auto Unseal. Depois da
-inicialização única, reiniciar os containers ou a VPS não exige informar shares
-de unseal novamente.
-
-O módulo não assume um hostname padrão para o secret store. Configure o endereço
-na interface ou forneça `VAULT_ADDR`/`OPENBAO_ADDR` no ambiente. O mount
-continua usando `/nfse` como padrão.
-
-#### Produção (AppRole)
-
-AppRole é o método recomendado para produção, pois não expõe um token de longa duração.
-
-```bash
-# 1. Habilite o método AppRole
-bao auth enable approle
-
-# 2. Crie uma policy restrita ao path do módulo
-bao policy write nfse - <<EOF
-path "nfse/*" {
-  capabilities = ["create", "read", "update", "delete", "list"]
-}
-EOF
-
-# 3. Crie o role vinculado à policy
-bao write auth/approle/role/nfse \
-  token_policies="nfse" \
-  token_ttl=1h \
-  token_max_ttl=4h
-
-# 4. Obtenha o Role ID (preencha em "AppRole Role ID" no módulo)
-bao read auth/approle/role/nfse/role-id
-
-# 5. Gere um Secret ID (preencha em "AppRole Secret ID" no módulo)
-bao write -f auth/approle/role/nfse/secret-id
-
-# 6. Habilite o mount KV v2
-bao secrets enable -path=nfse kv-v2
-```
-
----
-
-## Suporte Comercial
-
-Precisa de SLA, adaptações para outros municípios ou instalação gerenciada?
-Entre em contato: **comercial@librecodecoop.org.br**
-
----
-
-## Consulta fiscal e filtros de faturas
-
-O módulo mantém dois pontos de consulta distintos:
-
-- **NFS-e → Painel operacional** (`/nfse`): apresenta indicadores e as dez
-  notas fiscais mais recentes da empresa selecionada.
-- **NFS-e → Notas fiscais** (`/nfse/ledger`): consulta os registros de NFS-e
-  da empresa selecionada, com paginação e filtros por situação fiscal, número,
-  chave de acesso, nome do tomador e intervalo de datas de emissão. Cada linha corresponde a **uma NFS-e**,
-  inclusive quando várias notas estão relacionadas à mesma fatura.
-
-Na listagem fiscal, os links **XML** e **DANFSe** (quando a nota está emitida)
-referem-se ao registro fiscal daquela linha, e não necessariamente à nota mais
-recente da fatura. A ação **Abrir fatura** acessa o documento contábil nativo.
-
-Em **Vendas → Faturas**, o filtro **Situação da NFS-e** atua sobre as faturas
-antes da paginação e pode ser combinado com os filtros contábeis. Quando uma
-fatura tem múltiplos registros fiscais, o filtro considera a **situação do
-registro mais recente**, conforme seu identificador interno. A opção de ausência
-de NFS-e significa apenas que não há recibo vinculado; a opção **Desconhecido**
-seleciona registros com situação fiscal não reconhecida. Ela não indica
-automaticamente que há obrigação fiscal pendente.
-
-Os estados contábil e fiscal são independentes: uma fatura paga pode ter uma
-NFS-e em processamento ou cancelada. A consulta de notas fiscais não substitui
-os fluxos de emissão, cancelamento e gestão da fatura no Akaunting.
-
----
-
-## Testes E2E (Playwright)
-
-O módulo inclui uma suíte E2E opcional com Playwright para validar o fluxo visível no frontend (login + tela de configurações NFS-e).
-
-1. Defina variáveis de ambiente (veja `.env.e2e.example`):
-
-```bash
-export NFSE_E2E_BASE_URL="http://localhost:8080"
-export NFSE_E2E_EMAIL="admin@local"
-export NFSE_E2E_PASSWORD="sua-senha"
-```
-
-2. Instale dependências e rode os testes:
-
-```bash
-npm install
-npx playwright install chromium
-npm run test:e2e
-```
-
-No GitHub Actions, há workflow manual em `.github/workflows/playwright-e2e.yml` com `workflow_dispatch`, usando os secrets `NFSE_E2E_EMAIL` e `NFSE_E2E_PASSWORD`.
-
----
-
-## Testes de API/Fluxo com Behat
-
-Além dos E2E com browser, o módulo agora possui uma suíte Behat para validar contratos HTTP dos endpoints do NFS-e com menor custo de execução.
-
-1. Defina variáveis de ambiente para o ambiente Akaunting alvo (veja `.env.behat.example`):
-
-```bash
-export NFSE_BEHAT_BASE_URL="http://localhost:8082"
-export NFSE_BEHAT_EMAIL="admin@akaunting.test"
-export NFSE_BEHAT_PASSWORD="sua-senha"
-export NFSE_BEHAT_COMPANY_ID="1"
-```
-
-2. Rode os cenários:
-
-```bash
-composer test:behat:guest   # sem credenciais, cobre guardas de autenticação
-composer test:behat:auth    # requer credenciais, cobre endpoints autenticados
-```
-
-### Estratégia de segurança (CI sem PFX/CNPJ reais)
-
-- Use CNPJ de fixture em sandbox (`12345678901234`) apenas para validar fluxo técnico.
-- Use fixture `.p12` inválida/sintética para validar endpoint de upload sem credenciais fiscais reais.
-- Não execute emissão real em CI: os cenários cobrem roteamento/autorização/validação e contratos de resposta.
-- Para ambiente controlado de homologação com credenciais reais, use workflow manual e segredos do repositório (nunca em código/versionamento).
-
----
-
-## Contribuindo
-
-PRs são bem-vindos. Leia o [guia de contribuição](CONTRIBUTING.md) antes de abrir um PR.
-
-Commits devem seguir [Conventional Commits](https://www.conventionalcommits.org/) e ser assinados com `git commit -s`.
-
----
-
-## Dê uma estrela!
-
-Se este módulo simplifica a sua operação fiscal, por favor ⭐ o repositório.
-Isso ajuda outros desenvolvedores a encontrar o projeto e encoraja a equipe a continuar melhorando.
-
----
-
-## Licença
-
-GNU Affero General Public License v3.0 ou superior — veja [LICENSES/AGPL-3.0-or-later.txt](LICENSES/AGPL-3.0-or-later.txt).
-&copy; 2026 LibreCode Coop e colaboradores.
+A comunidade também pode colaborar: [issues](https://github.com/LibreCodeCoop/akaunting-nfse/issues) e [guia de contribuição](CONTRIBUTING.md).
