@@ -8,15 +8,14 @@ declare(strict_types=1);
 namespace Modules\Nfse\Support;
 
 /**
- * Selects the text saved on the individual invoice line, not catalog metadata.
+ * Uses only the invoice item name as its fiscal service label; descriptions are unrelated.
  */
 final class InvoiceItemDescription
 {
     /** @param array<string,mixed> $item */
     public static function fromItem(array $item): string
     {
-        $description = trim((string) ($item['description'] ?? ''));
-        $text = $description !== '' ? $description : (string) ($item['name'] ?? '');
+        $text = (string) ($item['name'] ?? '');
 
         return trim(str_replace(
             ['\r\n', '\n', '\r', "\r\n", "\r"],

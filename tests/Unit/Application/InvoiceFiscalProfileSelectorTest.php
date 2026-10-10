@@ -43,7 +43,7 @@ final class InvoiceFiscalProfileSelectorTest extends TestCase
         self::assertFalse($result['requires_split']);
     }
 
-    public function testReadsDescriptionFromPersistedInvoiceLine(): void
+    public function testIgnoresDescriptionFromPersistedInvoiceLine(): void
     {
         $result = $this->selector->select(
             items: [['item_id' => 10, 'name' => 'Nome curto', 'description' => 'Serviço contratado\\nCentro de custo: TESTE-001']],
@@ -55,7 +55,7 @@ final class InvoiceFiscalProfileSelectorTest extends TestCase
             unnamedItemLabel: 'N/A',
         );
 
-        self::assertSame(["[0107] Serviço contratado\nCentro de custo: TESTE-001"], $result['line_items']);
+        self::assertSame(['[0107] Nome curto'], $result['line_items']);
     }
 
     public function testFallsBackToConfiguredDefaultsWithoutFrameworkState(): void

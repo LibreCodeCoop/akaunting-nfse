@@ -12,10 +12,10 @@ use PHPUnit\Framework\TestCase;
 
 final class InvoiceItemDescriptionTest extends TestCase
 {
-    public function testUsesInvoiceLineDescriptionInsteadOfCatalogName(): void
+    public function testIgnoresInvoiceLineDescription(): void
     {
         self::assertSame(
-            "Serviço de exemplo\nCentro de custo: TESTE-001",
+            'Nome curto',
             InvoiceItemDescription::fromItem([
                 'name' => 'Nome curto',
                 'description' => 'Serviço de exemplo\nCentro de custo: TESTE-001',
@@ -23,7 +23,7 @@ final class InvoiceItemDescriptionTest extends TestCase
         );
     }
 
-    public function testFallsBackToNameWhenLineDescriptionIsEmpty(): void
+    public function testUsesNameWhenLineDescriptionIsEmpty(): void
     {
         self::assertSame('Nome curto', InvoiceItemDescription::fromItem([
             'name' => 'Nome curto',
