@@ -1124,10 +1124,18 @@ class InvoiceController extends Controller
             && (int) $submittedId === (int) $receipt->id;
     }
 
+    protected function refreshRedirectTarget(?Request $request): string
+    {
+        return $request?->input('redirect_after_refresh', '') === 'invoice_show'
+            ? 'invoices.show'
+            : 'nfse.invoices.show';
+    }
+
     public function refresh(Invoice $invoice, ?Request $request = null): RedirectResponse
     {
         $request = $this->currentRequest($request);
         $receipt = $this->findReceiptForInvoice($invoice);
+        $redirectRoute = $this->refreshRedirectTarget($request);
 
         if (!$this->submittedReceiptMatchesCurrent($receipt, $request)) {
             return redirect()->route('invoices.show', $invoice)
@@ -1135,7 +1143,7 @@ class InvoiceController extends Controller
         }
 
         if (($receipt->status ?? '') === 'cancelled') {
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route($redirectRoute, $invoice)
                 ->with('warning', trans('nfse::general.invoices.refresh_not_allowed_for_cancelled'));
         }
 
@@ -1150,17 +1158,17 @@ class InvoiceController extends Controller
                 $this->cleanupClientTransportArtifacts();
             }
 
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route($redirectRoute, $invoice)
                 ->with('success', trans('nfse::general.nfse_refreshed', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $updatedReceipt->chaveAcesso]));
         } catch (SecretStoreException) {
             $this->cleanupClientTransportArtifacts();
 
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route($redirectRoute, $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed'));
         } catch (PfxImportException) {
             $this->cleanupClientTransportArtifacts();
 
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route($redirectRoute, $invoice)
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         } catch (\Throwable $e) {
             $this->cleanupClientTransportArtifacts();

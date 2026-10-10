@@ -99,11 +99,30 @@ final class NativeInvoiceFiscalActionsAccessTest extends FeatureTestCase
 
         self::assertStringContainsString('data-nfse-receipt-actions="' . $latest->id . '"', $current);
         self::assertStringContainsString('name="nfse_receipt_id" value="' . $latest->id . '"', $current);
+        self::assertStringContainsString('name="redirect_after_refresh" value="invoice_show"', $current);
         self::assertStringContainsString('name="nfse_substitution_receipt_id" value="' . $latest->id . '"', $current);
         self::assertStringContainsString(route('nfse.invoices.refresh', $invoice->id), $current);
         self::assertStringContainsString(route('nfse.invoices.cancel', $invoice->id), $current);
         self::assertStringContainsString(route('nfse.invoices.substitute', $invoice->id), $current);
         self::assertStringNotContainsString('data-nfse-settings-link="true"', $current);
+    }
+
+    public function testRefreshReturnTargetPreservesNativeInvoicePageWhenRequested(): void
+    {
+        $controller = new class () extends \Modules\Nfse\Http\Controllers\InvoiceController {
+            public function redirectTarget(?\Illuminate\Http\Request $request): string
+            {
+                return $this->refreshRedirectTarget($request);
+            }
+        };
+
+        $native = \Illuminate\Http\Request::create('/nfse/refresh', 'POST', [
+            'redirect_after_refresh' => 'invoice_show',
+        ]);
+        $legacy = \Illuminate\Http\Request::create('/nfse/refresh', 'POST');
+
+        self::assertSame('invoices.show', $controller->redirectTarget($native));
+        self::assertSame('nfse.invoices.show', $controller->redirectTarget($legacy));
     }
 
     public function testLatestCancelledReceiptOffersReissueInsideItsCardOnly(): void
