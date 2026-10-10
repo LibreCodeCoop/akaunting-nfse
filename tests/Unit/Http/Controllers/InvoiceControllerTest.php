@@ -2734,13 +2734,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ]);
 
             $controller = new class () extends InvoiceController {
-                public function exposePersistDefaultDescriptionFromRequest(?\Illuminate\Http\Request $request): void
+                public function exposePersistDefaultDescriptionFromRequest(?\Illuminate\Http\Request $request, Invoice $invoice): void
                 {
-                    $this->persistDefaultDescriptionFromRequest($request);
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
                 }
             };
 
-            $controller->exposePersistDefaultDescriptionFromRequest($request);
+            $controller->exposePersistDefaultDescriptionFromRequest($request, new Invoice());
 
             self::assertSame('Nova descricao padrao da NFS-e', ControllerIsolationState::$settings['invoice.notes'] ?? null);
             self::assertSame(1, ControllerIsolationState::$savedCount);
@@ -2758,13 +2758,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ]);
 
             $controller = new class () extends InvoiceController {
-                public function exposePersistDefaultDescriptionFromRequest(?\Illuminate\Http\Request $request): void
+                public function exposePersistDefaultDescriptionFromRequest(?\Illuminate\Http\Request $request, Invoice $invoice): void
                 {
-                    $this->persistDefaultDescriptionFromRequest($request);
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
                 }
             };
 
-            $controller->exposePersistDefaultDescriptionFromRequest($request);
+            $controller->exposePersistDefaultDescriptionFromRequest($request, new Invoice());
 
             self::assertSame('Descricao antiga', ControllerIsolationState::$settings['invoice.notes'] ?? null);
             self::assertSame(0, ControllerIsolationState::$savedCount);
