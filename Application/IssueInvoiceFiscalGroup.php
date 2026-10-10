@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace Modules\Nfse\Application;
 
 use Illuminate\Support\Facades\DB;
-use Modules\Nfse\Support\InvoiceItemDescription;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
@@ -104,24 +103,11 @@ final class IssueInvoiceFiscalGroup
         $payload['valorServico'] = trim((string) ($group['amount'] ?? ''));
         $payload['aliquota'] = trim((string) ($group['aliquota'] ?? ''));
         $groupItems = is_array($group['items'] ?? null) ? $group['items'] : [];
-        $groupDescription = implode(
-            ' | ',
-            array_values(array_filter(array_map(
-                static fn (array $item): string => InvoiceItemDescription::fromItem($item),
-                $groupItems,
-            ), static fn (string $line): bool => $line !== '')),
+        $payload['discriminacao'] = (new FiscalDescriptionComposer())->group(
+            $groupItems,
+            $additionalDescription,
+            $descriptionOverride,
         );
-
-        // Keep the service names scoped to this fiscal group while retaining
-        // invoice notes and intentionally customized descriptions.
-        $override = trim((string) $descriptionOverride);
-        $extra = trim((string) $additionalDescription);
-        $payload['discriminacao'] = $override !== ''
-            ? $override
-            : implode("\n\n", array_values(array_unique(array_filter(
-                [$groupDescription, $extra],
-                static fn (string $text): bool => $text !== '',
-            ))));
         $payload['serie'] = $identity['series'];
         $payload['numeroDps'] = $identity['number'];
 
