@@ -475,7 +475,7 @@ class InvoiceController extends Controller
         }
 
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
-        $this->persistDefaultDescriptionFromRequest($request);
+        $this->persistDefaultDescriptionFromRequest($request, $invoice);
 
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
         $fiscalGroups = $this->invoiceFiscalGroups($invoice);
@@ -696,7 +696,7 @@ class InvoiceController extends Controller
                     group: $selectedFiscalGroup,
                     additionalDescription: (new FiscalDescriptionComposer())->additional(
                         $this->normalizeDescriptionText((string) ($invoice->notes ?? '')),
-                        $this->defaultEmitDescription(),
+                        $this->defaultEmitDescription($invoice),
                     ),
                     descriptionOverride: $customDiscriminacao,
                 );
@@ -1211,7 +1211,7 @@ class InvoiceController extends Controller
         }
 
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
-        $this->persistDefaultDescriptionFromRequest($request);
+        $this->persistDefaultDescriptionFromRequest($request, $invoice);
 
         $receipt = $this->findReceiptForInvoice($invoice);
 
@@ -1438,45 +1438,55 @@ class InvoiceController extends Controller
             $lineItems,
             $invoice->items->pluck('name')->toArray(),
             $this->normalizeDescriptionText((string) ($invoice->notes ?? '')),
-            $this->defaultEmitDescription(),
+            $this->defaultEmitDescription($invoice),
             $customDescription,
             trans('nfse::general.service_default'),
         );
     }
 
-    protected function defaultEmitDescription(): ?string
+    protected function defaultEmitDescription(?Invoice $invoice = null): ?string
     {
-        $rawValue = setting(self::INVOICE_NOTES_SETTING_KEY, '');
-
-        if (!is_string($rawValue)) {
-            return null;
+        if ($invoice instanceof Invoice) {
+            $contactId = (int) ($invoice->contact_id ?? 0);
+            $companyId = (int) ($invoice->company_id ?? 0);
+            if ($contactId > 0 && $companyId > 0) {
+                $customerValue = setting('nfse.customer_description.' . $companyId . '.' . $contactId, null);
+                if (is_string($customerValue) && trim($customerValue) !== '') {
+                    return $this->normalizeDescriptionText($customerValue);
+                }
+            }
         }
 
-        return $this->normalizeDescriptionText($rawValue);
+        $rawValue = setting(self::INVOICE_NOTES_SETTING_KEY, '');
+        return is_string($rawValue) ? $this->normalizeDescriptionText($rawValue) : null;
     }
 
-    protected function persistDefaultDescriptionFromRequest(?Request $request): void
+    protected function persistDefaultDescriptionFromRequest(?Request $request, Invoice $invoice): void
     {
-        if (!$request instanceof Request) {
-            return;
-        }
-
-        if (!$request->boolean('nfse_save_default_description', false)) {
+        if (!$request instanceof Request || !$request->boolean('nfse_save_default_description', false)) {
             return;
         }
 
         $rawValue = $request->input('nfse_discriminacao_custom', '');
-
         if (!is_string($rawValue)) {
             return;
         }
 
-        $valueToPersist = $this->normalizeDescriptionText($rawValue) ?? '';
+        $scope = (string) $request->input('nfse_description_scope', 'general');
+        $settingKey = self::INVOICE_NOTES_SETTING_KEY;
+        if ($scope === 'customer') {
+            $contactId = (int) ($invoice->contact_id ?? 0);
+            $companyId = (int) ($invoice->company_id ?? 0);
+            if ($contactId <= 0 || $companyId <= 0 || (int) company_id() !== $companyId) {
+                throw new \\InvalidArgumentException('A valid customer from the current company is required.');
+            }
+            $settingKey = 'nfse.customer_description.' . $companyId . '.' . $contactId;
+        } elseif ($scope !== 'general') {
+            throw new \\InvalidArgumentException('Invalid NFS-e description scope.');
+        }
 
-        setting([self::INVOICE_NOTES_SETTING_KEY => $valueToPersist]);
-
+        setting([$settingKey => $this->normalizeDescriptionText($rawValue) ?? '']);
         $settings = setting();
-
         if (is_object($settings) && is_callable([$settings, 'save'])) {
             $settings->save();
         }
