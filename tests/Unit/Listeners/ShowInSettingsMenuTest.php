@@ -115,7 +115,7 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
             self::assertCount(0, $menu->calls);
         }
 
-        public function testHandleAddsSettingsRouteEvenWhenPermissionHelperWouldDeny(): void
+        public function testHandleHidesSettingsRouteWhenPermissionHelperDenies(): void
         {
             $menu = new class () {
                 /** @var array<int, array<string, mixed>> */
@@ -144,8 +144,8 @@ namespace Modules\Nfse\Tests\Unit\Listeners {
 
             $listener->handle(new SettingsCreated($menu));
 
-            self::assertCount(1, $menu->calls);
-            self::assertSame('nfse.settings.edit', $menu->calls[0]['route']);
+            self::assertCount(0, $menu->calls);
+
         }
     }
 }

@@ -21,12 +21,18 @@ Route::admin('nfse', function () {
 
     // Settings
     Route::group(['prefix' => 'settings', 'as' => 'settings.'], function () {
-        Route::get('/', [SettingsController::class, 'edit'])->name('edit');
-        Route::patch('/', [SettingsController::class, 'update'])->name('update');
-        Route::patch('/vault', [SettingsController::class, 'updateVault'])->name('vault');
-        Route::patch('/fiscal', [SettingsController::class, 'updateFiscal'])->name('fiscal');
-        Route::patch('/federal', [SettingsController::class, 'updateFederal'])->name('federal');
-        Route::patch('/artifacts', [SettingsController::class, 'updateArtifacts'])->name('artifacts');
+        Route::get('/', [SettingsController::class, 'edit'])
+            ->middleware('permission:read-nfse-settings')->name('edit');
+        Route::patch('/', [SettingsController::class, 'update'])
+            ->middleware('permission:update-nfse-settings')->name('update');
+        Route::patch('/vault', [SettingsController::class, 'updateVault'])
+            ->middleware('permission:update-nfse-settings')->name('vault');
+        Route::patch('/fiscal', [SettingsController::class, 'updateFiscal'])
+            ->middleware('permission:update-nfse-settings')->name('fiscal');
+        Route::patch('/federal', [SettingsController::class, 'updateFederal'])
+            ->middleware('permission:update-nfse-settings')->name('federal');
+        Route::patch('/artifacts', [SettingsController::class, 'updateArtifacts'])
+            ->middleware('permission:update-nfse-settings')->name('artifacts');
     });
 
     // IBGE localities lookup
@@ -37,9 +43,12 @@ Route::admin('nfse', function () {
     Route::get('municipal-parameters', [SettingsController::class, 'municipalParameters'])->name('municipal-parameters');
 
     // Certificate management
-    Route::post('certificate', [CertificateController::class, 'upload'])->name('certificate.upload');
-    Route::post('certificate/parse', [CertificateController::class, 'parsePfx'])->name('certificate.parse');
-    Route::delete('certificate', [CertificateController::class, 'destroy'])->name('certificate.destroy');
+    Route::post('certificate', [CertificateController::class, 'upload'])
+        ->middleware('permission:update-nfse-settings')->name('certificate.upload');
+    Route::post('certificate/parse', [CertificateController::class, 'parsePfx'])
+        ->middleware('permission:update-nfse-settings')->name('certificate.parse');
+    Route::delete('certificate', [CertificateController::class, 'destroy'])
+        ->middleware('permission:delete-nfse-settings')->name('certificate.destroy');
 
     // ADN contributor distribution
     Route::get('adn', [AdnController::class, 'index'])->name('adn.index');
@@ -66,12 +75,17 @@ Route::admin('nfse', function () {
     // NFS-e issuance
     Route::get('invoices', [LegacyInvoiceController::class, 'index'])->name('invoices.index');
     Route::get('invoices/pending', [LegacyInvoiceController::class, 'pending'])->name('invoices.pending');
-    Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])->name('invoices.emit');
+    Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.emit');
     Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])->name('invoices.service-preview');
-    Route::post('invoices/refresh-all', [InvoiceController::class, 'refreshAll'])->name('invoices.refresh-all');
-    Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])->name('invoices.refresh');
-    Route::post('invoices/{invoice}/reemit', [InvoiceController::class, 'reemit'])->name('invoices.reemit');
-    Route::post('invoices/{invoice}/substitute', [InvoiceController::class, 'substitute'])->name('invoices.substitute');
+    Route::post('invoices/refresh-all', [InvoiceController::class, 'refreshAll'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.refresh-all');
+    Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.refresh');
+    Route::post('invoices/{invoice}/reemit', [InvoiceController::class, 'reemit'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.reemit');
+    Route::post('invoices/{invoice}/substitute', [InvoiceController::class, 'substitute'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.substitute');
     Route::get('invoices/{invoice}', [LegacyInvoiceController::class, 'show'])->name('invoices.show');
     Route::get('invoices/{invoice}/emit-success', [InvoiceController::class, 'showEmitSuccess'])->name('invoices.emit-success');
     Route::get('invoices/{invoice}/post-emission-status', [InvoiceController::class, 'postEmissionStatus'])->name('invoices.post-emission-status');
@@ -80,7 +94,8 @@ Route::admin('nfse', function () {
         ->name('invoices.emission-attempts');
     Route::get('invoices/{invoice}/adn-events', [AdnController::class, 'events'])->name('invoices.adn-events');
     Route::get('invoices/{invoice}/artifacts/{artifact}', [InvoiceController::class, 'downloadArtifact'])->name('invoices.artifacts.download');
-    Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
+    Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.cancel');
 
         // Email modal — replaces the Akaunting core email modal for NFS-e invoices
         Route::get('modals/invoices/{invoice}/emails/create', [InvoiceEmails::class, 'create'])->name('modals.invoices.emails.create');

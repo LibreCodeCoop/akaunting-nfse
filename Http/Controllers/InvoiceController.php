@@ -917,6 +917,10 @@ class InvoiceController extends Controller
             throw new \InvalidArgumentException('Only an emitted NFS-e can be substituted.');
         }
 
+        if ((int) $receipt->id !== (int) $this->findReceiptForInvoice($invoice)->id) {
+            throw new \InvalidArgumentException((string) trans('nfse::general.invoices.current_receipt_changed'));
+        }
+
         return $receipt;
     }
 
@@ -924,6 +928,11 @@ class InvoiceController extends Controller
     {
         $request = $this->currentRequest($request);
         $receipt = $this->findReceiptForInvoice($invoice);
+
+        if (!$this->submittedReceiptMatchesCurrent($receipt, $request)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.current_receipt_changed')));
+        }
 
         $cancellation = $this->cancellationDataForGateway($request);
         $redirect = $this->cancellationRedirect($invoice, $request);
@@ -1098,12 +1107,43 @@ class InvoiceController extends Controller
         return $normalized !== [] ? $normalized : ['Erro na emissão', 'Serviço não prestado', 'Outros'];
     }
 
-    public function refresh(Invoice $invoice): RedirectResponse
+    /**
+     * Protect actions from an outdated invoice tab targeting a newer fiscal
+     * receipt. Legacy forms without a receipt identifier remain compatible.
+     */
+    protected function submittedReceiptMatchesCurrent(NfseReceipt $receipt, ?Request $request): bool
     {
+        if (!$request instanceof Request || !$request->has('nfse_receipt_id')) {
+            return true;
+        }
+
+        $submittedId = $request->input('nfse_receipt_id');
+
+        return (is_int($submittedId) || is_string($submittedId))
+            && ctype_digit((string) $submittedId)
+            && (int) $submittedId === (int) $receipt->id;
+    }
+
+    protected function refreshRedirectTarget(?Request $request): string
+    {
+        return $request?->input('redirect_after_refresh', '') === 'invoice_show'
+            ? 'invoices.show'
+            : 'nfse.invoices.show';
+    }
+
+    public function refresh(Invoice $invoice, ?Request $request = null): RedirectResponse
+    {
+        $request = $this->currentRequest($request);
         $receipt = $this->findReceiptForInvoice($invoice);
+        $redirectRoute = $this->refreshRedirectTarget($request);
+
+        if (!$this->submittedReceiptMatchesCurrent($receipt, $request)) {
+            return redirect()->route('invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.current_receipt_changed'));
+        }
 
         if (($receipt->status ?? '') === 'cancelled') {
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route($redirectRoute, $invoice)
                 ->with('warning', trans('nfse::general.invoices.refresh_not_allowed_for_cancelled'));
         }
 
@@ -1118,17 +1158,17 @@ class InvoiceController extends Controller
                 $this->cleanupClientTransportArtifacts();
             }
 
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route($redirectRoute, $invoice)
                 ->with('success', trans('nfse::general.nfse_refreshed', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $updatedReceipt->chaveAcesso]));
         } catch (SecretStoreException) {
             $this->cleanupClientTransportArtifacts();
 
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route($redirectRoute, $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed'));
         } catch (PfxImportException) {
             $this->cleanupClientTransportArtifacts();
 
-            return redirect()->route('nfse.invoices.show', $invoice)
+            return redirect()->route($redirectRoute, $invoice)
                 ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
         } catch (\Throwable $e) {
             $this->cleanupClientTransportArtifacts();

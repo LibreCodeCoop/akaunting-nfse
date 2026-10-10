@@ -6,20 +6,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     <x-slot name="title">{{ trans('nfse::general.invoices.title') }}</x-slot>
 
     <x-slot name="buttons">
+        @can('update-sales-invoices')
         <form id="refresh-all-form" action="{{ route('nfse.invoices.refresh-all') }}" method="POST" class="inline-block" data-loading-label="{{ trans('nfse::general.invoices.refresh_all_statuses_loading') }}">
             @csrf
             <x-button kind="primary" id="index-more-actions-refresh-nfse-invoices" type="submit">
                 {{ trans('nfse::general.invoices.refresh_all_statuses') }}
             </x-button>
         </form>
+        @endcan
 
         <x-link href="{{ route('nfse.adn.index') }}" id="index-more-actions-open-adn-distribution">
             {{ trans('nfse::general.adn.title') }}
         </x-link>
 
+        @can('read-nfse-settings')
         <x-link href="{{ route('nfse.settings.edit') }}" id="index-more-actions-open-nfse-settings">
             {{ trans('nfse::general.go_to_settings') }}
         </x-link>
+        @endcan
     </x-slot>
 
     <x-slot name="content">
