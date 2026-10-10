@@ -6,9 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 # Configuração e operação do módulo NFS-e
 
 O módulo `akaunting-nfse` integra o [Akaunting](https://akaunting.com/) aos
-serviços do Sistema Nacional NFS-e. Requer versão compatível do Akaunting
-(ver `module.json` e metadados do pacote), PHP e extensões declarados nos
-manifestos e acesso aos serviços nacionais aplicáveis.
+serviços do Sistema Nacional NFS-e. Requer versão compatível do Akaunting,
+PHP e extensões declaradas nos manifestos e acesso aos serviços nacionais
+aplicáveis. O `module.json` atual não declara uma faixa de versões do Core;
+confirme a compatibilidade da versão instalada com os testes e releases do módulo.
 
 ## Habilitação
 
