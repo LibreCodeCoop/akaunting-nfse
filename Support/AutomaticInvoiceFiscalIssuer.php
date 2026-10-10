@@ -234,7 +234,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
     {
         $items = is_array($group['items'] ?? null) ? $group['items'] : [];
         $service = implode(' | ', array_values(array_filter(array_map(
-            static fn (array $item): string => trim((string) ($item['name'] ?? '')),
+            static fn (array $item): string => InvoiceItemDescription::fromItem($item),
             $items,
         ), static fn (string $name): bool => $name !== '')));
 

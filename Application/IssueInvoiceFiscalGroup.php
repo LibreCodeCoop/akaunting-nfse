@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Application;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Support\InvoiceItemDescription;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
@@ -106,7 +107,7 @@ final class IssueInvoiceFiscalGroup
         $groupDescription = implode(
             ' | ',
             array_values(array_filter(array_map(
-                static fn (array $item): string => trim((string) ($item['name'] ?? '')),
+                static fn (array $item): string => InvoiceItemDescription::fromItem($item),
                 $groupItems,
             ), static fn (string $line): bool => $line !== '')),
         );
