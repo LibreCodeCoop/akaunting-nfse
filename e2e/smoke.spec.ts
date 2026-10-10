@@ -35,7 +35,7 @@ test('native fiscal status facet distinguishes absent receipts from unknown stat
 
   await select.selectOption('absent');
   await Promise.all([
-    page.waitForURL(url => url.searchParams.get('nfse_status') === 'absent'),
+    page.waitForURL(url => url.searchParams.get('nfse_status') === 'absent', { waitUntil: 'domcontentloaded' }),
     submit.click(),
   ]);
 
@@ -44,7 +44,7 @@ test('native fiscal status facet distinguishes absent receipts from unknown stat
 
   await select.selectOption('unknown');
   await Promise.all([
-    page.waitForURL(url => url.searchParams.get('nfse_status') === 'unknown'),
+    page.waitForURL(url => url.searchParams.get('nfse_status') === 'unknown', { waitUntil: 'domcontentloaded' }),
     submit.click(),
   ]);
 
@@ -302,7 +302,7 @@ test('edited fiscal item persists selected LC 116 and cTribNac after reopening',
   expect(result.ok()).toBeTruthy();
   // Let Akaunting complete its own post-save navigation before revisiting the
   // persisted record; competing navigations cause net::ERR_ABORTED in CI.
-  await expect(page).not.toHaveURL(editUrl, { timeout: 15_000 });
+  await page.waitForURL(url => url.pathname === '/1/common/items', { waitUntil: 'domcontentloaded' });
   await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
   await expect(root).toBeVisible();
   await expect.poll(() => valueOf('nfse_codigo_tributacao_nacional')).toBe('010101');
@@ -336,7 +336,7 @@ test('unchanged historical cTribNac survives native save and reopen', async ({ p
   await page.locator('form#item button[type="submit"]').last().click();
   const result = await saveResponse;
   expect(result.status()).toBe(200);
-  await expect(page).not.toHaveURL(editUrl, { timeout: 15_000 });
+  await page.waitForURL(url => url.pathname === '/1/common/items', { waitUntil: 'domcontentloaded' });
 
   await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
   await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('999999');
@@ -358,7 +358,7 @@ test('commercial-only browser edit preserves historical fiscal values', async ({
   await page.locator('form#item button[type="submit"]').last().click();
   const result = await saveResponse;
   expect(result.status()).toBe(200);
-  await expect(page).not.toHaveURL(editUrl, { timeout: 15_000 });
+  await page.waitForURL(url => url.pathname === '/1/common/items', { waitUntil: 'domcontentloaded' });
 
   await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('input[name="name"]')).toHaveValue(changedName);
