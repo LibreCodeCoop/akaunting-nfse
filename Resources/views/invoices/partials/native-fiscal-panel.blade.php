@@ -181,39 +181,41 @@
                     @endif
                     @if($receipt !== null && (int) $linkedReceipt->id === (int) $receipt->id && $linkedStatus === 'emitted')
                         <div class="mt-3 flex flex-wrap gap-2 border-t border-green-200 pt-3" data-nfse-current-artifacts="{{ $linkedReceipt->id }}">
-                    @if($danfseReady || $postEmissionActive)
-                        <a
-                            href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $linkedReceipt->id, 'artifact' => 'danfse']) }}"
-                            class="inline-flex items-center gap-2 rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 {{ $danfseReady ? '' : 'pointer-events-none opacity-60' }}"
-                            data-nfse-artifact="danfse"
-                        data-nfse-artifact-processing="{{ trans('nfse::general.invoices.artifact_danfse_processing') }}"
-                            aria-disabled="{{ $danfseReady ? 'false' : 'true' }}"
-                        >
-                            <svg data-nfse-artifact-spinner class="h-4 w-4 animate-spin {{ (!$danfseReady && $postEmissionActive) ? '' : 'hidden' }}" viewBox="0 0 24 24" aria-hidden="true">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                            </svg>
-                            <span data-nfse-artifact-label>{{ $danfseReady ? trans('nfse::general.invoices.artifact_danfse_label') : trans('nfse::general.invoices.artifact_danfse_processing') }}</span>
-                        </a>
-                        @endif
+                            @if($danfseReady || $postEmissionActive)
+                                <a
+                                    @if($danfseReady)
+                                        href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $linkedReceipt->id, 'artifact' => 'danfse']) }}"
+                                    @endif
+                                    class="inline-flex items-center gap-2 rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 {{ $danfseReady ? '' : 'pointer-events-none opacity-60' }}"
+                                    data-nfse-artifact="danfse"
+                                    data-nfse-artifact-processing="{{ trans('nfse::general.invoices.artifact_danfse_processing') }}"
+                                    aria-disabled="{{ $danfseReady ? 'false' : 'true' }}"
+                                >
+                                    <svg data-nfse-artifact-spinner class="h-4 w-4 animate-spin {{ (!$danfseReady && $postEmissionActive) ? '' : 'hidden' }}" viewBox="0 0 24 24" aria-hidden="true">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                    </svg>
+                                    <span data-nfse-artifact-label>{{ $danfseReady ? trans('nfse::general.invoices.artifact_danfse_label') : trans('nfse::general.invoices.artifact_danfse_processing') }}</span>
+                                </a>
+                            @endif
 
-                    @if($xmlReady || $postEmissionActive)
-                        <a
-                            href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $linkedReceipt->id, 'artifact' => 'xml']) }}"
-                            class="inline-flex items-center gap-2 rounded bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200 {{ $xmlReady ? '' : 'pointer-events-none opacity-60' }}"
-                            data-nfse-artifact="xml"
-                        data-nfse-artifact-processing="{{ trans('nfse::general.invoices.artifact_xml_processing') }}"
-                            aria-disabled="{{ $xmlReady ? 'false' : 'true' }}"
-                        >
-                            <svg data-nfse-artifact-spinner class="h-4 w-4 animate-spin {{ (!$xmlReady && $postEmissionActive) ? '' : 'hidden' }}" viewBox="0 0 24 24" aria-hidden="true">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                            </svg>
-                            <span data-nfse-artifact-label>{{ $xmlReady ? trans('nfse::general.invoices.artifact_xml_label') : trans('nfse::general.invoices.artifact_xml_processing') }}</span>
-                        </a>
-                        @endif
-
-
+                            @if($xmlReady || $postEmissionActive)
+                                <a
+                                    @if($xmlReady)
+                                        href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $linkedReceipt->id, 'artifact' => 'xml']) }}"
+                                    @endif
+                                    class="inline-flex items-center gap-2 rounded bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200 {{ $xmlReady ? '' : 'pointer-events-none opacity-60' }}"
+                                    data-nfse-artifact="xml"
+                                    data-nfse-artifact-processing="{{ trans('nfse::general.invoices.artifact_xml_processing') }}"
+                                    aria-disabled="{{ $xmlReady ? 'false' : 'true' }}"
+                                >
+                                    <svg data-nfse-artifact-spinner class="h-4 w-4 animate-spin {{ (!$xmlReady && $postEmissionActive) ? '' : 'hidden' }}" viewBox="0 0 24 24" aria-hidden="true">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 0 00-4 4H4z"></path>
+                                    </svg>
+                                    <span data-nfse-artifact-label>{{ $xmlReady ? trans('nfse::general.invoices.artifact_xml_label') : trans('nfse::general.invoices.artifact_xml_processing') }}</span>
+                                </a>
+                            @endif
                         </div>
                     @endif
                     @if(!empty($linkedReceipt->emission_group_key))
