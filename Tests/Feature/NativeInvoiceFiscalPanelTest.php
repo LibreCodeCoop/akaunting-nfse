@@ -67,7 +67,7 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
     {
         $invoice = Document::factory()->invoice()->create();
 
-        NfseReceipt::query()->create([
+        $receipt = NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
             'nfse_number' => '901',
             'chave_acesso' => str_repeat('7', 50),
@@ -82,8 +82,8 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
             ->assertSee('901')
             ->assertSee(str_repeat('7', 50))
             ->assertSee('data-nfse-receipt-id=', false)
-            ->assertSee(route('nfse.invoices.artifacts.download', [$invoice->id, 'danfse']), false)
-            ->assertSee(route('nfse.invoices.artifacts.download', [$invoice->id, 'xml']), false)
+            ->assertSee(route('nfse.ledger.artifacts.download', ['receipt' => $receipt->id, 'artifact' => 'danfse']), false)
+            ->assertSee(route('nfse.ledger.artifacts.download', ['receipt' => $receipt->id, 'artifact' => 'xml']), false)
             ->assertSee(route('nfse.invoices.refresh', $invoice->id), false)
             ->assertSee(route('nfse.invoices.cancel', $invoice->id), false)
             ->assertSee('name="redirect_after_cancel" value="invoice_show"', false)
