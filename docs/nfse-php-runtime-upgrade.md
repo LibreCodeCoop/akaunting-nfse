@@ -5,34 +5,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Atualização do runtime nfse-php
 
-O módulo utiliza `librecodeoop/nfse-php` em `3rdparty/`, isolado pelo
-PHP-Scoper em `3rdparty/scoped/`. A revisão esperada é declarada em
-`3rdparty/composer.json`. O `composer.lock` desse diretório é local e não
-versionado; confirme sua compatibilidade em cada ambiente.
+A biblioteca `librecodeoop/nfse-php` utiliza PHP-Scoper para isolar
+as dependências em `3rdparty/scoped/`. A revisão esperada está declarada
+em `3rdparty/composer.json`.
 
-## Atualização
-
-Com os backups conferidos, suspenda emissões e workers. Atualize o código
-do módulo no host e, dentro do contêiner, no diretório
-`/var/www/html/modules/Nfse`, execute:
+No diretório do módulo Nfse, atualize o runtime e confira a revisão instalada:
 
 ```bash
 composer thirdparty:build:prod
 composer --working-dir=3rdparty show librecodeoop/nfse-php --format=json
 ```
 
-Confirme que `source.reference` corresponde à revisão fixada no manifesto.
-Se o lock local estiver desatualizado, resolva a divergência antes de retomar
-as emissões. O PHP-Scoper reconstrói os arquivos, mas não invalida o OPcache:
-limpe os caches da aplicação e reinicie PHP-FPM e workers.
+A referência `source.reference` deve corresponder à revisão declarada
+no manifesto. Se o lock local indicar uma revisão anterior, resolva a
+divergência antes de retomar as emissões.
 
-## Documentos históricos e retorno
+No diretório da aplicação Akaunting, limpe os caches:
 
-O PDF DANFSe é produzido a partir do XML autorizado. A presença de um caminho
-de PDF no WebDAV preserva o arquivo já armazenado. Para validar alterações
-visuais, gere um novo PDF local de um XML autorizado, sem retransmitir a DPS
-ou sobrescrever automaticamente documentos antigos.
+```bash
+php artisan optimize:clear
+```
 
-Para reverter, restaure uma revisão aprovada do módulo e das dependências,
-reconstrua o runtime e reinicie os processos antes de retomar as emissões.
-Não reverta migrações nem reemita notas automaticamente.
+Reinicie o processo PHP e os workers que mantêm código em memória, conforme
+a forma de gerenciamento da instalação, para invalidar o OPcache. O processo
+de atualização não substitui PDFs já armazenados. Para conferir o layout,
+renderize localmente um XML autorizado sem retransmitir a DPS.
