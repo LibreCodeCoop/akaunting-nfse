@@ -40,78 +40,39 @@ os jobs são executados no mesmo processo HTTP. Esse modo não exige Redis nem w
 
 Para produção, use uma fila assíncrona.
 
-## Redis
+## Fila assíncrona
 
-Exemplo:
+Quando a operação exigir processamento em segundo plano, configure o
+driver de fila suportado pela sua instalação do Akaunting. Para Redis,
+os parâmetros seguem o contrato Laravel/Akaunting:
 
 ```env
 QUEUE_CONNECTION=redis
-REDIS_HOST=redis
+REDIS_HOST=seu-host-redis
 REDIS_PORT=6379
-
-# O Akaunting usa a conexão Redis "queue". Estes valores são opcionais
-# quando iguais ao Redis padrão:
-# REDIS_QUEUE_HOST=redis
-# REDIS_QUEUE_PORT=6379
 ```
 
-O hostname precisa resolver de dentro do container PHP. Teste:
+Os processos que executam os jobs precisam utilizar a mesma versão da
+aplicação, configurações, banco e contexto de empresa da instância web.
+O nome do host, a rede e o gerenciador de processos dependem da instalação.
+
+Exemplo de comando do worker, executado no diretório da aplicação:
 
 ```bash
-php -r '$r = new Redis(); var_dump($r->connect("redis", 6379, 2), $r->ping());'
+php artisan queue:work redis --sleep=1 --tries=3 --timeout=60
 ```
 
-## Worker
-
-O worker precisa usar o mesmo código, `.env`, banco de dados e redes do container PHP.
-
-Exemplo de serviço Docker Compose:
-
-```yaml
-services:
-  akaunting.queue:
-    image: ghcr.io/librecodecoop/akaunting-docker-php:${RUNTIME_VERSION:-3}
-    restart: unless-stopped
-    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
-    entrypoint:
-      - /bin/sh
-      - -lc
-    command:
-      - >
-        cd /var/www/html &&
-        exec php artisan queue:work redis
-        --sleep=1
-        --tries=3
-        --timeout=60
-        --max-time=3600
-    volumes:
-      - ./volumes/akaunting:/var/www/html
-    networks:
-      - default
-      - mysql
-      - redis
-```
-
-Adapte as redes e volumes ao ambiente.
-
-A imagem PHP do akaunting-docker possui uma entrypoint própria que termina em `php-fpm`. Por isso o worker deve sobrescrever a `entrypoint`, e não apenas definir `command`.
-
-## Deploy
-
-Depois de alterar `.env`:
+Depois de atualizar código ou configuração, limpe os caches adequados e
+reinicie os processos que mantêm a aplicação ou os workers em memória. O
+procedimento de reinício depende do serviço utilizado na instalação:
 
 ```bash
 php artisan optimize:clear
-php artisan config:cache
+php artisan queue:restart
 ```
 
-Reinicie o worker após qualquer deploy de código:
-
-```bash
-docker compose restart akaunting.queue
-```
-
-Workers Laravel são processos de longa duração e não recarregam classes alteradas automaticamente.
+Workers Laravel são processos de longa duração e não recarregam
+automaticamente classes alteradas.
 
 No Akaunting, a conexão Redis de fila usa `retry_after=90` por padrão. O worker e os jobs deste módulo usam timeout de 60 segundos para que um job termine ou falhe antes de ficar elegível para nova tentativa.
 
@@ -138,7 +99,7 @@ php artisan queue:monitor redis:default --max=100
 php artisan queue:failed
 ```
 
-Com a fila vazia e o worker saudável, é normal não haver saída em `docker compose logs akaunting.queue`.
+O monitoramento de logs do worker depende do gerenciador de processos configurado.
 
 ## Política de retry
 
