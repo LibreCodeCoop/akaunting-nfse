@@ -139,15 +139,37 @@
                             {{ trans('nfse::general.native_invoice.status_' . ($linkedStatus !== '' ? $linkedStatus : 'unknown')) }}
                         </span>
                     </div>
-                    <div class="mt-2 text-xs text-gray-600">
-                        <span class="font-medium">{{ trans('nfse::general.invoices.access_key') }}:</span>
-                        <span class="mt-0.5 block break-all font-mono text-xs leading-relaxed text-gray-700">{{ $linkedReceipt->chave_acesso ?: '—' }}</span>
+                    <div class="mt-2">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="text-xs font-medium text-gray-600">{{ trans('nfse::general.invoices.access_key') }}:</span>
+                            @if(trim((string) ($linkedReceipt->chave_acesso ?? '')) !== '')
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-xs" data-nfse-copy-feedback role="status" aria-live="polite"></span>
+                                    <button
+                                        type="button"
+                                        class="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 disabled:opacity-60"
+                                        data-nfse-copy-access-key="true"
+                                        data-nfse-copy-success="{{ trans('nfse::general.invoices.copy_access_key_success') }}"
+                                        data-nfse-copy-error="{{ trans('nfse::general.invoices.copy_access_key_error') }}"
+                                        aria-label="{{ trans('nfse::general.invoices.copy_access_key_for_receipt', ['number' => $linkedReceipt->nfse_number ?: '—']) }}"
+                                        title="{{ trans('nfse::general.invoices.copy_access_key_for_receipt', ['number' => $linkedReceipt->nfse_number ?: '—']) }}"
+                                    >
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                            <rect x="8" y="8" width="12" height="12" rx="2" />
+                                            <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+                                        </svg>
+                                        {{ trans('nfse::general.invoices.copy_access_key_short') }}
+                                    </button>
+                                </div>
+                            @endif
+                        </div>
+                        <span class="mt-1 block break-all font-mono text-xs leading-relaxed text-gray-700" data-nfse-access-key>{{ $linkedReceipt->chave_acesso ?: '—' }}</span>
                     </div>
                     @if(in_array($linkedStatus, ['cancelled', 'substituted'], true))
-                        <details class="group mt-3 overflow-hidden rounded-md border border-gray-300 bg-white text-sm" data-nfse-history-artifacts="{{ $linkedReceipt->id }}">
+                        <details class="group mt-3 overflow-hidden rounded-md border border-gray-300 bg-white text-sm" data-nfse-history-artifacts="{{ $linkedReceipt->id }}" data-nfse-label-show="{{ trans('nfse::general.invoices.artifacts_show_documents') }}" data-nfse-label-hide="{{ trans('nfse::general.invoices.artifacts_hide_documents') }}">
                             <summary class="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
-                                <span>{{ trans('nfse::general.invoices.artifacts_show_documents') }}</span>
-                                <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <span data-nfse-disclosure-label>{{ trans('nfse::general.invoices.artifacts_show_documents') }}</span>
+                                <svg data-nfse-disclosure-chevron class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
                             </summary>
@@ -239,9 +261,12 @@
             @endif
 
             @if($receiptStatus === 'emitted')
-                <details class="w-full overflow-hidden rounded-md border border-gray-200">
-                    <summary class="cursor-pointer px-3 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50">
-                        {{ trans('nfse::general.invoices.substitute') }}
+                <details class="group w-full overflow-hidden rounded-md border border-gray-200" data-nfse-native-substitute="true">
+                    <summary class="flex list-none cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
+                        <span>{{ trans('nfse::general.invoices.substitute') }}</span>
+                        <svg data-nfse-disclosure-chevron class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
                     </summary>
 
                     <form method="POST" action="{{ route('nfse.invoices.substitute', $invoice->id) }}" class="space-y-3 border-t border-gray-200 p-3" data-nfse-substitution-form="true">
@@ -285,9 +310,12 @@
                     </form>
                 </details>
 
-                <details class="w-full overflow-hidden rounded-md border border-red-200" data-nfse-native-cancel="true">
-                    <summary class="cursor-pointer px-3 py-3 text-sm font-medium text-red-700 hover:bg-red-50">
-                        {{ trans('nfse::general.invoices.cancel') }}
+                <details class="group w-full overflow-hidden rounded-md border border-red-200" data-nfse-native-cancel="true">
+                    <summary class="flex list-none cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500">
+                        <span>{{ trans('nfse::general.invoices.cancel') }}</span>
+                        <svg data-nfse-disclosure-chevron class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
                     </summary>
 
                     @php($cancelReasonOptions = trans('nfse::general.invoices.cancel_reason_options'))

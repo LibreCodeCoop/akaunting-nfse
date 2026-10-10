@@ -91,6 +91,53 @@ final class NativeInvoiceFiscalPanelTest extends FeatureTestCase
             ->assertSee('name="cancel_justification"', false);
     }
 
+    public function testNativePanelRendersIndependentCopyActionsForEachReceipt(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $previous = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '951',
+            'chave_acesso' => str_repeat('1', 50),
+            'status' => 'cancelled',
+        ]);
+        $latest = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '952',
+            'chave_acesso' => str_repeat('2', 50),
+            'status' => 'emitted',
+        ]);
+
+        $content = $this->loginAs()->get(route('invoices.show', $invoice->id))
+            ->assertOk()
+            ->getContent();
+
+        self::assertSame(2, substr_count($content, 'data-nfse-copy-access-key="true"'));
+        self::assertSame(2, substr_count($content, 'data-nfse-access-key'));
+        self::assertSame(1, substr_count($content, 'data-nfse-receipt-actions-module="true"'));
+        self::assertStringContainsString('data-nfse-receipt-id="' . $previous->id . '"', $content);
+        self::assertStringContainsString('data-nfse-receipt-id="' . $latest->id . '"', $content);
+        self::assertStringContainsString(str_repeat('1', 50), $content);
+        self::assertStringContainsString(str_repeat('2', 50), $content);
+    }
+
+    public function testNativePanelDoesNotOfferCopyActionForMissingAccessKey(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '953',
+            'chave_acesso' => null,
+            'status' => 'emitted',
+        ]);
+
+        $content = $this->loginAs()->get(route('invoices.show', $invoice->id))
+            ->assertOk()
+            ->getContent();
+
+        self::assertStringNotContainsString('data-nfse-copy-access-key="true"', $content);
+        self::assertStringContainsString('data-nfse-access-key', $content);
+    }
+
     public function testNativePanelHidesArtifactActionsWhenNoArtifactExistsAndNothingIsProcessing(): void
     {
         $invoice = Document::factory()->invoice()->draft()->create();
