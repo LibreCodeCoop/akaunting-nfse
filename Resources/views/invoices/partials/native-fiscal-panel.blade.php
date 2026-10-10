@@ -137,6 +137,15 @@
                         {{ trans('nfse::general.invoices.access_key') }}:
                         {{ $linkedReceipt->chave_acesso ?: '—' }}
                     </div>
+                    @if(in_array($linkedStatus, ['emitted', 'cancelled', 'substituted'], true))
+                        <details class="mt-2 text-sm" data-nfse-history-artifacts="{{ $linkedReceipt->id }}">
+                            <summary class="cursor-pointer text-gray-700">{{ trans('nfse::general.invoices.artifacts_title') }}</summary>
+                            <div class="mt-2 flex flex-wrap gap-3">
+                                <a class="text-indigo-700 underline" href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $linkedReceipt->id, 'artifact' => 'danfse']) }}">{{ trans('nfse::general.invoices.artifact_danfse_label') }}</a>
+                                <a class="text-indigo-700 underline" href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $linkedReceipt->id, 'artifact' => 'xml']) }}">{{ trans('nfse::general.invoices.artifact_xml_label') }}</a>
+                            </div>
+                        </details>
+                    @endif
                     @if(!empty($linkedReceipt->emission_group_key))
                         <div class="mt-1 break-all text-xs text-gray-500">
                             {{ trans('nfse::general.invoices.fiscal_group_key') }}:
