@@ -231,7 +231,7 @@
                         {{ trans('nfse::general.invoices.substitute') }}
                     </summary>
 
-                    <form method="POST" action="{{ route('nfse.invoices.substitute', $invoice->id) }}" class="mt-3 space-y-3">
+                    <form method="POST" action="{{ route('nfse.invoices.substitute', $invoice->id) }}" class="mt-3 space-y-3" data-nfse-substitution-form="true">
                         @csrf
                         <input type="hidden" name="nfse_substitution_receipt_id" value="{{ $receipt->id }}">
 
