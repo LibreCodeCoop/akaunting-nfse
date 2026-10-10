@@ -138,7 +138,7 @@
                         {{ $linkedReceipt->chave_acesso ?: '—' }}
                     </div>
                     @if(in_array($linkedStatus, ['cancelled', 'substituted'], true))
-                        <details class="mt-2 text-sm" data-nfse-history-artifacts="{{ $linkedReceipt->id }}">
+                        <details class="mt-2 text-sm" data-nfse-history-artifacts="{{ $linkedReceipt->id }}" {{ $receiptStatus === 'cancelled' && $receipt?->id === $linkedReceipt->id ? 'open' : '' }}>
                             <summary class="cursor-pointer text-gray-700">{{ trans('nfse::general.invoices.artifacts_title') }}</summary>
                             <div class="mt-2 flex flex-wrap gap-3">
                                 <a class="text-indigo-700 underline" href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $linkedReceipt->id, 'artifact' => 'danfse']) }}">{{ trans('nfse::general.invoices.artifact_danfse_label') }}</a>
@@ -170,6 +170,16 @@
             <div class="w-full text-xs text-gray-600" data-nfse-current-artifacts-label>
                 {{ trans('nfse::general.invoices.artifacts_current_receipt', ['number' => $receipt->nfse_number ?: '—']) }}
             </div>
+            @if($receiptStatus === 'cancelled')
+                {{-- A cancelled receipt still retains its authorized fiscal documents.
+                     Download resolves them per receipt, including persisted fallbacks. --}}
+                <a href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $receipt->id, 'artifact' => 'danfse']) }}"
+                   class="inline-flex items-center rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                   data-nfse-cancelled-artifact="danfse">{{ trans('nfse::general.invoices.artifact_danfse_label') }}</a>
+                <a href="{{ route('nfse.ledger.artifacts.download', ['receipt' => $receipt->id, 'artifact' => 'xml']) }}"
+                   class="inline-flex items-center rounded bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200"
+                   data-nfse-cancelled-artifact="xml">{{ trans('nfse::general.invoices.artifact_xml_label') }}</a>
+            @else
             @if($danfseReady || $postEmissionActive)
                 <a
                     href="{{ route('nfse.invoices.artifacts.download', [$invoice->id, 'danfse']) }}"
@@ -201,6 +211,8 @@
                     <span data-nfse-artifact-label>{{ $xmlReady ? trans('nfse::general.invoices.artifact_xml_label') : trans('nfse::general.invoices.artifact_xml_processing') }}</span>
                 </a>
                 @endif
+
+            @endif
 
             @if($receiptStatus !== 'cancelled')
                 <form method="POST" action="{{ route('nfse.invoices.refresh', $invoice->id) }}" class="inline-flex">

@@ -46,6 +46,19 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString("['cancelled', 'substituted']", $view);
         }
 
+        public function testCancelledCurrentReceiptKeepsDirectFiscalDownloadsEvenWithoutReadyFlags(): void
+        {
+            $view = (string) file_get_contents(dirname(__DIR__, 3) . '/Resources/views/invoices/partials/native-fiscal-panel.blade.php');
+
+            self::assertStringContainsString("data-nfse-cancelled-artifact=\"danfse\"", $view);
+            self::assertStringContainsString("data-nfse-cancelled-artifact=\"xml\"", $view);
+            self::assertStringContainsString("['receipt' => \$receipt->id, 'artifact' => 'danfse']", $view);
+            self::assertStringContainsString("['receipt' => \$receipt->id, 'artifact' => 'xml']", $view);
+            self::assertStringContainsString("if($receiptStatus === 'cancelled')", $view);
+            self::assertStringContainsString("if($danfseReady || $postEmissionActive)", $view);
+            self::assertStringContainsString("data-nfse-history-artifacts=", $view);
+        }
+
         public function testInvoicesIndexViewKeepsFiltersInPagination(): void
         {
             $indexPath = dirname(__DIR__, 3) . '/Resources/views/invoices/index.blade.php';
