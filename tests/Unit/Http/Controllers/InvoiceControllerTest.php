@@ -2759,6 +2759,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
                 'nfse_save_default_description' => '1',
+                'nfse_description_scope' => 'general',
                 'nfse_discriminacao_custom' => '  Nova descricao padrao   da NFS-e  ',
             ]);
 
@@ -2773,6 +2774,61 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('Nova descricao padrao da NFS-e', ControllerIsolationState::$settings['invoice.notes'] ?? null);
             self::assertSame(1, ControllerIsolationState::$savedCount);
+        }
+
+        public function testPersistDefaultDescriptionForOneCustomerDoesNotOverwriteGlobalPreference(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Padrao geral anterior';
+
+            $invoice = new Invoice();
+            $invoice->company_id = (int) company_id();
+            $invoice->contact_id = 77;
+            $request = Request::create('/nfse/emit', 'POST', [
+                'nfse_save_default_description' => '1',
+                'nfse_description_scope' => ' customer ',
+                'nfse_discriminacao_custom' => 'Descricao especifica para cliente 77',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function persistDescription(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $controller->persistDescription($request, $invoice);
+
+            self::assertSame('Padrao geral anterior', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertSame(
+                'Descricao especifica para cliente 77',
+                ControllerIsolationState::$settings['nfse.customer_description.' . $invoice->company_id . '.77'],
+            );
+        }
+
+        public function testInvalidDescriptionScopeReturnsFormErrorWithoutChangingGlobalPreference(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Padrao geral anterior';
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 779,
+                amount: 100.00,
+                items: [['name' => 'Servico de teste']],
+            );
+            $request = Request::create('/nfse/emit', 'POST', [
+                'nfse_save_default_description' => '1',
+                'nfse_description_scope' => ['general'],
+                'nfse_discriminacao_custom' => 'Valor que nao deve ser salvo',
+            ]);
+
+            $response = (new InvoiceController())->emit($invoice, $request);
+
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame('Padrao geral anterior', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertSame(
+                (string) trans('nfse::general.invoices.emit_modal_description_scope_invalid'),
+                $response->flash['error'] ?? null,
+            );
         }
 
         public function testPersistDefaultDescriptionFromRequestSkipsWhenFlagDisabled(): void

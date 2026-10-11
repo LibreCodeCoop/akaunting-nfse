@@ -30,6 +30,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
 
             self::assertStringContainsString('name="nfse_description_scope"', $nativeModal);
             self::assertStringContainsString('value="customer"', $nativeModal);
+            self::assertStringContainsString('value="general"', $nativeModal);
             self::assertStringContainsString('data-emit-description-scope-input', $invoiceIndex);
             self::assertStringContainsString('id="nfse_emit_description_scope"', $invoiceIndex);
             self::assertStringContainsString('descriptionScopeInput.value =', $invoiceIndex);

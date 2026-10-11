@@ -475,7 +475,12 @@ class InvoiceController extends Controller
         }
 
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
-        $this->persistDefaultDescriptionFromRequest($request, $invoice);
+        try {
+            $this->persistDefaultDescriptionFromRequest($request, $invoice);
+        } catch (\InvalidArgumentException) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.emit_modal_description_scope_invalid')));
+        }
 
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
         $fiscalGroups = $this->invoiceFiscalGroups($invoice);
@@ -1252,7 +1257,12 @@ class InvoiceController extends Controller
         }
 
         $customDiscriminacao = $this->customDiscriminacaoFromRequest($request);
-        $this->persistDefaultDescriptionFromRequest($request, $invoice);
+        try {
+            $this->persistDefaultDescriptionFromRequest($request, $invoice);
+        } catch (\InvalidArgumentException) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.emit_modal_description_scope_invalid')));
+        }
 
         $receipt = $this->findReceiptForInvoice($invoice);
 
@@ -1519,7 +1529,12 @@ class InvoiceController extends Controller
             return;
         }
 
-        $scope = (string) $request->input('nfse_description_scope', 'general');
+        $requestedScope = $request->input('nfse_description_scope', 'general');
+        if (!is_string($requestedScope)) {
+            throw new \InvalidArgumentException('Invalid NFS-e description scope.');
+        }
+
+        $scope = strtolower(trim($requestedScope));
         $settingKey = self::INVOICE_NOTES_SETTING_KEY;
         if ($scope === 'customer') {
             $contactId = (int) ($invoice->contact_id ?? 0);

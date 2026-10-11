@@ -358,6 +358,7 @@ return [
         'emit_modal_description_scope' => 'Escopo da descrição padrão',
         'emit_modal_description_scope_general' => 'Padrão para todos os clientes',
         'emit_modal_description_scope_customer' => 'Padrão apenas para este cliente',
+        'emit_modal_description_scope_invalid' => 'Não foi possível salvar a descrição padrão. Reabra o formulário e selecione o escopo (todos os clientes ou apenas este cliente).',
         'emit_modal_description_save_default' => 'Salvar esta descrição como padrão',
         'emit_modal_description_save_default_hint' => 'Ative para salvar esta descrição como padrão e reutilizar nas próximas emissões de NFS-e.',
         'emit_modal_missing_items_hint' => 'Alguns itens ainda precisam de um serviço fiscal vinculado antes da emissão.',
