@@ -25,21 +25,21 @@ final class ArtifactPathBuilderTest extends TestCase
 
         $base = $builder->basePath(
             'nfse/{cnpj}/{year}/{month}/{day}/{customer_name}',
-            '29842527000145',
+            '11222333000181',
             'Cliente Árvore Ltda.',
             $receipt,
         );
 
         self::assertSame(
-            'nfse/29842527000145/2026/10/05/cliente-árvore-ltda',
+            'nfse/11222333000181/2026/10/05/cliente-árvore-ltda',
             $base,
         );
         self::assertSame(
-            'nfse/29842527000145/2026/10/05/cliente-árvore-ltda/nfs-42-2026-abc-123-xyz.xml',
+            'nfse/11222333000181/2026/10/05/cliente-árvore-ltda/nfs-42-2026-abc-123-xyz.xml',
             $builder->filePath(
                 $base,
                 '{nfse_number}-{chave_acesso}',
-                '29842527000145',
+                '11222333000181',
                 'Cliente Árvore Ltda.',
                 $receipt,
                 'xml',

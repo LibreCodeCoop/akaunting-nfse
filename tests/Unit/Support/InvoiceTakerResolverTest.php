@@ -40,7 +40,7 @@ final class InvoiceTakerResolverTest extends TestCase
             'complement' => 'Sala 2',
             'district' => 'Centro',
             'municipal_registration' => 'IM-1',
-            'phone' => '+55 (21) 99999-0000',
+            'phone' => '(00) 90000-0000',
             'email' => 'tomador@example.test',
         ];
 
@@ -53,29 +53,29 @@ final class InvoiceTakerResolverTest extends TestCase
         self::assertSame('Sala 2', $payload['complemento']);
         self::assertSame('Centro', $payload['bairro']);
         self::assertSame('IM-1', $payload['inscricao_municipal']);
-        self::assertSame('5521999990000', $payload['telefone']);
+        self::assertSame('00900000000', $payload['telefone']);
         self::assertSame('tomador@example.test', $payload['email']);
     }
 
     public function testUpdatedContactPhoneOverridesStaleInvoicePhone(): void
     {
-        $contact = (object) ['phone' => '+55 (21) 99876-5432'];
-        $invoice = (object) ['contact_phone' => '21900000000'];
+        $contact = (object) ['phone' => '(00) 90000-0000'];
+        $invoice = (object) ['contact_phone' => '00900001111'];
 
-        self::assertSame('5521998765432', (new InvoiceTakerResolver())->payload($contact, $invoice)['telefone']);
+        self::assertSame('00900000000', (new InvoiceTakerResolver())->payload($contact, $invoice)['telefone']);
     }
 
     public function testPhoneUsesNextAvailableContactFieldWhenPrimaryIsBlank(): void
     {
-        $contact = (object) ['phone' => ' ', 'telefone' => '(21) 99999-0000'];
+        $contact = (object) ['phone' => ' ', 'telefone' => '(00) 90000-0000'];
 
-        self::assertSame('21999990000', (new InvoiceTakerResolver())->payload($contact)['telefone']);
+        self::assertSame('00900000000', (new InvoiceTakerResolver())->payload($contact)['telefone']);
     }
 
     public function testPhoneIsPreservedWithoutMunicipalityOrPostalCode(): void
     {
-        $contact = (object) ['phone' => '21999990000'];
-        self::assertSame('21999990000', (new InvoiceTakerResolver())->payload($contact)['telefone']);
+        $contact = (object) ['phone' => '00900000000'];
+        self::assertSame('00900000000', (new InvoiceTakerResolver())->payload($contact)['telefone']);
     }
 
     public function testIncompleteMunicipalityOrCepDoesNotSendPartialNationalAddress(): void
