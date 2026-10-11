@@ -30,8 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <UF>RJ</UF>
                 <CEP>24020005</CEP>
             </enderNac>
-            <fone>2130001234</fone>
-            <email>financeiro@example.org</email>
+            <fone>00900000000</fone>
+            <email>issuer@example.org</email>
         </emit>
         <valores>
             <vLiq>1292.75</vLiq>
@@ -48,8 +48,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <cLocEmi>3303302</cLocEmi>
                 <prest>
                     <CNPJ>11222333000181</CNPJ>
-                    <fone>2130001234</fone>
-                    <email>financeiro@empresaexemplo.com.br</email>
+                    <fone>00900000000</fone>
+                    <email>provider@example.org</email>
                     <regTrib>
                         <opSimpNac>1</opSimpNac>
                         <regEspTrib>6</regEspTrib>
@@ -68,8 +68,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <nro>1000</nro>
                         <xBairro>Bela Vista</xBairro>
                     </end>
-                    <fone>11987654321</fone>
-                    <email>contato@clienteficticio.com.br</email>
+                    <fone>00900000000</fone>
+                    <email>taker@example.org</email>
                 </toma>
                 <interm>
                     <CPF>77150344000101</CPF>
@@ -83,8 +83,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <nro>333</nro>
                         <xBairro>Guarulhos</xBairro>
                     </end>
-                    <fone>1133334444</fone>
-                    <email>contato@intermediarioficticio.com.br</email>
+                    <fone>00900000000</fone>
+                    <email>intermediary@example.org</email>
                     <IMPrestMun>123456</IMPrestMun>
                 </interm>
                 <serv>

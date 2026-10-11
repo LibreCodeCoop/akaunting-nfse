@@ -938,7 +938,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 self::assertSame('3303302', $client->capturedDps->tomadorCodigoMunicipio);
                 self::assertSame('24020077', $client->capturedDps->tomadorCep);
                 self::assertSame('Avenida Rio Branco, 500', $client->capturedDps->tomadorLogradouro);
-                self::assertSame('21988887777', $client->capturedDps->tomadorTelefone);
+                self::assertSame('00900000000', $client->capturedDps->tomadorTelefone);
                 self::assertSame('financeiro@acme.test', $client->capturedDps->tomadorEmail);
             }
             self::assertSame(2, $client->capturedDps?->opcaoSimplesNacional);
@@ -1131,7 +1131,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('3303302', $client->capturedDps?->tomadorCodigoMunicipio);
             self::assertSame('24020077', $client->capturedDps?->tomadorCep);
             self::assertSame('Rua do Snapshot, 100', $client->capturedDps?->tomadorLogradouro);
-            self::assertSame('21966665555', $client->capturedDps?->tomadorTelefone);
+            self::assertSame('00900000000', $client->capturedDps?->tomadorTelefone);
             self::assertSame('snapshot@example.test', $client->capturedDps?->tomadorEmail);
         }
 
@@ -3043,7 +3043,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $this->expectExceptionMessage('Installed nfse-php runtime does not support required DPS field: unsupportedField');
 
             $controller->buildDps([
-                'cnpjPrestador' => '29842527000145',
+                'cnpjPrestador' => '11222333000181',
                 'municipioIbge' => '3304557',
                 'itemListaServico' => '0107',
                 'valorServico' => '100.00',
@@ -3064,7 +3064,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             };
 
             $dps = $controller->buildDps([
-                'cnpjPrestador' => '29842527000145',
+                'cnpjPrestador' => '11222333000181',
                 'municipioIbge' => '3304557',
                 'itemListaServico' => '0107',
                 'valorServico' => '100.00',
@@ -3073,7 +3073,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'optionalFutureField' => 'ignored',
             ]);
 
-            self::assertSame('29842527000145', $dps->cnpjPrestador);
+            self::assertSame('11222333000181', $dps->cnpjPrestador);
         }
 
         public function testAmbiguousEmissionRecoveryQueriesDpsThenAuthorizedNfse(): void
@@ -3439,7 +3439,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('', $payload['codigo_municipio']);
             self::assertSame('', $payload['cep']);
             self::assertSame('', $payload['logradouro']);
-            self::assertSame('21977776666', $payload['telefone']);
+            self::assertSame('00900000000', $payload['telefone']);
             self::assertSame('contato@example.test', $payload['email']);
         }
 

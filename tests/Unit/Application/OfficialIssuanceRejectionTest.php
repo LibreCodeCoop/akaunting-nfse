@@ -25,7 +25,7 @@ final class OfficialIssuanceRejectionTest extends TestCase
                 ['erros' => [[
                     'Codigo' => 'E0312',
                     'Descricao' => 'Municipio nao administra este codigo nesta competencia',
-                    'Complemento' => 'CNPJ 11222333000181 email usuario@exemplo.com',
+                    'Complemento' => 'CNPJ 11222333000181 email usuario@example.org',
                 ]]],
             ),
         );
@@ -34,7 +34,7 @@ final class OfficialIssuanceRejectionTest extends TestCase
         self::assertSame(422, $classified['http_status'] ?? null);
         self::assertStringContainsString('Municipio nao administra', $classified['message'] ?? '');
         self::assertStringNotContainsString('11222333000181', $classified['message'] ?? '');
-        self::assertStringNotContainsString('usuario@exemplo.com', $classified['message'] ?? '');
+        self::assertStringNotContainsString('usuario@example.org', $classified['message'] ?? '');
     }
 
     public function testDifferentOfficialRejectionCodeIsPreserved(): void

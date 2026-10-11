@@ -37,8 +37,8 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertSame('11222333000181', $dps->cnpjPrestador);
         self::assertSame('3303302', $dps->municipioIbge);
         self::assertSame('LibreCode/2.4.1', $dps->versaoAplicativo);
-        self::assertSame('21969203370', $dps->prestadorTelefone);
-        self::assertSame('adm@librecode.coop', $dps->prestadorEmail);
+        self::assertSame('00900000000', $dps->prestadorTelefone);
+        self::assertSame('issuer@example.org', $dps->prestadorEmail);
         self::assertSame('0107', $dps->itemListaServico);
         self::assertSame('010701', $dps->codigoTributacaoNacional);
         self::assertSame('12345678901', $dps->documentoTomador);
@@ -124,8 +124,8 @@ final class InvoiceDpsBuilderTest extends TestCase
         return [
             'cnpjPrestador' => '11222333000181',
             'municipioIbge' => '3303302',
-            'prestadorTelefone' => '21969203370',
-            'prestadorEmail' => 'adm@librecode.coop',
+            'prestadorTelefone' => '00900000000',
+            'prestadorEmail' => 'issuer@example.org',
             'itemListaServico' => '0107',
             'codigoTributacaoNacional' => '010701',
             'codigoTributacaoMunicipal' => '',
