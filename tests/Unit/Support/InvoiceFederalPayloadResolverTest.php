@@ -153,10 +153,38 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $payload = $resolver->resolve($invoice);
         self::assertSame('4', $payload['federalPiscofinsTipoRetencao']);
-        self::assertSame('1149.75', $payload['federalValorCsll']);
+        self::assertSame('', $payload['federalValorCsll']);
         self::assertSame('', $payload['federalPiscofinsValorPis']);
         self::assertSame('', $payload['federalPiscofinsValorCofins']);
         self::assertSame('472.50', $payload['federalValorIrrf']);
+    }
+
+    public function testCsllBucketRemainsIndependentWhenPisAndCofinsAreAlsoRetained(): void
+    {
+        $settings = [
+            'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
+            'nfse.federal_piscofins_situacao_tributaria' => '1',
+            'nfse.federal_piscofins_tipo_retencao' => '3',
+            'nfse.opcao_simples_nacional' => 1,
+        ];
+
+        $invoice = new Document();
+        $invoice->amount = 1000.00;
+        $invoice->items = $this->items([]);
+
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
+            taxRateResolver: static fn (int $taxId): ?float => null,
+            withholdingRowsResolver: static fn (Document $invoice, ?array $ids): array => [
+                ['name' => 'PIS', 'amount' => 6.50, 'tax_type' => 'withholding'],
+                ['name' => 'COFINS', 'amount' => 30.00, 'tax_type' => 'withholding'],
+                ['name' => 'CSLL', 'amount' => 10.00, 'tax_type' => 'withholding'],
+            ],
+        );
+
+        $payload = $resolver->resolve($invoice);
+        self::assertSame('3', $payload['federalPiscofinsTipoRetencao']);
+        self::assertSame('10.00', $payload['federalValorCsll']);
     }
 
     public function testCsllIsNotSentWhenRetentionTypeExplicitlyDoesNotRetainCsll(): void

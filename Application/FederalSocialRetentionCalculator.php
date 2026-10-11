@@ -8,8 +8,8 @@ declare(strict_types=1);
 namespace Modules\Nfse\Application;
 
 /**
- * Maps actual Akaunting withholding entries to the consolidated vRetCSLL
- * required by NT SE/CGNFS-e 007/2026. CSLL may be zero and PIS/COFINS retained.
+ * Categorizes actual withholding entries by tax. Only the CSLL bucket may
+ * populate vRetCSLL; PIS/COFINS retention uses tpRetPisCofins separately.
  */
 final class FederalSocialRetentionCalculator
 {
