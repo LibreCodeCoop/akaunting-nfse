@@ -10,7 +10,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "librecodeoop/nfse-php": "dev-main#60c4fad793c6562820e36085eeb8dab2c0f68b1f"
+        "librecodeoop/nfse-php": "dev-fix/nt007-consolidated-social-retentions-20261010#de10d4d2989309d017a6b3b1a679cecb8b62689c"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
