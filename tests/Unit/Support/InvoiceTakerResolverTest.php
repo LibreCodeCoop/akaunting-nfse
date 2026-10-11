@@ -40,7 +40,7 @@ final class InvoiceTakerResolverTest extends TestCase
             'complement' => 'Sala 2',
             'district' => 'Centro',
             'municipal_registration' => 'IM-1',
-            'phone' => '+55 (00) 90000-0000',
+            'phone' => '(00) 90000-0000',
             'email' => 'tomador@example.test',
         ];
 
@@ -59,8 +59,8 @@ final class InvoiceTakerResolverTest extends TestCase
 
     public function testUpdatedContactPhoneOverridesStaleInvoicePhone(): void
     {
-        $contact = (object) ['phone' => '+55 (00) 90000-0000'];
-        $invoice = (object) ['contact_phone' => '00900000000'];
+        $contact = (object) ['phone' => '(00) 90000-0000'];
+        $invoice = (object) ['contact_phone' => '00900001111'];
 
         self::assertSame('00900000000', (new InvoiceTakerResolver())->payload($contact, $invoice)['telefone']);
     }

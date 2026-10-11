@@ -849,7 +849,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 contactAddress: 'Avenida Rio Branco, 500',
                 contactZipCode: '24020-077',
                 contactCityIbge: '3303302',
-                contactPhone: '(21) 98888-7777',
+                contactPhone: '(00) 90000-0000',
                 contactEmail: 'financeiro@acme.test',
             );
             $invoice->issued_at = '2026-02-04 08:37:53';
@@ -1079,7 +1079,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $invoice->contact_address = 'Rua do Snapshot, 100';
             $invoice->contact_zip_code = '24020-077';
             $invoice->contact_city = '3303302';
-            $invoice->contact_phone = '(21) 96666-5555';
+            $invoice->contact_phone = '(00) 90000-0000';
             $invoice->contact_email = 'snapshot@example.test';
 
             $client = new class () implements NfseClientInterface {
@@ -3432,7 +3432,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $payload = $controller->exposedTomadorPayload((object) [
                 'address' => 'Rua sem codigo',
                 'zip_code' => '24020-077',
-                'phone' => '(21) 97777-6666',
+                'phone' => '(00) 90000-0000',
                 'email' => 'contato@example.test',
             ]);
 
