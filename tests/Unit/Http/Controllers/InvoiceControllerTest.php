@@ -5152,7 +5152,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testReemitDispatchesEmailPayloadWhenEmailRequested(): void
         {
-            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$savedCount = 0;
             ControllerIsolationState::$settings['invoice.notes'] = 'Descricao global anterior';
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(
