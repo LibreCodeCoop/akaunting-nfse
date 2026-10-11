@@ -144,6 +144,13 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   await page.locator("textarea[name='nfse_discriminacao_custom']").fill(descriptionValue);
 
+  // The Akaunting modal serializes its reactive Form model, not the native DOM select value.
+  const descriptionSaveMode = dialog.locator('select[name="nfse_description_save_mode"]');
+  await expect(descriptionSaveMode).toHaveValue('none');
+  await descriptionSaveMode.selectOption('customer');
+  await expect(descriptionSaveMode).toHaveValue('customer');
+  await descriptionSaveMode.selectOption('general');
+
   await dialog.getByText(/E-mail|Email/i).first().click();
 
   await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
@@ -211,6 +218,7 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_discriminacao_custom')).toBe(descriptionValue);
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_subject')).toBe(subjectValue);
+  expect(extractPayloadValue(capturedEmitPayload, 'nfse_description_save_mode')).toBe('general');
 
   // Boolean fields can be normalized by the generic modal serializer; ensure they are present.
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_send_email')).not.toBeNull();

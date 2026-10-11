@@ -151,25 +151,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             {{ trans('nfse::general.invoices.emit_modal_description_help') }}
                         </div>
 
-                        <div class="sm:col-span-6 flex items-center gap-3">
-                            @include('nfse::modals.invoices.partials.switch', [
-                                'id' => 'nfse_save_default_description_toggle',
-                                'name' => 'nfse_save_default_description',
-                                'label' => trans('nfse::general.invoices.emit_modal_description_save_default'),
-                            ])
-                            <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_save_default') }}</span>
-                        </div>
-
                         <div class="sm:col-span-6">
-                            <label for="nfse-description-scope" class="block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_scope') }}</label>
-                            <select id="nfse-description-scope" name="nfse_description_scope" class="mt-1 w-full rounded border border-gray-200 px-3 py-2">
-                                <option value="general">{{ trans('nfse::general.invoices.emit_modal_description_scope_general') }}</option>
-                                <option value="customer">{{ trans('nfse::general.invoices.emit_modal_description_scope_customer') }}</option>
+                            <label for="nfse-description-save-mode" class="block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_description_save_default') }}</label>
+                            {{-- The core Akaunting Form reader uses the select's value attribute to seed form data;
+                                 v-model keeps that value synchronized when the user changes the selection. --}}
+                            <select
+                                id="nfse-description-save-mode"
+                                name="nfse_description_save_mode"
+                                value="none"
+                                v-model="form.nfse_description_save_mode"
+                                class="mt-1 w-full rounded border border-gray-200 px-3 py-2"
+                            >
+                                <option value="none">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_none') }}</option>
+                                <option value="general">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_general') }}</option>
+                                <option value="customer">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_customer') }}</option>
                             </select>
-                        </div>
-
-                        <div id="nfse-description-default-hint" class="sm:col-span-6 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                            {{ trans('nfse::general.invoices.emit_modal_description_save_default_hint') }}
                         </div>
                     </x-slot>
                 </x-form.section>

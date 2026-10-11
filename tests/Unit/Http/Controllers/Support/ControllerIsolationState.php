@@ -20,6 +20,8 @@ namespace Modules\Nfse\Http\Controllers {
 
         public static int $savedCount = 0;
 
+        public static int $currentCompanyId = 1;
+
         /** @var array<string, mixed> */
         public static array $sessionFlash = [];
 
@@ -30,6 +32,7 @@ namespace Modules\Nfse\Http\Controllers {
             self::$settings = [];
             self::$translations = [];
             self::$savedCount = 0;
+            self::$currentCompanyId = 1;
             self::$sessionFlash = [];
             self::$storageRoot = sys_get_temp_dir() . '/nfse-controller-isolation-test-' . uniqid('', true);
 
@@ -68,6 +71,13 @@ namespace Modules\Nfse\Http\Controllers {
             }
 
             return ControllerIsolationState::$settings[$key] ?? $default;
+        }
+    }
+
+    if (!function_exists(__NAMESPACE__ . '\\company_id')) {
+        function company_id(): int
+        {
+            return ControllerIsolationState::$currentCompanyId;
         }
     }
 

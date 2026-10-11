@@ -44,11 +44,23 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertIsString($content);
         self::assertStringContainsString('"url": "https://github.com/LibreCodeCoop/nfse-php"', $content);
-        self::assertMatchesRegularExpression(
-            '/"librecodeoop\/nfse-php": "dev-main#[0-9a-f]{40}"/',
+        // PR #116 has not been merged: build the exact reviewed upstream branch and commit.
+        $expectedCommit = 'de10d4d2989309d017a6b3b1a679cecb8b62689c';
+        self::assertStringContainsString(
+            '"librecodeoop/nfse-php": "dev-fix/nt007-consolidated-social-retentions-20261010#' . $expectedCommit . '"',
             $content,
         );
-        self::assertStringContainsString('dev-main#60c4fad793c6562820e36085eeb8dab2c0f68b1f', $content);
+
+        // Fail if Composer installed stale runtime bytes despite an updated manifest.
+        $installedPath = dirname(__DIR__, 3) . '/3rdparty/vendor/composer/installed.php';
+        self::assertFileExists($installedPath);
+        $installed = require $installedPath;
+
+        self::assertIsArray($installed);
+        self::assertSame(
+            $expectedCommit,
+            $installed['versions']['librecodeoop/nfse-php']['reference'] ?? null,
+        );
     }
 
     public function testPhpScoperToolingLivesUnderVendorBin(): void

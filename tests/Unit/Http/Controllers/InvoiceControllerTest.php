@@ -1851,7 +1851,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 federalPiscofinsAliquotaCofins: '3.00',
                 federalPiscofinsValorCofins: '945.00',
                 federalValorIrrf: '472.50',
-                federalValorCsll: '0.00',
+                federalValorCsll: '1149.75',
                 federalValorCp: '0.00',
             ));
 
@@ -1861,7 +1861,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('<serv><locPrest><cLocPrestacao>3303302</cLocPrestacao></locPrest><cServ><cTribNac>010101</cTribNac><cTribMun>007</cTribMun>', $normalizedXml);
             self::assertStringContainsString('<piscofins><CST>01</CST><vBCPisCofins>31500.00</vBCPisCofins><pAliqPis>0.65</pAliqPis><pAliqCofins>3.00</pAliqCofins><vPis>204.75</vPis><vCofins>945.00</vCofins><tpRetPisCofins>4</tpRetPisCofins></piscofins>', $normalizedXml);
             self::assertStringContainsString('<vRetIRRF>472.50</vRetIRRF>', $normalizedXml);
-            self::assertStringNotContainsString('<vRetCSLL>', $normalizedXml);
+            self::assertStringContainsString('<vRetCSLL>1149.75</vRetCSLL>', $normalizedXml);
             self::assertStringNotContainsString('<vRetCP>', $normalizedXml);
             self::assertStringContainsString('<pTotTrib><pTotTribFed>3.65</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>2.00</pTotTribMun></pTotTrib>', $normalizedXml);
             self::assertStringNotContainsString('<cMun>3303302</cMun>', $normalizedXml);
@@ -2759,6 +2759,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
                 'nfse_save_default_description' => '1',
+                'nfse_description_scope' => 'general',
                 'nfse_discriminacao_custom' => '  Nova descricao padrao   da NFS-e  ',
             ]);
 
@@ -2773,6 +2774,185 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('Nova descricao padrao da NFS-e', ControllerIsolationState::$settings['invoice.notes'] ?? null);
             self::assertSame(1, ControllerIsolationState::$savedCount);
+        }
+
+        public function testPersistDefaultDescriptionForOneCustomerDoesNotOverwriteGlobalPreference(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Padrao geral anterior';
+
+            $invoice = new Invoice();
+            $invoice->company_id = ControllerIsolationState::$currentCompanyId;
+            $invoice->contact_id = 77;
+            $request = Request::create('/nfse/emit', 'POST', [
+                'nfse_save_default_description' => '1',
+                'nfse_description_scope' => ' customer ',
+                'nfse_discriminacao_custom' => 'Descricao especifica para cliente 77',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function persistDescription(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $controller->persistDescription($request, $invoice);
+
+            self::assertSame('Padrao geral anterior', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertSame(
+                'Descricao especifica para cliente 77',
+                ControllerIsolationState::$settings['nfse.customer_description.' . $invoice->company_id . '.77'],
+            );
+        }
+
+        public function testModalSaveModeGeneralPersistsDescriptionWithoutLegacyToggle(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Descricao anterior';
+
+            $request = Request::create('/nfse/invoices/301/reemit', 'POST', [
+                'nfse_description_save_mode' => 'general',
+                'nfse_discriminacao_custom' => '  Padrao de reemissao para todos  ',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function persistDescription(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $controller->persistDescription($request, new Invoice());
+
+            self::assertSame('Padrao de reemissao para todos', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+        }
+
+        public function testModalSaveModeNoneDoesNotPersistEvenWithLegacyToggleEnabled(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Descricao anterior';
+            $request = Request::create('/nfse/invoices/301/reemit', 'POST', [
+                'nfse_description_save_mode' => 'none',
+                'nfse_save_default_description' => '1',
+                'nfse_description_scope' => 'general',
+                'nfse_discriminacao_custom' => 'Nova descricao nao persistida',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function persistDescription(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $controller->persistDescription($request, new Invoice());
+
+            self::assertSame('Descricao anterior', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+        }
+
+        public function testModalSaveModeCustomerRemainsIsolatedToCurrentCompany(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Padrao geral anterior';
+            $invoice = new Invoice();
+            $invoice->company_id = ControllerIsolationState::$currentCompanyId;
+            $invoice->contact_id = 77;
+            $request = Request::create('/nfse/invoices/301/reemit', 'POST', [
+                'nfse_description_save_mode' => 'customer',
+                'nfse_discriminacao_custom' => 'Padrao do cliente 77',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function persistDescription(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $controller->persistDescription($request, $invoice);
+
+            self::assertSame('Padrao geral anterior', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertSame(
+                'Padrao do cliente 77',
+                ControllerIsolationState::$settings['nfse.customer_description.' . $invoice->company_id . '.77'],
+            );
+        }
+
+        public function testModalSaveModeCustomerRejectsAnotherCompany(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            $invoice = new Invoice();
+            $invoice->company_id = ControllerIsolationState::$currentCompanyId + 1;
+            $invoice->contact_id = 77;
+            $request = Request::create('/nfse/invoices/301/reemit', 'POST', [
+                'nfse_description_save_mode' => 'customer',
+                'nfse_discriminacao_custom' => 'Nao pode atravessar empresas',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function persistDescription(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $this->expectException(\InvalidArgumentException::class);
+            $controller->persistDescription($request, $invoice);
+        }
+
+        public function testInvalidDescriptionScopeReturnsFormErrorWithoutChangingGlobalPreference(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Padrao geral anterior';
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 779,
+                amount: 100.00,
+                items: [['name' => 'Servico de teste']],
+            );
+            $request = Request::create('/nfse/emit', 'POST', [
+                'nfse_save_default_description' => '1',
+                'nfse_description_scope' => ['general'],
+                'nfse_discriminacao_custom' => 'Valor que nao deve ser salvo',
+            ]);
+
+            $response = (new InvoiceController())->emit($invoice, $request);
+
+            self::assertSame('invoices.show', $response->route);
+            self::assertSame('Padrao geral anterior', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertSame(
+                (string) trans('nfse::general.invoices.emit_modal_description_scope_invalid'),
+                $response->flash['error'] ?? null,
+            );
+        }
+
+        public function testInvalidModalSaveModeStopsReemissionBeforeCreatingAnotherReceipt(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Padrao anterior';
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 780,
+                amount: 100.00,
+                items: [['name' => 'Servico de teste']],
+            );
+            InvoiceControllerIsolationState::makeReceipt(780, 'CHAVE-CANCELADA', 'cancelled');
+            $request = Request::create('/nfse/invoices/780/reemit', 'POST', [
+                'nfse_description_save_mode' => ['general'],
+                'nfse_discriminacao_custom' => 'Descricao que nao deve ser salva',
+            ]);
+
+            $response = (new InvoiceController())->reemit($invoice, $request);
+
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame(
+                (string) trans('nfse::general.invoices.emit_modal_description_scope_invalid'),
+                $response->flash['error'] ?? null,
+            );
+            self::assertSame('Padrao anterior', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertCount(1, NfseReceipt::$records);
+            self::assertSame('cancelled', NfseReceipt::$records[0]->status);
         }
 
         public function testPersistDefaultDescriptionFromRequestSkipsWhenFlagDisabled(): void
@@ -4828,6 +5008,34 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
+        public function testSubstituteDelegatesToTheSameEmissionPathAsInitialIssuance(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 300,
+                amount: 100.00,
+                items: [['name' => 'Servico para substituicao']],
+            );
+            $request = Request::create('/nfse/invoices/300/substitute', 'POST', [
+                'nfse_substitution_receipt_id' => '21',
+                'nfse_substitution_reason' => '05',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public ?Request $delegatedRequest = null;
+
+                public function emit(Invoice $invoice, ?Request $request = null): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
+                {
+                    $this->delegatedRequest = $request;
+
+                    return new \Illuminate\Http\JsonResponse(['success' => true]);
+                }
+            };
+
+            $controller->substitute($invoice, $request);
+
+            self::assertSame($request, $controller->delegatedRequest);
+        }
+
         public function testReemitBuildsDpsForCancelledReceiptAndRedirectsToShow(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
@@ -4887,6 +5095,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return ['telefone' => '21987654321', 'email' => 'issuer-reemit@example.invalid'];
                 }
 
+                protected function federalPayloadValues(
+                    Invoice $invoice,
+                    ?array $documentItemIds = null,
+                    ?float $amountOverride = null,
+                    mixed $municipalPercentFallback = null,
+                ): array {
+                    return array_merge(parent::federalPayloadValues(
+                        $invoice,
+                        $documentItemIds,
+                        $amountOverride,
+                        $municipalPercentFallback,
+                    ), [
+                        'federalPiscofinsTipoRetencao' => '4',
+                        'federalValorCsll' => '1149.75',
+                    ]);
+                }
+
                 protected function emissionReadiness(): array
                 {
                     return [
@@ -4906,6 +5131,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('[0107] Servico Reemissao', $client->capturedDps?->discriminacao);
             self::assertSame('21987654321', $client->capturedDps?->prestadorTelefone);
             self::assertSame('issuer-reemit@example.invalid', $client->capturedDps?->prestadorEmail);
+            self::assertSame('4', $client->capturedDps?->federalPiscofinsTipoRetencao);
+            self::assertSame('1149.75', $client->capturedDps?->federalValorCsll);
             self::assertStringStartsWith('LibreCode/', (string) $client->capturedDps?->versaoAplicativo);
             self::assertLessThanOrEqual(20, strlen((string) $client->capturedDps?->versaoAplicativo));
             self::assertSame('9' . str_pad((string) $existingReceipt->id, 14, '0', STR_PAD_LEFT), $client->capturedDps?->numeroDps);
@@ -4925,6 +5152,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testReemitDispatchesEmailPayloadWhenEmailRequested(): void
         {
+            ControllerIsolationState::$settings['invoice.notes'] = 'Descricao global anterior';
+
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 3301,
                 amount: 450.0,
@@ -4999,6 +5228,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_email_body' => 'Corpo reemissao',
                 'nfse_email_attach_danfse' => '1',
                 'nfse_email_attach_xml' => '0',
+                'nfse_description_save_mode' => 'general',
+                'nfse_discriminacao_custom' => 'Descricao de reemissao com email',
             ]);
 
             $controller->reemit($invoice, $request);
@@ -5009,6 +5240,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertFalse($dispatchCalls[0]['email']['attach_xml']);
             self::assertSame('destinatario@reemissao.test', $dispatchCalls[0]['email']['custom_mail']['to'] ?? null);
             self::assertSame('Assunto reemissao', $dispatchCalls[0]['email']['custom_mail']['subject'] ?? null);
+            self::assertSame('Descricao de reemissao com email', ControllerIsolationState::$settings['invoice.notes']);
         }
 
         public function testReemitUsesCustomDescriptionFromRequestWhenProvided(): void
