@@ -30,6 +30,34 @@ final class ContactFiscalProfileInputTest extends TestCase
         );
     }
 
+    public function testNullValuesFromConvertEmptyStringsToNullClearFiscalFields(): void
+    {
+        self::assertSame(
+            ['municipal_registration' => '', 'legal_name' => 'EMPRESA DE TESTE LTDA'],
+            ContactFiscalProfileInput::fromRequest(Request::create('/', 'POST', [
+                'nfse_municipal_registration' => null,
+                'nfse_legal_name' => 'EMPRESA DE TESTE LTDA',
+            ])),
+        );
+
+        self::assertSame(
+            ['municipal_registration' => '', 'legal_name' => ''],
+            ContactFiscalProfileInput::fromRequest(Request::create('/', 'POST', [
+                'nfse_municipal_registration' => null,
+                'nfse_legal_name' => null,
+            ])),
+        );
+    }
+
+    public function testNonScalarFiscalFieldsAreRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        ContactFiscalProfileInput::fromRequest(Request::create('/', 'POST', [
+            'nfse_municipal_registration' => ['unexpected'],
+            'nfse_legal_name' => 'Example Ltda',
+        ]));
+    }
+
     public function testPreservesUserProvidedRegistrationAndLegalName(): void
     {
         self::assertSame(
