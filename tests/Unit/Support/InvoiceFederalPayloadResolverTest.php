@@ -153,13 +153,13 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $payload = $resolver->resolve($invoice);
         self::assertSame('4', $payload['federalPiscofinsTipoRetencao']);
-        self::assertSame('', $payload['federalValorCsll']);
+        self::assertSame('1149.75', $payload['federalValorCsll']);
         self::assertSame('', $payload['federalPiscofinsValorPis']);
         self::assertSame('', $payload['federalPiscofinsValorCofins']);
         self::assertSame('472.50', $payload['federalValorIrrf']);
     }
 
-    public function testCsllBucketRemainsIndependentWhenPisAndCofinsAreAlsoRetained(): void
+    public function testTypeThreeConsolidatesAllActuallyRetainedSocialContributions(): void
     {
         $settings = [
             'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
@@ -184,10 +184,10 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $payload = $resolver->resolve($invoice);
         self::assertSame('3', $payload['federalPiscofinsTipoRetencao']);
-        self::assertSame('10.00', $payload['federalValorCsll']);
+        self::assertSame('46.50', $payload['federalValorCsll']);
     }
 
-    public function testCsllIsNotSentWhenRetentionTypeExplicitlyDoesNotRetainCsll(): void
+    public function testConfiguredCsllRateDoesNotInventWithholdingWithoutActualRows(): void
     {
         $settings = [
             'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
@@ -235,7 +235,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('', $payload['federalValorCsll']);
     }
 
-    public function testPisCofinsRetentionsDoNotPopulateCsll(): void
+    public function testNormalItemTaxesDoNotInventWithholdingWithoutActualRows(): void
     {
         $settings = [
             'nfse.tributacao_federal_mode' => 'per_invoice_amounts',
@@ -312,7 +312,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('4.25', $payload['totalTributosPercentualMunicipal']);
     }
 
-    public function testRetentionTypeWithCsllNotRetainedDoesNotFallBackWhenCsllIsAbsent(): void
+    public function testTypeFourWithoutActualWithholdingRemainsEmpty(): void
     {
         $resolver = new InvoiceFederalPayloadResolver(
             settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {

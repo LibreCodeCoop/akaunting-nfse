@@ -8,8 +8,8 @@ declare(strict_types=1);
 namespace Modules\Nfse\Application;
 
 /**
- * Categorizes actual withholding entries by tax. Only the CSLL bucket may
- * populate vRetCSLL; PIS/COFINS retention uses tpRetPisCofins separately.
+ * Categorizes actual withholding entries by tax. The total of PIS, COFINS
+ * and CSLL selected by tpRetPisCofins populates vRetCSLL (NT007/2026).
  */
 final class FederalSocialRetentionCalculator
 {
