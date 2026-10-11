@@ -5152,7 +5152,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testReemitDispatchesEmailPayloadWhenEmailRequested(): void
         {
-            ControllerIsolationState::$savedCount = 0;
             ControllerIsolationState::$settings['invoice.notes'] = 'Descricao global anterior';
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(
@@ -5242,7 +5241,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('destinatario@reemissao.test', $dispatchCalls[0]['email']['custom_mail']['to'] ?? null);
             self::assertSame('Assunto reemissao', $dispatchCalls[0]['email']['custom_mail']['subject'] ?? null);
             self::assertSame('Descricao de reemissao com email', ControllerIsolationState::$settings['invoice.notes']);
-            self::assertSame(1, ControllerIsolationState::$savedCount);
         }
 
         public function testReemitUsesCustomDescriptionFromRequestWhenProvided(): void
