@@ -66,6 +66,23 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertLessThanOrEqual(20, strlen($dps->versaoAplicativo));
     }
 
+    public function testProviderMunicipalRegistrationIsOptionalWhenNotConfigured(): void
+    {
+        $dps = (new InvoiceDpsBuilder())->build($this->baseContext());
+
+        self::assertSame('', $dps->prestadorInscricaoMunicipal ?? '');
+    }
+
+    public function testConfiguredProviderMunicipalRegistrationIsPassedToCurrentRuntime(): void
+    {
+        $context = $this->baseContext();
+        $context['prestadorInscricaoMunicipal'] = '123456';
+
+        $dps = (new InvoiceDpsBuilder())->build($context);
+
+        self::assertSame('123456', $dps->prestadorInscricaoMunicipal);
+    }
+
     public function testMapsEnabledIbsCbsPayloadIntoDps(): void
     {
         $context = $this->baseContext();

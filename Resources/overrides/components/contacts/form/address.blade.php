@@ -27,7 +27,7 @@
 
         @if ($type === 'customer')
             <x-form.group.text
-                name="nfse_municipal_registration"
+                name="nfse_municipal_registration" maxlength="15"
                 label="{{ trans('nfse::general.contacts.municipal_registration') }}"
                 :value="$nfseMunicipalRegistration ?? ''" not-required
             />

@@ -20,12 +20,15 @@ final class ContactFiscalProfileInput
 
         $registration = $request->input('nfse_municipal_registration', '');
         $legalName = $request->input('nfse_legal_name', '');
-        if (!is_string($registration) || !is_string($legalName)) {
+        // Akaunting converts empty native form inputs to null.
+        // Explicitly clearing either fiscal field must persist as empty.
+        if (($registration !== null && !is_string($registration))
+            || ($legalName !== null && !is_string($legalName))) {
             throw new \InvalidArgumentException('Invalid NFS-e contact fiscal fields.');
         }
-        $registration = trim($registration);
-        $legalName = trim($legalName);
-        if (mb_strlen($registration) > 40 || mb_strlen($legalName) > 255
+        $registration = trim($registration ?? '');
+        $legalName = trim($legalName ?? '');
+        if (mb_strlen($registration) > 15 || mb_strlen($legalName) > 255
             || preg_match('/[\x00-\x1f\x7f]/', $registration) === 1
             || preg_match('/[\x00-\x1f\x7f]/', $legalName) === 1) {
             throw new \InvalidArgumentException('Invalid NFS-e contact fiscal fields.');

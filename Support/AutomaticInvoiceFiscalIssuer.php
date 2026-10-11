@@ -150,6 +150,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             'municipioIbge' => $municipio,
             'prestadorTelefone' => $providerContact['telefone'],
             'prestadorEmail' => $providerContact['email'],
+            'prestadorInscricaoMunicipal' => trim((string) $this->setting('nfse.prestador_inscricao_municipal', '')),
             'itemListaServico' => (string) ($group['item_lista_servico'] ?? ''),
             'codigoTributacaoNacional' => (string) ($group['codigo_tributacao_nacional'] ?? ''),
             'codigoTributacaoMunicipal' => (string) ($group['codigo_tributacao_municipal'] ?? ''),
@@ -198,8 +199,15 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             $company = null;
         }
 
-        $phone = is_object($company) ? trim((string) ($company->phone ?? '')) : '';
-        $email = is_object($company) ? trim((string) ($company->email ?? '')) : '';
+        $phone = trim((string) $this->setting('nfse.prestador_telefone', ''));
+        $email = trim((string) $this->setting('nfse.prestador_email', ''));
+
+        if ($phone === '' && is_object($company)) {
+            $phone = trim((string) ($company->phone ?? ''));
+        }
+        if ($email === '' && is_object($company)) {
+            $email = trim((string) ($company->email ?? ''));
+        }
 
         return [
             'telefone' => preg_replace('/\D+/', '', $phone) ?: '',

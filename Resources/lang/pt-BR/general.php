@@ -7,7 +7,7 @@ return [
     'name'                  => 'NFS-e',
     'contacts' => [
         'municipal_registration' => 'Inscrição Municipal (NFS-e)',
-        'legal_name' => 'Razão social fiscal (NFS-e)',
+        'legal_name' => 'Razão social',
     ],
     'description'           => 'Emissão e configurações de NFS-e',
     'saved'                 => 'Configurações salvas com sucesso.',
@@ -506,6 +506,12 @@ return [
     ],
 
     'settings' => [
+        'issuer_company_context' => 'Empresa ativa no Akaunting',
+        'issuer_company_context_help' => 'As configurações fiscais pertencem à empresa selecionada. Para configurar outra empresa, alterne a empresa ativa no Akaunting.',
+        'issuer_phone' => 'Telefone do prestador (NFS-e)',
+        'issuer_email' => 'E-mail do prestador (NFS-e)',
+        'issuer_municipal_registration' => 'Inscrição municipal do prestador',
+        'issuer_municipal_registration_help' => 'Opcional; deixe vazio caso a empresa não possua inscrição municipal. A DPS depende da versão atualizada do nfse-php para publicar este campo.',
         'title'                 => 'Configurações NFS-e',
         'cnpj_prestador'        => 'CNPJ do Prestador',
         'cnpj_from_certificate' => 'CNPJ (extraído do certificado)',

@@ -48,6 +48,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
             '/"librecodeoop\/nfse-php": "dev-main#[0-9a-f]{40}"/',
             $content,
         );
+        self::assertStringContainsString('dev-main#60c4fad793c6562820e36085eeb8dab2c0f68b1f', $content);
     }
 
     public function testPhpScoperToolingLivesUnderVendorBin(): void
@@ -218,6 +219,15 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         self::assertStringContainsString('PRESTADOR / FORNECEDOR', $html);
         self::assertStringContainsString('TRIBUTAÇÃO MUNICIPAL (ISSQN)', $html);
         self::assertStringContainsString('Nº NFS-e / CHAVE NFS-e', $html);
+        // The scoped package must contain the revised NT 008 DANFSe grid,
+        // not the previously pinned renderer.
+        self::assertStringContainsString('class="emitter-cell"', $html);
+        self::assertStringContainsString('class="total-emphasis"', $html);
+        self::assertStringContainsString('rowspan="4"', $html);
+        self::assertMatchesRegularExpression(
+            '/class="section-header">\\s*<span class="section-title">TRIBUTAÇÃO IBS \\/ CBS/',
+            $html,
+        );
     }
 
     public function testScopedDanfseGeneratorRendersPdf(): void
