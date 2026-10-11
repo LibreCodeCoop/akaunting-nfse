@@ -358,7 +358,7 @@ return [
         'emit_modal_description_scope' => 'Escopo da descrição padrão',
         'emit_modal_description_scope_general' => 'Padrão para todos os clientes',
         'emit_modal_description_scope_customer' => 'Padrão apenas para este cliente',
-        'emit_modal_description_scope_invalid' => 'Não foi possível salvar a descrição padrão. Reabra o formulário e selecione o escopo (todos os clientes ou apenas este cliente).',
+        'emit_modal_description_scope_invalid' => 'Não foi possível reconhecer a opção de salvar a descrição. Atualize a página e tente novamente.',
         'emit_modal_description_save_default' => 'Salvar esta descrição como padrão',
         'emit_modal_description_save_mode_none' => 'Não salvar',
         'emit_modal_description_save_mode_general' => 'Para todos os clientes desta empresa',

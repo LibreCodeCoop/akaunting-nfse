@@ -360,7 +360,7 @@ return [
         'emit_modal_description_scope' => 'Default description scope',
         'emit_modal_description_scope_general' => 'Default for all customers',
         'emit_modal_description_scope_customer' => 'Default for this customer only',
-        'emit_modal_description_scope_invalid' => 'Cannot save the default description. Reopen the form and select the scope (all customers or this customer only).',
+        'emit_modal_description_scope_invalid' => 'Unable to recognize how to save the description. Refresh the page and try again.',
         'emit_modal_description_save_default' => 'Save this description as default',
         'emit_modal_description_save_mode_none' => 'Do not save',
         'emit_modal_description_save_mode_general' => 'For all customers in this company',
