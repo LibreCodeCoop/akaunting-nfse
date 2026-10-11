@@ -357,14 +357,6 @@
             applySendEmailState(Boolean(sendEmailToggle.checked), documentRef);
         }
 
-        const descriptionToggle = typeof documentRef.getElementById === 'function'
-            ? documentRef.getElementById('nfse_save_default_description_toggle')
-            : null;
-
-        if (descriptionToggle) {
-            syncSwitch(descriptionToggle);
-        }
-
         return reconciled;
     }
 
@@ -542,13 +534,6 @@
                 applySendEmailState(Boolean(input.checked), documentRef);
             }
 
-            if (input.id === 'nfse_save_default_description_toggle') {
-                const hint = documentRef.getElementById('nfse-description-default-hint');
-
-                if (hint) {
-                    hint.classList.toggle('hidden', Boolean(input.checked));
-                }
-            }
         });
 
         ['input', 'keyup', 'focusin'].forEach((eventName) => {

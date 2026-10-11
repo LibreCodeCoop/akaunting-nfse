@@ -2806,6 +2806,103 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
+        public function testModalSaveModeGeneralPersistsDescriptionWithoutLegacyToggle(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Descricao anterior';
+
+            $request = Request::create('/nfse/invoices/301/reemit', 'POST', [
+                'nfse_description_save_mode' => 'general',
+                'nfse_discriminacao_custom' => '  Padrao de reemissao para todos  ',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function persistDescription(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $controller->persistDescription($request, new Invoice());
+
+            self::assertSame('Padrao de reemissao para todos', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertSame(1, ControllerIsolationState::$savedCount);
+        }
+
+        public function testModalSaveModeNoneDoesNotPersistEvenWithLegacyToggleEnabled(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Descricao anterior';
+            $request = Request::create('/nfse/invoices/301/reemit', 'POST', [
+                'nfse_description_save_mode' => 'none',
+                'nfse_save_default_description' => '1',
+                'nfse_description_scope' => 'general',
+                'nfse_discriminacao_custom' => 'Nova descricao nao persistida',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function persistDescription(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $controller->persistDescription($request, new Invoice());
+
+            self::assertSame('Descricao anterior', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+        }
+
+        public function testModalSaveModeCustomerRemainsIsolatedToCurrentCompany(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Padrao geral anterior';
+            $invoice = new Invoice();
+            $invoice->company_id = ControllerIsolationState::$currentCompanyId;
+            $invoice->contact_id = 77;
+            $request = Request::create('/nfse/invoices/301/reemit', 'POST', [
+                'nfse_description_save_mode' => 'customer',
+                'nfse_discriminacao_custom' => 'Padrao do cliente 77',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function persistDescription(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $controller->persistDescription($request, $invoice);
+
+            self::assertSame('Padrao geral anterior', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertSame(
+                'Padrao do cliente 77',
+                ControllerIsolationState::$settings['nfse.customer_description.' . $invoice->company_id . '.77'],
+            );
+        }
+
+        public function testModalSaveModeCustomerRejectsAnotherCompany(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            $invoice = new Invoice();
+            $invoice->company_id = ControllerIsolationState::$currentCompanyId + 1;
+            $invoice->contact_id = 77;
+            $request = Request::create('/nfse/invoices/301/reemit', 'POST', [
+                'nfse_description_save_mode' => 'customer',
+                'nfse_discriminacao_custom' => 'Nao pode atravessar empresas',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function persistDescription(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $this->expectException(\InvalidArgumentException::class);
+            $controller->persistDescription($request, $invoice);
+        }
+
         public function testInvalidDescriptionScopeReturnsFormErrorWithoutChangingGlobalPreference(): void
         {
             InvoiceControllerIsolationState::reset();
@@ -2829,6 +2926,33 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 (string) trans('nfse::general.invoices.emit_modal_description_scope_invalid'),
                 $response->flash['error'] ?? null,
             );
+        }
+
+        public function testInvalidModalSaveModeStopsReemissionBeforeCreatingAnotherReceipt(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            ControllerIsolationState::$settings['invoice.notes'] = 'Padrao anterior';
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 780,
+                amount: 100.00,
+                items: [['name' => 'Servico de teste']],
+            );
+            InvoiceControllerIsolationState::makeReceipt(780, 'CHAVE-CANCELADA', 'cancelled');
+            $request = Request::create('/nfse/invoices/780/reemit', 'POST', [
+                'nfse_description_save_mode' => ['general'],
+                'nfse_discriminacao_custom' => 'Descricao que nao deve ser salva',
+            ]);
+
+            $response = (new InvoiceController())->reemit($invoice, $request);
+
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertSame(
+                (string) trans('nfse::general.invoices.emit_modal_description_scope_invalid'),
+                $response->flash['error'] ?? null,
+            );
+            self::assertSame('Padrao anterior', ControllerIsolationState::$settings['invoice.notes']);
+            self::assertCount(1, NfseReceipt::$records);
+            self::assertSame('cancelled', NfseReceipt::$records[0]->status);
         }
 
         public function testPersistDefaultDescriptionFromRequestSkipsWhenFlagDisabled(): void

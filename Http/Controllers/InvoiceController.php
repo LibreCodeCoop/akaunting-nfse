@@ -1520,7 +1520,12 @@ class InvoiceController extends Controller
 
     protected function persistDefaultDescriptionFromRequest(?Request $request, Invoice $invoice): void
     {
-        if (!$request instanceof Request || !$request->boolean('nfse_save_default_description', false)) {
+        if (!$request instanceof Request) {
+            return;
+        }
+
+        $scope = $this->requestedDescriptionDefaultScope($request);
+        if ($scope === null) {
             return;
         }
 
@@ -1529,12 +1534,6 @@ class InvoiceController extends Controller
             return;
         }
 
-        $requestedScope = $request->input('nfse_description_scope', 'general');
-        if (!is_string($requestedScope)) {
-            throw new \InvalidArgumentException('Invalid NFS-e description scope.');
-        }
-
-        $scope = strtolower(trim($requestedScope));
         $settingKey = self::INVOICE_NOTES_SETTING_KEY;
         if ($scope === 'customer') {
             $contactId = (int) ($invoice->contact_id ?? 0);
@@ -1543,8 +1542,6 @@ class InvoiceController extends Controller
                 throw new \InvalidArgumentException('A valid customer from the current company is required.');
             }
             $settingKey = 'nfse.customer_description.' . $companyId . '.' . $contactId;
-        } elseif ($scope !== 'general') {
-            throw new \InvalidArgumentException('Invalid NFS-e description scope.');
         }
 
         setting([$settingKey => $this->normalizeDescriptionText($rawValue) ?? '']);
@@ -1552,6 +1549,39 @@ class InvoiceController extends Controller
         if (is_object($settings) && is_callable([$settings, 'save'])) {
             $settings->save();
         }
+    }
+
+    /**
+     * The Akaunting issue/reissue modal submits a single explicit save mode.
+     * Preserve the older switch + scope contract used by the invoice index.
+     */
+    protected function requestedDescriptionDefaultScope(Request $request): ?string
+    {
+        $modernMode = $request->has('nfse_description_save_mode');
+
+        if ($modernMode) {
+            $rawScope = $request->input('nfse_description_save_mode');
+        } elseif ($request->boolean('nfse_save_default_description', false)) {
+            $rawScope = $request->input('nfse_description_scope', 'general');
+        } else {
+            return null;
+        }
+
+        if (!is_string($rawScope)) {
+            throw new \InvalidArgumentException('Invalid NFS-e description scope.');
+        }
+
+        $scope = strtolower(trim($rawScope));
+
+        if ($modernMode && $scope === 'none') {
+            return null;
+        }
+
+        if (!in_array($scope, ['general', 'customer'], true)) {
+            throw new \InvalidArgumentException('Invalid NFS-e description scope.');
+        }
+
+        return $scope;
     }
 
     protected function customDiscriminacaoFromRequest(?Request $request): ?string

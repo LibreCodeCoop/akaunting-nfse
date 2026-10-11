@@ -22,13 +22,15 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertFileExists($basePath . '/modals/invoices/issue.blade.php');
         }
 
-        public function testDescriptionScopeControlsArePresentInBothEmissionModalPaths(): void
+        public function testDescriptionSaveModeInIssueModalAndLegacyScopeInIndex(): void
         {
             $base = dirname(__DIR__, 3) . '/Resources/views/';
             $nativeModal = (string) file_get_contents($base . 'modals/invoices/issue.blade.php');
             $invoiceIndex = (string) file_get_contents($base . 'invoices/index.blade.php');
 
-            self::assertStringContainsString('name="nfse_description_scope"', $nativeModal);
+            self::assertStringContainsString('name="nfse_description_save_mode"', $nativeModal);
+            self::assertStringContainsString('v-model="form.nfse_description_save_mode"', $nativeModal);
+            self::assertStringContainsString('value="none"', $nativeModal);
             self::assertStringContainsString('value="customer"', $nativeModal);
             self::assertStringContainsString('value="general"', $nativeModal);
             self::assertStringContainsString('data-emit-description-scope-input', $invoiceIndex);

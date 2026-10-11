@@ -319,6 +319,19 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString("request->input('nfse_email_to')", $invoiceController);
     }
 
+    public function testIssueModalUsesOneReactiveDescriptionSaveModeSelect(): void
+    {
+        $view = $this->issueViewContent();
+
+        self::assertStringContainsString('name="nfse_description_save_mode"', $view);
+        self::assertStringContainsString('value="none"', $view);
+        self::assertStringContainsString('v-model="form.nfse_description_save_mode"', $view);
+        self::assertStringContainsString('<option value="general">', $view);
+        self::assertStringContainsString('<option value="customer">', $view);
+        self::assertStringNotContainsString('nfse_save_default_description_toggle', $view);
+        self::assertStringNotContainsString('name="nfse_description_scope"', $view);
+    }
+
     public function testIssueViewUsesTabbedWizardLikeLayout(): void
     {
         $view = $this->issueViewContent();
