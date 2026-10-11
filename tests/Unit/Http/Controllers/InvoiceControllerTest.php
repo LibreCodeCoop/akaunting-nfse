@@ -2782,7 +2782,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ControllerIsolationState::$settings['invoice.notes'] = 'Padrao geral anterior';
 
             $invoice = new Invoice();
-            $invoice->company_id = (int) company_id();
+            $invoice->company_id = ControllerIsolationState::$currentCompanyId;
             $invoice->contact_id = 77;
             $request = Request::create('/nfse/emit', 'POST', [
                 'nfse_save_default_description' => '1',
@@ -4903,7 +4903,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                     $this->delegatedRequest = $request;
 
-                    return response()->json(['success' => true]);
+                    return new \Illuminate\Http\JsonResponse(['success' => true]);
                 }
             };
 
