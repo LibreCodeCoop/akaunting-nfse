@@ -40,8 +40,6 @@ final class InvoiceDpsBuilder
             (int) ($context['opcaoSimplesNacional'] ?? 1),
             (int) ($issqn['tributacaoIssqn'] ?? 1),
             is_string($context['dataCompetencia'] ?? null) ? $context['dataCompetencia'] : null,
-            is_string($context['municipioIbge'] ?? null) ? $context['municipioIbge'] : null,
-            is_string($context['incidenceMunicipality'] ?? null) ? $context['incidenceMunicipality'] : null,
         );
 
         $required = ['codigoTributacaoMunicipal', 'regimeEspecialTributacao'];

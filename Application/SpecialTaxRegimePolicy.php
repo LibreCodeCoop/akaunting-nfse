@@ -22,7 +22,7 @@ final class SpecialTaxRegimePolicy
     /**
      * @return array{code:?int,state:'missing'|'invalid'|'unsupported'|'none'|'special',can_emit:bool,reason:string,municipal_review_required:bool}
      */
-    public function evaluate(mixed $rawCode, int $simples, int $issqn, ?string $competence = null, ?string $issuerMunicipality = null, ?string $incidenceMunicipality = null): array
+    public function evaluate(mixed $rawCode, int $simples, int $issqn, ?string $competence = null): array
     {
         if ($rawCode === null || $rawCode === '') {
             return $this->result(null, 'missing', false, 'regime_not_configured');
@@ -53,16 +53,6 @@ final class SpecialTaxRegimePolicy
             return $this->result($code, 'invalid', false, 'non_taxable_requires_none');
         }
 
-        // Anexo I v1.01, E0176: with a proven different ISS incidence
-        // municipality only 0 (Nenhum) and 5 (Profissional Autonomo) are valid.
-        // Unknown incidence must not be turned into a fictional rejection.
-        if ($code !== 5 && $issuerMunicipality !== null && $incidenceMunicipality !== null
-            && preg_match('/^\\d{7}$/D', $issuerMunicipality) === 1
-            && preg_match('/^\\d{7}$/D', $incidenceMunicipality) === 1
-            && $issuerMunicipality !== $incidenceMunicipality) {
-            return $this->result($code, 'invalid', false, 'cross_municipality_requires_none_or_autonomous');
-        }
-
         if ($simples === 2) {
             // Anexo I, E0174: MEI is not entitled to a nonzero regEspTrib.
             return $this->result($code, 'invalid', false, 'mei_requires_none');
@@ -78,14 +68,17 @@ final class SpecialTaxRegimePolicy
             return $this->result($code, 'invalid', false, 'invalid_competence');
         }
 
-        // E0176-E0178 depend on municipality, service, taxpayer and competence.
+        // Annex I v1.01 (09/02/2026): E0176 verifies an autonomous
+        // professional's valid municipal enrollment or a permissive parameter;
+        // E0177/E0178 verify municipality, taxpayer, service and competence.
+        // The older cross-municipality E0176 wording must not be used here.
         // Missing preventive evidence is not an authenticated SEFIN rejection.
         return $this->result($code, 'special', true, 'municipal_evidence_unverified', true);
     }
 
-    public function forIssuance(mixed $code, int $simples, int $issqn, ?string $competence, ?string $issuerMunicipality = null, ?string $incidenceMunicipality = null): int
+    public function forIssuance(mixed $code, int $simples, int $issqn, ?string $competence): int
     {
-        $assessment = $this->evaluate($code, $simples, $issqn, $competence, $issuerMunicipality, $incidenceMunicipality);
+        $assessment = $this->evaluate($code, $simples, $issqn, $competence);
 
         if ($assessment['can_emit'] && $assessment['code'] !== 0 && !$this->isValidDate($competence ?? '')) {
             throw new \InvalidArgumentException('Invalid special tax regime: missing_or_invalid_competence');

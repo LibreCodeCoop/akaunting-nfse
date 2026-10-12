@@ -569,7 +569,6 @@ return [
             'non_taxable_requires_none' => 'Para imunidade, exportação ou não incidência do ISSQN o regime especial deve ser 0 (Nenhum).',
             'mei_requires_none' => 'O regime especial do MEI deve ser 0 (Nenhum).',
             'simples_apuration_not_supported' => 'A emissão de ME/EPP com regime especial não zero exige configuração da apuração do Simples ainda não suportada.',
-            'cross_municipality_requires_none_or_autonomous' => 'Município de incidência diferente do município emissor: apenas 0 ou 5 é permitido.',
         ],
         'issqn_special' => [
             'heading' => 'Tributação municipal do ISSQN',

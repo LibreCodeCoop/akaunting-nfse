@@ -189,17 +189,18 @@ final class InvoiceDpsBuilderTest extends TestCase
         (new InvoiceDpsBuilder())->build($context);
     }
 
-    public function testKnownDifferentIssIncidenceMunicipalityAppliesE0176(): void
+    public function testDifferentIssMunicipalityAloneIsNotGroundsToRejectSpecialRegime(): void
     {
         $context = $this->baseContext();
         $context['opcaoSimplesNacional'] = 1;
         $context['regimeEspecialTributacao'] = '6';
         $context['incidenceMunicipality'] = '3304557';
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('cross_municipality_requires_none_or_autonomous');
-
-        (new InvoiceDpsBuilder())->build($context);
+        // A municipality may still reject E0177/E0178, but its authorization
+        // must not be inferred from the retired E0176 cross-municipality rule.
+        $dps = (new InvoiceDpsBuilder())->build($context);
+        self::assertSame(6, $dps->regimeEspecialTributacao);
+        self::assertSame('2026-10-05', $dps->dataCompetencia);
     }
 
     /**

@@ -571,7 +571,6 @@ return [
             'non_taxable_requires_none' => 'Immunity, service exports and ISSQN non-incidence require code 0 (None).',
             'mei_requires_none' => 'MEI must use special regime code 0 (None).',
             'simples_apuration_not_supported' => 'ME/EPP with a nonzero special regime requires Simples tax apportionment support, which is not available.',
-            'cross_municipality_requires_none_or_autonomous' => 'Different proven ISS incidence municipality: only code 0 or 5 is allowed.',
         ],
         'issqn_special' => [
             'heading' => 'Municipal ISSQN taxation',

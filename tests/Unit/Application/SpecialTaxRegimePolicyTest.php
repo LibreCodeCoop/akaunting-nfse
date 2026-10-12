@@ -96,15 +96,17 @@ final class SpecialTaxRegimePolicyTest extends TestCase
         $policy->forIssuance('1', 1, 1, null);
     }
 
-    public function testDifferentConfirmedIssIncidenceMunicipalityRestrictsSpecialCode(): void
+    public function testCurrentAutonomousAndMunicipalRulesAreNotAnObsoleteCrossMunicipalityVeto(): void
     {
         $policy = new SpecialTaxRegimePolicy();
-        $crossed = $policy->evaluate('6', 1, 1, '2026-10-05', '3303302', '3304557');
-        self::assertSame('cross_municipality_requires_none_or_autonomous', $crossed['reason']);
-        self::assertFalse($crossed['can_emit']);
-        self::assertTrue($policy->evaluate('5', 1, 1, '2026-10-05', '3303302', '3304557')['can_emit']);
-        self::assertTrue($policy->evaluate('6', 1, 1, '2026-10-05', '3303302', '3303302')['can_emit']);
-        self::assertTrue($policy->evaluate('6', 1, 1, '2026-10-05', '3303302', null)['can_emit']);
+
+        foreach ([5, 6, 9] as $officialCode) {
+            $assessment = $policy->evaluate((string) $officialCode, 1, 1, '2026-10-05');
+            self::assertSame($officialCode, $assessment['code']);
+            self::assertTrue($assessment['can_emit']);
+            self::assertTrue($assessment['municipal_review_required']);
+            self::assertSame('municipal_evidence_unverified', $assessment['reason']);
+        }
     }
 
     public function testEmittableRegimeKeepsOriginalOfficialCode(): void
