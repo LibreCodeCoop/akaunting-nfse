@@ -27,7 +27,6 @@ final class SettingsReadinessNavigationTest extends FeatureTestCase
 
         $response
             ->assertSee(trans('nfse::general.readiness.checks.bao_addr'))
-            ->assertSee(trans('nfse::general.readiness.checks.bao_mount'))
             ->assertSee($vaultUrl, false);
     }
 }

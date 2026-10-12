@@ -31,6 +31,13 @@ final class MunicipalEstablishmentAttestationTest extends FeatureTestCase
         ]);
         setting()->save();
 
+        (new \Modules\Nfse\Support\GlobalVaultSettings())->save([
+            'addr' => 'https://vault.example.test',
+            'mount' => '/secret',
+            'auth_mode' => 'token',
+            'token' => 'synthetic-global-fixture-token',
+        ]);
+
         $fiscal = [
             'cnpj_prestador' => '11222333000181',
             'uf' => 'RJ',
@@ -76,6 +83,13 @@ final class MunicipalEstablishmentAttestationTest extends FeatureTestCase
             'nfse.provider_establishment_confirmed_by' => 'synthetic-operator',
         ]);
         setting()->save();
+
+        (new \Modules\Nfse\Support\GlobalVaultSettings())->save([
+            'addr' => 'https://vault.example.test',
+            'mount' => '/secret',
+            'auth_mode' => 'token',
+            'token' => 'synthetic-global-fixture-token',
+        ]);
 
         $legacy = [
             'cnpj_prestador' => '11222333000181',
