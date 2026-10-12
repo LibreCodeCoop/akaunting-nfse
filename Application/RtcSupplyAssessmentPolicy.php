@@ -25,7 +25,6 @@ final class RtcSupplyAssessmentPolicy
 
     private const SOURCE_VERSION = 'Ato Conjunto RFB/CGIBS 4/2026 (30/07/2026)';
 
-    private const DECEMBER_START = '2026-12-01';
     private const SIMPLES_START = '2027-01-01';
 
     /** @var array<string,string> */
@@ -34,15 +33,6 @@ final class RtcSupplyAssessmentPolicy
         '0105' => 'art. 1, III, b',
         '0109' => 'art. 1, III, b',
         '1601' => 'art. 1, III, c',
-    ];
-
-    /** @var array<string,string> */
-    private const NON_LC116_PROVISIONS = [
-        'digital_platform' => 'art. 1, III, a',
-        'non_iss_intangible' => 'art. 1, III, e',
-        'condominium_revenue' => 'art. 1, III, f',
-        'lease' => 'art. 1, III, g',
-        'residual_service' => 'art. 1, III, h',
     ];
 
     /**
@@ -58,11 +48,11 @@ final class RtcSupplyAssessmentPolicy
                 return $this->unknown('lc116_subitem_unverifiable');
             }
         } else {
-            $provision = self::NON_LC116_PROVISIONS[$category] ?? null;
-            if ($provision === null) {
+            $categoryRule = RtcSupplyCategoryPolicy::rule($category);
+            if ($categoryRule === null) {
                 return $this->unknown('operation_category_unverifiable');
             }
-            $rule = [self::DECEMBER_START, $provision];
+            $rule = [$categoryRule['effective_date'], $categoryRule['provision']];
         }
 
         return $this->applyEffectiveDate($context, $rule[0], $rule[1]);
@@ -72,7 +62,7 @@ final class RtcSupplyAssessmentPolicy
     {
         $decisions = [$this->calendarDecision($this->schedule($context))];
 
-        if (isset(self::NON_LC116_PROVISIONS[trim((string) $context->operationCategory)])) {
+        if (RtcSupplyCategoryPolicy::rule(trim((string) $context->operationCategory)) !== null) {
             $decisions[] = $this->unsupportedModalityDecision();
         }
 
