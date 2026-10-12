@@ -16,10 +16,30 @@ final class FederalTaxFactAggregatorTest extends TestCase
 {
     public function testSumsTwoPersistedEqualAmountsWithoutDoubleCountingSameRow(): void
     {
-        $first = new FiscalTaxFact(101, 7, 5001, 'normal', 500, 'pis',
-            FiscalTaxRole::PROVIDER_DUE, 'synthetic', null, '0.65');
-        $second = new FiscalTaxFact(102, 7, 5002, 'normal', 500, 'pis',
-            FiscalTaxRole::PROVIDER_DUE, 'synthetic', null, '0.65');
+        $first = new FiscalTaxFact(
+            101,
+            7,
+            5001,
+            'normal',
+            500,
+            'pis',
+            FiscalTaxRole::PROVIDER_DUE,
+            'synthetic',
+            null,
+            '0.65'
+        );
+        $second = new FiscalTaxFact(
+            102,
+            7,
+            5002,
+            'normal',
+            500,
+            'pis',
+            FiscalTaxRole::PROVIDER_DUE,
+            'synthetic',
+            null,
+            '0.65'
+        );
 
         $aggregation = (new FederalTaxFactAggregator())->aggregate([$first, $first, $second]);
 
@@ -30,10 +50,30 @@ final class FederalTaxFactAggregatorTest extends TestCase
 
     public function testEqualNamesAndPercentagesCannotTurnWithholdingIntoOwnTax(): void
     {
-        $due = new FiscalTaxFact(101, 7, 5001, 'normal', 500, 'pis',
-            FiscalTaxRole::PROVIDER_DUE, 'synthetic', null, '0.65');
-        $retained = new FiscalTaxFact(101, 8, 5002, 'withholding', 500, 'pis',
-            FiscalTaxRole::WITHHELD_BY_PAYER, 'synthetic', null, '0.65');
+        $due = new FiscalTaxFact(
+            101,
+            7,
+            5001,
+            'normal',
+            500,
+            'pis',
+            FiscalTaxRole::PROVIDER_DUE,
+            'synthetic',
+            null,
+            '0.65'
+        );
+        $retained = new FiscalTaxFact(
+            101,
+            8,
+            5002,
+            'withholding',
+            500,
+            'pis',
+            FiscalTaxRole::WITHHELD_BY_PAYER,
+            'synthetic',
+            null,
+            '0.65'
+        );
 
         $aggregation = (new FederalTaxFactAggregator())->aggregate([$due, $retained]);
 
@@ -77,10 +117,30 @@ final class FederalTaxFactAggregatorTest extends TestCase
 
     public function testMultipleDistinctTaxesCannotMasqueradeAsSingleRate(): void
     {
-        $first = new FiscalTaxFact(101, 7, 5001, 'normal', 500, 'pis',
-            FiscalTaxRole::PROVIDER_DUE, 'synthetic', null, '0.65');
-        $second = new FiscalTaxFact(101, 8, 5002, 'normal', 500, 'pis',
-            FiscalTaxRole::PROVIDER_DUE, 'synthetic', null, '0.65');
+        $first = new FiscalTaxFact(
+            101,
+            7,
+            5001,
+            'normal',
+            500,
+            'pis',
+            FiscalTaxRole::PROVIDER_DUE,
+            'synthetic',
+            null,
+            '0.65'
+        );
+        $second = new FiscalTaxFact(
+            101,
+            8,
+            5002,
+            'normal',
+            500,
+            'pis',
+            FiscalTaxRole::PROVIDER_DUE,
+            'synthetic',
+            null,
+            '0.65'
+        );
         $result = (new FederalTaxFactAggregator())->aggregate([$first, $second]);
 
         self::assertSame(1000, $result['due']['pis']);
