@@ -17,7 +17,7 @@ final class AuthorizedFiscalSnapshotExtractorTest extends TestCase
         $xml = $this->authorizedXml();
         $snapshot = (new AuthorizedFiscalSnapshotExtractor())->extract($xml);
 
-        self::assertSame(1, $snapshot['schema_version']);
+        self::assertSame(2, $snapshot['schema_version']);
         self::assertSame('authorized_xml', $snapshot['source']);
         self::assertSame(hash('sha256', $xml), $snapshot['source_sha256']);
         self::assertSame('2026-10-05', $snapshot['competence_date']);
@@ -50,6 +50,32 @@ final class AuthorizedFiscalSnapshotExtractorTest extends TestCase
         self::assertNull($snapshot['issqn']['value']);
         self::assertNull($snapshot['federal']['pis']);
         self::assertNull($snapshot['ibs_cbs']['ibs_total']);
+        self::assertSame('absent', $snapshot['approximate_taxes']['mode']);
+        self::assertNull($snapshot['approximate_taxes']['municipal_percent']);
+    }
+
+    public function testAuthorizedXmlDistinguishesAbsentEstimatedTotalsFromExplicitZero(): void
+    {
+        $base = '<NFSe><infNFSe><DPS><infDPS><valores><trib><totTrib>%s</totTrib></trib></valores></infDPS></DPS></infNFSe></NFSe>';
+        $extractor = new AuthorizedFiscalSnapshotExtractor();
+
+        $unknown = $extractor->extract(sprintf($base, '<indTotTrib>0</indTotTrib>'));
+        self::assertSame('not_provided', $unknown['approximate_taxes']['mode']);
+        self::assertNull($unknown['approximate_taxes']['municipal_percent']);
+        self::assertNull($unknown['approximate_taxes']['municipal_value']);
+
+        $zeros = $extractor->extract(sprintf($base, '<pTotTrib><pTotTribFed>0.00</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>0.00</pTotTribMun></pTotTrib>'));
+        self::assertSame('percentages', $zeros['approximate_taxes']['mode']);
+        self::assertSame('0.00', $zeros['approximate_taxes']['municipal_percent']);
+
+        $sourced = $extractor->extract(sprintf($base, '<pTotTrib><pTotTribFed>7.45</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>4.10</pTotTribMun></pTotTrib>'));
+        self::assertSame('4.10', $sourced['approximate_taxes']['municipal_percent']);
+        self::assertNotSame($unknown['source_sha256'], $sourced['source_sha256']);
+
+        $amounts = $extractor->extract(sprintf($base, '<vTotTrib><vTotTribFed>74.50</vTotTribFed><vTotTribEst>0.00</vTotTribEst><vTotTribMun>41.00</vTotTribMun></vTotTrib>'));
+        self::assertSame('amounts', $amounts['approximate_taxes']['mode']);
+        self::assertSame('41.00', $amounts['approximate_taxes']['municipal_value']);
+        self::assertNull($amounts['approximate_taxes']['municipal_percent']);
     }
 
     public function testRejectsDoctypeBeforeXmlParsing(): void

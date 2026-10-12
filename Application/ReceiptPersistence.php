@@ -235,9 +235,9 @@ final class ReceiptPersistence
 
     private function persistAuthorizedXml(NfseReceipt $receipt, ReceiptData $remoteReceipt): void
     {
-        $xml = is_string($remoteReceipt->rawXml) ? trim($remoteReceipt->rawXml) : '';
+        $xml = is_string($remoteReceipt->rawXml) ? $remoteReceipt->rawXml : '';
 
-        if ($xml === '') {
+        if (trim($xml) === '') {
             return;
         }
 
