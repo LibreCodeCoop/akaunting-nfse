@@ -48,7 +48,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
             '/"librecodeoop\/nfse-php": "dev-main#[0-9a-f]{40}"/',
             $content,
         );
-        self::assertStringContainsString('dev-main#60c4fad793c6562820e36085eeb8dab2c0f68b1f', $content);
+        self::assertStringContainsString('dev-main#5387501f476021fc6e6fce225ae3f4e571d69218', $content);
     }
 
     public function testPhpScoperToolingLivesUnderVendorBin(): void

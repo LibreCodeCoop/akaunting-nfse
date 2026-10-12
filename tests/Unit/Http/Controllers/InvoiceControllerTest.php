@@ -1888,7 +1888,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $normalizedXml = str_replace(["\n", '  '], '', $xml);
 
             self::assertStringContainsString('<tribFed/><totTrib>', $normalizedXml);
-            self::assertStringContainsString('<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><pTotTrib><pTotTribFed>0.00</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>0.00</pTotTribMun></pTotTrib></totTrib></trib>', $normalizedXml);
+            self::assertStringContainsString(
+                '<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><indTotTrib>0</indTotTrib></totTrib></trib>',
+                $normalizedXml,
+            );
+            self::assertStringNotContainsString('<pTotTribFed>0.00</pTotTribFed>', $normalizedXml);
+            self::assertStringNotContainsString('<pTotTribMun>0.00</pTotTribMun>', $normalizedXml);
         }
 
         public function testEmitPreservesTypeFourWithoutPopulatingCsllWhenCsllIsZero(): void
