@@ -305,6 +305,16 @@ test('workflow invokes unit-tested setup commands instead of embedding shell par
   assert.doesNotMatch(workflow, /php -r|sed -i|for asset in|for field in|tinker --execute/);
 });
 
+test('bulk UI workflow calls the tested setup without emitting raw fixture JSON', () => {
+  const file = path.resolve(import.meta.dirname, '../.github/workflows/playwright-bulk-ui.yml');
+  const workflow = fs.readFileSync(file, 'utf8');
+  for (const command of ['prepare-env', 'provision-bulk-ui', 'assets', 'verify-db', 'expose-assets', 'start-server', 'stop-server']) {
+    assert.ok(workflow.includes('playwright-smoke.mjs ' + command));
+  }
+  assert.match(workflow, /Cache compiled Akaunting browser assets/);
+  assert.doesNotMatch(workflow, /FIXTURE_JSON|php -r|sed -i|printf '%s\\n'/);
+});
+
 test('unknown setup subcommands fail closed', async () => {
   await assert.rejects(cli('do-everything', { core: '/unused', module: '/unused', env: {} }), /Unknown smoke setup command/);
   await assert.rejects(cli('expose-assets', { core: '/unused', module: '/unused', env: {} }), /requires APP_ENV=testing/);
