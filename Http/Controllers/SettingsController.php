@@ -807,15 +807,19 @@ class SettingsController extends Controller
             unset($nfseInput[$attestationKey]);
         }
 
+        $globalVault = VaultConfig::secretStoreConfig();
         $existingVaultSettings = [
-            'bao_addr' => (string) setting('nfse.bao_addr', ''),
-            'bao_mount' => (string) setting('nfse.bao_mount', ''),
-            'bao_token' => (string) setting('nfse.bao_token', ''),
-            'bao_role_id' => (string) setting('nfse.bao_role_id', ''),
-            'bao_secret_id' => (string) setting('nfse.bao_secret_id', ''),
+            'bao_addr' => $globalVault['addr'], 'bao_mount' => $globalVault['mount'],
+            'bao_token' => $globalVault['token'] ?? '', 'bao_role_id' => $globalVault['roleId'] ?? '',
+            'bao_secret_id' => $globalVault['secretId'] ?? '',
         ];
 
-        $projectedVaultSettings = $this->projectVaultSettings($existingVaultSettings, $nfseInput);
+        // The legacy endpoint must not mutate global infrastructure or use
+        // company-scoped inputs as a bypass of global capability policy.
+        foreach (['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id', 'clear_bao_token', 'clear_bao_secret_id'] as $key) {
+            unset($nfseInput[$key]);
+        }
+        $projectedVaultSettings = $existingVaultSettings;
         $vaultReadyAfterSubmission = $this->isVaultReady($projectedVaultSettings);
 
         $certificatePayload = null;
@@ -824,30 +828,11 @@ class SettingsController extends Controller
         $isVaultOnlySubmission = !$isReplacingCertificate && !array_key_exists('cnpj_prestador', $rawNfseInput);
 
         if ($isVaultOnlySubmission) {
-            $request->validate([
-                'nfse.bao_addr'        => 'required|url',
-                'nfse.bao_mount'       => 'required|string',
-                'nfse.bao_token'       => 'nullable|string',
-                'nfse.bao_role_id'     => 'nullable|string',
-                'nfse.bao_secret_id'   => 'nullable|string',
-                'nfse.clear_bao_token' => 'nullable|boolean',
-                'nfse.clear_bao_secret_id' => 'nullable|boolean',
-            ]);
-
-            foreach (['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'] as $key) {
-                if (array_key_exists($key, $nfseInput)) {
-                    setting(['nfse.' . $key => $nfseInput[$key]]);
-                }
-            }
-
-            setting()->save();
-
-            return redirect()->route('nfse.settings.edit')
-                ->with('success', trans('nfse::general.vault_saved_continue'));
+            return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
+                ->with('error', 'Use the global Vault settings form.');
         }
 
-        $isExplicitlyClearingCredentials = in_array((string) ($rawNfseInput['clear_bao_token'] ?? ''), ['1', 'true', 'on'], true)
-            || in_array((string) ($rawNfseInput['clear_bao_secret_id'] ?? ''), ['1', 'true', 'on'], true);
+        $isExplicitlyClearingCredentials = false;
 
         if (!$isExplicitlyClearingCredentials && !$vaultReadyAfterSubmission) {
             return redirect()->route('nfse.settings.edit')
@@ -874,10 +859,7 @@ class SettingsController extends Controller
             'pfx_password'         => 'nullable|string|max:255|required_with:pfx_file',
         ]);
 
-        $existingSensitiveSettings = [
-            'bao_token' => (string) setting('nfse.bao_token', ''),
-            'bao_secret_id' => (string) setting('nfse.bao_secret_id', ''),
-        ];
+        $existingSensitiveSettings = [];
 
         // Replacement flow clears all nfse.* settings before persisting new values.
         // If sensitive fields are blank (keep current), re-inject old values so they survive the clear.
@@ -1031,6 +1013,12 @@ class SettingsController extends Controller
      */
     protected function vaultUiState(array $settings, array $certificateState): array
     {
+        $globalVault = VaultConfig::secretStoreConfig();
+        $settings = array_merge($settings, [
+            'bao_addr' => $globalVault['addr'], 'bao_mount' => $globalVault['mount'],
+            'bao_token' => $globalVault['token'] ?? '', 'bao_role_id' => $globalVault['roleId'] ?? '',
+            'bao_secret_id' => $globalVault['secretId'] ?? '',
+        ]);
         $addrConfigured = ((string) ($settings['bao_addr'] ?? '')) !== '';
         $mountConfigured = ((string) ($settings['bao_mount'] ?? '')) !== '';
         $tokenConfigured = ((string) ($settings['bao_token'] ?? '')) !== '';

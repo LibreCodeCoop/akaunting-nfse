@@ -26,6 +26,28 @@ Prefira credenciais com escopo mínimo e ciclo de vida gerenciável, como AppRol
 quando suportado. Não registre nem publique senha PFX, token, Role/Secret ID
 ou chave privada. Não envie esses valores em anexos de issues ou logs.
 
+### Configuração global e verificação
+
+A infraestrutura OpenBao/Vault possui exatamente um registro administrativo global
+criptografado no banco `nfse_vault_infrastructure`, sem `company_id`. O
+registro administrativo, quando existente, prevalece integralmente sobre
+variáveis de ambiente. Se não existir, a resolução segue `VAULT_*` e
+depois `OPENBAO_*`, com mount padrão `/nfse`. Não se reutilizam configurações
+legadas `nfse.bao_*`; é necessário reconfigurar a infraestrutura.
+
+Alterações administrativas exigem `update-nfse-settings`; diagnóstico manual
+exige `read-nfse-settings`. Os segredos são criptografados no banco usando
+a chave da aplicação Akaunting e não retornam em respostas. Faça backup seguro
+da chave de aplicação: sua perda impede descriptografar credenciais.
+
+O diagnóstico sob demanda não armazena nem modifica certificados. Verifica
+saúde, autenticação, KV v2 e capacidade de leitura/criação/atualização
+em um caminho sintético `pfx/__nfse_capability_probe__`. O resultado
+`operational` descreve apenas o instante da verificação e não garante
+operações futuras. A consulta não é requisito para listar documentos/perfis
+pré-existentes. O endpoint exige HTTPS; conexões inseguras não são verificadas.
+O teste não envia NFS-e nem utiliza SEFIN/ADN.
+
 ## Dados fiscais e validação
 
 Associe perfil fiscal a cada serviço/fatura conforme os dados da operação.
