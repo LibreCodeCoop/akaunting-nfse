@@ -40,6 +40,7 @@ Para requisitos de versão, instalação e atualização do módulo, consulte a 
 
 - [Configuração e operação da NFS-e no Akaunting](docs/operacao-e-configuracao.md)
 - [Emissão e requisitos fiscais](docs/emissao-vigente.md)
+- [Fontes e versões dos tributos aproximados](docs/approximate-tax-sources.md)
 - [Garantias de segurança fiscal](docs/fiscal-safety.md)
 - [Processamento assíncrono e filas](docs/queue.md)
 - [Dados fiscais adicionais do cliente](docs/contact-fiscal-profile.md)
