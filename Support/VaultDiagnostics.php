@@ -29,7 +29,7 @@ final class VaultDiagnostics
      */
     public function notVerified(): array
     {
-        return self::result('unverified', 'not_checked', self::emptyCapabilities());
+        return VaultDiagnosticPolicy::result('unverified', 'not_checked', VaultDiagnosticPolicy::emptyCapabilities());
     }
 
     /**
@@ -38,18 +38,13 @@ final class VaultDiagnostics
      */
     public function check(array $config): array
     {
-        $caps = self::emptyCapabilities();
+        $caps = VaultDiagnosticPolicy::emptyCapabilities();
 
-        if (!VaultConfig::configured($config)) {
-            return self::result('unconfigured', 'missing_configuration', $caps);
-        }
+        $configurationError = VaultDiagnosticPolicy::configurationError($config);
+        if ($configurationError !== null) {
+            $state = $configurationError === 'missing_configuration' ? 'unconfigured' : 'failed';
 
-        if (!self::validEndpoint($config['addr'])) {
-            return self::result('failed', 'invalid_endpoint', $caps);
-        }
-
-        if (!self::validMount($config['mount'])) {
-            return self::result('failed', 'invalid_mount', $caps);
+            return VaultDiagnosticPolicy::result($state, $configurationError, $caps);
         }
 
         $base = rtrim($config['addr'], '/');
@@ -62,23 +57,23 @@ final class VaultDiagnostics
             // Standby nodes may forward subsequent API requests to the leader.
             // A sealed, uninitialized or DR-secondary server is not ready.
             if (!in_array($health['status'], [200, 429, 473], true)) {
-                return self::result('failed', 'server_unavailable', $caps);
+                return VaultDiagnosticPolicy::result('failed', 'server_unavailable', $caps);
             }
 
             $token = $this->authenticatedToken($base, $config);
             if ($token === null) {
-                return self::result('failed', 'authentication_failed', $caps);
+                return VaultDiagnosticPolicy::result('failed', 'authentication_failed', $caps);
             }
 
             $lookup = $this->transport->request('GET', $base . '/v1/auth/token/lookup-self', $token);
             if ($lookup['status'] !== 200) {
-                return self::result('failed', 'authentication_failed', $caps);
+                return VaultDiagnosticPolicy::result('failed', 'authentication_failed', $caps);
             }
             $caps['authentication'] = true;
 
             $info = $this->transport->request('GET', $base . '/v1/sys/internal/ui/mounts/' . $mount, $token);
-            if ($info['status'] !== 200 || !self::isKvV2($info['body'])) {
-                return self::result('failed', 'kv_v2_unavailable', $caps);
+            if ($info['status'] !== 200 || !VaultDiagnosticPolicy::isKvV2($info['body'])) {
+                return VaultDiagnosticPolicy::result('failed', 'kv_v2_unavailable', $caps);
             }
             $caps['kv_v2'] = true;
 
@@ -90,29 +85,24 @@ final class VaultDiagnostics
                 ['paths' => [$path]],
             );
             if ($response['status'] !== 200) {
-                return self::result('failed', 'permission_check_failed', $caps);
+                return VaultDiagnosticPolicy::result('failed', 'permission_check_failed', $caps);
             }
 
-            $grants = self::grantsForPath($response['body'], $path);
-            if ($grants === null) {
-                return self::result('failed', 'permission_check_failed', $caps);
+            $rights = VaultDiagnosticPolicy::assessCapabilities($response['body'], $path);
+            if ($rights === null) {
+                return VaultDiagnosticPolicy::result('failed', 'permission_check_failed', $caps);
             }
 
-            // Deny always wins, including over a malformed mixed grant.
-            $allowed = !in_array('deny', $grants, true);
-            $root = in_array('root', $grants, true);
-            $caps['certificate_read'] = $allowed && ($root || in_array('read', $grants, true));
-            $caps['certificate_write'] = $allowed && (
-                $root || (in_array('create', $grants, true) && in_array('update', $grants, true))
-            );
+            $caps['certificate_read'] = $rights['read'];
+            $caps['certificate_write'] = $rights['write'];
 
             if (!$caps['certificate_read'] || !$caps['certificate_write']) {
-                return self::result('failed', 'insufficient_capabilities', $caps);
+                return VaultDiagnosticPolicy::result('failed', 'insufficient_capabilities', $caps);
             }
 
-            return self::result('operational', 'verified', $caps);
+            return VaultDiagnosticPolicy::result('operational', 'verified', $caps);
         } catch (\Throwable) {
-            return self::result('failed', 'network_failure', $caps);
+            return VaultDiagnosticPolicy::result('failed', 'network_failure', $caps);
         }
     }
 
@@ -135,77 +125,4 @@ final class VaultDiagnostics
         return is_string($token) && trim($token) !== '' ? $token : null;
     }
 
-    /**
-     * @param array<string,mixed> $body
-     */
-    private static function isKvV2(array $body): bool
-    {
-        return ($body['data']['type'] ?? null) === 'kv'
-            && (string) ($body['data']['options']['version'] ?? '') === '2';
-    }
-
-    /**
-     * @param array<string,mixed> $body
-     * @return null|list<string>
-     */
-    private static function grantsForPath(array $body, string $path): ?array
-    {
-        // Vault returns both a path-specific key and the backwards-compatible
-        // "capabilities" key for a single queried path.
-        $grants = $body[$path] ?? $body['data'][$path] ?? $body['capabilities'] ?? null;
-
-        if (!is_array($grants) || !array_is_list($grants)) {
-            return null;
-        }
-
-        foreach ($grants as $grant) {
-            if (!is_string($grant)) {
-                return null;
-            }
-        }
-
-        return $grants;
-    }
-
-    private static function validEndpoint(string $url): bool
-    {
-        return filter_var($url, FILTER_VALIDATE_URL) !== false
-            && parse_url($url, PHP_URL_SCHEME) === 'https'
-            && parse_url($url, PHP_URL_USER) === null
-            && parse_url($url, PHP_URL_PASS) === null
-            && parse_url($url, PHP_URL_QUERY) === null
-            && parse_url($url, PHP_URL_FRAGMENT) === null;
-    }
-
-    private static function validMount(string $mount): bool
-    {
-        $mount = trim($mount, '/');
-
-        return $mount !== ''
-            && preg_match('/^[a-zA-Z0-9_\/-]+$/', $mount) === 1
-            && !in_array('.', explode('/', $mount), true)
-            && !in_array('..', explode('/', $mount), true)
-            && !str_contains($mount, '//');
-    }
-
-    /** @return array<string,bool> */
-    private static function emptyCapabilities(): array
-    {
-        return [
-            'network' => false,
-            'authentication' => false,
-            'kv_v2' => false,
-            'certificate_read' => false,
-            'certificate_write' => false,
-        ];
-    }
-
-    /**
-     * @param array<string,bool> $capabilities
-     * @return array{state:string,reason:string,capabilities:array<string,bool>}
-     */
-    private static function result(string $state, string $reason, array $capabilities): array
-    {
-        return ['state' => $state, 'reason' => $reason, 'capabilities' => $capabilities];
-    }
 }
