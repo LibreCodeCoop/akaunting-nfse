@@ -28,7 +28,8 @@ path = [
     "e2e/fixtures/test-cert.p12",
     "tests/psalm-baseline.xml",
     "tests/integration/features/**/*.feature",
-    "tests/integration/features/assets/*"
+    "tests/integration/features/assets/*",
+    "tests/fixtures/fiscal-normative/*.json"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 LibreCode coop and contributors"

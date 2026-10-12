@@ -1,0 +1,76 @@
+{
+  "status": "review_proposal_only_not_implemented_in_product",
+  "sources": [
+    "https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/setembro/orientacao-conjunta-rfb-cgibs",
+    "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html"
+  ],
+  "cases": [
+    {
+      "id": "COOP-2027-01",
+      "provider_coop": true,
+      "associates_list_filed": true,
+      "service_to_registered_member": true,
+      "member_regular": true,
+      "competence": "2027-01-01",
+      "expected": "eligible_zero_if_other_statutory_conditions_satisfied",
+      "source": "LC 214/2025 art.271 caput II",
+      "option_status_for_2027": "effective"
+    },
+    {
+      "id": "COOP-2027-02",
+      "provider_coop": true,
+      "associates_list_filed": false,
+      "service_to_registered_member": true,
+      "member_regular": true,
+      "competence": "2027-01-01",
+      "expected": "not_eligible_under_art271",
+      "source": "LC 214/2025 art.271 caput; RFB guidance 2026-09-18",
+      "option_status_for_2027": "not_filed"
+    },
+    {
+      "id": "COOP-2027-03",
+      "provider_coop": true,
+      "associates_list_filed": true,
+      "service_to_registered_member": false,
+      "member_regular": true,
+      "competence": "2027-01-01",
+      "expected": "not_eligible_under_art271_II",
+      "source": "LC 214/2025 art.271 caput II",
+      "option_status_for_2027": "effective"
+    },
+    {
+      "id": "COOP-2027-04",
+      "provider_coop": true,
+      "associates_list_filed": false,
+      "service_to_registered_member": true,
+      "member_regular": true,
+      "competence": "2027-01-01",
+      "expected": "not_eligible_under_art271_without_completed_option",
+      "source": "RFB/CGIBS 2026-09-18 procedural guidance",
+      "explanation": "As of the assumed 2027 operation, the required member list is proven not filed, so the option is not effective; this differs from unavailable evidence (COOP-2027-05).",
+      "option_status_for_2027": "submitted_without_mandatory_associates_list"
+    },
+    {
+      "id": "COOP-2027-05",
+      "provider_coop": true,
+      "associates_list_filed": null,
+      "service_to_registered_member": true,
+      "member_regular": true,
+      "competence": "2027-01-01",
+      "expected": "unverifiable_no_assumed_zero",
+      "source": "LC 214/2025 art.271; RFB/CGIBS guidance",
+      "option_status_for_2027": "unknown"
+    },
+    {
+      "id": "COOP-2026-06",
+      "provider_coop": true,
+      "associates_list_filed": true,
+      "service_to_registered_member": true,
+      "member_regular": true,
+      "competence": "2026-12-31",
+      "expected": "no_retroactive_2027_regime_effect",
+      "source": "RFB/CGIBS 2026-09-18: effect from 2027-01-01",
+      "option_status_for_2027": "effective_only_from_2027"
+    }
+  ]
+}

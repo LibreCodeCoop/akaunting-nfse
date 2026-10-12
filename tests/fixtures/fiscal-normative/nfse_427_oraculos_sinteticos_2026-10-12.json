@@ -1,0 +1,438 @@
+{
+  "prepared_on": "2026-10-12",
+  "scope": "synthetic independent financial oracle for #427; conditions are assumptions requiring legal verification",
+  "input_currency": "BRL",
+  "oracle_engine": "Python Decimal exact, ROUND_HALF_EVEN; not the Akaunting or nfse-php production code",
+  "cases": [
+    {
+      "id": "RET-01",
+      "hypothesis": "Pagamento PJ privada a PJ nao Simples; servico profissional art.30; sem isencoes",
+      "calculation": "R$10000 x (0.65%, 3%, 1%)",
+      "expected": {
+        "pis_retido": "65.00",
+        "cofins_retido": "300.00",
+        "csll_retida": "100.00",
+        "vRetCSLL": "465.00",
+        "tpRetPisCofins": 3
+      },
+      "source": "Lei 10.833/2003 arts.30-31; NT007/2026 p.6",
+      "eligibility": "conditional",
+      "details": "Valores de pagamento efetivo; nao converter vPis/vCofins proprios em retidos",
+      "source_refs": [
+        "LEI10833",
+        "NT007"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "RET-02",
+      "hypothesis": "Mesmo pagamento, prestador cooperativa; art.32 I aplica",
+      "calculation": "R$10000 x (0.65%+3%+0% CSLL)",
+      "expected": {
+        "pis_retido": "65.00",
+        "cofins_retido": "300.00",
+        "csll_retida": "0.00",
+        "vRetCSLL": "365.00",
+        "tpRetPisCofins": 4
+      },
+      "source": "Lei 10.833/2003 art.32 I; NT007/2026 p.6",
+      "eligibility": "conditional",
+      "details": "Nao confundir isencao de retencao de CSLL com nao incidência geral de CSLL cooperativa",
+      "source_refs": [
+        "LEI10833",
+        "NT007"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "RET-03",
+      "hypothesis": "PJ pagadora privada elegivel; pagamento R$200; fora Siafi",
+      "calculation": "200 x 4.65%=9.30; <= 10.00 dispensa",
+      "expected": {
+        "calculated_candidate": "9.30",
+        "actually_withheld": "0.00"
+      },
+      "source": "Lei 10.833/2003 art.31 §3",
+      "eligibility": "conditional",
+      "details": "Regra de dispensa da retencao, nao alteracao da aliqota legal",
+      "source_refs": [
+        "LEI10833",
+        "NT007"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "RET-04",
+      "hypothesis": "Mesmo contexto; pagamento R$215.27",
+      "calculation": "215.27 x 4.65%=10.010055 arredondado 10.01; > 10.00",
+      "expected": {
+        "actually_withheld": "10.01"
+      },
+      "source": "Lei 10.833/2003 art.31 §3",
+      "eligibility": "conditional",
+      "details": "O teto de dispensa se aplica ao valor de retencao, nao valor bruto de pagamento",
+      "source_refs": [
+        "LEI10833",
+        "NT007"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "RET-05",
+      "hypothesis": "Tomador PJ optante Simples, art.30 §2; sem outras hipoteses",
+      "calculation": "art.30 nao obriga tomador Simples",
+      "expected": {
+        "social_withholding_under_art30": "not_required"
+      },
+      "source": "Lei 10.833/2003 art.30 §2",
+      "eligibility": "conditional",
+      "details": "",
+      "source_refs": [
+        "LEI10833",
+        "NT007"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "RET-06",
+      "hypothesis": "Prestador PJ optante Simples, art.32 III; sem outras hipoteses",
+      "calculation": "art.32 III dispensa",
+      "expected": {
+        "social_withholding_under_art30": "not_required"
+      },
+      "source": "Lei 10.833/2003 art.32 III",
+      "eligibility": "conditional",
+      "details": "",
+      "source_refs": [
+        "LEI10833",
+        "NT007"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "IRRF-01",
+      "hypothesis": "Pagamento/credito privado de serviço PJ profissional enquadrado no RIR/2018 art.714, sem isencoes",
+      "calculation": "R$10000 x 1.5%",
+      "expected": {
+        "irrf": "150.00"
+      },
+      "source": "Decreto 9.580/2018 art.714; MAFON 2025 cod.1708",
+      "eligibility": "conditional",
+      "details": "",
+      "source_refs": [
+        "RIR9580"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "IRRF-02",
+      "hypothesis": "Pagamento de servico geral profissional por orgao federal elegivel IN RFB 1234, sem excecao",
+      "calculation": "R$10000 x 4.8%",
+      "expected": {
+        "irrf": "480.00"
+      },
+      "source": "Lei 9.430/1996 art.64 §5; IN RFB 1234/2012 Anexo I; MAFON 2025",
+      "eligibility": "conditional",
+      "details": "Esfera e natureza juridica do tomador afetam a regra; nao aplicar 1.5% private por nome",
+      "source_refs": [
+        "LEI9430"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "IRRF-03",
+      "hypothesis": "Mesma operacao, orgao municipal; comprovada aplicabilidade dos arts 2A/3A IN1234",
+      "calculation": "R$10000 x 4.8%",
+      "expected": {
+        "irrf": "480.00"
+      },
+      "source": "IN RFB 1234/2012 art.3-A; STF Tema 1130; Parecer SEI 5744/2022/ME",
+      "eligibility": "conditional",
+      "details": "Contribuicoes sociais federais no pagamento municipal nao se presumem devidas por simples analogia ao IRRF",
+      "source_refs": [
+        "LEI9430"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "CP-01",
+      "hypothesis": "Cessao de mao de obra enquadrada no art.31 da Lei 8212 e IN2110; sem excecoes",
+      "calculation": "R$10000 x 11%",
+      "expected": {
+        "retencao_previdenciaria": "1100.00"
+      },
+      "source": "Lei 8.212/1991 art.31; IN RFB 2110/2022 art.110",
+      "eligibility": "conditional",
+      "details": "Nao inferir cessao/empreitada apenas por cTribNac ou descricao; regime e atividade podem excluir",
+      "source_refs": [
+        "LEI8212",
+        "IN2110"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "CP-02",
+      "hypothesis": "Simples elegivel a excecao IN 2110 art.167, fora hipoteses art.166",
+      "calculation": "hipotese excluida da retencao",
+      "expected": {
+        "retencao_previdenciaria": "not_required"
+      },
+      "source": "IN RFB 2110/2022 arts.166-167",
+      "eligibility": "conditional",
+      "details": "",
+      "source_refs": [
+        "LEI8212",
+        "IN2110"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "CP-03",
+      "hypothesis": "Prestadora Simples Nacional Anexo IV em cessao/empreitada enquadrada, base previdenciaria comprovada R$10000, sem dispensa art115, sem outra excecao",
+      "calculation": "R$10000 x 11%",
+      "expected": {
+        "retencao_previdenciaria_condicional": "1100.00"
+      },
+      "source": "IN RFB 2110/2022 arts.110,115,166-167, com atualizacao da IN RFB 2289/2025; Lei 8212/1991 art31",
+      "eligibility": "conditional",
+      "details": "Contraprova contra regra generica Simples => nunca reter previdenciaria. O enquadramento e a base de calculo exigem fatos da operacao e excecoes expressas.",
+      "source_refs": [
+        "LEI8212",
+        "IN2110"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "PISCOFINS-01",
+      "hypothesis": "Receita tributavel cumulativa em 2026, base R$10000, sem exclusoes",
+      "calculation": "R$10000 x 0.65% e 3%",
+      "expected": {
+        "pis_proprio_bruto": "65.00",
+        "cofins_propria_bruta": "300.00"
+      },
+      "source": "MP 2.158-35/2001 art.1; Lei 9.718/1998 art.8",
+      "eligibility": "conditional",
+      "details": "Debito bruto da apuracao, nao retencao da fonte",
+      "source_refs": [
+        "LEI9718",
+        "MP2158"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "PISCOFINS-02",
+      "hypothesis": "Receita elegivel nao cumulativa, base R$10000, sem exclusoes, antes dos creditos",
+      "calculation": "R$10000 x 1.65% e 7.6%",
+      "expected": {
+        "pis_proprio_bruto": "165.00",
+        "cofins_propria_bruta": "760.00"
+      },
+      "source": "Lei 10.637/2002 art.2; Lei 10.833/2003 art.2",
+      "eligibility": "conditional",
+      "details": "Nao aplicar taxa so porque providerRegime=lucro_real; receita pode ter tratamentos especificos",
+      "source_refs": [
+        "LEI10637",
+        "LEI10833"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "IBSCBS-01",
+      "hypothesis": "Operacao 2026 regime regular, tributada e com base de R$10000 provada, sem reducoes",
+      "calculation": "R$10000 x IBS estadual 0.1% e CBS 0.9%",
+      "expected": {
+        "ibs_test": "10.00",
+        "cbs_test": "90.00"
+      },
+      "source": "LC 214/2025 arts.343,346,348",
+      "eligibility": "conditional",
+      "details": "Nao presumir recolhimento por haver destaque; art348 §1 dispensa cumprimento condicional",
+      "source_refs": [
+        "LC214"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "IBS-2027",
+      "hypothesis": "Operacao elegivel em 2027, base R$10000 sob taxa IBS geral 2027 sem reducoes",
+      "calculation": "R$10000 x 0.05% estadual +0.05% municipal",
+      "expected": {
+        "ibs_estadual": "5.00",
+        "ibs_municipal": "5.00",
+        "cbs_rate": "unverifiable_without_relevant_2027_rate"
+      },
+      "source": "LC 214/2025 art.344; art.347",
+      "eligibility": "conditional",
+      "details": "Nao transportar alíquota-teste CBS 0.9% de 2026 para 2027",
+      "source_refs": [
+        "LC214"
+      ],
+      "assumed_tax_year": 2027
+    },
+    {
+      "id": "ISS-ARITH",
+      "hypothesis": "Somente aritmetico: base R$10000 x 3%, alíquota municipal nao comprovada",
+      "calculation": "R$10000 x 3%",
+      "expected": {
+        "iss_if_rate_3pct": "300.00",
+        "fiscal_status": "unverifiable"
+      },
+      "source": "LC 116/2003 arts.3, 6-8A + exige ato municipal por municipio e competencia",
+      "eligibility": "not_legal_oracle",
+      "details": "Nao usar para bloquear/permitir emissao fiscal real",
+      "source_refs": [
+        "LC116"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "ISS-SP-2026-101",
+      "hypothesis": "Servico LC116 subitem 1.01, prestador regime geral ISS, municipio incidencia Sao Paulo (IBGE 3550308), fato gerador 2026, sem isencao, sem SUP ou recolhimento fixo, sem beneficio e base tributavel R$10000",
+      "calculation": "10000.00 x 2.9%",
+      "expected": {
+        "iss_proprio_condicional": "290.00",
+        "municipio_ibge": "3550308",
+        "servico_lc116": "1.01"
+      },
+      "source": "Lei municipal SP 13.701/2003 art. 16 III, consolidada com Lei 18.066/2023; LC 116/2003 arts 3 e 7",
+      "eligibility": "conditional_with_identified_municipal_law",
+      "details": "Item 1 exceto subitem 1.09 = 2.9%. Somente quando incidencia territorial e regime geral forem demonstrados. Verificar retencao pelo tomador em separado.",
+      "source_refs": [
+        "LC116",
+        "ISS-SP"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "ISS-SP-2026-109",
+      "hypothesis": "Servico LC116 subitem 1.09 efetivamente tributavel, municipio incidencia Sao Paulo (IBGE 3550308), prestador regime geral ISS, fato gerador 2026, sem isencao/beneficio, base tributavel R$10000",
+      "calculation": "10000.00 x 2.0%",
+      "expected": {
+        "iss_proprio_condicional": "200.00",
+        "municipio_ibge": "3550308",
+        "servico_lc116": "1.09"
+      },
+      "source": "Lei municipal SP 13.701/2003 art. 16 I a, redacao Lei 18.066/2023; art 16 III ressalva 1.09; LC 116/2003",
+      "eligibility": "conditional_with_identified_municipal_law",
+      "details": "Subitem 1.09 nao pode herdar automaticamente 2.9% do item 1. Abrange apenas hipoteses propriamente sujeitas ao ISS, nao direitos autorais/isencoes nem municipios diversos.",
+      "source_refs": [
+        "LC116",
+        "ISS-SP"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "NT007-HALFEVEN-01",
+      "hypothesis": "Arredondamento exato PIS/COFINS valor base sintetico 1.005",
+      "calculation": "half-even(1.005, 2)",
+      "expected": {
+        "rounded_value": "1.00"
+      },
+      "source": "NT SE/CGNFSe 007/2026 p.4",
+      "eligibility": "technical_contract",
+      "details": "",
+      "source_refs": [
+        "NT007"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "NT007-HALFEVEN-02",
+      "hypothesis": "Arredondamento exato PIS/COFINS valor base sintetico 1.015",
+      "calculation": "half-even(1.015, 2)",
+      "expected": {
+        "rounded_value": "1.02"
+      },
+      "source": "NT SE/CGNFSe 007/2026 p.4",
+      "eligibility": "technical_contract",
+      "details": "",
+      "source_refs": [
+        "NT007"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "TRP-01",
+      "hypothesis": "Venda de servico a consumidor final no Brasil, fora MEI, estimativa sem fonte verificavel",
+      "calculation": "fato de venda ao consumidor final comprovado; fonte de estimativa ausente",
+      "expected": {
+        "transparencia_obrigacao": "potentially_applicable",
+        "tax_approximation": "unverifiable",
+        "cannot_autofill_zero": true
+      },
+      "source": "Lei 12.741/2012 art.1; Decreto 8.264/2014 arts.2,3,5 e 6",
+      "eligibility": "requires_valid_estimate_source",
+      "details": "Carga aproximada informativa nao equivale a ISS efetivo e requer fonte/metodologia vigentes; pode haver canal legal alternativo de exposicao",
+      "source_refs": [
+        "LEI12741",
+        "DEC8264"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "TRP-02",
+      "hypothesis": "Servicos faturados a pessoa juridica revendedora que nao e consumidor final (B2B intermediario)",
+      "calculation": "operacao sem venda direta ao consumidor final",
+      "expected": {
+        "disclosure_under_law_12741": "not_required_by_this_hypothesis"
+      },
+      "source": "Lei 12.741/2012 art.1; Decreto 8.264/2014 art.2",
+      "eligibility": "conditional_proven_nonconsumer",
+      "details": "CNPJ do tomador, isoladamente, nao comprova revenda nem uso final. Sem informacao: unverifiable",
+      "source_refs": [
+        "LEI12741",
+        "DEC8264"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "TRP-03",
+      "hypothesis": "Prestador MEI optante do Simples; divulgacao carga aproximada nas hipoteses aplicaveis",
+      "calculation": "dispensa facultativa ao MEI",
+      "expected": {
+        "disclosure_under_decree_8264": "optional"
+      },
+      "source": "Decreto 8.264/2014 art.8; Lei 12.741/2012",
+      "eligibility": "mei_verified",
+      "details": "Facultatividade legal de informar nao equivale a 0% de estimativa",
+      "source_refs": [
+        "LEI12741",
+        "DEC8264"
+      ],
+      "assumed_tax_year": 2026
+    },
+    {
+      "id": "TRP-04",
+      "hypothesis": "Prestador ME/EPP Simples e venda ao consumidor final, comprovados",
+      "calculation": "opcao de divulgar aliquota Simples mais componentes estimados exigiveis",
+      "expected": {
+        "simples_disclosure_option": "permitted_when_compliant",
+        "amount": "unverifiable_without_regime_rate_and_other_components"
+      },
+      "source": "Decreto 8.264/2014 art.9; Lei 12.741/2012",
+      "eligibility": "regime_and_eligible_sale_verified",
+      "details": "Alíquota do DAS nao substitui automaticamente estimativa municipal de ISS em qualquer operacao e exige adicionais nos casos previstos",
+      "source_refs": [
+        "LEI12741",
+        "DEC8264"
+      ],
+      "assumed_tax_year": 2026
+    }
+  ],
+  "source_catalog": {
+    "LEI10833": "https://www2.camara.leg.br/legin/fed/lei/2003/lei-10833-29-dezembro-2003-497045-normaatualizada-pl.html",
+    "NT007": "https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/rtc/nt-007-se-cgnfse-v1-0.pdf",
+    "LEI9430": "https://www2.camara.leg.br/legin/fed/lei/1996/lei-9430-27-dezembro-1996-367738-normaatualizada-pl.html",
+    "RIR9580": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/decreto/d9580.htm",
+    "LEI8212": "https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm",
+    "IN2110": "https://normas.receita.fazenda.gov.br/sijut2consulta/consulta/normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=126687",
+    "MP2158": "https://www.planalto.gov.br/ccivil_03/mpv/2158-35.htm",
+    "LEI9718": "https://www.planalto.gov.br/ccivil_03/leis/l9718compilada.htm",
+    "LEI10637": "https://www2.camara.leg.br/legin/fed/lei/2002/lei-10637-30-dezembro-2002-491384-normaatualizada-pl.html",
+    "LC214": "https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html",
+    "LC116": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp116.htm",
+    "ISS-SP": "https://legislacao.prefeitura.sp.gov.br/lei-13701-de-24-de-dezembro-de-2003/consolidado",
+    "LEI12741": "https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2012/lei/l12741.htm",
+    "DEC8264": "https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2014/decreto/d8264.htm"
+  }
+}

@@ -1,0 +1,318 @@
+{
+  "scope": "Issue #427 synthetic temporal RTC oracle. Distinguishes legal obligation, delivery gateway and deployed schema. No inference of tax amount.",
+  "prepared_on": "2026-10-12",
+  "sources": {
+    "ACT-04": {
+      "authority": "Ato Conjunto RFB/CGIBS 4/2026, art.1 III a-h e §1",
+      "url": "https://hom.cte.fazenda.gov.br/portal/informe.aspx?informe=98",
+      "published": "2026-07-31"
+    },
+    "ORIENTATION": {
+      "authority": "CGNFS-e orientação de 07/08/2026: não rejeição técnica até 31/12/2026",
+      "url": "https://www.gov.br/nfse/pt-br/noticias/cgnfs-e-orienta-sobre-os-prazos-para%20destaque-de-ibs-cbs-nas-notas-fiscais-de-servico",
+      "published": "2026-08-07"
+    },
+    "CGSN191": {
+      "authority": "Resolução CGSN 191/2026: ME/EPP emissão nacional a partir de 01/11/2026",
+      "url": "https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/agosto/simples-nacional-nfs-e-nacional-sera-obrigatoria-para-me-e-epp-a-partir-de-1o-de-novembro-de-2026",
+      "published": "2026-08"
+    },
+    "NT009-PLAN": {
+      "authority": "Notícia de 09/10/2026 com plano de implantação NT009 v1.01, por ambiente",
+      "url": "https://www.gov.br/nfse/pt-br/noticias/publicado-o-ato-tecnico-conjunto-rfb-cgibs-no-7-aprovando-a-versao-1-01-da-nota-tecnica-009-nfs-e-e-a-nota-tecnica-010-da-nfs-e-via",
+      "published": "2026-10-09"
+    },
+    "PROD-XSD": {
+      "authority": "XSD produção anunciado: NFSe-ESQUEMAS_XSD-v1.01-20260209",
+      "url": "https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual",
+      "published": "2026-02-09"
+    },
+    "REST-XSD": {
+      "authority": "XSD produção restrita anunciado: NFSe-ESQUEMAS_XSD-PRODREST-v1.01-20260727",
+      "url": "https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/producao-restrita",
+      "published": "2026-07-27"
+    }
+  },
+  "cases": [
+    {
+      "id": "RTC-ORD-BEFORE",
+      "regime": "non_simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-09-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-04",
+      "reason": "Before Oct 1 cutover; ordinary NFS-e existing duties remain independent",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-ORD-START",
+      "regime": "non_simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-10-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III d; technical gateway non-rejection in 2026 is distinct",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-ORD-NOV",
+      "regime": "non_simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-04",
+      "reason": "Already mandatory since October 1, not December",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-103-BEFORE",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.03",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III b or c; no fall-through to ordinary 01/10",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-103-START",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.03",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III b or c",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-105-BEFORE",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.05",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III b or c; no fall-through to ordinary 01/10",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-105-START",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.05",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III b or c",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-109-BEFORE",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.09",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III b or c; no fall-through to ordinary 01/10",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-109-START",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.09",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III b or c",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-1601-BEFORE",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "16.01",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III b or c; no fall-through to ordinary 01/10",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-1601-START",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "16.01",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III b or c",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-PLATFORM-BEFORE",
+      "regime": "non_simples",
+      "operation": "digital_platform_supply_subject_to_art22",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III a overrides ordinary item; requires proven digital-platform facts",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-PLATFORM-START",
+      "regime": "non_simples",
+      "operation": "digital_platform_supply_subject_to_art22",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III a applicable only if platform statutory conditions are satisfied",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-REALTY",
+      "regime": "non_simples",
+      "operation": "real_estate_rental",
+      "lc116_subitem": "not_applicable",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III g, but NFS-e current emitter may be unsupported",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-CONDO",
+      "regime": "non_simples",
+      "operation": "condominium_legal_charges",
+      "lc116_subitem": "not_applicable",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-04",
+      "reason": "Art.1 III f, require correct recipient/taxpayer facts",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-SIMPLE-2026",
+      "regime": "simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-12-31",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-04",
+      "reason": "§1 overrides art.1 III d for RTC document duty, not all preexisting NFS-e duties",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-SIMPLE-2027",
+      "regime": "simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2027-01-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-04",
+      "reason": "§1 start; classTrib/IBS-CBS regular-vs-Simples mode must be independently assessed",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-UNKNOWN-CATEGORY",
+      "regime": "non_simples",
+      "operation": "unknown",
+      "lc116_subitem": "unknown",
+      "taxable_event_date": "2026-10-02",
+      "rtc_document_obligation_started": "unverifiable",
+      "primary_source": "ACT-04",
+      "reason": "Never infer ordinary service category from commercial name alone",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-UNKNOWN-REGIME",
+      "regime": "unknown",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-10-02",
+      "rtc_document_obligation_started": "unverifiable",
+      "primary_source": "ACT-04",
+      "reason": "Do not default absent Simples status to non-Simples",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-UNKNOWN-EVENT",
+      "regime": "non_simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": null,
+      "rtc_document_obligation_started": "unverifiable",
+      "primary_source": "ACT-04",
+      "reason": "Missing taxable-event date is not replaced by current date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    }
+  ],
+  "transport_planned_not_activated": [
+    {
+      "environment": "restricted",
+      "planned_package": "NT009 package 1",
+      "planned_date": "2026-10-01",
+      "deployment_confirmed": false,
+      "sources": [
+        "NT009-PLAN",
+        "REST-XSD"
+      ],
+      "note": "A planned date does not prove new executable XSD deployment or transmission eligibility"
+    },
+    {
+      "environment": "restricted",
+      "planned_package": "NT009 package 2",
+      "planned_date": "2026-10-15",
+      "deployment_confirmed": false,
+      "sources": [
+        "NT009-PLAN",
+        "REST-XSD"
+      ],
+      "note": "Future planned date relative 12 Oct 2026"
+    },
+    {
+      "environment": "production",
+      "planned_package": "NT009 packages 1 and 2",
+      "planned_date": "2026-11-03",
+      "deployment_confirmed": false,
+      "sources": [
+        "NT009-PLAN",
+        "PROD-XSD"
+      ],
+      "note": "Future planned date, no authorization of preview emission"
+    }
+  ],
+  "notes": [
+    "Date cases encode dates of taxable events, not invoice submission or PDF rendering.",
+    "Conditions omitted from synthetic assumptions render outcome unverifiable; absence of gateway rejection does not prove compliance.",
+    "Existing duty to issue NFS-e for MEI/ME-EPP is distinct from the RTC obligation timeline."
+  ]
+}
