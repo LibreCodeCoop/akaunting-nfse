@@ -52,6 +52,7 @@ final class Lc116Catalog
         ['code' => '0501', 'display_code' => '5.01', 'description' => 'Medicina veterinaria e zootecnia'],
         ['code' => '0601', 'display_code' => '6.01', 'description' => 'Barbearia, cabeleireiros, manicuros, pedicuros e congeneres'],
         ['code' => '0701', 'display_code' => '7.01', 'description' => 'Engenharia, agronomia, arquitetura, geologia, urbanismo e paisagismo'],
+        ['code' => '0702', 'display_code' => '7.02', 'description' => 'Execucao de obras de construcao civil, hidraulica ou eletrica e semelhantes'],
         ['code' => '0801', 'display_code' => '8.01', 'description' => 'Ensino regular pre-escolar, fundamental, medio e superior'],
         ['code' => '0901', 'display_code' => '9.01', 'description' => 'Hospedagem de qualquer natureza em hoteis e congeneres'],
         ['code' => '1001', 'display_code' => '10.01', 'description' => 'Agenciamento, corretagem ou intermediacao de cambio, seguros e cartoes'],

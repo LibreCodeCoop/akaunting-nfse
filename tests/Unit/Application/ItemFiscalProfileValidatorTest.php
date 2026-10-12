@@ -22,6 +22,14 @@ final class ItemFiscalProfileValidatorTest extends TestCase
         self::assertStringContainsString('ANEXO_B', $result['source_versions']['service_nbs']);
     }
 
+    public function testValidNationalConstructionServiceMustNotBeRejectedByPartialLc116Catalog(): void
+    {
+        $result = (new ItemFiscalProfileValidator())->validate('7.02', '070201');
+
+        self::assertSame('valid', $result['status']);
+        self::assertSame([], $result['issues']);
+    }
+
     public function testUnknownNationalServiceCodeIsInvalid(): void
     {
         $result = (new ItemFiscalProfileValidator())->validate('0107', '999999');
