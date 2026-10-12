@@ -332,8 +332,9 @@ class NfseIssued extends Notification
 
         $recipientEmail = $this->resolveCustomRecipientEmail();
 
-        // Anonymous notifiables already carry the correct routing address.
-        // Never mutate an Eloquent contact or leak an address into another tenant.
+        if ($recipientEmail !== null) {
+            $notifiable->email = $recipientEmail;
+        }
 
         $message = $this->initMailMessage();
         $this->attachArtifacts($message);
