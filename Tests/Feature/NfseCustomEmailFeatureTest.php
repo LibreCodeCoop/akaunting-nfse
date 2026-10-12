@@ -197,8 +197,13 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
         $otherInvoice = Document::factory()->invoice()->create();
 
         $this->withExceptionHandling();
-        $this->loginAs()
-            ->post(route('nfse.modals.invoices.emails.store', $invoice), [
+        $this->loginAs();
+
+        // Keep fixture and authentication notifications intercepted, but
+        // observe only notifications emitted by this rejected HTTP request.
+        Notification::fake();
+
+        $this->post(route('nfse.modals.invoices.emails.store', $invoice), [
                 'document_id' => $otherInvoice->id,
                 'to' => ['recipient@example.test'],
             ])
