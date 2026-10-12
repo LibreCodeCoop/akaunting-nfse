@@ -28,6 +28,22 @@ final class ExactTaxDecimalTest extends TestCase
         ExactTaxDecimal::cents('1.005');
     }
 
+    public function testNt007HalfEvenRoundingAtExactHalfCentTies(): void
+    {
+        // Independent decimal oracles: 1.00 * 0.5% = 0.005 => 0.00,
+        // 3.00 * 0.5% = 0.015 => 0.02 under half-even.
+        self::assertSame(0, ExactTaxDecimal::percentOfCentsHalfEven(100, '0.5'));
+        self::assertSame(2, ExactTaxDecimal::percentOfCentsHalfEven(300, '0.5'));
+        self::assertSame(33, ExactTaxDecimal::percentOfCentsHalfEven(2000, '1.65'));
+        self::assertSame('1000.09', ExactTaxDecimal::formatCents(100009));
+    }
+
+    public function testNt007RejectsOverflowInsteadOfChangingToFloat(): void
+    {
+        $this->expectException(\OverflowException::class);
+        ExactTaxDecimal::percentOfCentsHalfEven(PHP_INT_MAX, '100');
+    }
+
     public function testRefusesBinaryFloatAmounts(): void
     {
         $this->expectException(\DomainException::class);
