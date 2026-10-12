@@ -153,7 +153,9 @@ final class PostEmissionQueueFeatureTest extends FeatureTestCase
             $job->handle($sender, new PostEmissionState());
             self::fail('Expected a mail transport failure.');
         } catch (\RuntimeException $exception) {
-            self::assertStringContainsString('SMTP rejected', $exception->getMessage());
+            self::assertSame('NFS-e email delivery failed.', $exception->getMessage());
+            self::assertNull($exception->getPrevious());
+            self::assertStringNotContainsString('hidden@example.test', $exception->getMessage());
         }
 
         $payload = $receipt->payload()->firstOrFail();
