@@ -108,16 +108,27 @@ final class ScopedDanfseArtifactFlowTest extends FeatureTestCase
 
     private static function copySyntheticInvoiceForCompany(Document $source, Company $company): Document
     {
-        // Copy only the minimal Akaunting records used by the artifact flow.
-        // Never clone a foreign contact/category reference across tenants.
-        $category = $source->category->replicate();
-        $category->forceFill(['company_id' => $company->id])->saveQuietly();
+        // Akaunting category queries may append a computed "level" attribute.
+        // Insert only declared, persisted fields instead of replicating it.
+        $category = new \App\Models\Setting\Category();
+        $category->forceFill([
+            'company_id' => $company->id,
+            'name' => 'Secondary Synthetic Income',
+            'type' => \App\Models\Setting\Category::INCOME_TYPE,
+            'color' => '#6da252',
+            'enabled' => 1,
+            'created_from' => 'core::fixture',
+        ])->saveQuietly();
 
-        $contact = $source->contact->replicate();
+        $contact = new \App\Models\Common\Contact();
         $contact->forceFill([
             'company_id' => $company->id,
+            'type' => \App\Models\Common\Contact::CUSTOMER_TYPE,
             'name' => 'Secondary Synthetic Customer',
             'email' => 'secondary@example.test',
+            'currency_code' => $source->currency_code,
+            'enabled' => 1,
+            'created_from' => 'core::fixture',
         ])->saveQuietly();
 
         $invoice = $source->replicate();
