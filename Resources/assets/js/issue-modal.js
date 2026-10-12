@@ -484,6 +484,16 @@
             if (restore) {
                 restoreDefaults(restore, documentRef);
             }
+            const toggle = event.target && event.target.closest
+                ? event.target.closest('[data-nfse-show-recipient]')
+                : null;
+            if (toggle) {
+                const panel = documentRef.getElementById(toggle.getAttribute('aria-controls'));
+                if (panel) {
+                    panel.classList.remove('hidden');
+                    toggle.setAttribute('aria-expanded', 'true');
+                }
+            }
         });
 
         documentRef.addEventListener('keydown', (event) => {
