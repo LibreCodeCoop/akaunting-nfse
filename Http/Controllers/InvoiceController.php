@@ -3399,28 +3399,6 @@ class InvoiceController extends Controller
         return in_array($configured, [1, 2, 3], true) ? $configured : 1;
     }
 
-    /**
-     * @return array{
-     *   enabled: bool,
-     *   ibsCbsFinalidade: ?int,
-     *   ibsCbsIndFinal: ?int,
-     *   ibsCbsCodigoIndicadorOperacao: string,
-     *   ibsCbsIndDest: ?int,
-     *   ibsCbsCst: string,
-     *   ibsCbsClassificacaoTributaria: string
-     * }
-     */
-    /**
-     * @return array{
-     *   tributacaoIssqn: int,
-     *   issqnPaisResultado: string,
-     *   issqnTipoImunidade: ?int,
-     *   issqnTipoSuspensao: ?int,
-     *   issqnNumeroProcessoSuspensao: string,
-     *   tipoRetencaoIss: int,
-     *   requiresSpecialRuntime: bool
-     * }
-     */
     protected function dpsRuntimeErrorMessage(\LogicException $exception): string
     {
         $prefix = 'Invalid special tax regime: ';
@@ -3432,6 +3410,17 @@ class InvoiceController extends Controller
         return trans('nfse::general.settings.special_regime_error.' . substr($message, strlen($prefix)));
     }
 
+    /**
+     * @return array{
+     *   tributacaoIssqn: int,
+     *   issqnPaisResultado: string,
+     *   issqnTipoImunidade: ?int,
+     *   issqnTipoSuspensao: ?int,
+     *   issqnNumeroProcessoSuspensao: string,
+     *   tipoRetencaoIss: int,
+     *   requiresSpecialRuntime: bool
+     * }
+     */
     protected function issqnPayloadValues(): array
     {
         return (new IssqnPayloadResolver())->resolve([
@@ -3470,6 +3459,17 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * @return array{
+     *   enabled: bool,
+     *   ibsCbsFinalidade: ?int,
+     *   ibsCbsIndFinal: ?int,
+     *   ibsCbsCodigoIndicadorOperacao: string,
+     *   ibsCbsIndDest: ?int,
+     *   ibsCbsCst: string,
+     *   ibsCbsClassificacaoTributaria: string
+     * }
+     */
     protected function ibsCbsPayloadValues(): array
     {
         return (new IbsCbsPayloadResolver())->resolve([
