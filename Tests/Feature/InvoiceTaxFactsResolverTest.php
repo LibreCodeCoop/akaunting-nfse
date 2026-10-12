@@ -74,6 +74,42 @@ final class InvoiceTaxFactsResolverTest extends FeatureTestCase
         ];
     }
 
+    public function testHomonymousNativeTaxIdsMustNotShareTheirFiscalAssociation(): void
+    {
+        [$invoice, $company, $firstTax, $itemIds] = $this->invoiceWithTaxRows(1);
+        $secondTax = DB::table('taxes')->insertGetId([
+            'company_id' => $company,
+            'name' => 'PIS',
+            'rate' => '5.00',
+            'type' => 'normal',
+            'enabled' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('document_item_taxes')->insert([
+            'company_id' => $company,
+            'document_id' => (int) $invoice->id,
+            'document_item_id' => $itemIds[0],
+            'tax_id' => $secondTax,
+            'type' => 'invoice',
+            'name' => 'PIS',
+            'rate' => '5.00',
+            'amount' => '5.00',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->confirm($company, $firstTax, FiscalTaxIdentity::COFINS, '2026-01-01');
+
+        $facts = (new InvoiceTaxFactsResolver())->resolve($company, (int) $invoice->id, '2026-10-12');
+
+        self::assertCount(2, $facts);
+        self::assertSame($firstTax, $facts[0]->taxId);
+        self::assertSame('cofins', $facts[0]->fiscalTaxCode);
+        self::assertSame($secondTax, $facts[1]->taxId);
+        self::assertNull($facts[1]->fiscalTaxCode);
+        self::assertSame(500, $facts[1]->amountCents);
+    }
+
     public function testArchivedAccountingTaxDoesNotEraseTheActiveInvoiceTaxObservation(): void
     {
         [$invoice, $company, $tax] = $this->invoiceWithTaxRows(1);
