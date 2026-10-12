@@ -16,12 +16,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
     use Modules\Nfse\Contracts\FiscalTaxFact;
     use Modules\Nfse\Contracts\FiscalTaxRole;
-    use Modules\Nfse\Tests\Unit\Http\Controllers\Support\UnitFederalControllerFixture;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Http\Controllers\InvoiceController;
     use Modules\Nfse\Models\NfseReceipt;
     use Modules\Nfse\Tests\TestCase;
     use Modules\Nfse\Tests\Unit\Http\Controllers\Support\InvoiceControllerIsolationState;
+    use Modules\Nfse\Tests\Unit\Http\Controllers\Support\UnitFederalControllerFixture;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -384,12 +384,40 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ControllerIsolationState::$settings['nfse.enforce_item_federal_taxes'] = true;
             ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] = '3';
             ControllerIsolationState::$fiscalTaxFacts = [
-                new FiscalTaxFact(101, 7, 701, 'normal', 1650, 'pis',
-                    FiscalTaxRole::PROVIDER_DUE, 'synthetic', 100000, '1.65'),
-                new FiscalTaxFact(101, 8, 702, 'normal', 7600, 'cofins',
-                    FiscalTaxRole::PROVIDER_DUE, 'synthetic', 100000, '7.60'),
-                new FiscalTaxFact(101, 9, 703, 'withholding', 1000, 'csll',
-                    FiscalTaxRole::WITHHELD_BY_PAYER, 'synthetic'),
+                new FiscalTaxFact(
+                    101,
+                    7,
+                    701,
+                    'normal',
+                    1650,
+                    'pis',
+                    FiscalTaxRole::PROVIDER_DUE,
+                    'synthetic',
+                    100000,
+                    '1.65'
+                ),
+                new FiscalTaxFact(
+                    101,
+                    8,
+                    702,
+                    'normal',
+                    7600,
+                    'cofins',
+                    FiscalTaxRole::PROVIDER_DUE,
+                    'synthetic',
+                    100000,
+                    '7.60'
+                ),
+                new FiscalTaxFact(
+                    101,
+                    9,
+                    703,
+                    'withholding',
+                    1000,
+                    'csll',
+                    FiscalTaxRole::WITHHELD_BY_PAYER,
+                    'synthetic'
+                ),
             ];
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 990,
@@ -432,12 +460,42 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
 
             ControllerIsolationState::$fiscalTaxFacts = [
-                new FiscalTaxFact(101, 7, 801, 'normal', 1000, 'pis',
-                    FiscalTaxRole::PROVIDER_DUE, 'synthetic', 10000, '10.00'),
-                new FiscalTaxFact(101, 8, 802, 'normal', 2000, 'cofins',
-                    FiscalTaxRole::PROVIDER_DUE, 'synthetic', 10000, '20.00'),
-                new FiscalTaxFact(102, 7, 803, 'normal', 3000, 'pis',
-                    FiscalTaxRole::PROVIDER_DUE, 'synthetic', 20000, '15.00'),
+                new FiscalTaxFact(
+                    101,
+                    7,
+                    801,
+                    'normal',
+                    1000,
+                    'pis',
+                    FiscalTaxRole::PROVIDER_DUE,
+                    'synthetic',
+                    10000,
+                    '10.00'
+                ),
+                new FiscalTaxFact(
+                    101,
+                    8,
+                    802,
+                    'normal',
+                    2000,
+                    'cofins',
+                    FiscalTaxRole::PROVIDER_DUE,
+                    'synthetic',
+                    10000,
+                    '20.00'
+                ),
+                new FiscalTaxFact(
+                    102,
+                    7,
+                    803,
+                    'normal',
+                    3000,
+                    'pis',
+                    FiscalTaxRole::PROVIDER_DUE,
+                    'synthetic',
+                    20000,
+                    '15.00'
+                ),
             ];
 
             $controller = new class () extends UnitFederalControllerFixture {
