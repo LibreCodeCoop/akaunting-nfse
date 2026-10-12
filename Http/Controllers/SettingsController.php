@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Modules\Nfse\Application\SpecialTaxRegimePolicy;
 use Modules\Nfse\Support\BrazilianStates;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\IbgeLocalities;
@@ -129,6 +130,7 @@ class SettingsController extends Controller
             'nfse.prestador_email' => 'nullable|email|max:255',
             'nfse.prestador_inscricao_municipal' => 'nullable|string|max:15',
             'nfse.opcao_simples_nacional' => 'nullable|in:1,2,3',
+            'nfse.regime_especial_tributacao' => 'nullable|in:0,1,2,3,4,5,6,9',
             'nfse.emission_policy' => 'nullable|in:manual,emit_on_send',
             'nfse.tributacao_issqn' => 'required|in:1,2,3,4',
             'nfse.tipo_retencao_iss' => 'required|in:1,2,3',
@@ -142,7 +144,17 @@ class SettingsController extends Controller
         $rawNfseInput = $request->input('nfse', []);
         $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
 
+        $regime = $this->specialRegimeAssessment($rawNfseInput, $settingsArray);
+        if ($regime['state'] === 'invalid') {
+            return redirect()->back()->withInput()->with('error', $this->specialRegimeError($regime['reason']));
+        }
+
         $fiscalInput = $rawNfseInput;
+        if (array_key_exists('regime_especial_tributacao', $fiscalInput)) {
+            $fiscalInput['regime_especial_tributacao'] = $regime['code'] !== null
+                ? (string) $regime['code']
+                : null;
+        }
         $fiscalInput['uf'] = strtoupper((string) ($fiscalInput['uf'] ?? ''));
         $fiscalInput['issqn_pais_resultado'] = strtoupper(trim((string) ($fiscalInput['issqn_pais_resultado'] ?? '')));
 
@@ -167,6 +179,7 @@ class SettingsController extends Controller
             'prestador_email',
             'prestador_inscricao_municipal',
             'opcao_simples_nacional',
+            'regime_especial_tributacao',
             'emission_policy',
             'tributacao_issqn',
             'tipo_retencao_iss',
@@ -709,6 +722,7 @@ class SettingsController extends Controller
             'nfse.municipio_nome'  => 'required|string|max:255',
             'nfse.municipio_ibge'  => 'required|string|size:7',
             'nfse.sandbox_mode'    => 'nullable|boolean',
+            'nfse.regime_especial_tributacao' => 'nullable|in:0,1,2,3,4,5,6,9',
             'nfse.bao_addr'        => 'required|url',
             'nfse.bao_mount'       => 'required|string',
             'nfse.bao_token'       => 'nullable|string',
@@ -750,6 +764,18 @@ class SettingsController extends Controller
             }
         }
 
+        $regime = $this->specialRegimeAssessment($nfseInput, $isReplacingCertificate ? [] : (
+            is_array(setting('nfse', [])) ? setting('nfse', []) : []
+        ));
+        if ($regime['state'] === 'invalid') {
+            return redirect()->back()->withInput()->with('error', $this->specialRegimeError($regime['reason']));
+        }
+        if (array_key_exists('regime_especial_tributacao', $nfseInput)) {
+            $nfseInput['regime_especial_tributacao'] = $regime['code'] !== null
+                ? (string) $regime['code']
+                : null;
+        }
+
         if ($isReplacingCertificate && $previousCnpj !== '') {
             $this->purgeCertificateArtifacts($previousCnpj);
             $this->clearNfseSettings();
@@ -779,6 +805,31 @@ class SettingsController extends Controller
 
         return redirect()->route('nfse.settings.edit')
             ->with('success', trans('nfse::general.saved'));
+    }
+
+    /**
+     * Resolve the company-scoped fiscal selection without writing settings.
+     * An omitted input retains the previous selection; an explicit blank
+     * clears it, and neither state is silently normalized to code 0.
+     *
+     * @param array<string,mixed> $input
+     * @param array<string,mixed> $settings
+     * @return array{code:?int,state:'missing'|'invalid'|'none'|'special',can_emit:bool,reason:string,municipal_review_required:bool}
+     */
+    private function specialRegimeAssessment(array $input, array $settings): array
+    {
+        $code = array_key_exists('regime_especial_tributacao', $input)
+            ? $input['regime_especial_tributacao']
+            : ($settings['regime_especial_tributacao'] ?? null);
+        $simples = (int) ($input['opcao_simples_nacional'] ?? $settings['opcao_simples_nacional'] ?? 1);
+        $issqn = (int) ($input['tributacao_issqn'] ?? $settings['tributacao_issqn'] ?? 1);
+
+        return (new SpecialTaxRegimePolicy())->evaluate($code, $simples, $issqn);
+    }
+
+    private function specialRegimeError(string $reason): string
+    {
+        return trans('nfse::general.settings.special_regime_error.' . $reason);
     }
 
     /**

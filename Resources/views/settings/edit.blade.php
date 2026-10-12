@@ -465,6 +465,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </select>
                         </div>
 
+                        <div id="regime-especial-field">
+                            <label class="block text-sm font-medium mb-1" for="regime_especial_tributacao">{{ trans('nfse::general.settings.special_regime_label') }}</label>
+                            <select id="regime_especial_tributacao" name="nfse[regime_especial_tributacao]" class="w-full border rounded px-3 py-2" aria-describedby="regime-especial-help">
+                                <option value="">{{ trans('nfse::general.settings.special_regime_missing') }}</option>
+                                @foreach(\Modules\Nfse\Application\SpecialTaxRegimePolicy::OFFICIAL_CODES as $code)
+                                    <option value="{{ $code }}" data-regime-nonzero="{{ $code === 0 ? '0' : '1' }}"
+                                        @selected((string) old('nfse.regime_especial_tributacao', setting('nfse.regime_especial_tributacao', '')) === (string) $code)>{{ $code }} - {{ trans('nfse::general.settings.special_regime_codes.' . $code) }}</option>
+                                @endforeach
+                            </select>
+                            <p id="regime-especial-help" class="mt-1 text-xs text-gray-600" aria-live="polite">{{ trans('nfse::general.settings.special_regime_help') }}</p>
+                        </div>
+
                         <div>
                             <label class="block text-sm font-medium mb-1" for="emission_policy">{{ trans('nfse::general.settings.emission_policy') }}</label>
                             <select id="emission_policy" name="nfse[emission_policy]" class="w-full border rounded px-3 py-2">
@@ -882,6 +894,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 'invalidPfx' => trans('nfse::general.invalid_pfx'),
                 'cnpjNotFound' => trans('nfse::general.cnpj_not_found'),
                 'selectedOpcaoSimplesNacional' => old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 2)),
+                'specialRegimeHelp' => trans('nfse::general.settings.special_regime_help'),
+                'specialRegimeMissing' => trans('nfse::general.settings.special_regime_missing_help'),
+                'specialRegimeBlocked' => trans('nfse::general.settings.special_regime_inapplicable'),
+                'specialRegimeUnsupported' => trans('nfse::general.settings.special_regime_simples_unsupported'),
+                'specialRegimeInvalid' => trans('nfse::general.settings.special_regime_selected_invalid'),
                 'selectedUf' => old('nfse.uf', setting('nfse.uf', '')),
                 'selectedMunicipalityName' => old('nfse.municipio_nome', setting('nfse.municipio_nome', '')),
                 'selectedIbge' => old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')),
