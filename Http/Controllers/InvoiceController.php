@@ -731,7 +731,7 @@ class InvoiceController extends Controller
                 return $this->ajaxAwareRedirect(
                     $request,
                     redirect()->route('invoices.show', $invoice)
-                        ->with('error', trans('nfse::general.nfse_emit_failed'))
+                        ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'))
                         ->with('nfse_gateway_error_detail', $e->getMessage()),
                 );
             } catch (SecretStoreException) {
@@ -820,7 +820,7 @@ class InvoiceController extends Controller
             $persistedReceipt = $issuance['receipt'];
         } catch (MunicipalIssuanceBlocked $e) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
-                ->with('error', trans('nfse::general.nfse_emit_failed'))
+                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'))
                 ->with('nfse_gateway_error_detail', $e->getMessage()));
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
@@ -1436,7 +1436,7 @@ class InvoiceController extends Controller
             $persistedReceipt = $issuance['receipt'];
         } catch (MunicipalIssuanceBlocked $e) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
-                ->with('error', trans('nfse::general.nfse_reemit_failed'))
+                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'))
                 ->with('nfse_gateway_error_detail', $e->getMessage()));
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
