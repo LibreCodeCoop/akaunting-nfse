@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Akaunting tax identity: accounting observations versus fiscal incidence
 
-Status: implementation groundwork for #428; **not an emission approval**.
+Status: confirmed fiscal facts connected to the federal payload; **not legal emission approval**.
 
 ## Source of truth and company boundary
 
@@ -70,15 +70,29 @@ https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/rtc
 Publication does not prove the version active in any specific gateway
 environment or create a generic invoice-line CBS/IBS charge.
 
-## Shipping boundary
+## Consumer contract (#429 and #431)
 
-The typed resolver and aggregator are **not yet connected to the production
-emission paths** in `InvoiceFederalPayloadResolver`. The legacy
-`bucketFromName()` remains there until a distinct, fully tested switch
-to verified facts and scenario-specific assessments. The module must not
-claim #428 complete or merge this groundwork as a complete fiscal
-classification without that integration, independent fiscal review,
-synthetic no-transmission tests, final-HEAD CI and protected-branch review.
+The operational InvoiceFederalPayloadResolver now consumes dated, confirmed
+InvoiceTaxFactsResolver observations, scoped by company, document and selected
+items. FederalTaxPayloadFacts aggregates exact integer cents by persisted-row
+identity, separating due PIS/COFINS, retained contributions and IRRF.
+Configured percentages, names, or the invoice total do not establish a tax
+base or an amount. NT007 vRetCSLL consolidates selected confirmed social
+withholdings, independently from vPis/vCofins. Type conflicts block emission.
+
+The internal federalTaxEvidence output carries row count, base availability
+and legal_incidence=unverifiable. This is **not** an XML field or proof of
+compliance. The existing document_item_taxes rows have baseCents=null:
+provider-due PIS/COFINS cannot be transmitted without independent lawful
+base evidence. The common legal-operation preflight belongs to #429; operator
+permissions and mapping UI belong to #431. No IBS/CBS tax-row promotion,
+automatic aliases, reissued historical XML or mutation of DPS identities.
+
+The legacy name classifier is not reachable from the production federal
+payload resolver. Controller HTTP unit characterization uses a synthetic,
+neutral federal payload; verified tax arithmetic and rejection use focused
+unit tests and actual Akaunting Feature tests. A fake SEFIN that accepts
+XML is not legal approval.
 
 Association writes require the caller to authenticate and authorize an
 operator for the specified company. Creating the operator-facing UI and

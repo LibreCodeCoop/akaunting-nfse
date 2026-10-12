@@ -184,7 +184,13 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         $invoice->company_id = 5;
         $invoice->issued_at = '2026-10-12 12:00:00';
         $invoice->amount = 100.00;
-        $invoice->items = [];
+        $invoice->items = new class () {
+            /** @return list<array<string,mixed>> */
+            public function toArray(): array
+            {
+                return [];
+            }
+        };
 
         return $invoice;
     }
