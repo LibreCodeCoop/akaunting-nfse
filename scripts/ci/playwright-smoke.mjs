@@ -29,16 +29,49 @@ export const fixtureFields = Object.freeze({
   item_failing_id: 'NFSE_E2E_FAILING_ITEM_ID',
 });
 
-export const fixtureArgs = Object.freeze([
+const commonFixtureArgs = Object.freeze([
   'artisan', 'nfse:test-harness:provision', '--company-id=1',
   `--cnpj=${testCnpj}`, '--municipio=3303302', '--item-lista=0107',
   '--codigo-nacional=010701', `--password=${testPfxPassword}`,
-  '--pending-invoice-fixture', '--item-validation-fixture',
+]);
+
+export const fixtureArgs = Object.freeze([
+  ...commonFixtureArgs, '--pending-invoice-fixture', '--item-validation-fixture',
   '--item-atomicity-fixture', '--json',
 ]);
 
+export const fullUiFixtureArgs = Object.freeze([
+  ...commonFixtureArgs, '--substitution-fixture', '--adn-review-fixture',
+  '--item-validation-fixture', '--grouped-invoice-fixture',
+  '--pending-invoice-fixture', '--bulk-emission-fixture', '--json',
+]);
+
+export const fullUiFixtureFields = Object.freeze({
+  substitution_invoice_id: 'NFSE_E2E_SUBSTITUTION_INVOICE_ID',
+  adn_review_document_id: 'NFSE_E2E_ADN_REVIEW_DOCUMENT_ID',
+  adn_vendor_id: 'NFSE_E2E_ADN_VENDOR_ID',
+  adn_category_id: 'NFSE_E2E_ADN_CATEGORY_ID',
+  adn_item_id: 'NFSE_E2E_ADN_ITEM_ID',
+  item_validation_item_id: 'NFSE_E2E_ITEM_VALIDATION_ID',
+  grouped_invoice_id: 'NFSE_E2E_GROUPED_INVOICE_ID',
+  pending_invoice_id: 'NFSE_E2E_PENDING_INVOICE_ID',
+  bulk_ready_invoice_id: 'NFSE_E2E_BULK_READY_INVOICE_ID',
+  bulk_blocked_invoice_id: 'NFSE_E2E_BULK_BLOCKED_INVOICE_ID',
+});
+
+const fixtureProfiles = Object.freeze({
+  smoke: { args: fixtureArgs, fields: fixtureFields },
+  'full-ui': { args: fullUiFixtureArgs, fields: fullUiFixtureFields },
+});
+
 function execute(program, args, options = {}) {
   return execFileSync(program, args, { encoding: 'utf8', stdio: 'inherit', ...options });
+}
+
+function processFailure(label, error) {
+  const stderr = error?.stderr?.toString?.('utf8') || error?.message || 'Unknown process failure';
+  const safe = stderr.replaceAll(testPassword, '[REDACTED]').replaceAll(testPfxPassword, '[REDACTED]');
+  return new Error(`${label} failed: ${safe.slice(-2000)}`);
 }
 
 function ensureTestingEnvironment(env) {
@@ -111,20 +144,31 @@ export function writeGitHubEnvironment(variables, outputPath, io = fs) {
   io.appendFileSync(outputPath, `${lines.join('\n')}\n`, 'utf8');
 }
 
-export function provisionFixtures(core = coreRoot, env = process.env, run = execute, io = fs) {
+export function provisionFixtures(core = coreRoot, env = process.env, run = execute, io = fs, profile = 'smoke') {
+  const configuration = fixtureProfiles[profile];
+  if (!configuration) throw new Error(`Unknown fiscal fixture profile: ${profile}`);
   ensureTestingEnvironment(env);
-  if (!env.GITHUB_ENV) throw new Error('GITHUB_ENV is required for smoke fixture IDs.');
-  run('php', [
-    'artisan', 'nfse:test-user:provision', '--company-id=1',
-    `--email=${testEmail}`, `--password=${testPassword}`,
-    '--role=admin', '--landing-page=dashboard', '--json',
-  ], { cwd: core, env });
-  const output = run('php', fixtureArgs, {
-    cwd: core,
-    env: { ...env, NFSE_TEST_HARNESS: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  const variables = parseFixtureVariables(output);
+  if (!env.GITHUB_ENV) throw new Error('GITHUB_ENV is required for fiscal fixture IDs.');
+  try {
+    run('php', [
+      'artisan', 'nfse:test-user:provision', '--company-id=1',
+      `--email=${testEmail}`, `--password=${testPassword}`,
+      '--role=admin', '--landing-page=dashboard', '--json',
+    ], { cwd: core, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
+    throw processFailure('Akaunting test user provisioning', error);
+  }
+  let output;
+  try {
+    output = run('php', configuration.args, {
+      cwd: core,
+      env: { ...env, NFSE_TEST_HARNESS: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (error) {
+    throw processFailure('Synthetic fiscal fixture provisioning', error);
+  }
+  const variables = parseFixtureVariables(output, configuration.fields);
   writeGitHubEnvironment(variables, env.GITHUB_ENV, io);
   return variables;
 }
@@ -203,27 +247,55 @@ export async function startServer(core = coreRoot, { io = fs, launch = spawn, ch
   }
   if (!child?.pid) throw new Error('Unable to start the Akaunting test server.');
   child.unref();
-  io.writeFileSync(path.join(core, 'storage/logs/playwright-server.pid'), String(child.pid));
+  const pidPath = path.join(core, 'storage/logs/playwright-server.pid');
+  io.writeFileSync(pidPath, String(child.pid));
   try {
     await waitForServer(check, sleep);
   } catch (error) {
     try { terminate(child.pid); } catch { /* may have exited */ }
+    io.unlinkSync(pidPath);
     throw new Error(`${error.message}\n${io.readFileSync(logPath, 'utf8').slice(-3000)}`);
   }
 }
 
+/** Stop only the detached test server recorded by this disposable harness. */
+export function stopServer(core = coreRoot, {
+  io = fs, terminate = pid => process.kill(-pid, 'SIGTERM'),
+} = {}) {
+  const pidPath = path.join(core, 'storage/logs/playwright-server.pid');
+  let raw;
+  try {
+    raw = io.readFileSync(pidPath, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+  if (!/^[1-9]\d*$/.test(raw.trim()) || !Number.isSafeInteger(Number(raw.trim()))) {
+    throw new Error('Invalid Akaunting test server PID.');
+  }
+  try {
+    terminate(Number(raw.trim()));
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+  io.unlinkSync(pidPath);
+  return true;
+}
+
 export async function cli(command, context = { core: coreRoot, module: moduleRoot, env: process.env }) {
   const { core, module, env } = context;
-  const allowed = ['prepare-env', 'provision', 'assets', 'verify-db', 'expose-assets', 'start-server'];
+  const allowed = ['prepare-env', 'provision', 'provision-full-ui', 'assets', 'verify-db', 'expose-assets', 'start-server', 'stop-server'];
   if (!allowed.includes(command)) throw new Error(`Unknown smoke setup command: ${command || '(none)'}`);
   ensureTestingEnvironment(env);
   switch (command) {
     case 'prepare-env': return prepareEnvironment(core);
     case 'provision': return provisionFixtures(core, env);
+    case 'provision-full-ui': return provisionFixtures(core, env, execute, fs, 'full-ui');
     case 'assets': return prepareBrowserAssets(core);
     case 'verify-db': return verifyDatabase(core);
     case 'expose-assets': return exposeAssets(core, module);
     case 'start-server': return startServer(core);
+    case 'stop-server': return stopServer(core);
     default: throw new Error(`Unexpected smoke setup command: ${command}`);
   }
 }
