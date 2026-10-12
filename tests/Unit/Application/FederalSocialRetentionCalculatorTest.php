@@ -56,6 +56,17 @@ final class FederalSocialRetentionCalculatorTest extends TestCase
         self::assertSame('10.00', (new FederalSocialRetentionCalculator())->calculate('5', $rows)['total']);
     }
 
+    public function testXmlTotalIncludesPisCofinsWhenCsllItselfIsNotRetained(): void
+    {
+        $actual = (new FederalSocialRetentionCalculator())->calculate('4', [
+            ['tax_type' => 'withholding', 'name' => 'PIS', 'amount' => 12.50],
+            ['tax_type' => 'withholding', 'name' => 'COFINS', 'amount' => 7.25],
+        ]);
+
+        self::assertSame('19.75', $actual['total']);
+        self::assertSame('', $actual['csll']);
+    }
+
     public function testMissingWithholdingDoesNotProduceFictitiousZeroCsll(): void
     {
         self::assertSame('', (new FederalSocialRetentionCalculator())->calculate('4', [])['total']);
