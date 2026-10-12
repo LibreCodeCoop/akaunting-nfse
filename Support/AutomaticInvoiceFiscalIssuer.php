@@ -189,6 +189,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
                 $group,
                 'automatic',
                 descriptionOverride: $description,
+                approximateTaxEvidence: $federal['approximateTaxEvidence'] ?? null,
             );
 
             return $result['receipt'];

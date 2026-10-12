@@ -54,6 +54,62 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
         self::assertFalse(array_key_exists('authorized_xml', $attempt->getAttributes()));
     }
 
+    public function testAttemptPinsSourceProvenanceAndRefusesAmbiguousReconciliationWithDifferentVersion(): void
+    {
+        $invoice = $this->invoice();
+        $client = $this->client();
+        $client->emitError = new NetworkException('Synthetic timeout after POST');
+        $dps = $this->dps();
+        $source = [
+            'status' => 'sourced_estimate',
+            'reason' => null,
+            'source' => [
+                'id' => 20,
+                'company_id' => (int) $invoice->company_id,
+                'national_service_code' => (string) $dps->codigoTributacaoNacional,
+                'simples_option' => (int) $dps->opcaoSimplesNacional,
+                'competence' => (string) $dps->dataCompetencia,
+                'version' => 'synthetic-v1',
+            ],
+        ];
+
+        try {
+            (new EmissionAttemptJournal())->issue(
+                client: $client,
+                dps: $dps,
+                invoiceId: (int) $invoice->id,
+                origin: 'manual',
+                persist: static fn (ReceiptData $receipt): NfseReceipt => throw new \LogicException('Not authorized.'),
+                approximateTaxEvidence: $source,
+            );
+            self::fail('Expected ambiguous result.');
+        } catch (NetworkException) {
+        }
+
+        $record = NfseEmissionAttempt::query()->sole();
+        self::assertSame($source, $record->approximate_tax_evidence);
+        self::assertSame(1, $client->emits);
+
+        $changedSource = $source;
+        $changedSource['source']['version'] = 'synthetic-v2';
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('provenance changed');
+
+        try {
+            (new EmissionAttemptJournal())->issue(
+                client: $client,
+                dps: $dps,
+                invoiceId: (int) $invoice->id,
+                origin: 'manual',
+                persist: static fn (ReceiptData $receipt): NfseReceipt => throw new \LogicException('Not authorized.'),
+                approximateTaxEvidence: $changedSource,
+            );
+        } finally {
+            self::assertSame(1, $client->emits);
+        }
+    }
+
     public function testE0312AndOtherOfficialRejectionsAreRecordedWithoutCreatingReceipts(): void
     {
         $invoice = $this->invoice();

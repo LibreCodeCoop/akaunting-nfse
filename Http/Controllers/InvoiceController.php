@@ -702,6 +702,7 @@ class InvoiceController extends Controller
                         $this->defaultEmitDescription($invoice),
                     ),
                     descriptionOverride: $customDiscriminacao,
+                    approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
                 );
 
                 if (!$groupResult['reused'] && $groupResult['remote_receipt'] instanceof ReceiptData) {
@@ -795,6 +796,7 @@ class InvoiceController extends Controller
                 dps: $dps,
                 invoiceId: (int) $invoice->id,
                 origin: $substitutionReceipt instanceof NfseReceipt ? 'substitution' : 'manual',
+                approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
                 persist: fn (ReceiptData $authorized): NfseReceipt => $substitutionReceipt instanceof NfseReceipt
                     ? (new ReceiptPersistence())->createReplacement(
                         invoiceId: (int) $invoice->id,
@@ -1423,6 +1425,7 @@ class InvoiceController extends Controller
                 dps: $dps,
                 invoiceId: (int) $invoice->id,
                 origin: 'reemit',
+                approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
                 persist: fn (ReceiptData $authorized): NfseReceipt => (new ReceiptPersistence())->createReemitted(
                     invoiceId: (int) $invoice->id,
                     receipt: $authorized,
