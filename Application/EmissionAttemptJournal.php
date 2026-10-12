@@ -54,8 +54,9 @@ final class EmissionAttemptJournal
         callable $persist,
         ?string $groupKey = null,
         ?callable $transmit = null,
+        ?array $approximateTaxEvidence = null,
     ): array {
-        $registration = $this->begin($invoiceId, $dps, $origin, $groupKey);
+        $registration = $this->begin($invoiceId, $dps, $origin, $groupKey, $approximateTaxEvidence);
         $attempt = $registration['attempt'];
 
         if ((string) $attempt->status === self::AUTHORIZED) {
@@ -176,7 +177,7 @@ final class EmissionAttemptJournal
     /**
      * @return array{attempt:NfseEmissionAttempt,recovery_only:bool}
      */
-    private function begin(int $invoiceId, DpsData $dps, string $origin, ?string $groupKey): array
+    private function begin(int $invoiceId, DpsData $dps, string $origin, ?string $groupKey, ?array $approximateTaxEvidence): array
     {
         if ($invoiceId <= 0 || !in_array($origin, [
             'manual', 'manual_group', 'automatic', 'reemit', 'substitution',
@@ -190,7 +191,7 @@ final class EmissionAttemptJournal
         $environment = (int) $dps->tipoAmbiente;
 
         return DB::transaction(function () use (
-            $invoiceId, $dps, $origin, $groupKey, $identifier, $fingerprint, $environment,
+            $invoiceId, $dps, $origin, $groupKey, $identifier, $fingerprint, $environment, $approximateTaxEvidence,
         ): array {
             $invoice = DB::table('documents')
                 ->where('id', $invoiceId)
@@ -203,6 +204,16 @@ final class EmissionAttemptJournal
             }
 
             $companyId = (int) $invoice->company_id;
+            if ($approximateTaxEvidence !== null) {
+                $source = $approximateTaxEvidence['source'] ?? null;
+                if (is_array($source)
+                    && ((int) ($source['company_id'] ?? 0) !== $companyId
+                        || (string) ($source['national_service_code'] ?? '') !== (string) $dps->codigoTributacaoNacional
+                        || (string) ($source['competence'] ?? '') !== (string) ($dps->dataCompetencia ?? '')
+                        || (int) ($source['simples_option'] ?? 0) !== (int) $dps->opcaoSimplesNacional)) {
+                    throw new \LogicException('Approximate tax source belongs to a different fiscal context.');
+                }
+            }
             if (function_exists('company_id') && (int) company_id() > 0 && (int) company_id() !== $companyId) {
                 throw new \Illuminate\Auth\Access\AuthorizationException('Cannot issue for another company.');
             }
@@ -235,6 +246,10 @@ final class EmissionAttemptJournal
                         throw new \LogicException('DPS content changed before its previous result was reconciled.');
                     }
 
+                    // A source revision may change while an earlier POST is
+                    // ambiguous. The identical DPS fingerprint permits ONLY
+                    // read-only recovery; never replace the pinned provenance
+                    // on the previous attempt and never send a second POST.
                     return [
                         'attempt' => $previous,
                         'recovery_only' => $previous->status !== self::AUTHORIZED,
@@ -254,6 +269,7 @@ final class EmissionAttemptJournal
                 'environment' => $environment,
                 'attempt_number' => ((int) ($previous?->attempt_number ?? 0)) + 1,
                 'payload_fingerprint' => $fingerprint,
+                'approximate_tax_evidence' => $approximateTaxEvidence,
                 'municipio_ibge' => (string) $dps->municipioIbge,
                 'codigo_tributacao_nacional' => $national,
                 'codigo_tributacao_municipal' => $municipal,

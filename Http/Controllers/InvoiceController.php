@@ -410,7 +410,9 @@ class InvoiceController extends Controller
     protected function authorizedXmlForReceipt(NfseReceipt $receipt): string
     {
         try {
-            return trim((string) $receipt->payload()->value('authorized_xml'));
+            $xml = (string) $receipt->payload()->value('authorized_xml');
+
+            return trim($xml) !== '' ? $xml : '';
         } catch (\Throwable) {
             return '';
         }
@@ -602,12 +604,24 @@ class InvoiceController extends Controller
         }
 
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
-        $federalPayload = $this->federalPayloadValues(
-            $invoice,
-            $selectedDocumentItemIds,
-            $serviceAmount,
-            $itemFiscalProfile['aliquota'] ?? null,
-        );
+        try {
+            $federalPayload = $this->federalPayloadValues(
+                $invoice,
+                $selectedDocumentItemIds,
+                $serviceAmount,
+                null,
+                (string) ($emissionProfile['codigo_tributacao_nacional'] ?? ''),
+                $this->competenceDate($invoice),
+            );
+        } catch (\InvalidArgumentException|\LogicException $error) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('invoices.show', $invoice)
+                    ->with('error', trans('nfse::general.invoices.approximate_source_invalid', [
+                        'reason' => $error->getMessage(),
+                    ])),
+            );
+        }
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
         if ($ibsCbsPayload['enabled'] && !(new \Modules\Nfse\Support\NbsEmissionReadiness())->valid((string) ($emissionProfile['codigo_nbs'] ?? ''), true)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
@@ -702,6 +716,7 @@ class InvoiceController extends Controller
                         $this->defaultEmitDescription($invoice),
                     ),
                     descriptionOverride: $customDiscriminacao,
+                    approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
                 );
 
                 if (!$groupResult['reused'] && $groupResult['remote_receipt'] instanceof ReceiptData) {
@@ -802,6 +817,7 @@ class InvoiceController extends Controller
                 dps: $dps,
                 invoiceId: (int) $invoice->id,
                 origin: $substitutionReceipt instanceof NfseReceipt ? 'substitution' : 'manual',
+                approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
                 persist: fn (ReceiptData $authorized): NfseReceipt => $substitutionReceipt instanceof NfseReceipt
                     ? (new ReceiptPersistence())->createReplacement(
                         invoiceId: (int) $invoice->id,
@@ -1287,8 +1303,25 @@ class InvoiceController extends Controller
         $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $serviceAmount = $this->invoiceServiceAmount($invoice);
-        $federalPayload = $this->federalPayloadValues($invoice, null, $serviceAmount);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
+        try {
+            $federalPayload = $this->federalPayloadValues(
+                $invoice,
+                null,
+                $serviceAmount,
+                null,
+                (string) ($itemFiscalProfile['codigo_tributacao_nacional'] ?? ''),
+                $this->competenceDate($invoice),
+            );
+        } catch (\InvalidArgumentException|\LogicException $error) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.show', $invoice)
+                    ->with('error', trans('nfse::general.invoices.approximate_source_invalid', [
+                        'reason' => $error->getMessage(),
+                    ])),
+            );
+        }
         if (($itemFiscalProfile['requires_split'] ?? false) === true) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.reemit_requires_separate_fiscal_groups')));
@@ -1434,6 +1467,7 @@ class InvoiceController extends Controller
                 dps: $dps,
                 invoiceId: (int) $invoice->id,
                 origin: 'reemit',
+                approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
                 persist: fn (ReceiptData $authorized): NfseReceipt => (new ReceiptPersistence())->createReemitted(
                     invoiceId: (int) $invoice->id,
                     receipt: $authorized,
@@ -3506,12 +3540,16 @@ class InvoiceController extends Controller
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
         mixed $municipalPercentFallback = null,
+        string $nationalServiceCode = '',
+        string $competenceDate = '',
     ): array {
         return $this->invoiceFederalPayloadResolver()->resolve(
             $invoice,
             $documentItemIds,
             $amountOverride,
             $municipalPercentFallback,
+            $nationalServiceCode,
+            $competenceDate,
         );
     }
 

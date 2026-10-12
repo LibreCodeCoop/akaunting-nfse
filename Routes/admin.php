@@ -31,6 +31,10 @@ Route::admin('nfse', function () {
             ->middleware('permission:update-nfse-settings')->name('fiscal');
         Route::patch('/federal', [SettingsController::class, 'updateFederal'])
             ->middleware('permission:update-nfse-settings')->name('federal');
+        Route::get('/approximate-taxes', [SettingsController::class, 'approximateTaxes'])
+            ->middleware('permission:read-nfse-settings')->name('approximate-taxes');
+        Route::post('/approximate-taxes', [SettingsController::class, 'storeApproximateTaxes'])
+            ->middleware('permission:update-nfse-settings')->name('approximate-taxes.store');
         Route::patch('/artifacts', [SettingsController::class, 'updateArtifacts'])
             ->middleware('permission:update-nfse-settings')->name('artifacts');
     });

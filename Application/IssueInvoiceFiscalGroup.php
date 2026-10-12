@@ -43,6 +43,7 @@ final class IssueInvoiceFiscalGroup
         string $origin = 'manual_group',
         ?string $additionalDescription = null,
         ?string $descriptionOverride = null,
+        ?array $approximateTaxEvidence = null,
     ): array {
         $groupKey = trim((string) ($group['key'] ?? ''));
         $category = trim((string) ($group['rtc_supply_category'] ?? ''));
@@ -118,6 +119,7 @@ final class IssueInvoiceFiscalGroup
             invoiceId: $invoiceId,
             origin: $origin,
             groupKey: $groupKey,
+            approximateTaxEvidence: $approximateTaxEvidence,
             transmit: fn (): ReceiptData => $this->issuer->issue($client, $dps),
             persist: fn (ReceiptData $remote): NfseReceipt => $this->persistence->createGrouped(
                 invoiceId: $invoiceId,

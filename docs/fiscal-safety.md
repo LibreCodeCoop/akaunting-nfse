@@ -48,6 +48,9 @@ e [Manual do Emissor Público Nacional](https://www.gov.br/nfse/pt-br/biblioteca
 As regras específicas de implantação devem ser conferidas na documentação
 oficial vigente para o ambiente da operação.
 
+Para a origem e a distinção entre tributos efetivos e informativos, consulte
+[fontes versionadas de tributos aproximados](approximate-tax-sources.md).
+
 ## Emissão, histórico e recuperação
 
 - Cada DPS tem identidade fiscal determinística. O histórico de tentativas
