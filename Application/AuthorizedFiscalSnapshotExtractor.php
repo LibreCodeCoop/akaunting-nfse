@@ -31,6 +31,15 @@ final class AuthorizedFiscalSnapshotExtractor
      *     calculation_base:?string,
      *     value:?string
      *   },
+     *   approximate_taxes:array{
+     *     mode:string,
+     *     federal_percent:?string,
+     *     state_percent:?string,
+     *     municipal_percent:?string,
+     *     federal_value:?string,
+     *     state_value:?string,
+     *     municipal_value:?string
+     *   },
      *   federal:array{
      *     pis:?string,
      *     cofins:?string,
@@ -65,7 +74,7 @@ final class AuthorizedFiscalSnapshotExtractor
             $xpath = new \DOMXPath($document);
 
             return [
-                'schema_version' => 1,
+                'schema_version' => 2,
                 'source' => 'authorized_xml',
                 'source_sha256' => hash('sha256', $xml),
                 'competence_date' => $this->value($xpath, "(//*[local-name()='infDPS']/*[local-name()='dCompet'])[1]"),
@@ -77,6 +86,15 @@ final class AuthorizedFiscalSnapshotExtractor
                     'rate' => $this->value($xpath, "(//*[local-name()='infDPS']//*[local-name()='tribMun']/*[local-name()='pAliq'])[1]"),
                     'calculation_base' => $this->value($xpath, "(//*[local-name()='infDPS']//*[local-name()='tribMun']/*[local-name()='vBC'])[1]"),
                     'value' => $this->value($xpath, "(//*[local-name()='infDPS']//*[local-name()='tribMun']/*[local-name()='vISSQN'])[1]"),
+                ],
+                'approximate_taxes' => [
+                    'mode' => $this->approximateTaxMode($xpath),
+                    'federal_percent' => $this->value($xpath, "(//*[local-name()='infDPS']//*[local-name()='totTrib']/*[local-name()='pTotTrib']/*[local-name()='pTotTribFed'])[1]"),
+                    'state_percent' => $this->value($xpath, "(//*[local-name()='infDPS']//*[local-name()='totTrib']/*[local-name()='pTotTrib']/*[local-name()='pTotTribEst'])[1]"),
+                    'municipal_percent' => $this->value($xpath, "(//*[local-name()='infDPS']//*[local-name()='totTrib']/*[local-name()='pTotTrib']/*[local-name()='pTotTribMun'])[1]"),
+                    'federal_value' => $this->value($xpath, "(//*[local-name()='infDPS']//*[local-name()='totTrib']/*[local-name()='vTotTrib']/*[local-name()='vTotTribFed'])[1]"),
+                    'state_value' => $this->value($xpath, "(//*[local-name()='infDPS']//*[local-name()='totTrib']/*[local-name()='vTotTrib']/*[local-name()='vTotTribEst'])[1]"),
+                    'municipal_value' => $this->value($xpath, "(//*[local-name()='infDPS']//*[local-name()='totTrib']/*[local-name()='vTotTrib']/*[local-name()='vTotTribMun'])[1]"),
                 ],
                 'federal' => [
                     'pis' => $this->value($xpath, "(//*[local-name()='infDPS']//*[local-name()='tribFed']//*[local-name()='vPis'])[1]"),
@@ -96,6 +114,25 @@ final class AuthorizedFiscalSnapshotExtractor
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
         }
+    }
+
+    private function approximateTaxMode(\DOMXPath $xpath): string
+    {
+        $base = "(//*[local-name()='infDPS']//*[local-name()='totTrib'])[1]";
+        if ($xpath->evaluate('boolean(' . $base . "/*[local-name()='pTotTrib'])") === true) {
+            return 'percentages';
+        }
+        if ($xpath->evaluate('boolean(' . $base . "/*[local-name()='vTotTrib'])") === true) {
+            return 'amounts';
+        }
+        if ($this->value($xpath, $base . "/*[local-name()='indTotTrib']") === '0') {
+            return 'not_provided';
+        }
+        if ($this->value($xpath, $base . "/*[local-name()='pTotTribSN']") !== null) {
+            return 'simples_percentage';
+        }
+
+        return 'absent';
     }
 
     private function value(\DOMXPath $xpath, string $expression): ?string
