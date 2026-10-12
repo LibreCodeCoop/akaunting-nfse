@@ -8,8 +8,8 @@ declare(strict_types=1);
 namespace Modules\Nfse\Support;
 
 /**
- * Side-effect-free Vault diagnostic policy. Transport is isolated so status
- * rules can be tested with synthetic responses, without Laravel or a Vault.
+ * Read-only Vault diagnosis coordinator. Transport is isolated so the rules
+ * can be tested with synthetic responses, without Laravel or a Vault.
  *
  * No upstream body, exception or credential is ever part of a result.
  */
@@ -120,9 +120,9 @@ final class VaultDiagnostics
             'secret_id' => $config['secretId'],
         ]);
 
-        $token = $login['status'] === 200 ? ($login['body']['auth']['client_token'] ?? null) : null;
+        $auth = $login['body']['auth'] ?? null;
+        $token = $login['status'] === 200 && is_array($auth) ? ($auth['client_token'] ?? null) : null;
 
         return is_string($token) && trim($token) !== '' ? $token : null;
     }
-
 }

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Only network-aware part of the infrastructure diagnosis. No KV secret reads
- * or writes: POST is restricted to AppRole login and capability introspection.
+ * or writes: the coordinator POSTs only AppRole login and capability introspection.
  */
 final class LaravelVaultDiagnosticTransport implements VaultDiagnosticTransport
 {

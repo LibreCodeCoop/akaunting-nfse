@@ -35,6 +35,10 @@ final class FakeVaultDiagnosticTransport implements VaultDiagnosticTransport
             throw $result;
         }
 
+        if (!is_array($result)) {
+            throw new \RuntimeException('Invalid fake response.');
+        }
+
         return $result;
     }
 }
@@ -125,6 +129,7 @@ final class VaultDiagnosticsTest extends TestCase
     {
         foreach ([
             ['status' => 200, 'body' => ['auth' => []]],
+            ['status' => 200, 'body' => ['auth' => 'malformed']],
             ['status' => 403, 'body' => ['errors' => ['synthetic-sensitive-upstream']]],
         ] as $login) {
             $transport = new FakeVaultDiagnosticTransport([
