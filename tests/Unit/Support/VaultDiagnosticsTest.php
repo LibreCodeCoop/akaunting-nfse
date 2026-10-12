@@ -7,8 +7,8 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Unit\Support;
 
-use Modules\Nfse\Support\VaultDiagnosticTransport;
 use Modules\Nfse\Support\VaultDiagnostics;
+use Modules\Nfse\Support\VaultDiagnosticTransport;
 use Modules\Nfse\Tests\TestCase;
 
 /** Synthetic fake. No Laravel container and no real Vault involved. */
