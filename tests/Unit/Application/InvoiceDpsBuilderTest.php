@@ -9,6 +9,7 @@ namespace Modules\Nfse\Tests\Unit\Application;
 
 use Modules\Nfse\Application\InvoiceDpsBuilder;
 use Modules\Nfse\Application\ModuleVersion;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class InvoiceDpsBuilderTest extends TestCase
@@ -206,17 +207,38 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertSame(9, $dps->regimeEspecialTributacao);
     }
 
-    public function testSimplesFallbackMatchesTheActualSerializedDefault(): void
+    public function testUnknownSimplesOptionDoesNotBecomeMei(): void
     {
         $context = $this->baseContext();
         unset($context['opcaoSimplesNacional']);
         $context['regimeEspecialTributacao'] = '6';
 
-        // The DTO defaults to MEI (2); the validation must never silently
-        // assume non-optant (1) and allow a forbidden nonzero regime.
+        // Missing classification remains unknown; neither MEI nor non-optant is inferred.
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('mei_requires_none');
+        $this->expectExceptionMessage('invalid_tax_context');
 
+        (new InvoiceDpsBuilder())->build($context);
+    }
+
+    /** @return iterable<string,array{mixed}> */
+    public static function malformedSimplesCodes(): iterable
+    {
+        yield 'missing' => [null];
+        yield 'empty' => [''];
+        yield 'leading zero' => ['02'];
+        yield 'boolean' => [true];
+        yield 'float' => [2.0];
+        yield 'array' => [[]];
+    }
+
+    #[DataProvider('malformedSimplesCodes')]
+    public function testMalformedSimplesOptionsBlockBeforeDps(mixed $value): void
+    {
+        $context = $this->baseContext();
+        $context['opcaoSimplesNacional'] = $value;
+        $context['regimeEspecialTributacao'] = '0';
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('invalid_tax_context');
         (new InvoiceDpsBuilder())->build($context);
     }
 

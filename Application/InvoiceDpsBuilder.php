@@ -35,7 +35,7 @@ final class InvoiceDpsBuilder
         $ibsCbs = is_array($context['ibsCbs'] ?? null) ? $context['ibsCbs'] : [];
         $foreignEnabled = ($foreign['enabled'] ?? false) === true;
 
-        $simples = (int) ($context['opcaoSimplesNacional'] ?? 2);
+        $simples = SimplesOptionCode::observed($context['opcaoSimplesNacional'] ?? null) ?? 0;
         $apuration = $simples === 3 ? ($context['regimeApuracaoSimplesNacional'] ?? null) : null;
         $specialRegime = (new SpecialTaxRegimePolicy())->forIssuance(
             $context['regimeEspecialTributacao'] ?? null,

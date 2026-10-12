@@ -22,11 +22,37 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
         // A ready baseline must not change when RTC obligations become effective.
         $invoice->forceFill(['issued_at' => '2026-09-30 12:00:00'])->save();
 
-        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice->fresh(['items', 'contact']));
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice->fresh(['items', 'contact']), [
+            'opcao_simples_nacional' => 1,
+            'ibs_cbs_enabled' => false,
+        ]);
 
         self::assertSame('ready', $result['status'], json_encode($result, JSON_THROW_ON_ERROR));
         self::assertNull($result['reason']);
         self::assertSame('service:0107|tax:010701|mun:|rate:5.00', $result['group']['key'] ?? null);
+    }
+
+    /** @return iterable<string,array{mixed}> */
+    public static function missingOrInvalidSimplesSettings(): iterable
+    {
+        yield 'missing' => [null];
+        yield 'empty' => [''];
+        yield 'unknown number' => [4];
+        yield 'leading zero' => ['02'];
+        yield 'boolean' => [true];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('missingOrInvalidSimplesSettings')]
+    public function testUnverifiableSimplesBlocksBeforeAllAutomaticTaxReadiness(mixed $option): void
+    {
+        $invoice = $this->invoiceWithProfile('0107', '010701', '100');
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice, [
+            'opcao_simples_nacional' => $option,
+            'ibs_cbs_enabled' => false,
+        ]);
+        self::assertSame('blocked', $result['status']);
+        self::assertSame('simples_option_unverifiable', $result['reason']);
+        self::assertSame(['opcao_simples_nacional'], $result['details']);
     }
 
     public function testBlocksBeforeGatewayWhenNationalTaxCodeIsMissing(): void
@@ -36,7 +62,10 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
 
         $invoice = $this->invoiceWithProfile('0107', '', '100');
 
-        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice);
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice, [
+            'opcao_simples_nacional' => 1,
+            'ibs_cbs_enabled' => false,
+        ]);
 
         self::assertSame('blocked', $result['status']);
         self::assertSame('invalid_profile', $result['reason']);

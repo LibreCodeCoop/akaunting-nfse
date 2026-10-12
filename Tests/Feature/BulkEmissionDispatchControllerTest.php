@@ -20,6 +20,8 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
     public function testSelectedInvoicesArePreflightedPersistedAndOnlyEligibleUnitIsDispatched(): void
     {
         $this->loginAs();
+        setting()->set(['nfse.opcao_simples_nacional' => '1']);
+        setting()->save();
 
         $ready = $this->invoiceWithProfile('0107', '010701', '100');
         $blocked = $this->invoiceWithProfile('0107', '010701', '100');
@@ -71,6 +73,8 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
     public function testNativeAkauntingBulkActionDispatchesSelectedInvoices(): void
     {
         $this->loginAs();
+        setting()->set(['nfse.opcao_simples_nacional' => '1']);
+        setting()->save();
 
         $ready = $this->invoiceWithProfile('0107', '010701', '100');
         $blocked = $this->invoiceWithProfile('0107', '010701', '100');

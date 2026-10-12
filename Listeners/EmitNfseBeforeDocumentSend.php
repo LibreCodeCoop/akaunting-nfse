@@ -52,7 +52,7 @@ final class EmitNfseBeforeDocumentSend
         $settings = [];
 
         $defaults = [
-            'opcao_simples_nacional' => 1,
+            'opcao_simples_nacional' => null,
             'ibs_cbs_enabled' => false,
             'ibs_cbs_ind_final' => '',
             'ibs_cbs_ind_dest' => '',
