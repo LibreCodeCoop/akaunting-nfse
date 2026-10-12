@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Jobs\Auth\CreateUser;
 use App\Models\Common\Company;
 use App\Traits\Permissions;
+use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,8 @@ use Tests\Feature\FeatureTestCase;
 /** Test-only queued consumer: the handler reads the shared configuration. */
 final class GlobalVaultResolutionJob implements ShouldQueue
 {
+    use Queueable;
+
     /** @var null|array{addr:string,mount:string,token:?string,roleId:?string,secretId:?string} */
     public static ?array $resolved = null;
 
