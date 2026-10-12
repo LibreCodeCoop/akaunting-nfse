@@ -1890,6 +1890,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('<tribFed/><totTrib>', $normalizedXml);
             self::assertStringContainsString('<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><indTotTrib>0</indTotTrib></totTrib></trib>', $normalizedXml);
             self::assertStringNotContainsString('<pTotTribFed>0.00</pTotTribFed>', $normalizedXml);
+            self::assertStringNotContainsString('<pTotTribMun>0.00</pTotTribMun>', $normalizedXml);
         }
 
         public function testEmitPreservesTypeFourWithoutPopulatingCsllWhenCsllIsZero(): void
@@ -4869,8 +4870,54 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('mei_requires_none', (string) ($response->flash['error'] ?? ''));
         }
 
+        public function testReemitMeEppWithoutApurationDoesNotOpenTransportOrMutateCancelledReceipt(): void
+        {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 3;
+            ControllerIsolationState::$settings['nfse.regime_especial_tributacao'] = '0';
+            unset(ControllerIsolationState::$settings['nfse.regime_apuracao_simples_nacional']);
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 3003,
+                amount: 150.00,
+                items: [['name' => 'Servico sintetico']],
+                issuedAt: '2026-09-30 12:00:00',
+            );
+            $previous = InvoiceControllerIsolationState::makeReceipt(3003, 'CHAVE-3003', 'cancelled');
+
+            $controller = new class () extends InvoiceController {
+                public bool $transportOpened = false;
+
+                protected function emissionReadiness(): array
+                {
+                    return ['isReady' => true, 'checklist' => []];
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    $this->transportOpened = true;
+                    throw new \LogicException('A missing E0166 field cannot reach SEFIN.');
+                }
+            };
+
+            $response = $controller->reemit($invoice);
+
+            self::assertFalse($controller->transportOpened);
+            self::assertSame('cancelled', $previous->status);
+            self::assertSame([], $previous->updatedPayloads);
+            self::assertCount(1, NfseReceipt::$records);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertStringContainsString(
+                'simples_apuration_not_configured',
+                (string) ($response->flash['error'] ?? ''),
+            );
+        }
+
         public function testReemitBuildsDpsForCancelledReceiptAndRedirectsToShow(): void
         {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 3;
+            ControllerIsolationState::$settings['nfse.regime_apuracao_simples_nacional'] = '1';
+            ControllerIsolationState::$settings['nfse.regime_especial_tributacao'] = '0';
+
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 301,
                 amount: 700.45,
@@ -4946,6 +4993,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame('[0107] Servico Reemissao', $client->capturedDps?->discriminacao);
             self::assertSame(0, $client->capturedDps?->regimeEspecialTributacao);
+            self::assertSame(3, $client->capturedDps?->opcaoSimplesNacional);
+            self::assertSame(1, $client->capturedDps?->regimeApuracaoSimplesNacional);
+            $serialized = (new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder())->buildDps($client->capturedDps);
+            self::assertStringContainsString('<regApTribSN>1</regApTribSN>', $serialized);
             self::assertSame('21987654321', $client->capturedDps?->prestadorTelefone);
             self::assertSame('issuer-reemit@example.invalid', $client->capturedDps?->prestadorEmail);
             self::assertStringStartsWith('LibreCode/', (string) $client->capturedDps?->versaoAplicativo);

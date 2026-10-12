@@ -35,14 +35,20 @@ final class InvoiceDpsBuilder
         $ibsCbs = is_array($context['ibsCbs'] ?? null) ? $context['ibsCbs'] : [];
         $foreignEnabled = ($foreign['enabled'] ?? false) === true;
 
+        $simples = (int) ($context['opcaoSimplesNacional'] ?? 2);
+        $apuration = $simples === 3 ? ($context['regimeApuracaoSimplesNacional'] ?? null) : null;
         $specialRegime = (new SpecialTaxRegimePolicy())->forIssuance(
             $context['regimeEspecialTributacao'] ?? null,
-            (int) ($context['opcaoSimplesNacional'] ?? 2),
+            $simples,
             (int) ($issqn['tributacaoIssqn'] ?? 1),
             is_string($context['dataCompetencia'] ?? null) ? $context['dataCompetencia'] : null,
+            $apuration,
         );
 
         $required = ['codigoTributacaoMunicipal', 'regimeEspecialTributacao'];
+        if ($simples === 3) {
+            $required[] = 'regimeApuracaoSimplesNacional';
+        }
 
         if (trim((string) ($context['prestadorInscricaoMunicipal'] ?? '')) !== '') {
             $required[] = 'prestadorInscricaoMunicipal';
@@ -115,7 +121,8 @@ final class InvoiceDpsBuilder
             'tomadorCodigoPostalExterior' => $foreignEnabled ? ($foreign['codigo_postal'] ?? '') : '',
             'tomadorCidadeExterior' => $foreignEnabled ? ($foreign['cidade'] ?? '') : '',
             'tomadorEstadoExterior' => $foreignEnabled ? ($foreign['estado'] ?? '') : '',
-            'opcaoSimplesNacional' => $context['opcaoSimplesNacional'] ?? 2,
+            'opcaoSimplesNacional' => $simples,
+            'regimeApuracaoSimplesNacional' => $simples === 3 ? (int) $apuration : null,
             'regimeEspecialTributacao' => $specialRegime,
             'tributacaoIssqn' => $issqn['tributacaoIssqn'] ?? 1,
             'issqnPaisResultado' => $issqn['issqnPaisResultado'] ?? '',

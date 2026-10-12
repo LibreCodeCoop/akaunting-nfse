@@ -87,6 +87,137 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
         self::assertSame(0, $client->emits);
     }
 
+    public function testMeEppExplicitZeroNeverPostsDpsWithoutMandatoryRegApTribSn(): void
+    {
+        $invoice = $this->invoiceWithProfile();
+        $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
+        $client = new class () implements NfseClientInterface {
+            public int $posts = 0;
+
+            public function emit(DpsData $dps): ReceiptData
+            {
+                $this->posts++;
+                throw new \LogicException('E0166 requires regApTribSN, which is absent.');
+            }
+
+            public function query(string $chaveAcesso): ReceiptData
+            {
+                throw new \LogicException('Unexpected recovery.');
+            }
+
+            public function cancel(string $chaveAcesso, string $motivo): bool
+            {
+                throw new \LogicException('Unexpected cancellation.');
+            }
+
+            public function getDanfse(string $nfseXml): string
+            {
+                throw new \LogicException('Unexpected PDF.');
+            }
+        };
+        $settings = [
+            'nfse.cnpj_prestador' => '11222333000181',
+            'nfse.municipio_ibge' => '3303302',
+            'nfse.opcao_simples_nacional' => 3,
+            'nfse.regime_especial_tributacao' => '0',
+            'nfse.sandbox_mode' => true,
+            'nfse.tributacao_issqn' => 1,
+            'nfse.tipo_retencao_iss' => 1,
+            'nfse.ibs_cbs_enabled' => false,
+        ];
+        $issuer = new AutomaticInvoiceFiscalIssuer(
+            clientContextFactory: static fn (bool $sandbox): FiscalClientContext => new FiscalClientContext(
+                $client,
+                static function (): void {
+                },
+            ),
+            settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
+        );
+
+        try {
+            $issuer->issue((int) $invoice->id, (string) $group['key']);
+            self::fail('ME/EPP without mandatory regApTribSN must never reach fake SEFIN.');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertStringContainsString('simples_apuration_not_configured', $exception->getMessage());
+        }
+
+        self::assertSame(0, $client->posts);
+        self::assertSame(0, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
+    }
+
+    public function testExplicitMeEppApurationIsIncludedInRealAkauntingFakeSefinPayload(): void
+    {
+        $invoice = $this->invoiceWithProfile();
+        $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
+
+        $client = new class () implements NfseClientInterface {
+            public int $posts = 0;
+            public ?DpsData $submitted = null;
+
+            public function emit(DpsData $dps): ReceiptData
+            {
+                $this->posts++;
+                $this->submitted = $dps;
+
+                return new ReceiptData(
+                    nfseNumber: '9202',
+                    chaveAcesso: str_repeat('7', 50),
+                    dataEmissao: '2026-10-05T16:00:00-03:00',
+                );
+            }
+
+            public function query(string $chaveAcesso): ReceiptData
+            {
+                throw new \LogicException('Unexpected recovery.');
+            }
+
+            public function cancel(string $chaveAcesso, string $motivo): bool
+            {
+                throw new \LogicException('Unexpected cancellation.');
+            }
+
+            public function getDanfse(string $nfseXml): string
+            {
+                throw new \LogicException('Unexpected DANFSe.');
+            }
+        };
+
+        $settings = [
+            'nfse.cnpj_prestador' => '11222333000181',
+            'nfse.municipio_ibge' => '3303302',
+            'nfse.opcao_simples_nacional' => 3,
+            'nfse.regime_apuracao_simples_nacional' => '1',
+            'nfse.regime_especial_tributacao' => '0',
+            'nfse.sandbox_mode' => true,
+            'nfse.tributacao_issqn' => 1,
+            'nfse.tipo_retencao_iss' => 1,
+            'nfse.ibs_cbs_enabled' => false,
+        ];
+        $issuer = new AutomaticInvoiceFiscalIssuer(
+            clientContextFactory: static fn (bool $sandbox): FiscalClientContext => new FiscalClientContext(
+                $client,
+                static function (): void {
+                },
+            ),
+            settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
+        );
+
+        $receipt = $issuer->issue((int) $invoice->id, (string) $group['key']);
+
+        self::assertSame('9202', $receipt->nfse_number);
+        self::assertSame(1, $client->posts);
+        self::assertSame(3, $client->submitted?->opcaoSimplesNacional);
+        self::assertSame(1, $client->submitted?->regimeApuracaoSimplesNacional);
+        self::assertSame(0, $client->submitted?->regimeEspecialTributacao);
+
+        $xml = (new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder())->buildDps($client->submitted);
+        self::assertStringContainsString(
+            '<opSimpNac>3</opSimpNac><regApTribSN>1</regApTribSN><regEspTrib>0</regEspTrib>',
+            str_replace(["\n", '  '], '', $xml),
+        );
+        self::assertSame(1, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
+    }
+
     public function testContainerBindsConcreteBulkIssuer(): void
     {
         self::assertInstanceOf(

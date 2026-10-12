@@ -1340,6 +1340,47 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('1', ControllerIsolationState::$settings['nfse.opcao_simples_nacional']);
         }
 
+        public function testMeEppSettingsRequireConsistentExplicitApurationAndPreserveStoredChoice(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr' => 'https://vault.example.invalid',
+                'nfse.bao_mount' => '/secret',
+                'nfse.bao_token' => 'test-only-token',
+            ];
+            $form = [
+                'opcao_simples_nacional' => '3',
+                'regime_especial_tributacao' => '0',
+                'regime_apuracao_simples_nacional' => '1',
+                'tributacao_issqn' => '1',
+                'tipo_retencao_iss' => '1',
+            ];
+
+            $saved = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            self::assertSame('route', $saved->target);
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.regime_apuracao_simples_nacional']);
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
+
+            $form['regime_especial_tributacao'] = '9';
+            $refused = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            self::assertSame('back', $refused->target);
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
+
+            $form['regime_apuracao_simples_nacional'] = '2';
+            $saved = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            self::assertSame('route', $saved->target);
+            self::assertSame('2', ControllerIsolationState::$settings['nfse.regime_apuracao_simples_nacional']);
+            self::assertSame('9', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
+
+            // Hiding this control on a non-ME/EPP form must not erase
+            // historical configuration or transmit regApTribSN with opSimpNac=1.
+            unset($form['regime_apuracao_simples_nacional']);
+            $form['opcao_simples_nacional'] = '1';
+            $saved = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            self::assertSame('route', $saved->target);
+            self::assertSame('2', ControllerIsolationState::$settings['nfse.regime_apuracao_simples_nacional']);
+        }
+
         public function testLegacySettingsRouteAlsoRejectsInvalidSpecialRegime(): void
         {
             ControllerIsolationState::reset();

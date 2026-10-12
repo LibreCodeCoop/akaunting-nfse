@@ -552,7 +552,16 @@ return [
         'special_regime_help' => 'A opção 0 (Nenhum) é informação explícita, não campo ausente. Regimes especiais exigem validação por prestador, serviço, município e competência da DPS.',
         'special_regime_missing_help' => 'Não informado não equivale a 0 (Nenhum): escolha explicitamente um código antes de emitir.',
         'special_regime_inapplicable' => 'Nesse contexto somente 0 (Nenhum) é válido. Se houver seleção anterior, altere-a explicitamente.',
-        'special_regime_simples_unsupported' => 'ME/EPP: regimes especiais diferentes de 0 exigem o regime de apuração do ISSQN no Simples, ainda não suportado neste emissor.',
+        'special_regime_simples_unsupported' => 'Informe explicitamente o regime de apuração dos tributos do Simples Nacional da empresa.',
+        'simples_apuration_label' => 'Regime de apuração do Simples Nacional (somente ME/EPP)',
+        'simples_apuration_help' => 'Obrigatório para ME/EPP pela E0166. Selecione 1, 2 ou 3 conforme o enquadramento tributário efetivo. O sistema não pode presumir essa escolha.',
+        'simples_apuration_missing' => 'Informe o regime de apuração do Simples Nacional (E0166) para habilitar a emissão de ME/EPP.',
+        'simples_apuration_requires_none' => 'Com apuração 1, o regime especial deve ser 0 - Nenhum (E0175).',
+        'simples_apuration_codes' => [
+            '1' => 'Tributos federais e ISSQN pelo Simples Nacional',
+            '2' => 'Tributos federais pelo Simples; ISSQN fora do Simples',
+            '3' => 'Tributos federais e ISSQN fora do Simples',
+        ],
         'special_regime_selected_invalid' => 'O regime especial anterior tornou-se incompatível. Escolha 0 (Nenhum) ou restaure as condições aplicáveis antes de salvar.',
         'special_regime_codes' => [
             '0' => 'Nenhum',
@@ -572,7 +581,9 @@ return [
             'invalid_tax_context' => 'Situação perante o Simples ou tributação do ISSQN inválida.',
             'non_taxable_requires_none' => 'Para imunidade, exportação ou não incidência do ISSQN o regime especial deve ser 0 (Nenhum).',
             'mei_requires_none' => 'O regime especial do MEI deve ser 0 (Nenhum).',
-            'simples_apuration_not_supported' => 'A emissão de ME/EPP com regime especial não zero exige configuração da apuração do Simples ainda não suportada.',
+            'simples_apuration_not_configured' => 'ME/EPP: informe o regime de apuração do Simples Nacional (1, 2 ou 3) antes de emitir (E0166).',
+            'invalid_simples_apuration' => 'Regime de apuração do Simples Nacional inválido. Os códigos oficiais são 1, 2 e 3.',
+            'simples_apuration_requires_none' => 'Regime de apuração 1 exige regime especial 0 - Nenhum (E0175).',
         ],
         'issqn_special' => [
             'heading' => 'Tributação municipal do ISSQN',
