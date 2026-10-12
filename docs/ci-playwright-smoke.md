@@ -3,9 +3,10 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# Deterministic Playwright Smoke setup
+# Deterministic Playwright browser setup
 
-`.github/workflows/playwright-smoke.yml` orchestrates actions and commands. The
+`.github/workflows/playwright-smoke.yml`, `playwright-full-ui.yml`, and
+`playwright-bulk-ui.yml` orchestrate separate browser jobs. Their reusable
 setup logic lives in `scripts/ci/playwright-smoke.mjs` and is covered by
 `frontend-tests/playwright-smoke-setup.test.mjs` using Node's built-in test
 runner (no extra dependencies).
@@ -17,9 +18,9 @@ node --test frontend-tests/playwright-smoke-setup.test.mjs
 npm run test:frontend
 ```
 
-Both `Frontend Unit` and the `Playwright Smoke` job execute the setup tests.
-The latter then runs the real Akaunting/SQLite browser suite, which catches
-integration errors that isolated tests cannot.
+The `Frontend Unit` and browser jobs execute the setup tests. Browser jobs
+then run a real Akaunting/SQLite suite with a synthetic fiscal boundary, which
+catches integration errors that isolated tests cannot.
 
 ## Command contract
 
@@ -29,17 +30,25 @@ installation after checking out Akaunting and the module:
 | Command | Purpose |
 |---|---|
 | `prepare-env` | Copy `.env.testing` to `.env`, override exact DB/mail/app settings, and create the SQLite file |
-| `provision` | Create the deterministic admin and fiscal fixtures, validate their IDs, and write only numeric IDs to `GITHUB_ENV` |
+| `provision` | Create the deterministic admin and Smoke fiscal fixtures, validate their IDs, and write only numeric IDs to `GITHUB_ENV` |
+| `provision-full-ui` | Create the Full UI fiscal fixture profile and export only its ten validated numeric IDs |
+| `provision-bulk-ui` | Create the Bulk UI fiscal fixture profile and export only its two validated numeric IDs |
 | `assets` | Compile missing core browser assets using Node 20, then verify all expected outputs |
 | `verify-db` | Assert the persistent SQLite test user exists |
 | `expose-assets` | Link the module's static assets without replacing unrelated paths |
-| `start-server` | Start Akaunting with test-only PFX settings and wait for the login route with bounded retries |
+| `start-server` | Start Akaunting with test-only PFX settings, record the PID and wait for the login route with bounded retries |
+| `stop-server` | Terminate only the detached test-server group identified by its validated PID; succeeds if the PID file is absent |
 
-`provision` must run **after** migrations/seeders; `assets` requires the core's
-Node/npm tooling; `start-server` runs after the database and asset checks.
+Use exactly one provisioning command for the selected tier, **after**
+migrations/seeders. `assets` requires the core's Node/npm tooling; the compiled
+Akaunting core assets are cached using core build inputs. `start-server` runs
+after the database and asset checks, and `stop-server` runs after the start
+step even if the browser test fails.
 The fixture export rejects absent, zero, negative, noninteger or injected IDs.
-The harness JSON includes a synthetic password and must **not** be written to
-logs or copied wholesale to GitHub environment files.
+The harness JSON includes synthetic passwords and must **not** be written to
+logs or copied wholesale to GitHub environment files. Startup errors terminate
+the detached process group, and CLI errors report the failed stage and duration;
+subprocess execution has bounded timeouts.
 
 ## Updating the setup
 
