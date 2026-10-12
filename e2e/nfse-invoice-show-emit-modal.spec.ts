@@ -158,6 +158,28 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   await page.locator("input[name='nfse_email_subject']").fill(subjectValue);
 
+  const toRecipients = dialog.locator('#nfse_email_to');
+  const ccToggle = dialog.getByRole('button', { name: 'Cc', exact: true });
+  const bccToggle = dialog.getByRole('button', { name: 'Cco', exact: true });
+  const ccRecipients = dialog.locator('#nfse_email_cc');
+  const bccRecipients = dialog.locator('#nfse_email_bcc');
+
+  await expect(toRecipients).toBeVisible();
+  await toRecipients.fill('first@example.test, second@example.test');
+  await ccToggle.click();
+  await expect(ccToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(ccRecipients).toBeVisible();
+  await ccRecipients.fill('visible@example.test');
+  await bccToggle.click();
+  await expect(bccToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(bccRecipients).toBeVisible();
+  await bccRecipients.fill('hidden@example.test, private@example.test');
+
+  // Removing an individual recipient must not clear the other recipient fields.
+  await toRecipients.fill('first@example.test');
+  await expect(ccRecipients).toHaveValue('visible@example.test');
+  await toRecipients.fill('first@example.test, second@example.test');
+
   await setVisibleSwitch(page, 'nfse_email_save_default_toggle', true);
   await setVisibleSwitch(page, 'nfse_email_copy_to_self_toggle', true);
 
@@ -173,6 +195,9 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   await dialog.getByText(/E-mail|Email/i).first().click();
   await expect(page.locator('#nfse_send_email_toggle')).toBeChecked();
   await expect(page.locator("input[name='nfse_email_subject']")).toHaveValue(subjectValue);
+  await expect(toRecipients).toHaveValue('first@example.test, second@example.test');
+  await expect(ccRecipients).toHaveValue('visible@example.test');
+  await expect(bccRecipients).toHaveValue('hidden@example.test, private@example.test');
   await expect(page.locator('#nfse_email_save_default_toggle')).toBeChecked();
   await expect(page.locator('#nfse_email_copy_to_self_toggle')).toBeChecked();
 
@@ -218,6 +243,9 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_discriminacao_custom')).toBe(descriptionValue);
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_subject')).toBe(subjectValue);
+  expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_to')).toBe('first@example.test, second@example.test');
+  expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_cc')).toBe('visible@example.test');
+  expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_bcc')).toBe('hidden@example.test, private@example.test');
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_description_save_mode')).toBe('general');
 
   // Boolean fields can be normalized by the generic modal serializer; ensure they are present.
