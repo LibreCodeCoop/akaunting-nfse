@@ -181,6 +181,33 @@ test('module assets are exposed via a checked symlink; unrelated paths are never
   assert.throws(() => exposeAssets(core, module), /Refusing to overwrite non-symlink/);
 });
 
+test('invalid replacement target preserves the original module symlink', t => {
+  const dir = tmpDir(t);
+  const core = path.join(dir, 'core');
+  const original = path.join(dir, 'original');
+  fs.mkdirSync(path.join(original, 'Resources/assets/js'), { recursive: true });
+  fs.writeFileSync(path.join(original, 'Resources/assets/js/adn-distribution-browser.js'), '');
+  const link = path.join(core, 'public/modules/Nfse');
+  fs.mkdirSync(path.dirname(link), { recursive: true });
+  fs.symlinkSync(original, link);
+  assert.throws(() => exposeAssets(core, path.join(dir, 'missing')), /assets are not accessible/);
+  assert.equal(fs.readlinkSync(link), original);
+});
+
+test('server PID write failure terminates launched child and avoids orphan processes', async t => {
+  const core = tmpDir(t);
+  fs.mkdirSync(path.join(core, 'storage/logs'), { recursive: true });
+  const io = Object.create(fs);
+  io.writeFileSync = () => { throw new Error('Synthetic storage failure'); };
+  let killed = null;
+  await assert.rejects(startServer(core, {
+    io, launch: () => ({ pid: 54321, unref() {} }),
+    check: async () => true, sleep: async () => {},
+    terminate: pid => { killed = pid; },
+  }), /Synthetic storage failure/);
+  assert.equal(killed, 54321);
+});
+
 test('server health probing tolerates startup errors but fails after its bounded retry budget', async () => {
   let attempts = 0;
   const sleeps = [];
