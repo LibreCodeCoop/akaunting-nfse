@@ -45,7 +45,11 @@ final class CooperativeIbsCbsFactsTest extends TestCase
     public function testPositionalSupplyRelationRemainsFifthConstructorArgument(): void
     {
         $facts = new CooperativeIbsCbsFacts(
-            null, null, null, null, CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE,
+            null,
+            null,
+            null,
+            null,
+            CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE,
         );
 
         self::assertSame(CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, $facts->supplyRelation);
