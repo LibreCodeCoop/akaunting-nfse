@@ -34,7 +34,9 @@ date. Neither date, tax regime, transaction category, taker type nor gross
 amount is fabricated when unavailable: `null` means the fact cannot yet
 be verified. The tax-fact list likewise distinguishes `null` (not
 loaded/unknown) from an observed empty list, and a monetary zero from an
-unavailable monetary amount. A decision names its stable rule ID, category, outcome, severity, primary
+unavailable monetary amount.
+
+A decision names its stable rule ID, category, outcome, severity, primary
 source URL/provision/version, source publication date, applicability interval,
 optional affected field, corrective-action code and observed/expected values
 in integer cents. Jurisdiction and taxpayer facts must be supplied explicitly;
@@ -68,8 +70,14 @@ Applicability dates are inclusive at both ends; a policy must select the
 appropriate calendar date from the operation facts instead of treating
 publication or transmission time as its taxable-event date.
 
-A rule's legal applicability is evaluated on the relevant event/competence
-facts. Protocol compatibility is evaluated **separately** against the
+A rule's legal applicability is evaluated on the legally relevant
+transaction date: event date when the act applies to the taxable event,
+competence when a service or municipal condition is competence-scoped,
+and actual payment date for obligations expressly triggered by payment.
+Different dates must not be silently replaced with invoice issuance date,
+system time or transmission time. If the controlling date or its evidence is
+unknown, the decision is `unverifiable`, not an inferred exemption.
+Protocol compatibility is evaluated **separately** against the
 environment-specific active schema and deployment. A newly published NT/XSD
 does not automatically become the active production emitter. A successful
 gateway response does not retroactively make an incomplete obligation legal.
@@ -79,9 +87,11 @@ gateway response does not retroactively make an incomplete obligation legal.
 The permitted decision categories are `normative`, `calculation`,
 `document` and `protocol`; statuses are `pass`, `fail`,
 `not_applicable`, `unverifiable` and `unsupported`; severity is
-`block`, `warn` or `info`. A consumer must not equate
-`unverifiable` with `pass`, nor assume every unavailable advisory
-municipal query is a fiscal rejection. Where a demonstrably mandatory
+`block`, `warn` or `info`. An empty assessment means no explicit
+assessment outcome was provided; it is **not** implicit permission to emit.
+An explicit `not_applicable` outcome is distinct from a rule that was never
+evaluated. A consumer must not equate `unverifiable` with `pass`, nor
+assume every unavailable advisory municipal query is a fiscal rejection. Where a demonstrably mandatory
 requirement cannot be satisfied, the emission preflight blocks at the common
 last boundary before the fiscal POST.
 
