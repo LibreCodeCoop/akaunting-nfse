@@ -55,36 +55,34 @@ return [
                 $content,
             );
         },
-        // php-font-lib resolves font handlers and table types dynamically.
-        // Scoping can rewrite the inner type while leaving the outer FontLib prefix unchanged.
+        // Normalize php-font-lib class names at their use sites. PHP-Scoper
+        // may rewrite interpolated class-name fragments before patchers run.
         static function (string $filePath, string $prefix, string $content): string {
             $escapedPrefix = str_replace('\\', '\\\\', $prefix);
+            $normalizeClass = '$scopedFontPrefix = "' . $escapedPrefix . '\\\\";' . "\n"
+                . '      $class = $scopedFontPrefix . "FontLib\\\\" . str_replace(["FontLib\\\\", $scopedFontPrefix], "", ltrim($class, "\\\\"));' . "\n";
 
-            if (str_ends_with($filePath, 'dompdf/php-font-lib/src/FontLib/Font.php')) {
+            if (str_ends_with($filePath, 'src/FontLib/Font.php')) {
                 return str_replace(
-                    '$class = "FontLib\\\\$class";',
-                    '$scopedFontPrefix = "' . $escapedPrefix . '\\\\";' . "\n"
-                        . '      if (str_starts_with($class, $scopedFontPrefix)) {' . "\n"
-                        . '          $class = substr($class, strlen($scopedFontPrefix));' . "\n"
-                        . '      }' . "\n"
-                        . '      $class = $scopedFontPrefix . "FontLib\\\\$class";',
+                    '$obj = new $class',
+                    $normalizeClass . '      $obj = new $class',
                     $content,
                 );
             }
 
-            if (str_ends_with($filePath, 'dompdf/php-font-lib/src/FontLib/TrueType/File.php')) {
+            if (str_ends_with($filePath, 'src/FontLib/TrueType/File.php')) {
                 return str_replace(
                     [
                         'return $class_parts[1];',
-                        '$class = "FontLib\\\\$type\\\\TableDirectoryEntry";',
-                        '$class = "FontLib\\\\Table\\\\Type\\\\$name_canon";',
-                        '$class = "FontLib\\\\Table\\\\Table";',
+                        '$entry = new $class',
+                        'if (!isset($this->directory[$tag])',
+                        '$table = new $class',
                     ],
                     [
                         'return $class_parts[count($class_parts) - 2];',
-                        '$class = "' . $escapedPrefix . '\\\\FontLib\\\\$type\\\\TableDirectoryEntry";',
-                        '$class = "' . $escapedPrefix . '\\\\FontLib\\\\Table\\\\Type\\\\$name_canon";',
-                        '$class = "' . $escapedPrefix . '\\\\FontLib\\\\Table\\\\Table";',
+                        $normalizeClass . '      $entry = new $class',
+                        $normalizeClass . '      if (!isset($this->directory[$tag])',
+                        $normalizeClass . '      $table = new $class',
                     ],
                     $content,
                 );

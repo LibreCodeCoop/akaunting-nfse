@@ -182,9 +182,9 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         require_once dirname(__DIR__, 3) . '/vendor-bin/php-scoper/vendor/autoload.php';
 
         $config = require dirname(__DIR__, 3) . '/3rdparty/scoper.inc.php';
-        $source = <<<'PHP'
-            $class = "FontLib\\$class";
-            PHP;
+        // The patched site remains stable even when PHP-Scoper rewrites the
+        // interpolated FontLib type string or adds constructor parentheses.
+        $source = '$obj = new $class();';
 
         $patched = $source;
         foreach ($config['patchers'] as $patcher) {
@@ -195,10 +195,10 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
             );
         }
 
-        self::assertStringContainsString('str_starts_with($class, $scopedFontPrefix)', $patched);
-        self::assertStringContainsString('substr($class, strlen($scopedFontPrefix))', $patched);
-        self::assertStringContainsString('$class = $scopedFontPrefix . "FontLib\\\\$class";', $patched);
-        self::assertStringNotContainsString('$class = "FontLib\\\\$class";', $patched);
+        self::assertSame(1, substr_count($patched, '$scopedFontPrefix ='));
+        self::assertStringContainsString('str_replace(["FontLib\\\\", $scopedFontPrefix]', $patched);
+        self::assertStringContainsString('ltrim($class, "\\\\")', $patched);
+        self::assertStringContainsString('$obj = new $class();', $patched);
     }
 
     public function testScoperPatcherNormalizesFontLibTableClassNames(): void
@@ -208,9 +208,11 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $config = require dirname(__DIR__, 3) . '/3rdparty/scoper.inc.php';
         $source = <<<'PHP'
             return $class_parts[1];
-            $class = "FontLib\\$type\\TableDirectoryEntry";
-            $class = "FontLib\\Table\\Type\\$name_canon";
-            $class = "FontLib\\Table\\Table";
+            $entry = new $class($this);
+            if (!isset($this->directory[$tag]) || !@class_exists($class)) {
+                return;
+            }
+            $table = new $class($this->directory[$tag]);
             PHP;
 
         $patched = $source;
@@ -223,14 +225,28 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         }
 
         self::assertStringContainsString('return $class_parts[count($class_parts) - 2];', $patched);
-        self::assertStringContainsString('$class = "Modules\\\\Nfse\\\\Vendor\\\\FontLib\\\\$type\\\\TableDirectoryEntry";', $patched);
-        self::assertStringContainsString('$class = "Modules\\\\Nfse\\\\Vendor\\\\FontLib\\\\Table\\\\Type\\\\$name_canon";', $patched);
-        self::assertStringContainsString('$class = "Modules\\\\Nfse\\\\Vendor\\\\FontLib\\\\Table\\\\Table";', $patched);
+        self::assertSame(3, substr_count($patched, '$scopedFontPrefix ='));
+        self::assertStringContainsString('$entry = new $class($this);', $patched);
+        self::assertStringContainsString('@class_exists($class)', $patched);
+        self::assertStringContainsString('$table = new $class($this->directory[$tag]);', $patched);
     }
 
     public function testBuiltScopedFontLibParsesBothBundledTrueTypeFaces(): void
     {
         require_once dirname(__DIR__, 3) . '/3rdparty/scoped/autoload.php';
+
+        $scopedFontLib = dirname(__DIR__, 3) . '/3rdparty/scoped/dompdf/php-font-lib/src/FontLib';
+        foreach (['Font.php' => 1, 'TrueType/File.php' => 3] as $file => $expectedPatches) {
+            $path = $scopedFontLib . '/' . $file;
+            self::assertFileExists($path);
+            $source = file_get_contents($path);
+            self::assertIsString($source);
+            self::assertSame(
+                $expectedPatches,
+                substr_count($source, '$scopedFontPrefix ='),
+                'The PHP-Scoper patcher must modify the built runtime, not just a synthetic string.',
+            );
+        }
 
         $fontDir = dirname(__DIR__, 3) . '/3rdparty/scoped/librecodeoop/nfse-php/src/Danfse/Assets/fonts';
         foreach (['LiberationSans-Regular.ttf', 'LiberationSans-Bold.ttf'] as $filename) {
