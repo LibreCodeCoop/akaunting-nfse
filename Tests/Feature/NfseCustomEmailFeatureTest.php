@@ -166,9 +166,14 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
         Event::fake([DocumentSending::class, DocumentSent::class]);
 
         $invoice = Document::factory()->invoice()->create();
+        $this->loginAs();
 
-        $this->loginAs()
-            ->post(route('nfse.modals.invoices.emails.store', $invoice), [
+        // Creating the document may dispatch native Akaunting lifecycle events.
+        // Compare with the state immediately before the rejected request.
+        $sendingBefore = Event::dispatched(DocumentSending::class)->count();
+        $sentBefore = Event::dispatched(DocumentSent::class)->count();
+
+        $this->post(route('nfse.modals.invoices.emails.store', $invoice), [
                 'document_id' => $invoice->id,
                 'to' => ['primary@example.test'],
                 'cc' => 'copy@example.test',
@@ -176,8 +181,8 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
             ])
             ->assertStatus(422);
 
-        Event::assertNotDispatched(DocumentSending::class);
-        Event::assertNotDispatched(DocumentSent::class);
+        self::assertCount($sendingBefore, Event::dispatched(DocumentSending::class));
+        self::assertCount($sentBefore, Event::dispatched(DocumentSent::class));
         // Login/model hooks may send unrelated notifications: check the NFS-e
         // mail notification specifically, after fiscal pre-validation failed.
         Notification::assertSentOnDemandTimes(NfseIssued::class, 0);
