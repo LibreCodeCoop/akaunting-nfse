@@ -14,10 +14,11 @@ export default defineConfig({
   projects: [
     {
       name: 'smoke',
-      // Each case gets a fresh browser process; never run cases concurrently on shared SQLite.
-      fullyParallel: true,
+      // One worker preserves sequential access to the shared synthetic SQLite database.
       workers: 1,
       retries: 0,
+      // Avoid headless-shell SIGTRAP by using Playwright's supported full Chromium headless mode.
+      use: { channel: 'chromium' },
       testMatch: ['smoke.spec.ts', 'deterministic-harness.spec.ts'],
     },
     {

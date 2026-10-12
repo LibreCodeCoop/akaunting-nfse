@@ -62,6 +62,22 @@ test('Smoke runner collects RSS, enables browser exit logs and preserves failure
     /requires APP_ENV=testing/);
 });
 
+test('Smoke runner treats a SIGTRAP child termination as a failure', async () => {
+  const logged = [];
+  const launch = () => {
+    const child = new EventEmitter();
+    queueMicrotask(() => child.emit('close', null, 'SIGTRAP'));
+    return child;
+  };
+  await assert.rejects(runBrowserSmoke({
+    env: { APP_ENV: 'testing', DB_CONNECTION: 'sqlite' },
+    launch,
+    sampleRss: () => ({ chromium: 2048, php: 0, node: 0 }),
+    print: line => logged.push(line),
+  }), /Playwright Smoke ended with signal SIGTRAP/);
+  assert.ok(logged.some(line => line.includes('RSS peaks MiB')));
+});
+
 test('dotenv update replaces exact keys, preserves unrelated keys and does not duplicate values', () => {
   const source = 'APP_URL=http://old.local\nDB_CONNECTION=mysql\nOTHER_DB_CONNECTION=keep\n';
   const updated = updateDotEnv(source, { APP_URL: 'http://127.0.0.1:8082', DB_CONNECTION: 'sqlite', NEW_SETTING: 'set' });

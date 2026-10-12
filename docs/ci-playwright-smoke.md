@@ -45,10 +45,14 @@ migrations/seeders. `assets` requires the core's Node/npm tooling; the compiled
 Akaunting core assets are cached using core build inputs. `start-server` runs
 after the database and asset checks, and `stop-server` runs after the start
 step even if the browser test fails.
-Smoke isolates the browser/worker process per test case with `fullyParallel: true`
-and `workers: 1` in the Smoke project. This is **sequential execution with
-fresh browser processes**, not concurrent SQLite activity. Smoke retries are
-disabled so a browser exit cannot become an apparently green flaky test.
+Smoke uses one worker and Playwright's normal fresh browser context/page per
+test. The browser process may be shared by tests within that worker; this is
+**not** process-per-test isolation. The Smoke project selects the regular
+Chromium build via `channel: 'chromium'`, using its full headless mode instead
+of the separate headless-shell binary. This avoids relying on the shell
+process that has terminated with `SIGTRAP` in CI; it does not prove the cause
+of that signal. Browser retries are disabled, so a crash fails the run
+instead of being reported as an apparently successful flaky test.
 The runner records `pw:browser` stderr and aggregate process RSS (command
 names only, no arguments or environment values); RSS is a diagnostic sample,
 not proof of the Linux OOM killer. A browser exit, nonzero test exit or missing
