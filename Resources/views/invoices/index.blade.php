@@ -367,6 +367,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <input type="hidden" name="nfse_tomador_district" value="" data-emit-foreign-district-input>
                                             <input type="hidden" name="nfse_send_email" value="0" data-emit-email-send-input>
                                             <input type="hidden" name="nfse_email_to" value="" data-emit-email-to-input>
+                                                <input type="hidden" name="nfse_email_cc" value="" data-emit-email-cc-input>
+                                                <input type="hidden" name="nfse_email_bcc" value="" data-emit-email-bcc-input>
+                                                <input type="hidden" name="nfse_email_copy_to_self" value="0" data-emit-email-copy-to-self-input>
                                             <input type="hidden" name="nfse_email_subject" value="" data-emit-email-subject-input>
                                             <input type="hidden" name="nfse_email_body" value="" data-emit-email-body-input>
                                             <input type="hidden" name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input>
@@ -521,6 +524,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                         const descriptionInput = form.querySelector('[data-emit-description-input]');
                                                         const sendEmailInput = form.querySelector('[data-emit-email-send-input]');
                                                         const emailToInput = form.querySelector('[data-emit-email-to-input]');
+                                                        const emailCcInput = form.querySelector('[data-emit-email-cc-input]');
+                                                        const emailBccInput = form.querySelector('[data-emit-email-bcc-input]');
+                                                        const emailCopyToSelfInput = form.querySelector('[data-emit-email-copy-to-self-input]');
                                                         const emailSubjectInput = form.querySelector('[data-emit-email-subject-input]');
                                                         const emailBodyInput = form.querySelector('[data-emit-email-body-input]');
                                                         const attachDanfseInput = form.querySelector('[data-emit-email-attach-danfse-input]');
@@ -591,6 +597,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                                 emailToInput.value = recipient;
                                                             }
 
+                                                            if (emailCcInput) emailCcInput.value = '';
+                                                            if (emailBccInput) emailBccInput.value = '';
+                                                            if (emailCopyToSelfInput) emailCopyToSelfInput.value = emailDefaults.copy_to_self ? '1' : '0';
+                                                            if (document.getElementById('nfse_emit_copy_to_self')) document.getElementById('nfse_emit_copy_to_self').checked = Boolean(emailDefaults.copy_to_self);
                                                             if (emailSubjectInput) {
                                                                 emailSubjectInput.value = subject;
                                                             }
@@ -703,6 +713,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <input type="hidden" name="nfse_description_scope" value="general" data-emit-description-scope-input>
                                                 <input type="hidden" name="nfse_send_email" value="0" data-emit-email-send-input>
                                                 <input type="hidden" name="nfse_email_to" value="" data-emit-email-to-input>
+                                                <input type="hidden" name="nfse_email_cc" value="" data-emit-email-cc-input>
+                                                <input type="hidden" name="nfse_email_bcc" value="" data-emit-email-bcc-input>
+                                                <input type="hidden" name="nfse_email_copy_to_self" value="0" data-emit-email-copy-to-self-input>
                                                 <input type="hidden" name="nfse_email_subject" value="" data-emit-email-subject-input>
                                                 <input type="hidden" name="nfse_email_body" value="" data-emit-email-body-input>
                                                 <input type="hidden" name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input>
@@ -924,9 +937,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <div id="nfse_emit_email_fields" class="hidden space-y-3">
                                                 <div>
                                                     <label for="nfse_emit_email_to" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
-                                                    <input id="nfse_emit_email_to" type="email" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="">
+                                                    <input id="nfse_emit_email_to" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="" aria-describedby="nfse_emit_email_hint">
+                                                    <p id="nfse_emit_email_hint" class="text-xs">{{ trans('nfse::general.invoices.emit_modal_email_recipients_hint') }}</p>
+                                                    <div class="flex gap-3 mt-2">
+                                                        <button type="button" data-nfse-show-recipient="cc" aria-controls="nfse_emit_email_cc_panel" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</button>
+                                                        <button type="button" data-nfse-show-recipient="bcc" aria-controls="nfse_emit_email_bcc_panel" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</button>
+                                                    </div>
+                                                    <div id="nfse_emit_email_cc_panel" data-nfse-recipient-panel="cc" class="hidden mt-2">
+                                                        <label for="nfse_emit_email_cc">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</label>
+                                                        <input id="nfse_emit_email_cc" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                    </div>
+                                                    <div id="nfse_emit_email_bcc_panel" data-nfse-recipient-panel="bcc" class="hidden mt-2">
+                                                        <label for="nfse_emit_email_bcc">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</label>
+                                                        <input id="nfse_emit_email_bcc" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                    </div>
                                                 </div>
 
+                                                <label class="flex items-center gap-2 text-sm" for="nfse_emit_copy_to_self">
+                                                    <input id="nfse_emit_copy_to_self" type="checkbox">
+                                                    <span>{{ trans('general.email_send_me', ['email' => user()->email]) }}</span>
+                                                </label>
                                                 <div>
                                                     <label for="nfse_emit_email_subject" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_subject') }}</label>
                                                     <input id="nfse_emit_email_subject" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="{{ $emitModalDefaultEmailSubject }}">
@@ -1292,6 +1322,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
                 };
 
+                document.addEventListener('click', (event) => {
+                    const button = event.target.closest?.('[data-nfse-show-recipient]');
+                    if (!button) return;
+                    const panel = document.getElementById(button.getAttribute('aria-controls'));
+                    if (panel) {
+                        panel.classList.remove('hidden');
+                        button.setAttribute('aria-expanded', 'true');
+                        panel.querySelector('input')?.focus();
+                    }
+                });
+
                 const emitModal = document.getElementById('nfse-emit-modal');
                 const emitModalMissingItems = document.getElementById('nfse-emit-missing-items');
                 const emitModalMissingItemsHint = document.getElementById('nfse-emit-missing-items-hint');
@@ -1416,6 +1457,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (emitModalEmailToInput) {
                         emitModalEmailToInput.value = typeof emailDefaults.recipient === 'string' ? emailDefaults.recipient : '';
                     }
+                    if (document.getElementById('nfse_emit_email_cc')) document.getElementById('nfse_emit_email_cc').value = '';
+                    if (document.getElementById('nfse_emit_email_bcc')) document.getElementById('nfse_emit_email_bcc').value = '';
+                    if (document.getElementById('nfse_emit_copy_to_self')) document.getElementById('nfse_emit_copy_to_self').checked = Boolean(emailDefaults.copy_to_self);
+                    ['cc', 'bcc'].forEach((type) => {
+                        const panel = document.getElementById('nfse_emit_email_' + type + '_panel');
+                        panel?.classList.add('hidden');
+                        document.querySelector('[aria-controls="nfse_emit_email_' + type + '_panel"]')?.setAttribute('aria-expanded', 'false');
+                    });
 
                     if (emitModalEmailSubjectInput) {
                         emitModalEmailSubjectInput.value = typeof emailDefaults.subject === 'string' ? emailDefaults.subject : '';
@@ -1687,6 +1736,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const foreignDistrictInput = form?.querySelector('[data-emit-foreign-district-input]');
                     const sendEmailInput = form?.querySelector('[data-emit-email-send-input]');
                     const emailToInput = form?.querySelector('[data-emit-email-to-input]');
+                    const emailCcInput = form?.querySelector('[data-emit-email-cc-input]');
+                    const emailBccInput = form?.querySelector('[data-emit-email-bcc-input]');
+                    const emailCopyToSelfInput = form?.querySelector('[data-emit-email-copy-to-self-input]');
                     const emailSubjectInput = form?.querySelector('[data-emit-email-subject-input]');
                     const emailBodyInput = form?.querySelector('[data-emit-email-body-input]');
                     const attachDanfseInput = form?.querySelector('[data-emit-email-attach-danfse-input]');
@@ -1772,6 +1824,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (emailToInput) {
                         emailToInput.value = emailToField?.value || '';
                     }
+                    if (emailCcInput) emailCcInput.value = document.getElementById('nfse_emit_email_cc')?.value || '';
+                    if (emailBccInput) emailBccInput.value = document.getElementById('nfse_emit_email_bcc')?.value || '';
+                    if (emailCopyToSelfInput) emailCopyToSelfInput.value = document.getElementById('nfse_emit_copy_to_self')?.checked ? '1' : '0';
 
                     if (emailSubjectInput) {
                         emailSubjectInput.value = emailSubjectField?.value || '';
@@ -1808,6 +1863,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     .then(async (response) => {
                         let data = null;
                         try { data = await response.json(); } catch { /* ignore */ }
+                        if (data && data.code === 'nfse_email_invalid') {
+                            setEmitSubmittingState(false);
+                            const error = document.getElementById('nfse-emit-error-msg');
+                            if (error) {
+                                error.textContent = data.message || nfseEmitErrorDefault;
+                                error.setAttribute('role', 'alert');
+                                error.classList.remove('hidden');
+                            }
+                            const fieldIds = {
+                                nfse_email_to: 'nfse_emit_email_to',
+                                nfse_email_cc: 'nfse_emit_email_cc',
+                                nfse_email_bcc: 'nfse_emit_email_bcc',
+                            };
+                            const input = document.getElementById(fieldIds[data.field] || fieldIds.nfse_email_to);
+                            const panel = input?.closest('[data-nfse-recipient-panel]');
+                            panel?.classList.remove('hidden');
+                            if (panel) {
+                                document.querySelector('[aria-controls="' + panel.id + '"]')?.setAttribute('aria-expanded', 'true');
+                            }
+                            input?.focus();
+                            return;
+                        }
                         closeEmitModal(true);
                         if (data && data.success) {
                             window.nfseOpenResultModal(
@@ -1824,13 +1901,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         }
                     })
                     .catch(() => {
+                        // The remote fiscal outcome is unknown. Never retry the DPS on a mail/UI transport error.
                         setEmitSubmittingState(false);
-                        // Network error fallback: regular submit
-                        form.dataset.emitConfirmed = '1';
-                        if (typeof form.requestSubmit === 'function') {
-                            form.requestSubmit();
-                        } else {
-                            form.submit();
+                        const error = document.getElementById('nfse-emit-error-msg');
+                        if (error) {
+                            error.textContent = nfseEmitErrorDefault;
+                            error.setAttribute('role', 'alert');
+                            error.classList.remove('hidden');
                         }
                     });
 

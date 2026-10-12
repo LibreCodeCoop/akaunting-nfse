@@ -76,6 +76,20 @@ CST, cClassTrib, indicadores da operação e demais condições fiscais.
 Para detalhes, consulte [Emissão vigente](emissao-vigente.md) e
 [Segurança fiscal](fiscal-safety.md).
 
+## Envio de e-mail e cópias
+
+Nos formulários de emissão e reemissão, preencha **Para** com os destinatários
+principais e expanda **Cc** ou **Cco** quando necessário. Destinatários em Cc
+são visíveis; os de Cco recebem cópia oculta. Campos aceitam endereços
+separados por vírgulas ou ponto e vírgulas.
+
+**Enviar uma cópia para mim** acrescenta o usuário autenticado ao Cco sem
+duplicar entregas. Destinatários inválidos bloqueiam a operação antes da
+transmissão da NFS-e. Desativar o e-mail mantém a emissão fiscal sem
+notificação, independentemente de endereços preenchidos. Assunto, corpo
+e anexos seguem as preferências já existentes. Erros de notificação
+posteriores à autorização não exigem nova transmissão fiscal.
+
 ## Fluxos e documentos
 
 A NFS-e autorizada e a fatura Akaunting possuem estados distintos.

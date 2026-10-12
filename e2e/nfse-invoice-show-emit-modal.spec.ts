@@ -158,6 +158,32 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   await page.locator("input[name='nfse_email_subject']").fill(subjectValue);
 
+  const toRecipients = dialog.locator('#nfse_email_to');
+  const ccToggle = dialog.getByRole('button', { name: 'Cc', exact: true });
+  const bccToggle = dialog.getByRole('button', { name: /Cco|Bcc/i });
+  const ccRecipients = dialog.locator('#nfse_email_cc');
+  const bccRecipients = dialog.locator('#nfse_email_bcc');
+
+  await expect(toRecipients).toBeVisible();
+  await toRecipients.fill('first@example.test, second@example.test');
+  await ccToggle.click();
+  await expect(ccToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(ccRecipients).toBeVisible();
+  await ccRecipients.fill('visible@example.test');
+  await bccToggle.click();
+  await expect(bccToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(bccRecipients).toBeVisible();
+  await bccRecipients.fill('hidden@example.test, private@example.test');
+
+  // Removing an individual recipient must not clear the other recipient fields.
+  await toRecipients.fill('first@example.test');
+  await expect(ccRecipients).toHaveValue('visible@example.test');
+  await toRecipients.fill('first@example.test, second@example.test');
+  await testInfo.attach('nfse-email-recipient-fields', {
+    body: await dialog.screenshot(),
+    contentType: 'image/png',
+  });
+
   await setVisibleSwitch(page, 'nfse_email_save_default_toggle', true);
   await setVisibleSwitch(page, 'nfse_email_copy_to_self_toggle', true);
 
@@ -173,6 +199,9 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   await dialog.getByText(/E-mail|Email/i).first().click();
   await expect(page.locator('#nfse_send_email_toggle')).toBeChecked();
   await expect(page.locator("input[name='nfse_email_subject']")).toHaveValue(subjectValue);
+  await expect(toRecipients).toHaveValue('first@example.test, second@example.test');
+  await expect(ccRecipients).toHaveValue('visible@example.test');
+  await expect(bccRecipients).toHaveValue('hidden@example.test, private@example.test');
   await expect(page.locator('#nfse_email_save_default_toggle')).toBeChecked();
   await expect(page.locator('#nfse_email_copy_to_self_toggle')).toBeChecked();
 
@@ -218,6 +247,9 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_discriminacao_custom')).toBe(descriptionValue);
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_subject')).toBe(subjectValue);
+  expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_to')).toBe('first@example.test, second@example.test');
+  expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_cc')).toBe('visible@example.test');
+  expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_bcc')).toBe('hidden@example.test, private@example.test');
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_description_save_mode')).toBe('general');
 
   // Boolean fields can be normalized by the generic modal serializer; ensure they are present.
@@ -229,6 +261,55 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_attach_xml')).not.toBeNull();
 
   await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
+});
+
+
+test('legacy NFS-e invoice list opens native invoice composer without a parallel mail form', async ({ page }, testInfo) => {
+  const readyId = process.env.NFSE_E2E_BULK_READY_INVOICE_ID ?? '';
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+
+  expect(readyId).toMatch(/^\d+$/);
+  expect(invoiceId).toMatch(/^\d+$/);
+  await loginToAkaunting(page, testInfo);
+
+  // This route is a compatibility redirect; the former NFS-e list view is no longer reachable.
+  await page.goto('/1/nfse/invoices?status=pending', { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(/\/1\/sales\/invoices(?:\?.*)?$/);
+  await expect(page.locator('[data-bulk-action="' + readyId + '"]')).toBeVisible();
+
+  // Bulk readiness and individual issuance readiness are different.
+  // The pending invoice is the proven deterministic fixture for this modal.
+  await page.goto('/1/sales/invoices/' + invoiceId, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#nfse-native-fiscal-panel')).toBeVisible();
+  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
+
+  const dialog = page.locator('[role="dialog"]').last();
+  await expect(dialog).toBeVisible();
+  await dialog.getByText(/E-mail|Email/i).first().click();
+  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
+
+  const to = dialog.locator('#nfse_email_to');
+  const cc = dialog.locator('#nfse_email_cc');
+  const bcc = dialog.locator('#nfse_email_bcc');
+
+  await expect(to).toBeVisible();
+  await to.fill('primary@example.test, second@example.test');
+
+  const ccToggle = dialog.getByRole('button', { name: 'Cc', exact: true });
+  await ccToggle.click();
+  await expect(ccToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(cc).toBeVisible();
+  await cc.fill('visible@example.test');
+
+  const bccToggle = dialog.getByRole('button', { name: /Cco|Bcc/i });
+  await bccToggle.click();
+  await expect(bccToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(bcc).toBeVisible();
+  await bcc.fill('hidden@example.test');
+
+  await expect(to).toHaveValue('primary@example.test, second@example.test');
+  await expect(cc).toHaveValue('visible@example.test');
+  await expect(bcc).toHaveValue('hidden@example.test');
 });
 
 test('typing in email body keeps email tab content visible in emit modal', async ({ page }, testInfo) => {

@@ -184,7 +184,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('(new EmissionAttemptJournal())->issue(', $content);
             self::assertStringContainsString(': $this->storeEmittedReceipt($invoice, $authorized),', $content);
             self::assertStringContainsString('(new ReceiptPersistence())->createReplacement(', $content);
-            self::assertStringContainsString('$email = $this->preparePostEmitEmail($request, $invoice);', $content);
+            self::assertStringContainsString('$validatedEmail = $this->preparePostEmitEmail($request, $invoice);', $content);
+            self::assertStringContainsString('$email = $validatedEmail;', $content);
             self::assertStringContainsString('$this->dispatchPostEmission(', $content);
             self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
             self::assertStringNotContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
@@ -1136,7 +1137,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('snapshot@example.test', $client->capturedDps?->tomadorEmail);
         }
 
-        public function testEmitStillSucceedsWhenSendEmailIsRequestedWithoutAnyRecipient(): void
+        public function testEmitRejectsEmailWithoutRecipientBeforeCallingFiscalClient(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 422,
@@ -1150,7 +1151,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $client = new class () implements NfseClientInterface {
                 public function emit(DpsData $dps): ReceiptData
                 {
-                    return new ReceiptData('NF-422', 'CHAVE-422', '2026-03-23T13:00:00-03:00');
+                    throw new \LogicException('Fiscal emission must not run for an invalid recipient.');
                 }
 
                 public function query(string $chaveAcesso): ReceiptData
@@ -1203,7 +1204,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertCount(0, $notificationCalls);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('NFS-e emitida NF-422', $response->flash['success'] ?? null);
+            self::assertArrayHasKey('error', $response->flash);
+            self::assertArrayNotHasKey('success', $response->flash);
         }
 
 
@@ -5322,6 +5324,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $request = new Request([
                 'nfse_send_email' => '1',
                 'nfse_email_to' => 'destinatario@reemissao.test',
+                'nfse_email_cc' => 'copy@reemissao.test',
+                'nfse_email_bcc' => 'hidden@reemissao.test',
                 'nfse_email_subject' => 'Assunto reemissao',
                 'nfse_email_body' => 'Corpo reemissao',
                 'nfse_email_attach_danfse' => '1',
@@ -5336,7 +5340,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(3301, $dispatchCalls[0]['invoice_id']);
             self::assertTrue($dispatchCalls[0]['email']['attach_danfse']);
             self::assertFalse($dispatchCalls[0]['email']['attach_xml']);
-            self::assertSame('destinatario@reemissao.test', $dispatchCalls[0]['email']['custom_mail']['to'] ?? null);
+            self::assertSame(['destinatario@reemissao.test'], $dispatchCalls[0]['email']['custom_mail']['to'] ?? null);
+            self::assertSame(['copy@reemissao.test'], $dispatchCalls[0]['email']['custom_mail']['cc'] ?? null);
+            self::assertSame(['hidden@reemissao.test'], $dispatchCalls[0]['email']['custom_mail']['bcc'] ?? null);
             self::assertSame('Assunto reemissao', $dispatchCalls[0]['email']['custom_mail']['subject'] ?? null);
             self::assertSame('Descricao de reemissao com email', ControllerIsolationState::$settings['invoice.notes']);
         }
@@ -6271,6 +6277,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
                 'nfse_send_email' => '1',
                 'nfse_email_to' => 'destinatario@example.com',
+                'nfse_email_cc' => 'visible@example.test',
+                'nfse_email_bcc' => 'private@example.test',
                 'nfse_email_subject' => 'NFS-e emitida',
                 'nfse_email_body' => 'Prezado cliente',
                 'nfse_email_attach_danfse' => '1',
@@ -6289,9 +6297,43 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertIsArray($email);
             self::assertTrue($email['attach_danfse']);
             self::assertFalse($email['attach_xml']);
-            self::assertSame('destinatario@example.com', $email['custom_mail']['to'] ?? null);
+            self::assertSame(['destinatario@example.com'], $email['custom_mail']['to'] ?? null);
+            self::assertSame(['visible@example.test'], $email['custom_mail']['cc'] ?? null);
+            self::assertSame(['private@example.test'], $email['custom_mail']['bcc'] ?? null);
             self::assertSame('NFS-e emitida', $email['custom_mail']['subject'] ?? null);
             self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
+        }
+
+        public function testClearedPrimaryRecipientsDoNotSilentlyRestoreInvoiceContact(): void
+        {
+            InvoiceControllerIsolationState::reset();
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 5522,
+                amount: 100.0,
+                contactEmail: 'customer@example.test',
+            );
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email' => '1',
+                'nfse_email_to' => '',
+                'nfse_email_cc' => 'visible@example.test',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposedEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
+                {
+                    return $this->preparePostEmitEmail($request, $invoice);
+                }
+            };
+
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('nfse_email_to');
+
+            try {
+                $controller->exposedEmail($request, $invoice);
+            } finally {
+                self::assertArrayNotHasKey('nfse.send_email_on_emit', ControllerIsolationState::$settings);
+            }
         }
 
         public function testPreparePostEmitEmailReturnsNullWhenSendingIsDisabledButPersistsPreferences(): void

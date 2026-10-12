@@ -14,6 +14,7 @@ use App\Models\Document\Document as Invoice;
 use App\Traits\Emails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Nfse\Application\PostEmissionEmailRecipients;
 use Modules\Nfse\Http\Controllers\InvoiceController as NfseInvoiceController;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Notifications\NfseIssued;
@@ -24,15 +25,15 @@ class InvoiceEmails extends Controller
 
     public function __construct()
     {
-        $this->middleware('permission:create-sales-invoices')->only('create', 'store', 'duplicate', 'import');
-        $this->middleware('permission:read-sales-invoices')->only('index', 'show', 'edit', 'export');
-        $this->middleware('permission:update-sales-invoices')->only('update', 'enable', 'disable');
-        $this->middleware('permission:delete-sales-invoices')->only('destroy');
+        $this->middleware('permission:read-sales-invoices')->only('create');
+        $this->middleware('permission:update-sales-invoices')->only('store');
     }
 
     public function create(Invoice $invoice, ?Request $request = null): JsonResponse
     {
         $request ??= request();
+
+        abort_unless((int) $invoice->company_id === (int) company_id(), 404);
 
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->first()
             ?? new NfseReceipt(['invoice_id' => $invoice->id]);
@@ -147,7 +148,42 @@ class InvoiceEmails extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $invoice = Invoice::findOrFail($request->input('document_id'));
+        $routeId = (int) $request->route('invoice');
+        $documentId = (int) $request->input('document_id');
+
+        abort_unless($routeId > 0 && $routeId === $documentId, 404);
+        $invoice = Invoice::findOrFail($routeId);
+        abort_unless((int) $invoice->company_id === (int) company_id(), 404);
+
+        try {
+            $recipients = (new PostEmissionEmailRecipients())->normalize(
+                $request->input('to'),
+                $request->input('cc'),
+                $request->input('bcc'),
+                filter_var($request->input('user_email', false), FILTER_VALIDATE_BOOLEAN)
+                    ? (string) user()->email
+                    : null,
+            );
+        } catch (\InvalidArgumentException $exception) {
+            $labels = [
+                'nfse_email_to' => 'emit_modal_email_to',
+                'nfse_email_cc' => 'emit_modal_email_cc',
+                'nfse_email_bcc' => 'emit_modal_email_bcc',
+            ];
+            $field = array_key_exists($exception->getMessage(), $labels)
+                ? $exception->getMessage()
+                : 'nfse_email_to';
+
+            return new JsonResponse([
+                'success' => false,
+                'error' => true,
+                'code' => 'nfse_email_invalid',
+                'field' => $field,
+                'message' => trans('nfse::general.invoices.emit_modal_email_invalid', [
+                    'field' => trans('nfse::general.invoices.' . $labels[$field]),
+                ]),
+            ], 422);
+        }
 
         // Match Akaunting's native send lifecycle: fiscal listeners run before
         // customer delivery and may persist the NFS-e that this email attaches.
@@ -164,15 +200,13 @@ class InvoiceEmails extends Controller
         $attachXml    = (bool) $request->input('nfse_attach_xml', 0);
 
         $customMail = [
-            'to'                 => $request->input('to', []),
+            'to'                 => $recipients['to'],
+            'cc'                 => $recipients['cc'],
+            'bcc'                => $recipients['bcc'],
             'subject'            => (string) $request->input('subject', ''),
             'body'               => (string) $request->input('body', ''),
             'attach_invoice_pdf' => $attachInvoicePdf,
         ];
-
-        if ($request->input('user_email')) {
-            $customMail['bcc'] = user()->email;
-        }
 
         $job = new \Modules\Nfse\Jobs\SendNfseCustomEmail(
             $invoice,

@@ -35,6 +35,7 @@ use Modules\Nfse\Application\IssueInvoiceNfse;
 use Modules\Nfse\Application\MunicipalIssuanceBlocked;
 use Modules\Nfse\Application\OfficialIssuanceRejection;
 use Modules\Nfse\Application\PostEmissionDispatcher;
+use Modules\Nfse\Application\PostEmissionEmailRecipients;
 use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
@@ -463,6 +464,12 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
 
         try {
+            $validatedEmail = $this->preparePostEmitEmail($request, $invoice);
+        } catch (\InvalidArgumentException $exception) {
+            return $this->invalidEmailRedirect($request, $invoice, $exception);
+        }
+
+        try {
             $substitutionReceipt = $this->substitutionReceiptFromRequest($invoice, $request);
         } catch (\InvalidArgumentException $e) {
             return $this->ajaxAwareRedirect(
@@ -889,7 +896,7 @@ class InvoiceController extends Controller
 
         try {
             if (!$issuance['reused']) {
-                $email = $this->preparePostEmitEmail($request, $invoice);
+                $email = $validatedEmail;
                 $this->dispatchPostEmission(
                     $invoice,
                     $persistedReceipt,
@@ -1274,6 +1281,12 @@ class InvoiceController extends Controller
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
 
+        try {
+            $validatedEmail = $this->preparePostEmitEmail($request, $invoice);
+        } catch (\InvalidArgumentException $exception) {
+            return $this->invalidEmailRedirect($request, $invoice, $exception);
+        }
+
         if (!$this->invoiceHasLineItems($invoice)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_no_items')));
@@ -1531,7 +1544,7 @@ class InvoiceController extends Controller
 
         try {
             if (!$issuance['reused']) {
-                $email = $this->preparePostEmitEmail($request, $invoice);
+                $email = $validatedEmail;
                 $this->dispatchPostEmission($invoice, $persistedReceipt, $email);
             }
             $resolvedReceiptNumber = trim((string) $persistedReceipt->nfse_number);
@@ -4323,6 +4336,17 @@ class InvoiceController extends Controller
         $copyToSelf = $request->boolean('nfse_email_copy_to_self', false);
         $saveDefault = $request->boolean('nfse_email_save_default', false);
 
+        $recipients = null;
+
+        if ($sendEmail) {
+            $recipients = (new PostEmissionEmailRecipients())->normalize(
+                $request->input('nfse_email_to') ?? $this->defaultPostEmitRecipient($invoice),
+                $request->input('nfse_email_cc'),
+                $request->input('nfse_email_bcc'),
+                $copyToSelf && function_exists('user') ? (string) (user()?->email ?? '') : null,
+            );
+        }
+
         setting([
             'nfse.send_email_on_emit'               => $sendEmail ? '1' : '0',
             'nfse.email_copy_to_self_on_emit'       => $copyToSelf ? '1' : '0',
@@ -4355,36 +4379,49 @@ class InvoiceController extends Controller
             }
         }
 
-        $recipient = $this->normalizePostEmitRecipient($request->input('nfse_email_to'));
-
-        if ($recipient === null) {
-            $recipient = $this->defaultPostEmitRecipient($invoice);
-        }
-
-        if ($recipient === null) {
-            return null;
-        }
-
         $customMail = [
-            'to' => $recipient,
+            'to' => $recipients['to'],
+            'cc' => $recipients['cc'],
+            'bcc' => $recipients['bcc'],
             'subject' => (string) $request->input('nfse_email_subject', ''),
             'body' => (string) $request->input('nfse_email_body', ''),
             'attach_invoice_pdf' => $attachInvoicePdf,
         ];
-
-        if ($copyToSelf && function_exists('user')) {
-            $selfEmail = (string) (user()?->email ?? '');
-
-            if ($selfEmail !== '') {
-                $customMail['bcc'] = $selfEmail;
-            }
-        }
 
         return [
             'attach_danfse' => $attachDanfse,
             'attach_xml' => $attachXml,
             'custom_mail' => $customMail,
         ];
+    }
+
+    protected function invalidEmailRedirect(?Request $request, Invoice $invoice, \InvalidArgumentException $exception): RedirectResponse|JsonResponse
+    {
+        $labels = [
+            'nfse_email_to' => 'emit_modal_email_to',
+            'nfse_email_cc' => 'emit_modal_email_cc',
+            'nfse_email_bcc' => 'emit_modal_email_bcc',
+        ];
+        $field = array_key_exists($exception->getMessage(), $labels)
+            ? $exception->getMessage()
+            : 'nfse_email_to';
+        $message = trans('nfse::general.invoices.emit_modal_email_invalid', [
+            'field' => trans('nfse::general.invoices.' . $labels[$field]),
+        ]);
+
+        if ($request instanceof Request && ($request->isXmlHttpRequest() || $request->boolean('nfse_force_ajax', false))) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => true,
+                'code' => 'nfse_email_invalid',
+                'field' => $field,
+                'message' => $message,
+                'redirect' => false,
+                'data' => null,
+            ], 422);
+        }
+
+        return redirect()->route('nfse.invoices.show', $invoice)->with('error', $message);
     }
 
     /**
@@ -4415,48 +4452,9 @@ class InvoiceController extends Controller
             $this->safeLogError('NFS-e post-emission dispatch failed', [
                 'invoice_id' => (int) $invoice->id,
                 'receipt_id' => (int) $receipt->id,
-                'message' => $throwable->getMessage(),
+                'error_class' => $throwable::class,
             ]);
         }
-    }
-
-    protected function normalizePostEmitRecipient(mixed $rawRecipient): mixed
-    {
-        if (is_string($rawRecipient)) {
-            $normalized = trim($rawRecipient);
-
-            return $normalized !== '' ? $normalized : null;
-        }
-
-        if (is_object($rawRecipient) && isset($rawRecipient->email)) {
-            $normalized = trim((string) $rawRecipient->email);
-
-            return $normalized !== '' ? $rawRecipient : null;
-        }
-
-        if (is_array($rawRecipient) && isset($rawRecipient['email']) && is_string($rawRecipient['email'])) {
-            $normalized = trim($rawRecipient['email']);
-
-            return $normalized !== '' ? $rawRecipient : null;
-        }
-
-        if (is_array($rawRecipient)) {
-            foreach ($rawRecipient as $item) {
-                if (is_string($item) && trim($item) !== '') {
-                    return $rawRecipient;
-                }
-
-                if (is_object($item) && isset($item->email) && trim((string) $item->email) !== '') {
-                    return $rawRecipient;
-                }
-
-                if (is_array($item) && isset($item['email']) && is_string($item['email']) && trim($item['email']) !== '') {
-                    return $rawRecipient;
-                }
-            }
-        }
-
-        return null;
     }
 
     protected function defaultPostEmitRecipient(Invoice $invoice): ?string

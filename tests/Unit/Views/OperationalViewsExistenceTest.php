@@ -106,6 +106,9 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('name="nfse_save_default_description" value="0" data-emit-description-save-default-input', $content);
             self::assertStringContainsString('name="nfse_send_email" value="0" data-emit-email-send-input', $content);
             self::assertStringContainsString('name="nfse_email_to" value="" data-emit-email-to-input', $content);
+            self::assertStringContainsString('name="nfse_email_cc" value="" data-emit-email-cc-input', $content);
+            self::assertStringContainsString('name="nfse_email_bcc" value="" data-emit-email-bcc-input', $content);
+            self::assertStringContainsString('name="nfse_email_copy_to_self" value="0" data-emit-email-copy-to-self-input', $content);
             self::assertStringContainsString('name="nfse_email_subject" value="" data-emit-email-subject-input', $content);
             self::assertStringContainsString('name="nfse_email_body" value="" data-emit-email-body-input', $content);
             self::assertStringContainsString('name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input', $content);
@@ -128,8 +131,9 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="nfse_emit_email_body"', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.emit_modal_description_save_default')", $content);
             self::assertStringContainsString('id="nfse-emit-confirm-button"', $content);
-            self::assertStringContainsString("if (typeof form.requestSubmit === 'function') {", $content);
-            self::assertStringContainsString('form.requestSubmit();', $content);
+            self::assertStringNotContainsString("if (typeof form.requestSubmit === 'function') {", $content);
+            self::assertStringContainsString('The remote fiscal outcome is unknown. Never retry the DPS', $content);
+            self::assertStringNotContainsString('form.requestSubmit();', $content);
             self::assertStringContainsString('form.submit();', $content);
             self::assertStringContainsString("sendEmailInput.value = sendEmailToggle?.checked ? '1' : '0';", $content);
             self::assertStringContainsString('name="nfse_tomador_foreign" value="0" data-emit-foreign-enabled-input', $content);

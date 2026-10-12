@@ -66,9 +66,12 @@ final class SendIssuedNfseEmail implements ShouldQueue
             );
             $state->markEmailCompleted($this->receiptId);
         } catch (\Throwable $throwable) {
-            $state->markEmailFailed($this->receiptId, $throwable->getMessage());
+            // SMTP exceptions can embed private Bcc recipients and transport credentials.
+            $state->markEmailFailed($this->receiptId, 'Email delivery failed');
 
-            throw $throwable;
+            // Queue workers persist exception messages in logs and failed_jobs.
+            // Never chain or rethrow SMTP exceptions containing Bcc or credentials.
+            throw new \RuntimeException('NFS-e email delivery failed.');
         }
     }
 }

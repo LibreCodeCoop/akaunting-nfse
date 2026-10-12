@@ -129,22 +129,18 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
-    public function testControllerMirrorsCoreSalesInvoicePermissions(): void
+    public function testEmailComposerNeedsReadPermissionAndSendingNeedsUpdatePermission(): void
     {
         self::assertStringContainsString(
+            "permission:read-sales-invoices')->only('create')",
+            $this->controllerContent()
+        );
+        self::assertStringContainsString(
+            "permission:update-sales-invoices')->only('store')",
+            $this->controllerContent()
+        );
+        self::assertStringNotContainsString(
             "permission:create-sales-invoices",
-            $this->controllerContent()
-        );
-        self::assertStringContainsString(
-            "permission:read-sales-invoices",
-            $this->controllerContent()
-        );
-        self::assertStringContainsString(
-            "permission:update-sales-invoices",
-            $this->controllerContent()
-        );
-        self::assertStringContainsString(
-            "permission:delete-sales-invoices",
             $this->controllerContent()
         );
     }
@@ -277,9 +273,10 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString('nfse_email_attach_xml', $view);
         self::assertStringContainsString('nfse_email_copy_to_self', $view);
         self::assertStringContainsString('nfse_email_save_default', $view);
-        self::assertStringContainsString('x-form.group.contact', $view);
-        self::assertStringContainsString("'key' => 'email'", $view);
-        self::assertStringContainsString("'value' => 'email'", $view);
+        self::assertStringContainsString('name="nfse_email_cc"', $view);
+        self::assertStringContainsString('name="nfse_email_bcc"', $view);
+        self::assertStringContainsString('data-nfse-show-recipient="cc"', $view);
+        self::assertStringContainsString('data-nfse-show-recipient="bcc"', $view);
     }
 
     public function testCancelViewPostsToCancelRouteWithStructuredCancellationFields(): void
@@ -315,8 +312,11 @@ final class InvoiceEmailsTest extends TestCase
             dirname(__DIR__, 5) . '/Http/Controllers/InvoiceController.php'
         );
 
-        self::assertStringContainsString('normalizePostEmitRecipient', $invoiceController);
+        self::assertStringContainsString('PostEmissionEmailRecipients())->normalize(', $invoiceController);
         self::assertStringContainsString("request->input('nfse_email_to')", $invoiceController);
+        self::assertStringContainsString("request->input('nfse_email_cc')", $invoiceController);
+        self::assertStringContainsString("request->input('nfse_email_bcc')", $invoiceController);
+        self::assertStringNotContainsString('normalizePostEmitRecipient(', $invoiceController);
     }
 
     public function testIssueModalUsesOneReactiveDescriptionSaveModeSelect(): void

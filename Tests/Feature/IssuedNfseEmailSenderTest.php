@@ -38,9 +38,18 @@ final class IssuedNfseEmailSenderTest extends FeatureTestCase
             ['to' => 'customer@example.test'],
         );
 
-        Notification::assertSentTo(
-            $invoice->contact->fresh(),
+        // The sender now uses the native on-demand mail route, not the
+        // invoice contact's model notification route.
+        Notification::assertSentOnDemand(
             NfseIssued::class,
+            static function (NfseIssued $notification, array $channels, object $notifiable) use ($invoice, $receipt): bool {
+                return $notification->invoice->is($invoice)
+                    && $notification->receipt->is($receipt)
+                    && $notification->attachDanfse
+                    && !$notification->attachXml
+                    && in_array('mail', $channels, true)
+                    && ($notifiable->routes['mail'] ?? null) === ['customer@example.test'];
+            },
         );
     }
 }
