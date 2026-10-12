@@ -2034,12 +2034,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('token-ci-preserve', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
             self::assertSame('secret-ci-preserve', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? null);
         }
+
         private function configuredVaultController(): SettingsController
         {
             return new class () extends SettingsController {
                 use ConfiguredVaultForUnitTests;
             };
         }
-
     }
 }
