@@ -11,14 +11,14 @@ Status: Proposed for review
 
 The Akaunting adapter supplies immutable, company-scoped facts for one fiscal
 group through `Contracts\FiscalContext`. Tax observations use
-`Contracts\FiscalTaxFact` (document-item ID, tax ID, association-row ID,
+`Contracts\FiscalTaxFact` (optional document-item ID, tax ID, association-row ID,
 accounting type, amount in integer cents, and explicitly classified fiscal
 identity/role when verified), the observed tax-specific base and exact decimal
 rate when available, and explicit provenance. A tax-row amount may be null
 when not actually observed; integer zero is a distinct observed fact.
 Roles are backed by
 `FiscalTaxRole` (provider due, withheld by taker, transparency estimate).
-An absent ID, value origin or classification is `null`, never
+An invoice-level tax need not invent a document-item ID of 0.\nAn absent ID, value origin or classification is `null`, never
 guessed from tax names, percentages, a value or an XML element's historic name.
 
 The fiscal application layer returns `Contracts\FiscalAssessment`, a list

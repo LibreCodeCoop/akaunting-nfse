@@ -131,6 +131,31 @@ final class FiscalAssessmentContractTest extends TestCase
         self::assertSame('1031', $known->takerLegalNatureCode);
     }
 
+    public function testInvoiceLevelTaxFactIsNotInventedAsDocumentItemZero(): void
+    {
+        $fact = new FiscalTaxFact(
+            null,
+            9,
+            null,
+            'normal',
+            null,
+            'PIS',
+            FiscalTaxRole::PROVIDER_DUE,
+            'invoice_fiscal_profile',
+        );
+
+        self::assertNull($fact->documentItemId);
+        self::assertSame('invoice_fiscal_profile', $fact->origin);
+        self::assertNull($fact->amountCents);
+    }
+
+    public function testZeroDocumentItemIdIsNeverARealLineIdentity(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new FiscalTaxFact(0, 9, null, 'normal', 0);
+    }
+
     public function testUnknownTaxAmountDoesNotBecomeAnObservedZero(): void
     {
         $unknown = new FiscalTaxFact(1001, 9, 7, 'normal', null);

@@ -14,7 +14,8 @@ namespace Modules\Nfse\Contracts;
 final readonly class FiscalTaxFact
 {
     public function __construct(
-        public int $documentItemId,
+        /** Null identifies an invoice-level fact without a document-item row. */
+        public ?int $documentItemId,
         public ?int $taxId,
         public ?int $documentItemTaxRowId,
         public string $accountingType,
@@ -29,7 +30,7 @@ final readonly class FiscalTaxFact
         /** Observed percentage as a decimal string (never a float). */
         public ?string $ratePercent = null,
     ) {
-        if ($this->documentItemId <= 0) {
+        if ($this->documentItemId !== null && $this->documentItemId <= 0) {
             throw new \InvalidArgumentException('Document item ID must be positive.');
         }
 
