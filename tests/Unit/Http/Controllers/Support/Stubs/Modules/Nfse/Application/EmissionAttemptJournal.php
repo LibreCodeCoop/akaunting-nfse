@@ -19,6 +19,7 @@ namespace Modules\Nfse\Application {
                 callable $persist,
                 ?string $groupKey = null,
                 ?callable $transmit = null,
+                ?array $approximateTaxEvidence = null,
             ): array {
                 $remote = $transmit !== null
                     ? $transmit()

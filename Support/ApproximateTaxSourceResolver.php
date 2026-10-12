@@ -27,6 +27,12 @@ final class ApproximateTaxSourceResolver
             int $simplesOption,
             string $competence,
         ): ?array {
+            // Isolated unit-controller tests do not bootstrap Laravel. Actual
+            // Akaunting Feature tests exercise the database query unchanged.
+            if (!class_exists(DB::class)) {
+                return null;
+            }
+
             $row = DB::table('nfse_approximate_tax_sources')
                 ->where('company_id', $companyId)
                 ->where('national_service_code', $nationalCode)
