@@ -49,7 +49,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertMatchesRegularExpression('/^dev-[a-z0-9\/._-]+#[0-9a-f]{40}$/D', $runtimeVersion);
         self::assertSame(
-            'dev-main#5387501f476021fc6e6fce225ae3f4e571d69218',
+            'dev-main#c55c627f65939105fd39dafcfd19841b296d6eba',
             $runtimeVersion,
         );
     }
