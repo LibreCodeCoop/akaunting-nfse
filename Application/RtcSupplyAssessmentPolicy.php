@@ -25,6 +25,7 @@ final class RtcSupplyAssessmentPolicy
 
     private const SOURCE_VERSION = 'Ato Conjunto RFB/CGIBS 4/2026 (30/07/2026)';
 
+    private const DECEMBER_START = '2026-12-01';
     private const SIMPLES_START = '2027-01-01';
 
     /** @var array<string,string> */
