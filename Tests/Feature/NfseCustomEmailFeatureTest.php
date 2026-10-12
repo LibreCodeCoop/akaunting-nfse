@@ -206,11 +206,15 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
 
     public function testCustomEmailJobDoesNothingWithoutPersistedReceipt(): void
     {
+        // Keep fixture-side notifications intercepted as well: test setup
+        // must never access an actual notification transport.
+        Notification::fake();
+
         $invoice = Document::factory()->invoice()->create();
         $invoice->contact->forceFill(['email' => 'customer@example.test'])->saveQuietly();
 
-        // Start observation after fixture hooks so the assertion describes
-        // only notifications emitted by the job under test.
+        // Reset the fake after fixture hooks. The final assertion now covers
+        // every notification caused by the job, not fixture setup.
         Notification::fake();
 
         (new SendNfseCustomEmail(
