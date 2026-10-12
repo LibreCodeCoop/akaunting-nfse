@@ -30,18 +30,15 @@ class IssuedNfseEmailSender
             $customMail['bcc'] ?? null,
         );
 
-        // Route a single native notification through one anonymous address.
-        // The other visible recipients use MailMessage::cc; hidden recipients
-        // use MailMessage::bcc. Never emit a separate message per contact.
-        $primary = array_shift($recipients['to']);
-        $recipients['cc'] = array_merge($recipients['to'], $recipients['cc']);
+        // Laravel's on-demand mail route accepts an array of To addresses.
+        // Cc and Bcc are set by Akaunting's native MailMessage implementation.
         $mail = array_merge($customMail, [
-            'to' => $primary,
+            'to' => $recipients['to'],
             'cc' => $recipients['cc'],
             'bcc' => $recipients['bcc'],
         ]);
 
-        Notification::route('mail', $primary)
+        Notification::route('mail', $recipients['to'])
             ->notifyNow(new NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $mail));
     }
 }

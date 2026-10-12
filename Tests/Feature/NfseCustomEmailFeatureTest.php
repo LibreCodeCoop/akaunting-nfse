@@ -53,7 +53,7 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
                     && $notification->attachDanfse
                     && !$notification->attachXml
                     && in_array('mail', $channels, true)
-                    && ($notifiable->routes['mail'] ?? null) === 'customer@example.test';
+                    && ($notifiable->routes['mail'] ?? null) === ['customer@example.test'];
             },
         );
     }
