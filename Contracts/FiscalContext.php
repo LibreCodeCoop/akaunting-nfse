@@ -52,6 +52,8 @@ final readonly class FiscalContext
         public ?bool $payerIsTaker = null,
         /** Final-consumer sale is a transaction fact, not inferred from CPF/CNPJ. */
         public ?bool $saleToFinalConsumer = null,
+        /** Specific IBS/CBS cooperative regime facts; never inferred from legal form. */
+        public ?CooperativeIbsCbsFacts $cooperativeIbsCbsFacts = null,
     ) {
         if ($this->companyId <= 0 || trim($this->fiscalGroupKey) === '') {
             throw new \InvalidArgumentException('Company and fiscal-group identity are required.');
