@@ -8,45 +8,122 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Unit\Support;
 
 use Modules\Nfse\Support\ExactTaxDecimal;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class ExactTaxDecimalTest extends TestCase
 {
-    public function testPreservesExactCentsAndDistinguishesUnknownFromZero(): void
-    {
-        self::assertNull(ExactTaxDecimal::cents(null));
-        self::assertSame(0, ExactTaxDecimal::cents('0.00'));
-        self::assertSame(123456789, ExactTaxDecimal::cents('1234567.89'));
-        self::assertSame(-199, ExactTaxDecimal::cents('-1.99'));
-        self::assertSame(105, ExactTaxDecimal::cents('1.0500'));
-        self::assertSame('0.650000', ExactTaxDecimal::rate('0.650000'));
+    #[DataProvider('observedAmountCases')]
+    public function testPersistedAmountIsPreservedWithoutGuessingARoundingRule(
+        string|int|null $amount,
+        ?int $expectedCents,
+    ): void {
+        self::assertSame($expectedCents, ExactTaxDecimal::cents($amount));
     }
 
-    public function testRefusesToRoundLegalAmountsWithoutARule(): void
+    /**
+     * @return array<string,array{0:string|int|null,1:?int}>
+     */
+    public static function observedAmountCases(): array
+    {
+        return [
+            'unknown amount remains unknown' => [null, null],
+            'zero remains an observed zero' => ['0.00', 0],
+            'large exact monetary observation' => ['1234567.89', 123456789],
+            'negative accounting credit is preserved at ingestion' => ['-1.99', -199],
+            'only trailing zero subcents may be removed' => ['1.0500', 105],
+            'integer whole amount is accepted' => [7, 700],
+        ];
+    }
+
+    #[DataProvider('invalidObservationCases')]
+    public function testTaxAmountWithoutExactDecimalEvidenceCannotBeSilentlyRounded(mixed $value): void
     {
         $this->expectException(\DomainException::class);
-        ExactTaxDecimal::cents('1.005');
+        ExactTaxDecimal::cents($value);
     }
 
-    public function testNt007HalfEvenRoundingAtExactHalfCentTies(): void
+    /**
+     * @return array<string,array{0:mixed}>
+     */
+    public static function invalidObservationCases(): array
     {
-        // Independent decimal oracles: 1.00 * 0.5% = 0.005 => 0.00,
-        // 3.00 * 0.5% = 0.015 => 0.02 under half-even.
-        self::assertSame(0, ExactTaxDecimal::percentOfCentsHalfEven(100, '0.5'));
-        self::assertSame(2, ExactTaxDecimal::percentOfCentsHalfEven(300, '0.5'));
-        self::assertSame(33, ExactTaxDecimal::percentOfCentsHalfEven(2000, '1.65'));
-        self::assertSame('1000.09', ExactTaxDecimal::formatCents(100009));
+        return [
+            'binary floating point is not a decimal source' => [0.1],
+            'fractional cent requires a verified rounding policy' => ['1.005'],
+            'locale-formatted decimal is not an exact database value' => ['1,05'],
+            'exponential notation cannot be assumed exact' => ['1e3'],
+        ];
     }
 
-    public function testNt007RejectsOverflowInsteadOfChangingToFloat(): void
-    {
-        $this->expectException(\OverflowException::class);
-        ExactTaxDecimal::percentOfCentsHalfEven(PHP_INT_MAX, '100');
+    #[DataProvider('nt007HalfEvenCases')]
+    public function testNt007HalfEvenCalculationOnlyUsesAGivenVerifiedBaseAndRate(
+        int $baseCents,
+        string $ratePercent,
+        int $expectedCents,
+    ): void {
+        self::assertSame($expectedCents, ExactTaxDecimal::percentOfCentsHalfEven($baseCents, $ratePercent));
     }
 
-    public function testRefusesBinaryFloatAmounts(): void
+    /**
+     * Independent cent oracles. Percentages and bases below are synthetic,
+     * not automatic legal rates or proof of incidence for an invoice.
+     *
+     * @return array<string,array{0:int,1:string,2:int}>
+     */
+    public static function nt007HalfEvenCases(): array
     {
-        $this->expectException(\DomainException::class);
-        ExactTaxDecimal::cents(0.1);
+        return [
+            'even zero-cent tie rounds down' => [100, '0.5', 0],
+            'odd one-cent tie rounds up' => [300, '0.5', 2],
+            'even two-cent tie rounds down' => [500, '0.5', 2],
+            'odd three-cent tie rounds up' => [700, '0.5', 4],
+            'fraction below one half rounds down' => [40, '0.5', 0],
+            'fraction above one half rounds up' => [150, '0.5', 1],
+            'PIS rate is applied only to supplied base' => [10000, '0.65', 65],
+            'COFINS-style sample never uses binary floats' => [2000, '1.65', 33],
+            'zero legal base yields zero' => [0, '0.65', 0],
+        ];
+    }
+
+    #[DataProvider('invalidCalculationCases')]
+    public function testUnverifiableCalculationIsNotConvertedIntoARoundedTax(
+        int $baseCents,
+        string $percent,
+        string $expectedException,
+    ): void {
+        $this->expectException($expectedException);
+        ExactTaxDecimal::percentOfCentsHalfEven($baseCents, $percent);
+    }
+
+    /**
+     * @return array<string,array{0:int,1:string,2:class-string<\Throwable>}>
+     */
+    public static function invalidCalculationCases(): array
+    {
+        return [
+            'negative base needs a dedicated statutory rule' => [-100, '0.65', \DomainException::class],
+            'negative rate is not an observed positive burden' => [100, '-0.65', \DomainException::class],
+            'unsupported rate precision is not guessed' => [100, '0.6500001', \DomainException::class],
+            'integer overflow must fail rather than use float' => [PHP_INT_MAX, '100', \OverflowException::class],
+        ];
+    }
+
+    #[DataProvider('amountPresentationCases')]
+    public function testFormattedAmountMatchesTheObservedIntegerCents(int $cents, string $expected): void
+    {
+        self::assertSame($expected, ExactTaxDecimal::formatCents($cents));
+    }
+
+    /**
+     * @return array<string,array{0:int,1:string}>
+     */
+    public static function amountPresentationCases(): array
+    {
+        return [
+            'zero amount' => [0, '0.00'],
+            'normal amount' => [100009, '1000.09'],
+            'negative credit amount' => [-25, '-0.25'],
+        ];
     }
 }
