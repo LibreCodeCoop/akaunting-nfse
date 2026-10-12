@@ -80,7 +80,8 @@ final class ApproximateTaxSourceFeatureTest extends FeatureTestCase
 
         unset($payload['source_reference']);
         $payload['source_version'] = 'v3-without-evidence';
-        $this->post(route('nfse.settings.approximate-taxes.store'), $payload)
+        $this->withExceptionHandling()
+            ->post(route('nfse.settings.approximate-taxes.store'), $payload)
             ->assertSessionHasErrors('source_reference');
         self::assertSame(2, ApproximateTaxSource::query()->where('company_id', $companyId)->count());
     }
