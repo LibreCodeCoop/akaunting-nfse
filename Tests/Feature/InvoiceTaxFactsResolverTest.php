@@ -9,7 +9,9 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
 use Illuminate\Support\Facades\DB;
-use Modules\Nfse\Models\TaxFiscalAssociation;
+use Modules\Nfse\Contracts\FiscalTaxIdentity;
+use Modules\Nfse\Contracts\FiscalTaxRole;
+use Modules\Nfse\Support\TaxFiscalAssociationStore;
 use Modules\Nfse\Support\InvoiceTaxFactsResolver;
 use Tests\Feature\FeatureTestCase;
 
@@ -53,15 +55,10 @@ final class InvoiceTaxFactsResolverTest extends FeatureTestCase
         self::assertSame(500, $unknown[0]->amountCents);
         self::assertSame(500, $unknown[1]->amountCents);
 
-        TaxFiscalAssociation::query()->create([
-            'company_id' => $company,
-            'tax_id' => $tax,
-            'effective_from' => '2026-01-01',
-            'fiscal_identity' => 'cofins',
-            'fiscal_role' => 'provider_due',
-            'confirmation_kind' => 'operator_confirmed',
-            'source_reference' => 'synthetic-approved-classification',
-        ]);
+        (new TaxFiscalAssociationStore())->confirm(
+            $company, $tax, FiscalTaxIdentity::COFINS, FiscalTaxRole::PROVIDER_DUE,
+            '2026-01-01', null, 'synthetic-approved-classification', 1,
+        );
 
         $facts = $resolver->resolve($company, (int) $invoice->id, '2026-10-12');
         self::assertSame('cofins', $facts[0]->fiscalTaxCode);

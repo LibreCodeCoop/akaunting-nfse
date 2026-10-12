@@ -10,6 +10,7 @@ namespace Modules\Nfse\Support;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Contracts\FiscalTaxFact;
+use Modules\Nfse\Contracts\FiscalTaxIdentity;
 use Modules\Nfse\Contracts\FiscalTaxRole;
 use Modules\Nfse\Models\TaxFiscalAssociation;
 
@@ -21,11 +22,6 @@ use Modules\Nfse\Models\TaxFiscalAssociation;
  */
 final class InvoiceTaxFactsResolver
 {
-    /** @var list<string> */
-    private const FISCAL_IDENTITIES = [
-        'issqn', 'pis', 'cofins', 'csll', 'irrf', 'cp', 'ibs', 'cbs',
-    ];
-
     /**
      * @param list<int>|null $documentItemIds null = all, [] = none
      * @return list<FiscalTaxFact>
@@ -107,9 +103,14 @@ final class InvoiceTaxFactsResolver
             })
             ->orderByDesc('effective_from')
             ->orderByDesc('id')
-            ->get()
-            ->unique('tax_id')
-            ->keyBy('tax_id');
+            ->get();
+
+        // Never silently pick one of two overlapping confirmations, even
+        // when legacy/direct database writes bypassed the trusted store.
+        if ($associations->count() !== $associations->unique('tax_id')->count()) {
+            throw new \DomainException('Overlapping fiscal associations require explicit review.');
+        }
+        $associations = $associations->keyBy('tax_id');
 
         $facts = [];
         foreach ($rows as $row) {
@@ -120,9 +121,11 @@ final class InvoiceTaxFactsResolver
             if ($association !== null) {
                 $identity = strtolower(trim((string) $association->fiscal_identity));
                 $role = FiscalTaxRole::tryFrom((string) $association->fiscal_role);
-                if (!in_array($identity, self::FISCAL_IDENTITIES, true)
+                if (FiscalTaxIdentity::tryFrom($identity) === null
                     || $role === null
                     || trim((string) $association->source_reference) === ''
+                    || (int) $association->confirmed_by <= 0
+                    || $association->confirmed_at === null
                     || !in_array((string) $association->confirmation_kind, ['operator_confirmed', 'reviewed_import'], true)) {
                     throw new \DomainException('Invalid confirmed fiscal association; explicit review required.');
                 }
