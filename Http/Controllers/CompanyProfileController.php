@@ -30,7 +30,7 @@ final class CompanyProfileController extends Controller
         NfseCompanyProfileCatalog $catalog,
         NfseCompanyProfileManager $manager,
     ): JsonResponse {
-        $data = $request->validate($this->rules(true));
+        $data = $request->validate($this->rules($request, true));
         $companyId = (int) $data['company_id'];
         $catalog->assertAccessible($this->operator(), $companyId);
 
@@ -55,7 +55,7 @@ final class CompanyProfileController extends Controller
         NfseCompanyProfileManager $manager,
     ): JsonResponse {
         $catalog->assertAccessible($this->operator(), $companyId);
-        $data = $request->validate($this->rules(false));
+        $data = $request->validate($this->rules($request, false));
         $file = $request->file('pfx_file');
 
         if (!$file instanceof UploadedFile && !array_key_exists('fiscal_parameters', $data)) {
@@ -124,7 +124,7 @@ final class CompanyProfileController extends Controller
      *
      * @return array<string,string>
      */
-    private function rules(bool $creating): array
+    private function rules(Request $request, bool $creating): array
     {
         $fields = [
             'uf' => 'nullable|string|size:2|regex:/^[A-Za-z]{2}$/',
@@ -151,7 +151,8 @@ final class CompanyProfileController extends Controller
         $rules = [
             'company_id' => $creating ? 'required|integer|min:1' : 'prohibited',
             'pfx_file' => ($creating ? 'required' : 'nullable') . '|file|extensions:pfx,p12|max:1024',
-            'pfx_password' => 'required_with:pfx_file|prohibited_without:pfx_file|string|max:255',
+            'pfx_password' => ($request->hasFile('pfx_file') ? 'required' : 'prohibited')
+                . '|string|max:255',
             'fiscal_parameters' => 'sometimes|array:' . implode(',', array_keys($fields)),
         ];
 

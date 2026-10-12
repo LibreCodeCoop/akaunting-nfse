@@ -293,6 +293,17 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
             'company_id' => $id + 1,
             'fiscal_parameters' => ['emission_policy' => 'manual'],
         ])->assertUnprocessable();
+
+        // The Akaunting Laravel validator must reject an orphaned password
+        // and a certificate upload lacking its password, without server errors.
+        $this->patch(route('nfse.settings.company-profiles.update', $id), [
+            'pfx_password' => SyntheticCompanyPkcs12::PASSWORD,
+        ])->assertUnprocessable();
+        $this->patch(route('nfse.settings.company-profiles.update', $id), [
+            'pfx_file' => $this->certificate(),
+        ])->assertUnprocessable();
+
+        self::assertSame(1, NfseCompanyProfile::query()->where('company_id', $id)->count());
     }
 
     public function testReadOnlyUserMayListButCannotModifyCompanyProfiles(): void
