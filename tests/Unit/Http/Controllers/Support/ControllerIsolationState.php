@@ -15,6 +15,9 @@ namespace Modules\Nfse\Http\Controllers {
         /** @var array<string, mixed> */
         public static array $settings = [];
 
+        /** @var list<\Modules\Nfse\Contracts\FiscalTaxFact> */
+        public static array $fiscalTaxFacts = [];
+
         /** @var array<string, string> */
         public static array $translations = [];
 
@@ -30,6 +33,7 @@ namespace Modules\Nfse\Http\Controllers {
         public static function reset(): void
         {
             self::$settings = [];
+            self::$fiscalTaxFacts = [];
             self::$translations = [];
             self::$savedCount = 0;
             self::$currentCompanyId = 1;

@@ -19,16 +19,7 @@ final class FederalSocialRetentionCalculator
      */
     public function calculate(string $retentionType, array $withholdingRows): array
     {
-        $allowed = match ($retentionType) {
-            '1', '4' => ['pis', 'cofins'],
-            '3' => ['pis', 'cofins', 'csll'],
-            '5' => ['pis'],
-            '6' => ['cofins'],
-            '7' => ['cofins', 'csll'],
-            '8' => ['csll'],
-            '9' => ['pis', 'csll'],
-            default => [],
-        };
+        $allowed = self::allowed($retentionType);
         $cents = ['pis' => 0, 'cofins' => 0, 'csll' => 0];
         $classifier = new FederalTaxSnapshotBuilder();
 
@@ -62,5 +53,56 @@ final class FederalSocialRetentionCalculator
             : '';
 
         return $formatted;
+    }
+    /**
+     * Production-only NT007 arithmetic from confirmed, persisted tax facts.
+     * A configured retention code cannot conceal an incompatible tax amount.
+     *
+     * @param array{pis:int,cofins:int,csll:int} $retainedCents
+     * @return array{pis:string,cofins:string,csll:string,total:string}
+     */
+    public function calculateConfirmed(string $retentionType, array $retainedCents): array
+    {
+        $allowed = self::allowed($retentionType);
+        $total = 0;
+        $result = ['pis' => '', 'cofins' => '', 'csll' => ''];
+
+        foreach ($result as $code => $_) {
+            $cents = $retainedCents[$code] ?? null;
+            if (!is_int($cents) || $cents < 0) {
+                throw new \DomainException('Social withholding must have verified nonnegative integer cents.');
+            }
+            if ($cents > 0 && !in_array($code, $allowed, true)) {
+                throw new \DomainException('NFSE-TAX-RETENTION-TYPE-CONFLICT: observed withholding is not selected by tpRetPisCofins.');
+            }
+            if ($cents > PHP_INT_MAX - $total) {
+                throw new \OverflowException('Social withholding total exceeds integer-cent capacity.');
+            }
+            $total += $cents;
+            if ($cents > 0) {
+                $result[$code] = \Modules\Nfse\Support\ExactTaxDecimal::formatCents($cents);
+            }
+        }
+
+        $result['total'] = $total > 0
+            ? \Modules\Nfse\Support\ExactTaxDecimal::formatCents($total)
+            : '';
+
+        return $result;
+    }
+
+    /** @return list<'pis'|'cofins'|'csll'> */
+    private static function allowed(string $retentionType): array
+    {
+        return match ($retentionType) {
+            '1', '4' => ['pis', 'cofins'],
+            '3' => ['pis', 'cofins', 'csll'],
+            '5' => ['pis'],
+            '6' => ['cofins'],
+            '7' => ['cofins', 'csll'],
+            '8' => ['csll'],
+            '9' => ['pis', 'csll'],
+            default => [],
+        };
     }
 }

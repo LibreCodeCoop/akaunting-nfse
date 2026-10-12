@@ -2102,14 +2102,19 @@ class InvoiceController extends Controller
             return $policy->evaluate([], []);
         }
 
-        return $policy->evaluate(
-            $this->invoiceFederalTaxSnapshot(
+        try {
+            $snapshot = $this->invoiceFederalTaxSnapshot(
                 $invoice,
                 $this->invoiceServiceAmount($invoice, $documentItemIds, $amountOverride),
                 $documentItemIds,
-            ),
-            $requiredBuckets,
-        );
+            );
+        } catch (\DomainException) {
+            // An invalid or unconfirmed association is not a federal amount.
+            // Report a correction before opening the fiscal transport.
+            return ['isReady' => false, 'missing' => ['tax_association']];
+        }
+
+        return $policy->evaluate($snapshot, $requiredBuckets);
     }
 
     /**

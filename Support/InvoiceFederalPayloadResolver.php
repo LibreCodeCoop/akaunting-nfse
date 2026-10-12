@@ -8,95 +8,95 @@ declare(strict_types=1);
 namespace Modules\Nfse\Support;
 
 use App\Models\Document\Document as Invoice;
-use Illuminate\Database\Query\JoinClause;
-use Illuminate\Support\Facades\DB;
-use Modules\Nfse\Application\FederalSocialRetentionCalculator;
-use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
+use Modules\Nfse\Application\FederalTaxPayloadFacts;
+use Modules\Nfse\Application\InvoiceDpsIdentity;
 
 /**
- * Resolves federal fiscal payload from an Akaunting invoice without HTTP state.
+ * Adapts company-scoped Akaunting tax observations to the federal DPS fields.
  *
- * The class owns Akaunting persistence/settings adaptation; federal tax
- * classification/math remains in the pure FederalTaxSnapshotBuilder.
+ * Fiscal classification comes exclusively from confirmed, dated tax mappings.
+ * Neither invoice totals nor configured percentages establish a tax base,
+ * fiscal amount or lawful rate. Approximate taxes have a separate source.
  */
 final class InvoiceFederalPayloadResolver
 {
     /** @var \Closure(string,mixed):mixed */
     private readonly \Closure $settingResolver;
 
-    /** @var \Closure(int):?float */
-    private readonly \Closure $taxRateResolver;
-
-    /** @var \Closure(Invoice,?array):array */
-    private readonly \Closure $withholdingRowsResolver;
+    /** @var \Closure(int,int,string,?array):array */
+    private readonly \Closure $taxFactsResolver;
 
     /**
      * @param (\Closure(string,mixed):mixed)|null $settingResolver
-     * @param (\Closure(int):?float)|null $taxRateResolver
-     * @param (\Closure(Invoice,?array):array)|null $withholdingRowsResolver
+     * @param (\Closure(int,int,string,?array):array)|null $taxFactsResolver
      */
     public function __construct(
-        private readonly FederalTaxSnapshotBuilder $snapshotBuilder = new FederalTaxSnapshotBuilder(),
         ?\Closure $settingResolver = null,
-        ?\Closure $taxRateResolver = null,
-        ?\Closure $withholdingRowsResolver = null,
+        ?\Closure $taxFactsResolver = null,
         private readonly ApproximateTaxSourceResolver $approximateTaxSources = new ApproximateTaxSourceResolver(),
+        private readonly FederalTaxPayloadFacts $federalFacts = new FederalTaxPayloadFacts(),
     ) {
         $this->settingResolver = $settingResolver
             ?? static fn (string $key, mixed $default): mixed => function_exists('setting')
                 ? \setting($key, $default)
                 : $default;
+        $this->taxFactsResolver = $taxFactsResolver
+            ?? static fn (int $companyId, int $invoiceId, string $date, ?array $itemIds): array =>
+                (new InvoiceTaxFactsResolver())->resolve($companyId, $invoiceId, $date, $itemIds);
+    }
 
-        $this->taxRateResolver = $taxRateResolver
-            ?? static function (int $taxId): ?float {
-                try {
-                    $rate = DB::table('taxes')->where('id', $taxId)->value('rate');
-                } catch (\Throwable) {
-                    return null;
-                }
+    /**
+     * Purely observed fields with no statutory interpretation.
+     *
+     * @param list<int>|null $documentItemIds
+     * @return array<string,mixed>
+     */
+    public function confirmedSnapshot(
+        Invoice $invoice,
+        ?array $documentItemIds,
+        string $competenceDate,
+        string $retentionType,
+    ): array {
+        $companyId = (int) ($invoice->company_id ?? 0);
+        $invoiceId = (int) ($invoice->id ?? 0);
+        if ($companyId <= 0 || $invoiceId <= 0) {
+            throw new \DomainException('NFSE-TAX-CONTEXT-UNVERIFIABLE: persisted company and invoice are required.');
+        }
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $competenceDate);
+        if ($date === false || $date->format('Y-m-d') !== $competenceDate) {
+            throw new \DomainException('NFSE-TAX-COMPETENCE-UNVERIFIABLE: valid DPS competence is required.');
+        }
 
-                if (!is_numeric($rate)) {
-                    return null;
-                }
+        return $this->federalFacts->summarize(
+            ($this->taxFactsResolver)($companyId, $invoiceId, $competenceDate, $documentItemIds),
+            $retentionType,
+        );
+    }
 
-                $normalized = (float) $rate;
+    /**
+     * Compatibility for federal readiness consumers. Values are verified facts,
+     * never interpreted from tax labels or percentages.
+     *
+     * @param list<int>|null $documentItemIds
+     * @return array<string,mixed>
+     */
+    public function snapshot(
+        Invoice $invoice,
+        float $invoiceAmount,
+        ?array $documentItemIds = null,
+    ): array {
+        $date = (new InvoiceDpsIdentity())->competenceDate($invoice) ?? '';
+        $snapshot = $this->confirmedSnapshot(
+            $invoice,
+            $documentItemIds,
+            $date,
+            $this->select($this->setting('nfse.federal_piscofins_tipo_retencao', '')),
+        );
 
-                return $normalized > 0 ? $normalized : null;
-            };
-
-        $this->withholdingRowsResolver = $withholdingRowsResolver
-            ?? static function (Invoice $invoice, ?array $documentItemIds): array {
-                $invoiceId = (int) ($invoice->id ?? 0);
-                $companyId = (int) ($invoice->company_id ?? 0);
-                if ($invoiceId <= 0 || $companyId <= 0 || $documentItemIds === []) {
-                    return [];
-                }
-
-                // Plain unit tests intentionally do not load Laravel. Actual
-                // Akaunting HTTP/queue runtimes always provide this facade.
-                if (!class_exists(DB::class)) {
-                    return [];
-                }
-
-                $query = DB::table('document_item_taxes as dit')
-                    ->join('taxes as t', static function (JoinClause $join): void {
-                        $join->on('t.id', '=', 'dit.tax_id')
-                            ->on('t.company_id', '=', 'dit.company_id');
-                    })
-                    ->where('dit.document_id', $invoiceId)
-                    ->where('dit.company_id', $companyId)
-                    ->where('t.type', 'withholding')
-                    ->whereNull('dit.deleted_at')
-                    ->whereNull('t.deleted_at');
-
-                if ($documentItemIds !== null) {
-                    $query->whereIn('dit.document_item_id', $documentItemIds);
-                }
-
-                return $query->get(['dit.document_item_id', 'dit.name', 'dit.amount'])
-                    ->map(static fn (object $row): array => (array) $row)
-                    ->all();
-            };
+        return $snapshot + [
+            'csll_value' => '',
+            'federal_percent' => '',
+        ];
     }
 
     /**
@@ -107,137 +107,80 @@ final class InvoiceFederalPayloadResolver
         Invoice $invoice,
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
-        mixed $municipalPercentFallback = null, // Deprecated compatibility parameter; ignored.
+        mixed $municipalPercentFallback = null, // Ignored: ISS is not an approximate source.
         string $nationalServiceCode = '',
         string $competenceDate = '',
     ): array {
-        $invoiceAmount = $this->serviceAmount($invoice, $documentItemIds, $amountOverride);
-        $federalMode = strtolower((string) $this->setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
-        $snapshot = $this->snapshot($invoice, $invoiceAmount, $documentItemIds);
+        $competenceDate = $competenceDate !== ''
+            ? $competenceDate
+            : ((new InvoiceDpsIdentity())->competenceDate($invoice) ?? '');
         $situacao = $this->select($this->setting('nfse.federal_piscofins_situacao_tributaria', ''));
         $retentionType = $this->select($this->setting('nfse.federal_piscofins_tipo_retencao', ''));
-        // NT SE/CGNFS-e 007/2026: vRetCSLL aggregates actual PIS, COFINS
-        // and CSLL withholdings selected by tpRetPisCofins. The legacy XML
-        // name does not restrict this field to CSLL alone.
-        // Use actual withholding rows, never configured rates alone.
-        $retentionRows = in_array($retentionType, ['', '0', '2'], true)
-            ? []
-            : ($this->withholdingRowsResolver)($invoice, $documentItemIds);
-        $retentions = (new FederalSocialRetentionCalculator())->calculate(
-            $retentionType,
-            $retentionRows,
-        );
-        $csll = $retentions['total'];
+        $observed = $this->confirmedSnapshot($invoice, $documentItemIds, $competenceDate, $retentionType);
+        $hasAssessment = $situacao !== '' && $situacao !== '0';
+        $this->assertTransmissibleFacts($observed, $hasAssessment, $retentionType);
 
-        // Only a source version matching the owning company, service,
-        // regime and actual DPS competence may supply these percentages.
-        // Assessed ISSQN and item PIS/COFINS must never be used as fallbacks.
-        $approximateTaxes = $this->approximateTaxSources->resolve(
-            (int) ($invoice->company_id ?? 0),
+        $approximate = $this->approximateTaxSources->resolve(
+            (int) $invoice->company_id,
             $nationalServiceCode,
             $this->simplesNacional(),
             $competenceDate,
         );
-        $federalPercent = $approximateTaxes['federal'];
-        $statePercent = $approximateTaxes['state'];
-        $municipalPercent = $approximateTaxes['municipal'];
-        $taxIndicator = $approximateTaxes['status'] === 'unknown' ? 0 : 2;
-        $approximateTaxEvidence = [
-            'status' => $approximateTaxes['status'],
-            'reason' => $approximateTaxes['reason'],
-            'source' => $approximateTaxes['source'],
-        ];
 
-        $irrf = $this->retentionValue($invoiceAmount, 'nfse.federal_valor_irrf');
-
-        if ($irrf === '' && $snapshot['irrf_value'] !== '') {
-            $irrf = $snapshot['irrf_value'];
-        }
-
-        if ($situacao === '' || $situacao === '0') {
-            return $this->finalize([
-                'federalPiscofinsSituacaoTributaria' => '',
-                'federalPiscofinsTipoRetencao' => '',
-                'federalPiscofinsBaseCalculo' => '',
-                'federalPiscofinsAliquotaPis' => '',
-                'federalPiscofinsValorPis' => '',
-                'federalPiscofinsAliquotaCofins' => '',
-                'federalPiscofinsValorCofins' => '',
-                'federalValorIrrf' => $irrf,
-                'federalValorCsll' => $csll,
-                'federalValorCp' => '',
-                'indicadorTributacao' => $taxIndicator,
-                'approximateTaxEvidence' => $approximateTaxEvidence,
-                'totalTributosPercentualFederal' => $federalPercent,
-                'totalTributosPercentualEstadual' => $statePercent,
-                'totalTributosPercentualMunicipal' => $municipalPercent,
-            ]);
-        }
-
-        $pisRate = $this->decimal($this->setting('nfse.federal_piscofins_aliquota_pis', ''));
-        $cofinsRate = $this->decimal($this->setting('nfse.federal_piscofins_aliquota_cofins', ''));
-
-        if (($federalMode === 'per_invoice_amounts' || $pisRate === '') && $snapshot['pis_rate'] !== '') {
-            $pisRate = $snapshot['pis_rate'];
-        }
-
-        if (($federalMode === 'per_invoice_amounts' || $cofinsRate === '') && $snapshot['cofins_rate'] !== '') {
-            $cofinsRate = $snapshot['cofins_rate'];
-        }
-
-        $pisValue = $pisRate !== ''
-            ? number_format($invoiceAmount * (float) $pisRate / 100, 2, '.', '')
-            : '';
-
-        if (($federalMode === 'per_invoice_amounts' || $pisValue === '') && $snapshot['pis_value'] !== '') {
-            $pisValue = $snapshot['pis_value'];
-        }
-
-        $cofinsValue = $cofinsRate !== ''
-            ? number_format($invoiceAmount * (float) $cofinsRate / 100, 2, '.', '')
-            : '';
-
-        if (($federalMode === 'per_invoice_amounts' || $cofinsValue === '') && $snapshot['cofins_value'] !== '') {
-            $cofinsValue = $snapshot['cofins_value'];
-        }
-
-        // vPis/vCofins describe the provider's own PIS/COFINS assessment.
-        // vRetCSLL aggregates the retained social contributions (NT007).
-        // Explicit configured-rate assessments remain independent.
-        if ($federalMode === 'per_invoice_amounts') {
-            $pisValue = $this->subtractRetainedAmount($pisValue, $retentions['pis']);
-            $cofinsValue = $this->subtractRetainedAmount($cofinsValue, $retentions['cofins']);
-            if ($pisValue === '') {
-                $pisRate = '';
-            }
-            if ($cofinsValue === '') {
-                $cofinsRate = '';
-            }
-        }
-
-        return $this->finalize([
-            'federalPiscofinsSituacaoTributaria' => $situacao,
-            'federalPiscofinsTipoRetencao' => $retentionType,
-            'federalPiscofinsBaseCalculo' => number_format($invoiceAmount, 2, '.', ''),
-            'federalPiscofinsAliquotaPis' => $pisRate,
-            'federalPiscofinsValorPis' => $pisValue,
-            'federalPiscofinsAliquotaCofins' => $cofinsRate,
-            'federalPiscofinsValorCofins' => $cofinsValue,
-            'federalValorIrrf' => $irrf,
-            'federalValorCsll' => $csll,
+        return [
+            'federalPiscofinsSituacaoTributaria' => $hasAssessment ? $situacao : '',
+            'federalPiscofinsTipoRetencao' => $retentionType === '0' || $retentionType === '2'
+                ? '' : $retentionType,
+            'federalPiscofinsBaseCalculo' => $hasAssessment ? $observed['base_value'] : '',
+            'federalPiscofinsAliquotaPis' => $hasAssessment ? $observed['pis_rate'] : '',
+            'federalPiscofinsValorPis' => $hasAssessment ? $observed['pis_value'] : '',
+            'federalPiscofinsAliquotaCofins' => $hasAssessment ? $observed['cofins_rate'] : '',
+            'federalPiscofinsValorCofins' => $hasAssessment ? $observed['cofins_value'] : '',
+            'federalValorIrrf' => $observed['irrf_value'],
+            // NT007: vRetCSLL is selected actual PIS+COFINS+CSLL withholding,
+            // not an isolated CSLL amount and not derived from a configured rate.
+            'federalValorCsll' => $observed['social_total'],
             'federalValorCp' => '',
-            'indicadorTributacao' => $taxIndicator,
-                'approximateTaxEvidence' => $approximateTaxEvidence,
-            'totalTributosPercentualFederal' => $federalPercent,
-            'totalTributosPercentualEstadual' => $statePercent,
-            'totalTributosPercentualMunicipal' => $municipalPercent,
-        ]);
+            'indicadorTributacao' => $approximate['status'] === 'unknown' ? 0 : 2,
+            'approximateTaxEvidence' => [
+                'status' => $approximate['status'],
+                'reason' => $approximate['reason'],
+                'source' => $approximate['source'],
+            ],
+            'totalTributosPercentualFederal' => $approximate['federal'],
+            'totalTributosPercentualEstadual' => $approximate['state'],
+            'totalTributosPercentualMunicipal' => $approximate['municipal'],
+            'federalTaxEvidence' => [
+                'status' => $observed['row_count'] > 0 ? 'confirmed_observations' : 'no_observations',
+                'base_proven' => $observed['base_value'] !== '',
+                'row_count' => $observed['row_count'],
+                'legal_incidence' => 'unverifiable',
+            ],
+        ];
+    }
+
+    /** @param array<string,mixed> $observed */
+    private function assertTransmissibleFacts(array $observed, bool $hasAssessment, string $retentionType): void
+    {
+        $hasOwnTaxes = $observed['pis_value'] !== '' || $observed['cofins_value'] !== '';
+
+        if ($hasOwnTaxes && !$hasAssessment) {
+            throw new \DomainException('NFSE-TAX-STATUS-UNVERIFIABLE: observed own taxes require a fiscal situation.');
+        }
+        if ($hasOwnTaxes && $observed['base_value'] === '') {
+            throw new \DomainException('NFSE-TAX-BASE-UNVERIFIABLE: accounting invoice total cannot replace a proved PIS/COFINS base.');
+        }
+        if (($observed['pis_value'] !== '' && $observed['pis_rate'] === '')
+            || ($observed['cofins_value'] !== '' && $observed['cofins_rate'] === '')) {
+            throw new \DomainException('NFSE-TAX-RATE-UNVERIFIABLE: observed rate is missing or ambiguous.');
+        }
+        if (!in_array($retentionType, ['', '0', '2'], true) && $observed['social_total'] === '') {
+            throw new \DomainException('NFSE-TAX-WITHHOLDING-UNVERIFIABLE: selected retention requires actual confirmed amounts.');
+        }
     }
 
     /**
-     * Resolve the gross service amount used by the DPS and as the PIS/COFINS
-     * calculation base. Akaunting's document amount can already be reduced by
-     * withholding taxes, so it is not a safe fiscal base.
+     * Only computes commercial group gross, never a federal tax base.
      *
      * @param list<int>|null $documentItemIds
      */
@@ -252,83 +195,29 @@ final class InvoiceFederalPayloadResolver
 
         $amount = 0.0;
         $hasItemTotal = false;
-
         foreach ($this->invoiceItems($invoice) as $item) {
-            $documentItemId = is_numeric($item['id'] ?? null) ? (int) $item['id'] : 0;
-
-            if ($documentItemIds !== null && !in_array($documentItemId, $documentItemIds, true)) {
+            $itemId = is_numeric($item['id'] ?? null) ? (int) $item['id'] : 0;
+            if ($documentItemIds !== null && !in_array($itemId, $documentItemIds, true)) {
                 continue;
             }
-
-            $total = $item['total'] ?? null;
-
-            if (!is_numeric($total)) {
+            if (!is_numeric($item['total'] ?? null)) {
                 continue;
             }
-
-            $amount += (float) $total;
+            $amount += (float) $item['total'];
             $hasItemTotal = true;
         }
 
-        if ($hasItemTotal && $amount > 0) {
-            return $amount;
-        }
-
-        return max(0.0, (float) ($invoice->amount ?? 0.0));
+        return $hasItemTotal && $amount > 0
+            ? $amount
+            : max(0.0, (float) ($invoice->amount ?? 0.0));
     }
 
-    /**
-     * @param list<int>|null $documentItemIds
-     * @return array{pis_value:string,pis_rate:string,cofins_value:string,cofins_rate:string,irrf_value:string,csll_value:string,federal_percent:string}
-     */
-    public function snapshot(
-        Invoice $invoice,
-        float $invoiceAmount,
-        ?array $documentItemIds = null,
-    ): array {
-        $rateCache = [];
-
-        return $this->snapshotBuilder->build(
-            items: $this->invoiceItems($invoice),
-            baseAmount: $invoiceAmount,
-            documentItemIds: $documentItemIds,
-            taxRateResolver: function (mixed $tax) use (&$rateCache): ?float {
-                $inline = is_array($tax) ? ($tax['rate'] ?? null) : ($tax->rate ?? null);
-
-                if (is_numeric($inline)) {
-                    $rate = (float) $inline;
-
-                    return $rate > 0 ? $rate : null;
-                }
-
-                $taxIdRaw = is_array($tax) ? ($tax['tax_id'] ?? null) : ($tax->tax_id ?? null);
-
-                if (!is_numeric($taxIdRaw) || (int) $taxIdRaw <= 0) {
-                    return null;
-                }
-
-                $taxId = (int) $taxIdRaw;
-
-                if (!array_key_exists($taxId, $rateCache)) {
-                    $rateCache[$taxId] = ($this->taxRateResolver)($taxId);
-                }
-
-                return $rateCache[$taxId];
-            },
-        );
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
+    /** @return list<array<string,mixed>> */
     private function invoiceItems(Invoice $invoice): array
     {
         $items = $invoice->items;
-
         if (is_object($items) && method_exists($items, 'toArray')) {
-            $rows = $items->toArray();
-
-            return is_array($rows) ? array_values($rows) : [];
+            $items = $items->toArray();
         }
 
         return is_array($items) ? array_values($items) : [];
@@ -341,86 +230,11 @@ final class InvoiceFederalPayloadResolver
         return in_array($value, [1, 2, 3], true) ? $value : 1;
     }
 
-    private function retentionValue(float $amount, string $key): string
-    {
-        $percentage = $this->decimal($this->setting($key, ''));
-
-        if ($percentage === '' || (float) $percentage <= 0) {
-            return '';
-        }
-
-        return number_format($amount * (float) $percentage / 100, 2, '.', '');
-    }
-
     private function select(mixed $value): string
     {
         $normalized = trim((string) $value);
 
-        return preg_match('/^\d+$/', $normalized) === 1 ? $normalized : '';
-    }
-
-    private function subtractRetainedAmount(string $assessment, string $retained): string
-    {
-        if ($assessment === '' || $retained === '') {
-            return $assessment;
-        }
-
-        $ownCents = (int) round((float) $assessment * 100)
-            - (int) round((float) $retained * 100);
-
-        return $ownCents > 0 ? number_format($ownCents / 100, 2, '.', '') : '';
-    }
-
-    private function decimal(mixed $value): string
-    {
-        if (!is_string($value) && !is_numeric($value)) {
-            return '';
-        }
-
-        $normalized = str_replace(',', '.', trim((string) $value));
-
-        if ($normalized === '' || !is_numeric($normalized)) {
-            return '';
-        }
-
-        return number_format((float) $normalized, 2, '.', '');
-    }
-
-    /**
-     * @param array<string,mixed> $payload
-     * @return array<string,mixed>
-     */
-    private function finalize(array $payload): array
-    {
-        $hasTotals = $payload['totalTributosPercentualFederal'] !== ''
-            || $payload['totalTributosPercentualEstadual'] !== ''
-            || $payload['totalTributosPercentualMunicipal'] !== '';
-
-        // Actual federal taxation/withholding fields do not establish
-        // approximate transparency percentages.
-        return $payload;
-    }
-
-    /**
-     * @param array<string,mixed> $payload
-     */
-    private function hasTaxationPayload(array $payload): bool
-    {
-        return $payload['federalPiscofinsSituacaoTributaria'] !== ''
-            || $payload['federalPiscofinsTipoRetencao'] !== ''
-            || $payload['federalPiscofinsBaseCalculo'] !== ''
-            || $payload['federalPiscofinsAliquotaPis'] !== ''
-            || $payload['federalPiscofinsValorPis'] !== ''
-            || $payload['federalPiscofinsAliquotaCofins'] !== ''
-            || $payload['federalPiscofinsValorCofins'] !== ''
-            || $this->nonZero($payload['federalValorIrrf'])
-            || $this->nonZero($payload['federalValorCsll'])
-            || $this->nonZero($payload['federalValorCp']);
-    }
-
-    private function nonZero(string $value): bool
-    {
-        return $value !== '' && (float) $value !== 0.0;
+        return preg_match('/^\d+$/D', $normalized) === 1 ? $normalized : '';
     }
 
     private function setting(string $key, mixed $default): mixed

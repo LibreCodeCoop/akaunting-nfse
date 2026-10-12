@@ -7,17 +7,21 @@ declare(strict_types=1);
 
 namespace {
     require_once __DIR__ . '/Support/InvoiceControllerIsolationState.php';
+    require_once __DIR__ . '/Support/UnitFederalControllerFixture.php';
 }
 
 namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use App\Models\Document\Document as Invoice;
     use Illuminate\Http\Request;
     use Modules\Nfse\Application\FederalTaxSnapshotBuilder;
+    use Modules\Nfse\Contracts\FiscalTaxFact;
+    use Modules\Nfse\Contracts\FiscalTaxRole;
     use Modules\Nfse\Http\Controllers\ControllerIsolationState;
     use Modules\Nfse\Http\Controllers\InvoiceController;
     use Modules\Nfse\Models\NfseReceipt;
     use Modules\Nfse\Tests\TestCase;
     use Modules\Nfse\Tests\Unit\Http\Controllers\Support\InvoiceControllerIsolationState;
+    use Modules\Nfse\Tests\Unit\Http\Controllers\Support\UnitFederalControllerFixture;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -164,7 +168,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testProjectRootPathUsesIsolationApplicationBasePath(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function resolveProjectRootPath(string $relativePath): string
                 {
                     return $this->projectRootPath($relativePath);
@@ -240,7 +244,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $receipt = new ReceiptData('NF-2026/000123', 'CHAVE-901', '2026-03-21T10:00:00-03:00');
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function resolveArtifactPath(Invoice $invoice, ReceiptData $receipt): string
                 {
                     return $this->buildWebDavArtifactBasePath($invoice, $receipt);
@@ -267,7 +271,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $receipt = new ReceiptData('', 'CHAVE-902', '2026-04-21T10:00:00-03:00', null, $xmlWithNfseNumber);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function resolveArtifactPath(Invoice $invoice, ReceiptData $receipt): string
                 {
                     return $this->buildWebDavArtifactBasePath($invoice, $receipt);
@@ -283,7 +287,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             ControllerIsolationState::$settings['nfse.sandbox_mode'] = '';
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function resolveSandboxMode(): bool
                 {
                     return $this->sandboxModeEnabled();
@@ -297,7 +301,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             ControllerIsolationState::$settings['nfse.sandbox_mode'] = '0';
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function resolveSandboxMode(): bool
                 {
                     return $this->sandboxModeEnabled();
@@ -361,7 +365,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 items: $items,
             );
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 /** @return array{isReady: bool, missing: list<string>} */
                 public function resolveFederalReadiness(Invoice $invoice): array
                 {
@@ -373,6 +377,61 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             self::assertSame($expectedReady, $readiness['isReady'] ?? null);
             self::assertSame($expectedMissing, $readiness['missing'] ?? null);
+        }
+
+        public function testConfirmedFiscalFactsSatisfyTaxReadiness(): void
+        {
+            ControllerIsolationState::$settings['nfse.enforce_item_federal_taxes'] = true;
+            ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] = '3';
+            ControllerIsolationState::$fiscalTaxFacts = [
+                new FiscalTaxFact(
+                    101,
+                    7,
+                    701,
+                    'normal',
+                    1650,
+                    'pis',
+                    FiscalTaxRole::PROVIDER_DUE,
+                    'synthetic',
+                    100000,
+                    '1.65'
+                ),
+                new FiscalTaxFact(
+                    101,
+                    8,
+                    702,
+                    'normal',
+                    7600,
+                    'cofins',
+                    FiscalTaxRole::PROVIDER_DUE,
+                    'synthetic',
+                    100000,
+                    '7.60'
+                ),
+                new FiscalTaxFact(
+                    101,
+                    9,
+                    703,
+                    'withholding',
+                    1000,
+                    'csll',
+                    FiscalTaxRole::WITHHELD_BY_PAYER,
+                    'synthetic'
+                ),
+            ];
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 990,
+                amount: 1000.00,
+                items: [['id' => 101, 'name' => 'Synthetic name unrelated to taxes']],
+            );
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function evaluateFederal(Invoice $invoice): array
+                {
+                    return $this->federalTaxReadinessForInvoice($invoice);
+                }
+            };
+
+            self::assertSame(['isReady' => true, 'missing' => []], $controller->evaluateFederal($invoice));
         }
 
         public function testFederalTaxSnapshotCanBeScopedToOneFiscalGroup(): void
@@ -400,7 +459,46 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $controller = new class () extends InvoiceController {
+            ControllerIsolationState::$fiscalTaxFacts = [
+                new FiscalTaxFact(
+                    101,
+                    7,
+                    801,
+                    'normal',
+                    1000,
+                    'pis',
+                    FiscalTaxRole::PROVIDER_DUE,
+                    'synthetic',
+                    10000,
+                    '10.00'
+                ),
+                new FiscalTaxFact(
+                    101,
+                    8,
+                    802,
+                    'normal',
+                    2000,
+                    'cofins',
+                    FiscalTaxRole::PROVIDER_DUE,
+                    'synthetic',
+                    10000,
+                    '20.00'
+                ),
+                new FiscalTaxFact(
+                    102,
+                    7,
+                    803,
+                    'normal',
+                    3000,
+                    'pis',
+                    FiscalTaxRole::PROVIDER_DUE,
+                    'synthetic',
+                    20000,
+                    '15.00'
+                ),
+            ];
+
+            $controller = new class () extends UnitFederalControllerFixture {
                 /** @param list<int> $documentItemIds */
                 public function groupSnapshot(Invoice $invoice, float $amount, array $documentItemIds): array
                 {
@@ -422,7 +520,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         public static function federalTaxReadinessProvider(): array
         {
             return [
-                'all required taxes available' => [[
+                'unverified names do not prove tax readiness' => [[
                     [
                         'name' => 'Servico A',
                         'item_taxes' => [
@@ -431,7 +529,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                             ['name' => 'CSLL', 'amount' => 10.00],
                         ],
                     ],
-                ], true, []],
+                ], false, ['pis', 'cofins', 'csll']],
                 'missing csll when retention requires it' => [[
                     [
                         'name' => 'Servico A',
@@ -440,7 +538,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                             ['name' => 'COFINS', 'amount' => 76.00],
                         ],
                     ],
-                ], false, ['csll']],
+                ], false, ['pis', 'cofins', 'csll']],
                 'missing piscofins and csll' => [[
                     [
                         'name' => 'Servico A',
@@ -463,7 +561,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 issuedAt: '2026-10-08 12:00:00',
             );
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function hasCertificateSecret(string $cnpj): bool
                 {
                     return true;
@@ -513,7 +611,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -554,7 +652,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 contactTaxNumber: '99887766000155',
             );
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function hasCertificateSecret(string $cnpj): bool
                 {
                     return true;
@@ -578,7 +676,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             InvoiceControllerIsolationState::makeReceipt(904, 'CHAVE-904', 'cancelled');
 
-            $controller = new class () extends InvoiceController {};
+            $controller = new class () extends UnitFederalControllerFixture {};
 
             $view = $controller->show($invoice);
 
@@ -596,7 +694,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             InvoiceControllerIsolationState::makeReceipt(905, 'CHAVE-905', 'emitted');
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function resolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
                 {
                     return [
@@ -633,7 +731,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             InvoiceControllerIsolationState::makeReceipt(9051, 'CHAVE-9051', 'cancelled');
 
-            $controller = new class () extends InvoiceController {};
+            $controller = new class () extends UnitFederalControllerFixture {};
 
             $view = $controller->show($invoice);
 
@@ -653,7 +751,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             InvoiceControllerIsolationState::makeReceipt(9052, 'CHAVE-9052', 'emitted');
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function resolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
                 {
                     return [
@@ -687,7 +785,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $receipt->xml_webdav_path = 'nfse/901.xml';
             $receipt->danfse_webdav_path = 'nfse/901.pdf';
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public int $existsCalls = 0;
 
                 public function exposeResolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
@@ -725,7 +823,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             InvoiceControllerIsolationState::makeReceipt(906, 'CHAVE-906', 'emitted');
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function resolveReceiptArtifacts(Invoice $invoice, NfseReceipt $receipt): array
                 {
                     return [
@@ -887,7 +985,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public array $clientCalls = [];
                 public array $markedSentInvoiceIds = [];
 
@@ -951,15 +1049,15 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('', $client->capturedDps?->issqnNumeroProcessoSuspensao);
             self::assertSame(2, $client->capturedDps?->tipoRetencaoIss);
             self::assertSame(1, $client->capturedDps?->tipoAmbiente);
-            self::assertSame('1', $client->capturedDps?->federalPiscofinsSituacaoTributaria);
-            self::assertSame('3', $client->capturedDps?->federalPiscofinsTipoRetencao);
-            self::assertSame('1500.25', $client->capturedDps?->federalPiscofinsBaseCalculo);
-            self::assertSame('1.65', $client->capturedDps?->federalPiscofinsAliquotaPis);
-            self::assertSame('24.75', $client->capturedDps?->federalPiscofinsValorPis);
-            self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
-            self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsSituacaoTributaria);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsTipoRetencao);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsBaseCalculo);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsAliquotaPis);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsValorPis);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsAliquotaCofins);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsValorCofins);
             // IRRF = 1.00% × 1500.25 = 15.0025 → '15.00'
-            self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
+            self::assertSame('', $client->capturedDps?->federalValorIrrf);
             // Legacy percentage settings cannot manufacture withholding: NT007
             // requires real PIS+COFINS+CSLL retained amounts in vRetCSLL.
             self::assertSame('', $client->capturedDps?->federalValorCsll);
@@ -1037,7 +1135,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1110,7 +1208,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1172,7 +1270,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $notificationCalls = [];
 
-            $controller = new class ($client, $notificationCalls) extends InvoiceController {
+            $controller = new class ($client, $notificationCalls) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client, private array &$notificationCalls)
                 {
                 }
@@ -1241,7 +1339,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1301,7 +1399,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1361,7 +1459,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1396,7 +1494,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_gateway_error_detail' => 'E1235 - Schema invalido',
             ];
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function convertAjaxRedirect(Request $request, \Illuminate\Http\RedirectResponse $redirect): \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
                 {
                     return $this->ajaxAwareRedirect($request, $redirect);
@@ -1449,7 +1547,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1470,7 +1568,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertInstanceOf(\Illuminate\Http\RedirectResponse::class, $response);
             self::assertSame('nfse.invoices.show', $response->route);
         }
-        public function testEmitCalculatesValoresFromAliquotasInPercentageProfileMode(): void
+        public function testUnitControllerNeverCalculatesTaxesFromUnconfirmedRates(): void
         {
             ControllerIsolationState::$settings['nfse.tributacao_federal_mode'] = 'percentage_profile';
             // Override stored absolute valores with distinct values to prove they are NOT used
@@ -1512,7 +1610,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1531,16 +1629,16 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $controller->emit($invoice);
 
             // Base = invoice amount, not any stored helper value
-            self::assertSame('1500.25', $client->capturedDps?->federalPiscofinsBaseCalculo);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsBaseCalculo);
             // PIS valor = 1500.25 × 1.65 / 100 = 24.75
-            self::assertSame('24.75', $client->capturedDps?->federalPiscofinsValorPis);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsValorPis);
             // COFINS valor = 1500.25 × 7.60 / 100 = 114.02
-            self::assertSame('114.02', $client->capturedDps?->federalPiscofinsValorCofins);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsValorCofins);
             // Aliquotas are still from settings
-            self::assertSame('1.65', $client->capturedDps?->federalPiscofinsAliquotaPis);
-            self::assertSame('7.60', $client->capturedDps?->federalPiscofinsAliquotaCofins);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsAliquotaPis);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsAliquotaCofins);
             // A configured CSLL rate is not proof of a retained contribution.
-            self::assertSame('15.00', $client->capturedDps?->federalValorIrrf);
+            self::assertSame('', $client->capturedDps?->federalValorIrrf);
             self::assertSame('', $client->capturedDps?->federalValorCsll);
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
@@ -1592,7 +1690,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1657,7 +1755,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1725,7 +1823,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1799,7 +1897,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1817,7 +1915,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = $controller->emit($invoice);
 
-            self::assertSame('5.00', $client->capturedDps?->federalValorIrrf);
+            self::assertSame('', $client->capturedDps?->federalValorIrrf);
             self::assertSame('', $client->capturedDps?->federalValorCsll);
             self::assertSame('', $client->capturedDps?->federalValorCp);
             self::assertSame(0, $client->capturedDps?->indicadorTributacao);
@@ -1895,7 +1993,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringNotContainsString('<pTotTribMun>0.00</pTotTribMun>', $normalizedXml);
         }
 
-        public function testEmitPreservesTypeFourWithoutPopulatingCsllWhenCsllIsZero(): void
+        public function testControllerUnitFixtureDoesNotInventRetentionType(): void
         {
             ControllerIsolationState::$settings['nfse.federal_piscofins_tipo_retencao'] = '4';
             ControllerIsolationState::$settings['nfse.federal_valor_csll'] = '0.00';
@@ -1938,7 +2036,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -1956,7 +2054,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame('4', $client->capturedDps?->federalPiscofinsTipoRetencao);
+            self::assertSame('', $client->capturedDps?->federalPiscofinsTipoRetencao);
             self::assertSame('', $client->capturedDps?->federalValorCsll);
         }
 
@@ -1997,7 +2095,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -2073,7 +2171,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -2179,7 +2277,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -2280,7 +2378,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -2396,7 +2494,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -2486,7 +2584,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 description: 'Descricao preview',
             );
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
                 {
                     return (object) ['id' => 900, 'item_lista_servico' => '1401', 'is_default' => true, 'is_active' => true];
@@ -2542,7 +2640,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $template->body = 'Prezado(a) {customer_name}';
             \App\Models\Setting\EmailTemplate::$stubInstance = $template;
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
                 {
                     return null;
@@ -2589,7 +2687,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(id: 12, amount: 50.0);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
                 {
                     return null;
@@ -2625,7 +2723,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
             $invoice->notes = 'Centro de custo: TESTE-001';
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function describe(Invoice $invoice): string
                 {
                     return $this->buildDiscriminacao($invoice, ['Servico do item']);
@@ -2651,7 +2749,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 description: 'Descricao da fatura',
             );
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
                 {
                     return null;
@@ -2698,7 +2796,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(id: 11, amount: 50.0);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
                 {
                     return null;
@@ -2734,7 +2832,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ControllerIsolationState::$settings['invoice.notes'] = 'Padrao geral';
             ControllerIsolationState::$settings['nfse.customer_description.3.24'] = 'Padrao cliente A';
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function resolveDefault(Invoice $invoice): ?string
                 {
                     return $this->defaultEmitDescription($invoice);
@@ -2768,7 +2866,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_discriminacao_custom' => '  Nova descricao padrao   da NFS-e  ',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposePersistDefaultDescriptionFromRequest(?\Illuminate\Http\Request $request, Invoice $invoice): void
                 {
                     $this->persistDefaultDescriptionFromRequest($request, $invoice);
@@ -2795,7 +2893,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_discriminacao_custom' => 'Descricao especifica para cliente 77',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function persistDescription(Request $request, Invoice $invoice): void
                 {
                     $this->persistDefaultDescriptionFromRequest($request, $invoice);
@@ -2821,7 +2919,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_discriminacao_custom' => '  Padrao de reemissao para todos  ',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function persistDescription(Request $request, Invoice $invoice): void
                 {
                     $this->persistDefaultDescriptionFromRequest($request, $invoice);
@@ -2845,7 +2943,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_discriminacao_custom' => 'Nova descricao nao persistida',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function persistDescription(Request $request, Invoice $invoice): void
                 {
                     $this->persistDefaultDescriptionFromRequest($request, $invoice);
@@ -2870,7 +2968,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_discriminacao_custom' => 'Padrao do cliente 77',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function persistDescription(Request $request, Invoice $invoice): void
                 {
                     $this->persistDefaultDescriptionFromRequest($request, $invoice);
@@ -2897,7 +2995,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_discriminacao_custom' => 'Nao pode atravessar empresas',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function persistDescription(Request $request, Invoice $invoice): void
                 {
                     $this->persistDefaultDescriptionFromRequest($request, $invoice);
@@ -2971,7 +3069,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_discriminacao_custom' => 'Descricao nova nao persistida',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposePersistDefaultDescriptionFromRequest(?\Illuminate\Http\Request $request, Invoice $invoice): void
                 {
                     $this->persistDefaultDescriptionFromRequest($request, $invoice);
@@ -3019,7 +3117,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testNationalTaxCodeFallsBackToSettingWhenDefaultServiceCodeIsMissing(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposedNationalTaxCode(?object $defaultService = null): string
                 {
                     return $this->nationalTaxCode($defaultService);
@@ -3044,7 +3142,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             ControllerIsolationState::$settings['nfse.codigo_tributacao_nacional'] = '';
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposedNationalTaxCode(?object $defaultService = null): string
                 {
                     return $this->nationalTaxCode($defaultService);
@@ -3067,7 +3165,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testItemListaServicoNormalizesLegacyThreeDigitLc116Code(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposedItemListaServico(?object $defaultService = null): string
                 {
                     return $this->itemListaServico($defaultService);
@@ -3090,7 +3188,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testForeignTomadorPayloadAcceptsNifAndCompleteAddress(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 /** @param array<string, mixed> $nationalPayload */
                 public function foreignPayload(Request $request, Invoice $invoice, array $nationalPayload): array
                 {
@@ -3132,7 +3230,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testForeignTomadorPayloadAcceptsOfficialNoNifReason(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function foreignPayload(Request $request, Invoice $invoice): array
                 {
                     return $this->foreignTomadorPayloadFromRequest($request, $invoice, []);
@@ -3159,7 +3257,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testForeignTomadorPayloadRejectsNifTogetherWithNoNifReason(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function foreignPayload(Request $request, Invoice $invoice): array
                 {
                     return $this->foreignTomadorPayloadFromRequest($request, $invoice, []);
@@ -3179,7 +3277,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testForeignTomadorPayloadIsNoopWhenDisabled(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function foreignPayload(Request $request, Invoice $invoice): array
                 {
                     return $this->foreignTomadorPayloadFromRequest($request, $invoice, []);
@@ -3196,7 +3294,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testForeignTomadorPayloadTreatsNullRequestAsDisabled(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function foreignPayload(?Request $request, Invoice $invoice): array
                 {
                     return $this->foreignTomadorPayloadFromRequest($request, $invoice, []);
@@ -3213,7 +3311,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testMakeDpsDataRejectsMissingRequiredRuntimeCapability(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 /**
                  * @param array<string, mixed> $payload
                  * @param list<string> $requiredFields
@@ -3240,7 +3338,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testMakeDpsDataStillIgnoresOptionalUnknownRuntimeFields(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 /** @param array<string, mixed> $payload */
                 public function buildDps(array $payload): DpsData
                 {
@@ -3263,7 +3361,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testAmbiguousEmissionRecoveryQueriesDpsThenAuthorizedNfse(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function recover(NfseClientInterface $client, DpsData $dps): ?ReceiptData
                 {
                     return $this->recoverReceiptAfterAmbiguousEmission($client, $dps);
@@ -3327,7 +3425,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testAmbiguousEmissionRecoveryIsBackwardCompatibleWithoutDpsLookup(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function recover(NfseClientInterface $client, DpsData $dps): ?ReceiptData
                 {
                     return $this->recoverReceiptAfterAmbiguousEmission($client, $dps);
@@ -3382,7 +3480,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testEmissionReadinessDoesNotIncludeItemFiscalClassification(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposedEmissionReadiness(): array
                 {
                     return $this->emissionReadiness();
@@ -3407,7 +3505,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ControllerIsolationState::$settings['nfse.certificate_valid_from'] = time() - 172800;
             ControllerIsolationState::$settings['nfse.certificate_valid_to'] = time() - 86400;
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposedEmissionReadiness(): array
                 {
                     return $this->emissionReadiness();
@@ -3463,7 +3561,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public ?bool $capturedSandbox = null;
 
                 public function __construct(private readonly NfseClientInterface $client)
@@ -3526,7 +3624,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -3584,7 +3682,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -3607,7 +3705,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testTomadorPayloadSkipsAddressWhenMunicipioIbgeIsMissing(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposedTomadorPayload(?object $contact): array
                 {
                     return $this->tomadorPayload($contact);
@@ -3665,7 +3763,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -3721,7 +3819,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -3781,7 +3879,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -3841,7 +3939,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -3900,7 +3998,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -3965,7 +4063,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -4010,7 +4108,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexUsesRequestedSortingWhenAllowed(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedSortBy = null;
                 public ?string $capturedSortDirection = null;
 
@@ -4066,7 +4164,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'sort_direction' => 'desc',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     return ['default'];
@@ -4090,7 +4188,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'sort_direction' => 'desc',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     return ['cleared'];
@@ -4115,7 +4213,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'sort_direction' => 'desc',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     return ['cleared'];
@@ -4141,7 +4239,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         {
             ControllerIsolationState::$savedCount = 0;
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
                 {
                     return ['persisted'];
@@ -4171,7 +4269,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexPassesStatusFilterFromRequestToReceiptQuery(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedStatus = null;
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
@@ -4197,7 +4295,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexLoadsPendingAndReceiptDataWhenCombinedStatusIncludesPending(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedStatus = null;
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
@@ -4233,7 +4331,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexFallsBackToAllWhenStatusFilterIsInvalid(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedStatus = null;
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
@@ -4259,7 +4357,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexUsesRequestedPerPageWhenAllowed(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedStatus = null;
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
@@ -4285,7 +4383,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexFallsBackToDefaultPerPageWhenValueIsInvalid(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?int $capturedPerPage = null;
                 public ?string $capturedSearch = null;
 
@@ -4308,7 +4406,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexUsesTrimmedSearchQueryWhenProvided(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedSearch = null;
 
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
@@ -4328,7 +4426,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexStripsWrappingQuotesFromSearchQuery(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedSearch = null;
 
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
@@ -4348,7 +4446,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexConvertsEmptySearchToNull(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedSearch = 'marker';
 
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
@@ -4368,7 +4466,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexUsesQLegacyFallbackWhenSearchQueryIsMissing(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedSearch = null;
 
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
@@ -4388,7 +4486,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexParsesMultipleStatusTokenWithoutLeakingToSearchTerm(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedStatus = null;
                 public ?string $capturedSearch = null;
 
@@ -4412,7 +4510,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexParsesEqualDateFilterToken(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?array $capturedDateFilter = null;
 
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
@@ -4430,7 +4528,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexParsesNotEqualDateFilterToken(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?array $capturedDateFilter = null;
 
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
@@ -4448,7 +4546,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexParsesDateRangeFilterToken(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?array $capturedDateFilter = null;
 
                 protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
@@ -4466,7 +4564,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexParsesDateFilterWithoutLeakingToSearchTerm(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedSearch = null;
                 public ?array $capturedDateFilter = null;
 
@@ -4487,7 +4585,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testIndexParsesDateRangeWithoutLeakingToSearchTerm(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?string $capturedSearch = null;
                 public ?array $capturedDateFilter = null;
 
@@ -4520,7 +4618,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testDashboardReturnsViewWithOperationalStats(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function dashboardStats(): array
                 {
                     return [
@@ -4551,7 +4649,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testPendingRedirectsToUnifiedListingWithDefaultFilters(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
             };
 
             $response = $controller->pending();
@@ -4563,7 +4661,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testPendingPassesSearchAndPerPageToUnifiedListing(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
             };
 
             $response = $controller->pending(new Request(['limit' => '50', 'search' => '  ACME  ']));
@@ -4575,7 +4673,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testPendingNormalizesInvalidFiltersBeforeRedirectingToUnifiedListing(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
             };
 
             $response = $controller->pending(new Request(['limit' => '13', 'search' => '   ']));
@@ -4587,7 +4685,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testPendingUsesQLegacyFallbackWhenSearchQueryIsMissing(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
             };
 
             $response = $controller->pending(new Request(['limit' => '25', 'q' => '  LEGACY  ']));
@@ -4606,7 +4704,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 description: 'Descricao',
             );
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function emissionReadiness(): array
                 {
                     return [
@@ -4637,7 +4735,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testPendingIncludesCertificateSecretChecklistFlagWhenVaultSecretIsMissing(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function hasCertificateSecret(string $cnpj): bool
                 {
                     return false;
@@ -4658,7 +4756,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testPendingIncludesTransportCertificateChecklistFlagWhenPemFilesAreMissing(): void
         {
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function pendingInvoices(int $perPage = 25, ?string $search = null): iterable
                 {
                     return [];
@@ -4713,7 +4811,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -4774,7 +4872,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -4830,7 +4928,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -4892,7 +4990,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client, [$receiptA, $receiptB]) extends InvoiceController {
+            $controller = new class ($client, [$receiptA, $receiptB]) extends UnitFederalControllerFixture {
                 public function __construct(
                     private readonly NfseClientInterface $client,
                     private readonly array $receipts,
@@ -4956,7 +5054,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client, [$receiptA, $receiptB]) extends InvoiceController {
+            $controller = new class ($client, [$receiptA, $receiptB]) extends UnitFederalControllerFixture {
                 public function __construct(
                     private readonly NfseClientInterface $client,
                     private readonly array $receipts,
@@ -4996,7 +5094,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             InvoiceControllerIsolationState::makeReceipt(3001, 'CHAVE-3001', 'cancelled');
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function emissionReadiness(): array
                 {
                     return ['isReady' => true, 'checklist' => []];
@@ -5027,7 +5125,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
             $oldReceipt = InvoiceControllerIsolationState::makeReceipt(3002, 'CHAVE-3002', 'cancelled');
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public bool $transportOpened = false;
 
                 protected function emissionReadiness(): array
@@ -5066,7 +5164,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
             $previous = InvoiceControllerIsolationState::makeReceipt(3003, 'CHAVE-3003', 'cancelled');
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public bool $transportOpened = false;
 
                 protected function emissionReadiness(): array
@@ -5106,7 +5204,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_substitution_reason' => '05',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public ?Request $delegatedRequest = null;
 
                 public function emit(Invoice $invoice, ?Request $request = null): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
@@ -5171,7 +5269,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5293,7 +5391,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $dispatchCalls = [];
 
-            $controller = new class ($client, $dispatchCalls) extends InvoiceController {
+            $controller = new class ($client, $dispatchCalls) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client, private array &$dispatchCalls)
                 {
                 }
@@ -5384,7 +5482,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5450,7 +5548,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5505,7 +5603,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5562,7 +5660,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5620,7 +5718,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5681,7 +5779,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5748,7 +5846,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5816,7 +5914,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5884,7 +5982,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5937,7 +6035,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -5990,7 +6088,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -6051,7 +6149,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -6107,7 +6205,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -6162,7 +6260,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -6218,7 +6316,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller = new class ($client) extends InvoiceController {
+            $controller = new class ($client) extends UnitFederalControllerFixture {
                 public function __construct(private readonly NfseClientInterface $client)
                 {
                 }
@@ -6248,7 +6346,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $invoice = InvoiceControllerIsolationState::makeInvoice(id: 302, amount: 200.0, items: [['name' => 'Servico reemissao']]);
             InvoiceControllerIsolationState::makeReceipt(302, 'CHAVE-302', 'emitted');
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function makeClient(bool $sandboxMode): NfseClientInterface
                 {
                     throw new \RuntimeException('Client must not be created when receipt is not cancelled.');
@@ -6285,7 +6383,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_email_attach_xml' => '0',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposePreparePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
                 {
                     return $this->preparePostEmitEmail($request, $invoice);
@@ -6319,7 +6417,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_email_cc' => 'visible@example.test',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposedEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
                 {
                     return $this->preparePostEmitEmail($request, $invoice);
@@ -6349,7 +6447,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_email_copy_to_self' => '1',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposePreparePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
                 {
                     return $this->preparePostEmitEmail($request, $invoice);
@@ -6382,7 +6480,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_email_save_default' => '1',
             ]);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 public function exposePreparePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
                 {
                     return $this->preparePostEmitEmail($request, $invoice);
@@ -6403,7 +6501,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(id: 64, amount: 50.0);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
                 {
                     return null;
@@ -6433,7 +6531,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(id: 65, amount: 50.0);
 
-            $controller = new class () extends InvoiceController {
+            $controller = new class () extends UnitFederalControllerFixture {
                 protected function resolveDefaultCompanyService(?Invoice $invoice = null): ?object
                 {
                     return null;

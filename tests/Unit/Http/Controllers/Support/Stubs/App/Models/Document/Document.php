@@ -9,6 +9,8 @@ namespace App\Models\Document {
     if (!class_exists(\App\Models\Document\Document::class, false)) {
         class Document
         {
+            public int $company_id = 1;
+
             public function __construct(public int $id = 0, public float $amount = 0.0, public ?object $contact = null, public ?object $items = null, public string $description = "", public string $notes = "")
             {
                 $this->items ??= new \App\Models\Sale\FakeCollection([]);
