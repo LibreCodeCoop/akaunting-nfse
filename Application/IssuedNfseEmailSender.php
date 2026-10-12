@@ -24,24 +24,24 @@ class IssuedNfseEmailSender
         bool $attachXml,
         array $customMail,
     ): void {
-        $notifiable = $invoice->contact;
-
-        if ($notifiable === null) {
-            $recipient = trim((string) ($customMail['to'] ?? ''));
-
-            if ($recipient === '') {
-                return;
-            }
-
-            Notification::route('mail', $recipient)
-                ->notifyNow(new NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail));
-
-            return;
-        }
-
-        Notification::sendNow(
-            $notifiable,
-            new NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $customMail),
+        $recipients = (new PostEmissionEmailRecipients())->normalize(
+            $customMail['to'] ?? null,
+            $customMail['cc'] ?? null,
+            $customMail['bcc'] ?? null,
         );
+
+        // Route a single native notification through one anonymous address.
+        // The other visible recipients use MailMessage::cc; hidden recipients
+        // use MailMessage::bcc. Never emit a separate message per contact.
+        $primary = array_shift($recipients['to']);
+        $recipients['cc'] = array_merge($recipients['to'], $recipients['cc']);
+        $mail = array_merge($customMail, [
+            'to' => $primary,
+            'cc' => $recipients['cc'],
+            'bcc' => $recipients['bcc'],
+        ]);
+
+        Notification::route('mail', $primary)
+            ->notifyNow(new NfseIssued($invoice, $receipt, $attachDanfse, $attachXml, $mail));
     }
 }

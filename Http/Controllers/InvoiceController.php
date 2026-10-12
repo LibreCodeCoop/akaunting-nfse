@@ -35,6 +35,7 @@ use Modules\Nfse\Application\IssueInvoiceNfse;
 use Modules\Nfse\Application\MunicipalIssuanceBlocked;
 use Modules\Nfse\Application\OfficialIssuanceRejection;
 use Modules\Nfse\Application\PostEmissionDispatcher;
+use Modules\Nfse\Application\PostEmissionEmailRecipients;
 use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
@@ -463,6 +464,12 @@ class InvoiceController extends Controller
         $this->ensureInvoiceRelationsLoaded($invoice);
 
         try {
+            $validatedEmail = $this->preparePostEmitEmail($request, $invoice);
+        } catch (\InvalidArgumentException $exception) {
+            return $this->invalidEmailRedirect($request, $invoice, $exception);
+        }
+
+        try {
             $substitutionReceipt = $this->substitutionReceiptFromRequest($invoice, $request);
         } catch (\InvalidArgumentException $e) {
             return $this->ajaxAwareRedirect(
@@ -889,7 +896,7 @@ class InvoiceController extends Controller
 
         try {
             if (!$issuance['reused']) {
-                $email = $this->preparePostEmitEmail($request, $invoice);
+                $email = $validatedEmail;
                 $this->dispatchPostEmission(
                     $invoice,
                     $persistedReceipt,
@@ -1273,6 +1280,12 @@ class InvoiceController extends Controller
     {
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
+
+        try {
+            $validatedEmail = $this->preparePostEmitEmail($request, $invoice);
+        } catch (\InvalidArgumentException $exception) {
+            return $this->invalidEmailRedirect($request, $invoice, $exception);
+        }
 
         if (!$this->invoiceHasLineItems($invoice)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
@@ -4355,36 +4368,41 @@ class InvoiceController extends Controller
             }
         }
 
-        $recipient = $this->normalizePostEmitRecipient($request->input('nfse_email_to'));
-
-        if ($recipient === null) {
-            $recipient = $this->defaultPostEmitRecipient($invoice);
-        }
-
-        if ($recipient === null) {
-            return null;
-        }
+        $recipients = (new PostEmissionEmailRecipients())->normalize(
+            $request->input('nfse_email_to') ?: $this->defaultPostEmitRecipient($invoice),
+            $request->input('nfse_email_cc'),
+            $request->input('nfse_email_bcc'),
+            $copyToSelf && function_exists('user') ? (string) (user()?->email ?? '') : null,
+        );
 
         $customMail = [
-            'to' => $recipient,
+            'to' => $recipients['to'],
+            'cc' => $recipients['cc'],
+            'bcc' => $recipients['bcc'],
             'subject' => (string) $request->input('nfse_email_subject', ''),
             'body' => (string) $request->input('nfse_email_body', ''),
             'attach_invoice_pdf' => $attachInvoicePdf,
         ];
-
-        if ($copyToSelf && function_exists('user')) {
-            $selfEmail = (string) (user()?->email ?? '');
-
-            if ($selfEmail !== '') {
-                $customMail['bcc'] = $selfEmail;
-            }
-        }
 
         return [
             'attach_danfse' => $attachDanfse,
             'attach_xml' => $attachXml,
             'custom_mail' => $customMail,
         ];
+    }
+
+    protected function invalidEmailRedirect(?Request $request, Invoice $invoice, \InvalidArgumentException $exception): RedirectResponse|JsonResponse
+    {
+        $field = $exception->getMessage();
+        $field = in_array($field, ['nfse_email_to', 'nfse_email_cc', 'nfse_email_bcc'], true)
+            ? $field
+            : 'nfse_email_to';
+
+        return $this->ajaxAwareRedirect(
+            $request,
+            redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.emit_modal_email_invalid', ['field' => $field])),
+        );
     }
 
     /**

@@ -12,6 +12,7 @@ use App\Events\Document\DocumentSending;
 use App\Events\Document\DocumentSent;
 use App\Models\Document\Document as Invoice;
 use App\Traits\Emails;
+use Modules\Nfse\Application\PostEmissionEmailRecipients;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Nfse\Http\Controllers\InvoiceController as NfseInvoiceController;
@@ -149,6 +150,13 @@ class InvoiceEmails extends Controller
     {
         $invoice = Invoice::findOrFail($request->input('document_id'));
 
+        $recipients = (new PostEmissionEmailRecipients())->normalize(
+            $request->input('to'),
+            $request->input('cc'),
+            $request->input('bcc'),
+            $request->boolean('user_email') ? (string) (user()?->email ?? '') : null,
+        );
+
         // Match Akaunting's native send lifecycle: fiscal listeners run before
         // customer delivery and may persist the NFS-e that this email attaches.
         event(new DocumentSending($invoice));
@@ -164,15 +172,13 @@ class InvoiceEmails extends Controller
         $attachXml    = (bool) $request->input('nfse_attach_xml', 0);
 
         $customMail = [
-            'to'                 => $request->input('to', []),
+            'to'                 => $recipients['to'],
+            'cc'                 => $recipients['cc'],
+            'bcc'                => $recipients['bcc'],
             'subject'            => (string) $request->input('subject', ''),
             'body'               => (string) $request->input('body', ''),
             'attach_invoice_pdf' => $attachInvoicePdf,
         ];
-
-        if ($request->input('user_email')) {
-            $customMail['bcc'] = user()->email;
-        }
 
         $job = new \Modules\Nfse\Jobs\SendNfseCustomEmail(
             $invoice,
