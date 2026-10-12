@@ -11,6 +11,7 @@ use App\Models\Document\Document;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Contracts\FiscalTaxIdentity;
 use Modules\Nfse\Contracts\FiscalTaxRole;
+use Modules\Nfse\Models\TaxFiscalAssociation;
 use Modules\Nfse\Support\TaxFiscalAssociationStore;
 use Modules\Nfse\Support\InvoiceTaxFactsResolver;
 use Tests\Feature\FeatureTestCase;
@@ -65,5 +66,28 @@ final class InvoiceTaxFactsResolverTest extends FeatureTestCase
         self::assertSame('cofins', $facts[1]->fiscalTaxCode);
         self::assertNotSame($facts[0]->documentItemTaxRowId, $facts[1]->documentItemTaxRowId);
         self::assertSame([], $resolver->resolve($company + 1, (int) $invoice->id, '2026-10-12'));
+
+        // Changing a human-readable label or archiving the native tax may
+        // not erase or reclassify already persisted commercial tax rows.
+        DB::table('taxes')->where('id', $tax)->where('company_id', $company)->update([
+            'name' => 'Renamed and archived synthetic tax',
+            'deleted_at' => now(),
+        ]);
+        $archived = $resolver->resolve($company, (int) $invoice->id, '2026-10-12');
+        self::assertCount(2, $archived);
+        self::assertSame('cofins', $archived[0]->fiscalTaxCode);
+
+        // Bypassing the store must not make an overlapping revision silently
+        // win by a higher ID or a more recent effective date.
+        TaxFiscalAssociation::query()->create([
+            'company_id' => $company, 'tax_id' => $tax,
+            'effective_from' => '2026-10-01',
+            'fiscal_identity' => 'pis', 'fiscal_role' => 'provider_due',
+            'confirmation_kind' => 'operator_confirmed',
+            'source_reference' => 'synthetic-duplicate-conflict',
+            'confirmed_by' => 1, 'confirmed_at' => now(),
+        ]);
+        $this->expectException(\DomainException::class);
+        $resolver->resolve($company, (int) $invoice->id, '2026-10-12');
     }
 }

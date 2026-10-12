@@ -72,7 +72,9 @@ final class InvoiceTaxFactsResolver
             ->where('dit.type', 'invoice')
             ->where('d.type', 'invoice')
             ->whereNull('dit.deleted_at')
-            ->whereNull('t.deleted_at')
+            // A tax can be soft-deleted after a financial invoice was
+            // recorded. Its persisted item-tax fact remains historical
+            // evidence; never silently discard that row.
             ->when($documentItemIds !== null, static function ($query) use ($documentItemIds): void {
                 $query->whereIn('dit.document_item_id', $documentItemIds);
             })
