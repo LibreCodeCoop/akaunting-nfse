@@ -14,7 +14,10 @@ export default defineConfig({
   projects: [
     {
       name: 'smoke',
-      retries: process.env.CI ? 1 : 0,
+      // Each case gets a fresh browser process; never run cases concurrently on shared SQLite.
+      fullyParallel: true,
+      workers: 1,
+      retries: 0,
       testMatch: ['smoke.spec.ts', 'deterministic-harness.spec.ts'],
     },
     {

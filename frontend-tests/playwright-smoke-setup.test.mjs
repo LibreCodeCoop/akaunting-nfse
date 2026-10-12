@@ -356,7 +356,7 @@ test('full UI uses shared setup, compiled-asset cache and cleanup', () => {
 test('workflow invokes unit-tested setup commands instead of embedding shell parsing', () => {
   const file = path.resolve(import.meta.dirname, '../.github/workflows/playwright-smoke.yml');
   const workflow = fs.readFileSync(file, 'utf8');
-  for (const command of ['prepare-env', 'provision', 'assets', 'verify-db', 'expose-assets', 'start-server']) {
+  for (const command of ['prepare-env', 'provision', 'assets', 'verify-db', 'expose-assets', 'start-server', 'run-smoke']) {
     assert.ok(workflow.includes(`playwright-smoke.mjs ${command}`), `${command} must be wired in CI`);
   }
   assert.match(workflow, /node --test frontend-tests\/playwright-smoke-setup\.test\.mjs/);
