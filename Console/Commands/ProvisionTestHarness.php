@@ -101,6 +101,7 @@ final class ProvisionTestHarness extends Command
             'nfse.municipio_ibge' => $municipio,
             'nfse.item_lista_servico' => $itemLista,
             'nfse.codigo_tributacao_nacional' => $codigoNacional,
+            'nfse.regime_especial_tributacao' => '0',
             'nfse.sandbox_mode' => '1',
             'nfse.bao_addr' => 'http://openbao.invalid.test:8200',
             'nfse.bao_mount' => 'secret',

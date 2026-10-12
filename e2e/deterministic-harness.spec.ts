@@ -54,6 +54,7 @@ test('deterministic settings preserve selected regime on invalid tax transitions
   const regime = page.locator('#regime_especial_tributacao');
 
   await expect(regime).toBeVisible();
+  await expect(regime).toHaveValue('0');
   await simple.selectOption('1');
   await issqn.selectOption('1');
   await regime.selectOption('6');

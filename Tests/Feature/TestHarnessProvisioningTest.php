@@ -48,6 +48,7 @@ final class TestHarnessProvisioningTest extends FeatureTestCase
         self::assertSame('3303302', (string) setting('nfse.municipio_ibge'));
         self::assertSame('0107', (string) setting('nfse.item_lista_servico'));
         self::assertSame('010701', (string) setting('nfse.codigo_tributacao_nacional'));
+        self::assertSame('0', (string) setting('nfse.regime_especial_tributacao'));
         self::assertSame('1', (string) setting('nfse.sandbox_mode'));
 
         $pkcs12 = file_get_contents($path);

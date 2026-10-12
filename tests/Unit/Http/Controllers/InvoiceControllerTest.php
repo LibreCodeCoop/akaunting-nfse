@@ -800,6 +800,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.bao_token' => 'unit-test-token',
                 'nfse.item_lista_servico' => '0107',
                 'nfse.codigo_tributacao_nacional' => '010701',
+                'nfse.regime_especial_tributacao' => '0',
                 'nfse.aliquota' => '4.50',
                 'nfse.federal_piscofins_situacao_tributaria' => '1',
                 'nfse.federal_piscofins_tipo_retencao' => '3',
