@@ -58,6 +58,74 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
         );
     }
 
+    public function testNativeMailerEnvelopesHavePrivateBccRecipientsWithoutPublicBccHeaders(): void
+    {
+        config([
+            'mail.default' => 'null',
+            'mail.mailers.null' => ['transport' => 'null'],
+            'mail.from.address' => 'no-reply@example.test',
+            'mail.from.name' => 'Example Company',
+        ]);
+
+        $messages = [];
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Mail\Events\MessageSending::class,
+            static function (\Illuminate\Mail\Events\MessageSending $event) use (&$messages): void {
+                $messages[] = $event->message;
+            },
+        );
+
+        $invoice = Document::factory()->invoice()->create();
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '102',
+            'chave_acesso' => str_repeat('3', 50),
+            'status' => 'emitted',
+        ]);
+
+        (new \Modules\Nfse\Application\IssuedNfseEmailSender())->send(
+            invoice: $invoice->fresh(['contact']),
+            receipt: $receipt,
+            attachDanfse: false,
+            attachXml: false,
+            customMail: [
+                'to' => ['first@example.test', 'second@example.test'],
+                'cc' => ['copy@example.test'],
+                'bcc' => ['hidden@example.test', 'self@example.test'],
+                'attach_invoice_pdf' => false,
+                'subject' => 'Fictitious NFS-e',
+                'body' => 'Synthetic notification.',
+            ],
+        );
+
+        self::assertCount(1, $messages, 'One notification must produce exactly one native mail message.');
+
+        $message = $messages[0];
+        $emails = static fn (array $addresses): array => array_map(
+            static fn (\Symfony\Component\Mime\Address $address): string => $address->getAddress(),
+            $addresses,
+        );
+
+        self::assertSame(['first@example.test', 'second@example.test'], $emails($message->getTo()));
+        self::assertSame(['copy@example.test'], $emails($message->getCc()));
+        self::assertSame(['hidden@example.test', 'self@example.test'], $emails($message->getBcc()));
+
+        $transported = new \Symfony\Component\Mailer\SentMessage(
+            $message,
+            \Symfony\Component\Mailer\Envelope::create($message),
+        );
+        self::assertSame(
+            ['first@example.test', 'second@example.test', 'copy@example.test', 'hidden@example.test', 'self@example.test'],
+            $emails($transported->getEnvelope()->getRecipients()),
+        );
+
+        $rawMessage = $transported->toString();
+        self::assertStringContainsString('Cc: copy@example.test', $rawMessage);
+        self::assertStringNotContainsString('Bcc:', $rawMessage);
+        self::assertStringNotContainsString('hidden@example.test', $rawMessage);
+        self::assertStringNotContainsString('self@example.test', $rawMessage);
+    }
+
     public function testCustomEmailControllerUsesNativeDocumentLifecycleAroundDelivery(): void
     {
         Notification::fake();

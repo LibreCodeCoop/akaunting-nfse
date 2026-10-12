@@ -285,7 +285,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertContains('14/04/2026', $replacements);
         }
 
-        public function testToMailOverridesNotifiableEmailWhenCustomMailToProvided(): void
+        public function testToMailDoesNotMutateNotifiableAddress(): void
         {
             $this->makeTemplate();
 
@@ -306,7 +306,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             };
             $notification->toMail($notifiable);
 
-            self::assertSame('custom@example.com', $notifiable->email);
+            self::assertSame('', $notifiable->email);
         }
 
         public function testViaReturnsMailOnlyWhenCustomRecipientProvided(): void
@@ -403,7 +403,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertStringNotContainsString('{invoice_due_date}', $body);
         }
 
-        public function testToMailNormalizesLegacyArrayRecipientPayload(): void
+        public function testToMailDoesNotRewriteRecipientForLegacyPayload(): void
         {
             $this->makeTemplate();
 
@@ -425,7 +425,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
 
             $notification->toMail($notifiable);
 
-            self::assertSame('legacy@example.com', $notifiable->email);
+            self::assertSame('', $notifiable->email);
         }
 
         public function testToMailAttachesDanfseWhenAttachDanfseTrueAndPathSet(): void
@@ -573,7 +573,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
 
             $restored->toMail($notifiable);
 
-            self::assertSame('custom@example.com', $notifiable->email);
+            self::assertSame('original@example.com', $notifiable->email);
         }
 
         public function testMissingTemplateUsesNonModelFallbackForQueuedNotifications(): void

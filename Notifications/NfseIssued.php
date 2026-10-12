@@ -330,73 +330,11 @@ class NfseIssued extends Notification
     {
         $this->ensureTemplateLoaded();
 
-        $recipientEmail = $this->resolveCustomRecipientEmail();
-
-        if ($recipientEmail !== null) {
-            $notifiable->email = $recipientEmail;
-        }
-
+        // Routing belongs to the native mail channel and is not mutated here.
         $message = $this->initMailMessage();
         $this->attachArtifacts($message);
 
         return $message;
-    }
-
-    protected function resolveCustomRecipientEmail(): ?string
-    {
-        $rawRecipient = $this->custom_mail['to'] ?? null;
-
-        if (is_string($rawRecipient)) {
-            $normalized = trim($rawRecipient);
-
-            return $normalized !== '' ? $normalized : null;
-        }
-
-        if (is_object($rawRecipient) && isset($rawRecipient->email)) {
-            $normalized = trim((string) $rawRecipient->email);
-
-            return $normalized !== '' ? $normalized : null;
-        }
-
-        if (is_array($rawRecipient)) {
-            if (isset($rawRecipient['email']) && is_string($rawRecipient['email'])) {
-                $normalized = trim($rawRecipient['email']);
-
-                return $normalized !== '' ? $normalized : null;
-            }
-
-            foreach ($rawRecipient as $item) {
-                if (is_string($item)) {
-                    $normalized = trim($item);
-
-                    if ($normalized !== '') {
-                        return $normalized;
-                    }
-
-                    continue;
-                }
-
-                if (is_object($item) && isset($item->email)) {
-                    $normalized = trim((string) $item->email);
-
-                    if ($normalized !== '') {
-                        return $normalized;
-                    }
-
-                    continue;
-                }
-
-                if (is_array($item) && isset($item['email']) && is_string($item['email'])) {
-                    $normalized = trim($item['email']);
-
-                    if ($normalized !== '') {
-                        return $normalized;
-                    }
-                }
-            }
-        }
-
-        return null;
     }
 
     protected function ensureTemplateLoaded(): void
