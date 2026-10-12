@@ -12,6 +12,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\DpsFiscalIssuer;
 use Modules\Nfse\Application\DpsOperationKey;
+use Modules\Nfse\Application\DpsReservationAuthorizer;
 use Modules\Nfse\Application\DpsReservationService;
 use Tests\Feature\FeatureTestCase;
 
@@ -29,7 +30,7 @@ final class DpsReservationServiceTest extends FeatureTestCase
         $this->activateSyntheticSeries($issuer);
 
         $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2, 'group-a');
-        $service = new DpsReservationService();
+        $service = $this->service();
         $first = $service->reserve((int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1', $key, 'manual_group');
         $repeated = $service->reserve((int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '00001', $key, 'automatic');
 
@@ -47,7 +48,7 @@ final class DpsReservationServiceTest extends FeatureTestCase
         $this->activateSyntheticSeries($issuer);
         $a = $this->invoice();
         $b = $this->invoice();
-        $service = new DpsReservationService();
+        $service = $this->service();
 
         $first = $service->reserve((int) $a->company_id, (int) $a->id, $issuer, 2, '1',
             DpsOperationKey::forInvoice((int) $a->company_id, (int) $a->id, 2), 'manual');
@@ -66,7 +67,7 @@ final class DpsReservationServiceTest extends FeatureTestCase
         $issuer = $this->issuer();
         $this->activateSyntheticSeries($issuer, 2);
         $this->activateSyntheticSeries($issuer, 1);
-        $service = new DpsReservationService();
+        $service = $this->service();
 
         $restricted = $service->reserve(
             (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
@@ -91,7 +92,7 @@ final class DpsReservationServiceTest extends FeatureTestCase
         $invoice = $this->invoice();
         $issuer = $this->issuer();
         $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2);
-        $service = new DpsReservationService();
+        $service = $this->service();
 
         try {
             $service->reserve((int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1', $key, 'manual');
@@ -108,6 +109,34 @@ final class DpsReservationServiceTest extends FeatureTestCase
         self::assertSame(0, DB::table('nfse_dps_reservations')->count());
     }
 
+    public function testForeignFiscalIssuerCannotConsumeAnotherIssuersSequence(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $foreignIssuer = new DpsFiscalIssuer('3303302', 2, '33444555000199');
+        // Even when another company provisioned this series locally, the
+        // current company's invoice does not authorize its fiscal identity.
+        $this->activateSyntheticSeries($foreignIssuer);
+
+        try {
+            $this->service()->reserve(
+                (int) $invoice->company_id,
+                (int) $invoice->id,
+                $foreignIssuer,
+                2,
+                '1',
+                DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2),
+                'manual',
+            );
+            self::fail('An unrelated company may not reserve a foreign fiscal identity.');
+        } catch (AuthorizationException $exception) {
+            self::assertSame('Fiscal issuer is not authorized for the company.', $exception->getMessage());
+        }
+
+        self::assertSame(0, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
     public function testReservationRejectsContextMutationAfterAllocation(): void
     {
         $this->loginAs();
@@ -115,7 +144,7 @@ final class DpsReservationServiceTest extends FeatureTestCase
         $issuer = $this->issuer();
         $this->activateSyntheticSeries($issuer);
         $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2);
-        $service = new DpsReservationService();
+        $service = $this->service();
         $service->reserve((int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1', $key, 'manual');
 
         $this->expectException(\LogicException::class);
@@ -131,10 +160,26 @@ final class DpsReservationServiceTest extends FeatureTestCase
         DB::table('nfse_dps_series')->update(['last_number' => 999999999999999]);
 
         $this->expectException(\OverflowException::class);
-        (new DpsReservationService())->reserve(
+        ($this->service())->reserve(
             (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
             DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2), 'manual',
         );
+    }
+
+    private function service(): DpsReservationService
+    {
+        // Synthetic fake only. The production authorization adapter belongs
+        // to the verified multi-company profile/context contract (#417/#421).
+        $authorizer = new class () implements DpsReservationAuthorizer {
+            public function assertCanReserve(int $companyId, int $invoiceId, DpsFiscalIssuer $issuer): void
+            {
+                if ((int) company_id() !== $companyId || $issuer->registration !== '11222333000181') {
+                    throw new AuthorizationException('Fiscal issuer is not authorized for the company.');
+                }
+            }
+        };
+
+        return new DpsReservationService($authorizer);
     }
 
     private function invoice(): Document

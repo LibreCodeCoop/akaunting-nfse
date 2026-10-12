@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Opt-in local transactional DPS allocator. Not integrated into issuance.
  *
- * The caller must independently authorize the operation's company (#421).
+ * An explicit company/issuer authorizer is mandatory (#417/#421).
  * A local database only coordinates installations using THIS same database.
  * Series administration/activation must prove ownership before it may create
  * an active series (#417); this service never activates one automatically.
@@ -21,6 +21,10 @@ use Illuminate\Support\Facades\DB;
 final class DpsReservationService
 {
     private const MAX_DPS_NUMBER = 999999999999999;
+
+    public function __construct(private readonly DpsReservationAuthorizer $authorizer)
+    {
+    }
 
     /**
      * @return array{reservation_id:int,company_id:int,invoice_id:int,series:string,number:string}
@@ -73,6 +77,11 @@ final class DpsReservationService
             if (!is_object($invoice)) {
                 throw new AuthorizationException('Fiscal operation does not belong to the specified company.');
             }
+
+            // Validate actual caller + fiscal-profile authority before looking
+            // up even an existing reservation. The invoice tenant alone does
+            // not authorize use of an arbitrary issuer registration.
+            $this->authorizer->assertCanReserve($companyId, $invoiceId, $issuer);
 
             $counterQuery = DB::table('nfse_dps_series')
                 ->where('environment', $environment)
