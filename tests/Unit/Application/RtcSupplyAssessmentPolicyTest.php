@@ -67,76 +67,112 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
     }
 
     /** @dataProvider simplesCases */
-    public function testSimplesHasOwnDocumentCalendarRegardlessOfPaymentElection(int $option, ?string $election): void
-    {
+    public function testSimplesCalendarDoesNotDependOnIbsCbsCollectionElection(
+        string $category,
+        ?string $lc116,
+        int $option,
+        ?string $election,
+    ): void {
         $policy = new RtcSupplyAssessmentPolicy();
         $before = $policy->schedule(self::context(
-            category: 'ordinary_lc116',
+            category: $category,
             event: '2026-12-31',
+            lc116: $lc116,
             simples: $option,
             ibsRegime: $election,
         ));
         $after = $policy->schedule(self::context(
-            category: 'ordinary_lc116',
+            category: $category,
             event: '2027-01-01',
+            lc116: $lc116,
             simples: $option,
             ibsRegime: $election,
         ));
 
         self::assertFalse($before['required']);
         self::assertTrue($after['required']);
+        self::assertSame('2027-01-01', $before['effective_date']);
         self::assertSame('2027-01-01', $after['effective_date']);
         self::assertStringContainsString('§1', (string) $after['provision']);
     }
 
-    /** @return array<string,array{int,?string}> */
+    /** @return array<string,array{string,?string,int,?string}> */
     public static function simplesCases(): array
     {
         return [
-            'MEI' => [2, null],
-            'ME EPP within Simples' => [3, 'simples'],
-            'ME EPP regular IBS CBS election' => [3, 'regular'],
+            'MEI ordinary service' => ['ordinary_lc116', '0107', 2, null],
+            'ME/EPP ordinary service' => ['ordinary_lc116', '0107', 3, 'simples'],
+            'ME/EPP regular IBS CBS collection election' => ['ordinary_lc116', '0107', 3, 'regular'],
+            'ME/EPP deferred ISS' => ['ordinary_lc116', '0103', 3, null],
+            'ME/EPP non-ISS lease' => ['lease', null, 3, null],
+            'MEI platform' => ['digital_platform', null, 2, null],
         ];
     }
 
-    public function testUnknownCategoryNeverDefaultsToOrdinaryEvenWithLc116Code(): void
-    {
+    /** @dataProvider unverifiableInputs */
+    public function testUnknownFactsNeverBecomeDefaultNonOptantOrCompliant(
+        ?string $category,
+        ?string $service,
+        ?string $event,
+        ?int $simples,
+        string $expectedReason,
+        string $expectedField,
+    ): void {
+        $context = self::context(category: $category, lc116: $service, event: $event, simples: $simples);
         $policy = new RtcSupplyAssessmentPolicy();
-
-        foreach ([null, '', 'not_registered_operation'] as $category) {
-            $schedule = $policy->schedule(self::context(category: $category));
-            self::assertNull($schedule['required']);
-            self::assertSame('operation_category_unverifiable', $schedule['reason']);
-        }
-    }
-
-    public function testAnOrdinaryCategoryWithoutVerifiedServiceSubitemRemainsUnknown(): void
-    {
-        $schedule = (new RtcSupplyAssessmentPolicy())->schedule(self::context(lc116: null));
+        $schedule = $policy->schedule($context);
+        $assessment = $policy->assess($context);
+        $decision = $assessment->decisions[0];
 
         self::assertNull($schedule['required']);
-        self::assertSame('lc116_subitem_unverifiable', $schedule['reason']);
+        self::assertSame($expectedReason, $schedule['reason']);
+        self::assertSame('unverifiable', $decision->status);
+        self::assertSame('warn', $decision->severity);
+        self::assertSame($expectedField, $decision->fieldPath);
+        self::assertSame($expectedReason, $decision->correctionCode);
+        self::assertNull($decision->expectedCents);
+        self::assertNull($decision->observedCents);
     }
 
-    public function testUnknownSimplesOptionDoesNotCreateAnAssumed2026Duty(): void
+    /** @return array<string,array{?string,?string,?string,?int,string,string}> */
+    public static function unverifiableInputs(): array
     {
-        $schedule = (new RtcSupplyAssessmentPolicy())->schedule(self::context(simples: null));
-
-        self::assertNull($schedule['required']);
-        self::assertSame('simples_option_unverifiable', $schedule['reason']);
+        return [
+            'category missing' => [null, '0107', '2026-10-01', 1, 'operation_category_unverifiable', 'operationCategory'],
+            'category blank' => ['', '0107', '2026-10-01', 1, 'operation_category_unverifiable', 'operationCategory'],
+            'category unknown' => ['not_registered_operation', '0107', '2026-10-01', 1, 'operation_category_unverifiable', 'operationCategory'],
+            'ISS subitem missing' => ['ordinary_lc116', null, '2026-10-01', 1, 'lc116_subitem_unverifiable', 'lc116Subitem'],
+            'ISS subitem invalid' => ['ordinary_lc116', 'bad code', '2026-10-01', 1, 'lc116_subitem_unverifiable', 'lc116Subitem'],
+            'Simples option unknown' => ['ordinary_lc116', '0107', '2026-10-01', null, 'simples_option_unverifiable', 'opcaoSimplesNacional'],
+            'event date unknown' => ['ordinary_lc116', '0107', null, 1, 'taxable_event_date_unverifiable', 'taxableEventDate'],
+            'non ISS event unknown' => ['lease', null, null, 1, 'taxable_event_date_unverifiable', 'taxableEventDate'],
+            'non ISS regime unknown' => ['digital_platform', null, '2026-12-01', null, 'simples_option_unverifiable', 'opcaoSimplesNacional'],
+        ];
     }
 
-    public function testEventDateIsNotReplacedWithCompetenceOrInvoiceIssueDate(): void
-    {
-        $policy = new RtcSupplyAssessmentPolicy();
-        $before = $policy->schedule(self::context(event: '2026-09-30', competence: '2026-10-15'));
-        $after = $policy->schedule(self::context(event: '2026-10-01', competence: '2026-09-01'));
-        $noEvent = $policy->schedule(self::context(event: null, competence: '2027-02-01'));
+    /** @dataProvider conflictingDateCases */
+    public function testTaxableEventDateNeverFallsBackToCompetence(
+        ?string $event,
+        ?string $competence,
+        ?bool $expected,
+    ): void {
+        $schedule = (new RtcSupplyAssessmentPolicy())->schedule(
+            self::context(event: $event, competence: $competence),
+        );
 
-        self::assertFalse($before['required']);
-        self::assertTrue($after['required']);
-        self::assertNull($noEvent['required']);
-        self::assertSame('taxable_event_date_unverifiable', $noEvent['reason']);
+        self::assertSame($expected, $schedule['required']);
+    }
+
+    /** @return array<string,array{?string,?string,?bool}> */
+    public static function conflictingDateCases(): array
+    {
+        return [
+            'event before start and competence after' => ['2026-09-30', '2026-10-15', false],
+            'event on start and competence before' => ['2026-10-01', '2026-09-01', true],
+            'event missing and competence in 2027' => [null, '2027-02-01', null],
+            'event after start and competence missing' => ['2026-10-02', null, true],
+            'previous historical event and current competence' => ['2025-10-01', '2026-10-01', false],
+        ];
     }
 
     public function testCompanyGroupTakerAndMunicipalityDoNotTurnIntoGlobalCategory(): void
@@ -164,7 +200,7 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
 
         self::assertSame('normative', $norm->category);
         self::assertSame('unverifiable', $norm->status);
-        self::assertSame('block', $norm->severity);
+        self::assertSame('warn', $norm->severity);
         self::assertSame(RtcSupplyAssessmentPolicy::SOURCE_URL, $norm->sourceUrl);
         self::assertSame('verify_required_ibscbs_document_fields', $norm->correctionCode);
         self::assertSame('protocol', $protocol->category);
@@ -174,19 +210,57 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
         self::assertNull($norm->observedCents);
     }
 
-    public function testPermissiveFakeSefinDoesNotRetroactivelyProveLegalCompliance(): void
+    /** @dataProvider simulatedSefinOutcomes */
+    public function testFakeSefinResponseCannotRewriteLegalCalendar(bool $authorized): void
     {
-        // A fake transport authorization is intentionally not an input
-        // to this pure fiscal rule. No fiscal network access is possible.
-        $fakeSefin = static fn (): array => ['authorized' => true];
-        self::assertTrue($fakeSefin()['authorized']);
+        // The pure assessment has no external transport input. Even a fake
+        // successful response is insufficient evidence of complete IBS/CBS.
+        $fakeSefin = static fn (): array => ['authorized' => $authorized];
+        self::assertSame($authorized, $fakeSefin()['authorized']);
 
         $assessment = (new RtcSupplyAssessmentPolicy())->assess(
             self::context(category: 'ordinary_lc116', event: '2026-10-01'),
         );
-
         self::assertSame('unverifiable', $assessment->decisions[0]->status);
-        self::assertSame('block', $assessment->decisions[0]->severity);
+        self::assertSame('warn', $assessment->decisions[0]->severity);
+        self::assertSame('verify_required_ibscbs_document_fields', $assessment->decisions[0]->correctionCode);
+    }
+
+    /** @return array<string,array{bool}> */
+    public static function simulatedSefinOutcomes(): array
+    {
+        return ['fake accepts' => [true], 'fake rejects' => [false]];
+    }
+
+    /** @dataProvider nonLc116Modalities */
+    public function testUnsupportedProtocolIsSeparateFromDocumentCalendar(
+        string $category,
+        string $expectedProvision,
+    ): void {
+        $policy = new RtcSupplyAssessmentPolicy();
+
+        foreach (['2026-11-30', '2026-12-01'] as $date) {
+            $context = self::context(category: $category, lc116: null, event: $date);
+            $assessment = $policy->assess($context);
+            self::assertCount(2, $assessment->decisions);
+            self::assertSame($expectedProvision, $assessment->decisions[0]->sourceProvision);
+            self::assertSame($date === '2026-11-30' ? 'not_applicable' : 'unverifiable', $assessment->decisions[0]->status);
+            self::assertSame('protocol', $assessment->decisions[1]->category);
+            self::assertSame('unsupported', $assessment->decisions[1]->status);
+            self::assertSame('block', $assessment->decisions[1]->severity);
+        }
+    }
+
+    /** @return array<string,array{string,string}> */
+    public static function nonLc116Modalities(): array
+    {
+        return [
+            'digital platforms' => ['digital_platform', 'art. 1, III, a'],
+            'non ISS intangibles' => ['non_iss_intangible', 'art. 1, III, e'],
+            'condominium revenue' => ['condominium_revenue', 'art. 1, III, f'],
+            'leasing' => ['lease', 'art. 1, III, g'],
+            'residual' => ['residual_service', 'art. 1, III, h'],
+        ];
     }
 
     public function testBeforeStartIsExplicitlyNotApplicableNotAnImplicitPass(): void
