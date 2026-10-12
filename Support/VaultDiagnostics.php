@@ -38,6 +38,33 @@ final class VaultDiagnostics
      */
     public function check(array $config): array
     {
+        return $this->checkAtPath($config, 'pfx/__nfse_capability_probe__', false);
+    }
+
+    /**
+     * A generic capability probe cannot prove permissions on a real tenant
+     * certificate. Require read, create, update and delete on this exact key.
+     *
+     * @param array{addr:string,mount:string,token:?string,roleId:?string,secretId:?string} $config
+     * @return array{state:string,reason:string,capabilities:array<string,bool>}
+     */
+    public function checkCertificatePath(array $config, string $certificatePath): array
+    {
+        if (preg_match('#^pfx/companies/[1-9][0-9]*/[a-f0-9]{32}$#D', $certificatePath) !== 1) {
+            return VaultDiagnosticPolicy::result(
+                'failed', 'invalid_certificate_path', VaultDiagnosticPolicy::emptyCapabilities(),
+            );
+        }
+
+        return $this->checkAtPath($config, $certificatePath, true);
+    }
+
+    /**
+     * @param array{addr:string,mount:string,token:?string,roleId:?string,secretId:?string} $config
+     * @return array{state:string,reason:string,capabilities:array<string,bool>}
+     */
+    private function checkAtPath(array $config, string $relativePath, bool $requireDelete): array
+    {
         $caps = VaultDiagnosticPolicy::emptyCapabilities();
 
         $configurationError = VaultDiagnosticPolicy::configurationError($config);
@@ -77,7 +104,7 @@ final class VaultDiagnostics
             }
             $caps['kv_v2'] = true;
 
-            $path = $mount . '/data/pfx/__nfse_capability_probe__';
+            $path = $mount . '/data/' . $relativePath;
             $response = $this->transport->request(
                 'POST',
                 $base . '/v1/sys/capabilities-self',
@@ -96,7 +123,8 @@ final class VaultDiagnostics
             $caps['certificate_read'] = $rights['read'];
             $caps['certificate_write'] = $rights['write'];
 
-            if (!$caps['certificate_read'] || !$caps['certificate_write']) {
+            if (!$caps['certificate_read'] || !$caps['certificate_write']
+                || ($requireDelete && !VaultDiagnosticPolicy::allowsDelete($response['body'], $path))) {
                 return VaultDiagnosticPolicy::result('failed', 'insufficient_capabilities', $caps);
             }
 

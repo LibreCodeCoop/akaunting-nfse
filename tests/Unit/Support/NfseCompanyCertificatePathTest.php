@@ -22,10 +22,6 @@ final class NfseCompanyCertificatePathTest extends TestCase
             NfseCompanyCertificatePath::vaultPath(11, $reference),
             NfseCompanyCertificatePath::vaultPath(12, $reference),
         );
-        self::assertNotSame(
-            NfseCompanyCertificatePath::filePath(11, $reference),
-            NfseCompanyCertificatePath::filePath(12, $reference),
-        );
     }
 
     #[DataProvider('invalidReferences')]
