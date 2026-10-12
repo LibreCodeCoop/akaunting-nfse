@@ -60,6 +60,8 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
 
     public function testNativeMailerEnvelopesHavePrivateBccRecipientsWithoutPublicBccHeaders(): void
     {
+        $this->loginAs();
+
         config([
             'mail.default' => 'null',
             'mail.mailers.null' => ['transport' => 'null'],
