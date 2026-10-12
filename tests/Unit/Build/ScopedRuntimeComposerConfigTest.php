@@ -49,7 +49,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertMatchesRegularExpression('/^dev-[a-z0-9\/._-]+#[0-9a-f]{40}$/D', $runtimeVersion);
         self::assertSame(
-            'dev-fix/425-approximate-totals-no-invented-zero#7b65fb27d380bea20c4a7b3b1eb3ee517fd57627',
+            'dev-fix/425-approximate-totals-no-invented-zero#6ab5d34f6d3e03078f32de681cda57971eaac9ba',
             $runtimeVersion,
         );
     }
