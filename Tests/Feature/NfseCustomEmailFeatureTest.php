@@ -199,6 +199,11 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
         $this->withExceptionHandling();
         $this->loginAs();
 
+        // Record fixture/authentication events before the rejected request;
+        // the 404 must emit no additional document lifecycle events.
+        $sendingBefore = Event::dispatched(DocumentSending::class)->count();
+        $sentBefore = Event::dispatched(DocumentSent::class)->count();
+
         // Keep fixture and authentication notifications intercepted, but
         // observe only notifications emitted by this rejected HTTP request.
         Notification::fake();
@@ -209,8 +214,8 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
             ])
             ->assertNotFound();
 
-        Event::assertNotDispatched(DocumentSending::class);
-        Event::assertNotDispatched(DocumentSent::class);
+        self::assertCount($sendingBefore, Event::dispatched(DocumentSending::class));
+        self::assertCount($sentBefore, Event::dispatched(DocumentSent::class));
         Notification::assertNothingSent();
     }
 
