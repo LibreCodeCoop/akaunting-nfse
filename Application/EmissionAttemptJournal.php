@@ -197,7 +197,7 @@ final class EmissionAttemptJournal
                         || (string) ($source['national_service_code'] ?? '') !== (string) $dps->codigoTributacaoNacional
                         || (string) ($source['competence'] ?? '') !== (string) ($dps->dataCompetencia ?? '')
                         || (int) ($source['simples_option'] ?? 0) !== (int) $dps->opcaoSimplesNacional)) {
-                    throw new \\LogicException('Approximate tax source belongs to a different fiscal context.');
+                    throw new \LogicException('Approximate tax source belongs to a different fiscal context.');
                 }
             }
             if (function_exists('company_id') && (int) company_id() > 0 && (int) company_id() !== $companyId) {
