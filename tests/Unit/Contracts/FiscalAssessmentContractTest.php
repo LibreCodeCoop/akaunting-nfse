@@ -333,6 +333,70 @@ final class FiscalAssessmentContractTest extends TestCase
         self::assertSame('review_municipal_incidence', $assessment->decisions[0]->correctionCode);
     }
 
+    public function testUnavailableMunicipalEvidenceDoesNotFabricateNormativeProvenance(): void
+    {
+        $decision = new FiscalDecision(
+            'MUNICIPAL-QUERY-UNAVAILABLE',
+            'normative',
+            'unverifiable',
+            'warn',
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            'specialTaxRegime',
+            'retry_municipal_evidence',
+        );
+
+        self::assertSame('unverifiable', $decision->status);
+        self::assertNull($decision->sourceUrl);
+        self::assertNull($decision->sourcePublishedAt);
+        self::assertNull($decision->effectiveFrom);
+        self::assertSame('retry_municipal_evidence', $decision->correctionCode);
+    }
+
+    public function testConclusiveFiscalRejectionRequiresVerifiableLegalSource(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new FiscalDecision(
+            'MUNICIPAL-INVALID',
+            'normative',
+            'fail',
+            'block',
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            'specialTaxRegime',
+            'correct_special_tax_regime',
+        );
+    }
+
+    public function testEffectiveEndWithoutKnownStartDoesNotImplyApplicability(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new FiscalDecision(
+            'RTC-PROTOCOL-UNKNOWN',
+            'protocol',
+            'unverifiable',
+            'warn',
+            null,
+            null,
+            null,
+            null,
+            null,
+            new DateTimeImmutable('2026-10-01'),
+            null,
+            'check_active_schema',
+        );
+    }
+
     public function testPassingRuleCannotBlockEmission(): void
     {
         $this->expectException(InvalidArgumentException::class);

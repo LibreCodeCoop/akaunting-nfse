@@ -36,10 +36,16 @@ be verified. The tax-fact list likewise distinguishes `null` (not
 loaded/unknown) from an observed empty list, and a monetary zero from an
 unavailable monetary amount.
 
-A decision names its stable rule ID, category, outcome, severity, primary
-source URL/provision/version, source publication date, applicability interval,
-optional affected field, corrective-action code and observed/expected values
-in integer cents. Jurisdiction and taxpayer facts must be supplied explicitly;
+A decision names its stable rule ID, category, outcome and severity.
+For conclusive `pass`, `fail` and `not_applicable` results, it requires
+the primary source URL, provision, version, publication date and effective
+start. For `unverifiable` or `unsupported`, source and temporal evidence
+may be null when genuinely unavailable; missing municipal consultation data
+must not be replaced with fictitious legal provenance. Known evidence may
+still be recorded, along with the affected field, correction code and
+observed/expected integer-cent values. A source-free `unverifiable`
+diagnostic is not legal authorization. Jurisdiction and taxpayer facts
+must be supplied explicitly;
 an unknown fact is not a default tax rate or exemption. The provider's
 cooperative legal form is independent of its tax regime. Gross invoiced
 amount is distinct from optional actually paid amount and payment date:
