@@ -8,6 +8,9 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Unit\Fiscal;
 
 use Modules\Nfse\Application\FederalSocialRetentionCalculator;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -130,6 +133,77 @@ final class IndependentFinancialOracleTest extends TestCase
         // This checks the calculator's aggregate output, NOT how an XML field
         // is serialized by InvoiceFederalPayloadResolver (other front owner).
         self::assertSame('', $calculator->calculate('0', $withholdings)['total']);
+    }
+
+    /**
+     * @return iterable<string,array{string,string,array<int,array<string,mixed>>}>
+     */
+    public static function retainedSocialContributions(): iterable
+    {
+        $pis = ['tax_type' => 'withholding', 'name' => 'PIS', 'amount' => 65.00];
+        $cofins = ['tax_type' => 'withholding', 'name' => 'COFINS', 'amount' => 300.00];
+        $csll = ['tax_type' => 'withholding', 'name' => 'CSLL', 'amount' => 100.00];
+        $ownTaxes = [
+            ['tax_type' => 'normal', 'name' => 'PIS', 'amount' => 165.00],
+            ['tax_type' => 'normal', 'name' => 'COFINS', 'amount' => 760.00],
+        ];
+
+        yield 'NT007 PIS, COFINS and CSLL retained' => [
+            'RET-01', '3', array_merge([$pis, $cofins, $csll], $ownTaxes),
+        ];
+        yield 'NT007 PIS and COFINS retained without CSLL' => [
+            'RET-02', '4', array_merge([$pis, $cofins], $ownTaxes),
+        ];
+    }
+
+    /**
+     * The consumer must preserve independently determined NT007 amounts in
+     * the installed, PHP-Scoper-prefixed nfse-php serialization contract.
+     * Retained contributions must not populate the provider's own vPis/vCofins.
+     *
+     * @param array<int,array<string,mixed>> $rows
+     */
+    #[DataProvider('retainedSocialContributions')]
+    public function testNt007OracleMatchesInstalledScopedXml(
+        string $caseId,
+        string $type,
+        array $rows,
+    ): void {
+        $cases = array_column(self::fixture('nfse_427_oraculos_sinteticos_2026-10-12.json')['cases'], 'expected', 'id');
+        $expected = $cases[$caseId];
+        $result = (new FederalSocialRetentionCalculator())->calculate($type, $rows);
+
+        self::assertSame($expected['pis_retido'], $result['pis']);
+        self::assertSame($expected['cofins_retido'], $result['cofins']);
+        self::assertSame($expected['vRetCSLL'], $result['total']);
+        self::assertSame(
+            $expected['csll_retida'] === '0.00' ? '' : $expected['csll_retida'],
+            $result['csll'],
+        );
+
+        $dps = new DpsData(
+            cnpjPrestador: '11222333000181',
+            municipioIbge: '3303302',
+            itemListaServico: '0107',
+            codigoTributacaoNacional: '010701',
+            valorServico: '10000.00',
+            aliquota: '2.00',
+            discriminacao: 'Synthetic NT007 fiscal contract',
+            tipoAmbiente: 2,
+            federalPiscofinsSituacaoTributaria: '1',
+            federalPiscofinsTipoRetencao: $type,
+            federalPiscofinsBaseCalculo: '10000.00',
+            federalValorCsll: $result['total'],
+        );
+
+        $xml = (new XmlBuilder())->buildDps($dps);
+        $document = new \DOMDocument();
+        self::assertTrue($document->loadXML($xml, LIBXML_NONET));
+        $xpath = new \DOMXPath($document);
+
+        self::assertSame((string) $expected['tpRetPisCofins'], $xpath->evaluate('string(//*[local-name()="tpRetPisCofins"])'));
+        self::assertSame($expected['vRetCSLL'], $xpath->evaluate('string(//*[local-name()="vRetCSLL"])'));
+        self::assertSame(0.0, $xpath->evaluate('count(//*[local-name()="vPis" or local-name()="vCofins"])'));
     }
 
     public function testMissingLegalInputsNeverBecomeFictitiousTaxAmounts(): void

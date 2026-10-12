@@ -2,7 +2,7 @@
   "prepared_on": "2026-10-12",
   "scope": "synthetic independent financial oracle for #427; conditions are assumptions requiring legal verification",
   "input_currency": "BRL",
-  "oracle_engine": "Python Decimal exact, ROUND_HALF_EVEN; not the Akaunting or nfse-php production code",
+  "oracle_engine": "PHPUnit independent integer-decimal arithmetic with HALF_EVEN ties; not production code",
   "cases": [
     {
       "id": "RET-01",
