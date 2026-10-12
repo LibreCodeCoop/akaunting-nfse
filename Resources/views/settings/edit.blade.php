@@ -122,6 +122,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <div id="tab-panel-vault" role="tabpanel" aria-labelledby="tab-btn-vault" aria-hidden="{{ $activeTab === 'vault' ? 'false' : 'true' }}" class="tab-panel @if($activeTab !== 'vault') hidden @endif">
                 <form method="POST" action="{{ route('nfse.settings.vault') }}" class="space-y-4">
                     <p class="text-xs text-gray-600">Vault settings are shared by every company. Saving does not verify connectivity; use the diagnostics action.</p>
+                    @if($vaultUiState['configuration_error'] ?? false)
+                        <p id="vault-configuration-unreadable" role="alert" class="text-sm text-red-700">
+                            Global Vault credentials cannot be read. Reconfigure the infrastructure with new credentials; existing fiscal records remain unchanged.
+                        </p>
+                    @endif
                     @csrf
                     @method('PATCH')
 

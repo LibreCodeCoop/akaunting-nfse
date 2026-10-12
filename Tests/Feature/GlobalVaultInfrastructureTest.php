@@ -16,6 +16,69 @@ use Tests\Feature\FeatureTestCase;
 
 final class GlobalVaultInfrastructureTest extends FeatureTestCase
 {
+    public function testCorruptedGlobalRecordDoesNotHideFiscalSettingsAndCanBeReplaced(): void
+    {
+        $this->loginAs();
+        setting()->set(['nfse.cnpj_prestador' => '11222333000181']);
+        setting()->save();
+
+        DB::table('nfse_vault_infrastructure')->updateOrInsert(['id' => 1], [
+            'encrypted_payload' => 'synthetic-invalid-ciphertext',
+            'updated_at' => now(),
+        ]);
+
+        $this->get(route('nfse.settings.edit'))
+            ->assertOk()
+            ->assertSee('vault-configuration-unreadable', false)
+            ->assertSee('11222333000181')
+            ->assertViewHas('settings', static function ($settings): bool {
+                return !array_key_exists('bao_token', $settings)
+                    && !array_key_exists('bao_role_id', $settings)
+                    && !array_key_exists('bao_secret_id', $settings);
+            });
+
+        $this->post(route('nfse.settings.vault.diagnostics'))
+            ->assertOk()
+            ->assertJsonPath('state', 'failed')
+            ->assertJsonPath('reason', 'configuration_unreadable')
+            ->assertDontSee('synthetic-invalid-ciphertext');
+
+        $this->patch(route('nfse.settings.vault'), [
+            'auth_mode_ui' => 'token',
+            'nfse' => [
+                'bao_addr' => 'https://vault.example.test',
+                'bao_mount' => '/nfse',
+                'bao_token' => 'synthetic-replacement-token',
+            ],
+        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'vault']))
+            ->assertSessionHas('success');
+
+        self::assertSame('synthetic-replacement-token', VaultConfig::secretStoreConfig()['token']);
+        self::assertSame('11222333000181', (string) setting('nfse.cnpj_prestador'));
+    }
+
+    public function testSettingsViewNeverReceivesPlaintextGlobalCredentials(): void
+    {
+        $this->loginAs();
+        (new GlobalVaultSettings())->save([
+            'addr' => 'https://vault.example.test',
+            'mount' => '/nfse',
+            'auth_mode' => 'approle',
+            'roleId' => 'synthetic-private-role',
+            'secretId' => 'synthetic-private-secret',
+        ]);
+
+        $this->get(route('nfse.settings.edit'))
+            ->assertOk()
+            ->assertDontSee('synthetic-private-role')
+            ->assertDontSee('synthetic-private-secret')
+            ->assertViewHas('settings', static function ($settings): bool {
+                return !array_key_exists('bao_token', $settings)
+                    && !array_key_exists('bao_role_id', $settings)
+                    && !array_key_exists('bao_secret_id', $settings);
+            });
+    }
+
     public function testGlobalConfigurationIsIndependentOfActiveCompanySettings(): void
     {
         $this->loginAs();

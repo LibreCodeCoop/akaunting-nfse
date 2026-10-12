@@ -33,20 +33,20 @@ final class GlobalVaultSettings
         }
 
         if (!is_string($ciphertext)) {
-            throw new \RuntimeException('Invalid global Vault configuration.');
+            throw new VaultConfigurationUnreadable('Invalid global Vault configuration.');
         }
 
         try {
             $decoded = json_decode(Crypt::decryptString($ciphertext), true, 512, JSON_THROW_ON_ERROR);
         } catch (\Throwable) {
-            throw new \RuntimeException('Cannot decrypt global Vault configuration.');
+            throw new VaultConfigurationUnreadable('Cannot decrypt global Vault configuration.');
         }
 
         if (!is_array($decoded)
             || !isset($decoded['addr'], $decoded['mount'], $decoded['auth_mode'])
             || !in_array($decoded['auth_mode'], ['token', 'approle'], true)
         ) {
-            throw new \RuntimeException('Invalid global Vault configuration.');
+            throw new VaultConfigurationUnreadable('Invalid global Vault configuration.');
         }
 
         return [
@@ -94,7 +94,13 @@ final class GlobalVaultSettings
             throw new \InvalidArgumentException('Invalid Vault authentication mode.');
         }
 
-        $previous = $this->stored();
+        // A damaged encrypted record must be replaceable with complete fresh
+        // credentials. Never recover by mixing environment or legacy secrets.
+        try {
+            $previous = $this->stored();
+        } catch (VaultConfigurationUnreadable) {
+            $previous = null;
+        }
         $sameMode = ($previous['auth_mode'] ?? null) === $mode;
         $value = static function (string $key) use ($input, $previous, $sameMode): ?string {
             if (array_key_exists($key, $input)) {

@@ -26,6 +26,7 @@ use Modules\Nfse\Support\MunicipalParameterSnapshotStore;
 use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
+use Modules\Nfse\Support\VaultConfigurationUnreadable;
 use Modules\Nfse\Support\VaultDiagnostics;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\MunicipalParametersConfig;
@@ -55,14 +56,26 @@ class SettingsController extends Controller
 
         $settings = setting('nfse', []);
         $settingsArray = is_array($settings) ? $settings : [];
-        $global = VaultConfig::secretStoreConfig();
+        // Keep existing fiscal settings accessible if encrypted infrastructure
+        // becomes unreadable. Never fall back to another Vault or credentials.
+        $vaultConfigurationUnreadable = false;
+        try {
+            $global = VaultConfig::secretStoreConfig();
+        } catch (VaultConfigurationUnreadable) {
+            $global = [
+                'addr' => '', 'mount' => '', 'token' => null,
+                'roleId' => null, 'secretId' => null,
+            ];
+            $vaultConfigurationUnreadable = true;
+        }
         $settingsArray = array_merge($settingsArray, [
             'bao_addr' => $global['addr'], 'bao_mount' => $global['mount'],
             'bao_token' => $global['token'] ?? '', 'bao_role_id' => $global['roleId'] ?? '',
             'bao_secret_id' => $global['secretId'] ?? '',
         ]);
         $certificateState = $this->certificateState();
-        $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
+        $vaultUiState = $this->vaultUiState($settingsArray, $certificateState, $global);
+        $vaultUiState['configuration_error'] = $vaultConfigurationUnreadable;
         $readiness = (new OperationalReadinessResolver())->evaluate(
             settings: $settingsArray,
             hasCertificateSecret: $this->hasCertificateSecret(
@@ -76,8 +89,13 @@ class SettingsController extends Controller
             ? $rawTab
             : 'vault';
 
+        // The template only needs safe address/mount metadata. Keep raw
+        // credentials out of view data, including during exception rendering.
+        $displaySettings = $settingsArray;
+        unset($displaySettings['bao_token'], $displaySettings['bao_role_id'], $displaySettings['bao_secret_id']);
+
         return view('nfse::settings.edit', [
-            'settings' => $settingsArray,
+            'settings' => $displaySettings,
             'certificateState' => $certificateState,
             'vaultUiState' => $vaultUiState,
             'readiness' => $readiness,
@@ -141,7 +159,15 @@ class SettingsController extends Controller
 
     public function diagnoseVault(VaultDiagnostics $diagnostics): JsonResponse
     {
-        return response()->json($diagnostics->check(VaultConfig::secretStoreConfig()));
+        try {
+            return response()->json($diagnostics->check(VaultConfig::secretStoreConfig()));
+        } catch (VaultConfigurationUnreadable) {
+            return response()->json([
+                'state' => 'failed',
+                'reason' => 'configuration_unreadable',
+                'capabilities' => \Modules\Nfse\Support\VaultDiagnosticPolicy::emptyCapabilities(),
+            ]);
+        }
     }
 
     public function updateFiscal(Request $request): RedirectResponse
@@ -1001,9 +1027,12 @@ class SettingsController extends Controller
      * @param array<string, mixed> $certificateState
      * @return array<string, bool|string>
      */
-    protected function vaultUiState(array $settings, array $certificateState): array
-    {
-        $globalVault = VaultConfig::secretStoreConfig();
+    protected function vaultUiState(
+        array $settings,
+        array $certificateState,
+        ?array $resolvedGlobalVault = null,
+    ): array {
+        $globalVault = $resolvedGlobalVault ?? VaultConfig::secretStoreConfig();
         $settings = array_merge($settings, [
             'bao_addr' => $globalVault['addr'], 'bao_mount' => $globalVault['mount'],
             'bao_token' => $globalVault['token'] ?? '', 'bao_role_id' => $globalVault['roleId'] ?? '',
