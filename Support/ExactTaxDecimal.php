@@ -55,20 +55,28 @@ final class ExactTaxDecimal
             throw new \DomainException('Negative fiscal base requires a separate legal rule.');
         }
 
-        $rate = self::rate($percent);
-        $parts = explode('.', (string) $rate, 2);
+        $scaledPercent = self::scaledPercent($percent);
+        if ($scaledPercent !== 0 && $baseCents > intdiv(PHP_INT_MAX, $scaledPercent)) {
+            throw new \OverflowException('Rate calculation exceeds exact integer precision.');
+        }
+
+        return self::roundHalfEven($baseCents * $scaledPercent);
+    }
+
+    private static function scaledPercent(string $percent): int
+    {
+        $parts = explode('.', (string) self::rate($percent), 2);
         $whole = (int) $parts[0];
         $fraction = (int) str_pad($parts[1] ?? '', 6, '0');
         if ($whole > intdiv(PHP_INT_MAX - $fraction, 1000000)) {
             throw new \OverflowException('Percentage exceeds exact integer precision.');
         }
 
-        $scaledPercent = ($whole * 1000000) + $fraction;
-        if ($scaledPercent !== 0 && $baseCents > intdiv(PHP_INT_MAX, $scaledPercent)) {
-            throw new \OverflowException('Rate calculation exceeds exact integer precision.');
-        }
+        return ($whole * 1000000) + $fraction;
+    }
 
-        $product = $baseCents * $scaledPercent;
+    private static function roundHalfEven(int $product): int
+    {
         $divisor = 100000000;
         $cents = intdiv($product, $divisor);
         $remainder = $product % $divisor;
