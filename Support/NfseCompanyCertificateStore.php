@@ -53,7 +53,9 @@ final class NfseCompanyCertificateStore
         }
 
         try {
-            chmod($filePath, 0o600);
+            if (!chmod($filePath, 0o600)) {
+                throw new \RuntimeException('Cannot restrict certificate file permissions.');
+            }
             $length = strlen($content);
             $written = 0;
 

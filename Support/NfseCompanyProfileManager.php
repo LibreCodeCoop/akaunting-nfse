@@ -289,7 +289,7 @@ final class NfseCompanyProfileManager
     private function lockCompany(int $companyId): void
     {
         $exists = DB::table('companies')->where('id', $companyId)
-            ->where('enabled', 1)->whereNull('deleted_at')->lockForUpdate()->exists();
+            ->where('enabled', 1)->whereNull('deleted_at')->lockForUpdate()->first(['id']) !== null;
 
         if (!$exists) {
             throw new \DomainException('Akaunting company is unavailable.');

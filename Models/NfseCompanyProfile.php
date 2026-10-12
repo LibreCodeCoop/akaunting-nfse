@@ -75,6 +75,9 @@ final class NfseCompanyProfile extends Model
         return [
             'company_id' => (int) $this->company_id,
             'status' => (string) $this->status,
+            'cleanup_pending' => $this->staged_certificate_ref !== null
+                || \Illuminate\Support\Facades\DB::table('nfse_company_certificate_retirements')
+                    ->where('company_id', (int) $this->company_id)->exists(),
             'certificate_cnpj' => $this->certificate_cnpj,
             'certificate_fingerprint_sha256' => $this->certificate_fingerprint_sha256,
             'certificate_valid_from' => $this->certificate_valid_from,
