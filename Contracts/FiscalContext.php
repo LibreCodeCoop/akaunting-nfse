@@ -33,9 +33,16 @@ final readonly class FiscalContext
         public ?bool $takerIsSimples,
         public int $grossServiceCents,
         public array $taxFacts = [],
+        public ?bool $providerIsCooperative = null,
+        public ?int $paymentAmountCents = null,
+        public ?\DateTimeImmutable $paymentDate = null,
     ) {
         if ($this->companyId <= 0 || trim($this->fiscalGroupKey) === '') {
             throw new \InvalidArgumentException('Company and fiscal-group identity are required.');
+        }
+
+        if ($this->paymentAmountCents !== null && $this->paymentAmountCents < 0) {
+            throw new \InvalidArgumentException('Payment amount cannot be negative.');
         }
 
         foreach ($this->taxFacts as $fact) {

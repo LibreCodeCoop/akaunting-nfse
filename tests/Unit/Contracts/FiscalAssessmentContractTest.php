@@ -25,13 +25,47 @@ final class FiscalAssessmentContractTest extends TestCase
         ]);
 
         self::assertSame(31, $context->companyId);
-        self::assertSame(10000, $context->grossServiceCents);
+        self::assertSame(1000000, $context->grossServiceCents);
         self::assertSame('2026-09-30', $context->taxableEventDate->format('Y-m-d'));
         self::assertSame('2026-10-01', $context->competenceDate->format('Y-m-d'));
         self::assertCount(2, $context->taxFacts);
         self::assertSame(13000, $context->taxFacts[0]->amountCents + $context->taxFacts[1]->amountCents);
         self::assertSame(7, $context->taxFacts[0]->documentItemTaxRowId);
         self::assertSame(8, $context->taxFacts[1]->documentItemTaxRowId);
+    }
+
+    public function testLegalFormAndPaymentFactsRemainDistinctFromTaxRegimeAndServiceAmount(): void
+    {
+        $facts = [new FiscalTaxFact(1001, 9, 7, 'withholding', 930, 'PIS_COFINS_CSLL', 'withheld')];
+        $context = new FiscalContext(
+            31,
+            'synthetic-group-1',
+            new DateTimeImmutable('2026-10-01'),
+            new DateTimeImmutable('2026-10-01'),
+            'lucro_presumido',
+            'ordinary_lc116',
+            '01.01',
+            '010101',
+            null,
+            '3304557',
+            'legal_entity',
+            '3304557',
+            'BR',
+            false,
+            1000000,
+            $facts,
+            true,
+            20000,
+            new DateTimeImmutable('2026-10-15'),
+        );
+
+        self::assertTrue($context->providerIsCooperative);
+        self::assertSame(20000, $context->paymentAmountCents);
+        self::assertSame(1000000, $context->grossServiceCents);
+        self::assertSame('2026-10-15', $context->paymentDate?->format('Y-m-d'));
+
+        // R$200 actually paid cannot be silently replaced with R$10,000 invoiced.
+        // Rule applicability (including the payment-value exemption) belongs to #428/#432.
     }
 
     public function testUnknownTaxIdentityIsNotGuessedFromAccountingType(): void
@@ -106,7 +140,7 @@ final class FiscalAssessmentContractTest extends TestCase
             '3304557',
             'BR',
             false,
-            10000,
+            1000000,
             $facts,
         );
     }
