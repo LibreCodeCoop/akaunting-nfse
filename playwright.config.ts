@@ -17,8 +17,8 @@ export default defineConfig({
       // One worker preserves sequential access to the shared synthetic SQLite database.
       workers: 1,
       retries: 0,
-      // Avoid headless-shell SIGTRAP by using Playwright's supported full Chromium headless mode.
-      use: { channel: 'chromium' },
+      // Smoke uses the runner's stable Chrome channel to test outside both bundled CFTesting binaries.
+      use: { channel: 'chrome' },
       testMatch: ['smoke.spec.ts', 'deterministic-harness.spec.ts'],
     },
     {

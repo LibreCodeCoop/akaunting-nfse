@@ -47,11 +47,12 @@ after the database and asset checks, and `stop-server` runs after the start
 step even if the browser test fails.
 Smoke uses one worker and Playwright's normal fresh browser context/page per
 test. The browser process may be shared by tests within that worker; this is
-**not** process-per-test isolation. The Smoke project selects the regular
-Chromium build via `channel: 'chromium'`, using its full headless mode instead
-of the separate headless-shell binary. This avoids relying on the shell
-process that has terminated with `SIGTRAP` in CI; it does not prove the cause
-of that signal. Browser retries are disabled, so a crash fails the run
+**not** process-per-test isolation. The Smoke project selects the installed stable Google Chrome via
+`channel: 'chrome'` rather than either bundled Chrome for Testing binary.
+The hosted runner must provide Chrome; Playwright fails closed if it is absent.
+This probes whether the bundled-browser build is implicated in the observed
+`SIGTRAP` crashes, without asserting a root cause or changing the full-ui tier.
+The runner's browser launch path is included in `pw:browser` diagnostics. Browser retries are disabled, so a crash fails the run
 instead of being reported as an apparently successful flaky test.
 The runner records `pw:browser` stderr and aggregate process RSS (command
 names only, no arguments or environment values); RSS is a diagnostic sample,
