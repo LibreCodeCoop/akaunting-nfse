@@ -156,6 +156,27 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
         Event::assertDispatched(DocumentSent::class, static fn (DocumentSent $event): bool => $event->document->is($invoice));
     }
 
+    public function testInvalidCopyIsRejectedBeforeAnyDocumentSendingEvent(): void
+    {
+        Notification::fake();
+        Event::fake([DocumentSending::class, DocumentSent::class]);
+
+        $invoice = Document::factory()->invoice()->create();
+
+        $this->loginAs()
+            ->post(route('nfse.modals.invoices.emails.store', $invoice), [
+                'document_id' => $invoice->id,
+                'to' => ['primary@example.test'],
+                'cc' => 'copy@example.test',
+                'bcc' => "hidden@example.test\r\nBcc: stolen@example.test",
+            ])
+            ->assertStatus(422);
+
+        Event::assertNotDispatched(DocumentSending::class);
+        Event::assertNotDispatched(DocumentSent::class);
+        Notification::assertNothingSent();
+    }
+
     public function testCustomEmailJobDoesNothingWithoutPersistedReceipt(): void
     {
         Notification::fake();
