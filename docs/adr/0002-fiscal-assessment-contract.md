@@ -123,6 +123,94 @@ environment-specific active schema and deployment. A newly published NT/XSD
 does not automatically become the active production emitter. A successful
 gateway response does not retroactively make an incomplete obligation legal.
 
+## Municipal special-regime evidence contract
+
+`regEspTrib` is an ISS/DPS field, not the elective cooperative IBS/CBS
+regime. Its national enumeration and cross-field constraints are assessed
+separately from municipal authorization. The applicable Anexo I must be
+identified by source URL, published file revision and target SEFIN
+environment; historical meanings of an E-code are not reused solely because
+the error code stayed the same.
+
+E0176, E0177 and E0178 may depend on municipal parametrization, provider
+qualification, specific service and the service competence. The versioned
+source of each rule is selected first; the rule is then assessed against
+the corresponding trusted facts. A city selected in a company profile,
+a code accepted by the XSD, or the existence of an ADN record is not proof
+that the **provider is eligible** for that regime for that service and date.
+
+To evaluate a specific municipal special-regime case, the application must
+bind the following, without inventing missing facts:
+
+- Company ownership and independently verified provider fiscal identity
+  (CNPJ/CPF and, where the applicable rule requires it, municipal enrollment
+  or autonomous-professional qualification).
+- Production versus restricted-production environment; municipality of
+  incidence and municipality of issuance **as separate facts**.
+- DPS `regEspTrib`, `opSimpNac`, `regApTribSN`, `tribISSQN`, national
+  six-digit service code, municipal three-digit complement and actual
+  nine-digit service code.
+- The competent fiscal date, official source version and applicability
+  interval, including municipality-specific effective periods and any
+  required provider/service permission.
+- Evidence origin, retrieval time, freshness, scope and verification
+  mechanism. A mutable item catalogue or user-entered assertion is not an
+  authenticated issuer authorization.
+
+The already implemented `MunicipalEmissionPreflight` and
+`MunicipalAdmissibilityEvaluator` preserve company, environment, incidence
+municipality, service and DPS competence when matching advisory cached
+parameters. `OfficialMunicipalIssuanceEvidence` binds a verified issuer
+response to the *same final DPS* using DPS identity and digest. Extending
+the assessment of E0176–E0178 belongs to the municipal-regime policy, not
+to a parallel fiscal engine in this ADR.
+
+The outcomes remain distinct:
+
+| Input / evidence | Fiscal interpretation |
+| --- | --- |
+| Objectively invalid national regime/ISS combination | `fail` / block, with the applicable normative rule |
+| Complete, authenticated municipality-specific permission matching the operation | Eligible *only for the proven condition*; not universal permission |
+| Municipal parameter 404, timeout, stale cache, omitted parameter or partial provider/service evidence | `unverifiable`, with provenance and actionable missing facts; no fabricated pass or fail |
+| Authenticated SEFIN rejection bound to this exact DPS | A technical rejection of that attempt; never a global, retroactive prohibition |
+| Valid XSD or successful emission with no separate statutory assessment | Protocol success only; no implicit tax-law certification |
+
+A query to ADN can be advisory even when the issuer accepts or rejects
+this DPS later. `unverifiable` does not automatically mean a fictional
+SEFIN rejection: whether the current operation may **attempt** submission
+is decided only at the appropriate existing emission boundary and from
+the actual mandatory legal inputs. Conversely, legal obligations cannot
+be disabled because the gateway temporarily does not reject missing fields.
+
+## Selection and change-control boundary
+
+The fiscal rule, its reference date and its statutory status are separate
+from the active transport contract, XSD deployment, issuer response and
+DANFSe rendering date. The application may use the same published rule in
+more than one environment, but it must not assume two identically numbered
+XSD bundles have identical content. An official notice of an upcoming NT
+does not automatically authorize a different production emitter.
+
+```mermaid
+flowchart LR
+    A[Fiscal facts and provenance] --> B[Applicable normative rule by date]
+    B --> C[FiscalAssessment]
+    C --> D[Emission preflight]
+    E[Active XSD and SEFIN contract] --> D
+    D --> F{Can submit?}
+    F -->|Yes| G[One controlled SEFIN attempt]
+    F -->|No| H[Actionable diagnostic]
+    G --> I[Immutable issuer result]
+    I --> J[DANFSe from authorized XML]
+```
+
+The stable interfaces and rule IDs can be revised by signed, reviewed
+code changes. New versions must use independent synthetic counterexamples
+and verify the interaction with obligations for the actual legal period.
+No rule table in this ADR is a substitute for current municipal law,
+the official annex binary or an independent fiscal/legal approval of
+contested tax treatments.
+
 ## Outcomes and ownership
 
 The permitted decision categories are `normative`, `calculation`,
