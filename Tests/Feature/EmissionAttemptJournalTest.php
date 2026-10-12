@@ -74,23 +74,19 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
         self::assertNull($first->receipt_id);
         self::assertSame(0, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
 
-        // A later operator attempt does not inherit a universal E0312 veto.
+        // An identical DPS is objectively known to have been rejected.
+        // Another company/competence/changed DPS remains a separate decision.
         $client->emitError = $this->rejection('E0040', 'Declaracao invalida');
         try {
             $this->issue($invoice, $client);
-            self::fail('Expected rejection.');
-        } catch (IssuanceException) {
+            self::fail('Repeated rejected DPS must be blocked before POST.');
+        } catch (\LogicException $e) {
+            self::assertStringContainsString('E0312', $e->getMessage());
         }
 
-        self::assertSame(2, $client->emits);
-        self::assertSame(
-            ['E0312', 'E0040'],
-            NfseEmissionAttempt::query()->orderBy('attempt_number')->pluck('official_code')->all(),
-        );
-        self::assertSame(
-            [1, 2],
-            NfseEmissionAttempt::query()->orderBy('attempt_number')->pluck('attempt_number')->all(),
-        );
+        self::assertSame(1, $client->emits);
+        self::assertSame(['E0312'], NfseEmissionAttempt::query()->pluck('official_code')->all());
+        self::assertSame([1], NfseEmissionAttempt::query()->pluck('attempt_number')->all());
     }
 
     public function testTimeoutBecomesAmbiguousAndLaterDpsRecoveryNeverRepeatsPost(): void
