@@ -80,6 +80,30 @@ final class VaultDiagnosticPolicy
         ];
     }
 
+    /**
+     * KV v2 delete is a separate capability from create/update. Deny wins,
+     * even if the server includes root in the response.
+     *
+     * @param array<string,mixed> $body
+     */
+    public static function allowsDelete(array $body, string $path): bool
+    {
+        $grants = $body[$path] ?? $body['data'][$path] ?? $body['capabilities'] ?? null;
+
+        if (!is_array($grants) || !array_is_list($grants)) {
+            return false;
+        }
+
+        foreach ($grants as $grant) {
+            if (!is_string($grant)) {
+                return false;
+            }
+        }
+
+        return !in_array('deny', $grants, true)
+            && (in_array('delete', $grants, true) || in_array('root', $grants, true));
+    }
+
     /** @return array<string,bool> */
     public static function emptyCapabilities(): array
     {
