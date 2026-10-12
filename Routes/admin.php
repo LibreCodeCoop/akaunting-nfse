@@ -27,6 +27,8 @@ Route::admin('nfse', function () {
             ->middleware('permission:update-nfse-settings')->name('update');
         Route::patch('/vault', [SettingsController::class, 'updateVault'])
             ->middleware('permission:update-nfse-settings')->name('vault');
+        Route::post('/vault/diagnostics', [SettingsController::class, 'diagnoseVault'])
+            ->middleware('permission:read-nfse-settings')->name('vault.diagnostics');
         Route::patch('/fiscal', [SettingsController::class, 'updateFiscal'])
             ->middleware('permission:update-nfse-settings')->name('fiscal');
         Route::patch('/federal', [SettingsController::class, 'updateFederal'])

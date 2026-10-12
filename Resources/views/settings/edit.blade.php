@@ -148,12 +148,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     <div>
                         <label class="block text-sm font-medium mb-1" for="bao_addr">{{ trans('nfse::general.settings.bao_addr') }}</label>
-                        <input id="bao_addr" name="nfse[bao_addr]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_addr', setting('nfse.bao_addr', '')) }}" required>
+                        <input id="bao_addr" name="nfse[bao_addr]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_addr', $settings['bao_addr'] ?? '') }}" required>
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium mb-1" for="bao_mount">{{ trans('nfse::general.settings.bao_mount') }}</label>
-                        <input id="bao_mount" name="nfse[bao_mount]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_mount', setting('nfse.bao_mount', '/nfse')) }}">
+                        <input id="bao_mount" name="nfse[bao_mount]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_mount', $settings['bao_mount'] ?? '/nfse') }}">
                         <p class="text-xs text-gray-500 mt-1">{{ trans('nfse::general.settings.bao_mount_hint') }}</p>
                     </div>
 
@@ -220,7 +220,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <div id="vault-approle-section" class="space-y-4 @if($selectedAuthMode !== 'approle') hidden @endif" @if($selectedAuthMode !== 'approle') hidden @endif>
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
-                                <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', setting('nfse.bao_role_id')) }}">
+                                <input id="bao_role_id" name="nfse[bao_role_id]" type="text" class="w-full border rounded px-3 py-2" value="{{ old('nfse.bao_role_id', $settings['bao_role_id'] ?? '') }}">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>

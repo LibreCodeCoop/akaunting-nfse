@@ -25,6 +25,8 @@ use Modules\Nfse\Support\MunicipalParameterSnapshotStore;
 use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
+use Modules\Nfse\Support\GlobalVaultSettings;
+use Modules\Nfse\Support\VaultDiagnostics;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\MunicipalParametersConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
@@ -53,6 +55,12 @@ class SettingsController extends Controller
 
         $settings = setting('nfse', []);
         $settingsArray = is_array($settings) ? $settings : [];
+        $global = VaultConfig::secretStoreConfig();
+        $settingsArray = array_merge($settingsArray, [
+            'bao_addr' => $global['addr'], 'bao_mount' => $global['mount'],
+            'bao_token' => $global['token'] ?? '', 'bao_role_id' => $global['roleId'] ?? '',
+            'bao_secret_id' => $global['secretId'] ?? '',
+        ]);
         $certificateState = $this->certificateState();
         $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
         $readiness = (new OperationalReadinessResolver())->evaluate(
@@ -79,38 +87,47 @@ class SettingsController extends Controller
 
     public function updateVault(Request $request): RedirectResponse
     {
-        $rawNfseInput = $request->input('nfse', []);
-        $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
-        $nfseInput = $this->prepareNfseInput($rawNfseInput);
-
-        $authModeUi = (string) $request->input('auth_mode_ui', '');
-        if ($authModeUi === 'token') {
-            $nfseInput['bao_role_id'] = '';
-            $nfseInput['bao_secret_id'] = '';
-        } elseif ($authModeUi === 'approle') {
-            $nfseInput['bao_token'] = '';
-        }
-
         $request->validate([
-            'nfse.bao_addr'            => 'required|url',
-            'nfse.bao_mount'           => 'required|string',
-            'nfse.bao_token'           => 'nullable|string',
-            'nfse.bao_role_id'         => 'nullable|string',
-            'nfse.bao_secret_id'       => 'nullable|string',
-            'nfse.clear_bao_token'     => 'nullable|boolean',
+            'nfse.bao_addr' => 'required|url',
+            'nfse.bao_mount' => 'required|string|max:160',
+            'nfse.bao_token' => 'nullable|string',
+            'nfse.bao_role_id' => 'nullable|string',
+            'nfse.bao_secret_id' => 'nullable|string',
+            'nfse.clear_bao_token' => 'nullable|boolean',
             'nfse.clear_bao_secret_id' => 'nullable|boolean',
+            'auth_mode_ui' => 'required|in:token,approle',
         ]);
 
-        foreach (['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'] as $key) {
-            if (array_key_exists($key, $nfseInput)) {
-                setting(['nfse.' . $key => $nfseInput[$key]]);
+        $data = $request->input('nfse', []);
+        $mode = (string) $request->input('auth_mode_ui');
+        $input = [
+            'addr' => (string) $data['bao_addr'],
+            'mount' => (string) $data['bao_mount'],
+            'auth_mode' => $mode,
+        ];
+
+        foreach (['bao_token' => 'token', 'bao_role_id' => 'roleId', 'bao_secret_id' => 'secretId'] as $field => $key) {
+            $raw = trim((string) ($data[$field] ?? ''));
+            $clear = $key === 'token' ? 'clear_bao_token' : ($key === 'secretId' ? 'clear_bao_secret_id' : null);
+            if ($raw !== '' || ($clear !== null && filter_var($data[$clear] ?? false, FILTER_VALIDATE_BOOL))) {
+                $input[$key] = $raw !== '' ? $raw : null;
             }
         }
 
-        setting()->save();
+        try {
+            (new GlobalVaultSettings())->save($input);
+        } catch (\InvalidArgumentException) {
+            return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
+                ->with('error', 'Vault configuration is incomplete.');
+        }
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
             ->with('success', trans('nfse::general.vault_saved_continue'));
+    }
+
+    public function diagnoseVault(VaultDiagnostics $diagnostics): JsonResponse
+    {
+        return response()->json($diagnostics->check(VaultConfig::secretStoreConfig()));
     }
 
     public function updateFiscal(Request $request): RedirectResponse
