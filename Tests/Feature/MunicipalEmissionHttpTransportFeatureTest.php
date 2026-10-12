@@ -20,6 +20,8 @@ use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 use Modules\Nfse\Tests\Support\FakeHttpTransport;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\EnvironmentConfig;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseTemplate;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\XmlToArray;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\XmlSignerInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\HttpResponseData;
@@ -58,10 +60,10 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
 
     public function testValidDpsCreatesOneCompressedXmlPostAndNeverResendsAuthorizedInvoice(): void
     {
-        [$invoice, $key] = $this->invoiceWithGroup();
-        $transport = new FakeHttpTransport($this->authorizedResponse());
+        [$invoice, $key] = $this->invoiceWithGroup('1500.00');
+        $dps = $this->dps($invoice, '010701', '1500.00');
+        $transport = new FakeHttpTransport($this->authorizedResponse($dps));
         $client = $this->client($transport);
-        $dps = $this->dps($invoice);
 
         $first = $this->issue($invoice, $key, $client, $dps);
         $second = $this->issue($invoice, $key, $client, $dps);
@@ -79,6 +81,39 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
         self::assertIsString($xml);
         self::assertStringContainsString('<cTribNac>010701</cTribNac>', $xml);
         self::assertStringContainsString('<dCompet>2026-09-01</dCompet>', $xml);
+
+        $authorizedXml = (string) $first['receipt']->payload()->value('authorized_xml');
+        self::assertNotSame('', $authorizedXml);
+        self::assertSame($authorizedXml, $second['receipt']->payload()->value('authorized_xml'));
+        self::assertSame(hash('sha256', $authorizedXml), $first['receipt']->authorized_fiscal_snapshot['source_sha256']);
+
+        $outgoing = new \DOMDocument();
+        $authorized = new \DOMDocument();
+        self::assertTrue($outgoing->loadXML($xml, LIBXML_NONET));
+        self::assertTrue($authorized->loadXML($authorizedXml, LIBXML_NONET));
+
+        $sentFields = new \DOMXPath($outgoing);
+        $authorizedFields = new \DOMXPath($authorized);
+        foreach ([
+            'dCompet' => '2026-09-01',
+            'cTribNac' => '010701',
+            'cTribMun' => '123',
+            'vServ' => '1500.00',
+            'serie' => '00001',
+            'nDPS' => (string) $invoice->id,
+        ] as $field => $expected) {
+            $expression = 'string((//*[local-name()="' . $field . '"])[1])';
+            self::assertSame($expected, $sentFields->evaluate($expression), $field . '/transmitted');
+            self::assertSame($expected, $authorizedFields->evaluate($expression), $field . '/authorized');
+        }
+
+        // Presentation must use the authorized XML, never recompute the
+        // service amount or infer tax from the outgoing DPS.
+        $document = (new DanfseTemplate())->buildData((new XmlToArray())->convert($authorizedXml));
+        self::assertSame('1500.00', $first['receipt']->authorized_fiscal_snapshot['gross_service_value']);
+        self::assertSame('1292.75', $first['receipt']->authorized_fiscal_snapshot['liquid_value']);
+        self::assertSame('R$ 1.500,00', $document['totais']['valor_servico']);
+        self::assertSame('R$ 1.292,75', $document['totais']['valor_liquido']);
         self::assertSame(1, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
     }
 
@@ -113,7 +148,7 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
     }
 
     /** @return array{Document,string} */
-    private function invoiceWithGroup(): array
+    private function invoiceWithGroup(string $amount = '100.00'): array
     {
         $this->loginAs();
         $invoice = Document::factory()->invoice()->create([
@@ -129,8 +164,8 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
             'item_id' => $item->id,
             'name' => 'Synthetic consulting service',
             'quantity' => 1,
-            'price' => '100.00',
-            'total' => '100.00',
+            'price' => $amount,
+            'total' => $amount,
         ]);
         ItemFiscalProfile::query()->create([
             'company_id' => (int) $invoice->company_id,
@@ -146,7 +181,7 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
         return [$invoice, (string) $groups[0]['key']];
     }
 
-    private function dps(Document $invoice, string $nationalCode = '010701'): DpsData
+    private function dps(Document $invoice, string $nationalCode = '010701', string $serviceAmount = '100.00'): DpsData
     {
         return new DpsData(
             cnpjPrestador: '11222333000181',
@@ -154,7 +189,7 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
             itemListaServico: '0107',
             codigoTributacaoNacional: $nationalCode,
             codigoTributacaoMunicipal: '123',
-            valorServico: '100.00',
+            valorServico: $serviceAmount,
             aliquota: '2.00',
             discriminacao: 'Synthetic fiscal service',
             tipoAmbiente: 2,
@@ -186,10 +221,41 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
         );
     }
 
-    private function authorizedResponse(): HttpResponseData
+    private function authorizedResponse(?DpsData $dps = null): HttpResponseData
     {
         $xml = file_get_contents(__DIR__ . '/../../tests/fixtures/nfse_exemplo.xml');
         self::assertIsString($xml);
+
+        if ($dps instanceof DpsData) {
+            // Retain the source-backed synthetic service and tax amounts.
+            // Alter only identity/competence data needed to match the outgoing
+            // request; changing vLiq or tax values would invent a fiscal result.
+            $xml = str_replace(
+                [
+                    '<tpAmb>1</tpAmb>',
+                    '<dhEmi>2026-01-15T14:00:00-03:00</dhEmi>',
+                    '<dhProc>2026-01-15T14:30:00-03:00</dhProc>',
+                    '<serie>20261</serie>',
+                    '<nDPS>5</nDPS>',
+                    '<dCompet>2026-01-15</dCompet>',
+                    '<regEspTrib>6</regEspTrib>',
+                    '<cTribNac>010700</cTribNac>',
+                    '<cTribMun>007</cTribMun>',
+                ],
+                [
+                    '<tpAmb>' . $dps->tipoAmbiente . '</tpAmb>',
+                    '<dhEmi>2026-09-01T12:00:00-03:00</dhEmi>',
+                    '<dhProc>2026-10-12T10:00:00-03:00</dhProc>',
+                    '<serie>' . $dps->serie . '</serie>',
+                    '<nDPS>' . $dps->numeroDps . '</nDPS>',
+                    '<dCompet>' . $dps->dataCompetencia . '</dCompet>',
+                    '<regEspTrib>' . $dps->regimeEspecialTributacao . '</regEspTrib>',
+                    '<cTribNac>' . $dps->codigoTributacaoNacional . '</cTribNac>',
+                    '<cTribMun>' . $dps->codigoTributacaoMunicipal . '</cTribMun>',
+                ],
+                $xml,
+            );
+        }
 
         return new HttpResponseData(
             status: 201,
