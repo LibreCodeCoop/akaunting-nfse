@@ -17,7 +17,7 @@ identity/role when verified), the observed tax-specific base and exact decimal
 rate when available, and explicit provenance. A tax-row amount may be null
 when not actually observed; integer zero is a distinct observed fact.
 Roles are backed by
-`FiscalTaxRole` (provider due, withheld by taker, transparency estimate).
+`FiscalTaxRole` (provider due, withheld by the actual payer, transparency estimate).
 An invoice-level tax need not invent a document-item ID of 0.
 An absent ID, value origin or classification is `null`, never
 guessed from tax names, percentages, a value or an XML element's historic name.

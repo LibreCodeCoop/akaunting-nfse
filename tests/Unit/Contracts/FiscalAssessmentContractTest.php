@@ -22,8 +22,8 @@ final class FiscalAssessmentContractTest extends TestCase
     public function testFactsKeepCompanyLineIdentityMoneyAndTaxableEventDistinct(): void
     {
         $context = $this->context([
-            new FiscalTaxFact(1001, 9, 7, 'withholding', 3250, 'PIS', FiscalTaxRole::WITHHELD_BY_TAKER, 'document_item_taxes', 500000, '0.65'),
-            new FiscalTaxFact(1002, 9, 8, 'withholding', 3250, 'PIS', FiscalTaxRole::WITHHELD_BY_TAKER, 'document_item_taxes', 500000, '0.65'),
+            new FiscalTaxFact(1001, 9, 7, 'withholding', 3250, 'PIS', FiscalTaxRole::WITHHELD_BY_PAYER, 'document_item_taxes', 500000, '0.65'),
+            new FiscalTaxFact(1002, 9, 8, 'withholding', 3250, 'PIS', FiscalTaxRole::WITHHELD_BY_PAYER, 'document_item_taxes', 500000, '0.65'),
         ]);
 
         self::assertSame(31, $context->companyId);
@@ -36,7 +36,7 @@ final class FiscalAssessmentContractTest extends TestCase
         self::assertSame(8, $context->taxFacts[1]->documentItemTaxRowId);
         self::assertSame('document_item_taxes', $context->taxFacts[1]->origin);
         self::assertSame('0.65', $context->taxFacts[1]->ratePercent);
-        self::assertSame(FiscalTaxRole::WITHHELD_BY_TAKER, $context->taxFacts[1]->fiscalRole);
+        self::assertSame(FiscalTaxRole::WITHHELD_BY_PAYER, $context->taxFacts[1]->fiscalRole);
     }
 
     public function testLegalFormAndPaymentFactsRemainDistinctFromTaxRegimeAndServiceAmount(): void
@@ -284,7 +284,7 @@ final class FiscalAssessmentContractTest extends TestCase
             'withholding',
             3250,
             'PIS',
-            FiscalTaxRole::WITHHELD_BY_TAKER,
+            FiscalTaxRole::WITHHELD_BY_PAYER,
             'document_item_taxes',
             500000,
             '0,65',

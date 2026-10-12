@@ -9,11 +9,12 @@ namespace Modules\Nfse\Contracts;
 
 /**
  * Fiscal responsibility, independent of the Akaunting accounting tax type.
- * Unknown/unverified role is null in FiscalTaxFact, never a guessed value.
+ * The withholding payer need not be the invoiced taker. An unverified
+ * role is null in FiscalTaxFact, never a guessed value.
  */
 enum FiscalTaxRole: string
 {
     case PROVIDER_DUE = 'provider_due';
-    case WITHHELD_BY_TAKER = 'withheld_by_taker';
+    case WITHHELD_BY_PAYER = 'withheld_by_payer';
     case ESTIMATED_DISCLOSURE = 'estimated_disclosure';
 }
