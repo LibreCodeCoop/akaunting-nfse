@@ -997,7 +997,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new class () extends SettingsController { use ConfiguredVaultForUnitTests; })->update($request);
+            $response = (new class () extends SettingsController {
+                use ConfiguredVaultForUnitTests;
+            })->update($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('route', $response->target);
@@ -1607,7 +1609,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new class () extends SettingsController { use ConfiguredVaultForUnitTests; })->updateFiscal($request);
+            $response = (new class () extends SettingsController {
+                use ConfiguredVaultForUnitTests;
+            })->updateFiscal($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('route', $response->target);
@@ -1682,7 +1686,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new class () extends SettingsController { use ConfiguredVaultForUnitTests; })->updateFederal($request);
+            $response = (new class () extends SettingsController {
+                use ConfiguredVaultForUnitTests;
+            })->updateFederal($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('route', $response->target);
