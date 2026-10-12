@@ -603,14 +603,24 @@ class InvoiceController extends Controller
         }
 
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
-        $federalPayload = $this->federalPayloadValues(
-            $invoice,
-            $selectedDocumentItemIds,
-            $serviceAmount,
-            null,
-            (string) ($emissionProfile['codigo_tributacao_nacional'] ?? ''),
-            $this->competenceDate($invoice),
-        );
+        try {
+            $federalPayload = $this->federalPayloadValues(
+                $invoice,
+                $selectedDocumentItemIds,
+                $serviceAmount,
+                null,
+                (string) ($emissionProfile['codigo_tributacao_nacional'] ?? ''),
+                $this->competenceDate($invoice),
+            );
+        } catch (\InvalidArgumentException|\LogicException $error) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('invoices.show', $invoice)
+                    ->with('error', trans('nfse::general.invoices.approximate_source_invalid', [
+                        'reason' => $error->getMessage(),
+                    ])),
+            );
+        }
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
         if ($ibsCbsPayload['enabled'] && !(new \Modules\Nfse\Support\NbsEmissionReadiness())->valid((string) ($emissionProfile['codigo_nbs'] ?? ''), true)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
@@ -1281,14 +1291,24 @@ class InvoiceController extends Controller
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $serviceAmount = $this->invoiceServiceAmount($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
-        $federalPayload = $this->federalPayloadValues(
-            $invoice,
-            null,
-            $serviceAmount,
-            null,
-            (string) ($itemFiscalProfile['codigo_tributacao_nacional'] ?? ''),
-            $this->competenceDate($invoice),
-        );
+        try {
+            $federalPayload = $this->federalPayloadValues(
+                $invoice,
+                null,
+                $serviceAmount,
+                null,
+                (string) ($itemFiscalProfile['codigo_tributacao_nacional'] ?? ''),
+                $this->competenceDate($invoice),
+            );
+        } catch (\InvalidArgumentException|\LogicException $error) {
+            return $this->ajaxAwareRedirect(
+                $request,
+                redirect()->route('nfse.invoices.show', $invoice)
+                    ->with('error', trans('nfse::general.invoices.approximate_source_invalid', [
+                        'reason' => $error->getMessage(),
+                    ])),
+            );
+        }
         if (($itemFiscalProfile['requires_split'] ?? false) === true) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.reemit_requires_separate_fiscal_groups')));

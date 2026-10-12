@@ -392,6 +392,7 @@ return [
         'emit_blocked_invalid_fiscal_profile' => 'Invalid fiscal profile according to official source :version: :issues',
         'emit_blocked_missing_national_code_items' => 'NFS-e issuance was blocked because item :items has no national taxation code. Edit that item under Items, fill in the National taxation code (NBS) field with the official 6-digit code, save it, and try again. Official source: :version.',
         'emit_blocked_no_items' => 'The invoice must have at least one item before issuing NFS-e.',
+        'approximate_source_invalid' => 'Approximate-tax source is invalid for the selected service, regime, company or competence: :reason. Review the source before issuance.',
         'emit_blocked_missing_federal_taxes' => 'The invoice does not have the required federal taxes to issue NFS-e.',
         'emit_blocked_missing_federal_taxes_with_list' => 'The invoice does not have the required federal taxes to issue NFS-e (:taxes).',
         'federal_tax_labels' => [

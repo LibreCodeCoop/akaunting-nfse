@@ -390,6 +390,7 @@ return [
         'emit_blocked_invalid_fiscal_profile' => 'Perfil fiscal inválido conforme a fonte oficial :version: :issues',
         'emit_blocked_missing_national_code_items' => 'Não foi possível emitir a NFS-e porque o item :items está sem o Código de tributação nacional. Edite esse item em Itens, preencha o campo Código de Tributação Nacional (cTribNac) com o código oficial de 6 dígitos e salve antes de tentar novamente. Fonte oficial: :version.',
         'emit_blocked_no_items' => 'A fatura precisa ter ao menos um item para emitir NFS-e.',
+        'approximate_source_invalid' => 'A fonte de tributos aproximados não é válida para o serviço, regime, empresa ou competência selecionados: :reason. Revise a fonte antes de emitir.',
         'emit_blocked_missing_federal_taxes' => 'A fatura não possui os tributos federais necessários para emissão da NFS-e.',
         'emit_blocked_missing_federal_taxes_with_list' => 'A fatura não possui os tributos federais necessários para emissão da NFS-e (:taxes).',
         'federal_tax_labels' => [
