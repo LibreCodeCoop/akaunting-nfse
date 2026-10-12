@@ -85,8 +85,10 @@ final class InvoiceTaxFactsResolver
                 'dit.id as tax_row_id',
                 'dit.document_item_id',
                 'dit.tax_id',
-                'dit.amount',
-                'dit.rate',
+                // Read DECIMAL values as text; SQLite otherwise hydrates
+                // numeric columns as floats, losing exact decimal typing.
+                DB::raw('CAST(dit.amount AS CHAR) AS amount'),
+                DB::raw('CAST(dit.rate AS CHAR) AS rate'),
                 't.type as accounting_type',
             ]);
 
