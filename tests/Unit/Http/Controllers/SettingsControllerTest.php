@@ -23,6 +23,21 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use Modules\Nfse\Tests\TestCase;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 
+    trait ConfiguredVaultForUnitTests
+    {
+        /** @return array{bao_addr:string,bao_mount:string,bao_token:string,bao_role_id:string,bao_secret_id:string} */
+        protected function globalVaultReadinessSettings(): array
+        {
+            return [
+                'bao_addr' => 'https://vault.example.test',
+                'bao_mount' => '/nfse',
+                'bao_token' => 'synthetic-global-token',
+                'bao_role_id' => '',
+                'bao_secret_id' => '',
+            ];
+        }
+    }
+
     final class SettingsControllerTest extends TestCase
     {
         public function testEditReturnsSettingsAndCertificateStateIncludingLocalCertificatePresence(): void
@@ -621,7 +636,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ], ControllerIsolationState::$settings);
         }
 
-        public function testUpdateAllowsVaultOnlySaveBeforeCertificateAndFiscalSettings(): void
+        public function testLegacyUpdateRejectsVaultOnlySubmission(): void
         {
             ControllerIsolationState::reset();
 
@@ -640,10 +655,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.settings.edit', $response->route);
-            self::assertSame('nfse::general.vault_saved_continue', $response->flash['success'] ?? null);
-            self::assertSame('http://openbao:8200', ControllerIsolationState::$settings['nfse.bao_addr'] ?? null);
-            self::assertSame('/nfse', ControllerIsolationState::$settings['nfse.bao_mount'] ?? null);
-            self::assertSame('dev-only-root-token', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
+            self::assertSame('Use the global Vault settings form.', $response->flash['error'] ?? null);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
             self::assertArrayNotHasKey('nfse.cnpj_prestador', ControllerIsolationState::$settings);
         }
 
@@ -699,6 +714,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
 
             $controller = new class () extends SettingsController {
+                use ConfiguredVaultForUnitTests;
                 protected function readUploadedCertificate(UploadedFile $file): string
                 {
                     return 'fake-pfx-content';
@@ -747,6 +763,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
 
             $controller = new class () extends SettingsController {
+                use ConfiguredVaultForUnitTests;
                 public ?string $purgedCnpj = null;
                 public bool $clearCalled = false;
 
@@ -786,7 +803,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('value', ControllerIsolationState::$settings['other.key'] ?? null);
         }
 
-        public function testUpdateReplacingCertificatePreservesStoredSensitiveFieldsWhenSubmittedBlank(): void
+        public function testUpdateReplacingCertificateNeverResurrectsLegacyVaultCredentials(): void
         {
             ControllerIsolationState::reset();
             ControllerIsolationState::$settings = [
@@ -818,6 +835,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
 
             $controller = new class () extends SettingsController {
+                use ConfiguredVaultForUnitTests;
                 protected function readUploadedCertificate(UploadedFile $file): string
                 {
                     return 'fake-pfx-content';
@@ -838,8 +856,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('route', $response->target);
             self::assertSame('nfse.settings.edit', $response->route);
             self::assertSame('nfse::general.saved_and_certificate_uploaded', $response->flash['success'] ?? null);
-            self::assertSame('persisted-token', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
-            self::assertSame('persisted-secret-id', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? null);
+            self::assertArrayNotHasKey('nfse.bao_token', ControllerIsolationState::$settings);
+            self::assertArrayNotHasKey('nfse.bao_secret_id', ControllerIsolationState::$settings);
         }
 
         public function testUpdateReplacingCertificateDoesNotPurgeOrClearWhenPreviousCnpjIsMissing(): void
@@ -870,6 +888,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
 
             $controller = new class () extends SettingsController {
+                use ConfiguredVaultForUnitTests;
                 public ?string $purgedCnpj = null;
                 public bool $clearCalled = false;
 
@@ -933,6 +952,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
 
             $controller = new class () extends SettingsController {
+                use ConfiguredVaultForUnitTests;
                 protected function readUploadedCertificate(UploadedFile $file): string
                 {
                     return 'fake-pfx-content';
@@ -977,7 +997,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new SettingsController())->update($request);
+            $response = (new class () extends SettingsController { use ConfiguredVaultForUnitTests; })->update($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('route', $response->target);
@@ -1011,6 +1031,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
 
             $controller = new class () extends SettingsController {
+                use ConfiguredVaultForUnitTests;
                 public bool $storeCalled = false;
 
                 protected function readUploadedCertificate(UploadedFile $file): string
@@ -1586,7 +1607,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new SettingsController())->updateFiscal($request);
+            $response = (new class () extends SettingsController { use ConfiguredVaultForUnitTests; })->updateFiscal($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('route', $response->target);
@@ -1661,7 +1682,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new SettingsController())->updateFederal($request);
+            $response = (new class () extends SettingsController { use ConfiguredVaultForUnitTests; })->updateFederal($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('route', $response->target);
@@ -1967,7 +1988,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('vault', $response->data['activeTab'] ?? null);
         }
 
-        public function testUpdateAllowsSavingWhenClearingVaultCredentialsMakesVaultIncomplete(): void
+        public function testLegacyClearFlagsCannotBypassGlobalVaultRequirement(): void
         {
             ControllerIsolationState::reset();
             ControllerIsolationState::$settings = [
@@ -2003,11 +2024,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.settings.edit', $response->route);
-            // Should NOT return vault_required error -- clear flags bypass the vault-ready gate.
-            self::assertArrayNotHasKey('error', $response->flash);
-            // Sensitive fields should be explicitly emptied.
-            self::assertSame('', ControllerIsolationState::$settings['nfse.bao_token'] ?? 'NOT_SET');
-            self::assertSame('', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? 'NOT_SET');
+            self::assertSame('nfse::general.vault_required_before_certificate_and_settings', $response->flash['error'] ?? null);
+            self::assertSame('token-ci-preserve', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
+            self::assertSame('secret-ci-preserve', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? null);
         }
     }
 }

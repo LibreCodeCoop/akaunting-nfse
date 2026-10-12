@@ -11,10 +11,19 @@ use Tests\Feature\FeatureTestCase;
 
 final class SettingsPersistenceTest extends FeatureTestCase
 {
-    public function testAuthenticatedSettingsUpdatePersistsFiscalAndVaultConfiguration(): void
+    public function testGlobalVaultAndFiscalSettingsArePersistedSeparately(): void
     {
-        $this->loginAs()
-            ->patch(route('nfse.settings.update'), [
+        $this->loginAs();
+        $this->patch(route('nfse.settings.vault'), [
+            'auth_mode_ui' => 'token',
+            'nfse' => [
+                'bao_addr' => 'https://vault.example.test',
+                'bao_mount' => '/secret/',
+                'bao_token' => 'test-token',
+            ],
+        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'vault']))->assertSessionHas('success');
+
+        $this->patch(route('nfse.settings.update'), [
                 'nfse' => [
                     'cnpj_prestador' => '11222333000181',
                     'uf' => 'rj',
@@ -38,9 +47,10 @@ final class SettingsPersistenceTest extends FeatureTestCase
         self::assertSame('3304557', (string) setting('nfse.municipio_ibge'));
         self::assertSame('1', (string) setting('nfse.sandbox_mode'));
         self::assertSame('emit_on_send', (string) setting('nfse.emission_policy'));
-        self::assertSame('https://vault.example.test', (string) setting('nfse.bao_addr'));
-        self::assertSame('/secret', (string) setting('nfse.bao_mount'));
-        self::assertSame('test-token', (string) setting('nfse.bao_token'));
+        self::assertNull(setting('nfse.bao_addr'));
+        self::assertNull(setting('nfse.bao_token'));
+        self::assertSame('https://vault.example.test', \Modules\Nfse\Support\VaultConfig::secretStoreConfig()['addr']);
+        self::assertSame('test-token', \Modules\Nfse\Support\VaultConfig::secretStoreConfig()['token']);
         self::assertSame('0107', (string) setting('nfse.item_lista_servico'));
         self::assertSame('010701', (string) setting('nfse.codigo_tributacao_nacional'));
     }
