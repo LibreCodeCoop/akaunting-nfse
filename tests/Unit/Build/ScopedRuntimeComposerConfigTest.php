@@ -209,6 +209,9 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $source = <<<'PHP'
             return $class_parts[1];
             $entry = new $class($this);
+            if (!isset($this->directory[$tag])) {
+                return;
+            }
             if (!isset($this->directory[$tag]) || !@class_exists($class)) {
                 return;
             }

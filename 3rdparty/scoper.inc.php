@@ -75,13 +75,13 @@ return [
                     [
                         'return $class_parts[1];',
                         '$entry = new $class',
-                        'if (!isset($this->directory[$tag])',
+                        'if (!isset($this->directory[$tag]) || !@class_exists($class))',
                         '$table = new $class',
                     ],
                     [
                         'return $class_parts[count($class_parts) - 2];',
                         $normalizeClass . '      $entry = new $class',
-                        $normalizeClass . '      if (!isset($this->directory[$tag])',
+                        $normalizeClass . '      if (!isset($this->directory[$tag]) || !@class_exists($class))',
                         $normalizeClass . '      $table = new $class',
                     ],
                     $content,
