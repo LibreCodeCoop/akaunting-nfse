@@ -16,91 +16,12 @@ use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\GlobalVaultSettings;
 use Modules\Nfse\Support\NfseCompanyCertificatePath;
-use Modules\Nfse\Support\VaultDiagnosticTransport;
 use Modules\Nfse\Support\VaultDiagnostics;
+use Modules\Nfse\Tests\Support\CompanyProfileFakeSecrets;
+use Modules\Nfse\Tests\Support\CompanyProfileFakeVaultTransport;
 use Modules\Nfse\Tests\Support\SyntheticCompanyPkcs12;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Tests\Feature\FeatureTestCase;
-
-/** Test-only Vault KV; failures may occur after a write has taken effect. */
-final class CompanyProfileFakeSecrets implements SecretStoreInterface
-{
-    /** @var array<string,array<string,string>> */
-    public array $data = [];
-
-    /** @var list<string> */
-    public array $filePaths = [];
-
-    public bool $failPutAfterWrite = false;
-    public bool $failDelete = false;
-
-    public function get(string $path): array
-    {
-        if (!isset($this->data[$path])) {
-            throw new \RuntimeException('Synthetic secret does not exist.');
-        }
-
-        return $this->data[$path];
-    }
-
-    public function put(string $path, array $data): void
-    {
-        $this->data[$path] = $data;
-        if (isset($data['pfx_path']) && is_string($data['pfx_path'])) {
-            $this->filePaths[] = $data['pfx_path'];
-        }
-
-        if ($this->failPutAfterWrite) {
-            $this->failPutAfterWrite = false;
-            throw new \RuntimeException('Synthetic uncertain Vault write.');
-        }
-    }
-
-    public function delete(string $path): void
-    {
-        if ($this->failDelete) {
-            throw new \RuntimeException('Synthetic Vault deletion failure.');
-        }
-
-        unset($this->data[$path]);
-    }
-}
-
-/** Deterministic HTTP responses for the exact KV v2 capabilities path. */
-final class CompanyProfileFakeVaultTransport implements VaultDiagnosticTransport
-{
-    public bool $offline = false;
-    public bool $denyCompanyPaths = false;
-
-    /** @var list<string> */
-    public array $paths = [];
-
-    public function request(string $method, string $url, ?string $token = null, array $body = []): array
-    {
-        if (str_ends_with($url, '/sys/health')) {
-            return ['status' => $this->offline ? 503 : 200, 'body' => []];
-        }
-
-        if (str_ends_with($url, '/auth/token/lookup-self')) {
-            return ['status' => 200, 'body' => []];
-        }
-
-        if (str_contains($url, '/sys/internal/ui/mounts/')) {
-            return ['status' => 200, 'body' => ['data' => ['type' => 'kv', 'options' => ['version' => 2]]]];
-        }
-
-        if (str_ends_with($url, '/sys/capabilities-self')) {
-            $path = (string) ($body['paths'][0] ?? '');
-            $this->paths[] = $path;
-            $rights = $this->denyCompanyPaths && str_contains($path, '/pfx/companies/')
-                ? ['deny'] : ['read', 'create', 'update', 'delete'];
-
-            return ['status' => 200, 'body' => [$path => $rights]];
-        }
-
-        return ['status' => 404, 'body' => []];
-    }
-}
 
 final class CompanyProfileLifecycleTest extends FeatureTestCase
 {

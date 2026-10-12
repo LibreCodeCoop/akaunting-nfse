@@ -102,6 +102,13 @@ A rotação usa uma referência nova; a versão anterior só é aposentada
 após confirmação do novo certificado. Operações fiscais pendentes ou
 de resultado ambíguo bloqueiam rotação/exclusão até conciliação.
 
+O `SecretStoreInterface::delete()` atual utiliza o endpoint KV v2
+`/data`, que apenas marca a versão atual como excluída. A operação
+não garante destruição irreversível das versões anteriores no Vault.
+A remoção permanente de todas as versões requer o endpoint `/metadata`
+e permissões específicas, ainda não implementados neste contrato.
+O operador deve aplicar a política de retenção adequada no OpenBao/Vault.
+
 Nenhuma dessas operações apaga a empresa nativa, faturas, NFS-e autorizadas,
 DPS, XML, recibos ou artefatos históricos. As configurações anteriores
 `nfse.*` **não são migradas nem reaproveitadas**: recadastre infraestrutura,

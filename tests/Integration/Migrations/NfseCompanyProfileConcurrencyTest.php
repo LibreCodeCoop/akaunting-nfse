@@ -111,12 +111,13 @@ final class NfseCompanyProfileConcurrencyTest extends TestCase
 
     public function testRollbackRefusesToOrphanAnyPersistedCertificateReference(): void
     {
+        $timestamp = gmdate('Y-m-d H:i:s');
         DB::table('nfse_company_profiles')->insert([
             'company_id' => 120,
             'status' => 'deleting',
             'staged_certificate_ref' => str_repeat('a', 32),
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
         ]);
 
         try {

@@ -63,9 +63,26 @@ final class NfseCompanyProfileCatalog
             ])->values()->all();
 
         return [
-            'profiles' => $profiles->map(static fn (NfseCompanyProfile $profile): array => $profile->publicData())->all(),
+            'profiles' => $profiles->map(fn (NfseCompanyProfile $profile): array => $this->publicData($profile))->all(),
             'eligible_companies' => $eligible,
         ];
+    }
+
+    /**
+     * Read-only administrative shape. Keep persistence queries outside the
+     * Eloquent model and do not expose private certificate paths.
+     *
+     * @return array<string,mixed>
+     */
+    public function publicData(NfseCompanyProfile $profile): array
+    {
+        $pendingRetirements = DB::table('nfse_company_certificate_retirements')
+            ->where('company_id', (int) $profile->company_id)
+            ->exists();
+
+        return array_merge($profile->publicData(), [
+            'cleanup_pending' => $profile->staged_certificate_ref !== null || $pendingRetirements,
+        ]);
     }
 
     public function requireActive(int $companyId): NfseCompanyProfile

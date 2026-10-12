@@ -45,7 +45,7 @@ final class CompanyProfileController extends Controller
             return $this->rejected($error);
         }
 
-        return response()->json(['data' => $profile->publicData()], 201);
+        return response()->json(['data' => $catalog->publicData($profile)], 201);
     }
 
     public function update(
@@ -73,7 +73,7 @@ final class CompanyProfileController extends Controller
             return $this->rejected($error);
         }
 
-        return response()->json(['data' => $profile->publicData()]);
+        return response()->json(['data' => $catalog->publicData($profile)]);
     }
 
     public function destroy(
