@@ -88,8 +88,9 @@ final class CooperativeIbsCbsEligibilityAssessor
 
         // A true option already requires a date and both filed forms in the
         // validated CooperativeIbsCbsFacts constructor; do not recheck them.
+        // Effectiveness is a fiscal civil date, not a timezone-dependent instant.
         if ($facts->optionEffectiveFrom !== null && $context->taxableEventDate !== null
-            && $facts->optionEffectiveFrom > $context->taxableEventDate) {
+            && $facts->optionEffectiveFrom->format('Y-m-d') > $context->taxableEventDate->format('Y-m-d')) {
             return $this->decision('COOP-ZERO-ELECTION-NOT-EFFECTIVE', 'not_applicable', 'cooperativeIbsCbsFacts.optionEffectiveFrom', null, 'art. 271, para. 3');
         }
 

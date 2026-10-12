@@ -82,6 +82,12 @@ final class CooperativeIbsCbsEligibilityAssessorTest extends TestCase
         yield 'effective date in following fiscal year' => [
             ['optionEffectiveFrom' => '2028-01-01'], 'COOP-ZERO-ELECTION-NOT-EFFECTIVE', 'not_applicable', 'cooperativeIbsCbsFacts.optionEffectiveFrom', null,
         ];
+        yield 'same effective civil date despite different timezones' => [
+            ['event' => '2027-07-01T00:01:00+14:00', 'optionEffectiveFrom' => '2027-07-01T00:00:00-12:00'], 'COOP-ZERO-COOP-TO-REGULAR-ASSOCIATE', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
+        ];
+        yield 'following civil date not effective despite earlier UTC instant' => [
+            ['event' => '2027-06-30T23:59:59-12:00', 'optionEffectiveFrom' => '2027-07-01T00:00:00+14:00'], 'COOP-ZERO-ELECTION-NOT-EFFECTIVE', 'not_applicable', 'cooperativeIbsCbsFacts.optionEffectiveFrom', null,
+        ];
         yield 'explicit unrelated supply' => [
             ['supplyRelation' => CooperativeSupplyRelation::UNRELATED], 'COOP-ZERO-NO-ASSOCIATION', 'not_applicable', 'cooperativeIbsCbsFacts.associationVerifiedAtEvent', null,
         ];
