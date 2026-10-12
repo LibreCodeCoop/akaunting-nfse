@@ -137,10 +137,20 @@ final class IndependentFinancialOracleTest extends TestCase
         $cases = array_column(self::fixture('nfse_427_oraculos_sinteticos_2026-10-12.json')['cases'], 'expected', 'id');
         self::assertSame('unverifiable', $cases['TRP-01']['tax_approximation']);
         self::assertTrue($cases['TRP-01']['cannot_autofill_zero']);
+        self::assertSame('optional', $cases['TRP-03']['disclosure_under_decree_8264']);
         self::assertSame('unverifiable', $cases['ISS-ARITH']['fiscal_status']);
         self::assertSame('unverifiable_without_relevant_2027_rate', $cases['IBS-2027']['cbs_rate']);
         self::assertSame('not_required', $cases['RET-05']['social_withholding_under_art30']);
         self::assertSame('not_required', $cases['RET-06']['social_withholding_under_art30']);
+    }
+
+    public function testIndependentHalfEvenRoundingIncludesExactTies(): void
+    {
+        self::assertSame('1.00', self::roundThousandths('1.005'));
+        self::assertSame('1.02', self::roundThousandths('1.015'));
+        self::assertSame('1.02', self::roundThousandths('1.025'));
+        self::assertSame('1.04', self::roundThousandths('1.035'));
+        self::assertSame('10.01', self::percent('215.27', '4.65'));
     }
 
     /** @return array<string,mixed> */

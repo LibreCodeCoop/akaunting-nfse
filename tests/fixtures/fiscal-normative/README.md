@@ -7,7 +7,8 @@ These are **synthetic reference facts**, recovered from the 2026-10-12 #427
 audit. They are **not** operational permission to issue fiscal documents,
 an approved tax engine, a validated municipal rate, an activated XML schema,
 or a legal/accounting certification. JSON source content was retained, with
-only a final newline normalized. The verifier gained SPDX headers.
+only a final newline normalized. The original separate audit verifier has
+been replaced by the existing PHPUnit suite.
 
 | Corpus | Cases | Purpose |
 | --- | ---: | --- |
@@ -22,14 +23,14 @@ versioned and re-executed corpus. Do not treat these six records as the 21.
 ## Run
 
 ```sh
-python3 tests/fixtures/fiscal-normative/verify_nfse_427_independent.py
 vendor-bin/phpunit/vendor/bin/phpunit -c phpunit.xml tests/Unit/Fiscal
 ```
 
-The Python verifier uses only the standard library and `decimal.Decimal`
-with `ROUND_HALF_EVEN`; it does not call the production calculator.
-The PHPUnit suite separately tests production policy boundaries against
-the fixed temporal expectations. Review any discrepancy against official
+PHPUnit verifies the financial expectations using independent integer-decimal
+arithmetic with half-even rounding, checks the source-backed calendar apart
+from production rules, and then tests the product policy boundaries against
+the fixed temporal expectations. No separate interpreter or testing framework
+is needed. Review any discrepancy against official
 rules before updating a case; do not change an oracle to make CI green.
 
 ## Evidence boundaries

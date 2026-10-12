@@ -31,6 +31,7 @@ final class IndependentTemporalOracleTest extends TestCase
         foreach ($data['cases'] as $case) {
             self::assertArrayHasKey($case['primary_source'], $data['sources'], $case['id']);
             self::assertSame('independent_environment_specific_verification_required', $case['protocol_contract']);
+            self::assertSame(self::independentCutover($case), $case['rtc_document_obligation_started'], $case['id'] . '/legal_calendar');
 
             $regime = match ($case['regime']) {
                 'non_simples' => 1,
@@ -72,7 +73,10 @@ final class IndependentTemporalOracleTest extends TestCase
     public function testTechnicalFakeAcceptanceDoesNotEstablishLegalCompleteness(): void
     {
         $result = (new IbsCbsEmissionReadiness())->evaluate(
-            '2026-10-01', 1, '0101', ['ibs_cbs_enabled' => false],
+            '2026-10-01',
+            1,
+            '0101',
+            ['ibs_cbs_enabled' => false],
         );
         $fakeSefin = static fn (string $payload): array => ['accepted' => true, 'synthetic' => true];
         $technical = $fakeSefin('<DPS><infDPS><serv><cTribNac>010101</cTribNac></serv></infDPS></DPS>');
@@ -98,4 +102,53 @@ final class IndependentTemporalOracleTest extends TestCase
             }
         }
     }
+    /**
+     * Independent conditional calendar reconstructed from the source-backed audit.
+     * This intentionally does not call IbsCbsObligationPolicy or other product rules.
+     *
+     * @param array<string,mixed> $case
+     */
+    private static function independentCutover(array $case): bool|string
+    {
+        $regime = $case['regime'];
+        $category = $case['operation'];
+        $dateString = $case['taxable_event_date'];
+        $subitem = $case['lc116_subitem'];
+
+        if (!in_array($regime, ['simples', 'non_simples'], true)
+            || $category === 'unknown'
+            || !is_string($dateString)) {
+            return 'unverifiable';
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $dateString);
+        if (!$date instanceof \DateTimeImmutable || $date->format('Y-m-d') !== $dateString) {
+            return 'unverifiable';
+        }
+
+        if ($regime === 'simples') {
+            return $date >= new \DateTimeImmutable('2027-01-01');
+        }
+
+        if (in_array($category, [
+            'digital_platform_supply_subject_to_art22',
+            'real_estate_rental',
+            'condominium_legal_charges',
+        ], true)) {
+            return $date >= new \DateTimeImmutable('2026-12-01');
+        }
+
+        $deferred = ['1.03', '1.05', '1.09', '16.01'];
+
+        if ($category === 'iss_deferred_subitem' && in_array($subitem, $deferred, true)) {
+            return $date >= new \DateTimeImmutable('2026-12-01');
+        }
+
+        if ($category === 'ordinary_iss_service' && !in_array($subitem, $deferred, true)) {
+            return $date >= new \DateTimeImmutable('2026-10-01');
+        }
+
+        return 'unverifiable';
+    }
+
 }
