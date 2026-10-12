@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\AdnController;
 use Modules\Nfse\Http\Controllers\BulkEmissionController;
 use Modules\Nfse\Http\Controllers\CertificateController;
+use Modules\Nfse\Http\Controllers\CompanyProfileController;
 use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
@@ -39,6 +40,18 @@ Route::admin('nfse', function () {
             ->middleware('permission:update-nfse-settings')->name('approximate-taxes.store');
         Route::patch('/artifacts', [SettingsController::class, 'updateArtifacts'])
             ->middleware('permission:update-nfse-settings')->name('artifacts');
+
+        // JSON backend contract for native Akaunting companies (#419/#420).
+        Route::get('/company-profiles', [CompanyProfileController::class, 'index'])
+            ->middleware('permission:read-nfse-settings')->name('company-profiles.index');
+        Route::post('/company-profiles', [CompanyProfileController::class, 'store'])
+            ->middleware('permission:update-nfse-settings')->name('company-profiles.store');
+        Route::patch('/company-profiles/{companyId}', [CompanyProfileController::class, 'update'])
+            ->middleware('permission:update-nfse-settings')->name('company-profiles.update');
+        Route::delete('/company-profiles/{companyId}', [CompanyProfileController::class, 'destroy'])
+            ->middleware('permission:delete-nfse-settings')->name('company-profiles.destroy');
+        Route::post('/company-profiles/{companyId}/cleanup', [CompanyProfileController::class, 'cleanup'])
+            ->middleware('permission:delete-nfse-settings')->name('company-profiles.cleanup');
     });
 
     // IBGE localities lookup

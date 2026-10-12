@@ -48,6 +48,77 @@ operações futuras. A consulta não é requisito para listar documentos/perfis
 pré-existentes. O endpoint exige HTTPS; conexões inseguras não são verificadas.
 O teste não envia NFS-e nem utiliza SEFIN/ADN.
 
+## Perfis NFS-e por empresa
+
+O Akaunting continua sendo o cadastro mestre de empresas. Um perfil NFS-e
+pertence a um `company_id` existente, habilitado e atribuído ao usuário.
+Cada empresa pode ter apenas um perfil e a verificação ocorre também por
+índice único no banco. O mesmo CNPJ pode existir em mais de uma empresa
+sem compartilhar certificados.
+
+A infraestrutura OpenBao/Vault é global, mas a senha do PFX e a referência
+do certificado são isoladas pelo caminho imutável
+`pfx/companies/{company_id}/{reference}`. O arquivo PFX permanece em
+armazenamento privado para transporte mTLS. O cadastro requer certificado
+válido, senha correta, identidade fiscal identificável e igualdade com
+`company.tax_number` do Akaunting. As permissões no **caminho real**
+do KV v2 devem ser verificadas; uma probe genérica não basta.
+
+### Contrato administrativo de backend
+
+A interface de empresas (#420) deverá utilizar estas rotas nomeadas.
+A consulta deve permanecer possível mesmo durante indisponibilidade
+temporária do Vault:
+
+- `nfse.settings.company-profiles.index`: GET; retorna `profiles`
+  (metadados sem credenciais) e `eligible_companies` (somente empresas
+  acessíveis ainda sem perfil); permissão `read-nfse-settings`.
+- `nfse.settings.company-profiles.store`: POST com `company_id`,
+  `pfx_file`, `pfx_password` e `fiscal_parameters` opcionais;
+  permissão `update-nfse-settings`.
+- `nfse.settings.company-profiles.update`: PATCH por `companyId`;
+  permite parâmetros parciais e/ou troca de PFX, sem transferir a
+  propriedade para outra empresa; permissão `update-nfse-settings`.
+- `nfse.settings.company-profiles.destroy`: DELETE por `companyId`;
+  permissão `delete-nfse-settings`.
+- `nfse.settings.company-profiles.cleanup`: POST por `companyId`;
+  retoma limpeza interrompida; permissão `delete-nfse-settings`.
+
+Além da permissão de rota, toda mutação exige que o usuário esteja
+associado à empresa nativa especificada. Respostas não incluem PFX,
+senha, token ou caminho físico local. `fiscal_parameters` aceita apenas
+as chaves fiscais explicitamente validadas e não armazena credenciais de
+outras integrações. Não há inferência de códigos, alíquotas ou situações
+tributárias a partir de nomes comerciais ou aceitação pela SEFIN.
+
+### Ciclo de vida, exclusão e atualização
+
+`provisioning` indica cadastro provisório; `active` indica certificado
+persistido (não prontidão jurídica de emissão); `deleting` indica
+exclusão ainda não concluída. `cleanup_pending` assinala material
+rastreado para recuperação. Uma falha no Vault ou no arquivo mantém a
+referência pendente, sem liberar a empresa para recadastro prematuro.
+A rotação usa uma referência nova; a versão anterior só é aposentada
+após confirmação do novo certificado. Operações fiscais pendentes ou
+de resultado ambíguo bloqueiam rotação/exclusão até conciliação.
+
+O `SecretStoreInterface::delete()` atual utiliza o endpoint KV v2
+`/data`, que apenas marca a versão atual como excluída. A operação
+não garante destruição irreversível das versões anteriores no Vault.
+A remoção permanente de todas as versões requer o endpoint `/metadata`
+e permissões específicas, ainda não implementados neste contrato.
+O operador deve aplicar a política de retenção adequada no OpenBao/Vault.
+
+Nenhuma dessas operações apaga a empresa nativa, faturas, NFS-e autorizadas,
+DPS, XML, recibos ou artefatos históricos. As configurações anteriores
+`nfse.*` **não são migradas nem reaproveitadas**: recadastre infraestrutura,
+certificados e complementos fiscais no novo contrato.
+
+A nova interface pertence à #420 e o consumo do perfil pelos emissores,
+filas, recuperação, ADN e WebDAV pertence à #421. **Não interprete um
+perfil `active` como autorização para transmitir NFS-e** enquanto
+esses consumidores não tiverem sido integrados e testados.
+
 ## Dados fiscais e validação
 
 Associe perfil fiscal a cada serviço/fatura conforme os dados da operação.
