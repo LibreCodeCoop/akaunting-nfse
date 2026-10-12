@@ -41,7 +41,7 @@ test('municipal query uses normalized explicit parameters', () => {
     );
 });
 
-test('special regime UI keeps old nonzero selection while restricting new choices', () => {
+test('special tax and Simples apuration UI preserve legal combinations', () => {
     assert.deepEqual(settings.specialRegimeUiState('1', '1', '6'), {
         canSelectSpecial: true,
         hasIncompatibleSelection: false,
@@ -54,12 +54,20 @@ test('special regime UI keeps old nonzero selection while restricting new choice
         requiresRuntimeReview: false,
         reason: 'mei',
     });
+
+    // ME/EPP cannot issue until the contributor explicitly chooses 1/2/3.
+    assert.deepEqual(settings.specialRegimeUiState('3', '1', '0', ''), {
+        canSelectSpecial: false,
+        hasIncompatibleSelection: false,
+        requiresRuntimeReview: true,
+        reason: 'sn_apuration_missing',
+    });
+    assert.equal(settings.specialRegimeUiState('3', '1', '9', '1').canSelectSpecial, false);
+    assert.equal(settings.specialRegimeUiState('3', '1', '9', '1').reason, 'sn_requires_none');
+    assert.equal(settings.specialRegimeUiState('3', '1', '0', '1').hasIncompatibleSelection, false);
+    assert.equal(settings.specialRegimeUiState('3', '1', '9', '2').canSelectSpecial, true);
+    assert.equal(settings.specialRegimeUiState('3', '1', '9', '3').canSelectSpecial, true);
+    assert.equal(settings.specialRegimeUiState('3', '3', '9', '2').hasIncompatibleSelection, true);
     assert.equal(settings.specialRegimeUiState('1', '3', '0').hasIncompatibleSelection, false);
-    assert.equal(settings.specialRegimeUiState('3', '1', '9').reason, 'sn_unsupported');
-    assert.equal(settings.specialRegimeUiState('3', '1', '9').canSelectSpecial, true);
-    assert.equal(settings.specialRegimeUiState('3', '1', '9').requiresRuntimeReview, true);
-    assert.equal(settings.specialRegimeUiState('3', '1', '0').requiresRuntimeReview, true);
-    assert.equal(settings.specialRegimeUiState('3', '1', '0').reason, 'sn_unsupported');
-    assert.equal(settings.specialRegimeUiState('3', '3', '0').reason, 'sn_unsupported');
     assert.equal(settings.specialRegimeUiState('1', '2', '').canSelectSpecial, false);
 });

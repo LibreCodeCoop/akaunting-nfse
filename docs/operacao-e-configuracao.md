@@ -35,6 +35,18 @@ contribuição previdenciária. Use nomes explícitos, por exemplo `IRRF - Servi
 ou `cod:pis`; códigos numéricos isolados podem ser ambíguos.
 Confira o enquadramento tributário com o responsável fiscal.
 
+Na aba fiscal de cada empresa, indique a opção pelo Simples Nacional, o
+**regime especial de tributação** da DPS e, para ME/EPP, o **regime de apuração
+tributária do Simples Nacional** (`regApTribSN`). Os valores desse último campo
+são `1` (tributos federais e ISSQN pelo Simples), `2` (federais pelo Simples,
+ISSQN fora) e `3` (ambos fora). A escolha não é deduzida da natureza jurídica:
+depende do enquadramento fiscal e competência efetivos e deve ser confirmada
+com o responsável tributário. Sem essa informação, a emissão ME/EPP será
+bloqueada (E0166). Na opção `1`, informe `regEspTrib=0` (E0175). Alterar a
+opção de Simples não apaga silenciosamente escolhas anteriores, mas a emissão
+será revalidada. Regimes municipais especiais continuam sujeitos às condições
+do município, prestador, serviço e competência (E0176–E0178).
+
 IBS/CBS só deve ser habilitado quando a operação e o contrato de emissão
 suportarem os campos requeridos. O módulo não deduz automaticamente códigos
 CST, cClassTrib, indicadores da operação e demais condições fiscais.

@@ -56,16 +56,23 @@
         };
     }
 
-    function specialRegimeUiState(simples, issqn, selected) {
+    function specialRegimeUiState(simples, issqn, selected, apuration = '') {
         const option = String(simples);
         const taxation = String(issqn);
         const value = String(selected);
-        const available = (option === '1' || option === '3') && taxation === '1';
+        const selectedApuration = String(apuration);
+        const isMeEpp = option === '3';
+        const missingApuration = isMeEpp && !['1', '2', '3'].includes(selectedApuration);
+        const available = taxation === '1' && (option === '1' || (isMeEpp && ['2', '3'].includes(selectedApuration)));
+        const incompatible = !available && value !== '' && value !== '0';
+
         return {
             canSelectSpecial: available,
-            hasIncompatibleSelection: !available && value !== '' && value !== '0',
-            requiresRuntimeReview: option === '3',
-            reason: option === '3' ? 'sn_unsupported' : taxation !== '1' ? 'issqn' : option === '2' ? 'mei' : 'available',
+            hasIncompatibleSelection: incompatible,
+            requiresRuntimeReview: missingApuration,
+            reason: missingApuration ? 'sn_apuration_missing'
+                : isMeEpp && selectedApuration === '1' ? 'sn_requires_none'
+                    : taxation !== '1' ? 'issqn' : option === '2' ? 'mei' : 'available',
         };
     }
 
@@ -399,11 +406,18 @@
                 // the saved code against the effective invoice's fiscal facts.
                 const specialRegime = documentRef.getElementById('regime_especial_tributacao');
                 const simplesRegime = documentRef.getElementById('opcao_simples_nacional');
+                const apurationRegime = documentRef.getElementById('regime_apuracao_simples_nacional');
+                const apurationField = documentRef.getElementById('regime-apuracao-simples-field');
                 const issqnRegime = documentRef.getElementById('tributacao_issqn');
                 const specialHelp = documentRef.getElementById('regime-especial-help');
                 const refreshSpecialRegime = () => {
                     if (!(specialRegime instanceof HTMLSelectElement)) return;
-                    const state = specialRegimeUiState(simplesRegime?.value, issqnRegime?.value, specialRegime.value);
+                    const isMeEpp = simplesRegime?.value === '3';
+                    if (apurationField) apurationField.hidden = !isMeEpp;
+                    // Keep the stored value intact when another Simples option
+                    // is selected; only submit it for an applicable ME/EPP form.
+                    if (apurationRegime instanceof HTMLSelectElement) apurationRegime.disabled = !isMeEpp;
+                    const state = specialRegimeUiState(simplesRegime?.value, issqnRegime?.value, specialRegime.value, apurationRegime?.value);
                     specialRegime.querySelectorAll('option[data-regime-nonzero="1"]').forEach((option) => {
                         // The previously selected invalid value remains visible
                         // until explicitly corrected, but no new incompatible
@@ -412,10 +426,12 @@
                     });
                     specialRegime.setAttribute('aria-invalid', state.hasIncompatibleSelection ? 'true' : 'false');
                     if (specialHelp) {
-                        specialHelp.textContent = state.hasIncompatibleSelection
-                            ? config.specialRegimeInvalid
-                            : state.reason === 'sn_unsupported'
-                                ? config.specialRegimeUnsupported
+                        specialHelp.textContent = state.reason === 'sn_apuration_missing'
+                            ? config.specialRegimeApurationRequired
+                            : state.hasIncompatibleSelection
+                                ? state.reason === 'sn_requires_none'
+                                    ? config.specialRegimeApurationRequiresNone
+                                    : config.specialRegimeInvalid
                                 : !state.canSelectSpecial
                                     ? config.specialRegimeBlocked
                                     : specialRegime.value === ''
@@ -425,6 +441,7 @@
                 };
                 specialRegime?.addEventListener('change', refreshSpecialRegime);
                 simplesRegime?.addEventListener('change', refreshSpecialRegime);
+                apurationRegime?.addEventListener('change', refreshSpecialRegime);
                 issqnRegime?.addEventListener('change', refreshSpecialRegime);
                 refreshSpecialRegime();
 
