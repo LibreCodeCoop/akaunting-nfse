@@ -55,5 +55,42 @@ return [
                 $content,
             );
         },
+        // php-font-lib resolves font handlers and table types dynamically.
+        // Scoping can rewrite the inner type while leaving the outer FontLib prefix unchanged.
+        static function (string $filePath, string $prefix, string $content): string {
+            $escapedPrefix = str_replace('\\', '\\\\', $prefix);
+
+            if (str_ends_with($filePath, 'dompdf/php-font-lib/src/FontLib/Font.php')) {
+                return str_replace(
+                    '$class = "FontLib\\\\$class";',
+                    '$scopedFontPrefix = "' . $escapedPrefix . '\\\\";' . "\n"
+                        . '      if (str_starts_with($class, $scopedFontPrefix)) {' . "\n"
+                        . '          $class = substr($class, strlen($scopedFontPrefix));' . "\n"
+                        . '      }' . "\n"
+                        . '      $class = $scopedFontPrefix . "FontLib\\\\$class";',
+                    $content,
+                );
+            }
+
+            if (str_ends_with($filePath, 'dompdf/php-font-lib/src/FontLib/TrueType/File.php')) {
+                return str_replace(
+                    [
+                        'return $class_parts[1];',
+                        '$class = "FontLib\\\\$type\\\\TableDirectoryEntry";',
+                        '$class = "FontLib\\\\Table\\\\Type\\\\$name_canon";',
+                        '$class = "FontLib\\\\Table\\\\Table";',
+                    ],
+                    [
+                        'return $class_parts[count($class_parts) - 2];',
+                        '$class = "' . $escapedPrefix . '\\\\FontLib\\\\$type\\\\TableDirectoryEntry";',
+                        '$class = "' . $escapedPrefix . '\\\\FontLib\\\\Table\\\\Type\\\\$name_canon";',
+                        '$class = "' . $escapedPrefix . '\\\\FontLib\\\\Table\\\\Table";',
+                    ],
+                    $content,
+                );
+            }
+
+            return $content;
+        },
     ],
 ];
