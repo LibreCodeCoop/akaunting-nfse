@@ -306,6 +306,27 @@ test('workflow invokes unit-tested setup commands instead of embedding shell par
   assert.doesNotMatch(workflow, /php -r|sed -i|for asset in|for field in|tinker --execute/);
 });
 
+test('bulk UI is scheduled for changes to shared harness and browser contracts', () => {
+  const source = fs.readFileSync(path.resolve(import.meta.dirname, '../.github/workflows/playwright-bulk-ui.yml'), 'utf8');
+  const pullRequest = source.match(/  pull_request:\n    paths:\n((?:      - [^\n]+\n)+)/)?.[1];
+  assert.ok(pullRequest, 'bulk UI must retain a path-scoped pull_request trigger');
+  const globs = [...pullRequest.matchAll(/^      - '([^']+)'$/gm)].map(match => match[1]);
+  for (const changedFile of [
+    'scripts/ci/playwright-smoke.mjs',
+    'frontend-tests/playwright-smoke-setup.test.mjs',
+    'e2e/global-setup.ts',
+    'e2e/support/auth.ts',
+    'playwright.config.ts',
+    'package.json',
+    'package-lock.json',
+    'e2e/nfse-bulk-emission.spec.ts',
+  ]) {
+    assert.ok(globs.some(glob => path.matchesGlob(changedFile, glob)),
+      `A change to ${changedFile} must trigger the deterministic Bulk UI job`);
+  }
+  assert.equal(globs.some(glob => path.matchesGlob('LICENSE', glob)), false);
+});
+
 test('bulk UI workflow calls the tested setup without emitting raw fixture JSON', () => {
   const file = path.resolve(import.meta.dirname, '../.github/workflows/playwright-bulk-ui.yml');
   const workflow = fs.readFileSync(file, 'utf8');

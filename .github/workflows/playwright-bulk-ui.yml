@@ -18,6 +18,13 @@ on:
       - 'Application/BulkEmissionPlanner.php'
       - 'Application/BulkEmissionStatusPolicy.php'
       - '.github/workflows/playwright-bulk-ui.yml'
+      - 'scripts/ci/**'
+      - 'frontend-tests/playwright-smoke-setup.test.mjs'
+      - 'e2e/global-setup.ts'
+      - 'e2e/support/**'
+      - 'playwright.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
 
 concurrency:
   group: playwright-bulk-ui-${{ github.workflow }}-${{ github.ref }}
