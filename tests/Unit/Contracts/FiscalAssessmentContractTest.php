@@ -131,14 +131,34 @@ final class FiscalAssessmentContractTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new FiscalTaxFact(1001, 9, 7, 'withholding', 3250, 'PIS',
-            FiscalTaxRole::WITHHELD_BY_TAKER, 'document_item_taxes', 500000, '0,65');
+        new FiscalTaxFact(
+            1001,
+            9,
+            7,
+            'withholding',
+            3250,
+            'PIS',
+            FiscalTaxRole::WITHHELD_BY_TAKER,
+            'document_item_taxes',
+            500000,
+            '0,65',
+        );
     }
 
     public function testAcceptsAnObservedRealZeroTaxRate(): void
     {
-        $fact = new FiscalTaxFact(1001, 9, 7, 'normal', 0, 'PIS',
-            FiscalTaxRole::PROVIDER_DUE, 'document_item_taxes', 1000000, '0.00');
+        $fact = new FiscalTaxFact(
+            1001,
+            9,
+            7,
+            'normal',
+            0,
+            'PIS',
+            FiscalTaxRole::PROVIDER_DUE,
+            'document_item_taxes',
+            1000000,
+            '0.00',
+        );
 
         self::assertSame(0, $fact->amountCents);
         self::assertSame('0.00', $fact->ratePercent);
