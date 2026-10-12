@@ -16,6 +16,42 @@ use PHPUnit\Framework\TestCase;
 
 final class CooperativeIbsCbsFactsTest extends TestCase
 {
+    public function testCooperativeRecipientTypeIsNotInferredFromSupplyDescription(): void
+    {
+        $unknown = $this->context(new CooperativeIbsCbsFacts(
+            supplyRelation: CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE,
+            associationVerifiedAtEvent: true,
+        ));
+
+        self::assertNull($unknown->takerIsCooperative);
+        self::assertTrue($unknown->providerIsCooperative);
+    }
+
+    public function testStartupOptionEvidenceIsSeparateFromConfirmedElection(): void
+    {
+        $facts = new CooperativeIbsCbsFacts(
+            optionConfirmed: true,
+            optionEffectiveFrom: new DateTimeImmutable('2027-07-01'),
+            optionFormFiled: true,
+            associatesListFiled: true,
+            optionAtStartOfOperations: true,
+            cooperativeRegistrationDate: new DateTimeImmutable('2027-07-01'),
+        );
+
+        self::assertTrue($facts->optionAtStartOfOperations);
+        self::assertSame('2027-07-01', $facts->cooperativeRegistrationDate?->format('Y-m-d'));
+    }
+
+    public function testPositionalSupplyRelationRemainsFifthConstructorArgument(): void
+    {
+        $facts = new CooperativeIbsCbsFacts(
+            null, null, null, null, CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE,
+        );
+
+        self::assertSame(CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, $facts->supplyRelation);
+        self::assertNull($facts->optionAtStartOfOperations);
+    }
+
     public function testCooperativeLegalFormDoesNotProveSpecificTaxRegime(): void
     {
         $context = $this->context();
