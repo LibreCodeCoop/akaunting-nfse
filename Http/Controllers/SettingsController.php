@@ -17,6 +17,7 @@ use Modules\Nfse\Application\SpecialTaxRegimePolicy;
 use Modules\Nfse\Models\ApproximateTaxSource;
 use Modules\Nfse\Support\BrazilianStates;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\GlobalVaultSettings;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\Lc116Code;
@@ -25,6 +26,8 @@ use Modules\Nfse\Support\MunicipalParameterSnapshotStore;
 use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
+use Modules\Nfse\Support\VaultConfigurationUnreadable;
+use Modules\Nfse\Support\VaultDiagnostics;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\MunicipalParametersConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
@@ -53,8 +56,26 @@ class SettingsController extends Controller
 
         $settings = setting('nfse', []);
         $settingsArray = is_array($settings) ? $settings : [];
+        // Keep existing fiscal settings accessible if encrypted infrastructure
+        // becomes unreadable. Never fall back to another Vault or credentials.
+        $vaultConfigurationUnreadable = false;
+        try {
+            $global = VaultConfig::secretStoreConfig();
+        } catch (VaultConfigurationUnreadable) {
+            $global = [
+                'addr' => '', 'mount' => '', 'token' => null,
+                'roleId' => null, 'secretId' => null,
+            ];
+            $vaultConfigurationUnreadable = true;
+        }
+        $settingsArray = array_merge($settingsArray, [
+            'bao_addr' => $global['addr'], 'bao_mount' => $global['mount'],
+            'bao_token' => $global['token'] ?? '', 'bao_role_id' => $global['roleId'] ?? '',
+            'bao_secret_id' => $global['secretId'] ?? '',
+        ]);
         $certificateState = $this->certificateState();
-        $vaultUiState = $this->vaultUiState($settingsArray, $certificateState);
+        $vaultUiState = $this->vaultUiState($settingsArray, $certificateState, $global);
+        $vaultUiState['configuration_error'] = $vaultConfigurationUnreadable;
         $readiness = (new OperationalReadinessResolver())->evaluate(
             settings: $settingsArray,
             hasCertificateSecret: $this->hasCertificateSecret(
@@ -68,8 +89,13 @@ class SettingsController extends Controller
             ? $rawTab
             : 'vault';
 
+        // The template only needs safe address/mount metadata. Keep raw
+        // credentials out of view data, including during exception rendering.
+        $displaySettings = $settingsArray;
+        unset($displaySettings['bao_token'], $displaySettings['bao_role_id'], $displaySettings['bao_secret_id']);
+
         return view('nfse::settings.edit', [
-            'settings' => $settingsArray,
+            'settings' => $displaySettings,
             'certificateState' => $certificateState,
             'vaultUiState' => $vaultUiState,
             'readiness' => $readiness,
@@ -79,38 +105,69 @@ class SettingsController extends Controller
 
     public function updateVault(Request $request): RedirectResponse
     {
-        $rawNfseInput = $request->input('nfse', []);
-        $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
-        $nfseInput = $this->prepareNfseInput($rawNfseInput);
-
-        $authModeUi = (string) $request->input('auth_mode_ui', '');
-        if ($authModeUi === 'token') {
-            $nfseInput['bao_role_id'] = '';
-            $nfseInput['bao_secret_id'] = '';
-        } elseif ($authModeUi === 'approle') {
-            $nfseInput['bao_token'] = '';
-        }
-
         $request->validate([
-            'nfse.bao_addr'            => 'required|url',
-            'nfse.bao_mount'           => 'required|string',
-            'nfse.bao_token'           => 'nullable|string',
-            'nfse.bao_role_id'         => 'nullable|string',
-            'nfse.bao_secret_id'       => 'nullable|string',
-            'nfse.clear_bao_token'     => 'nullable|boolean',
+            'nfse.bao_addr' => 'required|url',
+            'nfse.bao_mount' => 'required|string|max:160',
+            'nfse.bao_token' => 'nullable|string',
+            'nfse.bao_role_id' => 'nullable|string',
+            'nfse.bao_secret_id' => 'nullable|string',
+            'nfse.clear_bao_token' => 'nullable|boolean',
             'nfse.clear_bao_secret_id' => 'nullable|boolean',
+            'auth_mode_ui' => 'required|in:token,approle',
         ]);
 
-        foreach (['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'] as $key) {
-            if (array_key_exists($key, $nfseInput)) {
-                setting(['nfse.' . $key => $nfseInput[$key]]);
+        $data = $request->input('nfse', []);
+        $mode = (string) $request->input('auth_mode_ui');
+        $input = [
+            'addr' => (string) $data['bao_addr'],
+            'mount' => VaultConfig::normalizeMount((string) $data['bao_mount']),
+            'auth_mode' => $mode,
+        ];
+
+        foreach (['bao_token' => 'token', 'bao_role_id' => 'roleId', 'bao_secret_id' => 'secretId'] as $field => $key) {
+            if (($mode === 'token' && $key !== 'token') || ($mode === 'approle' && $key === 'token')) {
+                continue;
+            }
+
+            $raw = trim((string) ($data[$field] ?? ''));
+            $clear = $key === 'token' ? 'clear_bao_token' : ($key === 'secretId' ? 'clear_bao_secret_id' : null);
+            if ($raw !== '' || ($clear !== null && filter_var($data[$clear] ?? false, FILTER_VALIDATE_BOOL))) {
+                $input[$key] = $raw !== '' ? $raw : null;
             }
         }
 
-        setting()->save();
+        try {
+            $this->saveGlobalVaultSettings($input);
+        } catch (\InvalidArgumentException) {
+            return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
+                ->with('error', 'Vault configuration is incomplete.');
+        }
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
             ->with('success', trans('nfse::general.vault_saved_continue'));
+    }
+
+    /**
+     * Override at the HTTP-controller boundary for isolated unit tests.
+     *
+     * @param array<string, mixed> $input
+     */
+    protected function saveGlobalVaultSettings(array $input): void
+    {
+        (new GlobalVaultSettings())->save($input);
+    }
+
+    public function diagnoseVault(VaultDiagnostics $diagnostics): JsonResponse
+    {
+        try {
+            return response()->json($diagnostics->check(VaultConfig::secretStoreConfig()));
+        } catch (VaultConfigurationUnreadable) {
+            return response()->json([
+                'state' => 'failed',
+                'reason' => 'configuration_unreadable',
+                'capabilities' => \Modules\Nfse\Support\VaultDiagnosticPolicy::emptyCapabilities(),
+            ]);
+        }
     }
 
     public function updateFiscal(Request $request): RedirectResponse
@@ -118,7 +175,7 @@ class SettingsController extends Controller
         $settings = setting('nfse', []);
         $settingsArray = is_array($settings) ? $settings : [];
 
-        if (!$this->isVaultReady($settingsArray)) {
+        if (!$this->isVaultReady($this->globalVaultReadinessSettings())) {
             return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
                 ->with('error', trans('nfse::general.vault_required_before_certificate_and_settings'));
         }
@@ -312,7 +369,7 @@ class SettingsController extends Controller
         $settings = setting('nfse', []);
         $settingsArray = is_array($settings) ? $settings : [];
 
-        if (!$this->isVaultReady($settingsArray)) {
+        if (!$this->isVaultReady($this->globalVaultReadinessSettings())) {
             return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
                 ->with('error', trans('nfse::general.vault_required_before_certificate_and_settings'));
         }
@@ -790,15 +847,14 @@ class SettingsController extends Controller
             unset($nfseInput[$attestationKey]);
         }
 
-        $existingVaultSettings = [
-            'bao_addr' => (string) setting('nfse.bao_addr', ''),
-            'bao_mount' => (string) setting('nfse.bao_mount', ''),
-            'bao_token' => (string) setting('nfse.bao_token', ''),
-            'bao_role_id' => (string) setting('nfse.bao_role_id', ''),
-            'bao_secret_id' => (string) setting('nfse.bao_secret_id', ''),
-        ];
+        $existingVaultSettings = $this->globalVaultReadinessSettings();
 
-        $projectedVaultSettings = $this->projectVaultSettings($existingVaultSettings, $nfseInput);
+        // The legacy endpoint must not mutate global infrastructure or use
+        // company-scoped inputs as a bypass of global capability policy.
+        foreach (['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id', 'clear_bao_token', 'clear_bao_secret_id'] as $key) {
+            unset($nfseInput[$key]);
+        }
+        $projectedVaultSettings = $existingVaultSettings;
         $vaultReadyAfterSubmission = $this->isVaultReady($projectedVaultSettings);
 
         $certificatePayload = null;
@@ -807,32 +863,11 @@ class SettingsController extends Controller
         $isVaultOnlySubmission = !$isReplacingCertificate && !array_key_exists('cnpj_prestador', $rawNfseInput);
 
         if ($isVaultOnlySubmission) {
-            $request->validate([
-                'nfse.bao_addr'        => 'required|url',
-                'nfse.bao_mount'       => 'required|string',
-                'nfse.bao_token'       => 'nullable|string',
-                'nfse.bao_role_id'     => 'nullable|string',
-                'nfse.bao_secret_id'   => 'nullable|string',
-                'nfse.clear_bao_token' => 'nullable|boolean',
-                'nfse.clear_bao_secret_id' => 'nullable|boolean',
-            ]);
-
-            foreach (['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'] as $key) {
-                if (array_key_exists($key, $nfseInput)) {
-                    setting(['nfse.' . $key => $nfseInput[$key]]);
-                }
-            }
-
-            setting()->save();
-
-            return redirect()->route('nfse.settings.edit')
-                ->with('success', trans('nfse::general.vault_saved_continue'));
+            return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
+                ->with('error', 'Use the global Vault settings form.');
         }
 
-        $isExplicitlyClearingCredentials = in_array((string) ($rawNfseInput['clear_bao_token'] ?? ''), ['1', 'true', 'on'], true)
-            || in_array((string) ($rawNfseInput['clear_bao_secret_id'] ?? ''), ['1', 'true', 'on'], true);
-
-        if (!$isExplicitlyClearingCredentials && !$vaultReadyAfterSubmission) {
+        if (!$vaultReadyAfterSubmission) {
             return redirect()->route('nfse.settings.edit')
                 ->with('error', trans('nfse::general.vault_required_before_certificate_and_settings'));
         }
@@ -845,30 +880,10 @@ class SettingsController extends Controller
             'nfse.sandbox_mode'    => 'nullable|boolean',
             'nfse.regime_especial_tributacao' => 'nullable|in:0,1,2,3,4,5,6,9',
             'nfse.regime_apuracao_simples_nacional' => 'nullable|in:1,2,3',
-            'nfse.bao_addr'        => 'required|url',
-            'nfse.bao_mount'       => 'required|string',
-            'nfse.bao_token'       => 'nullable|string',
-            'nfse.bao_role_id'     => 'nullable|string',
-            'nfse.bao_secret_id'   => 'nullable|string',
-            'nfse.clear_bao_token' => 'nullable|boolean',
-            'nfse.clear_bao_secret_id' => 'nullable|boolean',
             'replace_certificate'  => 'nullable|boolean',
             'pfx_file'             => 'nullable|file|extensions:pfx,p12|max:1024',
             'pfx_password'         => 'nullable|string|max:255|required_with:pfx_file',
         ]);
-
-        $existingSensitiveSettings = [
-            'bao_token' => (string) setting('nfse.bao_token', ''),
-            'bao_secret_id' => (string) setting('nfse.bao_secret_id', ''),
-        ];
-
-        // Replacement flow clears all nfse.* settings before persisting new values.
-        // If sensitive fields are blank (keep current), re-inject old values so they survive the clear.
-        foreach ($existingSensitiveSettings as $key => $value) {
-            if (!array_key_exists($key, $nfseInput) && $value !== '') {
-                $nfseInput[$key] = $value;
-            }
-        }
 
         if ($certificateFile instanceof UploadedFile) {
             try {
@@ -1012,8 +1027,17 @@ class SettingsController extends Controller
      * @param array<string, mixed> $certificateState
      * @return array<string, bool|string>
      */
-    protected function vaultUiState(array $settings, array $certificateState): array
-    {
+    protected function vaultUiState(
+        array $settings,
+        array $certificateState,
+        ?array $resolvedGlobalVault = null,
+    ): array {
+        $globalVault = $resolvedGlobalVault ?? VaultConfig::secretStoreConfig();
+        $settings = array_merge($settings, [
+            'bao_addr' => $globalVault['addr'], 'bao_mount' => $globalVault['mount'],
+            'bao_token' => $globalVault['token'] ?? '', 'bao_role_id' => $globalVault['roleId'] ?? '',
+            'bao_secret_id' => $globalVault['secretId'] ?? '',
+        ]);
         $addrConfigured = ((string) ($settings['bao_addr'] ?? '')) !== '';
         $mountConfigured = ((string) ($settings['bao_mount'] ?? '')) !== '';
         $tokenConfigured = ((string) ($settings['bao_token'] ?? '')) !== '';
@@ -1048,6 +1072,26 @@ class SettingsController extends Controller
      * @param array<string, mixed> $nfseInput
      * @return array<string, string>
      */
+
+    /**
+     * Application-wide infrastructure only. This protected boundary enables
+     * deterministic pure-PHP controller tests without a database facade.
+     *
+     * @return array{bao_addr:string,bao_mount:string,bao_token:string,bao_role_id:string,bao_secret_id:string}
+     */
+    protected function globalVaultReadinessSettings(): array
+    {
+        $resolved = VaultConfig::secretStoreConfig();
+
+        return [
+            'bao_addr' => $resolved['addr'],
+            'bao_mount' => $resolved['mount'],
+            'bao_token' => $resolved['token'] ?? '',
+            'bao_role_id' => $resolved['roleId'] ?? '',
+            'bao_secret_id' => $resolved['secretId'] ?? '',
+        ];
+    }
+
     protected function projectVaultSettings(array $currentVaultSettings, array $nfseInput): array
     {
         $projected = $currentVaultSettings;

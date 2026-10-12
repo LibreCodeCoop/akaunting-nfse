@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Models\Document\Document;
 use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
 use Modules\Nfse\Application\InvoiceDpsIdentity;
+use Modules\Nfse\Support\VaultConfig;
 use Tests\Feature\FeatureTestCase;
 
 final class TestHarnessProvisioningTest extends FeatureTestCase
@@ -50,6 +51,13 @@ final class TestHarnessProvisioningTest extends FeatureTestCase
         self::assertSame('010701', (string) setting('nfse.codigo_tributacao_nacional'));
         self::assertSame('0', (string) setting('nfse.regime_especial_tributacao'));
         self::assertSame('1', (string) setting('nfse.sandbox_mode'));
+        self::assertNull(setting('nfse.bao_addr'));
+        self::assertNull(setting('nfse.bao_token'));
+
+        $vault = VaultConfig::secretStoreConfig();
+        self::assertSame('https://127.0.0.1:29999', $vault['addr']);
+        self::assertSame('/secret', $vault['mount']);
+        self::assertSame('deterministic-test-token', $vault['token']);
 
         $pkcs12 = file_get_contents($path);
         self::assertIsString($pkcs12);

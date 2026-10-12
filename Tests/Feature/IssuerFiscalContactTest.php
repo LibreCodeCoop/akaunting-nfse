@@ -25,6 +25,13 @@ final class IssuerFiscalContactTest extends FeatureTestCase
         ]);
         setting()->save();
 
+        (new \Modules\Nfse\Support\GlobalVaultSettings())->save([
+            'addr' => 'https://vault.example.invalid',
+            'mount' => '/secret',
+            'auth_mode' => 'token',
+            'token' => 'synthetic-global-fixture-token',
+        ]);
+
         DB::table('settings')->insert([
             'company_id' => $companyId + 50000,
             'key' => 'nfse.prestador_email',
@@ -72,6 +79,13 @@ final class IssuerFiscalContactTest extends FeatureTestCase
         ]);
         setting()->save();
 
+        (new \Modules\Nfse\Support\GlobalVaultSettings())->save([
+            'addr' => 'https://vault.example.invalid',
+            'mount' => '/secret',
+            'auth_mode' => 'token',
+            'token' => 'synthetic-global-fixture-token',
+        ]);
+
         DB::table('settings')->insert([
             'company_id' => $companyId + 50000,
             'key' => 'nfse.regime_apuracao_simples_nacional',
@@ -115,6 +129,13 @@ final class IssuerFiscalContactTest extends FeatureTestCase
             'nfse.bao_token' => 'test-only-token',
         ]);
         setting()->save();
+
+        (new \Modules\Nfse\Support\GlobalVaultSettings())->save([
+            'addr' => 'https://vault.example.invalid',
+            'mount' => '/secret',
+            'auth_mode' => 'token',
+            'token' => 'synthetic-global-fixture-token',
+        ]);
 
         DB::table('settings')->insert([
             'company_id' => $companyId + 50000,

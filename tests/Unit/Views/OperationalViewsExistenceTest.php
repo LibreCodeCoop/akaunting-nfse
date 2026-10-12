@@ -315,8 +315,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertGreaterThan($vaultTitle, $certificateStep);
             self::assertGreaterThan($vaultTitle, $settingsStep);
             self::assertStringContainsString('id="delete-certificate-form"', $content);
-            self::assertStringContainsString("setting('nfse.bao_mount', '/nfse')", $content);
-            self::assertStringContainsString("setting('nfse.bao_addr', '')", $content);
+            self::assertStringContainsString("old('nfse.bao_mount', \$settings['bao_mount'] ?? '/nfse')", $content);
+            self::assertStringContainsString("old('nfse.bao_addr', \$settings['bao_addr'] ?? '')", $content);
             self::assertStringNotContainsString("setting('nfse.bao_addr', 'http://openbao:8200')", $content);
         }
 

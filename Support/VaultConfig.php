@@ -10,41 +10,57 @@ namespace Modules\Nfse\Support;
 final class VaultConfig
 {
     /**
-     * @return array{addr: string, mount: string, token: ?string, roleId: ?string, secretId: ?string}
+     * @return array{addr:string,mount:string,token:?string,roleId:?string,secretId:?string}
      */
     public static function secretStoreConfig(): array
     {
-        $mount = self::normalizeMount(
-            self::resolve(
-                setting('nfse.bao_mount', '/nfse'),
-                ['VAULT_MOUNT', 'OPENBAO_MOUNT'],
-                '/nfse',
-            ) ?? '/nfse',
-        );
+        // Standalone rule tests supply already-resolved facts without Laravel.
+        // HTTP, CLI and queue runtimes load the facade before resolving Vault.
+        if (!class_exists(\Illuminate\Support\Facades\DB::class)) {
+            return self::environmentConfig();
+        }
+
+        return (new GlobalVaultSettings())->effective();
+    }
+
+    /**
+     * No global DB record: resolve environment aliases in declared order.
+     * Token authentication wins if both environment auth modes are present.
+     *
+     * @return array{addr:string,mount:string,token:?string,roleId:?string,secretId:?string}
+     */
+    public static function environmentConfig(): array
+    {
+        $token = self::resolve(null, ['VAULT_TOKEN', 'OPENBAO_TOKEN']);
+        $roleId = self::resolve(null, ['VAULT_ROLE_ID', 'OPENBAO_ROLE_ID']);
+        $secretId = self::resolve(null, ['VAULT_SECRET_ID', 'OPENBAO_SECRET_ID']);
+
+        if ($token !== null) {
+            $roleId = null;
+            $secretId = null;
+        }
 
         return [
-            'addr' => self::resolve(
-                setting('nfse.bao_addr'),
-                ['VAULT_ADDR', 'OPENBAO_ADDR'],
-                null,
-            ) ?? '',
-            'mount' => $mount,
-            'token' => self::resolve(
-                setting('nfse.bao_token'),
-                ['VAULT_TOKEN', 'OPENBAO_TOKEN'],
-                null,
+            'addr' => self::resolve(null, ['VAULT_ADDR', 'OPENBAO_ADDR']) ?? '',
+            'mount' => self::normalizeMount(
+                self::resolve(null, ['VAULT_MOUNT', 'OPENBAO_MOUNT'], '/nfse') ?? '/nfse',
             ),
-            'roleId' => self::resolve(
-                setting('nfse.bao_role_id'),
-                ['VAULT_ROLE_ID', 'OPENBAO_ROLE_ID'],
-                null,
-            ),
-            'secretId' => self::resolve(
-                setting('nfse.bao_secret_id'),
-                ['VAULT_SECRET_ID', 'OPENBAO_SECRET_ID'],
-                null,
-            ),
+            'token' => $token,
+            'roleId' => $roleId,
+            'secretId' => $secretId,
         ];
+    }
+
+    /**
+     * A configured credential is not a successful connectivity test.
+     *
+     * @param array{addr:string,mount:string,token:?string,roleId:?string,secretId:?string} $config
+     */
+    public static function configured(array $config): bool
+    {
+        return $config['addr'] !== ''
+            && $config['mount'] !== ''
+            && ($config['token'] !== null || ($config['roleId'] !== null && $config['secretId'] !== null));
     }
 
     public static function normalizeMount(string $mount): string
@@ -73,7 +89,7 @@ final class VaultConfig
             return $normalizedSetting;
         }
 
-        $resolveEnv = $envResolver ?? static fn (string $name): mixed => env($name);
+        $resolveEnv = $envResolver ?? static fn (string $name): mixed => function_exists('env') ? env($name) : getenv($name);
 
         foreach ($envNames as $envName) {
             $normalizedEnv = self::normalize($resolveEnv($envName));
