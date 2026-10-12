@@ -38,7 +38,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release download v1.7.11 --repo rhysd/actionlint --pattern 'actionlint_1.7.11_linux_amd64.tar.gz'
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors --max-time 120 --output actionlint_1.7.11_linux_amd64.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.11/actionlint_1.7.11_linux_amd64.tar.gz
           gh attestation verify actionlint_1.7.11_linux_amd64.tar.gz --repo rhysd/actionlint
           tar -xzf actionlint_1.7.11_linux_amd64.tar.gz actionlint
           ./actionlint -shellcheck "$(command -v shellcheck)" \
