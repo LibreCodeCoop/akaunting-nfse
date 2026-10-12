@@ -11,7 +11,7 @@ only a final newline normalized. The verifier gained SPDX headers.
 
 | Corpus | Cases | Purpose |
 | --- | ---: | --- |
-| `nfse_427_oraculos_sinteticos_2026-10-12.json` | 25 | Conditional financial/retention/ISS/disclosure hypotheses; 31 independently calculated monetary expectations |
+| `nfse_427_oraculos_sinteticos_2026-10-12.json` | 25 | Conditional financial/retention/ISS/disclosure hypotheses; 29 independently calculated BRL amounts; 31 independent field checks including two retention enums |
 | `nfse_427_matriz_temporal_sintetica_2026-10-12.json` | 20 | Taxable-event RTC applicability, separate from operational XSD deployment |
 | `nfse_427_cooperativas_casos_a_revisar.json` | 6 | Cooperative counterexamples, **review proposals only** |
 
