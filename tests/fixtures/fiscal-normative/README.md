@@ -22,9 +22,29 @@ versioned and re-executed corpus. Do not treat these six records as the 21.
 
 ## Run
 
+From the `akaunting-nfse` module directory, after installing and scoping
+its Composer runtime (no fiscal network or live signing required):
+
 ```sh
 vendor-bin/phpunit/vendor/bin/phpunit -c phpunit.xml tests/Unit/Fiscal
+vendor-bin/phpunit/vendor/bin/phpunit -c phpunit.xml tests/Unit/Build/NfsePhpCurrentIssuanceContractTest.php
+vendor-bin/phpunit/vendor/bin/phpunit -c phpunit.xml tests/Unit/Build/ScopedFiscalDocumentConsistencyTest.php
 ```
+
+From an existing **Akaunting test checkout** containing the module under
+`modules/Nfse` and a configured synthetic test database:
+
+```sh
+php artisan test modules/Nfse/Tests/Feature/FiscalNormativeIssuanceGuardTest.php
+php artisan test modules/Nfse/Tests/Feature/ManualNormativeIssuanceGuardTest.php
+php artisan test modules/Nfse/Tests/Feature/MunicipalEmissionHttpTransportFeatureTest.php
+php artisan test modules/Nfse/Tests/Feature/ReceiptPersistenceTest.php
+```
+
+Unit oracles never require provisioning Akaunting. Feature tests need the
+Akaunting application, but no live certificate or SEFIN endpoint. The
+repository's existing CI workflows provide the full-stack environment.
+
 
 PHPUnit verifies the financial expectations using independent integer-decimal
 arithmetic with half-even rounding, checks the source-backed calendar apart
