@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\GlobalVaultSettings;
 use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
 use Modules\Nfse\Support\Testing\SyntheticPkcs12Factory;
 
@@ -103,13 +104,19 @@ final class ProvisionTestHarness extends Command
             'nfse.codigo_tributacao_nacional' => $codigoNacional,
             'nfse.regime_especial_tributacao' => '0',
             'nfse.sandbox_mode' => '1',
-            'nfse.bao_addr' => 'http://openbao.invalid.test:8200',
-            'nfse.bao_mount' => 'secret',
-            'nfse.bao_token' => 'deterministic-test-token',
-            'nfse.bao_role_id' => '',
-            'nfse.bao_secret_id' => '',
         ]);
         setting()->save();
+
+        // The harness must exercise the same global infrastructure contract
+        // as HTTP, CLI, and queue consumers; never use company-scoped Vault
+        // settings as a surrogate. This endpoint is synthetically addressed
+        // and no Vault request is performed by provisioning.
+        (new GlobalVaultSettings())->save([
+            'addr' => 'https://vault.invalid.test',
+            'mount' => '/secret',
+            'auth_mode' => 'token',
+            'token' => 'deterministic-test-token',
+        ]);
 
         $payload = [
             'company_id' => $companyId,

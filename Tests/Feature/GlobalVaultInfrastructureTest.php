@@ -95,6 +95,56 @@ final class GlobalVaultInfrastructureTest extends FeatureTestCase
         Http::assertNothingSent();
     }
 
+    public function testExplicitCredentialClearMakesVaultUnconfiguredAndAllowsRestore(): void
+    {
+        $this->loginAs();
+        $store = new GlobalVaultSettings();
+        $store->save([
+            'addr' => 'https://vault.example.test',
+            'mount' => '/nfse',
+            'auth_mode' => 'token',
+            'token' => 'synthetic-initial-token',
+        ]);
+
+        $this->patch(route('nfse.settings.vault'), [
+            'auth_mode_ui' => 'token',
+            'nfse' => [
+                'bao_addr' => 'https://vault.example.test',
+                'bao_mount' => '/nfse',
+                'clear_bao_token' => '1',
+            ],
+        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'vault']))
+            ->assertSessionHas('success');
+
+        self::assertNull($store->effective()['token']);
+        self::assertFalse(VaultConfig::configured($store->effective()));
+
+        $this->patch(route('nfse.settings.vault'), [
+            'auth_mode_ui' => 'token',
+            'nfse' => [
+                'bao_addr' => 'https://vault.example.test',
+                'bao_mount' => '/nfse',
+                'bao_token' => 'synthetic-restored-token',
+            ],
+        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'vault']))
+            ->assertSessionHas('success');
+
+        self::assertSame('synthetic-restored-token', $store->effective()['token']);
+        self::assertTrue(VaultConfig::configured($store->effective()));
+    }
+
+    public function testNewVaultCannotBeSavedWithoutAnyAuthentication(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        (new GlobalVaultSettings())->save([
+            'addr' => 'https://vault.example.test',
+            'mount' => '/nfse',
+            'auth_mode' => 'token',
+            'token' => null,
+        ]);
+    }
+
     public function testSavingTokenModeRemovesAppRoleFieldsAndRetainsBlankToken(): void
     {
         $store = new GlobalVaultSettings();

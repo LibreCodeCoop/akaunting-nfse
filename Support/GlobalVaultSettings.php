@@ -115,9 +115,20 @@ final class GlobalVaultSettings
             'secretId' => $mode === 'approle' ? $value('secretId') : null,
         ];
 
+        // An operator can explicitly clear an existing credential to disable
+        // Vault, but an absent secret must never silently configure a new
+        // endpoint or authentication mode. Omitted secrets still mean "keep".
+        $clearedToken = $sameMode && array_key_exists('token', $input) && $input['token'] === null;
+        $clearedAppRole = $sameMode && (
+            (array_key_exists('roleId', $input) && $input['roleId'] === null)
+            || (array_key_exists('secretId', $input) && $input['secretId'] === null)
+        );
+
         if ($config['addr'] === ''
-            || ($mode === 'token' && $config['token'] === null)
-            || ($mode === 'approle' && ($config['roleId'] === null || $config['secretId'] === null))
+            || ($mode === 'token' && $config['token'] === null && !$clearedToken)
+            || ($mode === 'approle'
+                && ($config['roleId'] === null || $config['secretId'] === null)
+                && !$clearedAppRole)
         ) {
             throw new \InvalidArgumentException('Vault infrastructure configuration is incomplete.');
         }
