@@ -192,6 +192,117 @@ final class MySqlMigrationTest extends TestCase
         ]);
     }
 
+    public function testDpsMigrationEnforcesIssuerWideNumbersAndProtectsHistory(): void
+    {
+        $this->migration('2026_10_08_000002_create_nfse_emission_attempts')->up();
+        $migration = $this->migration('2026_10_12_230000_create_nfse_dps_reservations');
+        $migration->up();
+        $migration->up();
+
+        self::assertTrue(Schema::hasIndex('nfse_dps_series', 'nfse_dps_series_issuer_unique'));
+        self::assertTrue(Schema::hasIndex('nfse_dps_reservations', 'nfse_dps_reservation_number_unique'));
+        self::assertTrue(Schema::hasColumn('nfse_emission_attempts', 'dps_reservation_id'));
+
+        $series = $this->insertSyntheticDpsSeries();
+        DB::table('nfse_dps_reservations')->insert([
+            'series_id' => $series,
+            'company_id' => 1,
+            'invoice_id' => 1,
+            'operation_key' => str_repeat('a', 64),
+            'number' => 1,
+            'origin' => 'manual',
+        ]);
+        DB::table('documents')->insert(['id' => 2]);
+
+        try {
+            // A second local Akaunting tenant does not own a new national DPS
+            // identifier just because its company_id is different.
+            DB::table('nfse_dps_reservations')->insert([
+                'series_id' => $series,
+                'company_id' => 2,
+                'invoice_id' => 2,
+                'operation_key' => str_repeat('b', 64),
+                'number' => 1,
+                'origin' => 'automatic',
+            ]);
+            self::fail('Cross-tenant duplicate issuer/series/DPS number must fail.');
+        } catch (QueryException) {
+        }
+
+        self::assertSame(1, DB::table('nfse_dps_reservations')->count());
+
+        try {
+            $migration->down();
+            self::fail('Rollback must refuse to erase consumed fiscal numbers.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('historical DPS reservations', $exception->getMessage());
+        }
+
+        self::assertSame(1, DB::table('nfse_dps_reservations')->count());
+    }
+
+    public function testDpsSeriesRowLockIsExclusiveAcrossMySqlConnections(): void
+    {
+        $this->migration('2026_10_08_000002_create_nfse_emission_attempts')->up();
+        $this->migration('2026_10_12_230000_create_nfse_dps_reservations')->up();
+        $series = $this->insertSyntheticDpsSeries();
+
+        $connection = DB::connection()->getPdo();
+        $other = new \PDO(
+            'mysql:host=' . (getenv('NFSE_MIGRATION_TEST_HOST') ?: '127.0.0.1')
+            . ';port=' . (getenv('NFSE_MIGRATION_TEST_PORT') ?: '3306')
+            . ';dbname=' . getenv('NFSE_MIGRATION_TEST_DB'),
+            getenv('NFSE_MIGRATION_TEST_USER') ?: 'root',
+            getenv('NFSE_MIGRATION_TEST_PASSWORD') ?: '',
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION],
+        );
+        $other->exec('SET SESSION innodb_lock_wait_timeout = 1');
+
+        $connection->beginTransaction();
+
+        try {
+            $connection->query('SELECT id FROM nfse_dps_series WHERE id = ' . $series . ' FOR UPDATE')->fetch();
+            $other->beginTransaction();
+
+            try {
+                $other->query('SELECT id FROM nfse_dps_series WHERE id = ' . $series . ' FOR UPDATE');
+                self::fail('An independent connection must not acquire the reserved counter row.');
+            } catch (\PDOException $exception) {
+                self::assertSame('HY000', $exception->getCode());
+            } finally {
+                if ($other->inTransaction()) {
+                    $other->rollBack();
+                }
+            }
+        } finally {
+            if ($connection->inTransaction()) {
+                $connection->commit();
+            }
+        }
+
+        // This verifies SQL row-lock contention, not concurrent end-to-end
+        // application requests nor cross-database coordination.
+        $other->beginTransaction();
+        $row = $other->query('SELECT id FROM nfse_dps_series WHERE id = ' . $series . ' FOR UPDATE')->fetch();
+        self::assertIsArray($row);
+        $other->commit();
+    }
+
+    private function insertSyntheticDpsSeries(): int
+    {
+        return (int) DB::table('nfse_dps_series')->insertGetId([
+            'environment' => 2,
+            'issuer_municipality' => '3303302',
+            'issuer_registration_type' => 2,
+            'issuer_registration' => '11222333000181',
+            'series' => '00001',
+            'status' => 'active',
+            'coordination_mode' => 'shared_database',
+            'coordination_reference' => 'synthetic-mysql-connection-test',
+            'last_number' => 0,
+        ]);
+    }
+
     private function assertBulkStructure(): void
     {
         $columns = array_column(Schema::getColumns('nfse_bulk_emission_units'), null, 'name');
@@ -240,7 +351,7 @@ final class MySqlMigrationTest extends TestCase
 
     private function dropFixtures(): void
     {
-        foreach (['nfse_bulk_emission_units', 'nfse_bulk_emission_runs', 'nfse_receipts', 'documents'] as $table) {
+        foreach (['nfse_emission_attempts', 'nfse_dps_reservations', 'nfse_dps_series', 'nfse_bulk_emission_units', 'nfse_bulk_emission_runs', 'nfse_receipts', 'documents'] as $table) {
             Schema::dropIfExists($table);
         }
     }
