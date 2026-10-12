@@ -129,22 +129,18 @@ final class InvoiceEmailsTest extends TestCase
         );
     }
 
-    public function testControllerMirrorsCoreSalesInvoicePermissions(): void
+    public function testEmailComposerNeedsReadPermissionAndSendingNeedsUpdatePermission(): void
     {
         self::assertStringContainsString(
+            "permission:read-sales-invoices')->only('create')",
+            $this->controllerContent()
+        );
+        self::assertStringContainsString(
+            "permission:update-sales-invoices')->only('store')",
+            $this->controllerContent()
+        );
+        self::assertStringNotContainsString(
             "permission:create-sales-invoices",
-            $this->controllerContent()
-        );
-        self::assertStringContainsString(
-            "permission:read-sales-invoices",
-            $this->controllerContent()
-        );
-        self::assertStringContainsString(
-            "permission:update-sales-invoices",
-            $this->controllerContent()
-        );
-        self::assertStringContainsString(
-            "permission:delete-sales-invoices",
             $this->controllerContent()
         );
     }

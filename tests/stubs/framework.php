@@ -60,10 +60,20 @@ class Request
     {
         return $default;
     }
+
+    public function route(?string $param = null, mixed $default = null): mixed
+    {
+        return $default;
+    }
 }
 
 class JsonResponse
 {
+    /** @param array<string, mixed> $data */
+    public function __construct(array $data = [], int $status = 200)
+    {
+    }
+
     /** @return array<string, mixed> */
     public function getData(bool $assoc = false): array
     {
@@ -241,6 +251,8 @@ namespace App\Models\Document;
 class Document
 {
     public mixed $id = null;
+
+    public mixed $company_id = null;
 
     public mixed $type = null;
 
@@ -446,6 +458,18 @@ namespace {
     function event(object $event): object
     {
         return $event;
+    }
+
+    function company_id(): int
+    {
+        return 1;
+    }
+
+    function abort_unless(bool $condition, int $code): void
+    {
+        if (!$condition) {
+            throw new \RuntimeException('HTTP ' . $code);
+        }
     }
 
     function app(?string $abstract = null): object

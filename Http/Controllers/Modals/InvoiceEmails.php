@@ -152,9 +152,8 @@ class InvoiceEmails extends Controller
         $documentId = (int) $request->input('document_id');
 
         abort_unless($routeId > 0 && $routeId === $documentId, 404);
-        $invoice = Invoice::query()
-            ->where('company_id', (int) company_id())
-            ->findOrFail($routeId);
+        $invoice = Invoice::findOrFail($routeId);
+        abort_unless((int) $invoice->company_id === (int) company_id(), 404);
 
         try {
             $recipients = (new PostEmissionEmailRecipients())->normalize(
