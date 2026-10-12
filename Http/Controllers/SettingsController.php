@@ -814,7 +814,7 @@ class SettingsController extends Controller
      *
      * @param array<string,mixed> $input
      * @param array<string,mixed> $settings
-     * @return array{code:?int,state:'missing'|'invalid'|'none'|'special',can_emit:bool,reason:string,municipal_review_required:bool}
+     * @return array{code:?int,state:'missing'|'invalid'|'unsupported'|'none'|'special',can_emit:bool,reason:string,municipal_review_required:bool}
      */
     private function specialRegimeAssessment(array $input, array $settings): array
     {

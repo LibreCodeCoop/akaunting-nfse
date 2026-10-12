@@ -72,6 +72,7 @@ final class SpecialTaxRegimePolicyTest extends TestCase
         $assessment = (new SpecialTaxRegimePolicy())->evaluate('1', 3, 1, '2026-10-05');
 
         self::assertSame('simples_apuration_not_supported', $assessment['reason']);
+        self::assertSame('unsupported', $assessment['state']);
         self::assertFalse($assessment['can_emit']);
         self::assertTrue((new SpecialTaxRegimePolicy())->evaluate('0', 3, 1)['can_emit']);
     }

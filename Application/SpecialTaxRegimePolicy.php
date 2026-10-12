@@ -20,7 +20,7 @@ final class SpecialTaxRegimePolicy
     public const OFFICIAL_CODES = [0, 1, 2, 3, 4, 5, 6, 9];
 
     /**
-     * @return array{code:?int,state:'missing'|'invalid'|'none'|'special',can_emit:bool,reason:string,municipal_review_required:bool}
+     * @return array{code:?int,state:'missing'|'invalid'|'unsupported'|'none'|'special',can_emit:bool,reason:string,municipal_review_required:bool}
      */
     public function evaluate(mixed $rawCode, int $simples, int $issqn, ?string $competence = null, ?string $issuerMunicipality = null, ?string $incidenceMunicipality = null): array
     {
@@ -71,7 +71,7 @@ final class SpecialTaxRegimePolicy
         if ($simples === 3) {
             // E0175 depends on regApTribSN, which the installed DPS DTO does not
             // expose. This is a runtime limitation, NOT a universal legal ban.
-            return $this->result($code, 'invalid', false, 'simples_apuration_not_supported');
+            return $this->result($code, 'unsupported', false, 'simples_apuration_not_supported');
         }
 
         if ($competence !== null && !$this->isValidDate($competence)) {
@@ -106,7 +106,7 @@ final class SpecialTaxRegimePolicy
     }
 
     /**
-     * @return array{code:?int,state:'missing'|'invalid'|'none'|'special',can_emit:bool,reason:string,municipal_review_required:bool}
+     * @return array{code:?int,state:'missing'|'invalid'|'unsupported'|'none'|'special',can_emit:bool,reason:string,municipal_review_required:bool}
      */
     private function result(?int $code, string $state, bool $canEmit, string $reason, bool $municipalReview = false): array
     {
