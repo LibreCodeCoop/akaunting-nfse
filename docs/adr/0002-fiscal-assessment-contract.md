@@ -18,7 +18,8 @@ rate when available, and explicit provenance. A tax-row amount may be null
 when not actually observed; integer zero is a distinct observed fact.
 Roles are backed by
 `FiscalTaxRole` (provider due, withheld by taker, transparency estimate).
-An invoice-level tax need not invent a document-item ID of 0.\nAn absent ID, value origin or classification is `null`, never
+An invoice-level tax need not invent a document-item ID of 0.
+An absent ID, value origin or classification is `null`, never
 guessed from tax names, percentages, a value or an XML element's historic name.
 
 The fiscal application layer returns `Contracts\FiscalAssessment`, a list
