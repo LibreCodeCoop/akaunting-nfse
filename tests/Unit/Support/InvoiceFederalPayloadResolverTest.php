@@ -271,7 +271,64 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('3.65', $payload['totalTributosPercentualFederal']);
     }
 
-    public function testNonSimplesUsesEffectiveIssRateAsMunicipalApproximateTaxFallback(): void
+    public function testFederalTaxationDoesNotFabricateApproximateTaxPercentages(): void
+    {
+        $invoice = new Document();
+        $invoice->amount = 1000.00;
+        $invoice->items = $this->items([]);
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
+                'nfse.federal_piscofins_situacao_tributaria' => '1',
+                'nfse.federal_piscofins_aliquota_pis' => '1.65',
+                'nfse.federal_piscofins_aliquota_cofins' => '7.60',
+                default => $default,
+            },
+        );
+
+        $payload = $resolver->resolve($invoice);
+
+        self::assertSame('1.65', $payload['federalPiscofinsValorPis']);
+        self::assertSame(0, $payload['indicadorTributacao']);
+        self::assertSame('', $payload['totalTributosPercentualFederal']);
+        self::assertSame('', $payload['totalTributosPercentualMunicipal']);
+    }
+
+    public function testExplicitZeroInAllThreePercentagesIsNotMissing(): void
+    {
+        $invoice = new Document();
+        $invoice->amount = 100.00;
+        $invoice->items = $this->items([]);
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
+                'nfse.tributos_fed_p', 'nfse.tributos_est_p', 'nfse.tributos_mun_p' => '0.00',
+                default => $default,
+            },
+        );
+
+        $payload = $resolver->resolve($invoice);
+        self::assertSame(2, $payload['indicadorTributacao']);
+        self::assertSame('0.00', $payload['totalTributosPercentualFederal']);
+        self::assertSame('0.00', $payload['totalTributosPercentualMunicipal']);
+    }
+
+    public function testPartiallyProvidedEstimatesNeverBecomeFabricatedZeros(): void
+    {
+        $invoice = new Document();
+        $invoice->amount = 100.00;
+        $invoice->items = $this->items([]);
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
+                'nfse.tributos_fed_p' => '6.50',
+                default => $default,
+            },
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Missing is not a confirmed zero.');
+        $resolver->resolve($invoice);
+    }
+
+    public function testEffectiveIssRateDoesNotDetermineApproximateMunicipalTax(): void
     {
         $resolver = new InvoiceFederalPayloadResolver(
             settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
@@ -288,8 +345,9 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $payload = $resolver->resolve($invoice, null, null, '2.00');
 
-        self::assertSame(2, $payload['indicadorTributacao']);
-        self::assertSame('2.00', $payload['totalTributosPercentualMunicipal']);
+        self::assertSame(0, $payload['indicadorTributacao']);
+        self::assertSame('', $payload['totalTributosPercentualMunicipal']);
+        self::assertSame('', $payload['totalTributosPercentualFederal']);
     }
 
     public function testConfiguredMunicipalApproximateTaxOverridesIssFallback(): void

@@ -140,25 +140,24 @@ final class InvoiceFederalPayloadResolver
             '',
         ));
 
-        if (!$simples && $municipalPercent === '') {
-            $municipalPercent = $this->decimal($municipalPercentFallback);
+        // Effective ISSQN is an assessed municipal tax, not proof of the
+        // approximate municipal burden under Lei 12.741/2012. Likewise,
+        // PIS/COFINS amounts on invoice items are not a versioned source for
+        // the approximate total federal burden.
+        $percentages = [$federalPercent, $statePercent, $municipalPercent];
+        $informed = count(array_filter(
+            $percentages,
+            static fn (string $value): bool => $value !== '',
+        ));
+
+        if ($informed > 0 && $informed < count($percentages)) {
+            throw new \InvalidArgumentException(
+                'Partial approximate-tax percentages: supply all three with provenance, '
+                . 'or leave all three unknown. Missing is not a confirmed zero.',
+            );
         }
 
-        if ($federalPercent === '' && $snapshot['federal_percent'] !== '') {
-            $federalPercent = $snapshot['federal_percent'];
-        }
-
-        $taxIndicator = (
-            $federalPercent !== ''
-            || $statePercent !== ''
-            || $municipalPercent !== ''
-        ) ? 2 : 0;
-
-        if ($taxIndicator === 2) {
-            $federalPercent = $federalPercent !== '' ? $federalPercent : '0.00';
-            $statePercent = $statePercent !== '' ? $statePercent : '0.00';
-            $municipalPercent = $municipalPercent !== '' ? $municipalPercent : '0.00';
-        }
+        $taxIndicator = $informed === count($percentages) ? 2 : 0;
 
         $irrf = $this->retentionValue($invoiceAmount, 'nfse.federal_valor_irrf');
 
@@ -406,15 +405,8 @@ final class InvoiceFederalPayloadResolver
             || $payload['totalTributosPercentualEstadual'] !== ''
             || $payload['totalTributosPercentualMunicipal'] !== '';
 
-        if ($hasTotals || !$this->hasTaxationPayload($payload)) {
-            return $payload;
-        }
-
-        $payload['indicadorTributacao'] = 2;
-        $payload['totalTributosPercentualFederal'] = '0.00';
-        $payload['totalTributosPercentualEstadual'] = '0.00';
-        $payload['totalTributosPercentualMunicipal'] = '0.00';
-
+        // Actual federal taxation/withholding fields do not establish
+        // approximate transparency percentages.
         return $payload;
     }
 
