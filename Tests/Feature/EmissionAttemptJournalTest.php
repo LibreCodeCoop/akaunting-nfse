@@ -58,7 +58,7 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
         self::assertFalse(array_key_exists('authorized_xml', $attempt->getAttributes()));
     }
 
-    public function testAttemptPinsSourceProvenanceAndRefusesAmbiguousReconciliationWithDifferentVersion(): void
+    public function testAttemptPinsOldSourceVersionWhileSafelyRecoveringAfterNewRevision(): void
     {
         $invoice = $this->invoice();
         $client = $this->client();
@@ -96,22 +96,31 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
 
         $changedSource = $source;
         $changedSource['source']['version'] = 'synthetic-v2';
+        $client->recovered = $this->receipt('101', '7');
 
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('provenance changed');
-
-        try {
-            (new EmissionAttemptJournal())->issue(
-                client: $client,
-                dps: $dps,
+        $result = (new EmissionAttemptJournal())->issue(
+            client: $client,
+            dps: $dps,
+            invoiceId: (int) $invoice->id,
+            origin: 'manual',
+            persist: static fn (ReceiptData $remote): NfseReceipt => (new ReceiptPersistence())->storeCurrent(
                 invoiceId: (int) $invoice->id,
-                origin: 'manual',
-                persist: static fn (ReceiptData $receipt): NfseReceipt => throw new \LogicException('Not authorized.'),
-                approximateTaxEvidence: $changedSource,
-            );
-        } finally {
-            self::assertSame(1, $client->emits);
-        }
+                receipt: $remote,
+                resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
+            ),
+            approximateTaxEvidence: $changedSource,
+        );
+
+        self::assertFalse($result['reused']);
+        self::assertSame('101', $result['receipt']->nfse_number);
+        self::assertSame(1, $client->emits, 'Recovery must not repeat the fiscal POST.');
+        self::assertGreaterThan(0, $client->dpsQueries, 'Reconciliation must query the immutable DPS identity.');
+        self::assertSame(1, NfseEmissionAttempt::query()->count());
+
+        $reconciled = $record->fresh();
+        self::assertSame(EmissionAttemptJournal::AUTHORIZED, $reconciled->status);
+        self::assertSame($source, $reconciled->approximate_tax_evidence);
+        self::assertNotNull($reconciled->reconciled_at);
     }
 
     public function testE0312AndOtherOfficialRejectionsAreRecordedWithoutCreatingReceipts(): void

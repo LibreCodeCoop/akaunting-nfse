@@ -222,14 +222,10 @@ final class EmissionAttemptJournal
                         throw new \LogicException('DPS content changed before its previous result was reconciled.');
                     }
 
-                    // For an unresolved POST, identical numeric totals do not
-                    // authorize silently switching to a different source version.
-                    if ((string) $previous->status !== self::AUTHORIZED
-                        && $approximateTaxEvidence !== null
-                        && $previous->approximate_tax_evidence !== $approximateTaxEvidence) {
-                        throw new \LogicException('Approximate tax provenance changed before DPS reconciliation.');
-                    }
-
+                    // A source revision may change while an earlier POST is
+                    // ambiguous. The identical DPS fingerprint permits ONLY
+                    // read-only recovery; never replace the pinned provenance
+                    // on the previous attempt and never send a second POST.
                     return [
                         'attempt' => $previous,
                         'recovery_only' => $previous->status !== self::AUTHORIZED,
