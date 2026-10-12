@@ -7,95 +7,205 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Support;
 
-use Illuminate\Support\Facades\Http;
-
 /**
- * Explicit, read-only health/capability check. Never return response bodies,
- * exceptions, credentials or an untrusted server-provided error message.
+ * Side-effect-free Vault diagnostic policy. Transport is isolated so status
+ * rules can be tested with synthetic responses, without Laravel or a Vault.
+ *
+ * No upstream body, exception or credential is ever part of a result.
  */
 final class VaultDiagnostics
 {
+    private readonly VaultDiagnosticTransport $transport;
+
+    public function __construct(?VaultDiagnosticTransport $transport = null)
+    {
+        $this->transport = $transport ?? new LaravelVaultDiagnosticTransport();
+    }
+
+    /**
+     * For UI callers that have not explicitly requested a network check.
+     *
+     * @return array{state:string,reason:string,capabilities:array<string,bool>}
+     */
+    public function notVerified(): array
+    {
+        return self::result('unverified', 'not_checked', self::emptyCapabilities());
+    }
+
     /**
      * @param array{addr:string,mount:string,token:?string,roleId:?string,secretId:?string} $config
      * @return array{state:string,reason:string,capabilities:array<string,bool>}
      */
     public function check(array $config): array
     {
-        $caps = ['network' => false, 'authentication' => false, 'kv_v2' => false, 'certificate_read' => false, 'certificate_write' => false];
+        $caps = self::emptyCapabilities();
+
         if (!VaultConfig::configured($config)) {
-            return ['state' => 'unconfigured', 'reason' => 'missing_configuration', 'capabilities' => $caps];
+            return self::result('unconfigured', 'missing_configuration', $caps);
         }
 
-        // No arbitrary redirects and no clear-text remote secrets. Address
-        // validation is also repeated here for configurations from env/DB.
-        if (!filter_var($config['addr'], FILTER_VALIDATE_URL) || !str_starts_with($config['addr'], 'https://')) {
-            return ['state' => 'failed', 'reason' => 'invalid_endpoint', 'capabilities' => $caps];
+        if (!self::validEndpoint($config['addr'])) {
+            return self::result('failed', 'invalid_endpoint', $caps);
+        }
+
+        if (!self::validMount($config['mount'])) {
+            return self::result('failed', 'invalid_mount', $caps);
         }
 
         $base = rtrim($config['addr'], '/');
         $mount = trim($config['mount'], '/');
-        if (!preg_match('/^[a-zA-Z0-9_\/-]+$/', $mount) || str_contains($mount, '..')) {
-            return ['state' => 'failed', 'reason' => 'invalid_mount', 'capabilities' => $caps];
-        }
 
         try {
-            $health = Http::timeout(5)->withoutRedirecting()->get($base . '/v1/sys/health');
-            if ($health->status() >= 500) {
-                return ['state' => 'failed', 'reason' => 'server_unavailable', 'capabilities' => $caps];
-            }
+            $health = $this->transport->request('GET', $base . '/v1/sys/health');
             $caps['network'] = true;
 
-            $token = $config['token'];
+            // Standby nodes may forward subsequent API requests to the leader.
+            // A sealed, uninitialized or DR-secondary server is not ready.
+            if (!in_array($health['status'], [200, 429, 473], true)) {
+                return self::result('failed', 'server_unavailable', $caps);
+            }
+
+            $token = $this->authenticatedToken($base, $config);
             if ($token === null) {
-                $login = Http::timeout(5)->withoutRedirecting()->post($base . '/v1/auth/approle/login', [
-                    'role_id' => $config['roleId'], 'secret_id' => $config['secretId'],
-                ]);
-                if (!$login->successful()) {
-                    return ['state' => 'failed', 'reason' => 'authentication_failed', 'capabilities' => $caps];
-                }
-                $token = $login->json('auth.client_token');
+                return self::result('failed', 'authentication_failed', $caps);
             }
 
-            if (!is_string($token) || $token === '') {
-                return ['state' => 'failed', 'reason' => 'authentication_failed', 'capabilities' => $caps];
-            }
-
-            $client = Http::timeout(5)->withoutRedirecting()->withHeaders(['X-Vault-Token' => $token]);
-            $lookup = $client->get($base . '/v1/auth/token/lookup-self');
-            if (!$lookup->successful()) {
-                return ['state' => 'failed', 'reason' => 'authentication_failed', 'capabilities' => $caps];
+            $lookup = $this->transport->request('GET', $base . '/v1/auth/token/lookup-self', $token);
+            if ($lookup['status'] !== 200) {
+                return self::result('failed', 'authentication_failed', $caps);
             }
             $caps['authentication'] = true;
 
-            $mountInfo = $client->get($base . '/v1/sys/internal/ui/mounts/' . $mount);
-            if (!$mountInfo->successful() || $mountInfo->json('data.type') !== 'kv'
-                || (string) $mountInfo->json('data.options.version') !== '2') {
-                return ['state' => 'failed', 'reason' => 'kv_v2_unavailable', 'capabilities' => $caps];
+            $info = $this->transport->request('GET', $base . '/v1/sys/internal/ui/mounts/' . $mount, $token);
+            if ($info['status'] !== 200 || !self::isKvV2($info['body'])) {
+                return self::result('failed', 'kv_v2_unavailable', $caps);
             }
             $caps['kv_v2'] = true;
 
             $path = $mount . '/data/pfx/__nfse_capability_probe__';
-            $permissions = $client->post($base . '/v1/sys/capabilities-self', ['paths' => [$path]]);
-            if (!$permissions->successful()) {
-                return ['state' => 'failed', 'reason' => 'permission_check_failed', 'capabilities' => $caps];
+            $response = $this->transport->request(
+                'POST',
+                $base . '/v1/sys/capabilities-self',
+                $token,
+                ['paths' => [$path]],
+            );
+            if ($response['status'] !== 200) {
+                return self::result('failed', 'permission_check_failed', $caps);
             }
 
-            $grants = $permissions->json('capabilities');
-            $grants = is_array($grants) ? $grants : $permissions->json($path);
-            if (!is_array($grants)) {
-                $grants = [];
+            $grants = self::grantsForPath($response['body'], $path);
+            if ($grants === null) {
+                return self::result('failed', 'permission_check_failed', $caps);
             }
-            $caps['certificate_read'] = in_array('read', $grants, true) || in_array('root', $grants, true);
-            $caps['certificate_write'] = in_array('create', $grants, true) && in_array('update', $grants, true)
-                || in_array('root', $grants, true);
+
+            // Deny always wins, including over a malformed mixed grant.
+            $allowed = !in_array('deny', $grants, true);
+            $root = in_array('root', $grants, true);
+            $caps['certificate_read'] = $allowed && ($root || in_array('read', $grants, true));
+            $caps['certificate_write'] = $allowed && (
+                $root || (in_array('create', $grants, true) && in_array('update', $grants, true))
+            );
 
             if (!$caps['certificate_read'] || !$caps['certificate_write']) {
-                return ['state' => 'failed', 'reason' => 'insufficient_capabilities', 'capabilities' => $caps];
+                return self::result('failed', 'insufficient_capabilities', $caps);
             }
 
-            return ['state' => 'operational', 'reason' => 'verified', 'capabilities' => $caps];
+            return self::result('operational', 'verified', $caps);
         } catch (\Throwable) {
-            return ['state' => 'failed', 'reason' => 'network_failure', 'capabilities' => $caps];
+            return self::result('failed', 'network_failure', $caps);
         }
+    }
+
+    /**
+     * @param array{addr:string,mount:string,token:?string,roleId:?string,secretId:?string} $config
+     */
+    private function authenticatedToken(string $base, array $config): ?string
+    {
+        if ($config['token'] !== null) {
+            return trim($config['token']) !== '' ? $config['token'] : null;
+        }
+
+        $login = $this->transport->request('POST', $base . '/v1/auth/approle/login', null, [
+            'role_id' => $config['roleId'],
+            'secret_id' => $config['secretId'],
+        ]);
+
+        $token = $login['status'] === 200 ? ($login['body']['auth']['client_token'] ?? null) : null;
+
+        return is_string($token) && trim($token) !== '' ? $token : null;
+    }
+
+    /**
+     * @param array<string,mixed> $body
+     */
+    private static function isKvV2(array $body): bool
+    {
+        return ($body['data']['type'] ?? null) === 'kv'
+            && (string) ($body['data']['options']['version'] ?? '') === '2';
+    }
+
+    /**
+     * @param array<string,mixed> $body
+     * @return null|list<string>
+     */
+    private static function grantsForPath(array $body, string $path): ?array
+    {
+        // Vault returns both a path-specific key and the backwards-compatible
+        // "capabilities" key for a single queried path.
+        $grants = $body[$path] ?? $body['data'][$path] ?? $body['capabilities'] ?? null;
+
+        if (!is_array($grants) || !array_is_list($grants)) {
+            return null;
+        }
+
+        foreach ($grants as $grant) {
+            if (!is_string($grant)) {
+                return null;
+            }
+        }
+
+        return $grants;
+    }
+
+    private static function validEndpoint(string $url): bool
+    {
+        return filter_var($url, FILTER_VALIDATE_URL) !== false
+            && parse_url($url, PHP_URL_SCHEME) === 'https'
+            && parse_url($url, PHP_URL_USER) === null
+            && parse_url($url, PHP_URL_PASS) === null
+            && parse_url($url, PHP_URL_QUERY) === null
+            && parse_url($url, PHP_URL_FRAGMENT) === null;
+    }
+
+    private static function validMount(string $mount): bool
+    {
+        $mount = trim($mount, '/');
+
+        return $mount !== ''
+            && preg_match('/^[a-zA-Z0-9_\/-]+$/', $mount) === 1
+            && !in_array('.', explode('/', $mount), true)
+            && !in_array('..', explode('/', $mount), true)
+            && !str_contains($mount, '//');
+    }
+
+    /** @return array<string,bool> */
+    private static function emptyCapabilities(): array
+    {
+        return [
+            'network' => false,
+            'authentication' => false,
+            'kv_v2' => false,
+            'certificate_read' => false,
+            'certificate_write' => false,
+        ];
+    }
+
+    /**
+     * @param array<string,bool> $capabilities
+     * @return array{state:string,reason:string,capabilities:array<string,bool>}
+     */
+    private static function result(string $state, string $reason, array $capabilities): array
+    {
+        return ['state' => $state, 'reason' => $reason, 'capabilities' => $capabilities];
     }
 }
