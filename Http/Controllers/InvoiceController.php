@@ -665,6 +665,7 @@ class InvoiceController extends Controller
                 'foreignTomador' => $foreignTomador,
                 'opcaoSimplesNacional' => $opcaoSimplesNacional,
                 'regimeEspecialTributacao' => setting('nfse.regime_especial_tributacao', null),
+                'regimeApuracaoSimplesNacional' => setting('nfse.regime_apuracao_simples_nacional', null),
                 'issqn' => $issqnPayload,
                 'tipoAmbiente' => $sandbox ? 2 : 1,
                 'serie' => $this->dpsSerie($invoice),
@@ -1413,7 +1414,11 @@ class InvoiceController extends Controller
                 $opcaoSimplesNacional,
                 (int) ($this->issqnPayloadValues()['tributacaoIssqn'] ?? 1),
                 $this->competenceDate($invoice),
+                setting('nfse.regime_apuracao_simples_nacional', null),
             ),
+            'regimeApuracaoSimplesNacional' => $opcaoSimplesNacional === 3
+                ? (int) setting('nfse.regime_apuracao_simples_nacional', 0)
+                : null,
             'tipoAmbiente' => $sandboxReemit ? 2 : 1,
             'serie' => $this->dpsSerie($invoice),
             'numeroDps' => $this->dpsNumberForReemit($invoice),
@@ -1441,6 +1446,7 @@ class InvoiceController extends Controller
             ], array_values(array_filter([
                 'codigoTributacaoMunicipal',
                 'regimeEspecialTributacao',
+                $opcaoSimplesNacional === 3 ? 'regimeApuracaoSimplesNacional' : null,
                 trim((string) setting('nfse.prestador_inscricao_municipal', '')) !== '' ? 'prestadorInscricaoMunicipal' : null,
                 $ibsCbsPayload['enabled'] ? 'codigoNbs' : null,
                 $ibsCbsPayload['enabled'] ? 'ibsCbsFinalidade' : null,
