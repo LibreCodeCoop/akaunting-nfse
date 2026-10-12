@@ -133,6 +133,75 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertSame('Calle Mayor', $dps->tomadorLogradouro);
     }
 
+    public function testMissingRegimeCannotBeSerializedAsFalseZero(): void
+    {
+        $context = $this->baseContext();
+        unset($context['regimeEspecialTributacao']);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('regime_not_configured');
+
+        (new InvoiceDpsBuilder())->build($context);
+    }
+
+    public function testExplicitZeroAndOfficialNineReachSyntheticDpsXml(): void
+    {
+        $context = $this->baseContext();
+        $zero = (new InvoiceDpsBuilder())->build($context);
+        self::assertSame(0, $zero->regimeEspecialTributacao);
+        self::assertStringContainsString(
+            '<regEspTrib>0</regEspTrib>',
+            (new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder())->buildDps($zero),
+        );
+
+        $context['opcaoSimplesNacional'] = 1;
+        $context['regimeEspecialTributacao'] = '9';
+        $special = (new InvoiceDpsBuilder())->build($context);
+        self::assertSame(9, $special->regimeEspecialTributacao);
+        self::assertStringContainsString(
+            '<regEspTrib>9</regEspTrib>',
+            (new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder())->buildDps($special),
+        );
+        self::assertSame('2026-10-05', $special->dataCompetencia);
+    }
+
+    public function testMeiNonzeroRegimeIsRejectedBeforeXmlIsCreated(): void
+    {
+        $context = $this->baseContext();
+        $context['regimeEspecialTributacao'] = '6';
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('mei_requires_none');
+
+        (new InvoiceDpsBuilder())->build($context);
+    }
+
+    public function testNonzeroRegimeRequiresActualInvoiceCompetence(): void
+    {
+        $context = $this->baseContext();
+        $context['opcaoSimplesNacional'] = 1;
+        $context['regimeEspecialTributacao'] = '6';
+        $context['dataCompetencia'] = null;
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('missing_or_invalid_competence');
+
+        (new InvoiceDpsBuilder())->build($context);
+    }
+
+    public function testKnownDifferentIssIncidenceMunicipalityAppliesE0176(): void
+    {
+        $context = $this->baseContext();
+        $context['opcaoSimplesNacional'] = 1;
+        $context['regimeEspecialTributacao'] = '6';
+        $context['incidenceMunicipality'] = '3304557';
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('cross_municipality_requires_none_or_autonomous');
+
+        (new InvoiceDpsBuilder())->build($context);
+    }
+
     /**
      * @return array<string,mixed>
      */
@@ -164,6 +233,7 @@ final class InvoiceDpsBuilderTest extends TestCase
             ],
             'foreignTomador' => ['enabled' => false],
             'opcaoSimplesNacional' => 2,
+            'regimeEspecialTributacao' => '0',
             'issqn' => [
                 'tributacaoIssqn' => 1,
                 'issqnPaisResultado' => '',
