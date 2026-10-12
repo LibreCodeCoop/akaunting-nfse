@@ -12,6 +12,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
+use Modules\Nfse\Models\ApproximateTaxSource;
 use Modules\Nfse\Support\BrazilianStates;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\IbgeLocalities;
@@ -184,6 +186,86 @@ class SettingsController extends Controller
         setting()->save();
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'fiscal'])
+            ->with('success', trans('nfse::general.saved'));
+    }
+
+    /**
+     * Immutable, company-scoped revisions for approximate consumer tax disclosure.
+     * These values are not assessed ISSQN/PIS/Cofins amounts.
+     */
+    public function approximateTaxes(): \Illuminate\View\View
+    {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Company context required.');
+        }
+
+        return view('nfse::settings.approximate-taxes', [
+            'sources' => ApproximateTaxSource::query()
+                ->where('company_id', $companyId)
+                ->orderByDesc('id')
+                ->limit(50)
+                ->get(),
+        ]);
+    }
+
+    public function storeApproximateTaxes(Request $request): RedirectResponse
+    {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Company context required.');
+        }
+
+        $validated = $request->validate([
+            'national_service_code' => ['required', 'regex:/^\d{6}$/D'],
+            'simples_option' => 'required|in:1,2,3',
+            'competence_from' => 'required|date_format:Y-m-d',
+            'competence_until' => 'nullable|date_format:Y-m-d|after_or_equal:competence_from',
+            'source_kind' => 'required|in:independent_estimate,taxpayer_declaration,documented_zero',
+            'source_name' => 'required|string|min:3|max:160',
+            'source_version' => 'required|string|min:1|max:80',
+            'federal_percent' => ['required', 'regex:/^(?:0|[1-9]\d{0,2})(?:[\.,]\d{1,2})?$/D'],
+            'state_percent' => ['required', 'regex:/^(?:0|[1-9]\d{0,2})(?:[\.,]\d{1,2})?$/D'],
+            'municipal_percent' => ['required', 'regex:/^(?:0|[1-9]\d{0,2})(?:[\.,]\d{1,2})?$/D'],
+        ]);
+
+        foreach (['federal_percent', 'state_percent', 'municipal_percent'] as $name) {
+            $raw = str_replace(',', '.', (string) $validated[$name]);
+            $parts = explode('.', $raw, 2);
+            $validated[$name] = $parts[0] . '.' . str_pad($parts[1] ?? '', 2, '0');
+        }
+
+        if ($validated['source_kind'] === 'documented_zero'
+            && ($validated['federal_percent'] !== '0.00'
+                || $validated['state_percent'] !== '0.00'
+                || $validated['municipal_percent'] !== '0.00')) {
+            throw ValidationException::withMessages([
+                'source_kind' => trans('nfse::general.settings.federal.approximate_zero_requires_zero'),
+            ]);
+        }
+
+        // Append only. Earlier versions remain available to audit fiscal attempts.
+        // Conflicting version identifiers in the same scope must be fixed explicitly.
+        $scope = [
+            'company_id' => $companyId,
+            'national_service_code' => $validated['national_service_code'],
+            'simples_option' => (int) $validated['simples_option'],
+            'competence_from' => $validated['competence_from'],
+            'source_version' => $validated['source_version'],
+        ];
+
+        if (ApproximateTaxSource::query()->where($scope)->exists()) {
+            throw ValidationException::withMessages([
+                'source_version' => trans('nfse::general.settings.federal.approximate_duplicate_version'),
+            ]);
+        }
+
+        ApproximateTaxSource::query()->create([
+            ...$validated,
+            'company_id' => $companyId,
+        ]);
+
+        return redirect()->route('nfse.settings.approximate-taxes')
             ->with('success', trans('nfse::general.saved'));
     }
 

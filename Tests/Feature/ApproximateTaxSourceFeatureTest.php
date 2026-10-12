@@ -34,6 +34,49 @@ final class ApproximateTaxSourceFeatureTest extends FeatureTestCase
         self::assertSame('', $resolver->resolve($companyId, '010702', 1, '2026-10-01')['municipal']);
     }
 
+    public function testAuthenticatedOperatorAppendsVersionedSourceInsteadOfOverwritingEarlierValue(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $companyId = (int) $invoice->company_id;
+        $this->loginAs();
+
+        $payload = [
+            'national_service_code' => '010701',
+            'simples_option' => '1',
+            'competence_from' => '2026-10-01',
+            'source_kind' => 'independent_estimate',
+            'source_name' => 'Provedor sintético',
+            'source_version' => 'v1-synthetic',
+            'federal_percent' => '7,20',
+            'state_percent' => '0,00',
+            'municipal_percent' => '3,40',
+        ];
+
+        $this->post(route('nfse.settings.approximate-taxes.store'), $payload)
+            ->assertRedirect(route('nfse.settings.approximate-taxes'));
+
+        self::assertSame('7.20', (string) ApproximateTaxSource::query()
+            ->where('company_id', $companyId)
+            ->firstOrFail()
+            ->federal_percent);
+
+        $payload['source_version'] = 'v2-synthetic';
+        $payload['municipal_percent'] = '4,10';
+        $this->post(route('nfse.settings.approximate-taxes.store'), $payload)
+            ->assertRedirect(route('nfse.settings.approximate-taxes'));
+
+        self::assertSame(2, ApproximateTaxSource::query()->where('company_id', $companyId)->count());
+        self::assertSame('3.40', (string) ApproximateTaxSource::query()
+            ->where('company_id', $companyId)
+            ->where('source_version', 'v1-synthetic')
+            ->firstOrFail()->municipal_percent);
+
+        $this->get(route('nfse.settings.approximate-taxes'))
+            ->assertOk()
+            ->assertSee('v1-synthetic')
+            ->assertSee('v2-synthetic');
+    }
+
     private function source(int $companyId, string $from, string $municipal, string $version): ApproximateTaxSource
     {
         return ApproximateTaxSource::query()->create([

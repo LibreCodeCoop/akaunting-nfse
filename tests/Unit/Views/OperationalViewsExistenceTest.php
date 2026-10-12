@@ -358,10 +358,10 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="federal-piscofins-panel"', $content);
             self::assertStringContainsString('id="federal-piscofins-situacao"', $content);
             self::assertStringContainsString('id="federal-piscofins-tipo-retencao"', $content);
-            self::assertStringContainsString('name="nfse[tributos_fed_p]"', $content);
-            self::assertStringContainsString('name="nfse[tributos_mun_sn]"', $content);
-            self::assertStringContainsString('id="federal-tributos-profile-p"', $content);
-            self::assertStringContainsString('id="federal-tributos-profile-sn"', $content);
+            self::assertStringNotContainsString('name="nfse[tributos_fed_p]"', $content);
+            self::assertStringNotContainsString('name="nfse[tributos_mun_sn]"', $content);
+            self::assertStringContainsString("route('nfse.settings.approximate-taxes')", $content);
+            self::assertStringContainsString('id="approximate-tax-sources"', $content);
             self::assertStringContainsString('id="federal-save-button"', $content);
             self::assertStringContainsString('id="ibs-cbs-panel"', $content);
             self::assertStringContainsString('name="nfse[ibs_cbs_enabled]"', $content);
