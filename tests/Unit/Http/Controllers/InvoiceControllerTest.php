@@ -1613,7 +1613,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('2.00', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
-        public function testEmitDefaultsMissingEstadualTributosPercentualToZeroWhenTributacaoIsEnabled(): void
+        public function testEmitRejectsPartialPercentagesInsteadOfInventingZeros(): void
         {
             ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
             ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '3.65';
@@ -1670,12 +1670,16 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $controller->emit($invoice);
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('Missing is not a confirmed zero.');
 
-            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('3.65', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('2.00', $client->capturedDps?->totalTributosPercentualMunicipal);
+            try {
+                $controller->emit($invoice);
+            } finally {
+                // A partially specified transparency statement cannot reach
+                // the fiscal transport by silently creating a false zero.
+                self::assertNull($client->capturedDps);
+            }
         }
 
         public function testEmitUsesSimplesNacionalTributosProfileWhenCompanyIsOptant(): void

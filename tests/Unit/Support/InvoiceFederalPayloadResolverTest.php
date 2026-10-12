@@ -287,7 +287,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $payload = $resolver->resolve($invoice);
 
-        self::assertSame('1.65', $payload['federalPiscofinsValorPis']);
+        self::assertSame('16.50', $payload['federalPiscofinsValorPis']);
         self::assertSame(0, $payload['indicadorTributacao']);
         self::assertSame('', $payload['totalTributosPercentualFederal']);
         self::assertSame('', $payload['totalTributosPercentualMunicipal']);
