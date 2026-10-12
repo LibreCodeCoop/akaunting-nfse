@@ -12,8 +12,8 @@ use App\Events\Document\DocumentSending;
 use App\Events\Document\DocumentSent;
 use App\Models\Document\Document as Invoice;
 use App\Traits\Emails;
-use Modules\Nfse\Application\PostEmissionEmailRecipients;
 use Illuminate\Http\JsonResponse;
+use Modules\Nfse\Application\PostEmissionEmailRecipients;
 use Illuminate\Http\Request;
 use Modules\Nfse\Http\Controllers\InvoiceController as NfseInvoiceController;
 use Modules\Nfse\Models\NfseReceipt;
@@ -150,12 +150,24 @@ class InvoiceEmails extends Controller
     {
         $invoice = Invoice::findOrFail($request->input('document_id'));
 
-        $recipients = (new PostEmissionEmailRecipients())->normalize(
-            $request->input('to'),
-            $request->input('cc'),
-            $request->input('bcc'),
-            $request->boolean('user_email') ? (string) (user()?->email ?? '') : null,
-        );
+        try {
+            $recipients = (new PostEmissionEmailRecipients())->normalize(
+                $request->input('to'),
+                $request->input('cc'),
+                $request->input('bcc'),
+                filter_var($request->input('user_email', false), FILTER_VALIDATE_BOOLEAN)
+                    ? (string) user()->email
+                    : null,
+            );
+        } catch (\InvalidArgumentException $exception) {
+            return response()->json([
+                'success' => false,
+                'error' => true,
+                'message' => trans('nfse::general.invoices.emit_modal_email_invalid', [
+                    'field' => $exception->getMessage(),
+                ]),
+            ], 422);
+        }
 
         // Match Akaunting's native send lifecycle: fiscal listeners run before
         // customer delivery and may persist the NFS-e that this email attaches.

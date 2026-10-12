@@ -59,7 +59,7 @@ final class PostEmissionDispatcher
             $this->state->markDispatchFailed(
                 $receiptId,
                 $emailRequested,
-                $throwable->getMessage(),
+                'Post-emission job dispatch failed',
             );
 
             throw $throwable;

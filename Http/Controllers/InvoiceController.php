@@ -4437,7 +4437,7 @@ class InvoiceController extends Controller
             $this->safeLogError('NFS-e post-emission dispatch failed', [
                 'invoice_id' => (int) $invoice->id,
                 'receipt_id' => (int) $receipt->id,
-                'message' => $throwable->getMessage(),
+                'error_class' => $throwable::class,
             ]);
         }
     }

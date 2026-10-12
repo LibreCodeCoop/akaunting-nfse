@@ -115,6 +115,53 @@ final class PostEmissionQueueFeatureTest extends FeatureTestCase
         self::assertSame('completed', $payload->email_status);
     }
 
+    public function testMailTransportFailureDoesNotPersistPrivateRecipientInStatus(): void
+    {
+        $invoice = Document::factory()->invoice()->draft()->create();
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '124',
+            'chave_acesso' => str_repeat('4', 50),
+            'status' => 'emitted',
+        ]);
+        NfseReceiptPayload::query()->create([
+            'receipt_id' => $receipt->id,
+            'authorized_xml' => '<NFSe/>',
+        ]);
+
+        $sender = new class extends IssuedNfseEmailSender {
+            public function send(
+                Document $invoice,
+                NfseReceipt $receipt,
+                bool $attachDanfse,
+                bool $attachXml,
+                array $customMail,
+            ): void {
+                throw new \RuntimeException('SMTP rejected hidden@example.test using token secret');
+            }
+        };
+
+        $job = new SendIssuedNfseEmail(
+            invoiceId: (int) $invoice->id,
+            receiptId: (int) $receipt->id,
+            attachDanfse: false,
+            attachXml: false,
+            customMail: ['to' => ['customer@example.test'], 'bcc' => ['hidden@example.test']],
+        );
+
+        try {
+            $job->handle($sender, new PostEmissionState());
+            self::fail('Expected a mail transport failure.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('SMTP rejected', $exception->getMessage());
+        }
+
+        $payload = $receipt->payload()->firstOrFail();
+        self::assertSame('failed', $payload->email_status);
+        self::assertSame('Email delivery failed', $payload->post_processing_error);
+        self::assertNull($payload->post_emission_email_sent_at);
+    }
+
     public function testArtifactJobMovesFromProcessingToCompleted(): void
     {
         $invoice = Document::factory()->invoice()->draft()->create();
