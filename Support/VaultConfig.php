@@ -14,6 +14,12 @@ final class VaultConfig
      */
     public static function secretStoreConfig(): array
     {
+        // Standalone rule tests supply already-resolved facts without Laravel.
+        // HTTP, CLI and queue runtimes load the facade before resolving Vault.
+        if (!class_exists(\Illuminate\Support\Facades\DB::class)) {
+            return self::environmentConfig();
+        }
+
         return (new GlobalVaultSettings())->effective();
     }
 
@@ -83,7 +89,7 @@ final class VaultConfig
             return $normalizedSetting;
         }
 
-        $resolveEnv = $envResolver ?? static fn (string $name): mixed => env($name);
+        $resolveEnv = $envResolver ?? static fn (string $name): mixed => function_exists('env') ? env($name) : getenv($name);
 
         foreach ($envNames as $envName) {
             $normalizedEnv = self::normalize($resolveEnv($envName));

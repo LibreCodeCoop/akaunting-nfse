@@ -29,13 +29,6 @@ final class OperationalReadinessResolver
             && class_exists(DpsData::class)
             && class_exists(ReceiptData::class);
 
-        $globalVault = VaultConfig::secretStoreConfig();
-        $settings = array_merge($settings, [
-            'bao_addr' => $globalVault['addr'], 'bao_mount' => $globalVault['mount'],
-            'bao_token' => $globalVault['token'] ?? '', 'bao_role_id' => $globalVault['roleId'] ?? '',
-            'bao_secret_id' => $globalVault['secretId'] ?? '',
-        ]);
-
         return (new EmissionReadiness())->evaluate(
             settings: $settings,
             hasLocalCertificate: $certificatePath !== '' && is_file($certificatePath),
