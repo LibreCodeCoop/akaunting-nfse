@@ -1299,16 +1299,16 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'tipo_retencao_iss' => '1',
             ];
 
-            $response = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            $response = $this->configuredVaultController()->updateFiscal(new Request(inputs: ['nfse' => $form]));
             self::assertSame('nfse.settings.edit', $response->route);
             self::assertArrayNotHasKey('nfse.regime_especial_tributacao', ControllerIsolationState::$settings);
 
             $form['regime_especial_tributacao'] = '0';
-            (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            $this->configuredVaultController()->updateFiscal(new Request(inputs: ['nfse' => $form]));
             self::assertSame('0', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
 
             $form['regime_especial_tributacao'] = '';
-            (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            $this->configuredVaultController()->updateFiscal(new Request(inputs: ['nfse' => $form]));
             self::assertArrayHasKey('nfse.regime_especial_tributacao', ControllerIsolationState::$settings);
             self::assertNull(ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
         }
@@ -1325,7 +1325,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.regime_especial_tributacao' => '6',
             ];
 
-            $response = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => [
+            $response = $this->configuredVaultController()->updateFiscal(new Request(inputs: ['nfse' => [
                 'opcao_simples_nacional' => '1',
                 'tributacao_issqn' => '3',
                 'tipo_retencao_iss' => '1',
@@ -1352,12 +1352,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'regime_especial_tributacao' => '9',
             ];
 
-            $response = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            $response = $this->configuredVaultController()->updateFiscal(new Request(inputs: ['nfse' => $form]));
             self::assertSame('route', $response->target);
             self::assertSame('9', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
 
             $form['opcao_simples_nacional'] = '2';
-            $rejected = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            $rejected = $this->configuredVaultController()->updateFiscal(new Request(inputs: ['nfse' => $form]));
             self::assertSame('back', $rejected->target);
             self::assertSame('9', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
             self::assertSame('1', ControllerIsolationState::$settings['nfse.opcao_simples_nacional']);
@@ -1379,18 +1379,18 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'tipo_retencao_iss' => '1',
             ];
 
-            $saved = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            $saved = $this->configuredVaultController()->updateFiscal(new Request(inputs: ['nfse' => $form]));
             self::assertSame('route', $saved->target);
             self::assertSame('1', ControllerIsolationState::$settings['nfse.regime_apuracao_simples_nacional']);
             self::assertSame('0', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
 
             $form['regime_especial_tributacao'] = '9';
-            $refused = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            $refused = $this->configuredVaultController()->updateFiscal(new Request(inputs: ['nfse' => $form]));
             self::assertSame('back', $refused->target);
             self::assertSame('0', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
 
             $form['regime_apuracao_simples_nacional'] = '2';
-            $saved = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            $saved = $this->configuredVaultController()->updateFiscal(new Request(inputs: ['nfse' => $form]));
             self::assertSame('route', $saved->target);
             self::assertSame('2', ControllerIsolationState::$settings['nfse.regime_apuracao_simples_nacional']);
             self::assertSame('9', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
@@ -1399,7 +1399,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // historical configuration or transmit regApTribSN with opSimpNac=1.
             unset($form['regime_apuracao_simples_nacional']);
             $form['opcao_simples_nacional'] = '1';
-            $saved = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            $saved = $this->configuredVaultController()->updateFiscal(new Request(inputs: ['nfse' => $form]));
             self::assertSame('route', $saved->target);
             self::assertSame('2', ControllerIsolationState::$settings['nfse.regime_apuracao_simples_nacional']);
         }
@@ -1407,7 +1407,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         public function testLegacySettingsRouteAlsoRejectsInvalidSpecialRegime(): void
         {
             ControllerIsolationState::reset();
-            $response = (new SettingsController())->update(new Request(inputs: ['nfse' => [
+            $response = $this->configuredVaultController()->update(new Request(inputs: ['nfse' => [
                 'cnpj_prestador' => '11222333000181',
                 'uf' => 'RJ',
                 'municipio_nome' => 'Cidade Fictícia',
@@ -2034,5 +2034,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('token-ci-preserve', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
             self::assertSame('secret-ci-preserve', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? null);
         }
+        private function configuredVaultController(): SettingsController
+        {
+            return new class () extends SettingsController {
+                use ConfiguredVaultForUnitTests;
+            };
+        }
+
     }
 }

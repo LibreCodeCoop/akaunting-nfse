@@ -102,7 +102,7 @@ class SettingsController extends Controller
         $mode = (string) $request->input('auth_mode_ui');
         $input = [
             'addr' => (string) $data['bao_addr'],
-            'mount' => (string) $data['bao_mount'],
+            'mount' => VaultConfig::normalizeMount((string) $data['bao_mount']),
             'auth_mode' => $mode,
         ];
 
