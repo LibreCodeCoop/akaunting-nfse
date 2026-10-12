@@ -51,6 +51,29 @@ cooperative legal form is independent of its tax regime. Gross invoiced
 amount is distinct from optional actually paid amount and payment date:
 missing payment evidence must not be silently treated as payment.
 
+The optional `CooperativeIbsCbsFacts` preserves separate observations for
+the **specific** IBS/CBS cooperative election under LC 214/2025 art. 271:
+formal election, submission of the required associates list, independently
+confirmed option, effect-from date, direction of supply, association at the
+event, and recipient's regular-regime status where relevant. Both the
+cooperative-as-provider and cooperative-as-taker situations may occur.
+A submitted form **without the associates list** is not proof of an effective
+election. The independently confirmed election requires evidence of both
+steps; missing evidence is not a false or zero value. A verified election
+alone does not establish that an individual service qualifies for reduced
+rates. The scope and personal-use exceptions in Decree 12.955/2026 art. 392
+and CGIBS Resolution 6/2026 art. 392 are separate nullable facts: an
+unverified purpose or consumption status is not assumed to qualify.
+Other art. 271 exceptions (including participating cooperatives and
+specific material goods) need their own legally verified operation facts.
+For an associate supplying to the cooperative while not subject to the
+regular regime, LC 214/2025 art. 271(I) and the broader exclusion in the
+regulatory art. 392(II) require a separate legal reconciliation before a
+consumer may assert zero rates; this DTO deliberately does not decide it.
+The separate municipal ISS `regEspTrib` code does not establish the IBS/CBS
+cooperative election. Never put real member identifiers or option receipts
+into synthetic fixtures, logs, or versioned research.
+
 The context separately retains the observed DPS `opSimpNac`,
 `regApTribSN` and `regEspTrib` codes, the applicable IBS/CBS collection
 regime (Simples or regular), the governmental sphere of the taker
