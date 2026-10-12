@@ -109,10 +109,10 @@ final class ProvisionTestHarness extends Command
 
         // The harness must exercise the same global infrastructure contract
         // as HTTP, CLI, and queue consumers; never use company-scoped Vault
-        // settings as a surrogate. This endpoint is synthetically addressed
-        // and no Vault request is performed by provisioning.
+        // settings as a surrogate. The loopback endpoint has no listener,
+        // avoids remote DNS/network access, and is never a real Vault.
         (new GlobalVaultSettings())->save([
-            'addr' => 'https://vault.invalid.test',
+            'addr' => 'https://127.0.0.1:29999',
             'mount' => '/secret',
             'auth_mode' => 'token',
             'token' => 'deterministic-test-token',

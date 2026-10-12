@@ -55,7 +55,7 @@ final class TestHarnessProvisioningTest extends FeatureTestCase
         self::assertNull(setting('nfse.bao_token'));
 
         $vault = VaultConfig::secretStoreConfig();
-        self::assertSame('https://vault.invalid.test', $vault['addr']);
+        self::assertSame('https://127.0.0.1:29999', $vault['addr']);
         self::assertSame('/secret', $vault['mount']);
         self::assertSame('deterministic-test-token', $vault['token']);
 
