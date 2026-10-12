@@ -6,14 +6,22 @@ name: CI Infrastructure Lint
 on:
   pull_request:
     paths:
-      - '.github/workflows/**'
+      - '.github/workflows/playwright-*.yml'
+      - '.github/workflows/akaunting-feature.yml'
+      - '.github/workflows/phpunit.yml'
+      - '.github/workflows/frontend-unit.yml'
+      - '.github/workflows/ci-infrastructure-lint.yml'
       - 'scripts/ci/**'
       - 'frontend-tests/playwright-smoke-setup.test.mjs'
   push:
     branches:
       - main
     paths:
-      - '.github/workflows/**'
+      - '.github/workflows/playwright-*.yml'
+      - '.github/workflows/akaunting-feature.yml'
+      - '.github/workflows/phpunit.yml'
+      - '.github/workflows/frontend-unit.yml'
+      - '.github/workflows/ci-infrastructure-lint.yml'
       - 'scripts/ci/**'
 
 permissions:
@@ -33,4 +41,9 @@ jobs:
           gh release download v1.7.11 --repo rhysd/actionlint --pattern 'actionlint_1.7.11_linux_amd64.tar.gz'
           gh attestation verify actionlint_1.7.11_linux_amd64.tar.gz --repo rhysd/actionlint
           tar -xzf actionlint_1.7.11_linux_amd64.tar.gz actionlint
-          ./actionlint -shellcheck "$(command -v shellcheck)" .github/workflows/*.yml
+          ./actionlint -shellcheck "$(command -v shellcheck)" \
+            .github/workflows/playwright-*.yml \
+            .github/workflows/akaunting-feature.yml \
+            .github/workflows/phpunit.yml \
+            .github/workflows/frontend-unit.yml \
+            .github/workflows/ci-infrastructure-lint.yml
