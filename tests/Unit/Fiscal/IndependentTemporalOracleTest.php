@@ -102,6 +102,7 @@ final class IndependentTemporalOracleTest extends TestCase
             }
         }
     }
+
     /**
      * Independent conditional calendar reconstructed from the source-backed audit.
      * This intentionally does not call IbsCbsObligationPolicy or other product rules.
@@ -115,9 +116,11 @@ final class IndependentTemporalOracleTest extends TestCase
         $dateString = $case['taxable_event_date'];
         $subitem = $case['lc116_subitem'];
 
-        if (!in_array($regime, ['simples', 'non_simples'], true)
+        if (
+            !in_array($regime, ['simples', 'non_simples'], true)
             || $category === 'unknown'
-            || !is_string($dateString)) {
+            || !is_string($dateString)
+        ) {
             return 'unverifiable';
         }
 
@@ -150,5 +153,4 @@ final class IndependentTemporalOracleTest extends TestCase
 
         return 'unverifiable';
     }
-
 }

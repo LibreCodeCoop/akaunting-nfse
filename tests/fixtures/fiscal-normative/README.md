@@ -30,8 +30,8 @@ PHPUnit verifies the financial expectations using independent integer-decimal
 arithmetic with half-even rounding, checks the source-backed calendar apart
 from production rules, and then tests the product policy boundaries against
 the fixed temporal expectations. No separate interpreter or testing framework
-is needed. Review any discrepancy against official
-rules before updating a case; do not change an oracle to make CI green.
+is needed. Review any discrepancy against official rules before updating a
+case; do not change an oracle to make CI green.
 
 ## Evidence boundaries
 
