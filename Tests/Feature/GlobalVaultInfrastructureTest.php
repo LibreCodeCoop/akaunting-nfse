@@ -48,7 +48,16 @@ final class GlobalVaultInfrastructureTest extends FeatureTestCase
             'token' => 'synthetic-shared-token',
         ]);
         $originalCompany = $this->company;
-        $otherCompany = Company::factory()->create(['name' => 'Synthetic second company']);
+        // Akaunting stores the company name in settings, not in the companies
+        // table. Create the second tenant using its actual database columns.
+        $otherCompanyId = DB::table('companies')->insertGetId([
+            'domain' => 'vault-secondary.example.test',
+            'enabled' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $otherCompany = Company::query()->findOrFail($otherCompanyId);
+        self::assertNotSame((int) $originalCompany->id, (int) $otherCompany->id);
 
         try {
             $otherCompany->makeCurrent();
