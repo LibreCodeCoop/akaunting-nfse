@@ -69,14 +69,6 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
             'mail.from.name' => 'Example Company',
         ]);
 
-        $messages = [];
-        \Illuminate\Support\Facades\Event::listen(
-            \Illuminate\Mail\Events\MessageSending::class,
-            static function (\Illuminate\Mail\Events\MessageSending $event) use (&$messages): void {
-                $messages[] = $event->message;
-            },
-        );
-
         $invoice = Document::factory()->invoice()->create();
         $receipt = NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
@@ -84,6 +76,16 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
             'chave_acesso' => str_repeat('3', 50),
             'status' => 'emitted',
         ]);
+
+        // Model factories may send unrelated mail. Observe only the delivery
+        // being tested, after the invoice and receipt have been created.
+        $messages = [];
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Mail\Events\MessageSending::class,
+            static function (\Illuminate\Mail\Events\MessageSending $event) use (&$messages): void {
+                $messages[] = $event->message;
+            },
+        );
 
         (new \Modules\Nfse\Application\IssuedNfseEmailSender())->send(
             invoice: $invoice->fresh(['contact']),
@@ -204,10 +206,12 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
 
     public function testCustomEmailJobDoesNothingWithoutPersistedReceipt(): void
     {
-        Notification::fake();
-
         $invoice = Document::factory()->invoice()->create();
         $invoice->contact->forceFill(['email' => 'customer@example.test'])->saveQuietly();
+
+        // Start observation after fixture hooks so the assertion describes
+        // only notifications emitted by the job under test.
+        Notification::fake();
 
         (new SendNfseCustomEmail(
             invoice: $invoice->fresh(['contact']),
