@@ -1548,7 +1548,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
-        public function testEmitSetsIndicadorTributacaoTwoWhenTributosPercentConfigured(): void
+        public function testEmitIgnoresUnversionedLegacyTaxPercentSettings(): void
         {
             ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
             ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '10.50';
@@ -1607,13 +1607,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('10.50', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('2.00', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
-        public function testEmitRejectsPartialPercentagesInsteadOfInventingZeros(): void
+        public function testEmitDoesNotReadPartialLegacyPercentSettings(): void
         {
             ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
             ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '3.65';
@@ -1670,19 +1670,15 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 }
             };
 
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage('Missing is not a confirmed zero.');
+            $controller->emit($invoice);
 
-            try {
-                $controller->emit($invoice);
-            } finally {
-                // A partially specified transparency statement cannot reach
-                // the fiscal transport by silently creating a false zero.
-                self::assertNull($client->capturedDps);
-            }
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
-        public function testEmitUsesSimplesNacionalTributosProfileWhenCompanyIsOptant(): void
+        public function testEmitIgnoresUnversionedLegacySimplesPercentSettings(): void
         {
             ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 2;
             ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '99.99';
@@ -1744,10 +1740,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('4.44', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('1.11', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('0.55', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
         public function testEmitSupportsRetentionOnlyFederalPayloadWithoutConfiguredTributosPercentuais(): void
