@@ -329,7 +329,7 @@ test('subprocesses have bounded timeouts and CLI failures record stage duration'
   const script = path.resolve(import.meta.dirname, '../scripts/ci/playwright-smoke.mjs');
   const failed = spawnSync(process.execPath, [script, 'bad-action'], { encoding: 'utf8' });
   assert.equal(failed.status, 1);
-  assert.match(failed.stderr, /CI setup bad-action failed after \\d+ms: Unknown smoke setup command/);
+  assert.match(failed.stderr, /CI setup bad-action failed after \d+ms: Unknown smoke setup command/);
 });
 
 test('unknown setup subcommands fail closed', async () => {
