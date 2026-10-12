@@ -13,7 +13,10 @@ autoriza trocar o leiaute transmitido em produção.
 
 1. Em **NFS-e → Configurações**, confirme ambiente, prestador, município
    IBGE, certificado ICP-Brasil correspondente e secret store configurado.
-   Não exponha PFX, senha, token nem XML fiscal.
+   Quando a localização do estabelecimento prestador for realmente esse
+   município, registre a confirmação fiscal explícita. Para exceções
+   territoriais da LC 116/2003, revise o município de incidência da operação
+   sem presumir que seja o da empresa. Não exponha PFX, senha, token nem XML fiscal.
 2. Na fatura, revise tomador, competência da DPS, valores e perfil fiscal
    do grupo selecionado: item LC 116, cTribNac de seis dígitos e, se
    aplicável, complemento municipal de três dígitos.
