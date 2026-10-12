@@ -45,10 +45,38 @@ final class EmissionAttemptController extends Controller
                 'http_status' => $attempt->http_status,
                 'failure_class' => $attempt->failure_class,
                 'receipt_id' => $attempt->receipt_id,
+                'approximate_tax' => self::approximateTaxEvidence($attempt),
                 'started_at' => $attempt->started_at?->toIso8601String(),
                 'resolved_at' => $attempt->resolved_at?->toIso8601String(),
                 'reconciled_at' => $attempt->reconciled_at?->toIso8601String(),
             ])->all(),
         ]);
+    }
+
+    /**
+     * A historical row without metadata is not the same as an explicit
+     * unknown-source decision. Expose provenance, never raw DPS/XML payloads.
+     * @return array{status:string,reason:?string,source:?array<string,string>}
+     */
+    private static function approximateTaxEvidence(NfseEmissionAttempt $attempt): array
+    {
+        $evidence = $attempt->approximate_tax_evidence;
+        if (!is_array($evidence)) {
+            return ['status' => 'unrecorded', 'reason' => null, 'source' => null];
+        }
+
+        $source = is_array($evidence['source'] ?? null) ? $evidence['source'] : null;
+
+        return [
+            'status' => (string) ($evidence['status'] ?? 'unknown'),
+            'reason' => isset($evidence['reason']) ? (string) $evidence['reason'] : null,
+            'source' => $source === null ? null : [
+                'kind' => (string) ($source['kind'] ?? ''),
+                'name' => (string) ($source['name'] ?? ''),
+                'version' => (string) ($source['version'] ?? ''),
+                'reference' => (string) ($source['reference'] ?? ''),
+                'competence' => (string) ($source['competence'] ?? ''),
+            ],
+        ];
     }
 }

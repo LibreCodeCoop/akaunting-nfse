@@ -28,6 +28,27 @@ final class EmissionAttemptAccessTest extends FeatureTestCase
 
         $own = $this->attempt($invoice, $companyId, '1', 'E0312');
         $other = $this->attempt($foreign, $companyId + 1000, '2', 'E9999');
+        $own->update([
+            'approximate_tax_evidence' => [
+                'status' => 'sourced_estimate',
+                'reason' => null,
+                'source' => [
+                    'kind' => 'independent_estimate',
+                    'name' => 'Synthetic reference',
+                    'version' => 'synthetic-v1',
+                    'reference' => 'synthetic-archive/source-v1',
+                    'competence' => '2026-09-01',
+                ],
+            ],
+        ]);
+        $other->update([
+            'approximate_tax_evidence' => [
+                'status' => 'sourced_estimate',
+                'source' => [
+                    'reference' => 'foreign-company-private-reference',
+                ],
+            ],
+        ]);
 
         $response = $this->get(route('nfse.invoices.emission-attempts', $invoice));
 
@@ -35,7 +56,11 @@ final class EmissionAttemptAccessTest extends FeatureTestCase
         $response->assertJsonCount(1, 'data');
         $response->assertJsonPath('data.0.id', (int) $own->id);
         $response->assertJsonPath('data.0.official_code', 'E0312');
+        $response->assertJsonPath('data.0.approximate_tax.status', 'sourced_estimate');
+        $response->assertJsonPath('data.0.approximate_tax.source.version', 'synthetic-v1');
+        $response->assertJsonPath('data.0.approximate_tax.source.reference', 'synthetic-archive/source-v1');
         $response->assertJsonMissing(['official_code' => 'E9999']);
+        $response->assertJsonMissing(['reference' => 'foreign-company-private-reference']);
         $response->assertJsonMissingPath('data.0.payload_fingerprint');
         $response->assertJsonMissingPath('data.0.authorized_xml');
 
@@ -44,6 +69,31 @@ final class EmissionAttemptAccessTest extends FeatureTestCase
         $this->withExceptionHandling()
             ->get(route('nfse.invoices.emission-attempts', $foreign))
             ->assertNotFound();
+    }
+
+    public function testLegacyUnrecordedAndExplicitUnknownTaxOriginsRemainDistinct(): void
+    {
+        $this->loginAs();
+        $companyId = (int) company_id();
+        $invoice = Document::factory()->invoice()->create(['company_id' => $companyId]);
+
+        $this->attempt($invoice, $companyId, '1', 'E0312');
+        $unknown = $this->attempt($invoice, $companyId, '2', 'E0313');
+        $unknown->update([
+            'approximate_tax_evidence' => [
+                'status' => 'unknown',
+                'reason' => 'source_not_configured',
+                'source' => null,
+            ],
+        ]);
+
+        $response = $this->get(route('nfse.invoices.emission-attempts', $invoice));
+        $response->assertOk();
+        $response->assertJsonCount(2, 'data');
+        $response->assertJsonPath('data.0.approximate_tax.status', 'unknown');
+        $response->assertJsonPath('data.0.approximate_tax.reason', 'source_not_configured');
+        $response->assertJsonPath('data.1.approximate_tax.status', 'unrecorded');
+        $response->assertJsonMissingPath('data.0.payload_fingerprint');
     }
 
     public function testSalesInvoicePermissionIsRequiredForAttemptHistory(): void
