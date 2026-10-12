@@ -266,8 +266,10 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
 test('legacy NFS-e invoice list opens native invoice composer without a parallel mail form', async ({ page }, testInfo) => {
   const readyId = process.env.NFSE_E2E_BULK_READY_INVOICE_ID ?? '';
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
 
   expect(readyId).toMatch(/^\d+$/);
+  expect(invoiceId).toMatch(/^\d+$/);
   await loginToAkaunting(page, testInfo);
 
   // This route is a compatibility redirect; the former NFS-e list view is no longer reachable.
@@ -275,7 +277,9 @@ test('legacy NFS-e invoice list opens native invoice composer without a parallel
   await expect(page).toHaveURL(/\/1\/sales\/invoices(?:\?.*)?$/);
   await expect(page.locator('[data-bulk-action="' + readyId + '"]')).toBeVisible();
 
-  await page.goto('/1/sales/invoices/' + readyId, { waitUntil: 'domcontentloaded' });
+  // Bulk readiness and individual issuance readiness are different.
+  // The pending invoice is the proven deterministic fixture for this modal.
+  await page.goto('/1/sales/invoices/' + invoiceId, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#nfse-native-fiscal-panel')).toBeVisible();
   expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
 

@@ -176,7 +176,9 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
 
         Event::assertNotDispatched(DocumentSending::class);
         Event::assertNotDispatched(DocumentSent::class);
-        Notification::assertNothingSent();
+        // Login/model hooks may send unrelated notifications: check the NFS-e
+        // mail notification specifically, after fiscal pre-validation failed.
+        Notification::assertSentOnDemandTimes(NfseIssued::class, 0);
     }
 
     public function testEmailStoreCannotSwitchInvoiceByTamperingWithDocumentId(): void
