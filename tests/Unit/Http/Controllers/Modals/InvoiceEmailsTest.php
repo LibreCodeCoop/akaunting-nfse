@@ -316,8 +316,11 @@ final class InvoiceEmailsTest extends TestCase
             dirname(__DIR__, 5) . '/Http/Controllers/InvoiceController.php'
         );
 
-        self::assertStringContainsString('normalizePostEmitRecipient', $invoiceController);
+        self::assertStringContainsString('PostEmissionEmailRecipients())->normalize(', $invoiceController);
         self::assertStringContainsString("request->input('nfse_email_to')", $invoiceController);
+        self::assertStringContainsString("request->input('nfse_email_cc')", $invoiceController);
+        self::assertStringContainsString("request->input('nfse_email_bcc')", $invoiceController);
+        self::assertStringNotContainsString('normalizePostEmitRecipient(', $invoiceController);
     }
 
     public function testIssueModalUsesOneReactiveDescriptionSaveModeSelect(): void
