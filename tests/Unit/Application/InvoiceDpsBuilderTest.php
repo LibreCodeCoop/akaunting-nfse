@@ -165,18 +165,45 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertSame('2026-10-05', $special->dataCompetencia);
     }
 
-    public function testMeEppExplicitZeroBlocksBeforeCreatingIncompleteDps(): void
+    public function testMeEppExplicitZeroWithoutApurationBlocksBeforeDps(): void
     {
         $context = $this->baseContext();
         $context['opcaoSimplesNacional'] = 3;
         $context['regimeEspecialTributacao'] = '0';
 
-        // E0166 requires regApTribSN. The pinned runtime has no such DTO
-        // property and may not transmit even when regEspTrib itself is valid.
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('simples_apuration_not_supported');
+        $this->expectExceptionMessage('simples_apuration_not_configured');
 
         (new InvoiceDpsBuilder())->build($context);
+    }
+
+    public function testMeEppExplicitApurationIsSerializedBetweenSimplesAndSpecialRegime(): void
+    {
+        $context = $this->baseContext();
+        $context['opcaoSimplesNacional'] = 3;
+        $context['regimeApuracaoSimplesNacional'] = '1';
+        $context['regimeEspecialTributacao'] = '0';
+
+        $dps = (new InvoiceDpsBuilder())->build($context);
+        self::assertSame(1, $dps->regimeApuracaoSimplesNacional);
+        self::assertSame(0, $dps->regimeEspecialTributacao);
+        $xml = (new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder())->buildDps($dps);
+        self::assertStringContainsString(
+            '<opSimpNac>3</opSimpNac><regApTribSN>1</regApTribSN><regEspTrib>0</regEspTrib>',
+            str_replace(["\n", '  '], '', $xml),
+        );
+    }
+
+    public function testMeEppOtherApurationCanRetainNonzeroSubjectToMunicipalEvidence(): void
+    {
+        $context = $this->baseContext();
+        $context['opcaoSimplesNacional'] = 3;
+        $context['regimeApuracaoSimplesNacional'] = '2';
+        $context['regimeEspecialTributacao'] = '9';
+
+        $dps = (new InvoiceDpsBuilder())->build($context);
+        self::assertSame(2, $dps->regimeApuracaoSimplesNacional);
+        self::assertSame(9, $dps->regimeEspecialTributacao);
     }
 
     public function testSimplesFallbackMatchesTheActualSerializedDefault(): void

@@ -67,30 +67,55 @@ final class SpecialTaxRegimePolicyTest extends TestCase
         self::assertTrue($policy->evaluate('0', 2, 1)['can_emit']);
     }
 
-    public function testMeEppEveryCodeIsUnsupportedWithoutRequiredRegApTribSn(): void
+    public function testMeEppWithoutApurationBlocksEveryOfficialCodeButKeepsSelection(): void
     {
         $policy = new SpecialTaxRegimePolicy();
 
         foreach (SpecialTaxRegimePolicy::OFFICIAL_CODES as $code) {
             $assessment = $policy->evaluate((string) $code, 3, 1, '2026-10-05');
             self::assertSame($code, $assessment['code']);
-            self::assertSame('simples_apuration_not_supported', $assessment['reason']);
-            self::assertSame('unsupported', $assessment['state']);
+            self::assertSame('simples_apuration_not_configured', $assessment['reason']);
+            self::assertSame('missing', $assessment['state']);
             self::assertFalse($assessment['can_emit']);
         }
     }
 
-    public function testMeEppExplicitNoneIsNotMistakenForLegalIneligibility(): void
+    public function testMeEppApurationOneAllowsOnlyOfficialNone(): void
     {
-        $assessment = (new SpecialTaxRegimePolicy())->evaluate('0', 3, 1, '2026-10-05');
+        $policy = new SpecialTaxRegimePolicy();
+        self::assertSame('none', $policy->evaluate('0', 3, 1, '2026-10-05', '1')['state']);
+        self::assertSame(0, $policy->forIssuance('0', 3, 1, '2026-10-05', '1'));
 
-        self::assertSame(0, $assessment['code']);
-        self::assertSame('unsupported', $assessment['state']);
-        self::assertNotSame('invalid', $assessment['state']);
+        foreach ([1, 2, 3, 4, 5, 6, 9] as $code) {
+            $assessment = $policy->evaluate((string) $code, 3, 1, '2026-10-05', '1');
+            self::assertSame('simples_apuration_requires_none', $assessment['reason']);
+            self::assertSame('invalid', $assessment['state']);
+        }
+    }
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('simples_apuration_not_supported');
-        (new SpecialTaxRegimePolicy())->forIssuance('0', 3, 1, '2026-10-05');
+    public function testMeEppApurationTwoAndThreeAllowSpecialCodesSubjectToMunicipality(): void
+    {
+        $policy = new SpecialTaxRegimePolicy();
+
+        foreach (['2', '3'] as $apuration) {
+            foreach ([0, 1, 2, 3, 4, 5, 6, 9] as $special) {
+                $assessment = $policy->evaluate((string) $special, 3, 1, '2026-10-05', $apuration);
+                self::assertTrue($assessment['can_emit']);
+                self::assertSame($special, $assessment['code']);
+                self::assertSame($special === 0 ? 'none' : 'special', $assessment['state']);
+            }
+        }
+    }
+
+    public function testMeEppRejectsInvalidApurationWithoutCoercion(): void
+    {
+        $policy = new SpecialTaxRegimePolicy();
+
+        foreach (['0', '4', '11', '1x', [], true] as $invalid) {
+            $assessment = $policy->evaluate('0', 3, 1, '2026-10-05', $invalid);
+            self::assertSame('invalid_simples_apuration', $assessment['reason']);
+            self::assertFalse($assessment['can_emit']);
+        }
     }
 
     public function testUndeclaredAndMalformedCodesAreRejectedWithoutCoercion(): void

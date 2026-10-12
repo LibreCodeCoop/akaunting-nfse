@@ -22,7 +22,7 @@ final class SpecialTaxRegimePolicy
     /**
      * @return array{code:?int,state:'missing'|'invalid'|'unsupported'|'none'|'special',can_emit:bool,reason:string,municipal_review_required:bool}
      */
-    public function evaluate(mixed $rawCode, int $simples, int $issqn, ?string $competence = null): array
+    public function evaluate(mixed $rawCode, int $simples, int $issqn, ?string $competence = null, mixed $apuration = null): array
     {
         if ($rawCode === null || $rawCode === '') {
             return $this->result(null, 'missing', false, 'regime_not_configured');
@@ -45,11 +45,27 @@ final class SpecialTaxRegimePolicy
         }
 
         if ($simples === 3) {
-            // Annex I E0166 requires regApTribSN for *every* ME/EPP DPS,
-            // including regEspTrib=0. The currently pinned DpsData and
-            // XmlBuilder have no regApTribSN field. Never emit a guaranteed
-            // incomplete DPS, but permit the company to retain its selection.
-            return $this->result($code, 'unsupported', false, 'simples_apuration_not_supported');
+            // E0166: ME/EPP must explicitly select regApTribSN 1, 2 or 3.
+            // This is a business choice, never inferred from the taxpayer's
+            // Simples option or from the mere presence of a special regime.
+            if ($apuration === null || $apuration === '') {
+                return $this->result($code, 'missing', false, 'simples_apuration_not_configured');
+            }
+
+            if (!is_int($apuration) && !is_string($apuration)) {
+                return $this->result($code, 'invalid', false, 'invalid_simples_apuration');
+            }
+
+            $normalized = is_string($apuration) ? trim($apuration) : (string) $apuration;
+            if (preg_match('/^[123]$/D', $normalized) !== 1) {
+                return $this->result($code, 'invalid', false, 'invalid_simples_apuration');
+            }
+
+            // E0175 only forbids nonzero special taxation when ISS and
+            // federal taxes are both assessed under the Simples (code 1).
+            if ((int) $normalized === 1 && $code !== 0) {
+                return $this->result($code, 'invalid', false, 'simples_apuration_requires_none');
+            }
         }
 
         if ($code === 0) {
@@ -78,9 +94,9 @@ final class SpecialTaxRegimePolicy
         return $this->result($code, 'special', true, 'municipal_evidence_unverified', true);
     }
 
-    public function forIssuance(mixed $code, int $simples, int $issqn, ?string $competence): int
+    public function forIssuance(mixed $code, int $simples, int $issqn, ?string $competence, mixed $apuration = null): int
     {
-        $assessment = $this->evaluate($code, $simples, $issqn, $competence);
+        $assessment = $this->evaluate($code, $simples, $issqn, $competence, $apuration);
 
         if ($assessment['can_emit'] && $assessment['code'] !== 0 && !$this->isValidDate($competence ?? '')) {
             throw new \InvalidArgumentException('Invalid special tax regime: missing_or_invalid_competence');

@@ -164,6 +164,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             'foreignTomador' => ['enabled' => false],
             'opcaoSimplesNacional' => $simples,
             'regimeEspecialTributacao' => $this->setting('nfse.regime_especial_tributacao', null),
+            'regimeApuracaoSimplesNacional' => $this->setting('nfse.regime_apuracao_simples_nacional', null),
             'issqn' => $issqn,
             'tipoAmbiente' => $sandbox ? 2 : 1,
             'serie' => $this->identity->series($invoice),

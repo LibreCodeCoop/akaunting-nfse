@@ -131,6 +131,7 @@ class SettingsController extends Controller
             'nfse.prestador_inscricao_municipal' => 'nullable|string|max:15',
             'nfse.opcao_simples_nacional' => 'nullable|in:1,2,3',
             'nfse.regime_especial_tributacao' => 'nullable|in:0,1,2,3,4,5,6,9',
+            'nfse.regime_apuracao_simples_nacional' => 'nullable|in:1,2,3',
             'nfse.emission_policy' => 'nullable|in:manual,emit_on_send',
             'nfse.tributacao_issqn' => 'required|in:1,2,3,4',
             'nfse.tipo_retencao_iss' => 'required|in:1,2,3',
@@ -180,6 +181,7 @@ class SettingsController extends Controller
             'prestador_inscricao_municipal',
             'opcao_simples_nacional',
             'regime_especial_tributacao',
+            'regime_apuracao_simples_nacional',
             'emission_policy',
             'tributacao_issqn',
             'tipo_retencao_iss',
@@ -723,6 +725,7 @@ class SettingsController extends Controller
             'nfse.municipio_ibge'  => 'required|string|size:7',
             'nfse.sandbox_mode'    => 'nullable|boolean',
             'nfse.regime_especial_tributacao' => 'nullable|in:0,1,2,3,4,5,6,9',
+            'nfse.regime_apuracao_simples_nacional' => 'nullable|in:1,2,3',
             'nfse.bao_addr'        => 'required|url',
             'nfse.bao_mount'       => 'required|string',
             'nfse.bao_token'       => 'nullable|string',
@@ -823,8 +826,11 @@ class SettingsController extends Controller
             : ($settings['regime_especial_tributacao'] ?? null);
         $simples = (int) ($input['opcao_simples_nacional'] ?? $settings['opcao_simples_nacional'] ?? 1);
         $issqn = (int) ($input['tributacao_issqn'] ?? $settings['tributacao_issqn'] ?? 1);
+        $apuration = array_key_exists('regime_apuracao_simples_nacional', $input)
+            ? $input['regime_apuracao_simples_nacional']
+            : ($settings['regime_apuracao_simples_nacional'] ?? null);
 
-        return (new SpecialTaxRegimePolicy())->evaluate($code, $simples, $issqn);
+        return (new SpecialTaxRegimePolicy())->evaluate($code, $simples, $issqn, null, $apuration);
     }
 
     private function specialRegimeError(string $reason): string
