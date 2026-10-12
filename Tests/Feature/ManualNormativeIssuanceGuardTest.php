@@ -110,6 +110,10 @@ final class ManualNormativeIssuanceGuardTest extends FeatureTestCase
 
     private function invoice(string $date, string $service, string $national): Document
     {
+        // Akaunting needs the active tenant for native redirect route defaults,
+        // even though this test invokes the controller without an HTTP request.
+        $this->loginAs();
+
         $invoice = Document::factory()->invoice()->create([
             'issued_at' => $date . ' 12:00:00',
         ]);
