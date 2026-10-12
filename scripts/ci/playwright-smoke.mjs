@@ -59,9 +59,19 @@ export const fullUiFixtureFields = Object.freeze({
   bulk_blocked_invoice_id: 'NFSE_E2E_BULK_BLOCKED_INVOICE_ID',
 });
 
+export const bulkUiFixtureArgs = Object.freeze([
+  ...commonFixtureArgs, '--bulk-emission-fixture', '--json',
+]);
+
+export const bulkUiFixtureFields = Object.freeze({
+  bulk_ready_invoice_id: 'NFSE_E2E_BULK_READY_INVOICE_ID',
+  bulk_blocked_invoice_id: 'NFSE_E2E_BULK_BLOCKED_INVOICE_ID',
+});
+
 const fixtureProfiles = Object.freeze({
   smoke: { args: fixtureArgs, fields: fixtureFields },
   'full-ui': { args: fullUiFixtureArgs, fields: fullUiFixtureFields },
+  'bulk-ui': { args: bulkUiFixtureArgs, fields: bulkUiFixtureFields },
 });
 
 function execute(program, args, options = {}) {
@@ -292,13 +302,14 @@ export function stopServer(core = coreRoot, {
 
 export async function cli(command, context = { core: coreRoot, module: moduleRoot, env: process.env }) {
   const { core, module, env } = context;
-  const allowed = ['prepare-env', 'provision', 'provision-full-ui', 'assets', 'verify-db', 'expose-assets', 'start-server', 'stop-server'];
+  const allowed = ['prepare-env', 'provision', 'provision-full-ui', 'provision-bulk-ui', 'assets', 'verify-db', 'expose-assets', 'start-server', 'stop-server'];
   if (!allowed.includes(command)) throw new Error(`Unknown smoke setup command: ${command || '(none)'}`);
   ensureTestingEnvironment(env);
   switch (command) {
     case 'prepare-env': return prepareEnvironment(core);
     case 'provision': return provisionFixtures(core, env);
     case 'provision-full-ui': return provisionFixtures(core, env, execute, fs, 'full-ui');
+    case 'provision-bulk-ui': return provisionFixtures(core, env, execute, fs, 'bulk-ui');
     case 'assets': return prepareBrowserAssets(core);
     case 'verify-db': return verifyDatabase(core);
     case 'expose-assets': return exposeAssets(core, module);

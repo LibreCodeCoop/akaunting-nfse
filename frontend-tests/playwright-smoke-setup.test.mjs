@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
-  cli, exposeAssets, fixtureArgs, fullUiFixtureArgs, fullUiFixtureFields, missingBrowserAssets, parseFixtureVariables,
+  cli, exposeAssets, fixtureArgs, fullUiFixtureArgs, fullUiFixtureFields, bulkUiFixtureArgs, bulkUiFixtureFields, missingBrowserAssets, parseFixtureVariables,
   prepareBrowserAssets, prepareEnvironment, provisionFixtures, requiredAssets,
   updateDotEnv, verifyDatabase, waitForServer, writeGitHubEnvironment, startServer, stopServer,
 } from '../scripts/ci/playwright-smoke.mjs';
@@ -124,6 +124,28 @@ test('subprocess failure redacts credentials and never exports IDs', t => {
   assert.throws(() => provisionFixtures(dir, env, () => { throw error; }),
     e => e.message.includes('[REDACTED]') && !e.message.includes('NfseE2E!123456') && !e.message.includes('nfse-test-password'));
   assert.equal(fs.existsSync(env.GITHUB_ENV), false);
+});
+
+test('bulk UI profile validates only two required synthetic invoice IDs', t => {
+  const dir = tmpDir(t);
+  const envFile = path.join(dir, 'github-env');
+  const payload = { bulk_ready_invoice_id: 77, bulk_blocked_invoice_id: 78, pfx_password: 'never-log' };
+  const calls = [];
+  const runner = (command, args, options) => {
+    calls.push({ command, args, options });
+    return args.includes('nfse:test-harness:provision') ? JSON.stringify(payload) : '';
+  };
+  const env = { APP_ENV: 'testing', DB_CONNECTION: 'sqlite', GITHUB_ENV: envFile };
+  assert.deepEqual(provisionFixtures(dir, env, runner, fs, 'bulk-ui'), {
+    NFSE_E2E_BULK_READY_INVOICE_ID: '77', NFSE_E2E_BULK_BLOCKED_INVOICE_ID: '78',
+  });
+  assert.deepEqual(calls[1].args, bulkUiFixtureArgs);
+  assert.deepEqual(Object.keys(bulkUiFixtureFields), ['bulk_ready_invoice_id', 'bulk_blocked_invoice_id']);
+  assert.doesNotMatch(fs.readFileSync(envFile, 'utf8'), /password|pfx/i);
+  fs.writeFileSync(envFile, '');
+  delete payload.bulk_blocked_invoice_id;
+  assert.throws(() => provisionFixtures(dir, env, runner, fs, 'bulk-ui'), /Missing or invalid fixture ID/);
+  assert.equal(fs.readFileSync(envFile, 'utf8'), '');
 });
 
 test('assets are built under Node 20 only when needed and always checked afterward', () => {
