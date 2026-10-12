@@ -51,10 +51,10 @@ final class GlobalVaultInfrastructureTest extends FeatureTestCase
         ]);
 
         Http::fake([
-            'vault.example.test/v1/sys/health' => Http::response(['initialized' => true, 'sealed' => false], 200),
-            'vault.example.test/v1/auth/token/lookup-self' => Http::response(['data' => ['id' => 'redacted']], 200),
-            'vault.example.test/v1/sys/internal/ui/mounts/nfse' => Http::response(['data' => ['type' => 'kv', 'options' => ['version' => '2']]], 200),
-            'vault.example.test/v1/sys/capabilities-self' => Http::response(['capabilities' => ['read', 'create', 'update']], 200),
+            'https://vault.example.test/v1/sys/health' => Http::response(['initialized' => true, 'sealed' => false], 200),
+            'https://vault.example.test/v1/auth/token/lookup-self' => Http::response(['data' => ['id' => 'redacted']], 200),
+            'https://vault.example.test/v1/sys/internal/ui/mounts/nfse' => Http::response(['data' => ['type' => 'kv', 'options' => ['version' => '2']]], 200),
+            'https://vault.example.test/v1/sys/capabilities-self' => Http::response(['capabilities' => ['read', 'create', 'update']], 200),
         ]);
         $before = DB::table('nfse_vault_infrastructure')->value('encrypted_payload');
         $response = $this->post(route('nfse.settings.vault.diagnostics'))
@@ -69,8 +69,8 @@ final class GlobalVaultInfrastructureTest extends FeatureTestCase
     public function testFailedAuthenticationNeverDisclosesUpstreamBody(): void
     {
         Http::fake([
-            'vault.example.test/v1/sys/health' => Http::response([], 200),
-            'vault.example.test/v1/auth/token/lookup-self' => Http::response(['errors' => ['synthetic sensitive failure']], 403),
+            'https://vault.example.test/v1/sys/health' => Http::response([], 200),
+            'https://vault.example.test/v1/auth/token/lookup-self' => Http::response(['errors' => ['synthetic sensitive failure']], 403),
         ]);
 
         $status = (new VaultDiagnostics())->check([
