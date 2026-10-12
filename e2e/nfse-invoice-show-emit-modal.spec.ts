@@ -265,7 +265,7 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
 
 test('invoice listing composer preserves fields after a rejected Bcc without fiscal transmission', async ({ page }, testInfo) => {
-  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+  const invoiceId = process.env.NFSE_E2E_BULK_READY_INVOICE_ID ?? '';
 
   expect(invoiceId).toMatch(/^\d+$/);
   await loginToAkaunting(page, testInfo);
@@ -330,7 +330,9 @@ test('invoice listing composer preserves fields after a rejected Bcc without fis
     });
   });
 
-  await page.goto('/1/nfse/invoices?status=pending', { waitUntil: 'domcontentloaded' });
+  // The pending fixture has no invoice items and is correctly excluded by whereHas('items').
+  // The deterministic BULK-READY fixture has a customer, an item and no fiscal receipt.
+  await page.goto('/1/nfse/invoices?status=pending&search=NFSE-E2E-BULK-READY', { waitUntil: 'domcontentloaded' });
 
   const form = page.locator('form[data-emit-form="true"][action$="/nfse/invoices/' + invoiceId + '/emit"]').first();
   await expect(form).toBeVisible();
