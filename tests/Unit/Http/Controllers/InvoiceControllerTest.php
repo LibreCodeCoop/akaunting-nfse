@@ -5324,6 +5324,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $request = new Request([
                 'nfse_send_email' => '1',
                 'nfse_email_to' => 'destinatario@reemissao.test',
+                'nfse_email_cc' => 'copy@reemissao.test',
+                'nfse_email_bcc' => 'hidden@reemissao.test',
                 'nfse_email_subject' => 'Assunto reemissao',
                 'nfse_email_body' => 'Corpo reemissao',
                 'nfse_email_attach_danfse' => '1',
@@ -5339,6 +5341,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertTrue($dispatchCalls[0]['email']['attach_danfse']);
             self::assertFalse($dispatchCalls[0]['email']['attach_xml']);
             self::assertSame(['destinatario@reemissao.test'], $dispatchCalls[0]['email']['custom_mail']['to'] ?? null);
+            self::assertSame(['copy@reemissao.test'], $dispatchCalls[0]['email']['custom_mail']['cc'] ?? null);
+            self::assertSame(['hidden@reemissao.test'], $dispatchCalls[0]['email']['custom_mail']['bcc'] ?? null);
             self::assertSame('Assunto reemissao', $dispatchCalls[0]['email']['custom_mail']['subject'] ?? null);
             self::assertSame('Descricao de reemissao com email', ControllerIsolationState::$settings['invoice.notes']);
         }
@@ -6273,6 +6277,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
                 'nfse_send_email' => '1',
                 'nfse_email_to' => 'destinatario@example.com',
+                'nfse_email_cc' => 'visible@example.test',
+                'nfse_email_bcc' => 'private@example.test',
                 'nfse_email_subject' => 'NFS-e emitida',
                 'nfse_email_body' => 'Prezado cliente',
                 'nfse_email_attach_danfse' => '1',
@@ -6292,6 +6298,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertTrue($email['attach_danfse']);
             self::assertFalse($email['attach_xml']);
             self::assertSame(['destinatario@example.com'], $email['custom_mail']['to'] ?? null);
+            self::assertSame(['visible@example.test'], $email['custom_mail']['cc'] ?? null);
+            self::assertSame(['private@example.test'], $email['custom_mail']['bcc'] ?? null);
             self::assertSame('NFS-e emitida', $email['custom_mail']['subject'] ?? null);
             self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
         }

@@ -264,162 +264,13 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 });
 
 
-test('invoice listing composer submits all mail recipient fields without fiscal transmission', async ({ page }, testInfo) => {
+test('invoice listing composer preserves fields after a rejected Bcc without fiscal transmission', async ({ page }, testInfo) => {
   const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
 
   expect(invoiceId).toMatch(/^\d+$/);
   await loginToAkaunting(page, testInfo);
 
-  await page.route(new RegExp('/nfse/invoices/' + invoiceId + '/service-preview, async ({ page }, testInfo) => {
-  test.setTimeout(180_000);
-
-  const fixtureInvoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
-
-  expect(fixtureInvoiceId).toMatch(/^\d+$/);
-
-  await loginToAkaunting(page, testInfo);
-
-  const selectedInvoiceId = fixtureInvoiceId;
-  let dialog = page.locator('[role="dialog"]').last();
-
-  await page.goto(`/1/sales/invoices/${selectedInvoiceId}`, { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
-  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
-  dialog = page.locator('[role="dialog"]').last();
-
-
-  await expect(dialog).toBeVisible();
-
-  await dialog.getByText(/E-mail|Email/i).first().click();
-  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
-
-  const emailPane = dialog.locator('#nfse-tab-pane-email');
-  const emailFields = dialog.locator('#nfse-email-fields');
-  const subject = dialog.locator("input[name='nfse_email_subject']");
-  const editor = dialog.locator('.ql-editor').first();
-
-  await expect(emailPane).toBeVisible();
-  await expect(emailFields).toBeVisible();
-  await expect(subject).toBeVisible();
-  await expect(editor).toBeVisible();
-
-  const typedText = 'Teste E2E: digitar no body deve manter a aba Email visivel.';
-
-  await setEditorTextAsUser(editor, typedText);
-
-  await expect(emailPane).toBeVisible();
-  await expect(emailFields).toBeVisible();
-  await expect(subject).toBeVisible();
-  await expect(editor).toBeVisible();
-  await expect.poll(async () => getEditorText(editor)).toContain(typedText);
-  await expect.poll(async () => {
-    return editor.evaluate((node) => node.contains(document.activeElement));
-  }).toBeTruthy();
-});
-
-test('restore default button reacts to subject and body edits in emit modal', async ({ page }, testInfo) => {
-  test.setTimeout(180_000);
-
-  const fixtureInvoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
-
-  expect(fixtureInvoiceId).toMatch(/^\d+$/);
-
-  await loginToAkaunting(page, testInfo);
-
-  const selectedInvoiceId = fixtureInvoiceId;
-  let dialog = page.locator('[role="dialog"]').last();
-
-  await page.goto(`/1/sales/invoices/${selectedInvoiceId}`, { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
-  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
-  dialog = page.locator('[role="dialog"]').last();
-
-
-  await expect(dialog).toBeVisible();
-  await dialog.getByText(/E-mail|Email/i).first().click();
-  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
-
-  const subject = dialog.locator("input[name='nfse_email_subject']");
-  const editor = dialog.locator('.ql-editor').first();
-  const restoreButton = dialog.getByRole('button', { name: /Restaurar template padrão|Restore default template/i });
-  await expect(subject).toBeVisible();
-  await expect(editor).toBeVisible();
-
-  if (await restoreButton.isVisible()) {
-    await clickRestoreButton(restoreButton);
-  }
-
-  await expect(restoreButton).toBeHidden();
-
-  const initialSubject = await subject.inputValue();
-  const initialBodyText = await getEditorText(editor);
-
-  await editor.focus();
-  await expect(restoreButton).toBeHidden();
-
-  await subject.fill('Assunto alterado E2E');
-  await expect(restoreButton).toBeVisible();
-
-  await clickRestoreButton(restoreButton);
-  await expect(subject).toHaveValue(initialSubject);
-  await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
-  await expect(restoreButton).toBeHidden();
-
-  await setEditorTextAsUser(editor, `${initialBodyText} Corpo alterado E2E.`);
-  await expect(restoreButton).toBeVisible();
-
-  await clickRestoreButton(restoreButton);
-  await expect(subject).toHaveValue(initialSubject);
-  await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
-  await expect(restoreButton).toBeHidden();
-});
-
-test('restore default flow works on a fixed invoice from show page', async ({ page }, testInfo) => {
-  test.setTimeout(180_000);
-
-  const invoiceId = (process.env.NFSE_E2E_INVOICE_ID || '').trim();
-
-  if (invoiceId === '') {
-    test.skip(true, 'Set NFSE_E2E_INVOICE_ID to run deterministic restore-flow E2E on invoice show page.');
-  }
-
-  await loginToAkaunting(page, testInfo);
-  await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${invoiceId}$`));
-
-  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
-
-  const dialog = page.locator('[role="dialog"]').last();
-
-  await expect(dialog).toBeVisible();
-  await dialog.getByText(/E-mail|Email/i).first().click();
-  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
-
-  const subject = dialog.locator("input[name='nfse_email_subject']");
-  const editor = dialog.locator('.ql-editor').first();
-  const restoreButton = dialog.getByRole('button', { name: /Restaurar template padrão|Restore default template/i });
-
-  await expect(subject).toBeVisible();
-  await expect(editor).toBeVisible();
-
-  const initialSubject = await subject.inputValue();
-  const initialBodyText = await getEditorText(editor);
-
-  await subject.fill('Assunto alterado E2E fixo');
-  await expect(restoreButton).toBeVisible();
-  await clickRestoreButton(restoreButton);
-  await expect(subject).toHaveValue(initialSubject);
-  await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
-  await expect(restoreButton).toBeHidden();
-
-  await setEditorTextAsUser(editor, `${initialBodyText} Corpo alterado E2E fixo.`);
-  await expect(restoreButton).toBeVisible();
-  await clickRestoreButton(restoreButton);
-  await expect(subject).toHaveValue(initialSubject);
-  await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
-  await expect(restoreButton).toBeHidden();
-});
-), async (route) => {
+  await page.route(new RegExp('/nfse/invoices/' + invoiceId + '/service-preview$'), async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -442,158 +293,26 @@ test('restore default flow works on a fixed invoice from show page', async ({ pa
   });
 
   let submitted = '';
-  await page.route(new RegExp('/nfse/invoices/' + invoiceId + '/emit, async ({ page }, testInfo) => {
-  test.setTimeout(180_000);
-
-  const fixtureInvoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
-
-  expect(fixtureInvoiceId).toMatch(/^\d+$/);
-
-  await loginToAkaunting(page, testInfo);
-
-  const selectedInvoiceId = fixtureInvoiceId;
-  let dialog = page.locator('[role="dialog"]').last();
-
-  await page.goto(`/1/sales/invoices/${selectedInvoiceId}`, { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
-  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
-  dialog = page.locator('[role="dialog"]').last();
-
-
-  await expect(dialog).toBeVisible();
-
-  await dialog.getByText(/E-mail|Email/i).first().click();
-  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
-
-  const emailPane = dialog.locator('#nfse-tab-pane-email');
-  const emailFields = dialog.locator('#nfse-email-fields');
-  const subject = dialog.locator("input[name='nfse_email_subject']");
-  const editor = dialog.locator('.ql-editor').first();
-
-  await expect(emailPane).toBeVisible();
-  await expect(emailFields).toBeVisible();
-  await expect(subject).toBeVisible();
-  await expect(editor).toBeVisible();
-
-  const typedText = 'Teste E2E: digitar no body deve manter a aba Email visivel.';
-
-  await setEditorTextAsUser(editor, typedText);
-
-  await expect(emailPane).toBeVisible();
-  await expect(emailFields).toBeVisible();
-  await expect(subject).toBeVisible();
-  await expect(editor).toBeVisible();
-  await expect.poll(async () => getEditorText(editor)).toContain(typedText);
-  await expect.poll(async () => {
-    return editor.evaluate((node) => node.contains(document.activeElement));
-  }).toBeTruthy();
-});
-
-test('restore default button reacts to subject and body edits in emit modal', async ({ page }, testInfo) => {
-  test.setTimeout(180_000);
-
-  const fixtureInvoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
-
-  expect(fixtureInvoiceId).toMatch(/^\d+$/);
-
-  await loginToAkaunting(page, testInfo);
-
-  const selectedInvoiceId = fixtureInvoiceId;
-  let dialog = page.locator('[role="dialog"]').last();
-
-  await page.goto(`/1/sales/invoices/${selectedInvoiceId}`, { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
-  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
-  dialog = page.locator('[role="dialog"]').last();
-
-
-  await expect(dialog).toBeVisible();
-  await dialog.getByText(/E-mail|Email/i).first().click();
-  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
-
-  const subject = dialog.locator("input[name='nfse_email_subject']");
-  const editor = dialog.locator('.ql-editor').first();
-  const restoreButton = dialog.getByRole('button', { name: /Restaurar template padrão|Restore default template/i });
-  await expect(subject).toBeVisible();
-  await expect(editor).toBeVisible();
-
-  if (await restoreButton.isVisible()) {
-    await clickRestoreButton(restoreButton);
-  }
-
-  await expect(restoreButton).toBeHidden();
-
-  const initialSubject = await subject.inputValue();
-  const initialBodyText = await getEditorText(editor);
-
-  await editor.focus();
-  await expect(restoreButton).toBeHidden();
-
-  await subject.fill('Assunto alterado E2E');
-  await expect(restoreButton).toBeVisible();
-
-  await clickRestoreButton(restoreButton);
-  await expect(subject).toHaveValue(initialSubject);
-  await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
-  await expect(restoreButton).toBeHidden();
-
-  await setEditorTextAsUser(editor, `${initialBodyText} Corpo alterado E2E.`);
-  await expect(restoreButton).toBeVisible();
-
-  await clickRestoreButton(restoreButton);
-  await expect(subject).toHaveValue(initialSubject);
-  await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
-  await expect(restoreButton).toBeHidden();
-});
-
-test('restore default flow works on a fixed invoice from show page', async ({ page }, testInfo) => {
-  test.setTimeout(180_000);
-
-  const invoiceId = (process.env.NFSE_E2E_INVOICE_ID || '').trim();
-
-  if (invoiceId === '') {
-    test.skip(true, 'Set NFSE_E2E_INVOICE_ID to run deterministic restore-flow E2E on invoice show page.');
-  }
-
-  await loginToAkaunting(page, testInfo);
-  await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${invoiceId}$`));
-
-  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
-
-  const dialog = page.locator('[role="dialog"]').last();
-
-  await expect(dialog).toBeVisible();
-  await dialog.getByText(/E-mail|Email/i).first().click();
-  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
-
-  const subject = dialog.locator("input[name='nfse_email_subject']");
-  const editor = dialog.locator('.ql-editor').first();
-  const restoreButton = dialog.getByRole('button', { name: /Restaurar template padrão|Restore default template/i });
-
-  await expect(subject).toBeVisible();
-  await expect(editor).toBeVisible();
-
-  const initialSubject = await subject.inputValue();
-  const initialBodyText = await getEditorText(editor);
-
-  await subject.fill('Assunto alterado E2E fixo');
-  await expect(restoreButton).toBeVisible();
-  await clickRestoreButton(restoreButton);
-  await expect(subject).toHaveValue(initialSubject);
-  await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
-  await expect(restoreButton).toBeHidden();
-
-  await setEditorTextAsUser(editor, `${initialBodyText} Corpo alterado E2E fixo.`);
-  await expect(restoreButton).toBeVisible();
-  await clickRestoreButton(restoreButton);
-  await expect(subject).toHaveValue(initialSubject);
-  await expect.poll(async () => getEditorText(editor)).toBe(initialBodyText);
-  await expect(restoreButton).toBeHidden();
-});
-), async (route) => {
+  let attempts = 0;
+  await page.route(new RegExp('/nfse/invoices/' + invoiceId + '/emit$'), async (route) => {
     if (route.request().method() !== 'POST') {
       await route.continue();
+      return;
+    }
+
+    attempts += 1;
+    if (attempts === 1) {
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: false,
+          error: true,
+          code: 'nfse_email_invalid',
+          field: 'nfse_email_bcc',
+          message: 'Fictitious invalid Bcc address',
+        }),
+      });
       return;
     }
 
@@ -641,10 +360,20 @@ test('restore default flow works on a fixed invoice from show page', async ({ pa
   await modal.locator('button[aria-controls="nfse_emit_email_bcc_panel"]').click();
   await expect(bcc).toBeVisible();
   await bcc.fill('hidden@example.test');
-
   await modal.locator('#nfse_emit_copy_to_self').check();
+
+  await modal.locator('#nfse-emit-confirm-button').click();
+  await expect(modal.locator('#nfse-emit-error-msg')).toBeVisible();
+  await expect(modal).toBeVisible();
+  await expect(bcc).toBeFocused();
+  await expect(to).toHaveValue('one@example.test, two@example.test');
+  await expect(cc).toHaveValue('copy@example.test');
+  expect(attempts).toBe(1);
+
+  await bcc.fill('hidden@example.test');
   await modal.locator('#nfse-emit-confirm-button').click();
   await expect.poll(() => submitted).not.toBe('');
+  expect(attempts).toBe(2);
 
   expect(extractPayloadValue(submitted, 'nfse_send_email')).toBe('1');
   expect(extractPayloadValue(submitted, 'nfse_email_to')).toBe('one@example.test, two@example.test');
