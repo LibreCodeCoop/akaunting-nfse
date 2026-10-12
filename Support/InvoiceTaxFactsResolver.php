@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Support;
 
 use Illuminate\Database\Query\JoinClause;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Contracts\FiscalTaxFact;
 use Modules\Nfse\Contracts\FiscalTaxIdentity;
@@ -15,10 +16,8 @@ use Modules\Nfse\Contracts\FiscalTaxRole;
 use Modules\Nfse\Models\TaxFiscalAssociation;
 
 /**
- * Reads persisted Akaunting tax rows once, with an explicit tenant and date.
- *
- * Never uses tax names/rates to infer fiscal identity, role or incidence.
- * Invoices already authorized must use their immutable fiscal snapshot.
+ * Reads company-scoped, persisted Akaunting tax facts; never infers fiscal
+ * identity from names, percentages, or the accounting tax type.
  */
 final class InvoiceTaxFactsResolver
 {
@@ -32,6 +31,35 @@ final class InvoiceTaxFactsResolver
         string $competenceDate,
         ?array $documentItemIds = null,
     ): array {
+        $this->validateSelection($companyId, $invoiceId, $competenceDate, $documentItemIds);
+
+        if ($documentItemIds === []) {
+            return [];
+        }
+
+        $rows = $this->readActiveRows($companyId, $invoiceId, $documentItemIds);
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $associations = $this->confirmedAssociations($companyId, $competenceDate, $rows);
+        $facts = [];
+        foreach ($rows as $row) {
+            $facts[] = $this->toFact($row, $associations->get((int) $row->tax_id));
+        }
+
+        return $facts;
+    }
+
+    /**
+     * @param list<int>|null $documentItemIds
+     */
+    private function validateSelection(
+        int $companyId,
+        int $invoiceId,
+        string $competenceDate,
+        ?array $documentItemIds,
+    ): void {
         if ($companyId <= 0 || $invoiceId <= 0) {
             throw new \InvalidArgumentException('Company and invoice IDs must be positive.');
         }
@@ -41,19 +69,20 @@ final class InvoiceTaxFactsResolver
             throw new \InvalidArgumentException('A real ISO competence date is required.');
         }
 
-        if ($documentItemIds === []) {
-            return [];
-        }
-
-        if ($documentItemIds !== null) {
-            foreach ($documentItemIds as $id) {
-                if (!is_int($id) || $id <= 0) {
-                    throw new \InvalidArgumentException('Selected document item IDs must be positive integers.');
-                }
+        foreach ($documentItemIds ?? [] as $id) {
+            if (!is_int($id) || $id <= 0) {
+                throw new \InvalidArgumentException('Selected document item IDs must be positive integers.');
             }
         }
+    }
 
-        $rows = DB::table('document_item_taxes as dit')
+    /**
+     * @param list<int>|null $documentItemIds
+     * @return Collection<int,\stdClass>
+     */
+    private function readActiveRows(int $companyId, int $invoiceId, ?array $documentItemIds): Collection
+    {
+        return DB::table('document_item_taxes as dit')
             ->join('documents as d', static function (JoinClause $join): void {
                 $join->on('d.id', '=', 'dit.document_id')
                     ->on('d.company_id', '=', 'dit.company_id');
@@ -71,13 +100,8 @@ final class InvoiceTaxFactsResolver
             ->where('dit.document_id', $invoiceId)
             ->where('dit.type', 'invoice')
             ->where('d.type', 'invoice')
-            // Native item deletion is soft: historical rows must not be
-            // included as active tax occurrences in a newly issued DPS.
             ->whereNull('di.deleted_at')
             ->whereNull('dit.deleted_at')
-            // A tax can be soft-deleted after a financial invoice was
-            // recorded. Its persisted item-tax fact remains historical
-            // evidence; never silently discard that row.
             ->when($documentItemIds !== null, static function ($query) use ($documentItemIds): void {
                 $query->whereIn('dit.document_item_id', $documentItemIds);
             })
@@ -86,70 +110,78 @@ final class InvoiceTaxFactsResolver
                 'dit.id as tax_row_id',
                 'dit.document_item_id',
                 'dit.tax_id',
-                // Read DECIMAL values as text; SQLite otherwise hydrates
-                // numeric columns as floats, losing exact decimal typing.
+                // SQLite may hydrate decimal columns as floats. Preserve the
+                // persisted decimal representation before exact parsing.
                 DB::raw('CAST(dit.amount AS CHAR) AS amount'),
                 DB::raw('CAST(dit.rate AS CHAR) AS rate'),
                 't.type as accounting_type',
             ]);
+    }
 
-        if ($rows->isEmpty()) {
-            return [];
-        }
-
+    /**
+     * @param Collection<int,\stdClass> $rows
+     * @return Collection<int,TaxFiscalAssociation>
+     */
+    private function confirmedAssociations(int $companyId, string $date, Collection $rows): Collection
+    {
         $taxIds = $rows->pluck('tax_id')->map(static fn (mixed $id): int => (int) $id)->unique()->all();
         $associations = TaxFiscalAssociation::query()
             ->where('company_id', $companyId)
             ->whereIn('tax_id', $taxIds)
-            ->whereDate('effective_from', '<=', $competenceDate)
-            ->where(static function ($query) use ($competenceDate): void {
+            ->whereDate('effective_from', '<=', $date)
+            ->where(static function ($query) use ($date): void {
                 $query->whereNull('effective_until')
-                    ->orWhereDate('effective_until', '>=', $competenceDate);
+                    ->orWhereDate('effective_until', '>=', $date);
             })
-            ->orderByDesc('effective_from')
-            ->orderByDesc('id')
             ->get();
 
-        // Never silently pick one of two overlapping confirmations, even
-        // when legacy/direct database writes bypassed the trusted store.
+        // Invalid direct writes must fail rather than select an arbitrary
+        // fiscal identity for two concurrently effective revisions.
         if ($associations->count() !== $associations->unique('tax_id')->count()) {
             throw new \DomainException('Overlapping fiscal associations require explicit review.');
         }
-        $associations = $associations->keyBy('tax_id');
 
-        $facts = [];
-        foreach ($rows as $row) {
-            $association = $associations->get((int) $row->tax_id);
-            $identity = null;
-            $role = null;
+        return $associations->keyBy('tax_id');
+    }
 
-            if ($association !== null) {
-                $identity = strtolower(trim((string) $association->fiscal_identity));
-                $role = FiscalTaxRole::tryFrom((string) $association->fiscal_role);
-                if (FiscalTaxIdentity::tryFrom($identity) === null
-                    || $role === null
-                    || trim((string) $association->source_reference) === ''
-                    || (int) $association->confirmed_by <= 0
-                    || $association->confirmed_at === null
-                    || !in_array((string) $association->confirmation_kind, ['operator_confirmed', 'reviewed_import'], true)) {
-                    throw new \DomainException('Invalid confirmed fiscal association; explicit review required.');
-                }
-            }
+    private function toFact(\stdClass $row, ?TaxFiscalAssociation $association): FiscalTaxFact
+    {
+        [$identity, $role] = $this->classification($association);
 
-            $facts[] = new FiscalTaxFact(
-                documentItemId: (int) $row->document_item_id,
-                taxId: (int) $row->tax_id,
-                documentItemTaxRowId: (int) $row->tax_row_id,
-                accountingType: (string) $row->accounting_type,
-                amountCents: ExactTaxDecimal::cents($row->amount),
-                fiscalTaxCode: $identity,
-                fiscalRole: $role,
-                origin: 'akaunting.document_item_taxes',
-                baseCents: null,
-                ratePercent: ExactTaxDecimal::rate($row->rate),
-            );
+        return new FiscalTaxFact(
+            documentItemId: (int) $row->document_item_id,
+            taxId: (int) $row->tax_id,
+            documentItemTaxRowId: (int) $row->tax_row_id,
+            accountingType: (string) $row->accounting_type,
+            amountCents: ExactTaxDecimal::cents($row->amount),
+            fiscalTaxCode: $identity,
+            fiscalRole: $role,
+            origin: 'akaunting.document_item_taxes',
+            baseCents: null,
+            ratePercent: ExactTaxDecimal::rate($row->rate),
+        );
+    }
+
+    /**
+     * @return array{0:?string,1:?FiscalTaxRole}
+     */
+    private function classification(?TaxFiscalAssociation $association): array
+    {
+        if ($association === null) {
+            return [null, null];
         }
 
-        return $facts;
+        $identity = strtolower(trim((string) $association->fiscal_identity));
+        $role = FiscalTaxRole::tryFrom((string) $association->fiscal_role);
+        if (FiscalTaxIdentity::tryFrom($identity) === null
+            || $role === null
+            || trim((string) $association->source_reference) === ''
+            || (int) $association->confirmed_by <= 0
+            || $association->confirmed_at === null
+            || !in_array((string) $association->confirmation_kind, ['operator_confirmed', 'reviewed_import'], true)) {
+            throw new \DomainException('Invalid confirmed fiscal association; explicit review required.');
+        }
+
+        return [$identity, $role];
     }
 }
