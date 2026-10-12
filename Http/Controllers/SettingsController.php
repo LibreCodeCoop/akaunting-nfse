@@ -160,7 +160,7 @@ class SettingsController extends Controller
         }
 
         $previousCnpj = strtoupper(trim((string) setting('nfse.cnpj_prestador', '')));
-        $previousMunicipality = trim((string) setting('nfse.municipio_ibge', '')));
+        $previousMunicipality = trim((string) setting('nfse.municipio_ibge', ''));
 
         foreach ([
             'cnpj_prestador',
