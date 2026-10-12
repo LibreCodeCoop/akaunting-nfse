@@ -28,7 +28,7 @@ final class DpsReservationServiceTest extends FeatureTestCase
         $issuer = $this->issuer();
         $this->activateSyntheticSeries($issuer);
 
-        $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 'group-a');
+        $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2, 'group-a');
         $service = new DpsReservationService();
         $first = $service->reserve((int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1', $key, 'manual_group');
         $repeated = $service->reserve((int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '00001', $key, 'automatic');
@@ -50,13 +50,39 @@ final class DpsReservationServiceTest extends FeatureTestCase
         $service = new DpsReservationService();
 
         $first = $service->reserve((int) $a->company_id, (int) $a->id, $issuer, 2, '1',
-            DpsOperationKey::forInvoice((int) $a->company_id, (int) $a->id), 'manual');
+            DpsOperationKey::forInvoice((int) $a->company_id, (int) $a->id, 2), 'manual');
         $second = $service->reserve((int) $b->company_id, (int) $b->id, $issuer, 2, '1',
-            DpsOperationKey::forInvoice((int) $b->company_id, (int) $b->id), 'automatic');
+            DpsOperationKey::forInvoice((int) $b->company_id, (int) $b->id, 2), 'automatic');
 
         self::assertSame('1', $first['number']);
         self::assertSame('2', $second['number']);
         self::assertNotSame($first['reservation_id'], $second['reservation_id']);
+    }
+
+    public function testSameInvoiceInBothEnvironmentsReservesIndependentNumbers(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer, 2);
+        $this->activateSyntheticSeries($issuer, 1);
+        $service = new DpsReservationService();
+
+        $restricted = $service->reserve(
+            (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
+            DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2),
+            'manual',
+        );
+        $production = $service->reserve(
+            (int) $invoice->company_id, (int) $invoice->id, $issuer, 1, '1',
+            DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 1),
+            'manual',
+        );
+
+        self::assertSame('1', $restricted['number']);
+        self::assertSame('1', $production['number']);
+        self::assertNotSame($restricted['reservation_id'], $production['reservation_id']);
+        self::assertSame(2, DB::table('nfse_dps_reservations')->count());
     }
 
     public function testMissingActivationAndForgedOwnerFailBeforeMutation(): void
@@ -64,7 +90,7 @@ final class DpsReservationServiceTest extends FeatureTestCase
         $this->loginAs();
         $invoice = $this->invoice();
         $issuer = $this->issuer();
-        $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id);
+        $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2);
         $service = new DpsReservationService();
 
         try {
@@ -88,7 +114,7 @@ final class DpsReservationServiceTest extends FeatureTestCase
         $invoice = $this->invoice();
         $issuer = $this->issuer();
         $this->activateSyntheticSeries($issuer);
-        $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id);
+        $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2);
         $service = new DpsReservationService();
         $service->reserve((int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1', $key, 'manual');
 
@@ -107,7 +133,7 @@ final class DpsReservationServiceTest extends FeatureTestCase
         $this->expectException(\OverflowException::class);
         (new DpsReservationService())->reserve(
             (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
-            DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id), 'manual',
+            DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2), 'manual',
         );
     }
 
@@ -121,10 +147,10 @@ final class DpsReservationServiceTest extends FeatureTestCase
         return new DpsFiscalIssuer('3303302', 2, '11222333000181');
     }
 
-    private function activateSyntheticSeries(DpsFiscalIssuer $issuer): void
+    private function activateSyntheticSeries(DpsFiscalIssuer $issuer, int $environment = 2): void
     {
         DB::table('nfse_dps_series')->insert([
-            'environment' => 2,
+            'environment' => $environment,
             'issuer_municipality' => $issuer->municipality,
             'issuer_registration_type' => $issuer->registrationType,
             'issuer_registration' => $issuer->registration,

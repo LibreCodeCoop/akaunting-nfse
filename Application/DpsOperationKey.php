@@ -18,12 +18,17 @@ final class DpsOperationKey
     public static function forInvoice(
         int $companyId,
         int $invoiceId,
+        int $environment,
         ?string $groupKey = null,
         ?int $cancelledReceiptId = null,
         ?int $substitutedReceiptId = null,
     ): string {
         if ($companyId <= 0 || $invoiceId <= 0) {
             throw new \InvalidArgumentException('Company and invoice IDs must be positive.');
+        }
+
+        if (!in_array($environment, [1, 2], true)) {
+            throw new \InvalidArgumentException('Valid fiscal environment (1 or 2) is required.');
         }
 
         if ($cancelledReceiptId !== null && $substitutedReceiptId !== null) {
@@ -46,6 +51,7 @@ final class DpsOperationKey
             'v' => 1,
             'company' => $companyId,
             'invoice' => $invoiceId,
+            'environment' => $environment,
             'group' => $groupKey,
             'cancelled_receipt' => $cancelledReceiptId,
             'substituted_receipt' => $substitutedReceiptId,

@@ -14,30 +14,45 @@ final class DpsOperationKeyTest extends TestCase
 {
     public function testCallerOriginCannotChangeTheFiscalOperationIdentity(): void
     {
-        $http = DpsOperationKey::forInvoice(7, 42, 'service:0107');
-        $worker = DpsOperationKey::forInvoice(7, 42, 'service:0107');
+        $http = DpsOperationKey::forInvoice(7, 42, 2, 'service:0107');
+        $worker = DpsOperationKey::forInvoice(7, 42, 2, 'service:0107');
 
         self::assertSame($http, $worker);
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/D', $http);
-        self::assertNotSame($http, DpsOperationKey::forInvoice(8, 42, 'service:0107'));
-        self::assertNotSame($http, DpsOperationKey::forInvoice(7, 43, 'service:0107'));
-        self::assertNotSame($http, DpsOperationKey::forInvoice(7, 42, 'service:0101'));
+        self::assertNotSame($http, DpsOperationKey::forInvoice(8, 42, 2, 'service:0107'));
+        self::assertNotSame($http, DpsOperationKey::forInvoice(7, 43, 2, 'service:0107'));
+        self::assertNotSame($http, DpsOperationKey::forInvoice(7, 42, 2, 'service:0101'));
     }
 
     public function testSubstitutionAndReissuanceNeverShareOriginalKey(): void
     {
-        $base = DpsOperationKey::forInvoice(7, 42);
-        $reissue = DpsOperationKey::forInvoice(7, 42, cancelledReceiptId: 50);
-        $replacement = DpsOperationKey::forInvoice(7, 42, substitutedReceiptId: 50);
+        $base = DpsOperationKey::forInvoice(7, 42, 2);
+        $reissue = DpsOperationKey::forInvoice(7, 42, 2, cancelledReceiptId: 50);
+        $replacement = DpsOperationKey::forInvoice(7, 42, 2, substitutedReceiptId: 50);
 
         self::assertNotSame($base, $reissue);
         self::assertNotSame($reissue, $replacement);
-        self::assertNotSame($reissue, DpsOperationKey::forInvoice(7, 42, cancelledReceiptId: 51));
+        self::assertNotSame($reissue, DpsOperationKey::forInvoice(7, 42, 2, cancelledReceiptId: 51));
+    }
+
+    public function testProductionAndRestrictedEnvironmentHaveIndependentOperationKeys(): void
+    {
+        $restricted = DpsOperationKey::forInvoice(7, 42, 2, 'group-a');
+        $production = DpsOperationKey::forInvoice(7, 42, 1, 'group-a');
+
+        self::assertNotSame($restricted, $production);
+        self::assertSame($restricted, DpsOperationKey::forInvoice(7, 42, 2, 'group-a'));
+    }
+
+    public function testInvalidEnvironmentCannotCreateAnOperationKey(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        DpsOperationKey::forInvoice(7, 42, 0);
     }
 
     public function testCannotCombineDifferentFiscalOperations(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        DpsOperationKey::forInvoice(7, 42, cancelledReceiptId: 50, substitutedReceiptId: 50);
+        DpsOperationKey::forInvoice(7, 42, 2, cancelledReceiptId: 50, substitutedReceiptId: 50);
     }
 }
