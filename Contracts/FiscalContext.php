@@ -54,6 +54,8 @@ final readonly class FiscalContext
         public ?bool $saleToFinalConsumer = null,
         /** Specific IBS/CBS cooperative regime facts; never inferred from legal form. */
         public ?CooperativeIbsCbsFacts $cooperativeIbsCbsFacts = null,
+        /** Verified counterparty type for member-to-cooperative supplies. */
+        public ?bool $takerIsCooperative = null,
     ) {
         if ($this->companyId <= 0 || trim($this->fiscalGroupKey) === '') {
             throw new \InvalidArgumentException('Company and fiscal-group identity are required.');

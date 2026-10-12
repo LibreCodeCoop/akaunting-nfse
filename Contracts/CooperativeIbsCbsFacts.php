@@ -35,6 +35,10 @@ final readonly class CooperativeIbsCbsFacts
         public ?bool $withinCooperativePurpose = null,
         /** A personal-use exclusion is separate from associated-party status. */
         public ?bool $forPersonalUseOrConsumption = null,
+        /** Independently verified option at the start of cooperative operations. */
+        public ?bool $optionAtStartOfOperations = null,
+        /** Verified registration date of the relevant cooperative, not the invoice date. */
+        public ?DateTimeImmutable $cooperativeRegistrationDate = null,
     ) {
         if ($this->optionConfirmed === true && $this->optionEffectiveFrom === null) {
             throw new InvalidArgumentException('Confirmed option requires an effective start date.');

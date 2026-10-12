@@ -83,10 +83,40 @@ final class CooperativeIbsCbsEligibilityAssessorTest extends TestCase
             ['optionEffectiveFrom' => '2028-01-01'], 'COOP-ZERO-ELECTION-NOT-EFFECTIVE', 'not_applicable', 'cooperativeIbsCbsFacts.optionEffectiveFrom', null,
         ];
         yield 'same effective civil date despite different timezones' => [
-            ['event' => '2027-07-01T00:01:00+14:00', 'optionEffectiveFrom' => '2027-07-01T00:00:00-12:00'], 'COOP-ZERO-COOP-TO-REGULAR-ASSOCIATE', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
+            ['event' => '2027-01-01T00:01:00+14:00', 'optionEffectiveFrom' => '2027-01-01T00:00:00-12:00'], 'COOP-ZERO-COOP-TO-REGULAR-ASSOCIATE', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
         ];
         yield 'following civil date not effective despite earlier UTC instant' => [
             ['event' => '2027-06-30T23:59:59-12:00', 'optionEffectiveFrom' => '2027-07-01T00:00:00+14:00'], 'COOP-ZERO-ELECTION-NOT-EFFECTIVE', 'not_applicable', 'cooperativeIbsCbsFacts.optionEffectiveFrom', null,
+        ];
+        yield 'off-cycle startup option lacking evidence cannot pass' => [
+            ['event' => '2027-07-01', 'optionEffectiveFrom' => '2027-07-01'], 'COOP-ZERO-STARTUP-EVIDENCE-MISSING', 'unverifiable', 'cooperativeIbsCbsFacts.optionAtStartOfOperations', 'verify_start_of_activity_election',
+        ];
+        yield 'off-cycle option explicitly not at startup cannot pass' => [
+            ['event' => '2027-07-01', 'optionEffectiveFrom' => '2027-07-01', 'optionAtStartOfOperations' => false], 'COOP-ZERO-STARTUP-EVIDENCE-MISSING', 'unverifiable', 'cooperativeIbsCbsFacts.optionAtStartOfOperations', 'verify_start_of_activity_election',
+        ];
+        yield 'off-cycle startup without registration date cannot pass' => [
+            ['event' => '2027-07-01', 'optionEffectiveFrom' => '2027-07-01', 'optionAtStartOfOperations' => true], 'COOP-ZERO-STARTUP-EVIDENCE-MISSING', 'unverifiable', 'cooperativeIbsCbsFacts.optionAtStartOfOperations', 'verify_start_of_activity_election',
+        ];
+        yield 'off-cycle registration date mismatch cannot pass' => [
+            ['event' => '2027-07-01', 'optionEffectiveFrom' => '2027-07-01', 'optionAtStartOfOperations' => true, 'cooperativeRegistrationDate' => '2027-06-01'], 'COOP-ZERO-STARTUP-DATE-MISMATCH', 'unverifiable', 'cooperativeIbsCbsFacts.cooperativeRegistrationDate', 'verify_start_of_activity_registration',
+        ];
+        yield 'verified startup option effective on registration date' => [
+            ['event' => '2027-07-01', 'optionEffectiveFrom' => '2027-07-01', 'optionAtStartOfOperations' => true, 'cooperativeRegistrationDate' => '2027-07-01'], 'COOP-ZERO-COOP-TO-REGULAR-ASSOCIATE', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
+        ];
+        yield 'startup registration civil date independent of timezone' => [
+            ['event' => '2027-07-01T00:01:00+14:00', 'optionEffectiveFrom' => '2027-07-01T00:00:00-12:00', 'optionAtStartOfOperations' => true, 'cooperativeRegistrationDate' => '2027-07-01T23:59:00+14:00'], 'COOP-ZERO-COOP-TO-REGULAR-ASSOCIATE', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
+        ];
+        yield 'provider business registration in 2026 does not imply startup option' => [
+            ['optionEffectiveFrom' => '2026-09-01'], 'COOP-ZERO-STARTUP-EVIDENCE-MISSING', 'unverifiable', 'cooperativeIbsCbsFacts.optionAtStartOfOperations', 'verify_start_of_activity_election',
+        ];
+        yield 'known non-cooperative taker is not a cooperative supply' => [
+            ['supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, 'takerIsCooperative' => false], 'COOP-ZERO-TAKER-NOT-COOPERATIVE', 'not_applicable', 'takerIsCooperative', null,
+        ];
+        yield 'unknown cooperative taker cannot pass' => [
+            ['supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, 'takerIsCooperative' => null], 'COOP-ZERO-TAKER-UNVERIFIED', 'unverifiable', 'takerIsCooperative', 'verify_cooperative_taker',
+        ];
+        yield 'missing taker cooperative evidence blocks before regularity lookup' => [
+            ['supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, 'takerIsCooperative' => null, 'associateIsRegularIbsCbsTaxpayer' => null], 'COOP-ZERO-TAKER-UNVERIFIED', 'unverifiable', 'takerIsCooperative', 'verify_cooperative_taker',
         ];
         yield 'explicit unrelated supply' => [
             ['supplyRelation' => CooperativeSupplyRelation::UNRELATED], 'COOP-ZERO-NO-ASSOCIATION', 'not_applicable', 'cooperativeIbsCbsFacts.associationVerifiedAtEvent', null,
@@ -128,7 +158,7 @@ final class CooperativeIbsCbsEligibilityAssessorTest extends TestCase
             ['optionEffectiveFrom' => '2027-07-01', 'withinCooperativePurpose' => false], 'COOP-ZERO-ELECTION-NOT-EFFECTIVE', 'not_applicable', 'cooperativeIbsCbsFacts.optionEffectiveFrom', null,
         ];
         yield 'supplier known not cooperative in coop-to-member direction' => [
-            ['providerIsCooperative' => false], 'COOP-ZERO-PROVIDER-UNVERIFIED', 'unverifiable', 'providerIsCooperative', 'verify_cooperative_provider',
+            ['providerIsCooperative' => false], 'COOP-ZERO-PROVIDER-NOT-COOPERATIVE', 'not_applicable', 'providerIsCooperative', null,
         ];
         yield 'supplier cooperative status unknown in coop-to-member direction' => [
             ['providerIsCooperative' => null], 'COOP-ZERO-PROVIDER-UNVERIFIED', 'unverifiable', 'providerIsCooperative', 'verify_cooperative_provider',
@@ -143,13 +173,13 @@ final class CooperativeIbsCbsEligibilityAssessorTest extends TestCase
             ['associateIsRegularIbsCbsTaxpayer' => null], 'COOP-ZERO-ASSOCIATE-REGIME-UNKNOWN', 'unverifiable', 'cooperativeIbsCbsFacts.associateIsRegularIbsCbsTaxpayer', 'verify_associate_regular_status',
         ];
         yield 'regular member to cooperative with natural supplier' => [
-            ['supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, 'providerIsCooperative' => false], 'COOP-ZERO-REGULAR-ASSOCIATE-TO-COOP', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
+            ['supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, 'takerIsCooperative' => true, 'providerIsCooperative' => false], 'COOP-ZERO-REGULAR-ASSOCIATE-TO-COOP', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
         ];
         yield 'regular member to cooperative does not infer supplier status' => [
-            ['supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, 'providerIsCooperative' => null], 'COOP-ZERO-REGULAR-ASSOCIATE-TO-COOP', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
+            ['supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, 'takerIsCooperative' => true, 'providerIsCooperative' => null], 'COOP-ZERO-REGULAR-ASSOCIATE-TO-COOP', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
         ];
         yield 'member to cooperative regularity unknown' => [
-            ['supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, 'associateIsRegularIbsCbsTaxpayer' => null], 'COOP-ZERO-ASSOCIATE-REGIME-UNKNOWN', 'unverifiable', 'cooperativeIbsCbsFacts.associateIsRegularIbsCbsTaxpayer', 'verify_associate_regular_status',
+            ['supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE, 'takerIsCooperative' => true, 'associateIsRegularIbsCbsTaxpayer' => null], 'COOP-ZERO-ASSOCIATE-REGIME-UNKNOWN', 'unverifiable', 'cooperativeIbsCbsFacts.associateIsRegularIbsCbsTaxpayer', 'verify_associate_regular_status',
         ];
         yield 'cooperative chain not classified automatically' => [
             ['supplyRelation' => CooperativeSupplyRelation::PARTICIPATING_COOPERATIVES], 'COOP-ZERO-COOPERATIVE-CHAIN-UNSUPPORTED', 'unsupported', 'cooperativeIbsCbsFacts.supplyRelation', 'verify_cooperative_chain_conditions',
@@ -161,7 +191,7 @@ final class CooperativeIbsCbsEligibilityAssessorTest extends TestCase
             ['event' => '2027-12-31'], 'COOP-ZERO-COOP-TO-REGULAR-ASSOCIATE', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
         ];
         yield 'effective on event day' => [
-            ['event' => '2027-07-01', 'optionEffectiveFrom' => '2027-07-01'], 'COOP-ZERO-COOP-TO-REGULAR-ASSOCIATE', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
+            ['event' => '2027-07-01', 'optionEffectiveFrom' => '2027-07-01'], 'COOP-ZERO-STARTUP-EVIDENCE-MISSING', 'unverifiable', 'cooperativeIbsCbsFacts.optionAtStartOfOperations', 'verify_start_of_activity_election',
         ];
         yield 'fiscal event controls over older competence' => [
             ['event' => '2027-01-01', 'competence' => '2026-12-31'], 'COOP-ZERO-COOP-TO-REGULAR-ASSOCIATE', 'pass', 'cooperativeIbsCbsFacts.supplyRelation', null,
@@ -213,17 +243,20 @@ final class CooperativeIbsCbsEligibilityAssessorTest extends TestCase
     {
         yield 'natural nonregular member supplies cooperative' => [[
             'supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE,
+            'takerIsCooperative' => true,
             'associateIsRegularIbsCbsTaxpayer' => false,
             'providerIsCooperative' => false,
         ]];
         yield 'nonregular status remains conflict even if provider cooperative' => [[
             'supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE,
+            'takerIsCooperative' => true,
             'associateIsRegularIbsCbsTaxpayer' => false,
             'providerIsCooperative' => true,
         ]];
         yield 'conflict remains on first day of 2027' => [[
             'event' => '2027-01-01',
             'supplyRelation' => CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE,
+            'takerIsCooperative' => true,
             'associateIsRegularIbsCbsTaxpayer' => false,
         ]];
     }
@@ -263,11 +296,14 @@ final class CooperativeIbsCbsEligibilityAssessorTest extends TestCase
             'lc116Subitem' => '01.01',
             'grossServiceCents' => 1000000,
             'providerIsCooperative' => true,
+            'takerIsCooperative' => false,
             'missingFacts' => false,
             'optionConfirmed' => true,
             'optionEffectiveFrom' => '2027-01-01',
             'optionFormFiled' => true,
             'associatesListFiled' => true,
+            'optionAtStartOfOperations' => null,
+            'cooperativeRegistrationDate' => null,
             'supplyRelation' => CooperativeSupplyRelation::COOPERATIVE_TO_ASSOCIATE,
             'associationVerifiedAtEvent' => true,
             'associateIsRegularIbsCbsTaxpayer' => true,
@@ -280,6 +316,8 @@ final class CooperativeIbsCbsEligibilityAssessorTest extends TestCase
             optionEffectiveFrom: self::date($data['optionEffectiveFrom']),
             optionFormFiled: $data['optionFormFiled'],
             associatesListFiled: $data['associatesListFiled'],
+            optionAtStartOfOperations: $data['optionAtStartOfOperations'],
+            cooperativeRegistrationDate: self::date($data['cooperativeRegistrationDate']),
             supplyRelation: $data['supplyRelation'],
             associationVerifiedAtEvent: $data['associationVerifiedAtEvent'],
             associateIsRegularIbsCbsTaxpayer: $data['associateIsRegularIbsCbsTaxpayer'],
@@ -306,6 +344,7 @@ final class CooperativeIbsCbsEligibilityAssessorTest extends TestCase
             taxFacts: [],
             providerIsCooperative: $data['providerIsCooperative'],
             cooperativeIbsCbsFacts: $facts,
+            takerIsCooperative: $data['takerIsCooperative'],
         );
     }
 

@@ -94,6 +94,19 @@ final class CooperativeIbsCbsEligibilityAssessor
             return $this->decision('COOP-ZERO-ELECTION-NOT-EFFECTIVE', 'not_applicable', 'cooperativeIbsCbsFacts.optionEffectiveFrom', null, 'art. 271, para. 3');
         }
 
+        // An ordinary annual option for 2027 takes effect on 1 January.
+        // Another effective date requires a separately verified election at
+        // the cooperative's registration (Decree 12.955/2026, art. 393 § 3).
+        if ($facts->optionEffectiveFrom !== null
+            && $facts->optionEffectiveFrom->format('Y-m-d') !== '2027-01-01') {
+            if ($facts->optionAtStartOfOperations !== true || $facts->cooperativeRegistrationDate === null) {
+                return $this->decision('COOP-ZERO-STARTUP-EVIDENCE-MISSING', 'unverifiable', 'cooperativeIbsCbsFacts.optionAtStartOfOperations', 'verify_start_of_activity_election', 'art. 393, para. 3', true);
+            }
+            if ($facts->cooperativeRegistrationDate->format('Y-m-d') !== $facts->optionEffectiveFrom->format('Y-m-d')) {
+                return $this->decision('COOP-ZERO-STARTUP-DATE-MISMATCH', 'unverifiable', 'cooperativeIbsCbsFacts.cooperativeRegistrationDate', 'verify_start_of_activity_registration', 'art. 393, para. 3', true);
+            }
+        }
+
         return null;
     }
 
@@ -130,7 +143,7 @@ final class CooperativeIbsCbsEligibilityAssessor
     {
         return match ($facts->supplyRelation) {
             CooperativeSupplyRelation::COOPERATIVE_TO_ASSOCIATE => [$this->cooperativeToAssociate($context, $facts)],
-            CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE => $this->associateToCooperative($facts),
+            CooperativeSupplyRelation::ASSOCIATE_TO_COOPERATIVE => $this->associateToCooperative($context, $facts),
             CooperativeSupplyRelation::PARTICIPATING_COOPERATIVES => [$this->decision(
                 'COOP-ZERO-COOPERATIVE-CHAIN-UNSUPPORTED',
                 'unsupported',
@@ -145,6 +158,9 @@ final class CooperativeIbsCbsEligibilityAssessor
 
     private function cooperativeToAssociate(FiscalContext $context, CooperativeIbsCbsFacts $facts): FiscalDecision
     {
+        if ($context->providerIsCooperative === false) {
+            return $this->decision('COOP-ZERO-PROVIDER-NOT-COOPERATIVE', 'not_applicable', 'providerIsCooperative', null, 'art. 271, II');
+        }
         if ($context->providerIsCooperative !== true) {
             return $this->decision('COOP-ZERO-PROVIDER-UNVERIFIED', 'unverifiable', 'providerIsCooperative', 'verify_cooperative_provider', 'art. 271, II');
         }
@@ -157,8 +173,14 @@ final class CooperativeIbsCbsEligibilityAssessor
     }
 
     /** @return list<FiscalDecision> */
-    private function associateToCooperative(CooperativeIbsCbsFacts $facts): array
+    private function associateToCooperative(FiscalContext $context, CooperativeIbsCbsFacts $facts): array
     {
+        if ($context->takerIsCooperative === null) {
+            return [$this->decision('COOP-ZERO-TAKER-UNVERIFIED', 'unverifiable', 'takerIsCooperative', 'verify_cooperative_taker', 'art. 271, I')];
+        }
+        if ($context->takerIsCooperative === false) {
+            return [$this->decision('COOP-ZERO-TAKER-NOT-COOPERATIVE', 'not_applicable', 'takerIsCooperative', null, 'art. 271, I')];
+        }
         if ($facts->associateIsRegularIbsCbsTaxpayer === false) {
             // LC 214/2025 art. 271(I) and Decree 12.955/2026 art. 392(II)
             // differ on non-regular associates. No silent resolution.
