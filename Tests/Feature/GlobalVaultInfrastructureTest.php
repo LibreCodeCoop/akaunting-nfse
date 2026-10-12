@@ -7,6 +7,11 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Jobs\Auth\CreateUser;
+use App\Models\Common\Company;
+use App\Traits\Permissions;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Modules\Nfse\Support\GlobalVaultSettings;
@@ -14,8 +19,121 @@ use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\VaultDiagnostics;
 use Tests\Feature\FeatureTestCase;
 
+/** Test-only queued consumer: the handler reads the shared configuration. */
+final class GlobalVaultResolutionJob implements ShouldQueue
+{
+    /** @var null|array{addr:string,mount:string,token:?string,roleId:?string,secretId:?string} */
+    public static ?array $resolved = null;
+
+    public function handle(): void
+    {
+        self::$resolved = VaultConfig::secretStoreConfig();
+    }
+}
+
 final class GlobalVaultInfrastructureTest extends FeatureTestCase
 {
+    use Permissions;
+
+    public function testDifferentActiveCompaniesAndQueuedConsumersUseTheSameGlobalInfrastructure(): void
+    {
+        $this->loginAs();
+        (new GlobalVaultSettings())->save([
+            'addr' => 'https://vault.example.test',
+            'mount' => '/nfse',
+            'auth_mode' => 'token',
+            'token' => 'synthetic-shared-token',
+        ]);
+        $originalCompany = $this->company;
+        $otherCompany = Company::factory()->create(['name' => 'Synthetic second company']);
+
+        try {
+            $otherCompany->makeCurrent();
+            setting()->set([
+                'nfse.bao_addr' => 'https://wrong-company.example.test',
+                'nfse.bao_token' => 'synthetic-company-only-token',
+            ]);
+            setting()->save();
+
+            self::assertSame('synthetic-shared-token', VaultConfig::secretStoreConfig()['token']);
+
+            GlobalVaultResolutionJob::$resolved = null;
+            Bus::dispatchSync(new GlobalVaultResolutionJob());
+            self::assertSame('synthetic-shared-token', GlobalVaultResolutionJob::$resolved['token'] ?? null);
+            self::assertSame('https://vault.example.test', GlobalVaultResolutionJob::$resolved['addr'] ?? null);
+        } finally {
+            $originalCompany->makeCurrent();
+        }
+
+        self::assertSame('synthetic-shared-token', VaultConfig::secretStoreConfig()['token']);
+    }
+
+    public function testSettingsViewerCanDiagnoseButCannotMutateGlobalInfrastructure(): void
+    {
+        $this->loginAs();
+        $store = new GlobalVaultSettings();
+        $store->save([
+            'addr' => 'https://vault.example.test',
+            'mount' => '/nfse',
+            'auth_mode' => 'token',
+            'token' => 'synthetic-protected-token',
+        ]);
+
+        $role = $this->createRole('nfse-vault-readonly');
+        $this->attachPermission($role, 'read-admin-panel');
+        $this->attachPermission($role, 'read-nfse-settings');
+
+        $user = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
+            'enabled' => 1,
+            'companies' => [$this->company->id],
+            'roles' => [$role->id],
+        ])));
+
+        $this->withExceptionHandling()->loginAs($user);
+
+        $this->get(route('nfse.settings.edit'))
+            ->assertOk()
+            ->assertDontSee('synthetic-protected-token');
+
+        Http::fake([
+            'https://vault.example.test/v1/sys/health' => Http::response([], 503),
+        ]);
+        $this->post(route('nfse.settings.vault.diagnostics'))
+            ->assertOk()
+            ->assertJsonPath('state', 'failed')
+            ->assertDontSee('synthetic-protected-token');
+
+        $this->patch(route('nfse.settings.vault'), [
+            'auth_mode_ui' => 'token',
+            'nfse' => [
+                'bao_addr' => 'https://attacker.example.test',
+                'bao_mount' => '/nfse',
+                'bao_token' => 'synthetic-overwrite-attempt',
+            ],
+        ])->assertForbidden();
+
+        self::assertSame('synthetic-protected-token', $store->effective()['token']);
+        self::assertSame('https://vault.example.test', $store->effective()['addr']);
+    }
+
+    public function testUserWithoutSettingsPermissionCannotQueryAdministrativeVaultData(): void
+    {
+        $this->loginAs();
+        $role = $this->createRole('nfse-vault-no-access');
+        $this->attachPermission($role, 'read-admin-panel');
+
+        $user = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
+            'enabled' => 1,
+            'companies' => [$this->company->id],
+            'roles' => [$role->id],
+        ])));
+
+        $this->withExceptionHandling()->loginAs($user);
+        $this->get(route('nfse.settings.edit'))->assertForbidden();
+        $this->post(route('nfse.settings.vault.diagnostics'))->assertForbidden();
+        $this->patch(route('nfse.settings.vault'))->assertForbidden();
+    }
+
     public function testCorruptedGlobalRecordDoesNotHideFiscalSettingsAndCanBeReplaced(): void
     {
         $this->loginAs();
