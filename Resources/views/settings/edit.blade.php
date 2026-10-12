@@ -698,20 +698,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         </div>{{-- /#federal-piscofins-panel --}}
 
-                        <div id="federal-tributos-profile-p">
-                            <label class="block text-sm font-medium mb-1">{{ trans('nfse::general.settings.federal.tributos_fed_p') }}</label>
-                            <div class="relative">
-                                <input name="nfse[tributos_fed_p]" type="text" data-tax-affix="percent" class="w-full border rounded px-3 py-2 pr-8" value="{{ old('nfse.tributos_fed_p', setting('nfse.tributos_fed_p', '')) }}" placeholder="0.00">
-                                <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 text-sm">%</span>
-                            </div>
-                        </div>
-
-                        <div id="federal-tributos-profile-sn">
-                            <label class="block text-sm font-medium mb-1">{{ trans('nfse::general.settings.federal.tributos_mun_sn') }}</label>
-                            <div class="relative">
-                                <input name="nfse[tributos_mun_sn]" type="text" data-tax-affix="percent" class="w-full border rounded px-3 py-2 pr-8" value="{{ old('nfse.tributos_mun_sn', setting('nfse.tributos_mun_sn', '')) }}" placeholder="0.00">
-                                <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 text-sm">%</span>
-                            </div>
+                        <div id="approximate-tax-sources" class="rounded border border-yellow-300 bg-yellow-50 px-4 py-3">
+                            <h4 class="font-semibold">{{ trans('nfse::general.settings.federal.approximate_title') }}</h4>
+                            <p class="mt-2 text-sm">{{ trans('nfse::general.settings.federal.approximate_notice') }}</p>
+                            <a href="{{ route('nfse.settings.approximate-taxes') }}" class="mt-2 inline-block underline">
+                                {{ trans('nfse::general.settings.federal.approximate_manage') }}
+                            </a>
                         </div>
 
                         <div id="ibs-cbs-panel" class="border-t border-gray-200 pt-4 space-y-4">
