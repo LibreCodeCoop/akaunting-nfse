@@ -49,7 +49,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertMatchesRegularExpression('/^dev-[a-z0-9\/._-]+#[0-9a-f]{40}$/D', $runtimeVersion);
         self::assertSame(
-            'dev-main#c55c627f65939105fd39dafcfd19841b296d6eba',
+            'dev-main#22b71d6b1a0949197412b625759d8015d32c1b54',
             $runtimeVersion,
         );
 
@@ -59,7 +59,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $installed = require $installedPath;
         self::assertIsArray($installed);
         self::assertSame(
-            'c55c627f65939105fd39dafcfd19841b296d6eba',
+            '22b71d6b1a0949197412b625759d8015d32c1b54',
             $installed['versions']['librecodeoop/nfse-php']['reference'] ?? null,
         );
     }
@@ -114,7 +114,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $patchers = $config['patchers'] ?? null;
 
         self::assertIsArray($patchers);
-        self::assertCount(2, $patchers);
+        self::assertCount(3, $patchers);
 
         $patchedContent = "if ('Composer\\Autoload\\ClassLoader' === \$class) {";
 
@@ -140,7 +140,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $patchers = $config['patchers'] ?? null;
 
         self::assertIsArray($patchers);
-        self::assertCount(2, $patchers);
+        self::assertCount(3, $patchers);
 
         $source = <<<'PHP'
             $decorator = "Dompdf\\FrameDecorator\\{$decorator}";
@@ -175,6 +175,107 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
             '$class = \'\\\\Modules\\\\Nfse\\\\Vendor\\\\Dompdf\\\\Positioner\\\\\' . $type;',
             $patchedContent,
         );
+    }
+
+    public function testScoperPatcherNormalizesDynamicFontLibLoading(): void
+    {
+        require_once dirname(__DIR__, 3) . '/vendor-bin/php-scoper/vendor/autoload.php';
+
+        $patchers = (require dirname(__DIR__, 3) . '/3rdparty/scoper.inc.php')['patchers'];
+        $path = '/vendor/dompdf/php-font-lib/src/FontLib/Font.php';
+        // Actual failure mechanism observed in CI: PHP-Scoper prefixes a
+        // relative subtype while leaving the dynamic outer FontLib unscoped.
+        $source = <<<'PHP'
+            $class = "Modules\\Nfse\\Vendor\\TrueType\\File";
+            $class = "Modules\\Nfse\\Vendor\\OpenType\\File";
+            $class = "Modules\\Nfse\\Vendor\\WOFF\\File";
+            $class = "Modules\\Nfse\\Vendor\\EOT\\File";
+            $class = "FontLib\\{$class}";
+            $obj = new $class();
+            PHP;
+        $expected = <<<'PHP'
+            $class = "TrueType\\File";
+            $class = "OpenType\\File";
+            $class = "WOFF\\File";
+            $class = "EOT\\File";
+            $class = "Modules\\Nfse\\Vendor\\FontLib\\{$class}";
+            $obj = new $class();
+            PHP;
+
+        $patched = $this->applyScoperPatchers($patchers, $path, $source);
+        self::assertSame($expected, $patched);
+        self::assertSame($patched, $this->applyScoperPatchers($patchers, $path, $patched));
+    }
+
+    public function testScoperPatcherNormalizesFontLibTableClassNamesWithoutChangingGuards(): void
+    {
+        require_once dirname(__DIR__, 3) . '/vendor-bin/php-scoper/vendor/autoload.php';
+
+        $patchers = (require dirname(__DIR__, 3) . '/3rdparty/scoper.inc.php')['patchers'];
+        $path = '/vendor/dompdf/php-font-lib/src/FontLib/TrueType/File.php';
+        $source = <<<'PHP'
+            return $class_parts[1];
+            $class = "FontLib\\{$type}\\TableDirectoryEntry";
+            $class = "FontLib\\Table\\Type\\{$name_canon}";
+            $class = "FontLib\\Table\\Table";
+            if (!isset($this->directory[$tag])) {
+                return;
+            }
+            if (!isset($this->directory[$tag]) || !@class_exists($class)) {
+                return;
+            }
+            PHP;
+        $expected = <<<'PHP'
+            return $class_parts[count($class_parts) - 2];
+            $class = "Modules\\Nfse\\Vendor\\FontLib\\{$type}\\TableDirectoryEntry";
+            $class = "Modules\\Nfse\\Vendor\\FontLib\\Table\\Type\\{$name_canon}";
+            $class = "Modules\\Nfse\\Vendor\\FontLib\\Table\\Table";
+            if (!isset($this->directory[$tag])) {
+                return;
+            }
+            if (!isset($this->directory[$tag]) || !@class_exists($class)) {
+                return;
+            }
+            PHP;
+
+        $patched = $this->applyScoperPatchers($patchers, $path, $source);
+        self::assertSame($expected, $patched);
+        self::assertSame($patched, $this->applyScoperPatchers($patchers, $path, $patched));
+    }
+
+    public function testBuiltScopedFontLibParsesBothBundledTrueTypeFaces(): void
+    {
+        require_once dirname(__DIR__, 3) . '/3rdparty/scoped/autoload.php';
+
+        // Validate the generated runtime, not only the patcher inputs.
+        $scopedFontLib = dirname(__DIR__, 3) . '/3rdparty/scoped/dompdf/php-font-lib/src/FontLib';
+        $fontSource = file_get_contents($scopedFontLib . '/Font.php');
+        $trueTypeSource = file_get_contents($scopedFontLib . '/TrueType/File.php');
+        self::assertIsString($fontSource);
+        self::assertIsString($trueTypeSource);
+        self::assertStringContainsString('Modules\\\\Nfse\\\\Vendor\\\\FontLib\\\\', $fontSource);
+        self::assertStringNotContainsString('"Modules\\\\Nfse\\\\Vendor\\\\TrueType\\\\File"', $fontSource);
+        self::assertStringContainsString('return $class_parts[count($class_parts) - 2];', $trueTypeSource);
+
+        $fontDir = dirname(__DIR__, 3) . '/3rdparty/scoped/librecodeoop/nfse-php/src/Danfse/Assets/fonts';
+        foreach (['LiberationSans-Regular.ttf', 'LiberationSans-Bold.ttf'] as $filename) {
+            $font = \Modules\Nfse\Vendor\FontLib\Font::load($fontDir . '/' . $filename);
+            self::assertInstanceOf(\Modules\Nfse\Vendor\FontLib\TrueType\File::class, $font);
+            self::assertSame('TrueType', $font->getFontType());
+            $font->parse();
+        }
+    }
+
+    /**
+     * @param list<callable(string, string, string):string> $patchers
+     */
+    private function applyScoperPatchers(array $patchers, string $path, string $source): string
+    {
+        foreach ($patchers as $patcher) {
+            $source = $patcher($path, 'Modules\\Nfse\\Vendor', $source);
+        }
+
+        return $source;
     }
 
     public function testBuiltScopedDompdfFactoryIsValidAndFullyPrefixed(): void

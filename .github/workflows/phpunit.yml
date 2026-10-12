@@ -38,6 +38,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           tools: composer
+          extensions: zip
           coverage: none
 
       - name: Cache Composer downloads
