@@ -476,6 +476,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </select>
                         </div>
 
+                        <div id="regime-apuracao-simples-field" hidden>
+                            <label class="block text-sm font-medium mb-1" for="regime_apuracao_simples_nacional">{{ trans('nfse::general.settings.simples_apuration_label') }}</label>
+                            <select id="regime_apuracao_simples_nacional" name="nfse[regime_apuracao_simples_nacional]" class="w-full border rounded px-3 py-2" aria-describedby="regime-apuracao-simples-help">
+                                <option value="">{{ trans('nfse::general.settings.special_regime_missing') }}</option>
+                                @foreach(['1', '2', '3'] as $apurationCode)
+                                    <option value="{{ $apurationCode }}" @selected((string) old('nfse.regime_apuracao_simples_nacional', setting('nfse.regime_apuracao_simples_nacional', '')) === $apurationCode)>{{ $apurationCode }} - {{ trans('nfse::general.settings.simples_apuration_codes.' . $apurationCode) }}</option>
+                                @endforeach
+                            </select>
+                            <p id="regime-apuracao-simples-help" class="mt-1 text-xs text-gray-600">{{ trans('nfse::general.settings.simples_apuration_help') }}</p>
+                        </div>
+
                         <div id="regime-especial-field">
                             <label class="block text-sm font-medium mb-1" for="regime_especial_tributacao">{{ trans('nfse::general.settings.special_regime_label') }}</label>
                             <select id="regime_especial_tributacao" name="nfse[regime_especial_tributacao]" class="w-full border rounded px-3 py-2" aria-describedby="regime-especial-help">
@@ -901,6 +912,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 'specialRegimeMissing' => trans('nfse::general.settings.special_regime_missing_help'),
                 'specialRegimeBlocked' => trans('nfse::general.settings.special_regime_inapplicable'),
                 'specialRegimeUnsupported' => trans('nfse::general.settings.special_regime_simples_unsupported'),
+                'specialRegimeApurationRequired' => trans('nfse::general.settings.simples_apuration_missing'),
+                'specialRegimeApurationRequiresNone' => trans('nfse::general.settings.simples_apuration_requires_none'),
                 'specialRegimeInvalid' => trans('nfse::general.settings.special_regime_selected_invalid'),
                 'selectedUf' => old('nfse.uf', setting('nfse.uf', '')),
                 'selectedMunicipalityName' => old('nfse.municipio_nome', setting('nfse.municipio_nome', '')),

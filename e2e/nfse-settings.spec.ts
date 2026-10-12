@@ -416,3 +416,18 @@ test('special regime selector disables inapplicable codes but preserves old choi
   await issqn.selectOption('1');
   await expect(regime.locator('option[value="9"]')).toBeEnabled();
 });
+
+test('Simples apuration is shown only for ME/EPP and keeps explicit choice on unrelated setting changes', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+  const simples = page.locator('#opcao_simples_nacional');
+  const apuration = page.locator('#regime_apuracao_simples_nacional');
+  await simples.selectOption('3');
+  await expect(apuration).toBeVisible();
+  await apuration.selectOption('2');
+  await simples.selectOption('1');
+  await expect(apuration).toBeDisabled();
+  await simples.selectOption('3');
+  await expect(apuration).toHaveValue('2');
+});

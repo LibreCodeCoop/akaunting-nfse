@@ -554,7 +554,16 @@ return [
         'special_regime_help' => 'Code 0 (None) is explicit information, not an absent field. Special regimes depend on provider, service, municipality and DPS competence.',
         'special_regime_missing_help' => 'Not specified is not code 0 (None): choose an explicit code before issuance.',
         'special_regime_inapplicable' => 'Only code 0 (None) is valid for this context. Correct any previously selected code explicitly.',
-        'special_regime_simples_unsupported' => 'ME/EPP: nonzero special regimes require ISSQN Simple Nacional apportionment, not supported by this issuer.',
+        'special_regime_simples_unsupported' => 'Explicitly select the taxpayer’s Simples Nacional apportionment regime.',
+        'simples_apuration_label' => 'Simples Nacional apportionment regime (ME/EPP only)',
+        'simples_apuration_help' => 'Required for ME/EPP by E0166. Select code 1, 2 or 3 according to the actual fiscal assessment. No code can be inferred automatically.',
+        'simples_apuration_missing' => 'Select a Simples Nacional apportionment regime (E0166) before ME/EPP issuance.',
+        'simples_apuration_requires_none' => 'Apportionment code 1 requires special regime 0 - None (E0175).',
+        'simples_apuration_codes' => [
+            '1' => 'Federal taxes and ISSQN through Simples Nacional',
+            '2' => 'Federal taxes through Simples; ISSQN outside Simples',
+            '3' => 'Federal taxes and ISSQN outside Simples',
+        ],
         'special_regime_selected_invalid' => 'The previously selected special regime is now incompatible. Choose 0 (None) or restore applicable conditions before saving.',
         'special_regime_codes' => [
             '0' => 'None',
@@ -574,7 +583,9 @@ return [
             'invalid_tax_context' => 'Invalid Simples or ISSQN taxation state.',
             'non_taxable_requires_none' => 'Immunity, service exports and ISSQN non-incidence require code 0 (None).',
             'mei_requires_none' => 'MEI must use special regime code 0 (None).',
-            'simples_apuration_not_supported' => 'ME/EPP with a nonzero special regime requires Simples tax apportionment support, which is not available.',
+            'simples_apuration_not_configured' => 'ME/EPP: select apportionment code 1, 2 or 3 before issuance (E0166).',
+            'invalid_simples_apuration' => 'Invalid Simples Nacional apportionment code. Official codes are 1, 2 and 3.',
+            'simples_apuration_requires_none' => 'Apportionment code 1 requires special regime 0 - None (E0175).',
         ],
         'issqn_special' => [
             'heading' => 'Municipal ISSQN taxation',
