@@ -73,6 +73,36 @@ final class CooperativeIbsCbsFactsTest extends TestCase
         self::assertFalse($confirmedNotRegular->associateIsRegularIbsCbsTaxpayer);
     }
 
+    public function testCooperativePurposeAndPersonalUseExclusionsAreDistinctFacts(): void
+    {
+        $unknown = new CooperativeIbsCbsFacts(
+            supplyRelation: CooperativeSupplyRelation::COOPERATIVE_TO_ASSOCIATE,
+            associationVerifiedAtEvent: true,
+            associateIsRegularIbsCbsTaxpayer: true,
+        );
+        $excluded = new CooperativeIbsCbsFacts(
+            supplyRelation: CooperativeSupplyRelation::COOPERATIVE_TO_ASSOCIATE,
+            associationVerifiedAtEvent: true,
+            associateIsRegularIbsCbsTaxpayer: true,
+            withinCooperativePurpose: false,
+            forPersonalUseOrConsumption: true,
+        );
+        $permittedFacts = new CooperativeIbsCbsFacts(
+            supplyRelation: CooperativeSupplyRelation::COOPERATIVE_TO_ASSOCIATE,
+            associationVerifiedAtEvent: true,
+            associateIsRegularIbsCbsTaxpayer: true,
+            withinCooperativePurpose: true,
+            forPersonalUseOrConsumption: false,
+        );
+
+        self::assertNull($unknown->withinCooperativePurpose);
+        self::assertNull($unknown->forPersonalUseOrConsumption);
+        self::assertFalse($excluded->withinCooperativePurpose);
+        self::assertTrue($excluded->forPersonalUseOrConsumption);
+        self::assertTrue($permittedFacts->withinCooperativePurpose);
+        self::assertFalse($permittedFacts->forPersonalUseOrConsumption);
+    }
+
     public function testCooperativeRecipientDoesNotRequireCooperativeSupplier(): void
     {
         $facts = new CooperativeIbsCbsFacts(

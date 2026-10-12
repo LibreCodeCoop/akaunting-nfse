@@ -31,6 +31,10 @@ final readonly class CooperativeIbsCbsFacts
         public ?bool $associationVerifiedAtEvent = null,
         /** Relevant when a cooperative supplies to its associate. */
         public ?bool $associateIsRegularIbsCbsTaxpayer = null,
+        /** The regulation excludes operations outside the cooperative's purposes. */
+        public ?bool $withinCooperativePurpose = null,
+        /** A personal-use exclusion is separate from associated-party status. */
+        public ?bool $forPersonalUseOrConsumption = null,
     ) {
         if ($this->optionConfirmed === true && $this->optionEffectiveFrom === null) {
             throw new InvalidArgumentException('Confirmed option requires an effective start date.');
