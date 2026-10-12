@@ -58,7 +58,12 @@ final class FiscalNormativeIssuanceGuardTest extends FeatureTestCase
     ): void {
         $invoice = $this->invoice($date, $service, $national, $category);
         $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
-        $client = new PermissiveSyntheticSefin();
+        $posts = 0;
+        $submitted = null;
+        $client = $this->permissiveSefin(static function (DpsData $dps) use (&$posts, &$submitted): void {
+            $posts++;
+            $submitted = $dps;
+        });
         $settings = $this->settings($simples);
         $issuer = new AutomaticInvoiceFiscalIssuer(
             clientContextFactory: static fn (bool $sandbox): FiscalClientContext => new FiscalClientContext(
@@ -76,7 +81,7 @@ final class FiscalNormativeIssuanceGuardTest extends FeatureTestCase
                 self::assertStringContainsString($blockedReason, $e->getMessage());
             }
 
-            self::assertSame(0, $client->posts);
+            self::assertSame(0, $posts);
             self::assertSame(0, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
             self::assertSame(0, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
 
@@ -87,9 +92,9 @@ final class FiscalNormativeIssuanceGuardTest extends FeatureTestCase
         // requirements that take effect only at a later fiscal boundary.
         $receipt = $issuer->issue((int) $invoice->id, (string) $group['key']);
         self::assertSame('emitted', $receipt->status);
-        self::assertSame(1, $client->posts);
-        self::assertSame($national, $client->lastDps?->codigoTributacaoNacional);
-        self::assertNull($client->lastDps?->ibsCbsFinalidade);
+        self::assertSame(1, $posts);
+        self::assertSame($national, $submitted?->codigoTributacaoNacional);
+        self::assertNull($submitted?->ibsCbsFinalidade);
         self::assertSame(1, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
         self::assertSame(1, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
     }
@@ -98,7 +103,12 @@ final class FiscalNormativeIssuanceGuardTest extends FeatureTestCase
     {
         $invoice = $this->invoice('2026-10-01', '0107', '010701', '');
         $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
-        $client = new PermissiveSyntheticSefin();
+        $posts = 0;
+        $submitted = null;
+        $client = $this->permissiveSefin(static function (DpsData $dps) use (&$posts, &$submitted): void {
+            $posts++;
+            $submitted = $dps;
+        });
         $settings = array_replace($this->settings(1), [
             'nfse.ibs_cbs_enabled' => true,
             'nfse.ibs_cbs_c_ind_op' => '123',
@@ -121,7 +131,7 @@ final class FiscalNormativeIssuanceGuardTest extends FeatureTestCase
             self::assertStringContainsString('ibs_cbs_required', $e->getMessage());
         }
 
-        self::assertSame(0, $client->posts);
+        self::assertSame(0, $posts);
         self::assertSame(0, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
     }
 
@@ -169,37 +179,39 @@ final class FiscalNormativeIssuanceGuardTest extends FeatureTestCase
             'nfse.ibs_cbs_enabled' => false,
         ];
     }
-}
-
-/**
- * Mimics a SEFIN gateway that would authorize even an incomplete DPS.
- * Fiscal guards MUST act before invoking this test double.
- */
-final class PermissiveSyntheticSefin implements NfseClientInterface
-{
-    public int $posts = 0;
-    public ?DpsData $lastDps = null;
-
-    public function emit(DpsData $dps): ReceiptData
+    /**
+     * Initialize the fake only after Akaunting has bootstrapped the scoped runtime.
+     * A permissive transport must never decide the fiscal obligation.
+     */
+    private function permissiveSefin(\Closure $onPost): NfseClientInterface
     {
-        $this->posts++;
-        $this->lastDps = $dps;
+        return new class ($onPost) implements NfseClientInterface {
+            public function __construct(private readonly \Closure $onPost)
+            {
+            }
 
-        return new ReceiptData('9901', str_repeat('9', 50), '2026-10-12T10:00:00-03:00');
+            public function emit(DpsData $dps): ReceiptData
+            {
+                ($this->onPost)($dps);
+
+                return new ReceiptData('9901', str_repeat('9', 50), '2026-10-12T10:00:00-03:00');
+            }
+
+            public function query(string $chaveAcesso): ReceiptData
+            {
+                throw new \LogicException('No recovery expected.');
+            }
+
+            public function cancel(string $chaveAcesso, string $motivo): bool
+            {
+                throw new \LogicException('No cancellation expected.');
+            }
+
+            public function getDanfse(string $nfseXml): string
+            {
+                throw new \LogicException('No remote DANFSe expected.');
+            }
+        };
     }
 
-    public function query(string $chaveAcesso): ReceiptData
-    {
-        throw new \LogicException('No recovery expected.');
-    }
-
-    public function cancel(string $chaveAcesso, string $motivo): bool
-    {
-        throw new \LogicException('No cancellation expected.');
-    }
-
-    public function getDanfse(string $nfseXml): string
-    {
-        throw new \LogicException('No remote DANFSe expected.');
-    }
 }

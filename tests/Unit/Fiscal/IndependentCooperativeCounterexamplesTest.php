@@ -11,8 +11,8 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 use Modules\Nfse\Application\CooperativeIbsCbsEligibilityAssessor;
 use Modules\Nfse\Contracts\CooperativeIbsCbsFacts;
-use Modules\Nfse\Contracts\FiscalContext;
 use Modules\Nfse\Contracts\CooperativeSupplyRelation;
+use Modules\Nfse\Contracts\FiscalContext;
 use PHPUnit\Framework\TestCase;
 
 final class IndependentCooperativeCounterexamplesTest extends TestCase
