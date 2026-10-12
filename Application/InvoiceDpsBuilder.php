@@ -37,7 +37,7 @@ final class InvoiceDpsBuilder
 
         $specialRegime = (new SpecialTaxRegimePolicy())->forIssuance(
             $context['regimeEspecialTributacao'] ?? null,
-            (int) ($context['opcaoSimplesNacional'] ?? 1),
+            (int) ($context['opcaoSimplesNacional'] ?? 2),
             (int) ($issqn['tributacaoIssqn'] ?? 1),
             is_string($context['dataCompetencia'] ?? null) ? $context['dataCompetencia'] : null,
         );

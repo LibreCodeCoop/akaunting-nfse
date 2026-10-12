@@ -1368,7 +1368,6 @@ class InvoiceController extends Controller
                 $opcaoSimplesNacional,
                 (int) ($this->issqnPayloadValues()['tributacaoIssqn'] ?? 1),
                 $this->competenceDate($invoice),
-                (string) setting('nfse.municipio_ibge', ''),
             ),
             'tipoAmbiente' => $sandboxReemit ? 2 : 1,
             'serie' => $this->dpsSerie($invoice),

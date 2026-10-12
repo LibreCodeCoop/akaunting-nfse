@@ -4829,6 +4829,45 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
+        public function testReemitWithIncompatibleMeiRegimeDoesNotTransmitOrMutateCancelledReceipt(): void
+        {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 2;
+            ControllerIsolationState::$settings['nfse.regime_especial_tributacao'] = '6';
+            ControllerIsolationState::$settings['nfse.tributacao_issqn'] = 1;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 3002,
+                amount: 150.00,
+                items: [['name' => 'Servico sintetico']],
+                issuedAt: '2026-09-30 12:00:00',
+            );
+            $oldReceipt = InvoiceControllerIsolationState::makeReceipt(3002, 'CHAVE-3002', 'cancelled');
+
+            $controller = new class () extends InvoiceController {
+                public bool $transportOpened = false;
+
+                protected function emissionReadiness(): array
+                {
+                    return ['isReady' => true, 'checklist' => []];
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    $this->transportOpened = true;
+                    throw new \LogicException('No transport may open for a preflight failure.');
+                }
+            };
+
+            $response = $controller->reemit($invoice);
+
+            self::assertFalse($controller->transportOpened, 'Invalid taxpayer status must block before any SEFIN client.');
+            self::assertSame('cancelled', $oldReceipt->status);
+            self::assertSame([], $oldReceipt->updatedPayloads);
+            self::assertCount(1, NfseReceipt::$records);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertStringContainsString('mei_requires_none', (string) ($response->flash['error'] ?? ''));
+        }
+
         public function testReemitBuildsDpsForCancelledReceiptAndRedirectsToShow(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(

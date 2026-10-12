@@ -165,6 +165,20 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertSame('2026-10-05', $special->dataCompetencia);
     }
 
+    public function testSimplesFallbackMatchesTheActualSerializedDefault(): void
+    {
+        $context = $this->baseContext();
+        unset($context['opcaoSimplesNacional']);
+        $context['regimeEspecialTributacao'] = '6';
+
+        // The DTO defaults to MEI (2); the validation must never silently
+        // assume non-optant (1) and allow a forbidden nonzero regime.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('mei_requires_none');
+
+        (new InvoiceDpsBuilder())->build($context);
+    }
+
     public function testMeiNonzeroRegimeIsRejectedBeforeXmlIsCreated(): void
     {
         $context = $this->baseContext();
