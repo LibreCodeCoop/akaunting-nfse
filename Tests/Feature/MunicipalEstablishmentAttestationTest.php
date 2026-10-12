@@ -60,6 +60,54 @@ final class MunicipalEstablishmentAttestationTest extends FeatureTestCase
         self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_at'));
     }
 
+    public function testLegacySettingsCannotForgeOrResurrectEstablishmentConfirmation(): void
+    {
+        $this->loginAs();
+        setting()->set([
+            'nfse.bao_addr' => 'https://vault.example.test',
+            'nfse.bao_mount' => '/secret',
+            'nfse.bao_token' => 'synthetic-secret',
+            'nfse.cnpj_prestador' => '11222333000181',
+            'nfse.municipio_ibge' => '3303302',
+            'nfse.provider_establishment_confirmed' => '1',
+            'nfse.provider_establishment_confirmed_cnpj' => '11222333000181',
+            'nfse.provider_establishment_confirmed_municipality' => '3303302',
+            'nfse.provider_establishment_confirmed_at' => '2026-10-12T09:00:00-03:00',
+            'nfse.provider_establishment_confirmed_by' => 'synthetic-operator',
+        ]);
+        setting()->save();
+
+        $legacy = [
+            'cnpj_prestador' => '11222333000181',
+            'uf' => 'RJ',
+            'municipio_nome' => 'Rio de Janeiro',
+            'municipio_ibge' => '3304557',
+            'bao_addr' => 'https://vault.example.test',
+            'bao_mount' => '/secret',
+            'bao_token' => 'synthetic-secret',
+            'provider_establishment_confirmed' => '1',
+            'provider_establishment_confirmed_cnpj' => '11222333000181',
+            'provider_establishment_confirmed_municipality' => '3304557',
+            'provider_establishment_confirmed_at' => '2030-01-01T00:00:00Z',
+            'provider_establishment_confirmed_by' => 'forged-operator',
+        ];
+
+        $this->patch(route('nfse.settings.update'), ['nfse' => $legacy])
+            ->assertRedirect(route('nfse.settings.edit'));
+        self::assertSame('3304557', (string) setting('nfse.municipio_ibge'));
+        self::assertSame('0', (string) setting('nfse.provider_establishment_confirmed'));
+        self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_cnpj'));
+        self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_at'));
+        self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_by'));
+
+        // A later return to the original city cannot resurrect the evidence.
+        $legacy['municipio_ibge'] = '3303302';
+        $this->patch(route('nfse.settings.update'), ['nfse' => $legacy])
+            ->assertRedirect(route('nfse.settings.edit'));
+        self::assertSame('0', (string) setting('nfse.provider_establishment_confirmed'));
+        self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_municipality'));
+    }
+
     public function testStoredIssuerAttestationSelectsOnlyExactDpsMunicipalSnapshot(): void
     {
         $this->loginAs();

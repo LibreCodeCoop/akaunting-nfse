@@ -673,10 +673,24 @@ class SettingsController extends Controller
     public function update(Request $request): RedirectResponse
     {
         $previousCnpj = (string) setting('nfse.cnpj_prestador', '');
+        $previousMunicipality = (string) setting('nfse.municipio_ibge', '');
 
         $rawNfseInput = $request->input('nfse', []);
         $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
         $nfseInput = $this->prepareNfseInput($rawNfseInput);
+
+        // An establishment attestation must come from the authenticated
+        // fiscal settings action, which records its actor and fiscal identity.
+        // A legacy configuration submission cannot forge the evidence.
+        foreach ([
+            'provider_establishment_confirmed',
+            'provider_establishment_confirmed_cnpj',
+            'provider_establishment_confirmed_municipality',
+            'provider_establishment_confirmed_at',
+            'provider_establishment_confirmed_by',
+        ] as $attestationKey) {
+            unset($nfseInput[$attestationKey]);
+        }
 
         $existingVaultSettings = [
             'bao_addr' => (string) setting('nfse.bao_addr', ''),
@@ -779,6 +793,21 @@ class SettingsController extends Controller
 
         foreach ($nfseInput as $key => $value) {
             setting(['nfse.' . $key => $value]);
+        }
+
+        // The legacy route can change the CNPJ or municipality. Clear prior
+        // attestation irreversibly, so reverting the identity later cannot
+        // resurrect stale establishment evidence.
+        if ($isReplacingCertificate
+            || $previousCnpj !== (string) ($nfseInput['cnpj_prestador'] ?? '')
+            || $previousMunicipality !== (string) ($nfseInput['municipio_ibge'] ?? '')) {
+            setting([
+                'nfse.provider_establishment_confirmed' => '0',
+                'nfse.provider_establishment_confirmed_cnpj' => '',
+                'nfse.provider_establishment_confirmed_municipality' => '',
+                'nfse.provider_establishment_confirmed_at' => '',
+                'nfse.provider_establishment_confirmed_by' => '',
+            ]);
         }
 
         setting()->save();

@@ -167,6 +167,7 @@ final class MunicipalEmissionWorkerIntegrationTest extends FeatureTestCase
             'nfse.cnpj_prestador' => '11222333000181',
             'nfse.municipio_ibge' => '3303302',
             'nfse.opcao_simples_nacional' => 2,
+            'nfse.regime_especial_tributacao' => '0',
             'nfse.sandbox_mode' => true,
             'nfse.tributacao_issqn' => 1,
             'nfse.tipo_retencao_iss' => 1,
