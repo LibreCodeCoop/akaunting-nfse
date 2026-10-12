@@ -60,5 +60,6 @@ test('special regime UI keeps old nonzero selection while restricting new choice
     assert.equal(settings.specialRegimeUiState('3', '1', '9').requiresRuntimeReview, true);
     assert.equal(settings.specialRegimeUiState('3', '1', '0').requiresRuntimeReview, true);
     assert.equal(settings.specialRegimeUiState('3', '1', '0').reason, 'sn_unsupported');
+    assert.equal(settings.specialRegimeUiState('3', '3', '0').reason, 'sn_unsupported');
     assert.equal(settings.specialRegimeUiState('1', '2', '').canSelectSpecial, false);
 });
