@@ -179,6 +179,10 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   await toRecipients.fill('first@example.test');
   await expect(ccRecipients).toHaveValue('visible@example.test');
   await toRecipients.fill('first@example.test, second@example.test');
+  await testInfo.attach('nfse-email-recipient-fields', {
+    body: await dialog.screenshot(),
+    contentType: 'image/png',
+  });
 
   await setVisibleSwitch(page, 'nfse_email_save_default_toggle', true);
   await setVisibleSwitch(page, 'nfse_email_copy_to_self_toggle', true);
