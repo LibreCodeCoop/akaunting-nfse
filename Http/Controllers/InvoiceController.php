@@ -1544,7 +1544,7 @@ class InvoiceController extends Controller
 
         try {
             if (!$issuance['reused']) {
-                $email = $this->preparePostEmitEmail($request, $invoice);
+                $email = $validatedEmail;
                 $this->dispatchPostEmission($invoice, $persistedReceipt, $email);
             }
             $resolvedReceiptNumber = trim((string) $persistedReceipt->nfse_number);
