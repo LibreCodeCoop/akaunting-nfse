@@ -19,6 +19,8 @@ use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 use Modules\Nfse\Tests\Support\FakeHttpTransport;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseTemplate;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\XmlToArray;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\EnvironmentConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\XmlSignerInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
@@ -59,9 +61,9 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
     public function testValidDpsCreatesOneCompressedXmlPostAndNeverResendsAuthorizedInvoice(): void
     {
         [$invoice, $key] = $this->invoiceWithGroup();
-        $transport = new FakeHttpTransport($this->authorizedResponse());
-        $client = $this->client($transport);
         $dps = $this->dps($invoice);
+        $transport = new FakeHttpTransport($this->authorizedResponse($dps));
+        $client = $this->client($transport);
 
         $first = $this->issue($invoice, $key, $client, $dps);
         $second = $this->issue($invoice, $key, $client, $dps);
@@ -79,6 +81,30 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
         self::assertIsString($xml);
         self::assertStringContainsString('<cTribNac>010701</cTribNac>', $xml);
         self::assertStringContainsString('<dCompet>2026-09-01</dCompet>', $xml);
+
+        $authorizedXml = (string) $first['receipt']->payload()->value('authorized_xml');
+        self::assertNotSame('', $authorizedXml);
+        self::assertSame($authorizedXml, $second['receipt']->payload()->value('authorized_xml'));
+        self::assertSame(hash('sha256', $authorizedXml), $first['receipt']->authorized_fiscal_snapshot['source_sha256']);
+
+        $outgoing = new \DOMDocument();
+        $authorized = new \DOMDocument();
+        self::assertTrue($outgoing->loadXML($xml, LIBXML_NONET));
+        self::assertTrue($authorized->loadXML($authorizedXml, LIBXML_NONET));
+
+        $sentFields = new \DOMXPath($outgoing);
+        $authorizedFields = new \DOMXPath($authorized);
+        foreach (['dCompet' => '2026-09-01', 'cTribNac' => '010701', 'vServ' => '100.00', 'nDPS' => (string) $invoice->id] as $field => $expected) {
+            $expression = 'string((//*[local-name()="' . $field . '"])[1])';
+            self::assertSame($expected, $sentFields->evaluate($expression), $field . '/transmitted');
+            self::assertSame($expected, $authorizedFields->evaluate($expression), $field . '/authorized');
+        }
+
+        // Presentation must use the authorized XML, never recompute the
+        // service amount or infer tax from the outgoing DPS.
+        $document = (new DanfseTemplate())->buildData((new XmlToArray())->convert($authorizedXml));
+        self::assertSame('R$ 100,00', $document['totais']['valor_servico']);
+        self::assertSame('R$ 100,00', $document['totais']['valor_liquido']);
         self::assertSame(1, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
     }
 
@@ -186,10 +212,33 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
         );
     }
 
-    private function authorizedResponse(): HttpResponseData
+    private function authorizedResponse(?DpsData $dps = null): HttpResponseData
     {
         $xml = file_get_contents(__DIR__ . '/../../tests/fixtures/nfse_exemplo.xml');
         self::assertIsString($xml);
+
+        if ($dps instanceof DpsData) {
+            // The pinned sample is an authorized fictitious NFSe from January.
+            // Make the fake response match the known submitted September DPS,
+            // without calculating taxes or modifying a stored historical XML.
+            $xml = str_replace(
+                [
+                    '<dCompet>2026-01-15</dCompet>',
+                    '<cTribNac>010700</cTribNac>',
+                    '<vServ>1500.00</vServ>',
+                    '<vLiq>1292.75</vLiq>',
+                    '<nDPS>5</nDPS>',
+                ],
+                [
+                    '<dCompet>' . $dps->dataCompetencia . '</dCompet>',
+                    '<cTribNac>' . $dps->codigoTributacaoNacional . '</cTribNac>',
+                    '<vServ>' . $dps->valorServico . '</vServ>',
+                    '<vLiq>' . $dps->valorServico . '</vLiq>',
+                    '<nDPS>' . $dps->numeroDps . '</nDPS>',
+                ],
+                $xml,
+            );
+        }
 
         return new HttpResponseData(
             status: 201,
