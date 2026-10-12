@@ -33,6 +33,12 @@ final class FederalTaxPayloadFacts
     public function summarize(array $facts, string $retentionType): array
     {
         $totals = $this->aggregator->aggregate($facts);
+        // The current DPS path cannot represent these accounting roles as
+        // ordinary federal values. Never silently omit a confirmed amount.
+        if ($totals['due']['irrf'] !== 0 || $totals['due']['csll'] !== 0
+            || $totals['due']['cp'] !== 0 || $totals['retained']['cp'] !== 0) {
+            throw new \DomainException('NFSE-TAX-ROLE-UNSUPPORTED: confirmed federal tax requires fiscal review.');
+        }
         $social = $this->calculator->calculateConfirmed($retentionType, [
             'pis' => $totals['retained']['pis'],
             'cofins' => $totals['retained']['cofins'],
