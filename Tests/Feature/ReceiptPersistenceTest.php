@@ -9,6 +9,7 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
 use Modules\Nfse\Application\ReceiptPersistence;
+use Modules\Nfse\Models\ApproximateTaxSource;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -65,6 +66,61 @@ final class ReceiptPersistenceTest extends FeatureTestCase
         );
         self::assertSame($new->id, $retry->id);
         self::assertSame(2, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
+    }
+
+    public function testNewSourceRevisionAndReemissionNeverRewriteCancelledAuthorizedXml(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $oldXml = '<NFSe><infNFSe><DPS><infDPS><dCompet>2026-09-30</dCompet><valores><trib><totTrib><pTotTrib><pTotTribFed>6.25</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>3.20</pTotTribMun></pTotTrib></totTrib></trib></valores></infDPS></DPS></infNFSe></NFSe>';
+        $newXml = '<NFSe><infNFSe><DPS><infDPS><dCompet>2026-10-05</dCompet><valores><trib><totTrib><pTotTrib><pTotTribFed>7.45</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>4.10</pTotTribMun></pTotTrib></totTrib></trib></valores></infDPS></DPS></infNFSe></NFSe>';
+
+        $original = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '901',
+            'chave_acesso' => str_repeat('9', 50),
+            'status' => 'cancelled',
+            'xml_webdav_path' => 'archive/901.xml',
+            'danfse_webdav_path' => 'archive/901.pdf',
+        ]);
+        $original->payload()->create(['authorized_xml' => $oldXml]);
+        $original->update([
+            'authorized_fiscal_snapshot' => (new \Modules\Nfse\Application\AuthorizedFiscalSnapshotExtractor())->extract($oldXml),
+        ]);
+
+        ApproximateTaxSource::query()->create([
+            'company_id' => (int) $invoice->company_id,
+            'national_service_code' => '010701',
+            'simples_option' => 1,
+            'competence_from' => '2026-10-01',
+            'source_kind' => 'independent_estimate',
+            'source_name' => 'Later synthetic reference',
+            'source_version' => '2026-10-synthetic',
+            'federal_percent' => '7.45',
+            'state_percent' => '0.00',
+            'municipal_percent' => '4.10',
+        ]);
+
+        $new = (new ReceiptPersistence())->createReemitted(
+            (int) $invoice->id,
+            new ReceiptData(
+                nfseNumber: '902',
+                chaveAcesso: str_repeat('8', 50),
+                dataEmissao: '2026-10-05T16:00:00-03:00',
+                rawXml: $newXml,
+            ),
+            '902',
+        );
+
+        self::assertNotSame($original->id, $new->id);
+        self::assertSame(2, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
+        self::assertSame($oldXml, $original->fresh()->payload()->value('authorized_xml'));
+        self::assertSame(hash('sha256', $oldXml), $original->fresh()->authorized_fiscal_snapshot['source_sha256']);
+        self::assertSame('3.20', $original->fresh()->authorized_fiscal_snapshot['approximate_taxes']['municipal_percent']);
+        self::assertSame('cancelled', $original->fresh()->status);
+        self::assertSame('archive/901.xml', $original->fresh()->xml_webdav_path);
+        self::assertSame('archive/901.pdf', $original->fresh()->danfse_webdav_path);
+        self::assertSame($newXml, $new->payload()->value('authorized_xml'));
+        self::assertSame('4.10', $new->authorized_fiscal_snapshot['approximate_taxes']['municipal_percent']);
     }
 
     public function testGroupedFlowCreatesIndependentReceiptPerGroup(): void
