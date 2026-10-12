@@ -4905,6 +4905,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->reemit($invoice);
 
             self::assertSame('[0107] Servico Reemissao', $client->capturedDps?->discriminacao);
+            self::assertSame(0, $client->capturedDps?->regimeEspecialTributacao);
             self::assertSame('21987654321', $client->capturedDps?->prestadorTelefone);
             self::assertSame('issuer-reemit@example.invalid', $client->capturedDps?->prestadorEmail);
             self::assertStringStartsWith('LibreCode/', (string) $client->capturedDps?->versaoAplicativo);

@@ -85,7 +85,7 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
         self::assertSame(0, $client->emits);
     }
 
-        public function testContainerBindsConcreteBulkIssuer(): void
+    public function testContainerBindsConcreteBulkIssuer(): void
     {
         self::assertInstanceOf(
             AutomaticInvoiceFiscalIssuer::class,
