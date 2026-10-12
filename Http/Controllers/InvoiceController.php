@@ -4397,16 +4397,31 @@ class InvoiceController extends Controller
 
     protected function invalidEmailRedirect(?Request $request, Invoice $invoice, \InvalidArgumentException $exception): RedirectResponse|JsonResponse
     {
-        $field = $exception->getMessage();
-        $field = in_array($field, ['nfse_email_to', 'nfse_email_cc', 'nfse_email_bcc'], true)
-            ? $field
+        $labels = [
+            'nfse_email_to' => 'emit_modal_email_to',
+            'nfse_email_cc' => 'emit_modal_email_cc',
+            'nfse_email_bcc' => 'emit_modal_email_bcc',
+        ];
+        $field = array_key_exists($exception->getMessage(), $labels)
+            ? $exception->getMessage()
             : 'nfse_email_to';
+        $message = trans('nfse::general.invoices.emit_modal_email_invalid', [
+            'field' => trans('nfse::general.invoices.' . $labels[$field]),
+        ]);
 
-        return $this->ajaxAwareRedirect(
-            $request,
-            redirect()->route('nfse.invoices.show', $invoice)
-                ->with('error', trans('nfse::general.invoices.emit_modal_email_invalid', ['field' => $field])),
-        );
+        if ($request instanceof Request && ($request->isXmlHttpRequest() || $request->boolean('nfse_force_ajax', false))) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => true,
+                'code' => 'nfse_email_invalid',
+                'field' => $field,
+                'message' => $message,
+                'redirect' => false,
+                'data' => null,
+            ], 422);
+        }
+
+        return redirect()->route('nfse.invoices.show', $invoice)->with('error', $message);
     }
 
     /**
@@ -4440,45 +4455,6 @@ class InvoiceController extends Controller
                 'error_class' => $throwable::class,
             ]);
         }
-    }
-
-    protected function normalizePostEmitRecipient(mixed $rawRecipient): mixed
-    {
-        if (is_string($rawRecipient)) {
-            $normalized = trim($rawRecipient);
-
-            return $normalized !== '' ? $normalized : null;
-        }
-
-        if (is_object($rawRecipient) && isset($rawRecipient->email)) {
-            $normalized = trim((string) $rawRecipient->email);
-
-            return $normalized !== '' ? $rawRecipient : null;
-        }
-
-        if (is_array($rawRecipient) && isset($rawRecipient['email']) && is_string($rawRecipient['email'])) {
-            $normalized = trim($rawRecipient['email']);
-
-            return $normalized !== '' ? $rawRecipient : null;
-        }
-
-        if (is_array($rawRecipient)) {
-            foreach ($rawRecipient as $item) {
-                if (is_string($item) && trim($item) !== '') {
-                    return $rawRecipient;
-                }
-
-                if (is_object($item) && isset($item->email) && trim((string) $item->email) !== '') {
-                    return $rawRecipient;
-                }
-
-                if (is_array($item) && isset($item['email']) && is_string($item['email']) && trim($item['email']) !== '') {
-                    return $rawRecipient;
-                }
-            }
-        }
-
-        return null;
     }
 
     protected function defaultPostEmitRecipient(Invoice $invoice): ?string

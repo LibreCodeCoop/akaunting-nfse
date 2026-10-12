@@ -160,7 +160,7 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   const toRecipients = dialog.locator('#nfse_email_to');
   const ccToggle = dialog.getByRole('button', { name: 'Cc', exact: true });
-  const bccToggle = dialog.getByRole('button', { name: 'Cco', exact: true });
+  const bccToggle = dialog.getByRole('button', { name: /Cco|Bcc/i });
   const ccRecipients = dialog.locator('#nfse_email_cc');
   const bccRecipients = dialog.locator('#nfse_email_bcc');
 

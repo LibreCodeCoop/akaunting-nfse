@@ -160,11 +160,22 @@ class InvoiceEmails extends Controller
                     : null,
             );
         } catch (\InvalidArgumentException $exception) {
+            $labels = [
+                'nfse_email_to' => 'emit_modal_email_to',
+                'nfse_email_cc' => 'emit_modal_email_cc',
+                'nfse_email_bcc' => 'emit_modal_email_bcc',
+            ];
+            $field = array_key_exists($exception->getMessage(), $labels)
+                ? $exception->getMessage()
+                : 'nfse_email_to';
+
             return new JsonResponse([
                 'success' => false,
                 'error' => true,
+                'code' => 'nfse_email_invalid',
+                'field' => $field,
                 'message' => trans('nfse::general.invoices.emit_modal_email_invalid', [
-                    'field' => $exception->getMessage(),
+                    'field' => trans('nfse::general.invoices.' . $labels[$field]),
                 ]),
             ], 422);
         }
