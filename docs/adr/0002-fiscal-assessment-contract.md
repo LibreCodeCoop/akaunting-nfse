@@ -43,11 +43,19 @@ The context separately retains the observed DPS `opSimpNac`,
 `regApTribSN` and `regEspTrib` codes, the applicable IBS/CBS collection
 regime (Simples or regular), the governmental sphere of the taker
 (federal, state, district or municipal, when verified), and the verified
-CNPJ legal-nature code. A public/private boolean cannot establish whether
+CNPJ legal-nature code. The context also records whether the
+actual payer is proven to be the invoiced taker and whether the operation
+is a sale to a final consumer. Unknown payer identity and unknown
+consumer destination remain null, not a guess from the invoice name or
+CPF/CNPJ. A public/private boolean cannot establish whether
 the payer is subject to a particular IRRF/PIS/COFINS/CSLL withholding rule:
 direct administration, autarchies, foundations and public enterprises have
 different legal conditions, and state/municipal contributions may depend on
-specific legal arrangements. These are **facts** only, not proof of an
+specific legal arrangements. Consumer-facing estimated-tax transparency
+under Law 12.741/2012 and Decree 8.264/2014 also requires knowing
+whether the operation is a consumer sale; the MEI dispensation and
+Simples disclosure options are independently assessed. These are
+**facts** only, not proof of an
 allowed tax treatment. A null special-regime code means "unknown"; code 0 means
 explicit "none". Applicability, valid enumerations for a particular
 published schema, municipality-specific restrictions, and elections by

@@ -48,6 +48,10 @@ final readonly class FiscalContext
         public ?FiscalGovernmentSphere $takerGovernmentSphere = null,
         /** Observed CNPJ legal-nature code; null when not verified. */
         public ?string $takerLegalNatureCode = null,
+        /** Null when the actual payer has not been identified as the taker. */
+        public ?bool $payerIsTaker = null,
+        /** Final-consumer sale is a transaction fact, not inferred from CPF/CNPJ. */
+        public ?bool $saleToFinalConsumer = null,
     ) {
         if ($this->companyId <= 0 || trim($this->fiscalGroupKey) === '') {
             throw new \InvalidArgumentException('Company and fiscal-group identity are required.');

@@ -93,6 +93,8 @@ final class FiscalAssessmentContractTest extends TestCase
         self::assertNull($unknown->ibsCbsRegime);
         self::assertNull($unknown->takerGovernmentSphere);
         self::assertNull($unknown->takerLegalNatureCode);
+        self::assertNull($unknown->payerIsTaker);
+        self::assertNull($unknown->saleToFinalConsumer);
 
         $known = new FiscalContext(
             31,
@@ -120,6 +122,8 @@ final class FiscalAssessmentContractTest extends TestCase
             'simples',
             FiscalGovernmentSphere::MUNICIPAL,
             '1031',
+            false,
+            true,
         );
 
         self::assertSame(0, $known->regimeEspecialTributacao);
@@ -129,6 +133,8 @@ final class FiscalAssessmentContractTest extends TestCase
         self::assertSame('simples', $known->ibsCbsRegime);
         self::assertSame(FiscalGovernmentSphere::MUNICIPAL, $known->takerGovernmentSphere);
         self::assertSame('1031', $known->takerLegalNatureCode);
+        self::assertFalse($known->payerIsTaker);
+        self::assertTrue($known->saleToFinalConsumer);
     }
 
     public function testInvoiceLevelTaxFactIsNotInventedAsDocumentItemZero(): void
