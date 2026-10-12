@@ -195,6 +195,11 @@ export function verifyDatabase(core = coreRoot, run = execute) {
 export function exposeAssets(core = coreRoot, module = moduleRoot, io = fs) {
   const parent = path.join(core, 'public/modules');
   const link = path.join(parent, 'Nfse');
+  const asset = 'Resources/assets/js/adn-distribution-browser.js';
+  // Validate the replacement before touching a previously working symlink.
+  if (!io.existsSync(path.join(module, asset))) {
+    throw new Error('Module browser assets are not accessible through the requested target.');
+  }
   io.mkdirSync(parent, { recursive: true });
   let old;
   try {
@@ -248,13 +253,16 @@ export async function startServer(core = coreRoot, { io = fs, launch = spawn, ch
   if (!child?.pid) throw new Error('Unable to start the Akaunting test server.');
   child.unref();
   const pidPath = path.join(core, 'storage/logs/playwright-server.pid');
-  io.writeFileSync(pidPath, String(child.pid));
   try {
+    io.writeFileSync(pidPath, String(child.pid));
     await waitForServer(check, sleep);
   } catch (error) {
     try { terminate(child.pid); } catch { /* may have exited */ }
-    io.unlinkSync(pidPath);
-    throw new Error(`${error.message}\n${io.readFileSync(logPath, 'utf8').slice(-3000)}`);
+    try { io.unlinkSync(pidPath); } catch (cleanupError) {
+      if (cleanupError.code !== 'ENOENT') throw cleanupError;
+    }
+    const tail = io.readFileSync(logPath, 'utf8').slice(-3000);
+    throw new Error(`${error.message}\n${tail.replaceAll(testPassword, '[REDACTED]').replaceAll(testPfxPassword, '[REDACTED]')}`);
   }
 }
 
