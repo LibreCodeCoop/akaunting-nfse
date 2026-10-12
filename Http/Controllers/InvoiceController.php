@@ -667,7 +667,7 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect(
                 $request,
                 redirect()->route('invoices.show', $invoice)
-                    ->with('error', trans('nfse::general.invoices.emit_runtime_unsupported')),
+                    ->with('error', $this->dpsRuntimeErrorMessage($e)),
             );
         }
 
@@ -1413,7 +1413,7 @@ class InvoiceController extends Controller
             ]);
 
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
-                ->with('error', trans('nfse::general.invoices.emit_runtime_unsupported')));
+                ->with('error', $this->dpsRuntimeErrorMessage($e)));
         }
 
         try {
@@ -3421,6 +3421,17 @@ class InvoiceController extends Controller
      *   requiresSpecialRuntime: bool
      * }
      */
+    protected function dpsRuntimeErrorMessage(\LogicException $exception): string
+    {
+        $prefix = 'Invalid special tax regime: ';
+        $message = $exception->getMessage();
+        if (!str_starts_with($message, $prefix)) {
+            return trans('nfse::general.invoices.emit_runtime_unsupported');
+        }
+
+        return trans('nfse::general.settings.special_regime_error.' . substr($message, strlen($prefix)));
+    }
+
     protected function issqnPayloadValues(): array
     {
         return (new IssqnPayloadResolver())->resolve([

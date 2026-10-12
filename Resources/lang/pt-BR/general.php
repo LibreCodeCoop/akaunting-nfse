@@ -561,6 +561,9 @@ return [
             '9' => 'Outros',
         ],
         'special_regime_error' => [
+            'regime_not_configured' => 'Selecione explicitamente o regime especial (0 - Nenhum ou um código permitido) nas configurações fiscais da empresa.',
+            'missing_or_invalid_competence' => 'Informe uma competência válida da fatura para aplicar regime especial diferente de 0.',
+            'invalid_competence' => 'A competência da DPS está inválida para este regime especial.',
             'invalid_regime_code' => 'Informe um código oficial válido do regime especial.',
             'invalid_tax_context' => 'Situação perante o Simples ou tributação do ISSQN inválida.',
             'non_taxable_requires_none' => 'Para imunidade, exportação ou não incidência do ISSQN o regime especial deve ser 0 (Nenhum).',

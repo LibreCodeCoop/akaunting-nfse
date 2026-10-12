@@ -563,6 +563,9 @@ return [
             '9' => 'Other',
         ],
         'special_regime_error' => [
+            'regime_not_configured' => 'Select the explicit special tax regime (0 - None, or a permitted special code) in the company fiscal settings.',
+            'missing_or_invalid_competence' => 'Provide the actual invoice competence date for a nonzero special regime.',
+            'invalid_competence' => 'The DPS competence is invalid for this special regime.',
             'invalid_regime_code' => 'Select a recognized official special regime code.',
             'invalid_tax_context' => 'Invalid Simples or ISSQN taxation state.',
             'non_taxable_requires_none' => 'Immunity, service exports and ISSQN non-incidence require code 0 (None).',
