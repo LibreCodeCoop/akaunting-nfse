@@ -8,8 +8,8 @@ declare(strict_types=1);
 namespace Modules\Nfse\Application;
 
 /**
- * One message, one delivery: normalize and deduplicate To, Cc and Bcc.
- * Addresses are parsed independently by EmailAddressListParser.
+ * Defines one message's recipient roles and uniqueness across To, Cc and Bcc.
+ * Parsing of individual fields is delegated to EmailAddressListParser.
  */
 final class PostEmissionEmailRecipients
 {
@@ -20,9 +20,7 @@ final class PostEmissionEmailRecipients
     ) {
     }
 
-    /**
-     * @return array{to:list<string>,cc:list<string>,bcc:list<string>}
-     */
+    /** @return array{to:list<string>,cc:list<string>,bcc:list<string>} */
     public function normalize(mixed $to, mixed $cc = null, mixed $bcc = null, ?string $copyToSelf = null): array
     {
         $groups = [
@@ -35,29 +33,49 @@ final class PostEmissionEmailRecipients
             throw new \InvalidArgumentException('nfse_email_to');
         }
 
-        if ($copyToSelf !== null && $copyToSelf !== '') {
-            $self = $this->parser->parse($copyToSelf, 'nfse_email_bcc');
+        $groups['bcc'] = $this->withSelfCopy($groups['bcc'], $copyToSelf);
 
-            if (count($self) !== 1) {
-                throw new \InvalidArgumentException('nfse_email_bcc');
-            }
+        return $this->uniqueGroups($groups);
+    }
 
-            $groups['bcc'][] = $self[0];
+    /**
+     * @param list<string> $bcc
+     * @return list<string>
+     */
+    private function withSelfCopy(array $bcc, ?string $copyToSelf): array
+    {
+        if ($copyToSelf === null || $copyToSelf === '') {
+            return $bcc;
         }
 
+        $self = $this->parser->parse($copyToSelf, 'nfse_email_bcc');
+
+        if (count($self) !== 1) {
+            throw new \InvalidArgumentException('nfse_email_bcc');
+        }
+
+        $bcc[] = $self[0];
+
+        return $bcc;
+    }
+
+    /**
+     * @param array{to:list<string>,cc:list<string>,bcc:list<string>} $groups
+     * @return array{to:list<string>,cc:list<string>,bcc:list<string>}
+     */
+    private function uniqueGroups(array $groups): array
+    {
         $seen = [];
-        $uniqueGroups = [];
+        $unique = ['to' => [], 'cc' => [], 'bcc' => []];
 
-        // Priority To > Cc > Bcc prevents duplicate SMTP envelope recipients.
+        // Preserve first occurrence, with To > Cc > Bcc precedence.
         foreach ($groups as $field => $addresses) {
-            $uniqueGroups[$field] = [];
-
             foreach ($addresses as $address) {
                 if (isset($seen[$address])) {
                     continue;
                 }
 
-                $uniqueGroups[$field][] = $address;
+                $unique[$field][] = $address;
                 $seen[$address] = true;
             }
         }
@@ -66,6 +84,6 @@ final class PostEmissionEmailRecipients
             throw new \InvalidArgumentException('nfse_email_to');
         }
 
-        return $uniqueGroups;
+        return $unique;
     }
 }

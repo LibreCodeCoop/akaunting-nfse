@@ -13,100 +13,122 @@ use PHPUnit\Framework\TestCase;
 
 final class PostEmissionEmailRecipientsTest extends TestCase
 {
-    public function testMultipleContactsAndManualAddressesAreNotLost(): void
+    #[DataProvider('recipientCombinations')]
+    public function testRecipientRolesAndDeduplication(
+        mixed $to,
+        mixed $cc,
+        mixed $bcc,
+        ?string $copyToSelf,
+        array $expected,
+    ): void {
+        self::assertSame($expected, (new PostEmissionEmailRecipients())->normalize($to, $cc, $bcc, $copyToSelf));
+    }
+
+    public static function recipientCombinations(): array
     {
-        $actual = (new PostEmissionEmailRecipients())->normalize(
-            [
-                ['email' => 'first@example.test'],
-                (object) ['email' => 'second@example.test'],
-                'third@example.test; fourth@example.test',
+        return [
+            'one primary recipient' => [
+                'one@example.test', null, null, null,
+                ['to' => ['one@example.test'], 'cc' => [], 'bcc' => []],
             ],
-            'visible@example.test, visible2@example.test',
-            ['hidden@example.test'],
-        );
-
-        self::assertSame(
-            ['first@example.test', 'second@example.test', 'third@example.test', 'fourth@example.test'],
-            $actual['to'],
-        );
-        self::assertSame(['visible@example.test', 'visible2@example.test'], $actual['cc']);
-        self::assertSame(['hidden@example.test'], $actual['bcc']);
+            'all three roles and multiple recipients' => [
+                [
+                    ['email' => 'first@example.test'],
+                    (object) ['email' => 'second@example.test'],
+                    'third@example.test; fourth@example.test',
+                ],
+                'visible@example.test, visible2@example.test',
+                ['hidden@example.test'],
+                null,
+                [
+                    'to' => ['first@example.test', 'second@example.test', 'third@example.test', 'fourth@example.test'],
+                    'cc' => ['visible@example.test', 'visible2@example.test'],
+                    'bcc' => ['hidden@example.test'],
+                ],
+            ],
+            'first visible role wins duplicates' => [
+                'FIRST@example.test, first@example.test',
+                ['First@example.test', 'copy@example.test'],
+                'COPY@example.test, hidden@example.test',
+                'hidden@example.test',
+                ['to' => ['first@example.test'], 'cc' => ['copy@example.test'], 'bcc' => ['hidden@example.test']],
+            ],
+            'self-copy is private' => [
+                'client@example.test', null, null, 'me@example.test',
+                ['to' => ['client@example.test'], 'cc' => [], 'bcc' => ['me@example.test']],
+            ],
+            'self-copy already in To is not duplicated' => [
+                'ME@example.test', null, null, 'me@example.test',
+                ['to' => ['me@example.test'], 'cc' => [], 'bcc' => []],
+            ],
+            'self-copy already in Cc is not duplicated' => [
+                'client@example.test', ['me@example.test'], null, 'ME@example.test',
+                ['to' => ['client@example.test'], 'cc' => ['me@example.test'], 'bcc' => []],
+            ],
+            'self-copy already in Bcc is not duplicated' => [
+                'client@example.test', null, ['me@example.test'], 'ME@example.test',
+                ['to' => ['client@example.test'], 'cc' => [], 'bcc' => ['me@example.test']],
+            ],
+            'legacy JSON preserves selection order' => [
+                '[{"email":"first@example.test"},{"email":"second@example.test"}]',
+                'third@example.test',
+                null,
+                null,
+                ['to' => ['first@example.test', 'second@example.test'], 'cc' => ['third@example.test'], 'bcc' => []],
+            ],
+        ];
     }
 
-    public function testDuplicateRecipientsAppearOnlyOnceWithVisibleAddressPrecedence(): void
-    {
-        $actual = (new PostEmissionEmailRecipients())->normalize(
-            'FIRST@example.test, first@example.test',
-            ['First@example.test', 'copy@example.test'],
-            'COPY@example.test, hidden@example.test',
-            'hidden@example.test',
-        );
-
-        self::assertSame(['first@example.test'], $actual['to']);
-        self::assertSame(['copy@example.test'], $actual['cc']);
-        self::assertSame(['hidden@example.test'], $actual['bcc']);
-    }
-
-    public function testSelfCopyIsAddedAsPrivateRecipient(): void
-    {
-        $actual = (new PostEmissionEmailRecipients())->normalize('client@example.test', null, null, 'me@example.test');
-
-        self::assertSame(['me@example.test'], $actual['bcc']);
-        self::assertSame(['client@example.test'], $actual['to']);
-    }
-
-    public function testAcceptsLegacyJsonArrayOfAddresses(): void
-    {
-        $actual = (new PostEmissionEmailRecipients())->normalize(
-            '[{"email":"first@example.test"},{"email":"second@example.test"}]',
-        );
-
-        self::assertSame(['first@example.test', 'second@example.test'], $actual['to']);
-    }
-
-    #[DataProvider('invalidAddresses')]
-    public function testRejectsInvalidValuesBeforeSending(mixed $raw, string $field): void
+    #[DataProvider('invalidRoles')]
+    public function testRejectsInvalidRolePayloads(mixed $to, mixed $cc, mixed $bcc, ?string $self, string $field): void
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage($field);
 
-        (new PostEmissionEmailRecipients())->normalize(
-            'client@example.test',
-            $field === 'nfse_email_cc' ? $raw : null,
-            $field === 'nfse_email_bcc' ? $raw : null,
-            null,
-        );
+        (new PostEmissionEmailRecipients())->normalize($to, $cc, $bcc, $self);
     }
 
-    public static function invalidAddresses(): array
+    public static function invalidRoles(): array
     {
         return [
-            'invalid visible copy' => ['not-an-email', 'nfse_email_cc'],
-            'hidden header injection' => ["hidden@example.test\r\nBcc: other@example.test", 'nfse_email_bcc'],
-            'invalid json' => ['[{"email":', 'nfse_email_bcc'],
-            'nested invalid object' => [[['email' => 'invalid']], 'nfse_email_bcc'],
+            'missing primary' => [null, null, null, null, 'nfse_email_to'],
+            'blank primary' => [' , ; ', 'copy@example.test', null, null, 'nfse_email_to'],
+            'invalid primary' => ['not-an-email', null, null, null, 'nfse_email_to'],
+            'invalid Cc' => ['client@example.test', 'bad-address', null, null, 'nfse_email_cc'],
+            'invalid Bcc' => ['client@example.test', null, "hidden@example.test\r\nBcc: leak@example.test", null, 'nfse_email_bcc'],
+            'invalid legacy Bcc JSON' => ['client@example.test', null, '[{"email":', null, 'nfse_email_bcc'],
+            'invalid self-copy email' => ['client@example.test', null, null, 'not-an-email', 'nfse_email_bcc'],
+            'empty self-copy after trimming' => ['client@example.test', null, null, ' ', 'nfse_email_bcc'],
+            'multiple self-copy addresses' => ['client@example.test', null, null, 'one@example.test;two@example.test', 'nfse_email_bcc'],
         ];
     }
 
-    public function testMissingPrimaryRecipientIsRejected(): void
+    public function testExactlyOneHundredUniqueRecipientsAreAllowed(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('nfse_email_to');
+        $to = array_map(static fn (int $n): string => "client{$n}@example.test", range(1, 100));
+        $actual = (new PostEmissionEmailRecipients())->normalize($to, $to, $to);
 
-        (new PostEmissionEmailRecipients())->normalize(' ', 'visible@example.test', 'hidden@example.test');
+        self::assertSame($to, $actual['to']);
+        self::assertSame([], $actual['cc']);
+        self::assertSame([], $actual['bcc']);
     }
 
-    public function testCapsTotalRecipients(): void
+    public function testRecipientLimitAppliesAcrossAllRolesAfterDeduplication(): void
     {
-        $addresses = [];
-
-        for ($i = 0; $i < 101; $i++) {
-            $addresses[] = "client{$i}@example.test";
-        }
+        $to = array_map(static fn (int $n): string => "client{$n}@example.test", range(1, 60));
+        $cc = array_map(static fn (int $n): string => "copy{$n}@example.test", range(1, 41));
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('nfse_email_to');
 
-        (new PostEmissionEmailRecipients())->normalize($addresses);
+        (new PostEmissionEmailRecipients())->normalize($to, $cc);
+    }
+
+    public function testNormalizingAnAlreadyNormalizedDeliveryKeepsItsRecipients(): void
+    {
+        $normalizer = new PostEmissionEmailRecipients();
+        $first = $normalizer->normalize('PRIMARY@example.test', 'copy@example.test', 'hidden@example.test');
+
+        self::assertSame($first, $normalizer->normalize($first['to'], $first['cc'], $first['bcc']));
     }
 }
