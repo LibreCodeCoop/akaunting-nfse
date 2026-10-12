@@ -1136,7 +1136,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('snapshot@example.test', $client->capturedDps?->tomadorEmail);
         }
 
-        public function testEmitStillSucceedsWhenSendEmailIsRequestedWithoutAnyRecipient(): void
+        public function testEmitRejectsEmailWithoutRecipientBeforeCallingFiscalClient(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 422,
@@ -1150,7 +1150,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $client = new class () implements NfseClientInterface {
                 public function emit(DpsData $dps): ReceiptData
                 {
-                    return new ReceiptData('NF-422', 'CHAVE-422', '2026-03-23T13:00:00-03:00');
+                    throw new \LogicException('Fiscal emission must not run for an invalid recipient.');
                 }
 
                 public function query(string $chaveAcesso): ReceiptData
@@ -1203,7 +1203,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertCount(0, $notificationCalls);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
-            self::assertSame('NFS-e emitida NF-422', $response->flash['success'] ?? null);
+            self::assertArrayHasKey('error', $response->flash);
+            self::assertArrayNotHasKey('success', $response->flash);
         }
 
 

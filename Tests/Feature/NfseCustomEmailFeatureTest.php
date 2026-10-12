@@ -45,14 +45,15 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
             ],
         ))->handle();
 
-        Notification::assertSentTo(
-            $invoice->contact->fresh(),
+        Notification::assertSentOnDemand(
             NfseIssued::class,
-            static function (NfseIssued $notification) use ($invoice, $receipt): bool {
+            static function (NfseIssued $notification, array $channels, object $notifiable) use ($invoice, $receipt): bool {
                 return $notification->invoice->is($invoice)
                     && $notification->receipt->is($receipt)
                     && $notification->attachDanfse
-                    && !$notification->attachXml;
+                    && !$notification->attachXml
+                    && in_array('mail', $channels, true)
+                    && ($notifiable->routes['mail'] ?? null) === 'customer@example.test';
             },
         );
     }
@@ -106,6 +107,6 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
             ],
         ))->handle();
 
-        Notification::assertNotSentTo($invoice->contact->fresh(), NfseIssued::class);
+        Notification::assertNothingSent();
     }
 }
