@@ -38,9 +38,20 @@ final class ItemFiscalProfileValidatorTest extends TestCase
         self::assertContains('invalid_national_code', $result['issues']);
     }
 
-    public function testUnknownLc116CodeIsInvalid(): void
+    public function testUnlistedWellFormedLc116CodeIsNotPresumedInvalid(): void
     {
-        $result = (new ItemFiscalProfileValidator())->validate('99.99', '010701');
+        // LC 116 item 5.09 is not in the module's curated picker.
+        // Do not infer any LC116/cTribNac correspondence from this test.
+        $result = (new ItemFiscalProfileValidator())->validate('05.09', '010701');
+
+        self::assertSame('warning', $result['status']);
+        self::assertContains('unverified_service_code', $result['issues']);
+        self::assertNotContains('invalid_service_code', $result['issues']);
+    }
+
+    public function testMalformedLc116CodeIsInvalid(): void
+    {
+        $result = (new ItemFiscalProfileValidator())->validate('invalid-value', '010701');
 
         self::assertSame('invalid', $result['status']);
         self::assertContains('invalid_service_code', $result['issues']);

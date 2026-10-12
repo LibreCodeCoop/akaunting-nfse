@@ -163,6 +163,21 @@ final class MunicipalEstablishmentAttestationTest extends FeatureTestCase
         self::assertNull($notConfirmed['parameters']);
     }
 
+    public function testUnlistedLc116CatalogItemDoesNotBlockActualDpsPreflight(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoiceWithProfile('0509');
+        $assessment = (new MunicipalEmissionPreflight())->evaluate(
+            $invoice,
+            $this->dps($invoice, '3303302', '2026-09-01', '0509', '010701'),
+        );
+
+        self::assertTrue($assessment['can_attempt']);
+        self::assertSame('warning', $assessment['national']['status']);
+        self::assertContains('unverified_service_code', $assessment['national']['issues']);
+        self::assertSame('unverifiable', $assessment['municipal']['decision']);
+    }
+
     public function testLocationExceptionRemainsUnverifiableEvenWithIssuerAttestation(): void
     {
         $this->loginAs();

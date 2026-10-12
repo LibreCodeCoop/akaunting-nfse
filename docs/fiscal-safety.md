@@ -13,6 +13,10 @@ issues e aos pull requests, não a este contrato de uso.
 
 - Um código `cTribNac` existente no catálogo nacional não prova que a
   operação pode ser emitida para um município ou competência.
+- A lista local de seleção LC 116 é resumida. Um subitem ausente dessa lista
+  exige confirmação da classificação, mas não constitui prova de invalidade
+  legal nem veto automático à tentativa de emissão. Um código nacional
+  objetivamente inválido continua bloqueado pelo catálogo oficial.
 - A parametrização municipal consultada no ADN (inclusive alíquotas, 404 ou
   cache) é **informativa**, não uma autorização ou rejeição fiscal.
 - A identidade analisada inclui empresa, ambiente, município de incidência

@@ -47,9 +47,13 @@ final class ItemFiscalProfileValidator
         }
 
         if ($service === '') {
-            $issues[] = 'missing_service_code';
+            $issues[] = trim((string) $serviceCode) === ''
+                ? 'missing_service_code'
+                : 'invalid_service_code';
         } elseif ($lc116->find($service) === null) {
-            $issues[] = 'invalid_service_code';
+            // Lc116Catalog powers the curated picker, not an exhaustive
+            // statutory list. Absence there does not prove illegality.
+            $issues[] = 'unverified_service_code';
         }
 
         if ($national === '') {
