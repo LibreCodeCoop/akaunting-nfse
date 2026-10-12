@@ -61,6 +61,49 @@ final class IssuerFiscalContactTest extends FeatureTestCase
             ->assertSee('value="123456"', false);
     }
 
+    public function testSpecialRegimeCompanySettingRoundTripDoesNotModifyAnotherCompany(): void
+    {
+        $this->loginAs();
+        $companyId = (int) company_id();
+        setting([
+            'nfse.bao_addr' => 'https://vault.example.invalid',
+            'nfse.bao_mount' => '/secret',
+            'nfse.bao_token' => 'test-only-token',
+        ]);
+        setting()->save();
+
+        DB::table('settings')->insert([
+            'company_id' => $companyId + 50000,
+            'key' => 'nfse.regime_especial_tributacao',
+            'value' => '5',
+        ]);
+
+        $this->patch(route('nfse.settings.fiscal'), [
+            'nfse' => [
+                'cnpj_prestador' => '11222333000181',
+                'uf' => 'RJ',
+                'municipio_nome' => 'Cidade Fictícia',
+                'municipio_ibge' => '3303302',
+                'opcao_simples_nacional' => '1',
+                'tributacao_issqn' => '1',
+                'tipo_retencao_iss' => '1',
+                'regime_especial_tributacao' => '9',
+            ],
+        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'fiscal']))
+            ->assertSessionHas('success');
+
+        self::assertSame('9', (string) setting('nfse.regime_especial_tributacao'));
+        self::assertSame('5', (string) DB::table('settings')
+            ->where('company_id', $companyId + 50000)
+            ->where('key', 'nfse.regime_especial_tributacao')
+            ->value('value'));
+
+        $this->get(route('nfse.settings.edit', ['tab' => 'fiscal']))
+            ->assertOk()
+            ->assertSee('name="nfse[regime_especial_tributacao]"', false)
+            ->assertSee('value="9" data-regime-nonzero="1"', false);
+    }
+
     public function testConfiguredProviderPhoneAndEmailOverrideAkauntingCompanyOnlyInFiscalPayload(): void
     {
         $this->loginAs();

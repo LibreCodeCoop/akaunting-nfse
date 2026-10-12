@@ -383,3 +383,36 @@ test('readiness blocker guides operator to the focused corrective settings tab',
   await expect(page.locator('#nfse-readiness-summary a[href*="tab=vault"]')).toHaveCount(0);
 });
 
+
+test('special regime selector disables inapplicable codes but preserves old choice', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('#tab-panel-fiscal')).toBeVisible();
+
+  const simple = page.locator('#opcao_simples_nacional');
+  const issqn = page.locator('#tributacao_issqn');
+  const regime = page.locator('#regime_especial_tributacao');
+
+  await expect(regime).toBeVisible();
+  await simple.selectOption('1');
+  await issqn.selectOption('1');
+  await regime.selectOption('6');
+  await expect(regime).toHaveValue('6');
+  await expect(regime).toHaveAttribute('aria-invalid', 'false');
+
+  await simple.selectOption('2');
+  await expect(regime).toHaveValue('6');
+  await expect(regime).toHaveAttribute('aria-invalid', 'true');
+  await expect(regime.locator('option[value="9"]')).toBeDisabled();
+  await expect(page.locator('#regime-especial-help')).not.toBeEmpty();
+
+  await regime.selectOption('0');
+  await expect(regime).toHaveAttribute('aria-invalid', 'false');
+  await issqn.selectOption('3');
+  await expect(regime.locator('option[value="6"]')).toBeDisabled();
+
+  await simple.selectOption('1');
+  await issqn.selectOption('1');
+  await expect(regime.locator('option[value="9"]')).toBeEnabled();
+});
