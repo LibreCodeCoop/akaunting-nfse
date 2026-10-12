@@ -29,6 +29,29 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
         self::assertSame('service:0107|tax:010701|mun:|rate:5.00', $result['group']['key'] ?? null);
     }
 
+    /** @return iterable<string,array{mixed}> */
+    public static function missingOrInvalidSimplesSettings(): iterable
+    {
+        yield 'missing' => [null];
+        yield 'empty' => [''];
+        yield 'unknown number' => [4];
+        yield 'leading zero' => ['02'];
+        yield 'boolean' => [true];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('missingOrInvalidSimplesSettings')]
+    public function testUnverifiableSimplesBlocksBeforeAllAutomaticTaxReadiness(mixed $option): void
+    {
+        $invoice = $this->invoiceWithProfile('0107', '010701', '100');
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice, [
+            'opcao_simples_nacional' => $option,
+            'ibs_cbs_enabled' => false,
+        ]);
+        self::assertSame('blocked', $result['status']);
+        self::assertSame('simples_option_unverifiable', $result['reason']);
+        self::assertSame(['opcao_simples_nacional'], $result['details']);
+    }
+
     public function testBlocksBeforeGatewayWhenNationalTaxCodeIsMissing(): void
     {
         setting(['nfse.codigo_tributacao_nacional' => '']);

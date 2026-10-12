@@ -85,9 +85,10 @@ final class AutomaticInvoiceEmissionPreflight
 
         $group = $remaining[0];
         $settings ??= $this->nfseSettings();
-        $simples = is_numeric($settings['opcao_simples_nacional'] ?? null)
-            ? (int) $settings['opcao_simples_nacional']
-            : 1;
+        $simples = SimplesOptionCode::observed($settings['opcao_simples_nacional'] ?? null);
+        if ($simples === null) {
+            return $this->blocked('simples_option_unverifiable', ['opcao_simples_nacional']);
+        }
         $category = trim((string) ($group['rtc_supply_category'] ?? ''));
         $ibsCbsReadiness = (new IbsCbsEmissionReadiness())->evaluate(
             competenceDate: (string) ((new InvoiceDpsIdentity())->competenceDate($invoice) ?? ''),

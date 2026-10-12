@@ -16,6 +16,7 @@ use Modules\Nfse\Application\InvoiceDpsIdentity;
 use Modules\Nfse\Application\IssqnPayloadResolver;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\ReceiptPersistence;
+use Modules\Nfse\Application\SimplesOptionCode;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Models\NfseReceipt;
 
@@ -114,8 +115,10 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             is_array($group['items'] ?? null) ? $group['items'] : [],
         ), static fn (int $id): bool => $id > 0));
         $amount = (float) ($group['amount'] ?? 0);
-        $simples = (int) $this->setting('nfse.opcao_simples_nacional', 1);
-        $simples = in_array($simples, [1, 2, 3], true) ? $simples : 1;
+        $simples = SimplesOptionCode::observed($this->setting('nfse.opcao_simples_nacional', null));
+        if ($simples === null) {
+            throw new \InvalidArgumentException('Invalid taxpayer Simples option: opcao_simples_nacional_unverified');
+        }
         $sandbox = filter_var($this->setting('nfse.sandbox_mode', true), FILTER_VALIDATE_BOOL);
 
         $federal = (new InvoiceFederalPayloadResolver(

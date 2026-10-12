@@ -102,6 +102,7 @@ final class ProvisionTestHarness extends Command
             'nfse.municipio_ibge' => $municipio,
             'nfse.item_lista_servico' => $itemLista,
             'nfse.codigo_tributacao_nacional' => $codigoNacional,
+            'nfse.opcao_simples_nacional' => '1',
             'nfse.regime_especial_tributacao' => '0',
             'nfse.sandbox_mode' => '1',
         ]);
