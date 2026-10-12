@@ -74,8 +74,12 @@ const fixtureProfiles = Object.freeze({
   'bulk-ui': { args: bulkUiFixtureArgs, fields: bulkUiFixtureFields },
 });
 
-function execute(program, args, options = {}) {
-  return execFileSync(program, args, { encoding: 'utf8', stdio: 'inherit', ...options });
+/** Bound child execution independently of the broader GitHub job budget. */
+export function execute(program, args, options = {}, invoke = execFileSync) {
+  const timeout = program === 'npx' ? 360_000 : program === 'php' ? 120_000 : 15_000;
+  return invoke(program, args, {
+    encoding: 'utf8', stdio: 'inherit', timeout, killSignal: 'SIGTERM', ...options,
+  });
 }
 
 function processFailure(label, error) {
@@ -320,8 +324,13 @@ export async function cli(command, context = { core: coreRoot, module: moduleRoo
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  cli(process.argv[2]).catch(error => {
-    console.error(error.message);
+  const command = process.argv[2] || '(none)';
+  const started = Date.now();
+  cli(process.argv[2]).then(() => {
+    console.log(`CI setup ${command} succeeded in ${Date.now() - started}ms`);
+  }).catch(error => {
+    const message = error.message.replaceAll(testPassword, '[REDACTED]').replaceAll(testPfxPassword, '[REDACTED]');
+    console.error(`CI setup ${command} failed after ${Date.now() - started}ms: ${message}`);
     process.exitCode = 1;
   });
 }

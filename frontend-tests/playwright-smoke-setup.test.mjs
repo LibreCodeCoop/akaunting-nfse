@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
-  cli, exposeAssets, fixtureArgs, fullUiFixtureArgs, fullUiFixtureFields, bulkUiFixtureArgs, bulkUiFixtureFields, missingBrowserAssets, parseFixtureVariables,
+  cli, execute, exposeAssets, fixtureArgs, fullUiFixtureArgs, fullUiFixtureFields, bulkUiFixtureArgs, bulkUiFixtureFields, missingBrowserAssets, parseFixtureVariables,
   prepareBrowserAssets, prepareEnvironment, provisionFixtures, requiredAssets,
   updateDotEnv, verifyDatabase, waitForServer, writeGitHubEnvironment, startServer, stopServer,
 } from '../scripts/ci/playwright-smoke.mjs';
@@ -313,6 +314,22 @@ test('bulk UI workflow calls the tested setup without emitting raw fixture JSON'
   }
   assert.match(workflow, /Cache compiled Akaunting browser assets/);
   assert.doesNotMatch(workflow, /FIXTURE_JSON|php -r|sed -i|printf '%s\\n'/);
+});
+
+test('subprocesses have bounded timeouts and CLI failures record stage duration', () => {
+  const options = [];
+  for (const command of ['php', 'npx', 'which']) {
+    execute(command, ['--version'], {}, (_prog, _args, opts) => { options.push(opts); return ''; });
+  }
+  assert.deepEqual(options.map(x => x.timeout), [120_000, 360_000, 15_000]);
+  assert.ok(options.every(x => x.killSignal === 'SIGTERM'));
+  assert.throws(() => execute(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+    timeout: 80, stdio: ['ignore', 'pipe', 'pipe'],
+  }), error => error.code === 'ETIMEDOUT');
+  const script = path.resolve(import.meta.dirname, '../scripts/ci/playwright-smoke.mjs');
+  const failed = spawnSync(process.execPath, [script, 'bad-action'], { encoding: 'utf8' });
+  assert.equal(failed.status, 1);
+  assert.match(failed.stderr, /CI setup bad-action failed after \\d+ms: Unknown smoke setup command/);
 });
 
 test('unknown setup subcommands fail closed', async () => {
