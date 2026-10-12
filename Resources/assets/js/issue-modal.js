@@ -492,6 +492,7 @@
                 if (panel) {
                     panel.classList.remove('hidden');
                     toggle.setAttribute('aria-expanded', 'true');
+                panel.querySelector('input')?.focus();
                 }
             }
         });

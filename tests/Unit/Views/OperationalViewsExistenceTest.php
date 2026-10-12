@@ -106,6 +106,9 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('name="nfse_save_default_description" value="0" data-emit-description-save-default-input', $content);
             self::assertStringContainsString('name="nfse_send_email" value="0" data-emit-email-send-input', $content);
             self::assertStringContainsString('name="nfse_email_to" value="" data-emit-email-to-input', $content);
+            self::assertStringContainsString('name="nfse_email_cc" value="" data-emit-email-cc-input', $content);
+            self::assertStringContainsString('name="nfse_email_bcc" value="" data-emit-email-bcc-input', $content);
+            self::assertStringContainsString('name="nfse_email_copy_to_self" value="0" data-emit-email-copy-to-self-input', $content);
             self::assertStringContainsString('name="nfse_email_subject" value="" data-emit-email-subject-input', $content);
             self::assertStringContainsString('name="nfse_email_body" value="" data-emit-email-body-input', $content);
             self::assertStringContainsString('name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input', $content);
