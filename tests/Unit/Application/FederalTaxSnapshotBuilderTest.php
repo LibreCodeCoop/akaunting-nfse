@@ -83,6 +83,44 @@ final class FederalTaxSnapshotBuilderTest extends TestCase
         self::assertSame('5.00', $snapshot['pis_value']);
         self::assertSame('5.00', $snapshot['pis_rate']);
     }
+    public function testKeepsEqualTaxAmountsOnDistinctInvoiceItems(): void
+    {
+        $snapshot = (new FederalTaxSnapshotBuilder())->build(
+            items: [
+                ['id' => 101, 'taxes' => [
+                    ['id' => 5001, 'tax_id' => 7, 'name' => 'PIS', 'amount' => 5.00, 'rate' => 5.00],
+                ]],
+                ['id' => 102, 'taxes' => [
+                    ['id' => 5002, 'tax_id' => 7, 'name' => 'PIS', 'amount' => 5.00, 'rate' => 5.00],
+                ]],
+            ],
+            baseAmount: 200.00,
+            documentItemIds: null,
+            taxRateResolver: static fn (): ?float => 5.00,
+        );
+
+        self::assertSame('10.00', $snapshot['pis_value']);
+        self::assertSame('5.00', $snapshot['pis_rate']);
+    }
+
+    public function testKeepsTwoDistinctTaxRowsWithEqualAmountsOnOneItem(): void
+    {
+        $snapshot = (new FederalTaxSnapshotBuilder())->build(
+            items: [[
+                'id' => 101,
+                'taxes' => [
+                    ['id' => 5001, 'tax_id' => 7, 'name' => 'PIS', 'amount' => 5.00, 'rate' => 5.00],
+                    ['id' => 5002, 'tax_id' => 8, 'name' => 'PIS', 'amount' => 5.00, 'rate' => 5.00],
+                ],
+            ]],
+            baseAmount: 100.00,
+            documentItemIds: null,
+            taxRateResolver: static fn (): ?float => 5.00,
+        );
+
+        self::assertSame('10.00', $snapshot['pis_value']);
+    }
+
     public function testApproximateFederalPercentExcludesWithholdingTaxes(): void
     {
         $snapshot = (new FederalTaxSnapshotBuilder())->build(

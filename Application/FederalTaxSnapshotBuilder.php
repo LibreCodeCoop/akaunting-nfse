@@ -37,8 +37,13 @@ final class FederalTaxSnapshotBuilder
         $seenTaxes = [];
         $seenRateKeys = [];
 
-        foreach ($items as $item) {
+        foreach ($items as $itemOrdinal => $item) {
             $documentItemId = is_numeric($item['id'] ?? null) ? (int) $item['id'] : 0;
+            // Preserve distinct amounts on different invoice items while
+            // deduplicating two representations of the same tax row.
+            $itemIdentity = $documentItemId > 0
+                ? 'item:' . $documentItemId
+                : 'ordinal:' . $itemOrdinal;
 
             if ($documentItemIds !== null && !in_array($documentItemId, $documentItemIds, true)) {
                 continue;
@@ -63,7 +68,15 @@ final class FederalTaxSnapshotBuilder
                     continue;
                 }
 
-                $signature = strtolower($name) . '|' . number_format($amount, 4, '.', '');
+                $taxRowId = is_array($tax) ? ($tax['id'] ?? null) : ($tax->id ?? null);
+                $taxId = is_array($tax) ? ($tax['tax_id'] ?? null) : ($tax->tax_id ?? null);
+                $taxIdentity = is_numeric($taxRowId) && (int) $taxRowId > 0
+                    ? 'row:' . (int) $taxRowId
+                    : (is_numeric($taxId) && (int) $taxId > 0
+                        ? 'tax:' . (int) $taxId
+                        : 'name:' . strtolower($name));
+                $signature = $itemIdentity . '|' . $taxIdentity
+                    . '|' . number_format($amount, 4, '.', '');
 
                 if (isset($seenTaxes[$signature])) {
                     continue;
