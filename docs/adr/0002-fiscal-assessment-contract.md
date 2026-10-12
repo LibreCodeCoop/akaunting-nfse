@@ -57,6 +57,18 @@ formal election, submission of the required associates list, independently
 confirmed option, effect-from date, direction of supply, association at the
 event, and recipient's regular-regime status where relevant. Both the
 cooperative-as-provider and cooperative-as-taker situations may occur.
+Member-to-cooperative supplies additionally need independently verified
+`takerIsCooperative`: a described supply direction alone does not verify the
+recipient's legal form. The counterparty's verified `false` is inapplicable;
+`null` is unverifiable, not an eligible transaction.
+For 2027, the ordinary annual option is effective on 1 January. Decree
+12.955/2026 art. 393 § 3 permits an off-cycle effective date for an
+option made at the start of operations; that exception requires both verified
+`optionAtStartOfOperations` and `cooperativeRegistrationDate`, matching the
+confirmed effective date by fiscal civil date. Otherwise eligibility is
+`unverifiable` and no zero-rate conclusion is permitted. These immutable
+facts are not themselves an authenticated RFB receipt: the future fiscal
+adapter owns evidence validation and access control.
 A submitted form **without the associates list** is not proof of an effective
 election. The independently confirmed election requires evidence of both
 steps; missing evidence is not a false or zero value. A verified election
