@@ -22,14 +22,26 @@ final class RtcSupplyCategoryPolicy
     public const LEASE = 'lease';
     public const RESIDUAL_SERVICE = 'residual_service';
 
-    /** @var array<string,string> */
-    private const DATES = [
-        self::DIGITAL_PLATFORM => '2026-12-01',
-        self::NON_ISS_INTANGIBLE => '2026-12-01',
-        self::CONDOMINIUM_REVENUE => '2026-12-01',
-        self::LEASE => '2026-12-01',
-        self::RESIDUAL_SERVICE => '2026-12-01',
+    /**
+     * Canonical December-category table shared by the legacy date adapter
+     * and the typed FiscalAssessment consumer. Provisions distinguish the
+     * legal basis even when several categories share the same calendar date.
+     *
+     * @var array<string,array{effective_date:string,provision:string}>
+     */
+    private const RULES = [
+        self::DIGITAL_PLATFORM => ['effective_date' => '2026-12-01', 'provision' => 'art. 1, III, a'],
+        self::NON_ISS_INTANGIBLE => ['effective_date' => '2026-12-01', 'provision' => 'art. 1, III, e'],
+        self::CONDOMINIUM_REVENUE => ['effective_date' => '2026-12-01', 'provision' => 'art. 1, III, f'],
+        self::LEASE => ['effective_date' => '2026-12-01', 'provision' => 'art. 1, III, g'],
+        self::RESIDUAL_SERVICE => ['effective_date' => '2026-12-01', 'provision' => 'art. 1, III, h'],
     ];
+
+    /** @return array{effective_date:string,provision:string}|null */
+    public static function rule(string $category): ?array
+    {
+        return self::RULES[$category] ?? null;
+    }
 
     /**
      * @return array{required:bool,effective_date:?string,reason:string}
@@ -39,11 +51,12 @@ final class RtcSupplyCategoryPolicy
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $competenceDate);
         $validDate = $date instanceof \DateTimeImmutable && $date->format('Y-m-d') === $competenceDate;
 
-        if (!$validDate || !array_key_exists($category, self::DATES) || !in_array($simplesOption, [1, 2, 3], true)) {
+        $rule = self::rule($category);
+        if (!$validDate || $rule === null || !in_array($simplesOption, [1, 2, 3], true)) {
             return ['required' => false, 'effective_date' => null, 'reason' => 'unverifiable'];
         }
 
-        $effective = in_array($simplesOption, [2, 3], true) ? '2027-01-01' : self::DATES[$category];
+        $effective = in_array($simplesOption, [2, 3], true) ? '2027-01-01' : $rule['effective_date'];
 
         return [
             'required' => $date >= new \DateTimeImmutable($effective),
