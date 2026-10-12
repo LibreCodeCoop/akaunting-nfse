@@ -36,7 +36,7 @@ final class ScopedFiscalDocumentConsistencyTest extends TestCase
         self::assertSame('R$ 1.500,00', $data['totais']['valor_servico']);
         self::assertSame('R$ 1.292,75', $data['totais']['valor_liquido']);
         self::assertSame('R$ 15,00', $data['tributacao_federal']['contribuicoes_sociais']);
-        self::assertSame('2,00%', $data['totais_tributos']['municipais']);
+        self::assertSame('2.00%', $data['totais_tributos']['municipais']);
         self::assertStringContainsString('R$ 1.292,75', $html);
         self::assertStringContainsString('R$ 1.500,00', $html);
 
