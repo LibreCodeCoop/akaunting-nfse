@@ -13,7 +13,10 @@ The Akaunting adapter supplies immutable, company-scoped facts for one fiscal
 group through `Contracts\FiscalContext`. Tax observations use
 `Contracts\FiscalTaxFact` (document-item ID, tax ID, association-row ID,
 accounting type, amount in integer cents, and explicitly classified fiscal
-identity/role when verified). An absent ID or classification is `null`, never
+identity/role when verified), the observed tax-specific base and exact decimal
+rate when available, and explicit provenance. Roles are backed by
+`FiscalTaxRole` (provider due, withheld by taker, transparency estimate).
+An absent ID, value origin or classification is `null`, never
 guessed from tax names, percentages, a value or an XML element's historic name.
 
 The fiscal application layer returns `Contracts\FiscalAssessment`, a list
@@ -32,6 +35,15 @@ an unknown fact is not a default tax rate or exemption. The provider's
 cooperative legal form is independent of its tax regime. Gross invoiced
 amount is distinct from optional actually paid amount and payment date:
 missing payment evidence must not be silently treated as payment.
+
+The context separately retains the observed DPS `opSimpNac`,
+`regApTribSN` and `regEspTrib` codes, the applicable IBS/CBS collection
+regime (Simples or regular) and whether the taker belongs to public
+administration. These are **facts** only, not proof of an allowed tax
+treatment. A null special-regime code means "unknown"; code 0 means
+explicit "none". Applicability, valid enumerations for a particular
+published schema, municipality-specific restrictions, and elections by
+effective period belong to versioned policies and protocol validation.
 
 A rule's legal applicability is evaluated on the relevant event/competence
 facts. Protocol compatibility is evaluated **separately** against the

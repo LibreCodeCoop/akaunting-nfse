@@ -20,7 +20,13 @@ final readonly class FiscalTaxFact
         public string $accountingType,
         public int $amountCents,
         public ?string $fiscalTaxCode = null,
-        public ?string $fiscalRole = null,
+        public ?FiscalTaxRole $fiscalRole = null,
+        /** Provenance of the observed amount, not a classification hint. */
+        public ?string $origin = null,
+        /** Observed tax-specific base in cents, distinct from invoice total. */
+        public ?int $baseCents = null,
+        /** Observed percentage as a decimal string (never a float). */
+        public ?string $ratePercent = null,
     ) {
         if ($this->documentItemId <= 0) {
             throw new \InvalidArgumentException('Document item ID must be positive.');
@@ -32,6 +38,15 @@ final readonly class FiscalTaxFact
 
         if ($this->documentItemTaxRowId !== null && $this->documentItemTaxRowId <= 0) {
             throw new \InvalidArgumentException('Tax row ID must be positive when known.');
+        }
+
+        if ($this->origin !== null && trim($this->origin) === '') {
+            throw new \InvalidArgumentException('Tax amount provenance cannot be empty.');
+        }
+
+        if ($this->ratePercent !== null
+            && preg_match('/^\\d+(?:\\.\\d{1,6})?$/D', $this->ratePercent) !== 1) {
+            throw new \InvalidArgumentException('Tax percentage must be an exact decimal string.');
         }
     }
 }
