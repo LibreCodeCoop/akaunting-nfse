@@ -22,7 +22,10 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
         // A ready baseline must not change when RTC obligations become effective.
         $invoice->forceFill(['issued_at' => '2026-09-30 12:00:00'])->save();
 
-        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice->fresh(['items', 'contact']));
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice->fresh(['items', 'contact']), [
+            'opcao_simples_nacional' => 1,
+            'ibs_cbs_enabled' => false,
+        ]);
 
         self::assertSame('ready', $result['status'], json_encode($result, JSON_THROW_ON_ERROR));
         self::assertNull($result['reason']);
