@@ -52,8 +52,10 @@ final class DpsReservationService
             throw new \InvalidArgumentException('A stable hashed fiscal operation key is required.');
         }
 
-        if (!in_array($origin, ['manual', 'manual_group', 'automatic', 'reemit', 'substitution'], true)) {
-            throw new \InvalidArgumentException('Unknown DPS emission origin.');
+        // Origin is audit metadata, not part of the numbering policy or
+        // idempotency key. Allow future scheduler/API callers explicitly.
+        if (preg_match('/^[a-z][a-z0-9_]{0,31}$/D', $origin) !== 1) {
+            throw new \InvalidArgumentException('Invalid DPS emission origin.');
         }
 
         return DB::transaction(function () use (

@@ -34,7 +34,8 @@ final class DpsFiscalIssuerTest extends TestCase
             try {
                 new DpsFiscalIssuer($municipality, $type, $registration);
                 self::fail('Invalid issuer identity was accepted.');
-            } catch (\InvalidArgumentException) {
+            } catch (\InvalidArgumentException $exception) {
+                self::assertNotSame('', trim($exception->getMessage()));
             }
         }
     }

@@ -76,7 +76,7 @@ existentes **não utilizam** as tabelas de reserva novas. Não iniciar emissões
 em produção presumindo que a arquitetura proposta já esteja integrada.
 
 A fundação de reserva usa identidade fiscal do emissor (município de emissão,
-tipo e registro federal), ambiente e série; \`company_id\` permanece apenas
+tipo e registro federal), ambiente e série; `company_id` permanece apenas
 como propriedade/autorização da operação. Novas séries começam **inativas**.
 A referência de coordenação não garante unicidade entre bancos independentes:
 é indispensável provar que outras instalações e emissores não disputem a
