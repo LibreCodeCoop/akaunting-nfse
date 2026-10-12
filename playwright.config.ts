@@ -14,7 +14,11 @@ export default defineConfig({
   projects: [
     {
       name: 'smoke',
-      retries: process.env.CI ? 1 : 0,
+      // One worker preserves sequential access to the shared synthetic SQLite database.
+      workers: 1,
+      retries: 0,
+      // Smoke uses the runner's stable Chrome channel to test outside both bundled CFTesting binaries.
+      use: { channel: 'chrome' },
       testMatch: ['smoke.spec.ts', 'deterministic-harness.spec.ts'],
     },
     {

@@ -38,12 +38,27 @@ installation after checking out Akaunting and the module:
 | `expose-assets` | Link the module's static assets without replacing unrelated paths |
 | `start-server` | Start Akaunting with test-only PFX settings, record the PID and wait for the login route with bounded retries |
 | `stop-server` | Terminate only the detached test-server group identified by its validated PID; succeeds if the PID file is absent |
+| `run-smoke` | Run all 17 Smoke cases with Chromium exit diagnostics and periodic Chromium/PHP/Node RSS samples; preserve Playwright's exit code |
 
 Use exactly one provisioning command for the selected tier, **after**
 migrations/seeders. `assets` requires the core's Node/npm tooling; the compiled
 Akaunting core assets are cached using core build inputs. `start-server` runs
 after the database and asset checks, and `stop-server` runs after the start
 step even if the browser test fails.
+Smoke uses one worker and Playwright's normal fresh browser context/page per
+test. The browser process may be shared by tests within that worker; this is
+**not** process-per-test isolation. The Smoke project selects the installed stable Google Chrome via
+`channel: 'chrome'` rather than either bundled Chrome for Testing binary.
+The hosted runner must provide Chrome; Playwright fails closed if it is absent.
+This probes whether the bundled-browser build is implicated in the observed
+`SIGTRAP` crashes, without asserting a root cause or changing the full-ui tier.
+The runner's browser launch path is included in `pw:browser` diagnostics. Browser retries are disabled, so a crash fails the run
+instead of being reported as an apparently successful flaky test.
+The runner records `pw:browser` stderr and aggregate process RSS (command
+names only, no arguments or environment values); RSS is a diagnostic sample,
+not proof of the Linux OOM killer. A browser exit, nonzero test exit or missing
+resources is never reported as a successful test.
+
 The fixture export rejects absent, zero, negative, noninteger or injected IDs.
 The harness JSON includes synthetic passwords and must **not** be written to
 logs or copied wholesale to GitHub environment files. Startup errors terminate
