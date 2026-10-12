@@ -1,0 +1,119 @@
+<?php
+
+// SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+declare(strict_types=1);
+
+namespace Modules\Nfse\Tests\Feature;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Modules\Nfse\Support\GlobalVaultSettings;
+use Modules\Nfse\Support\VaultConfig;
+use Modules\Nfse\Support\VaultDiagnostics;
+use Tests\Feature\FeatureTestCase;
+
+final class GlobalVaultInfrastructureTest extends FeatureTestCase
+{
+    public function testGlobalConfigurationIsIndependentOfActiveCompanySettings(): void
+    {
+        $this->loginAs();
+        (new GlobalVaultSettings())->save([
+            'addr' => 'https://vault.example.test',
+            'mount' => '/nfse',
+            'auth_mode' => 'token',
+            'token' => 'fixture-global-token',
+        ]);
+
+        setting()->set(['nfse.bao_addr' => 'https://wrong-company.example.test', 'nfse.bao_token' => 'company-token']);
+        setting()->save();
+
+        $expected = VaultConfig::secretStoreConfig();
+        self::assertSame('https://vault.example.test', $expected['addr']);
+        self::assertSame('fixture-global-token', $expected['token']);
+        self::assertNotSame('fixture-global-token', (string) DB::table('nfse_vault_infrastructure')->value('encrypted_payload'));
+
+        setting()->set(['nfse.bao_addr' => 'https://second-company.example.test', 'nfse.bao_token' => 'second-token']);
+        setting()->save();
+
+        self::assertSame($expected, VaultConfig::secretStoreConfig());
+    }
+
+    public function testDiagnosticReadIsSideEffectFreeAndDoesNotDiscloseToken(): void
+    {
+        $this->loginAs();
+        (new GlobalVaultSettings())->save([
+            'addr' => 'https://vault.example.test',
+            'mount' => '/nfse',
+            'auth_mode' => 'token',
+            'token' => 'fixture-global-token',
+        ]);
+
+        Http::fake([
+            'vault.example.test/v1/sys/health' => Http::response(['initialized' => true, 'sealed' => false], 200),
+            'vault.example.test/v1/auth/token/lookup-self' => Http::response(['data' => ['id' => 'redacted']], 200),
+            'vault.example.test/v1/sys/internal/ui/mounts/nfse' => Http::response(['data' => ['type' => 'kv', 'options' => ['version' => '2']]], 200),
+            'vault.example.test/v1/sys/capabilities-self' => Http::response(['capabilities' => ['read', 'create', 'update']], 200),
+        ]);
+        $before = DB::table('nfse_vault_infrastructure')->value('encrypted_payload');
+        $response = $this->post(route('nfse.settings.vault.diagnostics'))
+            ->assertOk()
+            ->assertJsonPath('state', 'operational')
+            ->assertJsonPath('capabilities.certificate_write', true);
+        $response->assertDontSee('fixture-global-token');
+        self::assertSame($before, DB::table('nfse_vault_infrastructure')->value('encrypted_payload'));
+        Http::assertSentCount(4);
+    }
+
+    public function testFailedAuthenticationNeverDisclosesUpstreamBody(): void
+    {
+        Http::fake([
+            'vault.example.test/v1/sys/health' => Http::response([], 200),
+            'vault.example.test/v1/auth/token/lookup-self' => Http::response(['errors' => ['synthetic sensitive failure']], 403),
+        ]);
+
+        $status = (new VaultDiagnostics())->check([
+            'addr' => 'https://vault.example.test', 'mount' => '/nfse',
+            'token' => 'synthetic-secret', 'roleId' => null, 'secretId' => null,
+        ]);
+
+        self::assertSame('failed', $status['state']);
+        self::assertSame('authentication_failed', $status['reason']);
+        self::assertStringNotContainsString('synthetic sensitive failure', json_encode($status));
+        self::assertStringNotContainsString('synthetic-secret', json_encode($status));
+    }
+
+    public function testUnconfiguredDiagnosticMakesNoNetworkCalls(): void
+    {
+        Http::fake();
+        $status = (new VaultDiagnostics())->check([
+            'addr' => '', 'mount' => '/nfse', 'token' => null,
+            'roleId' => null, 'secretId' => null,
+        ]);
+        self::assertSame('unconfigured', $status['state']);
+        Http::assertNothingSent();
+    }
+
+    public function testSavingTokenModeRemovesAppRoleFieldsAndRetainsBlankToken(): void
+    {
+        $store = new GlobalVaultSettings();
+        $store->save([
+            'addr' => 'https://vault.example.test', 'mount' => '/nfse',
+            'auth_mode' => 'token', 'token' => 'first-token',
+        ]);
+        $store->save([
+            'addr' => 'https://vault.example.test', 'mount' => '/nfse',
+            'auth_mode' => 'token',
+        ]);
+        self::assertSame('first-token', $store->effective()['token']);
+
+        $store->save([
+            'addr' => 'https://vault.example.test', 'mount' => '/nfse',
+            'auth_mode' => 'approle', 'roleId' => 'role', 'secretId' => 'secret',
+        ]);
+        self::assertNull($store->effective()['token']);
+        self::assertSame('role', $store->effective()['roleId']);
+        self::assertSame('secret', $store->effective()['secretId']);
+    }
+}
