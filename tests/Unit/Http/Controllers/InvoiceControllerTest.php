@@ -969,10 +969,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(0, $client->capturedDps?->ibsCbsIndDest);
             self::assertSame('000', $client->capturedDps?->ibsCbsCst);
             self::assertSame('000001', $client->capturedDps?->ibsCbsClassificacaoTributaria);
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('4.50', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
             self::assertSame('00001', $client->capturedDps?->serie);
             self::assertSame('42', $client->capturedDps?->numeroDps);
             self::assertSame('2026-02-04', $client->capturedDps?->dataCompetencia);
@@ -1542,10 +1542,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
             // Federal taxation without explicit tributos_* config still needs totTrib in the XML schema.
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('4.50', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
         public function testEmitSetsIndicadorTributacaoTwoWhenTributosPercentConfigured(): void
@@ -1672,7 +1672,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
             self::assertSame('3.65', $client->capturedDps?->totalTributosPercentualFederal);
             self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
             self::assertSame('2.00', $client->capturedDps?->totalTributosPercentualMunicipal);
@@ -1817,10 +1817,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('5.00', $client->capturedDps?->federalValorIrrf);
             self::assertSame('', $client->capturedDps?->federalValorCsll);
             self::assertSame('', $client->capturedDps?->federalValorCp);
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('4.50', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
         }

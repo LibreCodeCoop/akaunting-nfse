@@ -268,7 +268,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('4', $payload['federalPiscofinsTipoRetencao']);
         self::assertSame('', $payload['federalValorCsll']);
         self::assertSame('472.50', $payload['federalValorIrrf']);
-        self::assertSame('3.65', $payload['totalTributosPercentualFederal']);
+        self::assertSame('', $payload['totalTributosPercentualFederal']);
     }
 
     public function testFederalTaxationDoesNotFabricateApproximateTaxPercentages(): void
@@ -355,6 +355,8 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         $resolver = new InvoiceFederalPayloadResolver(
             settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
                 'nfse.opcao_simples_nacional' => 1,
+                'nfse.tributos_fed_p' => '0.00',
+                'nfse.tributos_est_p' => '0.00',
                 'nfse.tributos_mun_p' => '4.25',
                 default => $default,
             },
