@@ -62,7 +62,10 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
 
         $invoice = $this->invoiceWithProfile('0107', '', '100');
 
-        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice);
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice, [
+            'opcao_simples_nacional' => 1,
+            'ibs_cbs_enabled' => false,
+        ]);
 
         self::assertSame('blocked', $result['status']);
         self::assertSame('invalid_profile', $result['reason']);

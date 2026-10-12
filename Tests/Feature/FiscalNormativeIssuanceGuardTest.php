@@ -43,7 +43,7 @@ final class FiscalNormativeIssuanceGuardTest extends FeatureTestCase
         yield 'Simples at the end of 2026' => ['2026-12-31', 3, '0107', '010701', '', null];
         yield 'Simples on 01 January 2027' => ['2027-01-01', 3, '0107', '010701', '', 'ibs_cbs_required'];
         yield 'MEI on 01 January 2027' => ['2027-01-01', 2, '0107', '010701', '', 'ibs_cbs_required'];
-        yield 'unknown regime cannot be assumed exempt' => ['2026-10-08', 9, '0107', '010701', '', 'ibs_cbs_unverifiable'];
+        yield 'unknown regime cannot be assumed exempt' => ['2026-10-08', 9, '0107', '010701', '', 'simples_option_unverifiable'];
         yield 'unsupported non ISS supply even before deadline' => ['2026-11-30', 1, '0107', '010701', 'lease', 'rtc_supply_category_unsupported'];
     }
 

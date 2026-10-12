@@ -36,7 +36,10 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
 
     public function testEmitOnSendIssuesReadyInvoiceBeforeCustomerDelivery(): void
     {
-        setting()->set(['nfse.emission_policy' => 'emit_on_send']);
+        setting()->set([
+            'nfse.emission_policy' => 'emit_on_send',
+            'nfse.opcao_simples_nacional' => '1',
+        ]);
         setting()->save();
 
         $invoice = $this->invoiceWithProfile();
@@ -74,7 +77,10 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
 
     public function testNativeSendJobDoesNotNotifyCustomerWhenFiscalIssuanceFails(): void
     {
-        setting()->set(['nfse.emission_policy' => 'emit_on_send']);
+        setting()->set([
+            'nfse.emission_policy' => 'emit_on_send',
+            'nfse.opcao_simples_nacional' => '1',
+        ]);
         setting()->save();
 
         $invoice = $this->invoiceWithProfile();
@@ -103,6 +109,28 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         }
 
         Notification::assertNothingSent();
+    }
+
+    public function testEmitOnSendDoesNotInferTaxpayerStatusWhenMissing(): void
+    {
+        setting()->set([
+            'nfse.emission_policy' => 'emit_on_send',
+            'nfse.opcao_simples_nacional' => null,
+        ]);
+        setting()->save();
+
+        $invoice = $this->invoiceWithProfile();
+        $issuer = $this->fakeIssuer();
+        $this->app->instance(BulkEmissionUnitIssuerInterface::class, $issuer);
+
+        try {
+            event(new DocumentSending($invoice));
+            self::fail('Unknown Simples option must block before fiscal issuance.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('simples_option_unverifiable', $exception->getMessage());
+        }
+
+        self::assertSame([], $issuer->calls);
     }
 
     public function testRepeatSendWithExistingReceiptDoesNotIssueAgain(): void
