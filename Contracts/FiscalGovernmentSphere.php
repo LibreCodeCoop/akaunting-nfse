@@ -8,8 +8,9 @@ declare(strict_types=1);
 namespace Modules\Nfse\Contracts;
 
 /**
- * Governmental sphere observed for the payer; not an IRRF or contribution
- * withholding classification without legal nature and applicable rules.
+ * Governmental sphere of the invoiced taker, not necessarily the payer.
+ * It does not classify IRRF or contribution withholding without the payer's
+ * verified identity, legal nature and applicable rules.
  */
 enum FiscalGovernmentSphere: string
 {

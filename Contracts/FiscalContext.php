@@ -44,7 +44,7 @@ final readonly class FiscalContext
         public ?int $regimeEspecialTributacao = null,
         /** Verified 2027 IBS/CBS collection mode; null when not established. */
         public ?string $ibsCbsRegime = null,
-        /** Factual sphere; not by itself proof of public withholding treatment. */
+        /** Taker's verified sphere; never assume the taker is the actual payer. */
         public ?FiscalGovernmentSphere $takerGovernmentSphere = null,
         /** Observed CNPJ legal-nature code; null when not verified. */
         public ?string $takerLegalNatureCode = null,
