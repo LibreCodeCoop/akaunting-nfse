@@ -20,8 +20,8 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
     public function testSourceConfirmedAmountsAndBaseAreKeptSeparateFromConfiguredRates(): void
     {
         $facts = [
-            self::fact('pis', FiscalTaxRole::PROVIDER_DUE, 1650, 7, 701, 10000, '1.65'),
-            self::fact('cofins', FiscalTaxRole::PROVIDER_DUE, 7600, 8, 702, 10000, '7.60'),
+            self::fact('pis', FiscalTaxRole::PROVIDER_DUE, 1650, 7, 701, 100000, '1.65'),
+            self::fact('cofins', FiscalTaxRole::PROVIDER_DUE, 7600, 8, 702, 100000, '7.60'),
             self::fact('irrf', FiscalTaxRole::WITHHELD_BY_PAYER, 1500, 9, 703),
         ];
         $settings = [
@@ -34,7 +34,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $payload = self::resolver($facts, $settings)->resolve(self::invoice(), null, 9999.00);
 
-        self::assertSame('100.00', $payload['federalPiscofinsBaseCalculo']);
+        self::assertSame('1000.00', $payload['federalPiscofinsBaseCalculo']);
         self::assertSame('1.65', $payload['federalPiscofinsAliquotaPis']);
         self::assertSame('16.50', $payload['federalPiscofinsValorPis']);
         self::assertSame('7.60', $payload['federalPiscofinsAliquotaCofins']);

@@ -176,11 +176,15 @@ final class AutomaticInvoiceEmissionPreflight
                 return array_key_exists($name, $settings) ? $settings[$name] : $default;
             },
         );
-        $snapshot = $resolver->snapshot(
-            $invoice,
-            $amount > 0 ? $amount : $resolver->serviceAmount($invoice, $documentItemIds),
-            $documentItemIds,
-        );
+        try {
+            $snapshot = $resolver->snapshot(
+                $invoice,
+                $amount > 0 ? $amount : $resolver->serviceAmount($invoice, $documentItemIds),
+                $documentItemIds,
+            );
+        } catch (\DomainException) {
+            return ['isReady' => false, 'missing' => ['tax_association']];
+        }
         $required = (new FederalTaxReadiness())->requiredBuckets(
             $settings['enforce_item_federal_taxes'] ?? true,
             trim((string) ($settings['federal_piscofins_situacao_tributaria'] ?? '')),
