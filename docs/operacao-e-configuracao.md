@@ -69,6 +69,26 @@ Para dados fiscais de clientes, veja
 [Perfil fiscal do tomador](contact-fiscal-profile.md); para relatórios e
 consulta de registros por nota, utilize as interfaces próprias de NFS-e.
 
+## Numeração fiscal da DPS — implementação em andamento
+
+O épico #423 ainda não habilitou o sequenciamento unificado. As emissões
+existentes **não utilizam** as tabelas de reserva novas. Não iniciar emissões
+em produção presumindo que a arquitetura proposta já esteja integrada.
+
+A fundação de reserva usa identidade fiscal do emissor (município de emissão,
+tipo e registro federal), ambiente e série; `company_id` permanece apenas
+como propriedade/autorização da operação. Novas séries começam **inativas**.
+A referência de coordenação não garante unicidade entre bancos independentes:
+é indispensável provar que outras instalações e emissores não disputem a
+mesma série ou coordenem as reservas em armazenamento transacional comum.
+Não cadastrar a referência com dados de clientes, credenciais ou certificados.
+
+A fonte efetiva de números não pode ser o ID local da fatura, o ID de um
+grupo ou o recibo cancelado. Qualquer operação iniciada que tenha resultado
+ambíguo deve preservar sua DPS para reconciliação exclusivamente por leitura,
+sem retransmissão automática. O número autorizado da NFS-e nunca é alterado
+por essa política. Consulte o ADR 0003 e o épico #423 antes da ativação.
+
 ## Atualização e testes
 
 Siga [Atualização do runtime nfse-php](nfse-php-runtime-upgrade.md).
