@@ -4340,7 +4340,7 @@ class InvoiceController extends Controller
 
         if ($sendEmail) {
             $recipients = (new PostEmissionEmailRecipients())->normalize(
-                $request->input('nfse_email_to') ?: $this->defaultPostEmitRecipient($invoice),
+                $request->input('nfse_email_to') ?? $this->defaultPostEmitRecipient($invoice),
                 $request->input('nfse_email_cc'),
                 $request->input('nfse_email_bcc'),
                 $copyToSelf && function_exists('user') ? (string) (user()?->email ?? '') : null,

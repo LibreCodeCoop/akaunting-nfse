@@ -6296,6 +6296,38 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
         }
 
+        public function testClearedPrimaryRecipientsDoNotSilentlyRestoreInvoiceContact(): void
+        {
+            InvoiceControllerIsolationState::reset();
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 5522,
+                amount: 100.0,
+                contactEmail: 'customer@example.test',
+            );
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email' => '1',
+                'nfse_email_to' => '',
+                'nfse_email_cc' => 'visible@example.test',
+            ]);
+
+            $controller = new class () extends InvoiceController {
+                public function exposedEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
+                {
+                    return $this->preparePostEmitEmail($request, $invoice);
+                }
+            };
+
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('nfse_email_to');
+
+            try {
+                $controller->exposedEmail($request, $invoice);
+            } finally {
+                self::assertArrayNotHasKey('nfse.send_email_on_emit', ControllerIsolationState::$settings);
+            }
+        }
+
         public function testPreparePostEmitEmailReturnsNullWhenSendingIsDisabledButPersistsPreferences(): void
         {
             InvoiceControllerIsolationState::reset();
