@@ -71,6 +71,9 @@ final class InvoiceTaxFactsResolver
             ->where('dit.document_id', $invoiceId)
             ->where('dit.type', 'invoice')
             ->where('d.type', 'invoice')
+            // Native item deletion is soft: historical rows must not be
+            // included as active tax occurrences in a newly issued DPS.
+            ->whereNull('di.deleted_at')
             ->whereNull('dit.deleted_at')
             // A tax can be soft-deleted after a financial invoice was
             // recorded. Its persisted item-tax fact remains historical
