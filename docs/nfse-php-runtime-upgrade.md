@@ -30,3 +30,15 @@ Reinicie o processo PHP e os workers que mantêm código em memória, conforme
 a forma de gerenciamento da instalação, para invalidar o OPcache. O processo
 de atualização não substitui PDFs já armazenados. Para conferir o layout,
 renderize localmente um XML autorizado sem retransmitir a DPS.
+
+O empacotamento do módulo verifica os binários Liberation Sans, a licença OFL,
+atribuições, logo e dependências Dompdf no arquivo ZIP produzido, antes da
+publicação de uma release. A verificação também roda nos testes de integração:
+
+```bash
+bash tools/bin/build-module-archive.sh 0.0.0-ci
+php tools/bin/verify-danfse-package.php akaunting-nfse-0.0.0-ci.zip
+```
+
+Esse teste comprova a integridade dos recursos distribuídos, não a conformidade
+nominal da substituição de Arial/Microsoft Sans Serif prevista na NT008 v1.02.

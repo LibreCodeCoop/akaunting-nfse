@@ -36,6 +36,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
+          extensions: zip
           coverage: none
 
       - name: Build production dependencies
@@ -60,23 +61,7 @@ jobs:
       - name: Assemble module archive
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          mkdir -p build/Nfse
-
-          rsync -a ./ build/Nfse/ \
-            --exclude '.git/' \
-            --exclude '.github/' \
-            --exclude 'build/' \
-            --exclude 'e2e/' \
-            --exclude 'node_modules/' \
-            --exclude 'tests/' \
-            --exclude 'vendor/' \
-            --exclude 'vendor-bin/'
-
-          (
-            cd build
-            zip -qr "../akaunting-nfse-${RELEASE_VERSION}.zip" Nfse
-          )
+        run: bash tools/bin/build-module-archive.sh "${RELEASE_VERSION}"
 
       - name: Verify packaged version
         env:
@@ -88,6 +73,11 @@ jobs:
           )"
 
           test "${packaged_version}" = "${RELEASE_VERSION}"
+
+      - name: Verify bundled DANFSe runtime in release archive
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: php tools/bin/verify-danfse-package.php "akaunting-nfse-${RELEASE_VERSION}.zip"
 
       - name: Upload package to release
         env:
