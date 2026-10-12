@@ -800,6 +800,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.bao_token' => 'unit-test-token',
                 'nfse.item_lista_servico' => '0107',
                 'nfse.codigo_tributacao_nacional' => '010701',
+                'nfse.regime_especial_tributacao' => '0',
                 'nfse.aliquota' => '4.50',
                 'nfse.federal_piscofins_situacao_tributaria' => '1',
                 'nfse.federal_piscofins_tipo_retencao' => '3',
@@ -4828,6 +4829,45 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
+        public function testReemitWithIncompatibleMeiRegimeDoesNotTransmitOrMutateCancelledReceipt(): void
+        {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 2;
+            ControllerIsolationState::$settings['nfse.regime_especial_tributacao'] = '6';
+            ControllerIsolationState::$settings['nfse.tributacao_issqn'] = 1;
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 3002,
+                amount: 150.00,
+                items: [['name' => 'Servico sintetico']],
+                issuedAt: '2026-09-30 12:00:00',
+            );
+            $oldReceipt = InvoiceControllerIsolationState::makeReceipt(3002, 'CHAVE-3002', 'cancelled');
+
+            $controller = new class () extends InvoiceController {
+                public bool $transportOpened = false;
+
+                protected function emissionReadiness(): array
+                {
+                    return ['isReady' => true, 'checklist' => []];
+                }
+
+                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                {
+                    $this->transportOpened = true;
+                    throw new \LogicException('No transport may open for a preflight failure.');
+                }
+            };
+
+            $response = $controller->reemit($invoice);
+
+            self::assertFalse($controller->transportOpened, 'Invalid taxpayer status must block before any SEFIN client.');
+            self::assertSame('cancelled', $oldReceipt->status);
+            self::assertSame([], $oldReceipt->updatedPayloads);
+            self::assertCount(1, NfseReceipt::$records);
+            self::assertSame('nfse.invoices.show', $response->route);
+            self::assertStringContainsString('mei_requires_none', (string) ($response->flash['error'] ?? ''));
+        }
+
         public function testReemitBuildsDpsForCancelledReceiptAndRedirectsToShow(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
@@ -4904,6 +4944,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = $controller->reemit($invoice);
 
             self::assertSame('[0107] Servico Reemissao', $client->capturedDps?->discriminacao);
+            self::assertSame(0, $client->capturedDps?->regimeEspecialTributacao);
             self::assertSame('21987654321', $client->capturedDps?->prestadorTelefone);
             self::assertSame('issuer-reemit@example.invalid', $client->capturedDps?->prestadorEmail);
             self::assertStringStartsWith('LibreCode/', (string) $client->capturedDps?->versaoAplicativo);

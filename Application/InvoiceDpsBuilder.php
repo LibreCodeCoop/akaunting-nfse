@@ -35,7 +35,14 @@ final class InvoiceDpsBuilder
         $ibsCbs = is_array($context['ibsCbs'] ?? null) ? $context['ibsCbs'] : [];
         $foreignEnabled = ($foreign['enabled'] ?? false) === true;
 
-        $required = ['codigoTributacaoMunicipal'];
+        $specialRegime = (new SpecialTaxRegimePolicy())->forIssuance(
+            $context['regimeEspecialTributacao'] ?? null,
+            (int) ($context['opcaoSimplesNacional'] ?? 2),
+            (int) ($issqn['tributacaoIssqn'] ?? 1),
+            is_string($context['dataCompetencia'] ?? null) ? $context['dataCompetencia'] : null,
+        );
+
+        $required = ['codigoTributacaoMunicipal', 'regimeEspecialTributacao'];
 
         if (trim((string) ($context['prestadorInscricaoMunicipal'] ?? '')) !== '') {
             $required[] = 'prestadorInscricaoMunicipal';
@@ -109,6 +116,7 @@ final class InvoiceDpsBuilder
             'tomadorCidadeExterior' => $foreignEnabled ? ($foreign['cidade'] ?? '') : '',
             'tomadorEstadoExterior' => $foreignEnabled ? ($foreign['estado'] ?? '') : '',
             'opcaoSimplesNacional' => $context['opcaoSimplesNacional'] ?? 2,
+            'regimeEspecialTributacao' => $specialRegime,
             'tributacaoIssqn' => $issqn['tributacaoIssqn'] ?? 1,
             'issqnPaisResultado' => $issqn['issqnPaisResultado'] ?? '',
             'issqnTipoImunidade' => $issqn['issqnTipoImunidade'] ?? null,

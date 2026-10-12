@@ -56,6 +56,19 @@
         };
     }
 
+    function specialRegimeUiState(simples, issqn, selected) {
+        const option = String(simples);
+        const taxation = String(issqn);
+        const value = String(selected);
+        const available = (option === '1' || option === '3') && taxation === '1';
+        return {
+            canSelectSpecial: available,
+            hasIncompatibleSelection: !available && value !== '' && value !== '0',
+            requiresRuntimeReview: option === '3' && taxation === '1' && value !== '' && value !== '0',
+            reason: taxation !== '1' ? 'issqn' : option === '2' ? 'mei' : option === '3' ? 'sn_unsupported' : 'available',
+        };
+    }
+
     async function init(documentRef, config, fetchImpl, confirmImpl) {
 
                 // ── Tab switcher ────────────────────────────────────────────
@@ -382,6 +395,39 @@
                 syncFederalCsllVisibility();
                 syncFederalTributosProfileVisibility();
 
+                // Regime selector is advisory UX only; the backend revalidates
+                // the saved code against the effective invoice's fiscal facts.
+                const specialRegime = documentRef.getElementById('regime_especial_tributacao');
+                const simplesRegime = documentRef.getElementById('opcao_simples_nacional');
+                const issqnRegime = documentRef.getElementById('tributacao_issqn');
+                const specialHelp = documentRef.getElementById('regime-especial-help');
+                const refreshSpecialRegime = () => {
+                    if (!(specialRegime instanceof HTMLSelectElement)) return;
+                    const state = specialRegimeUiState(simplesRegime?.value, issqnRegime?.value, specialRegime.value);
+                    specialRegime.querySelectorAll('option[data-regime-nonzero="1"]').forEach((option) => {
+                        // The previously selected invalid value remains visible
+                        // until explicitly corrected, but no new incompatible
+                        // nonzero choice can be selected.
+                        option.disabled = !state.canSelectSpecial && option.value !== specialRegime.value;
+                    });
+                    specialRegime.setAttribute('aria-invalid', state.hasIncompatibleSelection ? 'true' : 'false');
+                    if (specialHelp) {
+                        specialHelp.textContent = state.hasIncompatibleSelection
+                            ? config.specialRegimeInvalid
+                            : state.reason === 'sn_unsupported'
+                                ? config.specialRegimeUnsupported
+                                : !state.canSelectSpecial
+                                    ? config.specialRegimeBlocked
+                                    : specialRegime.value === ''
+                                        ? config.specialRegimeMissing
+                                        : config.specialRegimeHelp;
+                    }
+                };
+                specialRegime?.addEventListener('change', refreshSpecialRegime);
+                simplesRegime?.addEventListener('change', refreshSpecialRegime);
+                issqnRegime?.addEventListener('change', refreshSpecialRegime);
+                refreshSpecialRegime();
+
                 // ── Fiscal tab: UF / municipality / LC116 ───────────────────
                 const ufSelect           = documentRef.getElementById('uf');
                 const municipalitySelect = documentRef.getElementById('municipio_nome');
@@ -620,6 +666,7 @@
     return {
         artifactsCanSave,
         buildMunicipalQuery,
+        specialRegimeUiState,
         init,
         nextTabIndex,
         retentionShowsCsll,

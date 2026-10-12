@@ -40,3 +40,23 @@ test('municipal query uses normalized explicit parameters', () => {
         },
     );
 });
+
+test('special regime UI keeps old nonzero selection while restricting new choices', () => {
+    assert.deepEqual(settings.specialRegimeUiState('1', '1', '6'), {
+        canSelectSpecial: true,
+        hasIncompatibleSelection: false,
+        requiresRuntimeReview: false,
+        reason: 'available',
+    });
+    assert.deepEqual(settings.specialRegimeUiState('2', '1', '6'), {
+        canSelectSpecial: false,
+        hasIncompatibleSelection: true,
+        requiresRuntimeReview: false,
+        reason: 'mei',
+    });
+    assert.equal(settings.specialRegimeUiState('1', '3', '0').hasIncompatibleSelection, false);
+    assert.equal(settings.specialRegimeUiState('3', '1', '9').reason, 'sn_unsupported');
+    assert.equal(settings.specialRegimeUiState('3', '1', '9').canSelectSpecial, true);
+    assert.equal(settings.specialRegimeUiState('3', '1', '9').requiresRuntimeReview, true);
+    assert.equal(settings.specialRegimeUiState('1', '2', '').canSelectSpecial, false);
+});

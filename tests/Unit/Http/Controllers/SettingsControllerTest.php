@@ -1258,6 +1258,108 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertFalse($controller->called);
         }
 
+        public function testFiscalSettingsKeepExplicitNoneSeparateFromUnconfigured(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr' => 'https://vault.example.invalid',
+                'nfse.bao_mount' => '/secret',
+                'nfse.bao_token' => 'test-only-token',
+            ];
+            $form = [
+                'cnpj_prestador' => '11222333000181',
+                'uf' => 'RJ',
+                'municipio_nome' => 'Cidade Fictícia',
+                'municipio_ibge' => '3303302',
+                'opcao_simples_nacional' => '2',
+                'tributacao_issqn' => '1',
+                'tipo_retencao_iss' => '1',
+            ];
+
+            $response = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertArrayNotHasKey('nfse.regime_especial_tributacao', ControllerIsolationState::$settings);
+
+            $form['regime_especial_tributacao'] = '0';
+            (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            self::assertSame('0', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
+
+            $form['regime_especial_tributacao'] = '';
+            (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            self::assertArrayHasKey('nfse.regime_especial_tributacao', ControllerIsolationState::$settings);
+            self::assertNull(ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
+        }
+
+        public function testFiscalSettingsDoNotEraseHistoricalSpecialSelectionAfterIssqnChange(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr' => 'https://vault.example.invalid',
+                'nfse.bao_mount' => '/secret',
+                'nfse.bao_token' => 'test-only-token',
+                'nfse.opcao_simples_nacional' => '1',
+                'nfse.tributacao_issqn' => '1',
+                'nfse.regime_especial_tributacao' => '6',
+            ];
+
+            $response = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => [
+                'opcao_simples_nacional' => '1',
+                'tributacao_issqn' => '3',
+                'tipo_retencao_iss' => '1',
+                // A disabled control can omit the prior selection.
+            ]]));
+
+            self::assertSame('back', $response->target);
+            self::assertSame('6', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.tributacao_issqn']);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+        }
+
+        public function testFiscalSettingsSaveOfficialCodeNineOnlyForApplicableIssuer(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_addr' => 'https://vault.example.invalid',
+                'nfse.bao_mount' => '/secret',
+                'nfse.bao_token' => 'test-only-token',
+            ];
+            $form = [
+                'opcao_simples_nacional' => '1',
+                'tributacao_issqn' => '1',
+                'regime_especial_tributacao' => '9',
+            ];
+
+            $response = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            self::assertSame('route', $response->target);
+            self::assertSame('9', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
+
+            $form['opcao_simples_nacional'] = '2';
+            $rejected = (new SettingsController())->updateFiscal(new Request(inputs: ['nfse' => $form]));
+            self::assertSame('back', $rejected->target);
+            self::assertSame('9', ControllerIsolationState::$settings['nfse.regime_especial_tributacao']);
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.opcao_simples_nacional']);
+        }
+
+        public function testLegacySettingsRouteAlsoRejectsInvalidSpecialRegime(): void
+        {
+            ControllerIsolationState::reset();
+            $response = (new SettingsController())->update(new Request(inputs: ['nfse' => [
+                'cnpj_prestador' => '11222333000181',
+                'uf' => 'RJ',
+                'municipio_nome' => 'Cidade Fictícia',
+                'municipio_ibge' => '3303302',
+                'bao_addr' => 'https://vault.example.invalid',
+                'bao_mount' => '/secret',
+                'bao_token' => 'test-only-token',
+                'opcao_simples_nacional' => '2',
+                'regime_especial_tributacao' => '1',
+            ]]));
+
+            self::assertSame('back', $response->target);
+            self::assertSame(0, ControllerIsolationState::$savedCount);
+            self::assertArrayNotHasKey('nfse.regime_especial_tributacao', ControllerIsolationState::$settings);
+        }
+
         // ── updateVault ─────────────────────────────────────────────────────
 
         public function testUpdateVaultSavesVaultSettingsAndRedirectsToVaultTab(): void

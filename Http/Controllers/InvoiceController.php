@@ -649,6 +649,7 @@ class InvoiceController extends Controller
                 'tomador' => $tomadorPayload,
                 'foreignTomador' => $foreignTomador,
                 'opcaoSimplesNacional' => $opcaoSimplesNacional,
+                'regimeEspecialTributacao' => setting('nfse.regime_especial_tributacao', null),
                 'issqn' => $issqnPayload,
                 'tipoAmbiente' => $sandbox ? 2 : 1,
                 'serie' => $this->dpsSerie($invoice),
@@ -666,7 +667,7 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect(
                 $request,
                 redirect()->route('invoices.show', $invoice)
-                    ->with('error', trans('nfse::general.invoices.emit_runtime_unsupported')),
+                    ->with('error', $this->dpsRuntimeErrorMessage($e)),
             );
         }
 
@@ -1362,6 +1363,12 @@ class InvoiceController extends Controller
             'tomadorTelefone' => $tomadorPayload['telefone'],
             'tomadorEmail' => $tomadorPayload['email'],
             'opcaoSimplesNacional' => $opcaoSimplesNacional,
+            'regimeEspecialTributacao' => (new \Modules\Nfse\Application\SpecialTaxRegimePolicy())->forIssuance(
+                setting('nfse.regime_especial_tributacao', null),
+                $opcaoSimplesNacional,
+                (int) ($this->issqnPayloadValues()['tributacaoIssqn'] ?? 1),
+                $this->competenceDate($invoice),
+            ),
             'tipoAmbiente' => $sandboxReemit ? 2 : 1,
             'serie' => $this->dpsSerie($invoice),
             'numeroDps' => $this->dpsNumberForReemit($invoice),
@@ -1388,6 +1395,7 @@ class InvoiceController extends Controller
             'ibsCbsClassificacaoTributaria' => $ibsCbsPayload['ibsCbsClassificacaoTributaria'],
             ], array_values(array_filter([
                 'codigoTributacaoMunicipal',
+                'regimeEspecialTributacao',
                 trim((string) setting('nfse.prestador_inscricao_municipal', '')) !== '' ? 'prestadorInscricaoMunicipal' : null,
                 $ibsCbsPayload['enabled'] ? 'codigoNbs' : null,
                 $ibsCbsPayload['enabled'] ? 'ibsCbsFinalidade' : null,
@@ -1404,7 +1412,7 @@ class InvoiceController extends Controller
             ]);
 
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
-                ->with('error', trans('nfse::general.invoices.emit_runtime_unsupported')));
+                ->with('error', $this->dpsRuntimeErrorMessage($e)));
         }
 
         try {
@@ -3390,17 +3398,17 @@ class InvoiceController extends Controller
         return in_array($configured, [1, 2, 3], true) ? $configured : 1;
     }
 
-    /**
-     * @return array{
-     *   enabled: bool,
-     *   ibsCbsFinalidade: ?int,
-     *   ibsCbsIndFinal: ?int,
-     *   ibsCbsCodigoIndicadorOperacao: string,
-     *   ibsCbsIndDest: ?int,
-     *   ibsCbsCst: string,
-     *   ibsCbsClassificacaoTributaria: string
-     * }
-     */
+    protected function dpsRuntimeErrorMessage(\LogicException $exception): string
+    {
+        $prefix = 'Invalid special tax regime: ';
+        $message = $exception->getMessage();
+        if (!str_starts_with($message, $prefix)) {
+            return trans('nfse::general.invoices.emit_runtime_unsupported');
+        }
+
+        return trans('nfse::general.settings.special_regime_error.' . substr($message, strlen($prefix)));
+    }
+
     /**
      * @return array{
      *   tributacaoIssqn: int,
@@ -3450,6 +3458,17 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * @return array{
+     *   enabled: bool,
+     *   ibsCbsFinalidade: ?int,
+     *   ibsCbsIndFinal: ?int,
+     *   ibsCbsCodigoIndicadorOperacao: string,
+     *   ibsCbsIndDest: ?int,
+     *   ibsCbsCst: string,
+     *   ibsCbsClassificacaoTributaria: string
+     * }
+     */
     protected function ibsCbsPayloadValues(): array
     {
         return (new IbsCbsPayloadResolver())->resolve([

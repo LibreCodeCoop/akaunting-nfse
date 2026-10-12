@@ -23,6 +23,68 @@ use Tests\Feature\FeatureTestCase;
 
 final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
 {
+    public function testAutomaticIssuanceBlocksUnsupportedMeiSpecialRegimeBeforeAnyPost(): void
+    {
+        $invoice = $this->invoiceWithProfile();
+        $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
+        $client = new class () implements NfseClientInterface {
+            public int $emits = 0;
+
+            public function emit(DpsData $dps): ReceiptData
+            {
+                $this->emits++;
+
+                return new ReceiptData(
+                    nfseNumber: '9101',
+                    chaveAcesso: str_repeat('9', 50),
+                    dataEmissao: '2026-10-05T16:00:00-03:00',
+                );
+            }
+
+            public function query(string $chaveAcesso): ReceiptData
+            {
+                throw new \LogicException('Unexpected query');
+            }
+
+            public function cancel(string $chaveAcesso, string $motivo): bool
+            {
+                throw new \LogicException('Unexpected cancel');
+            }
+
+            public function getDanfse(string $nfseXml): string
+            {
+                throw new \LogicException('Unexpected DANFSe');
+            }
+        };
+        $settings = [
+            'nfse.cnpj_prestador' => '11222333000181',
+            'nfse.municipio_ibge' => '3303302',
+            'nfse.opcao_simples_nacional' => 2,
+            'nfse.regime_especial_tributacao' => '6',
+            'nfse.sandbox_mode' => true,
+            'nfse.tributacao_issqn' => 1,
+            'nfse.tipo_retencao_iss' => 1,
+            'nfse.ibs_cbs_enabled' => false,
+        ];
+        $issuer = new AutomaticInvoiceFiscalIssuer(
+            clientContextFactory: static fn (bool $sandbox): FiscalClientContext => new FiscalClientContext(
+                $client,
+                static function (): void {
+                },
+            ),
+            settingResolver: static fn (string $key, mixed $default): mixed => $settings[$key] ?? $default,
+        );
+
+        try {
+            $issuer->issue((int) $invoice->id, (string) $group['key']);
+            self::fail('Invalid MEI special regime must block before fake SEFIN POST.');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertStringContainsString('mei_requires_none', $exception->getMessage());
+        }
+
+        self::assertSame(0, $client->emits);
+    }
+
     public function testContainerBindsConcreteBulkIssuer(): void
     {
         self::assertInstanceOf(
@@ -81,6 +143,7 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
             'nfse.cnpj_prestador' => '11222333000181',
             'nfse.municipio_ibge' => '3303302',
             'nfse.opcao_simples_nacional' => 2,
+            'nfse.regime_especial_tributacao' => '0',
             'nfse.sandbox_mode' => true,
             'nfse.tributacao_issqn' => 1,
             'nfse.tipo_retencao_iss' => 1,
