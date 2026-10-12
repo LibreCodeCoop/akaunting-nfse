@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { execFileSync, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -222,10 +223,22 @@ export function exposeAssets(core = coreRoot, module = moduleRoot, io = fs) {
     if (error.code !== 'ENOENT') throw error;
   }
   if (old && !old.isSymbolicLink()) throw new Error(`Refusing to overwrite non-symlink: ${link}`);
-  if (old) io.unlinkSync(link);
-  io.symlinkSync(module, link, 'dir');
-  if (!io.existsSync(path.join(link, 'Resources/assets/js/adn-distribution-browser.js'))) {
-    throw new Error('Module browser assets are not accessible through the public symlink.');
+  if (old && io.readlinkSync(link) === module) return;
+  // Stage a verified symlink and atomically replace the old one only on success.
+  const stagedLink = path.join(parent, `.Nfse-staged-${randomUUID()}`);
+  io.symlinkSync(module, stagedLink, 'dir');
+  try {
+    if (!io.existsSync(path.join(stagedLink, asset))) {
+      throw new Error('Module browser assets are not accessible through the staged symlink.');
+    }
+    io.renameSync(stagedLink, link);
+  } catch (error) {
+    try { io.unlinkSync(stagedLink); } catch (cleanupError) {
+      if (cleanupError.code !== 'ENOENT') {
+        throw new AggregateError([error, cleanupError], 'Failed to restore module asset symlink staging.');
+      }
+    }
+    throw error;
   }
 }
 

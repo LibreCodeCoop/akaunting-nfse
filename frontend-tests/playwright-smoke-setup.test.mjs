@@ -204,6 +204,27 @@ test('module assets are exposed via a checked symlink; unrelated paths are never
   assert.throws(() => exposeAssets(core, module), /Refusing to overwrite non-symlink/);
 });
 
+test('failed atomic symlink replacement keeps the original path and cleans staging', t => {
+  const dir = tmpDir(t);
+  const core = path.join(dir, 'core');
+  const parent = path.join(core, 'public/modules');
+  const original = path.join(dir, 'original');
+  const replacement = path.join(dir, 'replacement');
+  for (const module of [original, replacement]) {
+    fs.mkdirSync(path.join(module, 'Resources/assets/js'), { recursive: true });
+    fs.writeFileSync(path.join(module, 'Resources/assets/js/adn-distribution-browser.js'), '');
+  }
+  fs.mkdirSync(parent, { recursive: true });
+  fs.symlinkSync(original, path.join(parent, 'Nfse'));
+  const io = Object.create(fs);
+  io.renameSync = () => { throw new Error('Synthetic atomic rename failure'); };
+  assert.throws(() => exposeAssets(core, replacement, io), /Synthetic atomic rename failure/);
+  assert.equal(fs.readlinkSync(path.join(parent, 'Nfse')), original);
+  assert.deepEqual(fs.readdirSync(parent), ['Nfse']);
+  exposeAssets(core, replacement);
+  assert.equal(fs.readlinkSync(path.join(parent, 'Nfse')), replacement);
+});
+
 test('invalid replacement target preserves the original module symlink', t => {
   const dir = tmpDir(t);
   const core = path.join(dir, 'core');
