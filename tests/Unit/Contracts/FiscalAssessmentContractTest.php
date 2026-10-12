@@ -225,6 +225,47 @@ final class FiscalAssessmentContractTest extends TestCase
         self::assertSame('review_municipal_incidence', $assessment->decisions[0]->correctionCode);
     }
 
+    public function testPassingRuleCannotBlockEmission(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new FiscalDecision(
+            'RTC-CONSISTENCY-001',
+            'normative',
+            'pass',
+            'block',
+            'https://hom.cte.fazenda.gov.br/portal/informe.aspx?informe=98',
+            'art. 1 III d',
+            'Ato Conjunto RFB/CGIBS 4/2026',
+            new DateTimeImmutable('2026-07-30'),
+            new DateTimeImmutable('2026-10-01'),
+            null,
+            null,
+            null,
+        );
+    }
+
+    public function testFailedRuleCanBlockWithSpecificCorrection(): void
+    {
+        $decision = new FiscalDecision(
+            'RTC-MISSING-001',
+            'normative',
+            'fail',
+            'block',
+            'https://hom.cte.fazenda.gov.br/portal/informe.aspx?informe=98',
+            'art. 1 III d',
+            'Ato Conjunto RFB/CGIBS 4/2026',
+            new DateTimeImmutable('2026-07-30'),
+            new DateTimeImmutable('2026-10-01'),
+            null,
+            'ibscbs.classification',
+            'provide_applicable_ibscbs_classification',
+        );
+
+        self::assertSame('block', $decision->severity);
+        self::assertSame('fail', $decision->status);
+    }
+
     public function testInvalidTemporalScopeFailsInsteadOfSelectingAnotherRule(): void
     {
         $this->expectException(InvalidArgumentException::class);

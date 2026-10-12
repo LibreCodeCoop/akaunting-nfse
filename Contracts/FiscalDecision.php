@@ -44,6 +44,10 @@ final readonly class FiscalDecision
             throw new \InvalidArgumentException('Unknown fiscal decision category, status or severity.');
         }
 
+        if ($this->severity === 'block' && in_array($this->status, ['pass', 'not_applicable'], true)) {
+            throw new \InvalidArgumentException('A passing or non-applicable rule cannot be blocking.');
+        }
+
         if ($this->effectiveUntil !== null && $this->effectiveUntil < $this->effectiveFrom) {
             throw new \InvalidArgumentException('Effective end cannot precede effective start.');
         }
