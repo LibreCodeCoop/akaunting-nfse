@@ -66,6 +66,9 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
 
     public function testCreateIsUniqueAndOnlyExposesSafeMetadata(): void
     {
+        // Surface the original exception rather than hiding a server failure
+        // behind a generic 500 response during the core create contract.
+        $this->withoutExceptionHandling();
         $id = (int) $this->company->id;
         $response = $this->post(route('nfse.settings.company-profiles.store'), $this->creation($id))
             ->assertCreated()
@@ -343,8 +346,6 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
             'company_id' => $id,
             'key' => 'company.tax_number',
             'value' => self::CNPJ,
-            'created_at' => now(),
-            'updated_at' => now(),
         ]);
 
         if ($assigned) {
