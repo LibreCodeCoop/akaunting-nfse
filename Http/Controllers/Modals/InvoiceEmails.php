@@ -160,7 +160,7 @@ class InvoiceEmails extends Controller
                     : null,
             );
         } catch (\InvalidArgumentException $exception) {
-            return response()->json([
+            return new JsonResponse([
                 'success' => false,
                 'error' => true,
                 'message' => trans('nfse::general.invoices.emit_modal_email_invalid', [

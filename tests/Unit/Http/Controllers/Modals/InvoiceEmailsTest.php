@@ -277,9 +277,10 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString('nfse_email_attach_xml', $view);
         self::assertStringContainsString('nfse_email_copy_to_self', $view);
         self::assertStringContainsString('nfse_email_save_default', $view);
-        self::assertStringContainsString('x-form.group.contact', $view);
-        self::assertStringContainsString("'key' => 'email'", $view);
-        self::assertStringContainsString("'value' => 'email'", $view);
+        self::assertStringContainsString('name="nfse_email_cc"', $view);
+        self::assertStringContainsString('name="nfse_email_bcc"', $view);
+        self::assertStringContainsString('data-nfse-show-recipient="cc"', $view);
+        self::assertStringContainsString('data-nfse-show-recipient="bcc"', $view);
     }
 
     public function testCancelViewPostsToCancelRouteWithStructuredCancellationFields(): void

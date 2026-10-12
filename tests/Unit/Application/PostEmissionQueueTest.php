@@ -52,7 +52,8 @@ final class PostEmissionQueueTest extends TestCase
         $controller = (string) file_get_contents(dirname(__DIR__, 3) . '/Http/Controllers/InvoiceController.php');
 
         self::assertStringContainsString('$receipt->payload()->updateOrCreate(', $persistence);
-        self::assertStringContainsString('$email = $this->preparePostEmitEmail($request, $invoice);', $controller);
+        self::assertStringContainsString('$validatedEmail = $this->preparePostEmitEmail($request, $invoice);', $controller);
+        self::assertStringContainsString('$email = $validatedEmail;', $controller);
         self::assertStringContainsString('$this->dispatchPostEmission(', $controller);
         self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $controller);
     }

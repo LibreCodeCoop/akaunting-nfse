@@ -184,7 +184,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('(new EmissionAttemptJournal())->issue(', $content);
             self::assertStringContainsString(': $this->storeEmittedReceipt($invoice, $authorized),', $content);
             self::assertStringContainsString('(new ReceiptPersistence())->createReplacement(', $content);
-            self::assertStringContainsString('$email = $this->preparePostEmitEmail($request, $invoice);', $content);
+            self::assertStringContainsString('$validatedEmail = $this->preparePostEmitEmail($request, $invoice);', $content);
+            self::assertStringContainsString('$email = $validatedEmail;', $content);
             self::assertStringContainsString('$this->dispatchPostEmission(', $content);
             self::assertStringContainsString('$this->markInvoiceSentAfterEmission($invoice);', $content);
             self::assertStringNotContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
@@ -5337,7 +5338,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(3301, $dispatchCalls[0]['invoice_id']);
             self::assertTrue($dispatchCalls[0]['email']['attach_danfse']);
             self::assertFalse($dispatchCalls[0]['email']['attach_xml']);
-            self::assertSame('destinatario@reemissao.test', $dispatchCalls[0]['email']['custom_mail']['to'] ?? null);
+            self::assertSame(['destinatario@reemissao.test'], $dispatchCalls[0]['email']['custom_mail']['to'] ?? null);
             self::assertSame('Assunto reemissao', $dispatchCalls[0]['email']['custom_mail']['subject'] ?? null);
             self::assertSame('Descricao de reemissao com email', ControllerIsolationState::$settings['invoice.notes']);
         }
@@ -6290,7 +6291,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertIsArray($email);
             self::assertTrue($email['attach_danfse']);
             self::assertFalse($email['attach_xml']);
-            self::assertSame('destinatario@example.com', $email['custom_mail']['to'] ?? null);
+            self::assertSame(['destinatario@example.com'], $email['custom_mail']['to'] ?? null);
             self::assertSame('NFS-e emitida', $email['custom_mail']['subject'] ?? null);
             self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
         }
