@@ -512,6 +512,8 @@ return [
         'issuer_email' => 'E-mail do prestador (NFS-e)',
         'issuer_municipal_registration' => 'Inscrição municipal do prestador',
         'issuer_municipal_registration_help' => 'Opcional; deixe vazio caso a empresa não possua inscrição municipal. A DPS depende da versão atualizada do nfse-php para publicar este campo.',
+        'provider_establishment_confirmed' => 'Confirmo que o município IBGE cadastrado corresponde ao estabelecimento onde esta empresa efetivamente presta os seus serviços.',
+        'provider_establishment_confirmed_help' => 'Confirmação do operador vinculada ao CNPJ e município. Não é autorização municipal nem cobre automaticamente exceções do art. 3º da LC 116/2003. Alterações cadastrais exigem nova confirmação.',
         'title'                 => 'Configurações NFS-e',
         'cnpj_prestador'        => 'CNPJ do Prestador',
         'cnpj_from_certificate' => 'CNPJ (extraído do certificado)',

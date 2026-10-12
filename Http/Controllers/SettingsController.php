@@ -128,6 +128,7 @@ class SettingsController extends Controller
             'nfse.prestador_telefone' => 'nullable|string|max:25|regex:/^[+()0-9 .-]+$/',
             'nfse.prestador_email' => 'nullable|email|max:255',
             'nfse.prestador_inscricao_municipal' => 'nullable|string|max:15',
+            'nfse.provider_establishment_confirmed' => 'nullable|boolean',
             'nfse.opcao_simples_nacional' => 'nullable|in:1,2,3',
             'nfse.emission_policy' => 'nullable|in:manual,emit_on_send',
             'nfse.tributacao_issqn' => 'required|in:1,2,3,4',
@@ -158,6 +159,9 @@ class SettingsController extends Controller
             $fiscalInput['issqn_numero_processo_suspensao'] = '';
         }
 
+        $previousCnpj = strtoupper(trim((string) setting('nfse.cnpj_prestador', '')));
+        $previousMunicipality = trim((string) setting('nfse.municipio_ibge', '')));
+
         foreach ([
             'cnpj_prestador',
             'uf',
@@ -181,6 +185,24 @@ class SettingsController extends Controller
             }
         }
 
+        // Explicit operator evidence is bound to this CNPJ and municipality.
+        // Changing either identity invalidates a previous confirmation,
+        // including when the browser submits a still-checked checkbox.
+        $confirmedCnpj = strtoupper(trim((string) ($fiscalInput['cnpj_prestador'] ?? '')));
+        $confirmedMunicipality = trim((string) ($fiscalInput['municipio_ibge'] ?? ''));
+        $identityChanged = ($previousCnpj !== '' && $previousCnpj !== $confirmedCnpj)
+            || ($previousMunicipality !== '' && $previousMunicipality !== $confirmedMunicipality);
+        $confirmed = filter_var($fiscalInput['provider_establishment_confirmed'] ?? false, FILTER_VALIDATE_BOOL)
+            && !$identityChanged && $confirmedCnpj !== ''
+            && preg_match('/^\d{7}$/D', $confirmedMunicipality) === 1;
+
+        setting([
+            'nfse.provider_establishment_confirmed' => $confirmed ? '1' : '0',
+            'nfse.provider_establishment_confirmed_cnpj' => $confirmed ? $confirmedCnpj : '',
+            'nfse.provider_establishment_confirmed_municipality' => $confirmed ? $confirmedMunicipality : '',
+            'nfse.provider_establishment_confirmed_at' => $confirmed ? now()->toAtomString() : '',
+            'nfse.provider_establishment_confirmed_by' => $confirmed ? (string) (auth()->id() ?? '') : '',
+        ]);
         setting()->save();
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'fiscal'])

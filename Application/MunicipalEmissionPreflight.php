@@ -58,7 +58,7 @@ final class MunicipalEmissionPreflight
             'municipio_ibge' => (string) $dps->municipioIbge,
             'sandbox_mode' => (int) $dps->tipoAmbiente === 2,
             'tributacao_issqn' => $dps->tributacaoIssqn ?? 1,
-        ], array_merge($fiscalFacts, [
+        ], array_merge($this->persistedProviderEstablishmentFacts($invoice, $dps), $fiscalFacts, [
             'dps_id' => $this->recovery->dpsIdentifier($dps),
             'dps_sha256' => hash('sha256', json_encode(get_object_vars($dps), JSON_THROW_ON_ERROR)),
         ]));
@@ -90,6 +90,34 @@ final class MunicipalEmissionPreflight
             'municipal' => $municipal,
             'parameters' => $parameterResult,
         ];
+    }
+
+    /**
+     * Fiscal attestation is recorded by an authenticated company operator.
+     * Merely configuring a city is not proof of service establishment. Only
+     * the matching CNPJ and IBGE identity may select its advisory parameters.
+     *
+     * @return array<string,bool>
+     */
+    private function persistedProviderEstablishmentFacts(Invoice $invoice, DpsData $dps): array
+    {
+        if (!function_exists('setting') || !function_exists('company_id')
+            || (int) company_id() <= 0 || (int) company_id() !== (int) $invoice->company_id
+            || !filter_var(\setting('nfse.provider_establishment_confirmed', false), FILTER_VALIDATE_BOOL)) {
+            return [];
+        }
+
+        $cnpj = strtoupper(trim((string) $dps->cnpjPrestador));
+        $municipality = trim((string) $dps->municipioIbge);
+        if ($cnpj === '' || preg_match('/^\d{7}$/D', $municipality) !== 1
+            || $cnpj !== strtoupper(trim((string) \setting('nfse.cnpj_prestador', '')))
+            || $cnpj !== strtoupper(trim((string) \setting('nfse.provider_establishment_confirmed_cnpj', '')))
+            || $municipality !== trim((string) \setting('nfse.municipio_ibge', ''))
+            || $municipality !== trim((string) \setting('nfse.provider_establishment_confirmed_municipality', ''))) {
+            return [];
+        }
+
+        return ['provider_establishment_confirmed' => true];
     }
 
     /**

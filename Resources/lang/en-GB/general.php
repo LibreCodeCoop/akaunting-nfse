@@ -514,6 +514,8 @@ return [
         'issuer_email' => 'Provider e-mail (NFS-e)',
         'issuer_municipal_registration' => 'Provider municipal registration',
         'issuer_municipal_registration_help' => 'Optional; leave blank if the business has no municipal registration. Publishing this value in a DPS requires updated nfse-php.',
+        'provider_establishment_confirmed' => 'I confirm the registered IBGE municipality is where this company actually provides its services.',
+        'provider_establishment_confirmed_help' => 'Operator attestation bound to the current CNPJ and municipality. It is not municipal authorization and does not automatically cover LC 116/2003 art. 3 exceptions. Registration changes require reconfirmation.',
         'title'                 => 'NFS-e Settings',
         'cnpj_prestador'        => 'Service Provider CNPJ',
         'cnpj_from_certificate' => 'CNPJ (extracted from certificate)',
