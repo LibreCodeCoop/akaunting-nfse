@@ -13,41 +13,47 @@ use PHPUnit\Framework\TestCase;
 
 final class EmailAddressListParserTest extends TestCase
 {
-    public function testAcceptsNativeContactsAndManualDelimitedAddresses(): void
+    #[DataProvider('supportedPayloads')]
+    public function testParsesSupportedFormPayloads(mixed $input, array $expected): void
     {
-        $actual = (new EmailAddressListParser())->parse([
-            ['email' => 'one@example.test'],
-            (object) ['email' => 'TWO@example.test'],
-            'three@example.test; four@example.test',
-        ], 'nfse_email_to');
-
-        self::assertSame([
-            'one@example.test',
-            'two@example.test',
-            'three@example.test',
-            'four@example.test',
-        ], $actual);
+        self::assertSame($expected, (new EmailAddressListParser())->parse($input, 'nfse_email_to'));
     }
 
-    public function testAcceptsLegacyJsonArrayOfSelectedContacts(): void
+    public static function supportedPayloads(): array
     {
-        $actual = (new EmailAddressListParser())->parse(
-            '[{"email":"first@example.test"},{"email":"second@example.test"}]',
-            'nfse_email_to',
-        );
-
-        self::assertSame(['first@example.test', 'second@example.test'], $actual);
+        return [
+            'single email' => ['single@example.test', ['single@example.test']],
+            'surrounding spaces and case' => [' FIRST@Example.Test ', ['first@example.test']],
+            'comma and semicolon delimiters' => [
+                'one@example.test; two@example.test, three@example.test',
+                ['one@example.test', 'two@example.test', 'three@example.test'],
+            ],
+            'selected contact array' => [['email' => 'one@example.test'], ['one@example.test']],
+            'selected contact object' => [(object) ['email' => 'one@example.test'], ['one@example.test']],
+            'legacy contact JSON object' => ['{"email":"one@example.test"}', ['one@example.test']],
+            'legacy contact JSON list' => [
+                '[{"email":"one@example.test"},{"email":"two@example.test"}]',
+                ['one@example.test', 'two@example.test'],
+            ],
+            'combined contacts and manual addresses' => [
+                [
+                    ['email' => 'one@example.test'],
+                    (object) ['email' => 'TWO@example.test'],
+                    'three@example.test; four@example.test',
+                ],
+                ['one@example.test', 'two@example.test', 'three@example.test', 'four@example.test'],
+            ],
+            'empty null' => [null, []],
+            'empty string' => ['', []],
+            'empty list' => [[], []],
+            'empty JSON array' => ['[]', []],
+            'empty JSON object' => ['{}', []],
+            'only empty delimiters' => [' , ; ', []],
+        ];
     }
 
-    public function testEmptyOptionalFieldIsAnEmptyList(): void
-    {
-        self::assertSame([], (new EmailAddressListParser())->parse(null, 'nfse_email_bcc'));
-        self::assertSame([], (new EmailAddressListParser())->parse('', 'nfse_email_bcc'));
-        self::assertSame([], (new EmailAddressListParser())->parse([], 'nfse_email_bcc'));
-    }
-
-    #[DataProvider('invalidInputs')]
-    public function testRejectsMalformedPayloadsWithoutRecursiveFallback(mixed $input): void
+    #[DataProvider('invalidPayloads')]
+    public function testRejectsInvalidFormPayloads(mixed $input): void
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('nfse_email_bcc');
@@ -55,16 +61,24 @@ final class EmailAddressListParserTest extends TestCase
         (new EmailAddressListParser())->parse($input, 'nfse_email_bcc');
     }
 
-    public static function invalidInputs(): array
+    public static function invalidPayloads(): array
     {
         return [
-            'newline/header injection' => ["hidden@example.test\r\nBcc: leak@example.test"],
-            'invalid mail syntax' => ['not-an-email'],
-            'truncated json' => ['[{"email":'],
+            'CRLF injection' => ["hidden@example.test\r\nBcc: leak@example.test"],
+            'tab control character' => ["hidden@example.test\t"],
+            'null byte' => ["hidden@example.test\0"],
+            'missing at sign' => ['invalid-email'],
+            'mixed valid and invalid tokens' => ['valid@example.test; invalid'],
+            'malformed JSON' => ['[{"email":'],
             'nested list' => [[[['email' => 'hidden@example.test']]]],
-            'unsupported number' => [123],
-            'invalid contact value' => [['email' => ['hidden@example.test']]],
-            'associative unrelated structure' => [['unrelated' => 'hidden@example.test']],
+            'number' => [123],
+            'boolean' => [false],
+            'invalid selected contact type' => [['email' => ['hidden@example.test']]],
+            'missing selected contact email' => [['unknown' => 'hidden@example.test']],
+            'object without email' => [(object) ['name' => 'Synthetic']],
+            'non-string contact email' => [(object) ['email' => 123]],
+            'JSON object with invalid contact type' => ['{"email":123}'],
+            'JSON list containing non-address' => ['["valid@example.test",true]'],
         ];
     }
 }

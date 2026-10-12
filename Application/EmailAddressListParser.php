@@ -8,58 +8,81 @@ declare(strict_types=1);
 namespace Modules\Nfse\Application;
 
 /**
- * Translates the small set of supported form payloads into validated addresses.
- * Transport and delivery policy are deliberately outside this class.
+ * Parses supported form payloads into validated email addresses.
+ * No delivery, deduplication or recipient-role policy belongs here.
  */
 final class EmailAddressListParser
 {
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     public function parse(mixed $input, string $field): array
+    {
+        $addresses = [];
+
+        foreach ($this->items($input, $field) as $item) {
+            foreach ($this->validatedAddresses($this->addressValue($item, $field), $field) as $address) {
+                $addresses[] = $address;
+            }
+        }
+
+        return $addresses;
+    }
+
+    /** @return list<mixed> */
+    private function items(mixed $input, string $field): array
     {
         if ($input === null || $input === '') {
             return [];
         }
 
-        if (is_string($input) && in_array(substr(ltrim($input), 0, 1), ['[', '{'], true)) {
-            $input = json_decode($input, true);
-
-            if (!is_array($input)) {
-                throw new \InvalidArgumentException($field);
-            }
-        }
+        $input = $this->decodeLegacyJson($input, $field);
 
         if (is_string($input) || is_object($input) || (is_array($input) && array_key_exists('email', $input))) {
-            $input = [$input];
+            return [$input];
         }
 
         if (!is_array($input) || !array_is_list($input)) {
             throw new \InvalidArgumentException($field);
         }
 
+        return $input;
+    }
+
+    private function decodeLegacyJson(mixed $input, string $field): mixed
+    {
+        if (!is_string($input) || !in_array(substr(ltrim($input), 0, 1), ['[', '{'], true)) {
+            return $input;
+        }
+
+        $decoded = json_decode($input, true);
+
+        if (!is_array($decoded)) {
+            throw new \InvalidArgumentException($field);
+        }
+
+        return $decoded;
+    }
+
+    /** @return list<string> */
+    private function validatedAddresses(string $value, string $field): array
+    {
+        if (preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            throw new \InvalidArgumentException($field);
+        }
+
         $addresses = [];
 
-        foreach ($input as $item) {
-            $value = $this->addressValue($item, $field);
+        foreach (preg_split('/[,;]/', $value) ?: [] as $part) {
+            $email = trim($part);
 
-            if (preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            if ($email === '') {
+                continue;
+            }
+
+            if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
                 throw new \InvalidArgumentException($field);
             }
 
-            foreach (preg_split('/[,;]/', $value) ?: [] as $email) {
-                $email = trim($email);
-
-                if ($email === '') {
-                    continue;
-                }
-
-                if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-                    throw new \InvalidArgumentException($field);
-                }
-
-                $addresses[] = strtolower($email);
-            }
+            $addresses[] = strtolower($email);
         }
 
         return $addresses;
