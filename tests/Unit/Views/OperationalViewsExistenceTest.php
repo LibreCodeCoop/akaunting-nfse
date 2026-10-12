@@ -133,7 +133,7 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="nfse-emit-confirm-button"', $content);
             self::assertStringNotContainsString("if (typeof form.requestSubmit === 'function') {", $content);
             self::assertStringContainsString('The remote fiscal outcome is unknown. Never retry the DPS', $content);
-            self::assertStringContainsString('form.requestSubmit();', $content);
+            self::assertStringNotContainsString('form.requestSubmit();', $content);
             self::assertStringContainsString('form.submit();', $content);
             self::assertStringContainsString("sendEmailInput.value = sendEmailToggle?.checked ? '1' : '0';", $content);
             self::assertStringContainsString('name="nfse_tomador_foreign" value="0" data-emit-foreign-enabled-input', $content);

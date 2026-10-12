@@ -460,7 +460,7 @@ namespace {
         return $event;
     }
 
-    function company_id(): int
+    function company_id(): int|string
     {
         return 1;
     }
