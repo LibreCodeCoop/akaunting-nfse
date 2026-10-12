@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { execFileSync, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -29,16 +30,63 @@ export const fixtureFields = Object.freeze({
   item_failing_id: 'NFSE_E2E_FAILING_ITEM_ID',
 });
 
-export const fixtureArgs = Object.freeze([
+const commonFixtureArgs = Object.freeze([
   'artisan', 'nfse:test-harness:provision', '--company-id=1',
   `--cnpj=${testCnpj}`, '--municipio=3303302', '--item-lista=0107',
   '--codigo-nacional=010701', `--password=${testPfxPassword}`,
-  '--pending-invoice-fixture', '--item-validation-fixture',
+]);
+
+export const fixtureArgs = Object.freeze([
+  ...commonFixtureArgs, '--pending-invoice-fixture', '--item-validation-fixture',
   '--item-atomicity-fixture', '--json',
 ]);
 
-function execute(program, args, options = {}) {
-  return execFileSync(program, args, { encoding: 'utf8', stdio: 'inherit', ...options });
+export const fullUiFixtureArgs = Object.freeze([
+  ...commonFixtureArgs, '--substitution-fixture', '--adn-review-fixture',
+  '--item-validation-fixture', '--grouped-invoice-fixture',
+  '--pending-invoice-fixture', '--bulk-emission-fixture', '--json',
+]);
+
+export const fullUiFixtureFields = Object.freeze({
+  substitution_invoice_id: 'NFSE_E2E_SUBSTITUTION_INVOICE_ID',
+  adn_review_document_id: 'NFSE_E2E_ADN_REVIEW_DOCUMENT_ID',
+  adn_vendor_id: 'NFSE_E2E_ADN_VENDOR_ID',
+  adn_category_id: 'NFSE_E2E_ADN_CATEGORY_ID',
+  adn_item_id: 'NFSE_E2E_ADN_ITEM_ID',
+  item_validation_item_id: 'NFSE_E2E_ITEM_VALIDATION_ID',
+  grouped_invoice_id: 'NFSE_E2E_GROUPED_INVOICE_ID',
+  pending_invoice_id: 'NFSE_E2E_PENDING_INVOICE_ID',
+  bulk_ready_invoice_id: 'NFSE_E2E_BULK_READY_INVOICE_ID',
+  bulk_blocked_invoice_id: 'NFSE_E2E_BULK_BLOCKED_INVOICE_ID',
+});
+
+export const bulkUiFixtureArgs = Object.freeze([
+  ...commonFixtureArgs, '--bulk-emission-fixture', '--json',
+]);
+
+export const bulkUiFixtureFields = Object.freeze({
+  bulk_ready_invoice_id: 'NFSE_E2E_BULK_READY_INVOICE_ID',
+  bulk_blocked_invoice_id: 'NFSE_E2E_BULK_BLOCKED_INVOICE_ID',
+});
+
+const fixtureProfiles = Object.freeze({
+  smoke: { args: fixtureArgs, fields: fixtureFields },
+  'full-ui': { args: fullUiFixtureArgs, fields: fullUiFixtureFields },
+  'bulk-ui': { args: bulkUiFixtureArgs, fields: bulkUiFixtureFields },
+});
+
+/** Bound child execution independently of the broader GitHub job budget. */
+export function execute(program, args, options = {}, invoke = execFileSync) {
+  const timeout = program === 'npx' ? 360_000 : program === 'php' ? 120_000 : 15_000;
+  return invoke(program, args, {
+    encoding: 'utf8', stdio: 'inherit', timeout, killSignal: 'SIGTERM', ...options,
+  });
+}
+
+function processFailure(label, error) {
+  const stderr = error?.stderr?.toString?.('utf8') || error?.message || 'Unknown process failure';
+  const safe = stderr.replaceAll(testPassword, '[REDACTED]').replaceAll(testPfxPassword, '[REDACTED]');
+  return new Error(`${label} failed: ${safe.slice(-2000)}`);
 }
 
 function ensureTestingEnvironment(env) {
@@ -111,20 +159,31 @@ export function writeGitHubEnvironment(variables, outputPath, io = fs) {
   io.appendFileSync(outputPath, `${lines.join('\n')}\n`, 'utf8');
 }
 
-export function provisionFixtures(core = coreRoot, env = process.env, run = execute, io = fs) {
+export function provisionFixtures(core = coreRoot, env = process.env, run = execute, io = fs, profile = 'smoke') {
+  const configuration = fixtureProfiles[profile];
+  if (!configuration) throw new Error(`Unknown fiscal fixture profile: ${profile}`);
   ensureTestingEnvironment(env);
-  if (!env.GITHUB_ENV) throw new Error('GITHUB_ENV is required for smoke fixture IDs.');
-  run('php', [
-    'artisan', 'nfse:test-user:provision', '--company-id=1',
-    `--email=${testEmail}`, `--password=${testPassword}`,
-    '--role=admin', '--landing-page=dashboard', '--json',
-  ], { cwd: core, env });
-  const output = run('php', fixtureArgs, {
-    cwd: core,
-    env: { ...env, NFSE_TEST_HARNESS: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  const variables = parseFixtureVariables(output);
+  if (!env.GITHUB_ENV) throw new Error('GITHUB_ENV is required for fiscal fixture IDs.');
+  try {
+    run('php', [
+      'artisan', 'nfse:test-user:provision', '--company-id=1',
+      `--email=${testEmail}`, `--password=${testPassword}`,
+      '--role=admin', '--landing-page=dashboard', '--json',
+    ], { cwd: core, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
+    throw processFailure('Akaunting test user provisioning', error);
+  }
+  let output;
+  try {
+    output = run('php', configuration.args, {
+      cwd: core,
+      env: { ...env, NFSE_TEST_HARNESS: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (error) {
+    throw processFailure('Synthetic fiscal fixture provisioning', error);
+  }
+  const variables = parseFixtureVariables(output, configuration.fields);
   writeGitHubEnvironment(variables, env.GITHUB_ENV, io);
   return variables;
 }
@@ -151,6 +210,11 @@ export function verifyDatabase(core = coreRoot, run = execute) {
 export function exposeAssets(core = coreRoot, module = moduleRoot, io = fs) {
   const parent = path.join(core, 'public/modules');
   const link = path.join(parent, 'Nfse');
+  const asset = 'Resources/assets/js/adn-distribution-browser.js';
+  // Validate the replacement before touching a previously working symlink.
+  if (!io.existsSync(path.join(module, asset))) {
+    throw new Error('Module browser assets are not accessible through the requested target.');
+  }
   io.mkdirSync(parent, { recursive: true });
   let old;
   try {
@@ -159,10 +223,22 @@ export function exposeAssets(core = coreRoot, module = moduleRoot, io = fs) {
     if (error.code !== 'ENOENT') throw error;
   }
   if (old && !old.isSymbolicLink()) throw new Error(`Refusing to overwrite non-symlink: ${link}`);
-  if (old) io.unlinkSync(link);
-  io.symlinkSync(module, link, 'dir');
-  if (!io.existsSync(path.join(link, 'Resources/assets/js/adn-distribution-browser.js'))) {
-    throw new Error('Module browser assets are not accessible through the public symlink.');
+  if (old && io.readlinkSync(link) === module) return;
+  // Stage a verified symlink and atomically replace the old one only on success.
+  const stagedLink = path.join(parent, `.Nfse-staged-${randomUUID()}`);
+  io.symlinkSync(module, stagedLink, 'dir');
+  try {
+    if (!io.existsSync(path.join(stagedLink, asset))) {
+      throw new Error('Module browser assets are not accessible through the staged symlink.');
+    }
+    io.renameSync(stagedLink, link);
+  } catch (error) {
+    try { io.unlinkSync(stagedLink); } catch (cleanupError) {
+      if (cleanupError.code !== 'ENOENT') {
+        throw new AggregateError([error, cleanupError], 'Failed to restore module asset symlink staging.');
+      }
+    }
+    throw error;
   }
 }
 
@@ -203,34 +279,71 @@ export async function startServer(core = coreRoot, { io = fs, launch = spawn, ch
   }
   if (!child?.pid) throw new Error('Unable to start the Akaunting test server.');
   child.unref();
-  io.writeFileSync(path.join(core, 'storage/logs/playwright-server.pid'), String(child.pid));
+  const pidPath = path.join(core, 'storage/logs/playwright-server.pid');
   try {
+    io.writeFileSync(pidPath, String(child.pid));
     await waitForServer(check, sleep);
   } catch (error) {
     try { terminate(child.pid); } catch { /* may have exited */ }
-    throw new Error(`${error.message}\n${io.readFileSync(logPath, 'utf8').slice(-3000)}`);
+    try { io.unlinkSync(pidPath); } catch (cleanupError) {
+      if (cleanupError.code !== 'ENOENT') throw cleanupError;
+    }
+    const tail = io.readFileSync(logPath, 'utf8').slice(-3000);
+    throw new Error(`${error.message}\n${tail.replaceAll(testPassword, '[REDACTED]').replaceAll(testPfxPassword, '[REDACTED]')}`);
   }
+}
+
+/** Stop only the detached test server recorded by this disposable harness. */
+export function stopServer(core = coreRoot, {
+  io = fs, terminate = pid => process.kill(-pid, 'SIGTERM'),
+} = {}) {
+  const pidPath = path.join(core, 'storage/logs/playwright-server.pid');
+  let raw;
+  try {
+    raw = io.readFileSync(pidPath, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+  if (!/^[1-9]\d*$/.test(raw.trim()) || !Number.isSafeInteger(Number(raw.trim()))) {
+    throw new Error('Invalid Akaunting test server PID.');
+  }
+  try {
+    terminate(Number(raw.trim()));
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+  io.unlinkSync(pidPath);
+  return true;
 }
 
 export async function cli(command, context = { core: coreRoot, module: moduleRoot, env: process.env }) {
   const { core, module, env } = context;
-  const allowed = ['prepare-env', 'provision', 'assets', 'verify-db', 'expose-assets', 'start-server'];
+  const allowed = ['prepare-env', 'provision', 'provision-full-ui', 'provision-bulk-ui', 'assets', 'verify-db', 'expose-assets', 'start-server', 'stop-server'];
   if (!allowed.includes(command)) throw new Error(`Unknown smoke setup command: ${command || '(none)'}`);
   ensureTestingEnvironment(env);
   switch (command) {
     case 'prepare-env': return prepareEnvironment(core);
     case 'provision': return provisionFixtures(core, env);
+    case 'provision-full-ui': return provisionFixtures(core, env, execute, fs, 'full-ui');
+    case 'provision-bulk-ui': return provisionFixtures(core, env, execute, fs, 'bulk-ui');
     case 'assets': return prepareBrowserAssets(core);
     case 'verify-db': return verifyDatabase(core);
     case 'expose-assets': return exposeAssets(core, module);
     case 'start-server': return startServer(core);
+    case 'stop-server': return stopServer(core);
     default: throw new Error(`Unexpected smoke setup command: ${command}`);
   }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  cli(process.argv[2]).catch(error => {
-    console.error(error.message);
+  const command = process.argv[2] || '(none)';
+  const started = Date.now();
+  cli(process.argv[2]).then(() => {
+    console.log(`CI setup ${command} succeeded in ${Date.now() - started}ms`);
+  }).catch(error => {
+    const message = error.message.replaceAll(testPassword, '[REDACTED]').replaceAll(testPfxPassword, '[REDACTED]');
+    console.error(`CI setup ${command} failed after ${Date.now() - started}ms: ${message}`);
     process.exitCode = 1;
   });
 }

@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: CI Infrastructure Lint
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/playwright-*.yml'
+      - '.github/workflows/akaunting-feature.yml'
+      - '.github/workflows/phpunit.yml'
+      - '.github/workflows/frontend-unit.yml'
+      - '.github/workflows/ci-infrastructure-lint.yml'
+      - 'scripts/ci/**'
+      - 'frontend-tests/playwright-smoke-setup.test.mjs'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/playwright-*.yml'
+      - '.github/workflows/akaunting-feature.yml'
+      - '.github/workflows/phpunit.yml'
+      - '.github/workflows/frontend-unit.yml'
+      - '.github/workflows/ci-infrastructure-lint.yml'
+      - 'scripts/ci/**'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Lint workflow expressions and shell commands
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors --max-time 120 --output actionlint_1.7.11_linux_amd64.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.11/actionlint_1.7.11_linux_amd64.tar.gz
+          printf '%s\n' '900919a84f2229bac68ca9cd4103ea297abc35e9689ebb842c6e34a3d1b01b0a  actionlint_1.7.11_linux_amd64.tar.gz' | sha256sum --check
+          tar -xzf actionlint_1.7.11_linux_amd64.tar.gz actionlint
+          ./actionlint -shellcheck "$(command -v shellcheck)" \
+            .github/workflows/playwright-*.yml \
+            .github/workflows/akaunting-feature.yml \
+            .github/workflows/phpunit.yml \
+            .github/workflows/frontend-unit.yml \
+            .github/workflows/ci-infrastructure-lint.yml

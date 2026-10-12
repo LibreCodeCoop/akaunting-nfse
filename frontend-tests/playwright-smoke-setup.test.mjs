@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
-  cli, exposeAssets, fixtureArgs, missingBrowserAssets, parseFixtureVariables,
+  cli, execute, exposeAssets, fixtureArgs, fullUiFixtureArgs, fullUiFixtureFields, bulkUiFixtureArgs, bulkUiFixtureFields, missingBrowserAssets, parseFixtureVariables,
   prepareBrowserAssets, prepareEnvironment, provisionFixtures, requiredAssets,
-  updateDotEnv, verifyDatabase, waitForServer, writeGitHubEnvironment, startServer,
+  updateDotEnv, verifyDatabase, waitForServer, writeGitHubEnvironment, startServer, stopServer,
 } from '../scripts/ci/playwright-smoke.mjs';
 
 const ids = {
@@ -97,6 +98,57 @@ test('fixture provisioning invokes Akaunting and propagates errors before export
   assert.equal(fs.readFileSync(envFile, 'utf8'), '');
 });
 
+test('full UI profile exports ten vetted IDs without leaking secrets', t => {
+  const dir = tmpDir(t);
+  const envFile = path.join(dir, 'github-env');
+  const payload = Object.fromEntries(Object.keys(fullUiFixtureFields).map((key, i) => [key, i + 1]));
+  payload.pfx_password = 'not-for-logs';
+  const calls = [];
+  const runner = (program, args, options) => {
+    calls.push({args, options});
+    return args.includes('nfse:test-harness:provision') ? JSON.stringify(payload) : '';
+  };
+  const env = { APP_ENV: 'testing', DB_CONNECTION: 'sqlite', GITHUB_ENV: envFile };
+  assert.equal(Object.keys(provisionFixtures(dir, env, runner, fs, 'full-ui')).length, 10);
+  assert.deepEqual(calls[1].args, fullUiFixtureArgs);
+  assert.doesNotMatch(fs.readFileSync(envFile, 'utf8'), /password|pfx/i);
+  fs.writeFileSync(envFile, '');
+  delete payload.adn_vendor_id;
+  assert.throws(() => provisionFixtures(dir, env, runner, fs, 'full-ui'), /Missing or invalid fixture ID/);
+  assert.equal(fs.readFileSync(envFile, 'utf8'), '');
+});
+
+test('subprocess failure redacts credentials and never exports IDs', t => {
+  const dir = tmpDir(t);
+  const env = { APP_ENV: 'testing', DB_CONNECTION: 'sqlite', GITHUB_ENV: path.join(dir, 'env') };
+  const error = { stderr: 'NfseE2E!123456 nfse-test-password' };
+  assert.throws(() => provisionFixtures(dir, env, () => { throw error; }),
+    e => e.message.includes('[REDACTED]') && !e.message.includes('NfseE2E!123456') && !e.message.includes('nfse-test-password'));
+  assert.equal(fs.existsSync(env.GITHUB_ENV), false);
+});
+
+test('bulk UI profile validates only two required synthetic invoice IDs', t => {
+  const dir = tmpDir(t);
+  const envFile = path.join(dir, 'github-env');
+  const payload = { bulk_ready_invoice_id: 77, bulk_blocked_invoice_id: 78, pfx_password: 'never-log' };
+  const calls = [];
+  const runner = (command, args, options) => {
+    calls.push({ command, args, options });
+    return args.includes('nfse:test-harness:provision') ? JSON.stringify(payload) : '';
+  };
+  const env = { APP_ENV: 'testing', DB_CONNECTION: 'sqlite', GITHUB_ENV: envFile };
+  assert.deepEqual(provisionFixtures(dir, env, runner, fs, 'bulk-ui'), {
+    NFSE_E2E_BULK_READY_INVOICE_ID: '77', NFSE_E2E_BULK_BLOCKED_INVOICE_ID: '78',
+  });
+  assert.deepEqual(calls[1].args, bulkUiFixtureArgs);
+  assert.deepEqual(Object.keys(bulkUiFixtureFields), ['bulk_ready_invoice_id', 'bulk_blocked_invoice_id']);
+  assert.doesNotMatch(fs.readFileSync(envFile, 'utf8'), /password|pfx/i);
+  fs.writeFileSync(envFile, '');
+  delete payload.bulk_blocked_invoice_id;
+  assert.throws(() => provisionFixtures(dir, env, runner, fs, 'bulk-ui'), /Missing or invalid fixture ID/);
+  assert.equal(fs.readFileSync(envFile, 'utf8'), '');
+});
+
 test('assets are built under Node 20 only when needed and always checked afterward', () => {
   const core = '/fake/akaunting';
   const existing = new Set(requiredAssets.map(asset => path.join(core, asset)));
@@ -152,6 +204,54 @@ test('module assets are exposed via a checked symlink; unrelated paths are never
   assert.throws(() => exposeAssets(core, module), /Refusing to overwrite non-symlink/);
 });
 
+test('failed atomic symlink replacement keeps the original path and cleans staging', t => {
+  const dir = tmpDir(t);
+  const core = path.join(dir, 'core');
+  const parent = path.join(core, 'public/modules');
+  const original = path.join(dir, 'original');
+  const replacement = path.join(dir, 'replacement');
+  for (const module of [original, replacement]) {
+    fs.mkdirSync(path.join(module, 'Resources/assets/js'), { recursive: true });
+    fs.writeFileSync(path.join(module, 'Resources/assets/js/adn-distribution-browser.js'), '');
+  }
+  fs.mkdirSync(parent, { recursive: true });
+  fs.symlinkSync(original, path.join(parent, 'Nfse'));
+  const io = Object.create(fs);
+  io.renameSync = () => { throw new Error('Synthetic atomic rename failure'); };
+  assert.throws(() => exposeAssets(core, replacement, io), /Synthetic atomic rename failure/);
+  assert.equal(fs.readlinkSync(path.join(parent, 'Nfse')), original);
+  assert.deepEqual(fs.readdirSync(parent), ['Nfse']);
+  exposeAssets(core, replacement);
+  assert.equal(fs.readlinkSync(path.join(parent, 'Nfse')), replacement);
+});
+
+test('invalid replacement target preserves the original module symlink', t => {
+  const dir = tmpDir(t);
+  const core = path.join(dir, 'core');
+  const original = path.join(dir, 'original');
+  fs.mkdirSync(path.join(original, 'Resources/assets/js'), { recursive: true });
+  fs.writeFileSync(path.join(original, 'Resources/assets/js/adn-distribution-browser.js'), '');
+  const link = path.join(core, 'public/modules/Nfse');
+  fs.mkdirSync(path.dirname(link), { recursive: true });
+  fs.symlinkSync(original, link);
+  assert.throws(() => exposeAssets(core, path.join(dir, 'missing')), /assets are not accessible/);
+  assert.equal(fs.readlinkSync(link), original);
+});
+
+test('server PID write failure terminates launched child and avoids orphan processes', async t => {
+  const core = tmpDir(t);
+  fs.mkdirSync(path.join(core, 'storage/logs'), { recursive: true });
+  const io = Object.create(fs);
+  io.writeFileSync = () => { throw new Error('Synthetic storage failure'); };
+  let killed = null;
+  await assert.rejects(startServer(core, {
+    io, launch: () => ({ pid: 54321, unref() {} }),
+    check: async () => true, sleep: async () => {},
+    terminate: pid => { killed = pid; },
+  }), /Synthetic storage failure/);
+  assert.equal(killed, 54321);
+});
+
 test('server health probing tolerates startup errors but fails after its bounded retry budget', async () => {
   let attempts = 0;
   const sleeps = [];
@@ -189,6 +289,32 @@ test('server startup preserves fixture environment, writes PID and aborts cleanl
     terminate: pid => terminated.push(pid),
   }), /did not respond after 40 health checks/);
   assert.deepEqual(terminated, [12345]);
+  assert.equal(fs.existsSync(path.join(core, 'storage/logs/playwright-server.pid')), false);
+});
+
+test('server cleanup is idempotent and rejects invalid PID files', t => {
+  const dir = tmpDir(t);
+  const logs = path.join(dir, 'storage/logs');
+  fs.mkdirSync(logs, { recursive: true });
+  const pid = path.join(logs, 'playwright-server.pid');
+  let killed = 0;
+  assert.equal(stopServer(dir), false);
+  fs.writeFileSync(pid, '12345');
+  assert.equal(stopServer(dir, { terminate: n => { assert.equal(n, 12345); killed++; } }), true);
+  assert.equal(stopServer(dir), false);
+  fs.writeFileSync(pid, '-2');
+  assert.throws(() => stopServer(dir), /Invalid Akaunting test server PID/);
+  assert.equal(killed, 1);
+});
+
+test('full UI uses shared setup, compiled-asset cache and cleanup', () => {
+  const file = path.resolve(import.meta.dirname, '../.github/workflows/playwright-full-ui.yml');
+  const workflow = fs.readFileSync(file, 'utf8');
+  for (const command of ['prepare-env', 'provision-full-ui', 'assets', 'verify-db', 'expose-assets', 'start-server', 'stop-server']) {
+    assert.ok(workflow.includes('playwright-smoke.mjs ' + command));
+  }
+  assert.match(workflow, /Cache compiled Akaunting browser assets/);
+  assert.doesNotMatch(workflow, /FIXTURE_JSON|php -r|sed -i/);
 });
 
 test('workflow invokes unit-tested setup commands instead of embedding shell parsing', () => {
@@ -199,6 +325,53 @@ test('workflow invokes unit-tested setup commands instead of embedding shell par
   }
   assert.match(workflow, /node --test frontend-tests\/playwright-smoke-setup\.test\.mjs/);
   assert.doesNotMatch(workflow, /php -r|sed -i|for asset in|for field in|tinker --execute/);
+});
+
+test('bulk UI is scheduled for changes to shared harness and browser contracts', () => {
+  const source = fs.readFileSync(path.resolve(import.meta.dirname, '../.github/workflows/playwright-bulk-ui.yml'), 'utf8');
+  const pullRequest = source.match(/  pull_request:\n    paths:\n((?:      - [^\n]+\n)+)/)?.[1];
+  assert.ok(pullRequest, 'bulk UI must retain a path-scoped pull_request trigger');
+  const globs = [...pullRequest.matchAll(/^      - '([^']+)'$/gm)].map(match => match[1]);
+  for (const changedFile of [
+    'scripts/ci/playwright-smoke.mjs',
+    'frontend-tests/playwright-smoke-setup.test.mjs',
+    'e2e/global-setup.ts',
+    'e2e/support/auth.ts',
+    'playwright.config.ts',
+    'package.json',
+    'package-lock.json',
+    'e2e/nfse-bulk-emission.spec.ts',
+  ]) {
+    assert.ok(globs.some(glob => path.matchesGlob(changedFile, glob)),
+      `A change to ${changedFile} must trigger the deterministic Bulk UI job`);
+  }
+  assert.equal(globs.some(glob => path.matchesGlob('LICENSE', glob)), false);
+});
+
+test('bulk UI workflow calls the tested setup without emitting raw fixture JSON', () => {
+  const file = path.resolve(import.meta.dirname, '../.github/workflows/playwright-bulk-ui.yml');
+  const workflow = fs.readFileSync(file, 'utf8');
+  for (const command of ['prepare-env', 'provision-bulk-ui', 'assets', 'verify-db', 'expose-assets', 'start-server', 'stop-server']) {
+    assert.ok(workflow.includes('playwright-smoke.mjs ' + command));
+  }
+  assert.match(workflow, /Cache compiled Akaunting browser assets/);
+  assert.doesNotMatch(workflow, /FIXTURE_JSON|php -r|sed -i|printf '%s\\n'/);
+});
+
+test('subprocesses have bounded timeouts and CLI failures record stage duration', () => {
+  const options = [];
+  for (const command of ['php', 'npx', 'which']) {
+    execute(command, ['--version'], {}, (_prog, _args, opts) => { options.push(opts); return ''; });
+  }
+  assert.deepEqual(options.map(x => x.timeout), [120_000, 360_000, 15_000]);
+  assert.ok(options.every(x => x.killSignal === 'SIGTERM'));
+  assert.throws(() => execute(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+    timeout: 80, stdio: ['ignore', 'pipe', 'pipe'],
+  }), error => error.code === 'ETIMEDOUT');
+  const script = path.resolve(import.meta.dirname, '../scripts/ci/playwright-smoke.mjs');
+  const failed = spawnSync(process.execPath, [script, 'bad-action'], { encoding: 'utf8' });
+  assert.equal(failed.status, 1);
+  assert.match(failed.stderr, /CI setup bad-action failed after \d+ms: Unknown smoke setup command/);
 });
 
 test('unknown setup subcommands fail closed', async () => {

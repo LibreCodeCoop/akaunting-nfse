@@ -38,6 +38,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: akaunting/akaunting
+          ref: master
           path: akaunting
 
       - name: Checkout NFS-e module
@@ -122,6 +123,7 @@ jobs:
         run: node scripts/ci/playwright-smoke.mjs expose-assets
 
       - name: Start Akaunting
+        id: start_server
         working-directory: akaunting/modules/Nfse
         run: node scripts/ci/playwright-smoke.mjs start-server
 
@@ -133,6 +135,11 @@ jobs:
           NFSE_E2E_EMAIL: nfse-e2e@example.test
           NFSE_E2E_PASSWORD: 'NfseE2E!123456'
         run: npx playwright test --project=smoke
+
+      - name: Stop Akaunting
+        if: ${{ always() && (steps.start_server.outcome == 'success' || steps.start_server.outcome == 'failure') }}
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs stop-server
 
       - name: Upload browser artifacts
         if: failure()
