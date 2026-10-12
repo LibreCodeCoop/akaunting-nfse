@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -11,6 +12,7 @@ import {
   cli, execute, exposeAssets, fixtureArgs, fullUiFixtureArgs, fullUiFixtureFields, bulkUiFixtureArgs, bulkUiFixtureFields, missingBrowserAssets, parseFixtureVariables,
   prepareBrowserAssets, prepareEnvironment, provisionFixtures, requiredAssets,
   updateDotEnv, verifyDatabase, waitForServer, writeGitHubEnvironment, startServer, stopServer,
+  summarizeSmokeProcessRss, sampleSmokeProcessRss, runBrowserSmoke,
 } from '../scripts/ci/playwright-smoke.mjs';
 
 const ids = {
@@ -25,6 +27,40 @@ function tmpDir(t) {
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
+
+test('RSS diagnostics aggregate process names without command lines or secrets', () => {
+  const sample = 'chrome-headless 4096\nchromium 1024\nphp8.3 2048\nnode 512\nother 9999\nmalformed\n';
+  assert.deepEqual(summarizeSmokeProcessRss(sample), { chromium: 5120, php: 2048, node: 512 });
+  assert.deepEqual(sampleSmokeProcessRss(() => sample), { chromium: 5120, php: 2048, node: 512 });
+});
+
+test('Smoke runner collects RSS, enables browser exit logs and preserves failure status', async () => {
+  const output = [];
+  const invocations = [];
+  let code = 0;
+  const launch = (program, args, options) => {
+    invocations.push({ program, args, options });
+    const child = new EventEmitter();
+    queueMicrotask(() => child.emit('close', code, null));
+    return child;
+  };
+  const options = {
+    env: { APP_ENV: 'testing', DB_CONNECTION: 'sqlite', DEBUG: 'other' },
+    launch,
+    sampleRss: () => ({ chromium: 2048, php: 1024, node: 512 }),
+    print: text => output.push(text),
+  };
+  await runBrowserSmoke(options);
+  assert.equal(invocations[0].program, 'npx');
+  assert.deepEqual(invocations[0].args, ['playwright', 'test', '--project=smoke']);
+  assert.equal(invocations[0].options.env.DEBUG, 'other,pw:browser');
+  assert.equal(invocations[0].options.stdio, 'inherit');
+  assert.match(output.join('\n'), /RSS peaks MiB .* 2\/1\/1; samples: 1/);
+  code = 9;
+  await assert.rejects(runBrowserSmoke(options), /exited with code 9/);
+  await assert.rejects(runBrowserSmoke({ ...options, env: { APP_ENV: 'production', DB_CONNECTION: 'sqlite' } }),
+    /requires APP_ENV=testing/);
+});
 
 test('dotenv update replaces exact keys, preserves unrelated keys and does not duplicate values', () => {
   const source = 'APP_URL=http://old.local\nDB_CONNECTION=mysql\nOTHER_DB_CONNECTION=keep\n';

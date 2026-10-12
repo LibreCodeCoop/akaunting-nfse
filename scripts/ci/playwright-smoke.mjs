@@ -317,9 +317,79 @@ export function stopServer(core = coreRoot, {
   return true;
 }
 
+/** Aggregate RSS without recording process arguments, paths or credentials. */
+export function summarizeSmokeProcessRss(output) {
+  const rss = { chromium: 0, php: 0, node: 0 };
+  for (const line of output.split(/\r?\n/)) {
+    const match = /^\s*(\S+)\s+(\d+)\s*$/.exec(line);
+    if (!match) continue;
+    const command = match[1];
+    const group = /^(?:chrome|chromium)/.test(command) ? 'chromium'
+      : /^php(?:\d|$)/.test(command) ? 'php'
+        : command === 'node' ? 'node' : null;
+    if (group) rss[group] += Number(match[2]);
+  }
+  return rss;
+}
+
+export function sampleSmokeProcessRss(run = execFileSync) {
+  const output = run('ps', ['-eo', 'comm=,rss='], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  return summarizeSmokeProcessRss(String(output));
+}
+
+/** Run the unchanged Smoke suite while retaining browser-exit and RSS evidence. */
+export async function runBrowserSmoke({
+  env = process.env, launch = spawn, sampleRss = sampleSmokeProcessRss,
+  print = console.log, intervalMs = 10_000,
+} = {}) {
+  ensureTestingEnvironment(env);
+  const started = Date.now();
+  const peaks = { chromium: 0, php: 0, node: 0 };
+  let samples = 0;
+  let sampleWarning = false;
+  const child = launch('npx', ['playwright', 'test', '--project=smoke'], {
+    cwd: moduleRoot, stdio: 'inherit',
+    env: { ...env, DEBUG: [env.DEBUG, 'pw:browser'].filter(Boolean).join(',') },
+  });
+  const sample = () => {
+    try {
+      const rss = sampleRss();
+      samples++;
+      for (const name of Object.keys(peaks)) {
+        peaks[name] = Math.max(peaks[name], rss[name] ?? 0);
+      }
+      print('Smoke RSS MiB (Chromium/PHP/Node): ' + ['chromium', 'php', 'node']
+        .map(name => Math.round((rss[name] ?? 0) / 1024)).join('/'));
+    } catch {
+      if (!sampleWarning) {
+        sampleWarning = true;
+        print('Smoke RSS sampling unavailable; browser exit diagnostics remain enabled.');
+      }
+    }
+  };
+  sample();
+  const interval = setInterval(sample, intervalMs);
+  interval.unref?.();
+  try {
+    const result = await new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', (code, signal) => resolve({ code, signal }));
+    });
+    if (result.signal) throw new Error('Playwright Smoke ended with signal ' + result.signal);
+    if (result.code !== 0) throw new Error('Playwright Smoke exited with code ' + result.code);
+  } finally {
+    clearInterval(interval);
+    print('Smoke duration ' + (Date.now() - started) +
+      'ms, RSS peaks MiB (Chromium/PHP/Node): ' + ['chromium', 'php', 'node']
+        .map(name => Math.round(peaks[name] / 1024)).join('/') + '; samples: ' + samples);
+  }
+}
+
 export async function cli(command, context = { core: coreRoot, module: moduleRoot, env: process.env }) {
   const { core, module, env } = context;
-  const allowed = ['prepare-env', 'provision', 'provision-full-ui', 'provision-bulk-ui', 'assets', 'verify-db', 'expose-assets', 'start-server', 'stop-server'];
+  const allowed = ['prepare-env', 'provision', 'provision-full-ui', 'provision-bulk-ui', 'assets', 'verify-db', 'expose-assets', 'start-server', 'stop-server', 'run-smoke'];
   if (!allowed.includes(command)) throw new Error(`Unknown smoke setup command: ${command || '(none)'}`);
   ensureTestingEnvironment(env);
   switch (command) {
@@ -332,6 +402,7 @@ export async function cli(command, context = { core: coreRoot, module: moduleRoo
     case 'expose-assets': return exposeAssets(core, module);
     case 'start-server': return startServer(core);
     case 'stop-server': return stopServer(core);
+    case 'run-smoke': return runBrowserSmoke({ env });
     default: throw new Error(`Unexpected smoke setup command: ${command}`);
   }
 }
