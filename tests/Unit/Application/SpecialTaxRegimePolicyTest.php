@@ -67,14 +67,30 @@ final class SpecialTaxRegimePolicyTest extends TestCase
         self::assertTrue($policy->evaluate('0', 2, 1)['can_emit']);
     }
 
-    public function testMeEppNonzeroIsUnsupportedWithoutRegApTribSnRatherThanLegallyForbidden(): void
+    public function testMeEppEveryCodeIsUnsupportedWithoutRequiredRegApTribSn(): void
     {
-        $assessment = (new SpecialTaxRegimePolicy())->evaluate('1', 3, 1, '2026-10-05');
+        $policy = new SpecialTaxRegimePolicy();
 
-        self::assertSame('simples_apuration_not_supported', $assessment['reason']);
+        foreach (SpecialTaxRegimePolicy::OFFICIAL_CODES as $code) {
+            $assessment = $policy->evaluate((string) $code, 3, 1, '2026-10-05');
+            self::assertSame($code, $assessment['code']);
+            self::assertSame('simples_apuration_not_supported', $assessment['reason']);
+            self::assertSame('unsupported', $assessment['state']);
+            self::assertFalse($assessment['can_emit']);
+        }
+    }
+
+    public function testMeEppExplicitNoneIsNotMistakenForLegalIneligibility(): void
+    {
+        $assessment = (new SpecialTaxRegimePolicy())->evaluate('0', 3, 1, '2026-10-05');
+
+        self::assertSame(0, $assessment['code']);
         self::assertSame('unsupported', $assessment['state']);
-        self::assertFalse($assessment['can_emit']);
-        self::assertTrue((new SpecialTaxRegimePolicy())->evaluate('0', 3, 1)['can_emit']);
+        self::assertNotSame('invalid', $assessment['state']);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('simples_apuration_not_supported');
+        (new SpecialTaxRegimePolicy())->forIssuance('0', 3, 1, '2026-10-05');
     }
 
     public function testUndeclaredAndMalformedCodesAreRejectedWithoutCoercion(): void

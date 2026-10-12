@@ -44,6 +44,14 @@ final class SpecialTaxRegimePolicy
             return $this->result($code, 'invalid', false, 'invalid_tax_context');
         }
 
+        if ($simples === 3) {
+            // Annex I E0166 requires regApTribSN for *every* ME/EPP DPS,
+            // including regEspTrib=0. The currently pinned DpsData and
+            // XmlBuilder have no regApTribSN field. Never emit a guaranteed
+            // incomplete DPS, but permit the company to retain its selection.
+            return $this->result($code, 'unsupported', false, 'simples_apuration_not_supported');
+        }
+
         if ($code === 0) {
             return $this->result(0, 'none', true, 'explicit_none');
         }
@@ -56,12 +64,6 @@ final class SpecialTaxRegimePolicy
         if ($simples === 2) {
             // Anexo I, E0174: MEI is not entitled to a nonzero regEspTrib.
             return $this->result($code, 'invalid', false, 'mei_requires_none');
-        }
-
-        if ($simples === 3) {
-            // E0175 depends on regApTribSN, which the installed DPS DTO does not
-            // expose. This is a runtime limitation, NOT a universal legal ban.
-            return $this->result($code, 'unsupported', false, 'simples_apuration_not_supported');
         }
 
         if ($competence !== null && !$this->isValidDate($competence)) {

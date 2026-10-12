@@ -550,7 +550,7 @@ return [
         'special_regime_help' => 'Code 0 (None) is explicit information, not an absent field. Special regimes depend on provider, service, municipality and DPS competence.',
         'special_regime_missing_help' => 'Not specified is not code 0 (None): choose an explicit code before issuance.',
         'special_regime_inapplicable' => 'Only code 0 (None) is valid for this context. Correct any previously selected code explicitly.',
-        'special_regime_simples_unsupported' => 'ME/EPP: nonzero special regimes require ISSQN Simple Nacional apportionment, not supported by this issuer.',
+        'special_regime_simples_unsupported' => 'ME/EPP issuance requires regApTribSN (E0166), even with special regime 0 - None. The current runtime cannot serialize this field. The selection can be saved, but issuance is blocked.',
         'special_regime_selected_invalid' => 'The previously selected special regime is now incompatible. Choose 0 (None) or restore applicable conditions before saving.',
         'special_regime_codes' => [
             '0' => 'None',
@@ -570,7 +570,7 @@ return [
             'invalid_tax_context' => 'Invalid Simples or ISSQN taxation state.',
             'non_taxable_requires_none' => 'Immunity, service exports and ISSQN non-incidence require code 0 (None).',
             'mei_requires_none' => 'MEI must use special regime code 0 (None).',
-            'simples_apuration_not_supported' => 'ME/EPP with a nonzero special regime requires Simples tax apportionment support, which is not available.',
+            'simples_apuration_not_supported' => 'ME/EPP issuance requires regApTribSN (E0166), even with special regime 0 - None. Update the fiscal runtime before issuing.',
         ],
         'issqn_special' => [
             'heading' => 'Municipal ISSQN taxation',

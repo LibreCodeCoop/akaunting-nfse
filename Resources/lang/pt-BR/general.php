@@ -548,7 +548,7 @@ return [
         'special_regime_help' => 'A opção 0 (Nenhum) é informação explícita, não campo ausente. Regimes especiais exigem validação por prestador, serviço, município e competência da DPS.',
         'special_regime_missing_help' => 'Não informado não equivale a 0 (Nenhum): escolha explicitamente um código antes de emitir.',
         'special_regime_inapplicable' => 'Nesse contexto somente 0 (Nenhum) é válido. Se houver seleção anterior, altere-a explicitamente.',
-        'special_regime_simples_unsupported' => 'ME/EPP: regimes especiais diferentes de 0 exigem o regime de apuração do ISSQN no Simples, ainda não suportado neste emissor.',
+        'special_regime_simples_unsupported' => 'A emissão para ME/EPP requer o campo regApTribSN (E0166), inclusive com regime especial 0 - Nenhum. Este runtime ainda não suporta essa informação. A seleção pode ser salva, mas a emissão será bloqueada.',
         'special_regime_selected_invalid' => 'O regime especial anterior tornou-se incompatível. Escolha 0 (Nenhum) ou restaure as condições aplicáveis antes de salvar.',
         'special_regime_codes' => [
             '0' => 'Nenhum',
@@ -568,7 +568,7 @@ return [
             'invalid_tax_context' => 'Situação perante o Simples ou tributação do ISSQN inválida.',
             'non_taxable_requires_none' => 'Para imunidade, exportação ou não incidência do ISSQN o regime especial deve ser 0 (Nenhum).',
             'mei_requires_none' => 'O regime especial do MEI deve ser 0 (Nenhum).',
-            'simples_apuration_not_supported' => 'A emissão de ME/EPP com regime especial não zero exige configuração da apuração do Simples ainda não suportada.',
+            'simples_apuration_not_supported' => 'A emissão de ME/EPP exige informar regApTribSN (E0166), inclusive com regime especial 0 - Nenhum. Atualize o runtime fiscal antes de emitir.',
         ],
         'issqn_special' => [
             'heading' => 'Tributação municipal do ISSQN',

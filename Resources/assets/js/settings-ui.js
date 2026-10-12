@@ -64,7 +64,7 @@
         return {
             canSelectSpecial: available,
             hasIncompatibleSelection: !available && value !== '' && value !== '0',
-            requiresRuntimeReview: option === '3' && taxation === '1' && value !== '' && value !== '0',
+            requiresRuntimeReview: option === '3',
             reason: taxation !== '1' ? 'issqn' : option === '2' ? 'mei' : option === '3' ? 'sn_unsupported' : 'available',
         };
     }

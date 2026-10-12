@@ -165,6 +165,20 @@ final class InvoiceDpsBuilderTest extends TestCase
         self::assertSame('2026-10-05', $special->dataCompetencia);
     }
 
+    public function testMeEppExplicitZeroBlocksBeforeCreatingIncompleteDps(): void
+    {
+        $context = $this->baseContext();
+        $context['opcaoSimplesNacional'] = 3;
+        $context['regimeEspecialTributacao'] = '0';
+
+        // E0166 requires regApTribSN. The pinned runtime has no such DTO
+        // property and may not transmit even when regEspTrib itself is valid.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('simples_apuration_not_supported');
+
+        (new InvoiceDpsBuilder())->build($context);
+    }
+
     public function testSimplesFallbackMatchesTheActualSerializedDefault(): void
     {
         $context = $this->baseContext();
