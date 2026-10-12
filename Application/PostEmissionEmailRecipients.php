@@ -8,136 +8,64 @@ declare(strict_types=1);
 namespace Modules\Nfse\Application;
 
 /**
- * Normalizes one message's SMTP envelope. No invoice, company or global settings
- * are read here: the caller provides only the current invoice's addresses.
+ * One message, one delivery: normalize and deduplicate To, Cc and Bcc.
+ * Addresses are parsed independently by EmailAddressListParser.
  */
 final class PostEmissionEmailRecipients
 {
     private const MAX_RECIPIENTS = 100;
+
+    public function __construct(
+        private readonly EmailAddressListParser $parser = new EmailAddressListParser(),
+    ) {
+    }
 
     /**
      * @return array{to:list<string>,cc:list<string>,bcc:list<string>}
      */
     public function normalize(mixed $to, mixed $cc = null, mixed $bcc = null, ?string $copyToSelf = null): array
     {
-        $recipients = [
-            'to' => $this->parse($to, 'nfse_email_to'),
-            'cc' => $this->parse($cc, 'nfse_email_cc'),
-            'bcc' => $this->parse($bcc, 'nfse_email_bcc'),
+        $groups = [
+            'to' => $this->parser->parse($to, 'nfse_email_to'),
+            'cc' => $this->parser->parse($cc, 'nfse_email_cc'),
+            'bcc' => $this->parser->parse($bcc, 'nfse_email_bcc'),
         ];
 
-        if ($recipients['to'] === []) {
+        if ($groups['to'] === []) {
             throw new \InvalidArgumentException('nfse_email_to');
         }
 
-        if ($copyToSelf !== null && trim($copyToSelf) !== '') {
-            $copy = $this->parse($copyToSelf, 'nfse_email_bcc');
+        if ($copyToSelf !== null && $copyToSelf !== '') {
+            $self = $this->parser->parse($copyToSelf, 'nfse_email_bcc');
 
-            if (count($copy) !== 1) {
+            if (count($self) !== 1) {
                 throw new \InvalidArgumentException('nfse_email_bcc');
             }
 
-            $recipients['bcc'][] = $copy[0];
+            $groups['bcc'][] = $self[0];
         }
 
-        // An address explicitly listed in To is visible. Duplicate addresses
-        // in Cc/Bcc do not trigger extra deliveries or contradict that choice.
         $seen = [];
+        $uniqueGroups = [];
 
-        foreach (['to', 'cc', 'bcc'] as $field) {
-            $unique = [];
+        // Priority To > Cc > Bcc prevents duplicate SMTP envelope recipients.
+        foreach ($groups as $field => $addresses) {
+            $uniqueGroups[$field] = [];
 
-            foreach ($recipients[$field] as $address) {
-                $key = strtolower($address);
-
-                if (isset($seen[$key])) {
+            foreach ($addresses as $address) {
+                if (isset($seen[$address])) {
                     continue;
                 }
 
-                $seen[$key] = true;
-                $unique[] = $address;
+                $uniqueGroups[$field][] = $address;
+                $seen[$address] = true;
             }
-
-            $recipients[$field] = $unique;
         }
 
         if (count($seen) > self::MAX_RECIPIENTS) {
             throw new \InvalidArgumentException('nfse_email_to');
         }
 
-        return $recipients;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function parse(mixed $value, string $field): array
-    {
-        if ($value === null || $value === '') {
-            return [];
-        }
-
-        if (is_object($value) && isset($value->email)) {
-            return $this->parse($value->email, $field);
-        }
-
-        if (is_array($value)) {
-            if (array_key_exists('email', $value)) {
-                return $this->parse($value['email'], $field);
-            }
-
-            $emails = [];
-
-            foreach ($value as $item) {
-                array_push($emails, ...$this->parse($item, $field));
-            }
-
-            return $emails;
-        }
-
-        if (!is_string($value)) {
-            throw new \InvalidArgumentException($field);
-        }
-
-        $value = trim($value);
-
-        if ($value === '') {
-            return [];
-        }
-
-        // Legacy Akaunting select components can serialize selections as JSON.
-        if (str_starts_with($value, '[') || str_starts_with($value, '{')) {
-            $decoded = json_decode($value, true);
-
-            if (!is_array($decoded)) {
-                throw new \InvalidArgumentException($field);
-            }
-
-            return $this->parse($decoded, $field);
-        }
-
-        // Never treat line breaks as address delimiters: SMTP header injection
-        // must be rejected in every input format, including nested arrays.
-        if (preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
-            throw new \InvalidArgumentException($field);
-        }
-
-        $emails = [];
-
-        foreach (preg_split('/[;,]/', $value) ?: [] as $part) {
-            $email = trim($part);
-
-            if ($email === '') {
-                continue;
-            }
-
-            if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-                throw new \InvalidArgumentException($field);
-            }
-
-            $emails[] = strtolower($email);
-        }
-
-        return $emails;
+        return $uniqueGroups;
     }
 }
