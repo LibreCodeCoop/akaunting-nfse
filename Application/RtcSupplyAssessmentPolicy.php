@@ -13,12 +13,11 @@ use Modules\Nfse\Contracts\FiscalDecision;
 use Modules\Nfse\Support\Lc116Code;
 
 /**
- * Calendar-only RTC assessment for one explicitly classified fiscal operation.
+ * Side-effect-free RTC document calendar for one explicitly classified supply.
  *
- * Never infers an operation from commercial descriptions, LC 116 alone,
- * a provider's legal name or a valid XML response. The DFe start date is
- * measured against the taxable event, not the invoice issue or transmission.
- * This is not a tax calculator or a proof that a DPS schema is activated.
+ * The rule does not infer a supply category from the product name, taxpayer,
+ * LC116 number, invoice date, or transport authorization. Payment and tax
+ * calculation rules are separate, as is technical XML capability.
  */
 final class RtcSupplyAssessmentPolicy
 {
@@ -26,17 +25,25 @@ final class RtcSupplyAssessmentPolicy
 
     private const SOURCE_VERSION = 'Ato Conjunto RFB/CGIBS 4/2026 (30/07/2026)';
 
+    private const DECEMBER_START = '2026-12-01';
+    private const SIMPLES_START = '2027-01-01';
+
     /** @var array<string,string> */
-    private const PROVISIONS = [
+    private const SPECIAL_LC116_PROVISIONS = [
+        '0103' => 'art. 1, III, b',
+        '0105' => 'art. 1, III, b',
+        '0109' => 'art. 1, III, b',
+        '1601' => 'art. 1, III, c',
+    ];
+
+    /** @var array<string,string> */
+    private const NON_LC116_PROVISIONS = [
         'digital_platform' => 'art. 1, III, a',
         'non_iss_intangible' => 'art. 1, III, e',
         'condominium_revenue' => 'art. 1, III, f',
         'lease' => 'art. 1, III, g',
         'residual_service' => 'art. 1, III, h',
     ];
-
-    /** @var list<string> */
-    private const DEFERRED_SUBITEMS = ['0103', '0105', '0109', '1601'];
 
     /**
      * @return array{required:?bool,effective_date:?string,provision:?string,reason:string}
@@ -46,31 +53,60 @@ final class RtcSupplyAssessmentPolicy
         $category = trim((string) $context->operationCategory);
 
         if ($category === 'ordinary_lc116') {
-            $service = Lc116Code::normalize($context->lc116Subitem);
-            if (preg_match('/^[0-9]{4}$/D', $service) !== 1) {
+            $rule = $this->ordinaryServiceRule($context->lc116Subitem);
+            if ($rule === null) {
                 return $this->unknown('lc116_subitem_unverifiable');
             }
-
-            $deferred = in_array($service, self::DEFERRED_SUBITEMS, true);
-            $provision = $deferred
-                ? ($service === '1601' ? 'art. 1, III, c' : 'art. 1, III, b')
-                : 'art. 1, III, d';
-            $effective = $deferred ? '2026-12-01' : '2026-10-01';
-        } elseif (isset(self::PROVISIONS[$category])) {
-            $provision = self::PROVISIONS[$category];
-            $effective = '2026-12-01';
         } else {
-            return $this->unknown('operation_category_unverifiable');
+            $provision = self::NON_LC116_PROVISIONS[$category] ?? null;
+            if ($provision === null) {
+                return $this->unknown('operation_category_unverifiable');
+            }
+            $rule = [self::DECEMBER_START, $provision];
         }
 
-        // DPS opSimpNac must be an observed, verified input. The taxpayer's
-        // IBS/CBS payment election does not change the DFe calendar in §1.
-        if (!in_array($context->opcaoSimplesNacional, [1, 2, 3], true)) {
-            return $this->unknown('simples_option_unverifiable', $provision);
+        return $this->applyEffectiveDate($context, $rule[0], $rule[1]);
+    }
+
+    public function assess(FiscalContext $context): FiscalAssessment
+    {
+        $decisions = [$this->calendarDecision($this->schedule($context))];
+
+        if (isset(self::NON_LC116_PROVISIONS[trim((string) $context->operationCategory)])) {
+            $decisions[] = $this->unsupportedModalityDecision();
+        }
+
+        return new FiscalAssessment($context, $decisions);
+    }
+
+    /** @return array{string,string}|null */
+    private function ordinaryServiceRule(?string $subitem): ?array
+    {
+        $service = Lc116Code::normalize($subitem);
+        if ($service === '') {
+            return null;
+        }
+
+        if (isset(self::SPECIAL_LC116_PROVISIONS[$service])) {
+            return [self::DECEMBER_START, self::SPECIAL_LC116_PROVISIONS[$service]];
+        }
+
+        return ['2026-10-01', 'art. 1, III, d'];
+    }
+
+    /**
+     * @return array{required:?bool,effective_date:?string,provision:?string,reason:string}
+     */
+    private function applyEffectiveDate(FiscalContext $context, string $effective, string $provision): array
+    {
+        // Unknown is never the same as non-optant. Separate IBS/CBS payment
+        // elections do not silently change the document calendar of §1.
+        if ($context->opcaoSimplesNacional === null) {
+            return $this->unknown('simples_option_unverifiable', $provision, $effective);
         }
 
         if (in_array($context->opcaoSimplesNacional, [2, 3], true)) {
-            $effective = '2027-01-01';
+            $effective = self::SIMPLES_START;
             $provision .= ' and art. 1, §1';
         }
 
@@ -78,8 +114,6 @@ final class RtcSupplyAssessmentPolicy
             return $this->unknown('taxable_event_date_unverifiable', $provision, $effective);
         }
 
-        // The Ato applies to taxable events occurring from the boundary,
-        // inclusively; competence is a separate, independent fact.
         $required = $context->taxableEventDate->format('Y-m-d') >= $effective;
 
         return [
@@ -91,17 +125,57 @@ final class RtcSupplyAssessmentPolicy
     }
 
     /**
-     * Produces typed, source-backed *diagnostics*, not issuance permission.
-     * A required document still needs a separate check of its actual IBS/CBS
-     * information, and protocol activation belongs to the transport package.
+     * @param array{required:?bool,effective_date:?string,provision:?string,reason:string} $schedule
      */
-    public function assess(FiscalContext $context): FiscalAssessment
+    private function calendarDecision(array $schedule): FiscalDecision
     {
-        $schedule = $this->schedule($context);
         $required = $schedule['required'];
-        $knownProvision = $schedule['provision'] !== null;
+        $knownSource = $schedule['provision'] !== null;
 
-        $field = match ($schedule['reason']) {
+        // Unknown inputs and uninspected XML cannot prove an infraction.
+        // The final preflight (#429) will test the actual fields before POST.
+        return new FiscalDecision(
+            ruleId: 'rtc.dfe.nfse.calendar',
+            category: 'normative',
+            status: $required === false ? 'not_applicable' : 'unverifiable',
+            severity: $required === false ? 'info' : 'warn',
+            sourceUrl: $knownSource ? self::SOURCE_URL : null,
+            sourceProvision: $schedule['provision'],
+            sourceVersion: $knownSource ? self::SOURCE_VERSION : null,
+            sourcePublishedAt: $knownSource ? new \DateTimeImmutable('2026-07-31') : null,
+            effectiveFrom: $schedule['effective_date'] !== null
+                ? new \DateTimeImmutable($schedule['effective_date'])
+                : null,
+            effectiveUntil: null,
+            fieldPath: $this->fieldForReason($schedule['reason']),
+            correctionCode: $required === true
+                ? 'verify_required_ibscbs_document_fields'
+                : ($required === null ? $schedule['reason'] : null),
+        );
+    }
+
+    private function unsupportedModalityDecision(): FiscalDecision
+    {
+        // A known legal date cannot make the current LC116 DPS serializable.
+        return new FiscalDecision(
+            ruleId: 'rtc.dfe.nfse.modality',
+            category: 'protocol',
+            status: 'unsupported',
+            severity: 'block',
+            sourceUrl: null,
+            sourceProvision: null,
+            sourceVersion: null,
+            sourcePublishedAt: null,
+            effectiveFrom: null,
+            effectiveUntil: null,
+            fieldPath: 'operationCategory',
+            correctionCode: 'unsupported_current_lc116_dps_modality',
+        );
+    }
+
+    private function fieldForReason(string $reason): ?string
+    {
+        return match ($reason) {
             'operation_category_unverifiable' => 'operationCategory',
             'lc116_subitem_unverifiable' => 'lc116Subitem',
             'simples_option_unverifiable' => 'opcaoSimplesNacional',
@@ -109,50 +183,6 @@ final class RtcSupplyAssessmentPolicy
             'document_obligation_started' => 'ibsCbs',
             default => null,
         };
-
-        $decisions = [
-            new FiscalDecision(
-                ruleId: 'rtc.dfe.nfse.calendar',
-                category: 'normative',
-                // Calendar applicability alone cannot prove a compliant XML.
-                status: $required === false ? 'not_applicable' : 'unverifiable',
-                severity: $required === false ? 'info' : 'block',
-                sourceUrl: $knownProvision ? self::SOURCE_URL : null,
-                sourceProvision: $schedule['provision'],
-                sourceVersion: $knownProvision ? self::SOURCE_VERSION : null,
-                sourcePublishedAt: $knownProvision ? new \DateTimeImmutable('2026-07-31') : null,
-                effectiveFrom: $schedule['effective_date'] !== null
-                    ? new \DateTimeImmutable($schedule['effective_date'])
-                    : null,
-                effectiveUntil: null,
-                fieldPath: $field,
-                correctionCode: $required === true
-                    ? 'verify_required_ibscbs_document_fields'
-                    : ($required === null ? $schedule['reason'] : null),
-            ),
-        ];
-
-        $category = trim((string) $context->operationCategory);
-        if (isset(self::PROVISIONS[$category])) {
-            // Current module's LC116 DPS route cannot represent these
-            // modalities. This is a technical limit, NOT a legal exemption.
-            $decisions[] = new FiscalDecision(
-                ruleId: 'rtc.dfe.nfse.modality',
-                category: 'protocol',
-                status: 'unsupported',
-                severity: 'block',
-                sourceUrl: null,
-                sourceProvision: null,
-                sourceVersion: null,
-                sourcePublishedAt: null,
-                effectiveFrom: null,
-                effectiveUntil: null,
-                fieldPath: 'operationCategory',
-                correctionCode: 'unsupported_current_lc116_dps_modality',
-            );
-        }
-
-        return new FiscalAssessment($context, $decisions);
     }
 
     /**
