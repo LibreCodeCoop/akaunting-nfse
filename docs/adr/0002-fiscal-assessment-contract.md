@@ -30,7 +30,11 @@ encode no legislation, formula, municipal rate or emission strategy.
 ## Time and evidence
 
 The context carries **both** the taxable-event date and service-competence
-date. A decision names its stable rule ID, category, outcome, severity, primary
+date. Neither date, tax regime, transaction category, taker type nor gross
+amount is fabricated when unavailable: `null` means the fact cannot yet
+be verified. The tax-fact list likewise distinguishes `null` (not
+loaded/unknown) from an observed empty list, and a monetary zero from an
+unavailable monetary amount. A decision names its stable rule ID, category, outcome, severity, primary
 source URL/provision/version, source publication date, applicability interval,
 optional affected field, corrective-action code and observed/expected values
 in integer cents. Jurisdiction and taxpayer facts must be supplied explicitly;

@@ -72,6 +72,83 @@ final class FiscalAssessmentContractTest extends TestCase
         // Rule applicability (including the payment-value exemption) belongs to #428/#432.
     }
 
+    public function testUnverifiableInputFactsAreNotReplacedWithDefaults(): void
+    {
+        $unknown = new FiscalContext(
+            companyId: 31,
+            fiscalGroupKey: 'synthetic-unknown',
+            taxableEventDate: null,
+            competenceDate: null,
+            providerRegime: null,
+            operationCategory: null,
+            lc116Subitem: null,
+            nationalTaxCode: null,
+            nbsCode: null,
+            incidenceMunicipalityIbge: null,
+            takerType: null,
+            takerMunicipalityIbge: null,
+            takerCountryIso2: null,
+            takerIsSimples: null,
+            grossServiceCents: null,
+        );
+
+        self::assertNull($unknown->taxableEventDate);
+        self::assertNull($unknown->competenceDate);
+        self::assertNull($unknown->providerRegime);
+        self::assertNull($unknown->operationCategory);
+        self::assertNull($unknown->takerType);
+        self::assertNull($unknown->grossServiceCents);
+        self::assertNull($unknown->taxFacts);
+    }
+
+    public function testKnownEmptyTaxRowsAreNotUnloadedTaxRows(): void
+    {
+        $unknown = new FiscalContext(
+            companyId: 31,
+            fiscalGroupKey: 'synthetic-unknown-taxes',
+            taxableEventDate: null,
+            competenceDate: null,
+            providerRegime: null,
+            operationCategory: null,
+            lc116Subitem: null,
+            nationalTaxCode: null,
+            nbsCode: null,
+            incidenceMunicipalityIbge: null,
+            takerType: null,
+            takerMunicipalityIbge: null,
+            takerCountryIso2: null,
+            takerIsSimples: null,
+            grossServiceCents: 0,
+            taxFacts: [],
+        );
+
+        self::assertSame([], $unknown->taxFacts);
+        self::assertSame(0, $unknown->grossServiceCents);
+    }
+
+    public function testNegativeGrossAmountIsNotSilentlyNormalisedToZero(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new FiscalContext(
+            companyId: 31,
+            fiscalGroupKey: 'synthetic-negative',
+            taxableEventDate: null,
+            competenceDate: null,
+            providerRegime: null,
+            operationCategory: null,
+            lc116Subitem: null,
+            nationalTaxCode: null,
+            nbsCode: null,
+            incidenceMunicipalityIbge: null,
+            takerType: null,
+            takerMunicipalityIbge: null,
+            takerCountryIso2: null,
+            takerIsSimples: null,
+            grossServiceCents: -1,
+        );
+    }
+
     public function testUnknownTaxIdentityIsNotGuessedFromAccountingType(): void
     {
         $tax = new FiscalTaxFact(1001, null, null, 'withholding', 125, null, null);
