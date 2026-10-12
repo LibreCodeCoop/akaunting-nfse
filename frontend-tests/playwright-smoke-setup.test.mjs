@@ -7,9 +7,9 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
-  cli, exposeAssets, fixtureArgs, missingBrowserAssets, parseFixtureVariables,
+  cli, exposeAssets, fixtureArgs, fullUiFixtureArgs, fullUiFixtureFields, missingBrowserAssets, parseFixtureVariables,
   prepareBrowserAssets, prepareEnvironment, provisionFixtures, requiredAssets,
-  updateDotEnv, verifyDatabase, waitForServer, writeGitHubEnvironment, startServer,
+  updateDotEnv, verifyDatabase, waitForServer, writeGitHubEnvironment, startServer, stopServer,
 } from '../scripts/ci/playwright-smoke.mjs';
 
 const ids = {
@@ -95,6 +95,35 @@ test('fixture provisioning invokes Akaunting and propagates errors before export
   fs.writeFileSync(envFile, '');
   assert.throws(() => provisionFixtures(directory, env, () => '{not json'), /not valid JSON/);
   assert.equal(fs.readFileSync(envFile, 'utf8'), '');
+});
+
+test('full UI profile exports ten vetted IDs without leaking secrets', t => {
+  const dir = tmpDir(t);
+  const envFile = path.join(dir, 'github-env');
+  const payload = Object.fromEntries(Object.keys(fullUiFixtureFields).map((key, i) => [key, i + 1]));
+  payload.pfx_password = 'not-for-logs';
+  const calls = [];
+  const runner = (program, args, options) => {
+    calls.push({args, options});
+    return args.includes('nfse:test-harness:provision') ? JSON.stringify(payload) : '';
+  };
+  const env = { APP_ENV: 'testing', DB_CONNECTION: 'sqlite', GITHUB_ENV: envFile };
+  assert.equal(Object.keys(provisionFixtures(dir, env, runner, fs, 'full-ui')).length, 10);
+  assert.deepEqual(calls[1].args, fullUiFixtureArgs);
+  assert.doesNotMatch(fs.readFileSync(envFile, 'utf8'), /password|pfx/i);
+  fs.writeFileSync(envFile, '');
+  delete payload.adn_vendor_id;
+  assert.throws(() => provisionFixtures(dir, env, runner, fs, 'full-ui'), /Missing or invalid fixture ID/);
+  assert.equal(fs.readFileSync(envFile, 'utf8'), '');
+});
+
+test('subprocess failure redacts credentials and never exports IDs', t => {
+  const dir = tmpDir(t);
+  const env = { APP_ENV: 'testing', DB_CONNECTION: 'sqlite', GITHUB_ENV: path.join(dir, 'env') };
+  const error = { stderr: 'NfseE2E!123456 nfse-test-password' };
+  assert.throws(() => provisionFixtures(dir, env, () => { throw error; }),
+    e => e.message.includes('[REDACTED]') && !e.message.includes('NfseE2E!123456') && !e.message.includes('nfse-test-password'));
+  assert.equal(fs.existsSync(env.GITHUB_ENV), false);
 });
 
 test('assets are built under Node 20 only when needed and always checked afterward', () => {
@@ -189,6 +218,32 @@ test('server startup preserves fixture environment, writes PID and aborts cleanl
     terminate: pid => terminated.push(pid),
   }), /did not respond after 40 health checks/);
   assert.deepEqual(terminated, [12345]);
+  assert.equal(fs.existsSync(path.join(core, 'storage/logs/playwright-server.pid')), false);
+});
+
+test('server cleanup is idempotent and rejects invalid PID files', t => {
+  const dir = tmpDir(t);
+  const logs = path.join(dir, 'storage/logs');
+  fs.mkdirSync(logs, { recursive: true });
+  const pid = path.join(logs, 'playwright-server.pid');
+  let killed = 0;
+  assert.equal(stopServer(dir), false);
+  fs.writeFileSync(pid, '12345');
+  assert.equal(stopServer(dir, { terminate: n => { assert.equal(n, 12345); killed++; } }), true);
+  assert.equal(stopServer(dir), false);
+  fs.writeFileSync(pid, '-2');
+  assert.throws(() => stopServer(dir), /Invalid Akaunting test server PID/);
+  assert.equal(killed, 1);
+});
+
+test('full UI uses shared setup, compiled-asset cache and cleanup', () => {
+  const file = path.resolve(import.meta.dirname, '../.github/workflows/playwright-full-ui.yml');
+  const workflow = fs.readFileSync(file, 'utf8');
+  for (const command of ['prepare-env', 'provision-full-ui', 'assets', 'verify-db', 'expose-assets', 'start-server', 'stop-server']) {
+    assert.ok(workflow.includes('playwright-smoke.mjs ' + command));
+  }
+  assert.match(workflow, /Cache compiled Akaunting browser assets/);
+  assert.doesNotMatch(workflow, /FIXTURE_JSON|php -r|sed -i/);
 });
 
 test('workflow invokes unit-tested setup commands instead of embedding shell parsing', () => {
