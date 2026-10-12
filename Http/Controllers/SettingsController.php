@@ -107,6 +107,10 @@ class SettingsController extends Controller
         ];
 
         foreach (['bao_token' => 'token', 'bao_role_id' => 'roleId', 'bao_secret_id' => 'secretId'] as $field => $key) {
+            if (($mode === 'token' && $key !== 'token') || ($mode === 'approle' && $key === 'token')) {
+                continue;
+            }
+
             $raw = trim((string) ($data[$field] ?? ''));
             $clear = $key === 'token' ? 'clear_bao_token' : ($key === 'secretId' ? 'clear_bao_secret_id' : null);
             if ($raw !== '' || ($clear !== null && filter_var($data[$clear] ?? false, FILTER_VALIDATE_BOOL))) {
@@ -115,7 +119,7 @@ class SettingsController extends Controller
         }
 
         try {
-            (new GlobalVaultSettings())->save($input);
+            $this->saveGlobalVaultSettings($input);
         } catch (\InvalidArgumentException) {
             return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
                 ->with('error', 'Vault configuration is incomplete.');
@@ -123,6 +127,16 @@ class SettingsController extends Controller
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
             ->with('success', trans('nfse::general.vault_saved_continue'));
+    }
+
+    /**
+     * Override at the HTTP-controller boundary for isolated unit tests.
+     *
+     * @param array<string, mixed> $input
+     */
+    protected function saveGlobalVaultSettings(array $input): void
+    {
+        (new GlobalVaultSettings())->save($input);
     }
 
     public function diagnoseVault(VaultDiagnostics $diagnostics): JsonResponse

@@ -45,7 +45,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([
                 'cnpj_prestador' => '12345678000190',
                 'uf' => 'RJ',
-            ], $response->data['settings'] ?? []);
+            ], array_diff_key($response->data['settings'] ?? [], array_flip(['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'])));
             self::assertSame('12345678000190', $response->data['certificateState']['cnpj'] ?? null);
             self::assertSame($localCertificatePath, $response->data['certificateState']['local_path'] ?? null);
             self::assertTrue($response->data['certificateState']['has_local_certificate'] ?? false);
@@ -61,7 +61,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $response = (new SettingsController())->edit();
 
             self::assertSame('nfse::settings.edit', $response->name);
-            self::assertSame([], $response->data['settings'] ?? []);
+            self::assertSame([], array_diff_key($response->data['settings'] ?? [], array_flip(['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'])));
             self::assertSame('', $response->data['certificateState']['cnpj'] ?? null);
             self::assertSame('', $response->data['certificateState']['local_path'] ?? null);
             self::assertFalse($response->data['certificateState']['has_local_certificate'] ?? true);
@@ -83,7 +83,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame([
                 'cnpj_prestador' => '98765432000199',
                 'uf' => 'SP',
-            ], $response->data['settings'] ?? []);
+            ], array_diff_key($response->data['settings'] ?? [], array_flip(['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'])));
             self::assertSame('98765432000199', $response->data['certificateState']['cnpj'] ?? null);
             self::assertSame(storage_path('app/nfse/pfx/98765432000199.pfx'), $response->data['certificateState']['local_path'] ?? null);
             self::assertFalse($response->data['certificateState']['has_local_certificate'] ?? true);
@@ -91,7 +91,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
         }
 
-        public function testEditDetectsAuthModeAsAppRoleWhenTokenAndAppRoleAreBothConfigured(): void
+        public function testEditIgnoresCompanyScopedAppRoleCredentials(): void
         {
             ControllerIsolationState::reset();
             ControllerIsolationState::$settings = [
@@ -102,12 +102,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = (new SettingsController())->edit();
 
-            self::assertSame('approle', $response->data['vaultUiState']['auth_mode'] ?? null);
-            self::assertTrue($response->data['vaultUiState']['token_configured'] ?? false);
-            self::assertTrue($response->data['vaultUiState']['approle_complete'] ?? false);
+            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
+            self::assertFalse($response->data['vaultUiState']['token_configured'] ?? true);
+            self::assertFalse($response->data['vaultUiState']['approle_complete'] ?? true);
         }
 
-        public function testEditDetectsAuthModeAsTokenWhenOnlyTokenIsConfigured(): void
+        public function testEditIgnoresCompanyScopedTokenCredentials(): void
         {
             ControllerIsolationState::reset();
             ControllerIsolationState::$settings = [
@@ -118,8 +118,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $response = (new SettingsController())->edit();
 
-            self::assertSame('token', $response->data['vaultUiState']['auth_mode'] ?? null);
-            self::assertTrue($response->data['vaultUiState']['token_configured'] ?? false);
+            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
+            self::assertFalse($response->data['vaultUiState']['token_configured'] ?? true);
             self::assertFalse($response->data['vaultUiState']['approle_complete'] ?? true);
         }
 
@@ -1403,12 +1403,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         // ── updateVault ─────────────────────────────────────────────────────
 
-        public function testUpdateVaultSavesVaultSettingsAndRedirectsToVaultTab(): void
+        public function testUpdateVaultDelegatesTokenModeToGlobalPersistenceWithoutCompanyWrites(): void
         {
             ControllerIsolationState::reset();
 
             $request = new Request(
                 inputs: [
+                    'auth_mode_ui' => 'token',
                     'nfse' => [
                         'bao_addr'  => 'http://openbao:8200',
                         'bao_mount' => '/nfse',
@@ -1417,25 +1418,35 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new SettingsController())->updateVault($request);
+            $controller = new class () extends SettingsController {
+                /** @var array<string, mixed> */
+                public array $savedGlobal = [];
+
+                protected function saveGlobalVaultSettings(array $input): void
+                {
+                    $this->savedGlobal = $input;
+                }
+            };
+
+            $response = $controller->updateVault($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.settings.edit', $response->route);
             self::assertSame(['tab' => 'vault'], $response->parameters[0] ?? null);
             self::assertSame('nfse::general.vault_saved_continue', $response->flash['success'] ?? null);
-            self::assertSame('http://openbao:8200', ControllerIsolationState::$settings['nfse.bao_addr'] ?? null);
-            self::assertSame('/nfse', ControllerIsolationState::$settings['nfse.bao_mount'] ?? null);
-            self::assertSame('dev-only-root-token', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
+            self::assertSame(['addr' => 'http://openbao:8200', 'mount' => '/nfse', 'auth_mode' => 'token', 'token' => 'dev-only-root-token'], $controller->savedGlobal);
+            self::assertArrayNotHasKey('nfse.bao_addr', ControllerIsolationState::$settings);
             self::assertArrayNotHasKey('nfse.cnpj_prestador', ControllerIsolationState::$settings);
         }
 
-        public function testUpdateVaultWithAppRoleSavesRoleIdAndSecretId(): void
+        public function testUpdateVaultDelegatesAppRoleModeToGlobalPersistenceWithoutCompanyWrites(): void
         {
             ControllerIsolationState::reset();
 
             $request = new Request(
                 inputs: [
+                    'auth_mode_ui' => 'approle',
                     'nfse' => [
                         'bao_addr'      => 'https://vault.example.com',
                         'bao_mount'     => 'nfse',
@@ -1445,16 +1456,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new SettingsController())->updateVault($request);
+            $controller = new class () extends SettingsController {
+                /** @var array<string, mixed> */
+                public array $savedGlobal = [];
+
+                protected function saveGlobalVaultSettings(array $input): void
+                {
+                    $this->savedGlobal = $input;
+                }
+            };
+
+            $response = $controller->updateVault($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
             self::assertSame('nfse.settings.edit', $response->route);
             self::assertSame('nfse::general.vault_saved_continue', $response->flash['success'] ?? null);
-            self::assertSame('https://vault.example.com', ControllerIsolationState::$settings['nfse.bao_addr'] ?? null);
-            self::assertSame('/nfse', ControllerIsolationState::$settings['nfse.bao_mount'] ?? null);
-            self::assertSame('my-role', ControllerIsolationState::$settings['nfse.bao_role_id'] ?? null);
-            self::assertSame('my-secret', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? null);
-            self::assertArrayNotHasKey('nfse.bao_token', ControllerIsolationState::$settings);
+            self::assertSame(['addr' => 'https://vault.example.com', 'mount' => '/nfse', 'auth_mode' => 'approle', 'roleId' => 'my-role', 'secretId' => 'my-secret'], $controller->savedGlobal);
+            self::assertArrayNotHasKey('nfse.bao_addr', ControllerIsolationState::$settings);
         }
 
         public function testUpdateVaultWithTokenModeClearsStaleAppRoleCredentials(): void
@@ -1481,12 +1499,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new SettingsController())->updateVault($request);
+            $controller = new class () extends SettingsController {
+                /** @var array<string, mixed> */
+                public array $savedGlobal = [];
+
+                protected function saveGlobalVaultSettings(array $input): void
+                {
+                    $this->savedGlobal = $input;
+                }
+            };
+
+            $response = $controller->updateVault($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
-            self::assertSame('my-new-token', ControllerIsolationState::$settings['nfse.bao_token'] ?? null);
-            self::assertSame('', ControllerIsolationState::$settings['nfse.bao_role_id'] ?? 'NOT_SET');
-            self::assertSame('', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? 'NOT_SET');
+            self::assertSame('my-new-token', $controller->savedGlobal['token'] ?? null);
+            self::assertArrayNotHasKey('roleId', $controller->savedGlobal);
+            self::assertArrayNotHasKey('secretId', $controller->savedGlobal);
+            self::assertSame('old-role', ControllerIsolationState::$settings['nfse.bao_role_id']);
         }
 
         public function testUpdateVaultWithAppRoleModeClearsStaleTokenCredential(): void
@@ -1510,12 +1539,23 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ],
             );
 
-            $response = (new SettingsController())->updateVault($request);
+            $controller = new class () extends SettingsController {
+                /** @var array<string, mixed> */
+                public array $savedGlobal = [];
+
+                protected function saveGlobalVaultSettings(array $input): void
+                {
+                    $this->savedGlobal = $input;
+                }
+            };
+
+            $response = $controller->updateVault($request);
 
             self::assertInstanceOf(RedirectResponse::class, $response);
-            self::assertSame('my-role', ControllerIsolationState::$settings['nfse.bao_role_id'] ?? null);
-            self::assertSame('my-secret', ControllerIsolationState::$settings['nfse.bao_secret_id'] ?? null);
-            self::assertSame('', ControllerIsolationState::$settings['nfse.bao_token'] ?? 'NOT_SET');
+            self::assertSame('my-role', $controller->savedGlobal['roleId'] ?? null);
+            self::assertSame('my-secret', $controller->savedGlobal['secretId'] ?? null);
+            self::assertArrayNotHasKey('token', $controller->savedGlobal);
+            self::assertSame('old-token', ControllerIsolationState::$settings['nfse.bao_token']);
         }
 
         // ── updateFiscal ─────────────────────────────────────────────────────
