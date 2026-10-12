@@ -7,8 +7,8 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Unit\Support;
 
-use Modules\Nfse\Support\VaultDiagnosticTransport;
 use Modules\Nfse\Support\VaultDiagnostics;
+use Modules\Nfse\Support\VaultDiagnosticTransport;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -79,7 +79,8 @@ final class TenantVaultCapabilitiesTest extends TestCase
         self::assertSame(['secret/data/pfx/__nfse_capability_probe__'], $transport->checkedPaths);
 
         $specific = (new VaultDiagnostics($transport))->checkCertificatePath(
-            self::configuration(), 'pfx/companies/21/' . str_repeat('a', 32),
+            self::configuration(),
+            'pfx/companies/21/' . str_repeat('a', 32),
         );
         self::assertSame('failed', $specific['state']);
         self::assertSame('insufficient_capabilities', $specific['reason']);
@@ -89,7 +90,8 @@ final class TenantVaultCapabilitiesTest extends TestCase
     {
         $transport = new TenantVaultTransport(['root']);
         $result = (new VaultDiagnostics($transport))->checkCertificatePath(
-            self::configuration(), 'pfx/../other-company',
+            self::configuration(),
+            'pfx/../other-company',
         );
         self::assertSame('invalid_certificate_path', $result['reason']);
         self::assertSame([], $transport->checkedPaths);

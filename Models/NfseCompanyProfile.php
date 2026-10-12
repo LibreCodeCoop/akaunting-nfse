@@ -13,6 +13,16 @@ use Modules\Nfse\Support\NfseCompanyCertificatePath;
 /**
  * One backend NFS-e configuration for an existing Akaunting company.
  * Not a substitute for its native company registration or its fiscal history.
+ *
+ * @property int $company_id
+ * @property string $status
+ * @property string|null $certificate_ref
+ * @property string|null $staged_certificate_ref
+ * @property string|null $certificate_cnpj
+ * @property string|null $certificate_fingerprint_sha256
+ * @property int|null $certificate_valid_from
+ * @property int|null $certificate_valid_to
+ * @property array<string,mixed>|null $fiscal_parameters
  */
 final class NfseCompanyProfile extends Model
 {
