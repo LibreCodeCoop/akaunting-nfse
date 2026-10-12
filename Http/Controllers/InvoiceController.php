@@ -33,6 +33,7 @@ use Modules\Nfse\Application\IssqnPayloadResolver;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\IssueInvoiceNfse;
 use Modules\Nfse\Application\OfficialIssuanceRejection;
+use Modules\Nfse\Application\MunicipalIssuanceBlocked;
 use Modules\Nfse\Application\PostEmissionDispatcher;
 use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Application\ReceiptNumberResolver;
@@ -726,6 +727,13 @@ class InvoiceController extends Controller
                     $request,
                     redirect()->route('invoices.show', $invoice)->with('success', $message),
                 );
+            } catch (MunicipalIssuanceBlocked $e) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)
+                        ->with('error', trans('nfse::general.nfse_emit_failed'))
+                        ->with('nfse_gateway_error_detail', $e->getMessage()),
+                );
             } catch (SecretStoreException) {
                 return $this->ajaxAwareRedirect(
                     $request,
@@ -810,6 +818,10 @@ class InvoiceController extends Controller
                     : (new IssueInvoiceNfse())->issue($client, $dps),
             );
             $persistedReceipt = $issuance['receipt'];
+        } catch (MunicipalIssuanceBlocked $e) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_emit_failed'))
+                ->with('nfse_gateway_error_detail', $e->getMessage()));
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));
@@ -1422,6 +1434,10 @@ class InvoiceController extends Controller
                 transmit: fn (): ReceiptData => (new IssueInvoiceNfse())->issue($client, $dps),
             );
             $persistedReceipt = $issuance['receipt'];
+        } catch (MunicipalIssuanceBlocked $e) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_reemit_failed'))
+                ->with('nfse_gateway_error_detail', $e->getMessage()));
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.nfse_secret_store_failed')));

@@ -96,7 +96,7 @@ final class EmissionAttemptJournal
                 }
                 $assessment = $this->municipalPreflight->evaluate($invoice, $dps, $groupKey);
                 if (!$assessment['can_attempt']) {
-                    throw new \LogicException('Municipal issuance preflight blocked: ' . $assessment['reason']);
+                    throw new MunicipalIssuanceBlocked('Municipal issuance preflight blocked: ' . $assessment['reason']);
                 }
 
                 $remote = $transmit !== null
@@ -227,7 +227,7 @@ final class EmissionAttemptJournal
                     && (string) ($previous->official_code ?? '') === 'E0312'
                     && in_array((int) ($previous->http_status ?? 0), [400, 422], true)
                     && hash_equals((string) $previous->payload_fingerprint, $fingerprint)) {
-                    throw new \LogicException('SEFIN E0312 already rejected this exact DPS; review its fiscal context.');
+                    throw new MunicipalIssuanceBlocked('SEFIN E0312 already rejected this exact DPS; review its fiscal context.');
                 }
 
                 if (in_array((string) $previous->status, [self::PENDING, self::AMBIGUOUS, self::AUTHORIZED], true)) {
