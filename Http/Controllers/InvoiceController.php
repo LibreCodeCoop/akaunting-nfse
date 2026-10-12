@@ -605,7 +605,9 @@ class InvoiceController extends Controller
             $invoice,
             $selectedDocumentItemIds,
             $serviceAmount,
-            $itemFiscalProfile['aliquota'] ?? null,
+            null,
+            (string) ($emissionProfile['codigo_tributacao_nacional'] ?? ''),
+            $this->competenceDate($invoice),
         );
         $ibsCbsPayload = $this->ibsCbsPayloadValues();
         if ($ibsCbsPayload['enabled'] && !(new \Modules\Nfse\Support\NbsEmissionReadiness())->valid((string) ($emissionProfile['codigo_nbs'] ?? ''), true)) {
@@ -1274,8 +1276,15 @@ class InvoiceController extends Controller
         $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
         $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $serviceAmount = $this->invoiceServiceAmount($invoice);
-        $federalPayload = $this->federalPayloadValues($invoice, null, $serviceAmount);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
+        $federalPayload = $this->federalPayloadValues(
+            $invoice,
+            null,
+            $serviceAmount,
+            null,
+            (string) ($itemFiscalProfile['codigo_tributacao_nacional'] ?? ''),
+            $this->competenceDate($invoice),
+        );
         if (($itemFiscalProfile['requires_split'] ?? false) === true) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.reemit_requires_separate_fiscal_groups')));
@@ -3471,12 +3480,16 @@ class InvoiceController extends Controller
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
         mixed $municipalPercentFallback = null,
+        string $nationalServiceCode = '',
+        string $competenceDate = '',
     ): array {
         return $this->invoiceFederalPayloadResolver()->resolve(
             $invoice,
             $documentItemIds,
             $amountOverride,
             $municipalPercentFallback,
+            $nationalServiceCode,
+            $competenceDate,
         );
     }
 
