@@ -5189,12 +5189,16 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     ?array $documentItemIds = null,
                     ?float $amountOverride = null,
                     mixed $municipalPercentFallback = null,
+                    string $nationalServiceCode = '',
+                    string $competenceDate = '',
                 ): array {
                     return array_merge(parent::federalPayloadValues(
                         $invoice,
                         $documentItemIds,
                         $amountOverride,
                         $municipalPercentFallback,
+                        $nationalServiceCode,
+                        $competenceDate,
                     ), [
                         'federalPiscofinsTipoRetencao' => '4',
                         'federalValorCsll' => '1149.75',
