@@ -35,6 +35,10 @@ final class ScopedDanfseArtifactFlowTest extends FeatureTestCase
         $fixture = file_get_contents(__DIR__ . '/../../tests/fixtures/nfse_exemplo.xml');
         self::assertIsString($fixture);
 
+        $sourceInvoice = Document::factory()->invoice()->draft()->create([
+            'company_id' => $originalCompany->id,
+        ]);
+        $otherInvoice = self::copySyntheticInvoiceForCompany($sourceInvoice, $otherCompany);
         $writes = [];
         $store = self::fakeWebDavStore($writes);
         $invoices = [];
@@ -42,13 +46,18 @@ final class ScopedDanfseArtifactFlowTest extends FeatureTestCase
 
         try {
             foreach ([
-                [$originalCompany, '11111111000191', 'EMPRESA SINTETICA ALFA'],
-                [$otherCompany, '22222222000192', 'COOPERATIVA SINTETICA BETA'],
-            ] as $index => [$company, $cnpj, $name]) {
+                [$originalCompany, '11111111000191', 'EMPRESA SINTETICA ALFA', $sourceInvoice],
+                [$otherCompany, '22222222000192', 'COOPERATIVA SINTETICA BETA', $otherInvoice],
+            ] as $index => [$company, $cnpj, $name, $invoice]) {
+                // A real queue worker restores the company from the job payload.
+                // Document::factory() would silently reset this context instead.
                 $company->makeCurrent();
+                $invoice->refresh();
+                self::assertSame((int) $company->id, (int) $invoice->company_id);
+                self::assertSame((int) $company->id, (int) $invoice->contact->company_id);
+                self::assertSame((int) $company->id, (int) $invoice->category->company_id);
                 setting()->set(['nfse.cnpj_prestador' => $cnpj]);
                 setting()->save();
-                $invoice = Document::factory()->invoice()->draft()->create(['company_id' => $company->id]);
                 $receipt = NfseReceipt::query()->create([
                     'invoice_id' => $invoice->id,
                     'nfse_number' => (string) (200 + $index),
@@ -95,6 +104,33 @@ final class ScopedDanfseArtifactFlowTest extends FeatureTestCase
         } finally {
             $originalCompany->makeCurrent();
         }
+    }
+
+    private static function copySyntheticInvoiceForCompany(Document $source, Company $company): Document
+    {
+        // Copy only the minimal Akaunting records used by the artifact flow.
+        // Never clone a foreign contact/category reference across tenants.
+        $category = $source->category->replicate();
+        $category->forceFill(['company_id' => $company->id])->saveQuietly();
+
+        $contact = $source->contact->replicate();
+        $contact->forceFill([
+            'company_id' => $company->id,
+            'name' => 'Secondary Synthetic Customer',
+            'email' => 'secondary@example.test',
+        ])->saveQuietly();
+
+        $invoice = $source->replicate();
+        $invoice->forceFill([
+            'company_id' => $company->id,
+            'category_id' => $category->id,
+            'contact_id' => $contact->id,
+            'contact_name' => $contact->name,
+            'contact_email' => $contact->email,
+            'document_number' => 'SYNTH-DANFSE-C' . $company->id,
+        ])->saveQuietly();
+
+        return $invoice;
     }
 
     public function testMissingTypefaceFailsQueueWithoutPersistingPdfOrRetransmittingDps(): void

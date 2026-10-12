@@ -55,40 +55,48 @@ return [
                 $content,
             );
         },
-        // Normalize php-font-lib class names at their use sites. PHP-Scoper
-        // may rewrite interpolated class-name fragments before patchers run.
+        // php-font-lib builds some class names from string fragments. PHP-Scoper
+        // can prefix a relative type (TrueType\File) without prefixing its
+        // FontLib namespace. Follow the tested WCPOS scoping pattern:
+        // fix the string literals after scoping, not executable control flow.
         static function (string $filePath, string $prefix, string $content): string {
+            $fontLoader = str_ends_with($filePath, 'dompdf/php-font-lib/src/FontLib/Font.php');
+            $trueTypeFile = str_ends_with($filePath, 'dompdf/php-font-lib/src/FontLib/TrueType/File.php');
+            if (!$fontLoader && !$trueTypeFile) {
+                return $content;
+            }
+
             $escapedPrefix = str_replace('\\', '\\\\', $prefix);
-            $normalizeClass = '$scopedFontPrefix = "' . $escapedPrefix . '\\\\";' . "\n"
-                . '      $class = $scopedFontPrefix . "FontLib\\\\" . str_replace(["FontLib\\\\", $scopedFontPrefix], "", ltrim($class, "\\\\"));' . "\n";
+            $pattern = '/(?<!' . preg_quote($escapedPrefix . '\\\\', '/') . ')FontLib\\\\\\\\/';
+            $patched = preg_replace_callback(
+                $pattern,
+                static fn (array $match): string => $escapedPrefix . '\\\\FontLib\\\\',
+                $content,
+            );
+            if (!is_string($patched)) {
+                throw new \RuntimeException('Unable to scope dynamic FontLib class references.');
+            }
 
-            if (str_ends_with($filePath, 'src/FontLib/Font.php')) {
-                return str_replace(
-                    '$obj = new $class',
-                    $normalizeClass . '      $obj = new $class',
-                    $content,
+            if ($fontLoader) {
+                // These fragments identify subtypes within FontLib, not FQCNs.
+                foreach (['TrueType', 'OpenType', 'WOFF', 'EOT'] as $subNamespace) {
+                    $patched = str_replace(
+                        '"' . $escapedPrefix . '\\\\' . $subNamespace . '\\\\',
+                        '"' . $subNamespace . '\\\\',
+                        $patched,
+                    );
+                }
+            } else {
+                // The subtype is the penultimate namespace segment, even
+                // when PHP-Scoper adds its prefix before FontLib.
+                $patched = str_replace(
+                    'return $class_parts[1];',
+                    'return $class_parts[count($class_parts) - 2];',
+                    $patched,
                 );
             }
 
-            if (str_ends_with($filePath, 'src/FontLib/TrueType/File.php')) {
-                return str_replace(
-                    [
-                        'return $class_parts[1];',
-                        '$entry = new $class',
-                        'if (!isset($this->directory[$tag]) || !@class_exists($class))',
-                        '$table = new $class',
-                    ],
-                    [
-                        'return $class_parts[count($class_parts) - 2];',
-                        $normalizeClass . '      $entry = new $class',
-                        $normalizeClass . '      if (!isset($this->directory[$tag]) || !@class_exists($class))',
-                        $normalizeClass . '      $table = new $class',
-                    ],
-                    $content,
-                );
-            }
-
-            return $content;
+            return $patched;
         },
     ],
 ];
