@@ -26,6 +26,7 @@ final class ApproximateTaxSource extends Model
         'source_kind',
         'source_name',
         'source_version',
+        'source_reference',
         'federal_percent',
         'state_percent',
         'municipal_percent',

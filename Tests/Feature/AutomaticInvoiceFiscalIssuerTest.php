@@ -142,6 +142,7 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
             'source_kind' => 'independent_estimate',
             'source_name' => 'Synthetic institutional historical edition',
             'source_version' => 'synth-2026-old',
+            'source_reference' => 'synthetic-archive/old',
             'federal_percent' => '8.15',
             'state_percent' => '0.00',
             'municipal_percent' => '3.10',
@@ -154,6 +155,7 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
             'source_kind' => 'independent_estimate',
             'source_name' => 'Synthetic institutional current edition',
             'source_version' => 'synth-2026-current',
+            'source_reference' => 'synthetic-archive/current',
             'federal_percent' => '7.45',
             'state_percent' => '0.00',
             'municipal_percent' => '4.10',
@@ -217,6 +219,7 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
         self::assertSame('sourced_estimate', $attempt->approximate_tax_evidence['status']);
         self::assertSame((int) $currentSource->id, $attempt->approximate_tax_evidence['source']['id']);
         self::assertSame('synth-2026-current', $attempt->approximate_tax_evidence['source']['version']);
+        self::assertSame('synthetic-archive/current', $attempt->approximate_tax_evidence['source']['reference']);
         self::assertSame('2026-10-05', $attempt->approximate_tax_evidence['source']['competence']);
     }
 

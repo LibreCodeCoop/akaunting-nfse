@@ -22,6 +22,7 @@ return new class () extends Migration {
             $table->string('source_kind', 32);
             $table->string('source_name', 160);
             $table->string('source_version', 80);
+            $table->string('source_reference', 255);
             $table->decimal('federal_percent', 5, 2);
             $table->decimal('state_percent', 5, 2);
             $table->decimal('municipal_percent', 5, 2);

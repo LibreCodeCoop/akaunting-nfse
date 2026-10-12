@@ -34,9 +34,21 @@ final class ApproximateTaxSourceResolverTest extends TestCase
         ]));
         $result = $resolver->resolve(5, '010701', 1, '2026-10-01');
 
-        self::assertSame('confirmed_zero', $result['status']);
+        self::assertSame('documented_zero', $result['status']);
         self::assertSame('0.00', $result['municipal']);
         self::assertSame('synth-2026.2', $result['source']['version']);
+        self::assertSame('synthetic-archive/source-2026-2', $result['source']['reference']);
+    }
+
+    public function testUnreferencedEstimateCannotBePresentedAsSourced(): void
+    {
+        $resolver = new ApproximateTaxSourceResolver(
+            static fn (): ?array => self::source(['source_reference' => '']),
+        );
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('source is incomplete');
+        $resolver->resolve(5, '010701', 1, '2026-10-01');
     }
 
     public function testSourcedPercentagesDoNotDependOnIssRate(): void
@@ -96,6 +108,7 @@ final class ApproximateTaxSourceResolverTest extends TestCase
             'source_kind' => 'independent_estimate',
             'source_name' => 'Synthetic reference',
             'source_version' => 'synth-2026.2',
+            'source_reference' => 'synthetic-archive/source-2026-2',
             'federal_percent' => '7.35',
             'state_percent' => '0.00',
             'municipal_percent' => '4.10',

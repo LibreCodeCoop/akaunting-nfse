@@ -51,12 +51,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <input name="source_version" required maxlength="80" class="block w-full rounded border p-2" value="{{ old('source_version') }}">
                     </label>
                 </div>
+                <label class="block">Referência documental ou identificador do estudo arquivado
+                    <input name="source_reference" required minlength="5" maxlength="255" class="block w-full rounded border p-2" value="{{ old('source_reference') }}" placeholder="Documento interno, edição de estudo ou URL">
+                </label>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <label>Federal (%) <input name="federal_percent" required class="block w-full rounded border p-2" placeholder="0.00" value="{{ old('federal_percent') }}"></label>
                     <label>Estadual (%) <input name="state_percent" required class="block w-full rounded border p-2" placeholder="0.00" value="{{ old('state_percent') }}"></label>
                     <label>Municipal (%) <input name="municipal_percent" required class="block w-full rounded border p-2" placeholder="0.00" value="{{ old('municipal_percent') }}"></label>
                 </div>
-                <p class="text-xs">Informe zero somente quando sustentado pela fonte. Versões são preservadas para auditoria e selecionadas conforme serviço, regime e competência efetiva da DPS. A nota autorizada sempre mantém seu XML original.</p>
+                <p class="text-xs">Informe zero somente quando sustentado pela fonte identificada. O cadastro não comprova que a fonte é juridicamente válida, nem dispensa informação ao consumidor por outro meio quando exigida. As versões são preservadas e a nota autorizada mantém seu XML original.</p>
                 <button type="submit" class="rounded bg-green-700 px-4 py-2 text-white">Registrar revisão</button>
             </form>
             <h2 class="font-semibold">Revisões registradas nesta empresa</h2>
@@ -68,7 +71,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <tr class="border-t">
                                 <td>{{ $source->national_service_code }} / {{ $source->simples_option }}</td>
                                 <td>{{ $source->competence_from }} — {{ $source->competence_until ?: '...' }}</td>
-                                <td>{{ $source->source_name }} / {{ $source->source_version }}</td>
+                                <td>{{ $source->source_name }} / {{ $source->source_version }}
+                                    <span class="block text-xs">{{ $source->source_reference }}</span>
+                                </td>
                                 <td>{{ $source->federal_percent }}% / {{ $source->state_percent }}% / {{ $source->municipal_percent }}%</td>
                             </tr>
                         @empty

@@ -224,6 +224,7 @@ class SettingsController extends Controller
             'source_kind' => 'required|in:independent_estimate,taxpayer_declaration,documented_zero',
             'source_name' => 'required|string|min:3|max:160',
             'source_version' => 'required|string|min:1|max:80',
+            'source_reference' => 'required|string|min:5|max:255',
             'federal_percent' => ['required', 'regex:/^(?:0|[1-9]\d{0,2})(?:[\.,]\d{1,2})?$/D'],
             'state_percent' => ['required', 'regex:/^(?:0|[1-9]\d{0,2})(?:[\.,]\d{1,2})?$/D'],
             'municipal_percent' => ['required', 'regex:/^(?:0|[1-9]\d{0,2})(?:[\.,]\d{1,2})?$/D'],

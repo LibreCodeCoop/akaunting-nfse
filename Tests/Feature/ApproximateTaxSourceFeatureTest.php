@@ -47,6 +47,7 @@ final class ApproximateTaxSourceFeatureTest extends FeatureTestCase
             'source_kind' => 'independent_estimate',
             'source_name' => 'Provedor sintético',
             'source_version' => 'v1-synthetic',
+            'source_reference' => 'synthetic-archive-entry/estimates-v1',
             'federal_percent' => '7,20',
             'state_percent' => '0,00',
             'municipal_percent' => '3,40',
@@ -74,7 +75,14 @@ final class ApproximateTaxSourceFeatureTest extends FeatureTestCase
         $this->get(route('nfse.settings.approximate-taxes'))
             ->assertOk()
             ->assertSee('v1-synthetic')
-            ->assertSee('v2-synthetic');
+            ->assertSee('v2-synthetic')
+            ->assertSee('synthetic-archive-entry/estimates-v1');
+
+        unset($payload['source_reference']);
+        $payload['source_version'] = 'v3-without-evidence';
+        $this->post(route('nfse.settings.approximate-taxes.store'), $payload)
+            ->assertSessionHasErrors('source_reference');
+        self::assertSame(2, ApproximateTaxSource::query()->where('company_id', $companyId)->count());
     }
 
     private function source(int $companyId, string $from, string $municipal, string $version): ApproximateTaxSource
@@ -87,6 +95,7 @@ final class ApproximateTaxSourceFeatureTest extends FeatureTestCase
             'source_kind' => 'independent_estimate',
             'source_name' => 'Instituto sintético de referência',
             'source_version' => $version,
+            'source_reference' => 'synthetic-archive-entry/' . $version,
             'federal_percent' => '6.25',
             'state_percent' => '0.00',
             'municipal_percent' => $municipal,

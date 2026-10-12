@@ -79,7 +79,8 @@ final class ApproximateTaxSourceResolver
         $kind = (string) ($row['source_kind'] ?? '');
         if (!in_array($kind, ['independent_estimate', 'taxpayer_declaration', 'documented_zero'], true)
             || trim((string) ($row['source_name'] ?? '')) === ''
-            || trim((string) ($row['source_version'] ?? '')) === '') {
+            || trim((string) ($row['source_version'] ?? '')) === ''
+            || trim((string) ($row['source_reference'] ?? '')) === '') {
             throw new \LogicException('Approximate tax source is incomplete or unsupported.');
         }
 
@@ -93,7 +94,7 @@ final class ApproximateTaxSourceResolver
 
         return [
             'status' => match ($kind) {
-                'documented_zero' => 'confirmed_zero',
+                'documented_zero' => 'documented_zero',
                 'independent_estimate' => 'sourced_estimate',
                 default => 'taxpayer_declaration',
             },
@@ -103,6 +104,7 @@ final class ApproximateTaxSourceResolver
                 'kind' => $kind,
                 'name' => (string) $row['source_name'],
                 'version' => (string) $row['source_version'],
+                'reference' => (string) $row['source_reference'],
                 'company_id' => $companyId,
                 'national_service_code' => $nationalCode,
                 'simples_option' => $simplesOption,

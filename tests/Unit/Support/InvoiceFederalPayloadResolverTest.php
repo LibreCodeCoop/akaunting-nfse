@@ -316,7 +316,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame(2, $payload['indicadorTributacao']);
         self::assertSame('0.00', $payload['totalTributosPercentualFederal']);
         self::assertSame('0.00', $payload['totalTributosPercentualMunicipal']);
-        self::assertSame('confirmed_zero', $payload['approximateTaxEvidence']['status']);
+        self::assertSame('documented_zero', $payload['approximateTaxEvidence']['status']);
         self::assertSame('synthetic-v1', $payload['approximateTaxEvidence']['source']['version']);
     }
 
@@ -398,6 +398,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
             'source_kind' => 'independent_estimate',
             'source_name' => 'Synthetic verified source',
             'source_version' => 'synthetic-v1',
+            'source_reference' => 'synthetic-archive/source-v1',
             'federal_percent' => '6.25',
             'state_percent' => '0.00',
             'municipal_percent' => '3.20',

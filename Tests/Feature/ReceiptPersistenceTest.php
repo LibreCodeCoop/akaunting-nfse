@@ -95,6 +95,7 @@ final class ReceiptPersistenceTest extends FeatureTestCase
             'source_kind' => 'independent_estimate',
             'source_name' => 'Later synthetic reference',
             'source_version' => '2026-10-synthetic',
+            'source_reference' => 'synthetic-archive/reissued',
             'federal_percent' => '7.45',
             'state_percent' => '0.00',
             'municipal_percent' => '4.10',
