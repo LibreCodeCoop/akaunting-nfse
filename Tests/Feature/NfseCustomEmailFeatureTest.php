@@ -179,6 +179,27 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
         Notification::assertNothingSent();
     }
 
+    public function testEmailStoreCannotSwitchInvoiceByTamperingWithDocumentId(): void
+    {
+        Notification::fake();
+        Event::fake([DocumentSending::class, DocumentSent::class]);
+
+        $invoice = Document::factory()->invoice()->create();
+        $otherInvoice = Document::factory()->invoice()->create();
+
+        $this->withExceptionHandling();
+        $this->loginAs()
+            ->post(route('nfse.modals.invoices.emails.store', $invoice), [
+                'document_id' => $otherInvoice->id,
+                'to' => ['recipient@example.test'],
+            ])
+            ->assertNotFound();
+
+        Event::assertNotDispatched(DocumentSending::class);
+        Event::assertNotDispatched(DocumentSent::class);
+        Notification::assertNothingSent();
+    }
+
     public function testCustomEmailJobDoesNothingWithoutPersistedReceipt(): void
     {
         Notification::fake();

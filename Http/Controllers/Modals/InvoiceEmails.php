@@ -25,15 +25,15 @@ class InvoiceEmails extends Controller
 
     public function __construct()
     {
-        $this->middleware('permission:create-sales-invoices')->only('create', 'store', 'duplicate', 'import');
-        $this->middleware('permission:read-sales-invoices')->only('index', 'show', 'edit', 'export');
-        $this->middleware('permission:update-sales-invoices')->only('update', 'enable', 'disable');
-        $this->middleware('permission:delete-sales-invoices')->only('destroy');
+        $this->middleware('permission:read-sales-invoices')->only('create');
+        $this->middleware('permission:update-sales-invoices')->only('store');
     }
 
     public function create(Invoice $invoice, ?Request $request = null): JsonResponse
     {
         $request ??= request();
+
+        abort_unless((int) $invoice->company_id === (int) company_id(), 404);
 
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->first()
             ?? new NfseReceipt(['invoice_id' => $invoice->id]);
@@ -148,7 +148,13 @@ class InvoiceEmails extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $invoice = Invoice::findOrFail($request->input('document_id'));
+        $routeId = (int) $request->route('invoice');
+        $documentId = (int) $request->input('document_id');
+
+        abort_unless($routeId > 0 && $routeId === $documentId, 404);
+        $invoice = Invoice::query()
+            ->where('company_id', (int) company_id())
+            ->findOrFail($routeId);
 
         try {
             $recipients = (new PostEmissionEmailRecipients())->normalize(
