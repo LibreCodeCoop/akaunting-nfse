@@ -4336,6 +4336,17 @@ class InvoiceController extends Controller
         $copyToSelf = $request->boolean('nfse_email_copy_to_self', false);
         $saveDefault = $request->boolean('nfse_email_save_default', false);
 
+        $recipients = null;
+
+        if ($sendEmail) {
+            $recipients = (new PostEmissionEmailRecipients())->normalize(
+                $request->input('nfse_email_to') ?: $this->defaultPostEmitRecipient($invoice),
+                $request->input('nfse_email_cc'),
+                $request->input('nfse_email_bcc'),
+                $copyToSelf && function_exists('user') ? (string) (user()?->email ?? '') : null,
+            );
+        }
+
         setting([
             'nfse.send_email_on_emit'               => $sendEmail ? '1' : '0',
             'nfse.email_copy_to_self_on_emit'       => $copyToSelf ? '1' : '0',
@@ -4367,13 +4378,6 @@ class InvoiceController extends Controller
                 $template->save();
             }
         }
-
-        $recipients = (new PostEmissionEmailRecipients())->normalize(
-            $request->input('nfse_email_to') ?: $this->defaultPostEmitRecipient($invoice),
-            $request->input('nfse_email_cc'),
-            $request->input('nfse_email_bcc'),
-            $copyToSelf && function_exists('user') ? (string) (user()?->email ?? '') : null,
-        );
 
         $customMail = [
             'to' => $recipients['to'],
