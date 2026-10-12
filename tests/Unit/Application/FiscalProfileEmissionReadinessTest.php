@@ -28,13 +28,25 @@ final class FiscalProfileEmissionReadinessTest extends TestCase
     public function testObjectivelyInvalidServiceCodeBlocksEmission(): void
     {
         $result = (new FiscalProfileEmissionReadiness())->evaluate([
-            'item_lista_servico' => '9999',
+            'item_lista_servico' => 'invalid-value',
             'codigo_tributacao_nacional' => '010701',
         ]);
 
         self::assertFalse($result['isReady']);
         self::assertSame('invalid', $result['status']);
         self::assertContains('invalid_service_code', $result['issues']);
+    }
+
+    public function testUnlistedWellFormedLc116CodeRemainsReadyWithWarning(): void
+    {
+        $result = (new FiscalProfileEmissionReadiness())->evaluate([
+            'item_lista_servico' => '0509',
+            'codigo_tributacao_nacional' => '010701',
+        ]);
+
+        self::assertTrue($result['isReady']);
+        self::assertSame('warning', $result['status']);
+        self::assertContains('unverified_service_code', $result['issues']);
     }
 
     public function testObjectivelyInvalidNationalCodeBlocksEmission(): void

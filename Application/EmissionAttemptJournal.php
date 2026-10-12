@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Application;
 
+use App\Models\Document\Document as Invoice;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Models\NfseReceipt;
@@ -36,6 +37,7 @@ final class EmissionAttemptJournal
     public function __construct(
         private readonly RecoverInvoiceEmission $recovery = new RecoverInvoiceEmission(),
         private readonly OfficialIssuanceRejection $rejections = new OfficialIssuanceRejection(),
+        private readonly MunicipalEmissionPreflight $municipalPreflight = new MunicipalEmissionPreflight(),
     ) {
     }
 
@@ -85,6 +87,18 @@ final class EmissionAttemptJournal
             }
         } else {
             try {
+                // All mutable callers converge here (manual, grouped, send,
+                // queue/batch, reissue and substitution). Recovery and already
+                // authorized DPS intentionally bypass this first-POST preflight.
+                $invoice = Invoice::query()->whereKey($invoiceId)->where('type', 'invoice')->first();
+                if (!$invoice instanceof Invoice) {
+                    throw new \InvalidArgumentException('Invoice not found for municipal preflight.');
+                }
+                $assessment = $this->municipalPreflight->evaluate($invoice, $dps, $groupKey);
+                if (!$assessment['can_attempt']) {
+                    throw new MunicipalIssuanceBlocked('Municipal issuance preflight blocked: ' . $assessment['reason']);
+                }
+
                 $remote = $transmit !== null
                     ? $transmit()
                     : (new IssueInvoiceNfse($this->recovery))->issue($client, $dps);
@@ -204,6 +218,16 @@ final class EmissionAttemptJournal
             if ($previous instanceof NfseEmissionAttempt) {
                 if ((int) $previous->invoice_id !== $invoiceId || (string) ($previous->emission_group_key ?? '') !== (string) ($groupKey ?? '')) {
                     throw new \LogicException('DPS identifier already belongs to another invoice or fiscal group.');
+                }
+
+                // An authoritative E0312 applies only to this immutable DPS.
+                // Do not repeat its rejected POST without a changed payload;
+                // another competence/company/group remains an independent case.
+                if ((string) $previous->status === self::REJECTED
+                    && (string) ($previous->official_code ?? '') === 'E0312'
+                    && in_array((int) ($previous->http_status ?? 0), [400, 422], true)
+                    && hash_equals((string) $previous->payload_fingerprint, $fingerprint)) {
+                    throw new MunicipalIssuanceBlocked('SEFIN E0312 already rejected this exact DPS; review its fiscal context.');
                 }
 
                 if (in_array((string) $previous->status, [self::PENDING, self::AMBIGUOUS, self::AUTHORIZED], true)) {

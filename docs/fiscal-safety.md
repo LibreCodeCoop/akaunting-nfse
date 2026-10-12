@@ -13,6 +13,10 @@ issues e aos pull requests, não a este contrato de uso.
 
 - Um código `cTribNac` existente no catálogo nacional não prova que a
   operação pode ser emitida para um município ou competência.
+- A lista local de seleção LC 116 é resumida. Um subitem ausente dessa lista
+  exige confirmação da classificação, mas não constitui prova de invalidade
+  legal nem veto automático à tentativa de emissão. Um código nacional
+  objetivamente inválido continua bloqueado pelo catálogo oficial.
 - A parametrização municipal consultada no ADN (inclusive alíquotas, 404 ou
   cache) é **informativa**, não uma autorização ou rejeição fiscal.
 - A identidade analisada inclui empresa, ambiente, município de incidência
@@ -24,6 +28,17 @@ issues e aos pull requests, não a este contrato de uso.
   em proibição genérica para outras operações.
 - Dados faltantes, antigos ou de outra competência são **não verificáveis**.
   Não inventar autorização ou recusa quando a fonte não permite concluí-las.
+
+Na configuração fiscal da empresa, o operador pode confirmar que o
+município IBGE cadastrado corresponde ao **estabelecimento que efetivamente
+presta o serviço**. Essa confirmação é registrada com CNPJ, município, data e
+identificação do operador e deixa de ser aplicável se a identidade fiscal
+configurada mudar. Ela permite selecionar parâmetros municipais consultivos
+pela regra geral do art. 3º da LC 116/2003, **não** demonstra que a SEFIN
+aceitará a DPS. Serviços sujeitos às exceções territoriais do art. 3º exigem
+avaliação específica e continuam não verificáveis sem fatos fiscais adequados.
+Quando não há confirmação, a consulta é inconclusiva, nunca uma rejeição
+presumida. A aptidão para tentar a emissão não equivale a autorização.
 
 A emissão autorizada só é confirmada pelo resultado oficial da SEFIN ou por
 conciliação da mesma DPS, nunca pelo sucesso de uma consulta consultiva.

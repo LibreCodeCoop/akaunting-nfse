@@ -129,6 +129,7 @@ class SettingsController extends Controller
             'nfse.prestador_telefone' => 'nullable|string|max:25|regex:/^[+()0-9 .-]+$/',
             'nfse.prestador_email' => 'nullable|email|max:255',
             'nfse.prestador_inscricao_municipal' => 'nullable|string|max:15',
+            'nfse.provider_establishment_confirmed' => 'nullable|boolean',
             'nfse.opcao_simples_nacional' => 'nullable|in:1,2,3',
             'nfse.regime_especial_tributacao' => 'nullable|in:0,1,2,3,4,5,6,9',
             'nfse.emission_policy' => 'nullable|in:manual,emit_on_send',
@@ -170,6 +171,9 @@ class SettingsController extends Controller
             $fiscalInput['issqn_numero_processo_suspensao'] = '';
         }
 
+        $previousCnpj = strtoupper(trim((string) setting('nfse.cnpj_prestador', '')));
+        $previousMunicipality = trim((string) setting('nfse.municipio_ibge', ''));
+
         foreach ([
             'cnpj_prestador',
             'uf',
@@ -194,6 +198,24 @@ class SettingsController extends Controller
             }
         }
 
+        // Explicit operator evidence is bound to this CNPJ and municipality.
+        // Changing either identity invalidates a previous confirmation,
+        // including when the browser submits a still-checked checkbox.
+        $confirmedCnpj = strtoupper(trim((string) ($fiscalInput['cnpj_prestador'] ?? '')));
+        $confirmedMunicipality = trim((string) ($fiscalInput['municipio_ibge'] ?? ''));
+        $identityChanged = ($previousCnpj !== '' && $previousCnpj !== $confirmedCnpj)
+            || ($previousMunicipality !== '' && $previousMunicipality !== $confirmedMunicipality);
+        $confirmed = filter_var($fiscalInput['provider_establishment_confirmed'] ?? false, FILTER_VALIDATE_BOOL)
+            && !$identityChanged && $confirmedCnpj !== ''
+            && preg_match('/^\d{7}$/D', $confirmedMunicipality) === 1;
+
+        setting([
+            'nfse.provider_establishment_confirmed' => $confirmed ? '1' : '0',
+            'nfse.provider_establishment_confirmed_cnpj' => $confirmed ? $confirmedCnpj : '',
+            'nfse.provider_establishment_confirmed_municipality' => $confirmed ? $confirmedMunicipality : '',
+            'nfse.provider_establishment_confirmed_at' => $confirmed ? now()->toAtomString() : '',
+            'nfse.provider_establishment_confirmed_by' => $confirmed ? (string) (auth()->id() ?? '') : '',
+        ]);
         setting()->save();
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'fiscal'])
@@ -664,10 +686,24 @@ class SettingsController extends Controller
     public function update(Request $request): RedirectResponse
     {
         $previousCnpj = (string) setting('nfse.cnpj_prestador', '');
+        $previousMunicipality = (string) setting('nfse.municipio_ibge', '');
 
         $rawNfseInput = $request->input('nfse', []);
         $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
         $nfseInput = $this->prepareNfseInput($rawNfseInput);
+
+        // An establishment attestation must come from the authenticated
+        // fiscal settings action, which records its actor and fiscal identity.
+        // A legacy configuration submission cannot forge the evidence.
+        foreach ([
+            'provider_establishment_confirmed',
+            'provider_establishment_confirmed_cnpj',
+            'provider_establishment_confirmed_municipality',
+            'provider_establishment_confirmed_at',
+            'provider_establishment_confirmed_by',
+        ] as $attestationKey) {
+            unset($nfseInput[$attestationKey]);
+        }
 
         $existingVaultSettings = [
             'bao_addr' => (string) setting('nfse.bao_addr', ''),
@@ -783,6 +819,21 @@ class SettingsController extends Controller
 
         foreach ($nfseInput as $key => $value) {
             setting(['nfse.' . $key => $value]);
+        }
+
+        // The legacy route can change the CNPJ or municipality. Clear prior
+        // attestation irreversibly, so reverting the identity later cannot
+        // resurrect stale establishment evidence.
+        if ($isReplacingCertificate
+            || $previousCnpj !== (string) ($nfseInput['cnpj_prestador'] ?? '')
+            || $previousMunicipality !== (string) ($nfseInput['municipio_ibge'] ?? '')) {
+            setting([
+                'nfse.provider_establishment_confirmed' => '0',
+                'nfse.provider_establishment_confirmed_cnpj' => '',
+                'nfse.provider_establishment_confirmed_municipality' => '',
+                'nfse.provider_establishment_confirmed_at' => '',
+                'nfse.provider_establishment_confirmed_by' => '',
+            ]);
         }
 
         setting()->save();

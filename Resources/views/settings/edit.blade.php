@@ -456,6 +456,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <input id="municipio_ibge" name="nfse[municipio_ibge]" type="hidden" value="{{ old('nfse.municipio_ibge', setting('nfse.municipio_ibge', '')) }}" required>
                         </div>
 
+                        <div class="rounded-lg border border-gray-200 px-4 py-3 text-sm">
+                            <input type="hidden" name="nfse[provider_establishment_confirmed]" value="0">
+                            <label class="flex items-start gap-2" for="provider_establishment_confirmed">
+                                <input id="provider_establishment_confirmed" type="checkbox"
+                                    name="nfse[provider_establishment_confirmed]" value="1"
+                                    @checked(filter_var(old('nfse.provider_establishment_confirmed', setting('nfse.provider_establishment_confirmed', false)), FILTER_VALIDATE_BOOL))>
+                                <span>{{ trans('nfse::general.settings.provider_establishment_confirmed') }}</span>
+                            </label>
+                            <p class="mt-2 text-xs text-gray-600">{{ trans('nfse::general.settings.provider_establishment_confirmed_help') }}</p>
+                        </div>
+
                         <div>
                             <label class="block text-sm font-medium mb-1" for="opcao_simples_nacional">{{ trans('nfse::general.settings.opcao_simples_nacional') }}</label>
                             <select id="opcao_simples_nacional" name="nfse[opcao_simples_nacional]" class="w-full border rounded px-3 py-2">
