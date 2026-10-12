@@ -29,7 +29,7 @@ final class IssuedNfseArtifactStoreTest extends FeatureTestCase
 
         NfseReceiptPayload::query()->create([
             'receipt_id' => $receipt->id,
-            'authorized_xml' => '<NFSe>authorized</NFSe>',
+            'authorized_xml' => "<NFSe>authorized</NFSe>\n",
         ]);
 
         $requests = [];
@@ -82,7 +82,7 @@ final class IssuedNfseArtifactStoreTest extends FeatureTestCase
         $fresh = $receipt->fresh();
         self::assertNotEmpty($fresh->xml_webdav_path);
         self::assertNotEmpty($fresh->danfse_webdav_path);
-        self::assertSame('<NFSe>authorized</NFSe>', $store->generatedFromXml);
+        self::assertSame("<NFSe>authorized</NFSe>\n", $store->generatedFromXml);
 
         $puts = array_values(array_filter(
             $requests,
@@ -90,7 +90,7 @@ final class IssuedNfseArtifactStoreTest extends FeatureTestCase
         ));
 
         self::assertCount(2, $puts);
-        self::assertSame('<NFSe>authorized</NFSe>', $puts[0][2]);
+        self::assertSame("<NFSe>authorized</NFSe>\n", $puts[0][2]);
         self::assertSame('%PDF-1.4 generated', $puts[1][2]);
     }
 

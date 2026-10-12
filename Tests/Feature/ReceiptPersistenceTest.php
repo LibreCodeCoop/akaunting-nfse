@@ -297,7 +297,7 @@ final class ReceiptPersistenceTest extends FeatureTestCase
     public function testAuthorizedXmlPersistsCompetenceAndFiscalSnapshot(): void
     {
         $invoice = Document::factory()->invoice()->create();
-        $xml = '<NFSe><infNFSe><valores><vLiq>90.00</vLiq></valores><DPS><infDPS><dCompet>2026-10-01</dCompet><valores><vServPrest><vServ>100.00</vServ></vServPrest><trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN><vISSQN>2.00</vISSQN></tribMun></trib></valores></infDPS></DPS></infNFSe></NFSe>';
+        $xml = '<NFSe><infNFSe><valores><vLiq>90.00</vLiq></valores><DPS><infDPS><dCompet>2026-10-01</dCompet><valores><vServPrest><vServ>100.00</vServ></vServPrest><trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN><vISSQN>2.00</vISSQN></tribMun></trib></valores></infDPS></DPS></infNFSe></NFSe>' . "\n";
 
         $receipt = (new ReceiptPersistence())->storeCurrent(
             $invoice->id,
@@ -320,6 +320,7 @@ final class ReceiptPersistenceTest extends FeatureTestCase
         self::assertSame('2026-10-01', $fresh->competence_date?->format('Y-m-d'));
         self::assertSame('100.00', $fresh->authorized_fiscal_snapshot['gross_service_value'] ?? null);
         self::assertSame(hash('sha256', $xml), $fresh->authorized_fiscal_snapshot['source_sha256'] ?? null);
+        self::assertSame(hash('sha256', (string) $fresh->payload()->value('authorized_xml')), $fresh->authorized_fiscal_snapshot['source_sha256'] ?? null);
     }
 
     public function testChangingFiscalIdentityClearsPersistedArtifactPaths(): void

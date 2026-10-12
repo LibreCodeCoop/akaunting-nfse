@@ -409,7 +409,9 @@ class InvoiceController extends Controller
     protected function authorizedXmlForReceipt(NfseReceipt $receipt): string
     {
         try {
-            return trim((string) $receipt->payload()->value('authorized_xml'));
+            $xml = (string) $receipt->payload()->value('authorized_xml');
+
+            return trim($xml) !== '' ? $xml : '';
         } catch (\Throwable) {
             return '';
         }

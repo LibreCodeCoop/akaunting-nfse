@@ -42,9 +42,9 @@ class IssuedNfseArtifactStore
             throw new \RuntimeException('NFS-e artifact storage is enabled but WebDAV is not configured in the queue worker context.');
         }
 
-        $xml = trim((string) $receipt->payload()->value('authorized_xml'));
+        $xml = (string) $receipt->payload()->value('authorized_xml');
 
-        if ($xml === '') {
+        if (trim($xml) === '') {
             throw new \RuntimeException('Post-emission processing requires the authorized NFS-e XML.');
         }
 
