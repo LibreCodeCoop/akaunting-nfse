@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Unit\Contracts;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Modules\Nfse\Contracts\FiscalAssessment;
+use Modules\Nfse\Contracts\FiscalGovernmentSphere;
 use Modules\Nfse\Contracts\FiscalContext;
 use Modules\Nfse\Contracts\FiscalDecision;
 use Modules\Nfse\Contracts\FiscalTaxFact;
@@ -90,7 +91,8 @@ final class FiscalAssessmentContractTest extends TestCase
         self::assertNull($unknown->opcaoSimplesNacional);
         self::assertNull($unknown->regimeApuracaoTributariaSn);
         self::assertNull($unknown->ibsCbsRegime);
-        self::assertNull($unknown->takerIsPublicAdministration);
+        self::assertNull($unknown->takerGovernmentSphere);
+        self::assertNull($unknown->takerLegalNatureCode);
 
         $known = new FiscalContext(
             31,
@@ -116,7 +118,8 @@ final class FiscalAssessmentContractTest extends TestCase
             1,
             0,
             'simples',
-            true,
+            FiscalGovernmentSphere::MUNICIPAL,
+            '1031',
         );
 
         self::assertSame(0, $known->regimeEspecialTributacao);
@@ -124,7 +127,42 @@ final class FiscalAssessmentContractTest extends TestCase
         self::assertSame(3, $known->opcaoSimplesNacional);
         self::assertSame(1, $known->regimeApuracaoTributariaSn);
         self::assertSame('simples', $known->ibsCbsRegime);
-        self::assertTrue($known->takerIsPublicAdministration);
+        self::assertSame(FiscalGovernmentSphere::MUNICIPAL, $known->takerGovernmentSphere);
+        self::assertSame('1031', $known->takerLegalNatureCode);
+    }
+
+    public function testUnknownTaxAmountDoesNotBecomeAnObservedZero(): void
+    {
+        $unknown = new FiscalTaxFact(1001, 9, 7, 'normal', null);
+        $observedZero = new FiscalTaxFact(1001, 9, 7, 'normal', 0);
+
+        self::assertNull($unknown->amountCents);
+        self::assertSame(0, $observedZero->amountCents);
+    }
+
+    public function testTakerPublicNatureRequiresSourceDataRatherThanBooleanGuessing(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new FiscalContext(
+            companyId: 31,
+            fiscalGroupKey: 'synthetic-public-taker',
+            taxableEventDate: new DateTimeImmutable('2026-10-01'),
+            competenceDate: new DateTimeImmutable('2026-10-01'),
+            providerRegime: 'lucro_presumido',
+            operationCategory: 'ordinary_lc116',
+            lc116Subitem: '01.01',
+            nationalTaxCode: '010101',
+            nbsCode: null,
+            incidenceMunicipalityIbge: '3304557',
+            takerType: 'legal_entity',
+            takerMunicipalityIbge: '3304557',
+            takerCountryIso2: 'BR',
+            takerIsSimples: null,
+            grossServiceCents: 1000000,
+            takerGovernmentSphere: FiscalGovernmentSphere::FEDERAL,
+            takerLegalNatureCode: 'unknown',
+        );
     }
 
     public function testRejectsUnverifiableTaxRateInsteadOfCoercingToFloat(): void

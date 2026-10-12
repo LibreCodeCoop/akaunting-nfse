@@ -18,7 +18,8 @@ final readonly class FiscalTaxFact
         public ?int $taxId,
         public ?int $documentItemTaxRowId,
         public string $accountingType,
-        public int $amountCents,
+        /** Null is unknown; observed zero must be represented as 0. */
+        public ?int $amountCents,
         public ?string $fiscalTaxCode = null,
         public ?FiscalTaxRole $fiscalRole = null,
         /** Provenance of the observed amount, not a classification hint. */

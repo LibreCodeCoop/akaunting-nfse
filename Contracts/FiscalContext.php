@@ -44,8 +44,10 @@ final readonly class FiscalContext
         public ?int $regimeEspecialTributacao = null,
         /** Verified 2027 IBS/CBS collection mode; null when not established. */
         public ?string $ibsCbsRegime = null,
-        /** Public-sector takers can have distinct withholding responsibilities. */
-        public ?bool $takerIsPublicAdministration = null,
+        /** Factual sphere; not by itself proof of public withholding treatment. */
+        public ?FiscalGovernmentSphere $takerGovernmentSphere = null,
+        /** Observed CNPJ legal-nature code; null when not verified. */
+        public ?string $takerLegalNatureCode = null,
     ) {
         if ($this->companyId <= 0 || trim($this->fiscalGroupKey) === '') {
             throw new \InvalidArgumentException('Company and fiscal-group identity are required.');
@@ -63,6 +65,11 @@ final readonly class FiscalContext
         if ($this->ibsCbsRegime !== null
             && !in_array($this->ibsCbsRegime, ['simples', 'regular'], true)) {
             throw new \InvalidArgumentException('Unknown IBS/CBS collection mode.');
+        }
+
+        if ($this->takerLegalNatureCode !== null
+            && preg_match('/^[0-9]{4}$/D', $this->takerLegalNatureCode) !== 1) {
+            throw new \InvalidArgumentException('Taker legal-nature code must have four digits.');
         }
 
         foreach ($this->taxFacts as $fact) {

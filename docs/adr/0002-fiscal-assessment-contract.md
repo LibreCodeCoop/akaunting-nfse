@@ -14,7 +14,9 @@ group through `Contracts\FiscalContext`. Tax observations use
 `Contracts\FiscalTaxFact` (document-item ID, tax ID, association-row ID,
 accounting type, amount in integer cents, and explicitly classified fiscal
 identity/role when verified), the observed tax-specific base and exact decimal
-rate when available, and explicit provenance. Roles are backed by
+rate when available, and explicit provenance. A tax-row amount may be null
+when not actually observed; integer zero is a distinct observed fact.
+Roles are backed by
 `FiscalTaxRole` (provider due, withheld by taker, transparency estimate).
 An absent ID, value origin or classification is `null`, never
 guessed from tax names, percentages, a value or an XML element's historic name.
@@ -38,12 +40,20 @@ missing payment evidence must not be silently treated as payment.
 
 The context separately retains the observed DPS `opSimpNac`,
 `regApTribSN` and `regEspTrib` codes, the applicable IBS/CBS collection
-regime (Simples or regular) and whether the taker belongs to public
-administration. These are **facts** only, not proof of an allowed tax
-treatment. A null special-regime code means "unknown"; code 0 means
+regime (Simples or regular), the governmental sphere of the taker
+(federal, state, district or municipal, when verified), and the verified
+CNPJ legal-nature code. A public/private boolean cannot establish whether
+the payer is subject to a particular IRRF/PIS/COFINS/CSLL withholding rule:
+direct administration, autarchies, foundations and public enterprises have
+different legal conditions, and state/municipal contributions may depend on
+specific legal arrangements. These are **facts** only, not proof of an
+allowed tax treatment. A null special-regime code means "unknown"; code 0 means
 explicit "none". Applicability, valid enumerations for a particular
 published schema, municipality-specific restrictions, and elections by
 effective period belong to versioned policies and protocol validation.
+Applicability dates are inclusive at both ends; a policy must select the
+appropriate calendar date from the operation facts instead of treating
+publication or transmission time as its taxable-event date.
 
 A rule's legal applicability is evaluated on the relevant event/competence
 facts. Protocol compatibility is evaluated **separately** against the
