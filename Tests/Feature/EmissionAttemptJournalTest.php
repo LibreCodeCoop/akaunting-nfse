@@ -47,11 +47,80 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
         self::assertSame('automatic', $attempt->origin);
         self::assertSame('2026-09-01', $attempt->competence_date?->format('Y-m-d'));
         self::assertSame('010701123', $attempt->codigo_servico);
+        $archivedXml = (string) NfseReceiptPayload::query()
+            ->where('receipt_id', $attempt->receipt_id)
+            ->value('authorized_xml');
+        self::assertSame($xml, $archivedXml);
         self::assertSame(
-            trim($xml),
-            NfseReceiptPayload::query()->where('receipt_id', $attempt->receipt_id)->value('authorized_xml'),
+            hash('sha256', $xml),
+            $first['receipt']->fresh()->authorized_fiscal_snapshot['source_sha256'] ?? null,
         );
         self::assertFalse(array_key_exists('authorized_xml', $attempt->getAttributes()));
+    }
+
+    public function testAttemptPinsOldSourceVersionWhileSafelyRecoveringAfterNewRevision(): void
+    {
+        $invoice = $this->invoice();
+        $client = $this->client();
+        $client->emitError = new NetworkException('Synthetic timeout after POST');
+        $dps = $this->dps();
+        $source = [
+            'status' => 'sourced_estimate',
+            'reason' => null,
+            'source' => [
+                'id' => 20,
+                'company_id' => (int) $invoice->company_id,
+                'national_service_code' => (string) $dps->codigoTributacaoNacional,
+                'simples_option' => (int) $dps->opcaoSimplesNacional,
+                'competence' => (string) $dps->dataCompetencia,
+                'version' => 'synthetic-v1',
+            ],
+        ];
+
+        try {
+            (new EmissionAttemptJournal())->issue(
+                client: $client,
+                dps: $dps,
+                invoiceId: (int) $invoice->id,
+                origin: 'manual',
+                persist: static fn (ReceiptData $receipt): NfseReceipt => throw new \LogicException('Not authorized.'),
+                approximateTaxEvidence: $source,
+            );
+            self::fail('Expected ambiguous result.');
+        } catch (NetworkException) {
+        }
+
+        $record = NfseEmissionAttempt::query()->sole();
+        self::assertSame($source, $record->approximate_tax_evidence);
+        self::assertSame(1, $client->emits);
+
+        $changedSource = $source;
+        $changedSource['source']['version'] = 'synthetic-v2';
+        $client->recovered = $this->receipt('101', '7');
+
+        $result = (new EmissionAttemptJournal())->issue(
+            client: $client,
+            dps: $dps,
+            invoiceId: (int) $invoice->id,
+            origin: 'manual',
+            persist: static fn (ReceiptData $remote): NfseReceipt => (new ReceiptPersistence())->storeCurrent(
+                invoiceId: (int) $invoice->id,
+                receipt: $remote,
+                resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
+            ),
+            approximateTaxEvidence: $changedSource,
+        );
+
+        self::assertFalse($result['reused']);
+        self::assertSame('101', $result['receipt']->nfse_number);
+        self::assertSame(1, $client->emits, 'Recovery must not repeat the fiscal POST.');
+        self::assertGreaterThan(0, $client->dpsQueries, 'Reconciliation must query the immutable DPS identity.');
+        self::assertSame(1, NfseEmissionAttempt::query()->count());
+
+        $reconciled = $record->fresh();
+        self::assertSame(EmissionAttemptJournal::AUTHORIZED, $reconciled->status);
+        self::assertSame($source, $reconciled->approximate_tax_evidence);
+        self::assertNotNull($reconciled->reconciled_at);
     }
 
     public function testE0312AndOtherOfficialRejectionsAreRecordedWithoutCreatingReceipts(): void

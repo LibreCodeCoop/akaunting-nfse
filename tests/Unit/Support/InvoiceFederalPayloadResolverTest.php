@@ -268,36 +268,84 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('4', $payload['federalPiscofinsTipoRetencao']);
         self::assertSame('', $payload['federalValorCsll']);
         self::assertSame('472.50', $payload['federalValorIrrf']);
-        self::assertSame('3.65', $payload['totalTributosPercentualFederal']);
+        self::assertSame('', $payload['totalTributosPercentualFederal']);
     }
 
-    public function testNonSimplesUsesEffectiveIssRateAsMunicipalApproximateTaxFallback(): void
+    public function testFederalTaxationDoesNotFabricateApproximateTaxPercentages(): void
     {
+        $invoice = new Document();
+        $invoice->amount = 1000.00;
+        $invoice->items = $this->items([]);
         $resolver = new InvoiceFederalPayloadResolver(
             settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
-                'nfse.opcao_simples_nacional' => 1,
-                'nfse.tributos_mun_p' => '',
+                'nfse.federal_piscofins_situacao_tributaria' => '1',
+                'nfse.federal_piscofins_aliquota_pis' => '1.65',
+                'nfse.federal_piscofins_aliquota_cofins' => '7.60',
                 default => $default,
             },
-            taxRateResolver: static fn (int $taxId): ?float => null,
         );
 
+        $payload = $resolver->resolve($invoice);
+
+        self::assertSame('16.50', $payload['federalPiscofinsValorPis']);
+        self::assertSame(0, $payload['indicadorTributacao']);
+        self::assertSame('', $payload['totalTributosPercentualFederal']);
+        self::assertSame('', $payload['totalTributosPercentualMunicipal']);
+    }
+
+    public function testDocumentedZeroSourceHasThreeExplicitZerosAndIdentity(): void
+    {
         $invoice = new Document();
-        $invoice->amount = 31500.00;
+        $invoice->company_id = 5;
+        $invoice->amount = 100.00;
         $invoice->items = $this->items([]);
 
-        $payload = $resolver->resolve($invoice, null, null, '2.00');
+        $resolver = new InvoiceFederalPayloadResolver(
+            approximateTaxSources: new \Modules\Nfse\Support\ApproximateTaxSourceResolver(
+                static fn (): ?array => self::approximateSource([
+                    'source_kind' => 'documented_zero',
+                    'federal_percent' => '0.00',
+                    'state_percent' => '0.00',
+                    'municipal_percent' => '0.00',
+                ]),
+            ),
+        );
+
+        $payload = $resolver->resolve($invoice, null, null, null, '010701', '2026-10-01');
 
         self::assertSame(2, $payload['indicadorTributacao']);
-        self::assertSame('2.00', $payload['totalTributosPercentualMunicipal']);
+        self::assertSame('0.00', $payload['totalTributosPercentualFederal']);
+        self::assertSame('0.00', $payload['totalTributosPercentualMunicipal']);
+        self::assertSame('documented_zero', $payload['approximateTaxEvidence']['status']);
+        self::assertSame('synthetic-v1', $payload['approximateTaxEvidence']['source']['version']);
     }
 
-    public function testConfiguredMunicipalApproximateTaxOverridesIssFallback(): void
+    public function testIncompleteSourceCannotInventStateTaxZero(): void
+    {
+        $invoice = new Document();
+        $invoice->company_id = 5;
+        $invoice->amount = 100.00;
+        $invoice->items = $this->items([]);
+
+        $resolver = new InvoiceFederalPayloadResolver(
+            approximateTaxSources: new \Modules\Nfse\Support\ApproximateTaxSourceResolver(
+                static fn (): ?array => self::approximateSource(['state_percent' => null]),
+            ),
+        );
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('valid two-decimal percentage');
+        $resolver->resolve($invoice, null, null, null, '010701', '2026-10-01');
+    }
+
+    public function testDeprecatedPercentSettingsAndIssAreNotSources(): void
     {
         $resolver = new InvoiceFederalPayloadResolver(
             settingResolver: static fn (string $key, mixed $default): mixed => match ($key) {
                 'nfse.opcao_simples_nacional' => 1,
-                'nfse.tributos_mun_p' => '4.25',
+                'nfse.tributos_fed_p' => '99.99',
+                'nfse.tributos_est_p' => '99.99',
+                'nfse.tributos_mun_p' => '99.99',
                 default => $default,
             },
             taxRateResolver: static fn (int $taxId): ?float => null,
@@ -309,7 +357,52 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
 
         $payload = $resolver->resolve($invoice, null, null, '2.00');
 
+        self::assertSame(0, $payload['indicadorTributacao']);
+        self::assertSame('', $payload['totalTributosPercentualMunicipal']);
+        self::assertSame('', $payload['totalTributosPercentualFederal']);
+        self::assertSame('unknown', $payload['approximateTaxEvidence']['status']);
+    }
+
+    public function testSourcedMunicipalBurdenDoesNotEqualEffectiveIssFallback(): void
+    {
+        $resolver = new InvoiceFederalPayloadResolver(
+            approximateTaxSources: new \Modules\Nfse\Support\ApproximateTaxSourceResolver(
+                static fn (): ?array => self::approximateSource(['municipal_percent' => '4.25']),
+            ),
+        );
+
+        $invoice = new Document();
+        $invoice->company_id = 5;
+        $invoice->amount = 31500.00;
+        $invoice->items = $this->items([]);
+
+        $payload = $resolver->resolve($invoice, null, null, '2.00', '010701', '2026-10-01');
+
+        self::assertSame(2, $payload['indicadorTributacao']);
         self::assertSame('4.25', $payload['totalTributosPercentualMunicipal']);
+        self::assertSame('6.25', $payload['totalTributosPercentualFederal']);
+        self::assertSame('sourced_estimate', $payload['approximateTaxEvidence']['status']);
+        self::assertSame('synthetic-v1', $payload['approximateTaxEvidence']['source']['version']);
+    }
+
+    /** @param array<string,mixed> $overrides */
+    private static function approximateSource(array $overrides): array
+    {
+        return array_replace([
+            'id' => 3,
+            'company_id' => 5,
+            'national_service_code' => '010701',
+            'simples_option' => 1,
+            'competence_from' => '2026-01-01',
+            'competence_until' => '2026-12-31',
+            'source_kind' => 'independent_estimate',
+            'source_name' => 'Synthetic verified source',
+            'source_version' => 'synthetic-v1',
+            'source_reference' => 'synthetic-archive/source-v1',
+            'federal_percent' => '6.25',
+            'state_percent' => '0.00',
+            'municipal_percent' => '3.20',
+        ], $overrides);
     }
 
     public function testRetentionTypeWithCsllNotRetainedDoesNotFallBackWhenCsllIsAbsent(): void

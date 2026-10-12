@@ -40,6 +40,7 @@ final class InvoiceFederalPayloadResolver
         ?\Closure $settingResolver = null,
         ?\Closure $taxRateResolver = null,
         ?\Closure $withholdingRowsResolver = null,
+        private readonly ApproximateTaxSourceResolver $approximateTaxSources = new ApproximateTaxSourceResolver(),
     ) {
         $this->settingResolver = $settingResolver
             ?? static fn (string $key, mixed $default): mixed => function_exists('setting')
@@ -106,7 +107,9 @@ final class InvoiceFederalPayloadResolver
         Invoice $invoice,
         ?array $documentItemIds = null,
         ?float $amountOverride = null,
-        mixed $municipalPercentFallback = null,
+        mixed $municipalPercentFallback = null, // Deprecated compatibility parameter; ignored.
+        string $nationalServiceCode = '',
+        string $competenceDate = '',
     ): array {
         $invoiceAmount = $this->serviceAmount($invoice, $documentItemIds, $amountOverride);
         $federalMode = strtolower((string) $this->setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'));
@@ -126,39 +129,24 @@ final class InvoiceFederalPayloadResolver
         );
         $csll = $retentions['csll'];
 
-        $simples = in_array($this->simplesNacional(), [2, 3], true);
-        $federalPercent = $this->decimal($this->setting(
-            $simples ? 'nfse.tributos_fed_sn' : 'nfse.tributos_fed_p',
-            '',
-        ));
-        $statePercent = $this->decimal($this->setting(
-            $simples ? 'nfse.tributos_est_sn' : 'nfse.tributos_est_p',
-            '',
-        ));
-        $municipalPercent = $this->decimal($this->setting(
-            $simples ? 'nfse.tributos_mun_sn' : 'nfse.tributos_mun_p',
-            '',
-        ));
-
-        if (!$simples && $municipalPercent === '') {
-            $municipalPercent = $this->decimal($municipalPercentFallback);
-        }
-
-        if ($federalPercent === '' && $snapshot['federal_percent'] !== '') {
-            $federalPercent = $snapshot['federal_percent'];
-        }
-
-        $taxIndicator = (
-            $federalPercent !== ''
-            || $statePercent !== ''
-            || $municipalPercent !== ''
-        ) ? 2 : 0;
-
-        if ($taxIndicator === 2) {
-            $federalPercent = $federalPercent !== '' ? $federalPercent : '0.00';
-            $statePercent = $statePercent !== '' ? $statePercent : '0.00';
-            $municipalPercent = $municipalPercent !== '' ? $municipalPercent : '0.00';
-        }
+        // Only a source version matching the owning company, service,
+        // regime and actual DPS competence may supply these percentages.
+        // Assessed ISSQN and item PIS/COFINS must never be used as fallbacks.
+        $approximateTaxes = $this->approximateTaxSources->resolve(
+            (int) ($invoice->company_id ?? 0),
+            $nationalServiceCode,
+            $this->simplesNacional(),
+            $competenceDate,
+        );
+        $federalPercent = $approximateTaxes['federal'];
+        $statePercent = $approximateTaxes['state'];
+        $municipalPercent = $approximateTaxes['municipal'];
+        $taxIndicator = $approximateTaxes['status'] === 'unknown' ? 0 : 2;
+        $approximateTaxEvidence = [
+            'status' => $approximateTaxes['status'],
+            'reason' => $approximateTaxes['reason'],
+            'source' => $approximateTaxes['source'],
+        ];
 
         $irrf = $this->retentionValue($invoiceAmount, 'nfse.federal_valor_irrf');
 
@@ -179,6 +167,7 @@ final class InvoiceFederalPayloadResolver
                 'federalValorCsll' => $csll,
                 'federalValorCp' => '',
                 'indicadorTributacao' => $taxIndicator,
+                'approximateTaxEvidence' => $approximateTaxEvidence,
                 'totalTributosPercentualFederal' => $federalPercent,
                 'totalTributosPercentualEstadual' => $statePercent,
                 'totalTributosPercentualMunicipal' => $municipalPercent,
@@ -238,6 +227,7 @@ final class InvoiceFederalPayloadResolver
             'federalValorCsll' => $csll,
             'federalValorCp' => '',
             'indicadorTributacao' => $taxIndicator,
+                'approximateTaxEvidence' => $approximateTaxEvidence,
             'totalTributosPercentualFederal' => $federalPercent,
             'totalTributosPercentualEstadual' => $statePercent,
             'totalTributosPercentualMunicipal' => $municipalPercent,
@@ -406,15 +396,8 @@ final class InvoiceFederalPayloadResolver
             || $payload['totalTributosPercentualEstadual'] !== ''
             || $payload['totalTributosPercentualMunicipal'] !== '';
 
-        if ($hasTotals || !$this->hasTaxationPayload($payload)) {
-            return $payload;
-        }
-
-        $payload['indicadorTributacao'] = 2;
-        $payload['totalTributosPercentualFederal'] = '0.00';
-        $payload['totalTributosPercentualEstadual'] = '0.00';
-        $payload['totalTributosPercentualMunicipal'] = '0.00';
-
+        // Actual federal taxation/withholding fields do not establish
+        // approximate transparency percentages.
         return $payload;
     }
 

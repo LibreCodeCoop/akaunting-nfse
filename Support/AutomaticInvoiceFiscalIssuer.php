@@ -120,7 +120,14 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
 
         $federal = (new InvoiceFederalPayloadResolver(
             settingResolver: $this->settingResolver,
-        ))->resolve($invoice, $itemIds, $amount, $group['aliquota'] ?? null);
+        ))->resolve(
+            $invoice,
+            $itemIds,
+            $amount,
+            null,
+            (string) ($group['codigo_tributacao_nacional'] ?? ''),
+            $this->identity->competenceDate($invoice),
+        );
         $issqn = (new IssqnPayloadResolver())->resolve([
             'tributacao_issqn' => $this->setting('nfse.tributacao_issqn', 1),
             'tipo_retencao_iss' => $this->setting('nfse.tipo_retencao_iss', 1),
@@ -183,6 +190,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
                 $group,
                 'automatic',
                 descriptionOverride: $description,
+                approximateTaxEvidence: $federal['approximateTaxEvidence'] ?? null,
             );
 
             return $result['receipt'];

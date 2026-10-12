@@ -970,10 +970,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(0, $client->capturedDps?->ibsCbsIndDest);
             self::assertSame('000', $client->capturedDps?->ibsCbsCst);
             self::assertSame('000001', $client->capturedDps?->ibsCbsClassificacaoTributaria);
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('4.50', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
             self::assertSame('00001', $client->capturedDps?->serie);
             self::assertSame('42', $client->capturedDps?->numeroDps);
             self::assertSame('2026-02-04', $client->capturedDps?->dataCompetencia);
@@ -1543,13 +1543,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             // CP always '' (RNG6110 reject in produção restrita)
             self::assertSame('', $client->capturedDps?->federalValorCp);
             // Federal taxation without explicit tributos_* config still needs totTrib in the XML schema.
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('4.50', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
-        public function testEmitSetsIndicadorTributacaoTwoWhenTributosPercentConfigured(): void
+        public function testEmitIgnoresUnversionedLegacyTaxPercentSettings(): void
         {
             ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
             ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '10.50';
@@ -1608,13 +1608,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('10.50', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('2.00', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
-        public function testEmitDefaultsMissingEstadualTributosPercentualToZeroWhenTributacaoIsEnabled(): void
+        public function testEmitDoesNotReadPartialLegacyPercentSettings(): void
         {
             ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
             ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '3.65';
@@ -1673,13 +1673,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('3.65', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('2.00', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
-        public function testEmitUsesSimplesNacionalTributosProfileWhenCompanyIsOptant(): void
+        public function testEmitIgnoresUnversionedLegacySimplesPercentSettings(): void
         {
             ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 2;
             ControllerIsolationState::$settings['nfse.tributos_fed_p'] = '99.99';
@@ -1741,10 +1741,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $controller->emit($invoice);
 
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('4.44', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('1.11', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('0.55', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
         }
 
         public function testEmitSupportsRetentionOnlyFederalPayloadWithoutConfiguredTributosPercentuais(): void
@@ -1818,10 +1818,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('5.00', $client->capturedDps?->federalValorIrrf);
             self::assertSame('', $client->capturedDps?->federalValorCsll);
             self::assertSame('', $client->capturedDps?->federalValorCp);
-            self::assertSame(2, $client->capturedDps?->indicadorTributacao);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualFederal);
-            self::assertSame('0.00', $client->capturedDps?->totalTributosPercentualEstadual);
-            self::assertSame('4.50', $client->capturedDps?->totalTributosPercentualMunicipal);
+            self::assertSame(0, $client->capturedDps?->indicadorTributacao);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualFederal);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualEstadual);
+            self::assertSame('', $client->capturedDps?->totalTributosPercentualMunicipal);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
         }
@@ -1888,7 +1888,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $normalizedXml = str_replace(["\n", '  '], '', $xml);
 
             self::assertStringContainsString('<tribFed/><totTrib>', $normalizedXml);
-            self::assertStringContainsString('<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><pTotTrib><pTotTribFed>0.00</pTotTribFed><pTotTribEst>0.00</pTotTribEst><pTotTribMun>0.00</pTotTribMun></pTotTrib></totTrib></trib>', $normalizedXml);
+            self::assertStringContainsString('<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><indTotTrib>0</indTotTrib></totTrib></trib>', $normalizedXml);
+            self::assertStringNotContainsString('<pTotTribFed>0.00</pTotTribFed>', $normalizedXml);
         }
 
         public function testEmitPreservesTypeFourWithoutPopulatingCsllWhenCsllIsZero(): void
