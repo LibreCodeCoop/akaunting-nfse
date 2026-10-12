@@ -34,12 +34,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Lint workflow expressions and shell commands
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --retry-all-errors --max-time 120 --output actionlint_1.7.11_linux_amd64.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.11/actionlint_1.7.11_linux_amd64.tar.gz
-          gh attestation verify actionlint_1.7.11_linux_amd64.tar.gz --repo rhysd/actionlint
+          printf '%s\n' '900919a84f2229bac68ca9cd4103ea297abc35e9689ebb842c6e34a3d1b01b0a  actionlint_1.7.11_linux_amd64.tar.gz' | sha256sum --check
           tar -xzf actionlint_1.7.11_linux_amd64.tar.gz actionlint
           ./actionlint -shellcheck "$(command -v shellcheck)" \
             .github/workflows/playwright-*.yml \
