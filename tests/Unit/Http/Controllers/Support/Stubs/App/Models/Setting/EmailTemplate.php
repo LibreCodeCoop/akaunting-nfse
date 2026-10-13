@@ -11,6 +11,7 @@ namespace App\Models\Setting {
         {
             public static ?self $stubInstance = null;
             public static int $savedCount = 0;
+            public string $alias = '';
             public string $subject = "";
             public string $body = "";
             public function save(): void
