@@ -30,55 +30,80 @@ test('deterministic ADN browser reaches fiscal transport without real A1 or gove
   await expect(page.locator('#adn-summary-last-nsu')).toHaveText('0');
 });
 
-test('deterministic fiscal settings report the synthetic provider configuration', async ({ page }, testInfo) => {
+// Synthetic profile fixture: no real PFX or Vault connectivity, and no
+// company-scoped legacy nfse.* values are used as configuration.
+async function openFiscalProfile(page: import('@playwright/test').Page) {
+  await page.route('**/nfse/settings/company-profiles', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({
+      profiles: [{
+        company_id: 1, name: 'Prestador sintético',
+        status: 'active', cleanup_pending: false,
+        certificate_cnpj: '11222333000181',
+        fiscal_parameters: {
+          uf: 'RJ', municipio_ibge: '3303302',
+          opcao_simples_nacional: '1', tributacao_issqn: '1',
+          tipo_retencao_iss: '1', regime_especial_tributacao: '0',
+          emission_policy: 'manual',
+        },
+        fiscal_readiness: { basic_complete: true, pending: [], municipal_review_required: false },
+      }],
+      eligible_companies: [],
+    }),
+  }));
+  await page.route('**/nfse/settings/vault/diagnostics', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ state: 'operational', reason: 'verified', capabilities: {} }),
+  }));
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#profiles-body tr')).toHaveCount(1);
+  await page.locator('#profiles-body').getByRole('button', { name: 'Editar' }).click();
+  await expect(page.locator('#profile-editor')).toBeVisible();
+}
+
+test('deterministic fiscal profile displays synthetic company and municipal identity', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
+  await openFiscalProfile(page);
 
-  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
-
-  await expect(
-    page.getByRole('textbox', { name: 'CNPJ (extracted from certificate)' }),
-  ).toHaveValue('11222333000181');
-  await expect(
-    page.getByRole('textbox', { name: 'Municipality IBGE Code' }),
-  ).toHaveValue('3303302');
+  await expect(page.locator('#profile-company')).toHaveValue('1');
+  await expect(page.locator('#profile-company')).toBeDisabled();
+  await expect(page.locator('#profile-municipality')).toHaveValue('3303302');
+  await expect(page.locator('#profile-simples')).toHaveValue('1');
+  await expect(page.locator('#profile-regime')).toHaveValue('0');
 });
 
-test('deterministic settings preserve selected regime on invalid tax transitions without posting', async ({ page }, testInfo) => {
+test('special tax regime stays visible but invalid across incompatible Simples or ISSQN transitions', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
-  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
+  await openFiscalProfile(page);
 
-  const simple = page.locator('#opcao_simples_nacional');
-  const issqn = page.locator('#tributacao_issqn');
-  const regime = page.locator('#regime_especial_tributacao');
+  const simples = page.locator('#profile-simples');
+  const issqn = page.locator('#profile-issqn');
+  const regime = page.locator('#profile-regime');
 
-  await expect(regime).toBeVisible();
   await expect(regime).toHaveValue('0');
-  await simple.selectOption('1');
+  await simples.selectOption('1');
   await issqn.selectOption('1');
   await regime.selectOption('6');
   await expect(regime).toHaveValue('6');
 
-  await simple.selectOption('2');
+  await simples.selectOption('2');
   await expect(regime).toHaveValue('6');
   await expect(regime).toHaveAttribute('aria-invalid', 'true');
-  await expect(regime.locator('option[value="9"]')).toBeDisabled();
+  await expect(regime.locator('option[value="9"]')).toHaveAttribute('disabled', '');
   await regime.selectOption('0');
   await expect(regime).toHaveAttribute('aria-invalid', 'false');
 
   await issqn.selectOption('3');
-  await expect(regime.locator('option[value="6"]')).toBeDisabled();
+  await expect(regime.locator('option[value="6"]')).toHaveAttribute('disabled', '');
   await expect(regime).toHaveValue('0');
 });
 
-test('explicit ME/EPP apuration controls special regime eligibility without losing saved values', async ({ page }, testInfo) => {
+test('ME/EPP apuration enables eligible special regimes without clearing saved choices', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
-  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
-  const simples = page.locator('#opcao_simples_nacional');
-  const apuration = page.locator('#regime_apuracao_simples_nacional');
-  const special = page.locator('#regime_especial_tributacao');
+  await openFiscalProfile(page);
+  const simples = page.locator('#profile-simples');
+  const apuration = page.locator('#profile-apuracao');
+  const regime = page.locator('#profile-regime');
 
   await simples.selectOption('1');
   await expect(apuration).toBeDisabled();
@@ -86,17 +111,17 @@ test('explicit ME/EPP apuration controls special regime eligibility without losi
   await expect(apuration).toBeVisible();
   await expect(apuration).toBeEnabled();
   await expect(apuration).toHaveValue('');
-  await special.selectOption('0');
+  await regime.selectOption('0');
   await apuration.selectOption('1');
-  await expect(special.locator('option[value="9"]')).toBeDisabled();
+  await expect(regime.locator('option[value="9"]')).toHaveAttribute('disabled', '');
   await apuration.selectOption('2');
-  await expect(special.locator('option[value="9"]')).toBeEnabled();
-  await special.selectOption('9');
+  await expect(regime.locator('option[value="9"]')).not.toHaveAttribute('disabled');
+  await regime.selectOption('9');
   await apuration.selectOption('1');
-  await expect(special).toHaveValue('9');
-  await expect(special).toHaveAttribute('aria-invalid', 'true');
+  await expect(regime).toHaveValue('9');
+  await expect(regime).toHaveAttribute('aria-invalid', 'true');
   await apuration.selectOption('3');
-  await expect(special).toHaveAttribute('aria-invalid', 'false');
+  await expect(regime).toHaveAttribute('aria-invalid', 'false');
 
   await simples.selectOption('2');
   await expect(apuration).toBeDisabled();

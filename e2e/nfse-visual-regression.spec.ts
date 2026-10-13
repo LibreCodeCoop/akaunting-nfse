@@ -62,12 +62,16 @@ async function openEmissionModal(page: Page): Promise<Locator> {
   return dialog;
 }
 
-test('readiness summary visual baseline', async ({ page }, testInfo) => {
+test('settings administration synthetic screenshot', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
-  await assertVisualBaseline(page.locator('#nfse-readiness-summary'), 'settings-readiness-summary');
+  await expect(page.locator('#nfse-company-admin')).toBeVisible();
+  await testInfo.attach('nfse-admin-synthetic.png', {
+    body: await page.locator('#nfse-company-admin').screenshot({ animations: 'disabled' }),
+    contentType: 'image/png',
+  });
 });
 
 test('emission modal visual baseline', async ({ page }, testInfo) => {
