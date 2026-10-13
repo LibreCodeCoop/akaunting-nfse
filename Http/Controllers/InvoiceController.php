@@ -52,6 +52,10 @@ use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
 use Modules\Nfse\Support\InvoiceTakerResolver;
 use Modules\Nfse\Support\Lc116Code;
+use Modules\Nfse\Support\NfseCompanyFiscalReadiness;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
+use Modules\Nfse\Support\NfseCompanyIssuerPayload;
+use Modules\Nfse\Support\NfseCompanyProfileCatalog;
 use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\TakerAddressReadiness;
 use Modules\Nfse\Support\VaultConfig;
@@ -72,6 +76,11 @@ class InvoiceController extends Controller
     private const INVOICE_NOTES_SETTING_KEY = 'invoice.notes';
 
     private ?FiscalClientContext $clientContext = null;
+
+    /** @var array<string,mixed>|null */
+    private ?array $issuerFiscalContext = null;
+
+    private ?int $issuerContextCompanyId = null;
 
     protected string $indexSortBy = 'due_at';
 
@@ -3683,8 +3692,20 @@ class InvoiceController extends Controller
 
     protected function invoiceFederalPayloadResolver(): InvoiceFederalPayloadResolver
     {
+        $fiscal = $this->issuerFiscalContext;
+
         return new InvoiceFederalPayloadResolver(
-            settingResolver: static fn (string $key, mixed $default): mixed => setting($key, $default),
+            settingResolver: static function (string $key, mixed $default) use ($fiscal): mixed {
+                if (!str_starts_with($key, 'nfse.')) {
+                    return setting($key, $default);
+                }
+
+                $field = substr($key, strlen('nfse.'));
+
+                return $fiscal !== null && array_key_exists($field, $fiscal)
+                    ? $fiscal[$field]
+                    : $default;
+            },
         );
     }
 
@@ -3854,6 +3875,91 @@ class InvoiceController extends Controller
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Bind every emission to the owner of the invoice, never to whichever
+     * legacy nfse.* settings happen to be in the active request cache.
+     *
+     * @return array<string,mixed>
+     */
+    protected function fiscalParametersForInvoice(Invoice $invoice): array
+    {
+        $companyId = (int) ($invoice->company_id ?? 0);
+        $activeCompany = function_exists('company_id') ? (int) company_id() : 0;
+
+        if ($companyId <= 0 || $companyId !== $activeCompany) {
+            throw new \DomainException('Fiscal invoice does not belong to the active company.');
+        }
+
+        return (new NfseCompanyFiscalSettings())->all($companyId);
+    }
+
+    /** @return array<string,mixed> */
+    protected function bindIssuerFiscalParameters(Invoice $invoice): array
+    {
+        // Never reuse the previous invoice's data if resolution fails.
+        $this->issuerFiscalContext = null;
+        $this->issuerContextCompanyId = null;
+        $fiscal = $this->fiscalParametersForInvoice($invoice);
+        $this->issuerFiscalContext = $fiscal;
+        $this->issuerContextCompanyId = (int) $invoice->company_id;
+
+        return $fiscal;
+    }
+
+    protected function issuerFiscalValue(string $key, mixed $default = null): mixed
+    {
+        if ($this->issuerFiscalContext === null) {
+            throw new \DomainException('Company fiscal profile is not loaded.');
+        }
+
+        return array_key_exists($key, $this->issuerFiscalContext)
+            ? $this->issuerFiscalContext[$key]
+            : $default;
+    }
+
+    /**
+     * Basic fail-closed preflight; the fiscal factory and DPS coordinator still
+     * enforce their separate certificate, Vault and numbering requirements.
+     *
+     * @return array{isReady:bool,checklist:array<string,bool>}
+     */
+    protected function companyEmissionReadiness(): array
+    {
+        $companyId = $this->issuerContextCompanyId
+            ?? (function_exists('company_id') ? (int) company_id() : 0);
+
+        try {
+            $profile = (new NfseCompanyProfileCatalog())->requireActive($companyId);
+            $fiscal = (new NfseCompanyFiscalReadiness())->evaluate($profile->publicData());
+            $certificatePath = $profile->certificateFilePath();
+            $certificatePresent = is_string($certificatePath) && is_file($certificatePath);
+            $checklist = [
+                'fiscal_profile' => $fiscal['basic_complete'],
+                'company_certificate' => $certificatePresent,
+            ];
+
+            return ['isReady' => !in_array(false, $checklist, true), 'checklist' => $checklist];
+        } catch (\DomainException) {
+            return [
+                'isReady' => false,
+                'checklist' => ['fiscal_profile' => false, 'company_certificate' => false],
+            ];
+        }
+    }
+
+    protected function nativeIssuerCompany(Invoice $invoice): ?object
+    {
+        try {
+            $company = function_exists('company') ? \company() : null;
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return is_object($company) && (int) ($company->id ?? 0) === (int) $invoice->company_id
+            ? $company
+            : null;
     }
 
     protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
