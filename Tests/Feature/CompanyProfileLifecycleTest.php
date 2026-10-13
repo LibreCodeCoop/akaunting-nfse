@@ -16,6 +16,7 @@ use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\GlobalVaultSettings;
 use Modules\Nfse\Support\NfseCompanyCertificatePath;
+use Modules\Nfse\Support\NfseCompanyProfileManager;
 use Modules\Nfse\Support\VaultDiagnostics;
 use Modules\Nfse\Tests\Support\CompanyProfileFakeSecrets;
 use Modules\Nfse\Tests\Support\CompanyProfileFakeVaultTransport;
@@ -218,6 +219,77 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         self::assertCount(1, $this->secrets->data);
         self::assertSame(0, DB::table('nfse_company_certificate_retirements')->count());
         self::assertArrayHasKey(NfseCompanyCertificatePath::vaultPath($id, $newRef), $this->secrets->data);
+    }
+
+    public function testCleanupCannotOvertakeInFlightCertificateCreation(): void
+    {
+        $id = (int) $this->company->id;
+        $attempts = 0;
+        $this->secrets->beforePut = static function () use ($id, &$attempts): void {
+            ++$attempts;
+
+            try {
+                app(NfseCompanyProfileManager::class)->cleanup($id);
+            } catch (\DomainException $error) {
+                self::assertSame(
+                    'Another NFS-e profile operation is in progress for this company.',
+                    $error->getMessage(),
+                );
+
+                return;
+            }
+
+            self::fail('Concurrent cleanup removed a profile while its PFX was still being persisted.');
+        };
+
+        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($id))
+            ->assertCreated();
+        self::assertSame(1, $attempts);
+
+        $profile = NfseCompanyProfile::query()->where('company_id', $id)->firstOrFail();
+        self::assertSame('active', $profile->status);
+        self::assertFileExists((string) $profile->certificateFilePath());
+        self::assertCount(1, $this->secrets->data);
+        self::assertArrayHasKey((string) $profile->certificateVaultPath(), $this->secrets->data);
+    }
+
+    public function testDeletionCannotOvertakeInFlightCertificateRotation(): void
+    {
+        $id = (int) $this->company->id;
+        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($id))
+            ->assertCreated();
+        $originalRef = (string) NfseCompanyProfile::query()->where('company_id', $id)->value('certificate_ref');
+
+        $attempts = 0;
+        $this->secrets->beforePut = static function () use ($id, &$attempts): void {
+            ++$attempts;
+
+            try {
+                app(NfseCompanyProfileManager::class)->delete($id);
+            } catch (\DomainException $error) {
+                self::assertSame(
+                    'Another NFS-e profile operation is in progress for this company.',
+                    $error->getMessage(),
+                );
+
+                return;
+            }
+
+            self::fail('Concurrent deletion removed a profile while its new PFX was still being persisted.');
+        };
+
+        $this->patch(route('nfse.settings.company-profiles.update', $id), [
+            'pfx_file' => $this->certificate(),
+            'pfx_password' => SyntheticCompanyPkcs12::PASSWORD,
+        ])->assertOk();
+
+        self::assertSame(1, $attempts);
+        $profile = NfseCompanyProfile::query()->where('company_id', $id)->firstOrFail();
+        self::assertSame('active', $profile->status);
+        self::assertNotSame($originalRef, $profile->certificate_ref);
+        self::assertFileExists((string) $profile->certificateFilePath());
+        self::assertCount(1, $this->secrets->data);
+        self::assertArrayHasKey((string) $profile->certificateVaultPath(), $this->secrets->data);
     }
 
     public function testDeletionFailureIsRetriableWithoutRemovingFiscalHistory(): void
