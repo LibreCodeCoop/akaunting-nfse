@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Support\Testing;
 
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
 
@@ -26,16 +27,24 @@ final class EnvironmentFixtureSecretStore implements SecretStoreInterface
     {
         $cnpj = trim($this->cnpj ?? (string) (\getenv('NFSE_TEST_CNPJ') ?: ''));
         $password = $this->password ?? (string) (\getenv('NFSE_TEST_PFX_PASSWORD') ?: '');
-        $pfxPath = trim($this->pfxPath ?? (string) (\getenv('NFSE_TEST_PFX_PATH') ?: ''));
 
-        if ($cnpj === '' || $password === '' || $pfxPath === '') {
+        if ($cnpj === '' || $password === '') {
             throw new SecretStoreException(
-                'Deterministic fiscal harness requires NFSE_TEST_CNPJ, NFSE_TEST_PFX_PASSWORD and NFSE_TEST_PFX_PATH.'
+                'Deterministic fiscal harness requires NFSE_TEST_CNPJ and NFSE_TEST_PFX_PASSWORD.'
             );
         }
 
-        if ($path !== 'pfx/' . $cnpj) {
-            throw new SecretStoreException('Unknown deterministic fiscal secret path: ' . $path);
+        // Resolve only the requested immutable, company-owned certificate
+        // revision. Production continues to use Vault, never this fixture.
+        if (preg_match('#^pfx/companies/([1-9][0-9]*)/([a-f0-9]{32})$#D', $path, $matches) !== 1) {
+            throw new SecretStoreException('Unknown deterministic fiscal secret path.');
+        }
+
+        $pfxPath = $this->pfxPath ?? NfseCompanyCertificatePath::filePath((int) $matches[1], $matches[2]);
+        $expectedSuffix = '/nfse/pfx/companies/' . $matches[1] . '/' . $matches[2] . '.pfx';
+
+        if (!str_ends_with(str_replace('\\', '/', $pfxPath), $expectedSuffix)) {
+            throw new SecretStoreException('Synthetic certificate path belongs to another company or revision.');
         }
 
         return [

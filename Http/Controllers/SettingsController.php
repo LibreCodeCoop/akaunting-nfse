@@ -714,7 +714,7 @@ class SettingsController extends Controller
         }
 
         $sandbox = $this->sandboxModeEnabled();
-        $context = $this->makeFiscalClientFactory()->municipalParameters($sandbox);
+        $context = $this->makeFiscalClientFactory()->municipalParameters($sandbox, (int) company_id());
 
         try {
             $client = $context->municipalParametersClient();

@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Models\Document\Document;
 use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
 use Modules\Nfse\Application\InvoiceDpsIdentity;
+use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Support\VaultConfig;
 use Tests\Feature\FeatureTestCase;
 
@@ -21,8 +22,11 @@ final class TestHarnessProvisioningTest extends FeatureTestCase
     {
         \putenv('NFSE_TEST_HARNESS');
 
-        $path = storage_path('app/nfse/pfx/' . self::CNPJ . '.pfx');
-        if (is_file($path)) {
+        $profile = NfseCompanyProfile::query()
+            ->where('company_id', (int) $this->company->id)
+            ->first();
+        $path = $profile?->certificateFilePath();
+        if (is_string($path) && is_file($path)) {
             unlink($path);
         }
 
@@ -42,9 +46,13 @@ final class TestHarnessProvisioningTest extends FeatureTestCase
             '--password' => 'browser-test-password',
         ])->assertSuccessful();
 
-        $path = storage_path('app/nfse/pfx/' . self::CNPJ . '.pfx');
+        $profile = NfseCompanyProfile::query()->where('company_id', (int) $this->company->id)->sole();
+        $path = $profile->certificateFilePath();
 
-        self::assertFileExists($path);
+        self::assertSame('active', $profile->status);
+        self::assertSame(self::CNPJ, $profile->certificate_cnpj);
+        self::assertStringStartsWith('pfx/companies/' . $this->company->id . '/', (string) $profile->certificateVaultPath());
+        self::assertFileExists((string) $path);
         self::assertSame('11222333000181', (string) setting('nfse.cnpj_prestador'));
         self::assertSame('3303302', (string) setting('nfse.municipio_ibge'));
         self::assertSame('0107', (string) setting('nfse.item_lista_servico'));

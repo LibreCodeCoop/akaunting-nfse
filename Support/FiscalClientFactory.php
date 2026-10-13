@@ -18,28 +18,30 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\MunicipalParametersClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 
+/**
+ * Every fiscal client requires an explicit native Akaunting owner. In
+ * particular, neither the selected HTTP company nor the CNPJ can select a
+ * certificate. The CNPJ may legitimately coincide across different profiles.
+ */
 final class FiscalClientFactory
 {
     /** @var \Closure(): SecretStoreInterface */
     private readonly \Closure $secretStoreFactory;
 
-    /** @var \Closure(): string */
-    private readonly \Closure $cnpjResolver;
+    /** @var \Closure(int): array{cnpj:string,pfx_path:string,vault_path:string,sandbox_mode:mixed} */
+    private readonly \Closure $profileResolver;
 
-    /** @var \Closure(string): string */
-    private readonly \Closure $pfxPathResolver;
+    private readonly bool $injectedProfileResolver;
 
     /**
      * @param (\Closure(): SecretStoreInterface)|null $secretStoreFactory
-     * @param (\Closure(): string)|null $cnpjResolver
-     * @param (\Closure(string): string)|null $pfxPathResolver
+     * @param (\Closure(int): array{cnpj:string,pfx_path:string,vault_path:string,sandbox_mode:mixed})|null $profileResolver
      */
     public function __construct(
         private readonly HttpTransportInterface $transport,
         private readonly NfseRuntimeContextFactory $runtimeContextFactory = new NfseRuntimeContextFactory(),
         ?\Closure $secretStoreFactory = null,
-        ?\Closure $cnpjResolver = null,
-        ?\Closure $pfxPathResolver = null,
+        ?\Closure $profileResolver = null,
     ) {
         $this->secretStoreFactory = $secretStoreFactory ?? static function (): SecretStoreInterface {
             $config = VaultConfig::secretStoreConfig();
@@ -53,20 +55,42 @@ final class FiscalClientFactory
             );
         };
 
-        $this->cnpjResolver = $cnpjResolver ?? static fn (): string => trim((string) setting('nfse.cnpj_prestador', ''));
-        $this->pfxPathResolver = $pfxPathResolver
-            ?? static fn (string $cnpj): string => storage_path('app/nfse/pfx/' . $cnpj . '.pfx');
+        // The injected resolver is exclusively for isolated tests. In the
+        // application, ownership and certificate paths come from #419.
+        $this->injectedProfileResolver = $profileResolver !== null;
+        $this->profileResolver = $profileResolver ?? static function (int $companyId): array {
+            $profile = (new NfseCompanyProfileCatalog())->requireActive($companyId);
+            $validUntil = (int) ($profile->certificate_valid_to ?? 0);
+
+            if ($validUntil <= 0 || $validUntil < time()) {
+                throw new \DomainException('NFS-e company certificate is expired or has no verified validity.');
+            }
+
+            return [
+                'cnpj' => (string) ($profile->certificate_cnpj ?? ''),
+                'pfx_path' => (string) $profile->certificateFilePath(),
+                'vault_path' => (string) $profile->certificateVaultPath(),
+                'sandbox_mode' => ($profile->fiscal_parameters ?? [])['sandbox_mode'] ?? true,
+            ];
+        };
     }
 
-    public function nfse(bool $sandboxMode): FiscalClientContext
+    public function nfse(bool $sandboxMode, int $companyId): FiscalClientContext
     {
-        $context = $this->runtimeContext();
+        $context = $this->runtimeContext($sandboxMode, $companyId);
 
         try {
             $client = new NfseClient(
                 environment: new EnvironmentConfig(sandboxMode: $sandboxMode),
                 cert: $context->cert,
-                secretStore: $context->secretStore,
+                // The pinned nfse-php DpsSigner still asks for pfx/{cnpj}.
+                // Translate only that signer lookup to this explicit owner's
+                // immutable Vault revision; never read the old CNPJ key.
+                secretStore: new CompanyScopedSignerSecretStore(
+                    $context->secretStore,
+                    $context->cert->cnpj,
+                    $context->cert->vaultPath,
+                ),
                 transport: $this->transport,
             );
         } catch (\Throwable $e) {
@@ -78,9 +102,9 @@ final class FiscalClientFactory
         return new FiscalClientContext($client, $context->cleanup);
     }
 
-    public function adn(bool $sandboxMode): FiscalClientContext
+    public function adn(bool $sandboxMode, int $companyId): FiscalClientContext
     {
-        $context = $this->runtimeContext();
+        $context = $this->runtimeContext($sandboxMode, $companyId);
 
         try {
             $client = new AdnClient(
@@ -97,9 +121,9 @@ final class FiscalClientFactory
         return new FiscalClientContext($client, $context->cleanup);
     }
 
-    public function municipalParameters(bool $sandboxMode): FiscalClientContext
+    public function municipalParameters(bool $sandboxMode, int $companyId): FiscalClientContext
     {
-        $context = $this->runtimeContext();
+        $context = $this->runtimeContext($sandboxMode, $companyId);
 
         try {
             $client = new MunicipalParametersClient(
@@ -116,21 +140,42 @@ final class FiscalClientFactory
         return new FiscalClientContext($client, $context->cleanup);
     }
 
-    private function runtimeContext(): NfseRuntimeContext
+    private function runtimeContext(bool $sandboxMode, int $companyId): NfseRuntimeContext
     {
-        $cnpj = ($this->cnpjResolver)();
-
-        if ($cnpj === '') {
-            throw new \RuntimeException('Service provider CNPJ is not configured.');
+        if ($companyId <= 0) {
+            throw new \DomainException('Fiscal operation requires an explicit Akaunting company owner.');
         }
 
-        $secretStore = ($this->secretStoreFactory)();
-        $cert = new CertConfig(
-            cnpj: $cnpj,
-            pfxPath: ($this->pfxPathResolver)($cnpj),
-            vaultPath: 'pfx/' . $cnpj,
-        );
+        $prepare = function () use ($companyId, $sandboxMode): NfseRuntimeContext {
+            $profile = ($this->profileResolver)($companyId);
+            $cnpj = trim((string) ($profile['cnpj'] ?? ''));
+            $vaultPath = trim((string) ($profile['vault_path'] ?? ''));
+            $pfxPath = trim((string) ($profile['pfx_path'] ?? ''));
+            $environment = filter_var($profile['sandbox_mode'] ?? null, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
 
-        return $this->runtimeContextFactory->create($cert, $secretStore);
+            if ($cnpj === '' || $vaultPath === '' || $pfxPath === '' || $environment === null) {
+                throw new \DomainException('NFS-e company profile is incomplete.');
+            }
+            if ($environment !== $sandboxMode) {
+                throw new \DomainException('NFS-e operation environment differs from the owning company profile.');
+            }
+
+            $secretStore = ($this->secretStoreFactory)();
+            $cert = new CertConfig(
+                cnpj: $cnpj,
+                pfxPath: $pfxPath,
+                vaultPath: $vaultPath,
+            );
+
+            // Materialize mTLS keys while serialized against certificate
+            // rotation/deletion. Later calls use temporary private material.
+            return $this->runtimeContextFactory->create($cert, $secretStore);
+        };
+
+        if ($this->injectedProfileResolver) {
+            return $prepare();
+        }
+
+        return (new NfseCompanyProfileOperationLock())->run($companyId, $prepare);
     }
 }

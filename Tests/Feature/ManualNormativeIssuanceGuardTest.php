@@ -80,7 +80,7 @@ final class ManualNormativeIssuanceGuardTest extends FeatureTestCase
                 return ['isReady' => true, 'checklist' => []];
             }
 
-            protected function makeClient(bool $sandboxMode): NfseClientInterface
+            protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
             {
                 $this->clientOpens++;
 
@@ -148,7 +148,7 @@ final class ManualNormativeIssuanceGuardTest extends FeatureTestCase
         $controller = new class () extends InvoiceController {
             public int $clientOpens = 0;
 
-            protected function makeClient(bool $sandboxMode): NfseClientInterface
+            protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
             {
                 $this->clientOpens++;
 

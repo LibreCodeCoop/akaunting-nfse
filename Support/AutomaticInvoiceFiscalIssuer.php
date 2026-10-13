@@ -22,6 +22,8 @@ use Modules\Nfse\Models\NfseReceipt;
 
 final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterface
 {
+    private int $operationCompanyId = 0;
+
     /** @var \Closure(bool):FiscalClientContext */
     private readonly \Closure $clientContextFactory;
 
@@ -40,16 +42,18 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
         ?\Closure $settingResolver = null,
     ) {
         $this->settingResolver = $settingResolver
-            ?? static fn (string $key, mixed $default): mixed => function_exists('setting')
-                ? \setting($key, $default)
-                : $default;
+            ?? fn (string $key, mixed $default): mixed => (new NfseCompanyFiscalSettings())->value(
+                $this->operationCompanyId,
+                $key,
+                $default,
+            );
         $this->clientContextFactory = $clientContextFactory
             ?? function (bool $sandbox): FiscalClientContext {
                 if (!$this->clientFactory instanceof FiscalClientFactory) {
                     throw new \LogicException('Fiscal client factory is required.');
                 }
 
-                return $this->clientFactory->nfse($sandbox);
+                return $this->clientFactory->nfse($sandbox, (int) $this->operationCompanyId);
             };
     }
 
@@ -85,6 +89,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
             throw new \InvalidArgumentException('Invoice not found.');
         }
 
+        $this->operationCompanyId = (int) $invoice->company_id;
         $preflight = $this->preflight->evaluate($invoice, $this->nfseSettings());
 
         if (($preflight['status'] ?? '') !== 'ready' || !is_array($preflight['group'] ?? null)) {

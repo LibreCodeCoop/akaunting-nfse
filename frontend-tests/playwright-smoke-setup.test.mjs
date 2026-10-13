@@ -331,7 +331,8 @@ test('server startup preserves fixture environment, writes PID and aborts cleanl
   assert.deepEqual(observed.args, ['artisan', 'serve', '--host=127.0.0.1', '--port=8082']);
   assert.equal(observed.options.env.NFSE_TEST_HARNESS, '1');
   assert.equal(observed.options.env.NFSE_TEST_CNPJ, '11222333000181');
-  assert.match(observed.options.env.NFSE_TEST_PFX_PATH, /11222333000181\.pfx$/);
+  assert.equal(observed.options.env.NFSE_TEST_PFX_PASSWORD, 'nfse-test-password');
+  assert.equal(observed.options.env.NFSE_TEST_PFX_PATH, undefined, 'Synthetic certificates are resolved by profile revision, never the legacy CNPJ path.');
   assert.ok(unreferenced);
   assert.equal(fs.readFileSync(path.join(core, 'storage/logs/playwright-server.pid'), 'utf8'), '12345');
 

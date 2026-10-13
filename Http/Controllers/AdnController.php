@@ -311,11 +311,16 @@ class AdnController extends Controller
             ], 422);
         }
 
-        $cnpj = strtoupper(preg_replace(
-            '/[^A-Z0-9]/i',
-            '',
-            (string) $request->query('cnpj', setting('nfse.cnpj_prestador', '')),
-        ) ?? '');
+        // Request::query() evaluates its default argument eagerly. Resolve
+        // the owning company only when a CNPJ was not supplied.
+        $cnpjInput = $request->query('cnpj');
+        if ($cnpjInput === null) {
+            $companyId = function_exists('company_id') ? (int) company_id() : 0;
+            $cnpjInput = (new \Modules\Nfse\Support\NfseCompanyFiscalSettings())
+                ->value($companyId, 'nfse.cnpj_prestador', '');
+        }
+
+        $cnpj = strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $cnpjInput) ?? '');
 
         if ($cnpj !== '' && preg_match('/^[A-Z0-9]{12}\\d{2}$/', $cnpj) !== 1) {
             return $this->jsonResponse([
@@ -339,6 +344,10 @@ class AdnController extends Controller
 
     public function events(Invoice $invoice): JsonResponse
     {
+        if ((int) $invoice->company_id !== (int) company_id()) {
+            abort(404);
+        }
+
         $accessKey = $this->receiptAccessKey($invoice);
 
         if ($accessKey === '') {
@@ -485,7 +494,12 @@ class AdnController extends Controller
      */
     protected function withAdnClient(\Closure $operation): mixed
     {
-        $context = $this->makeFiscalClientFactory()->adn($this->sandboxModeEnabled());
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0) {
+            throw new \DomainException('ADN query requires an authorized company context.');
+        }
+
+        $context = $this->makeFiscalClientFactory()->adn($this->sandboxModeEnabled(), $companyId);
 
         try {
             return $operation($context->adnClient());
@@ -560,7 +574,8 @@ class AdnController extends Controller
 
     protected function sandboxModeEnabled(): bool
     {
-        $value = setting('nfse.sandbox_mode', true);
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $value = (new \Modules\Nfse\Support\NfseCompanyFiscalSettings())->value($companyId, 'nfse.sandbox_mode', true);
 
         if (is_bool($value)) {
             return $value;

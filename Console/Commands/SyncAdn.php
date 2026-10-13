@@ -10,6 +10,7 @@ namespace Modules\Nfse\Console\Commands;
 use Illuminate\Console\Command;
 use Modules\Nfse\Application\AdnSynchronizationService;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 
 final class SyncAdn extends Command
 {
@@ -37,15 +38,16 @@ final class SyncAdn extends Command
         try {
             company($companyId)->makeCurrent();
 
-            $sandbox = $this->booleanSetting(setting('nfse.sandbox_mode', true));
+            $settings = (new NfseCompanyFiscalSettings())->all($companyId);
+            $sandbox = $this->booleanSetting($settings['sandbox_mode'] ?? true);
             $environment = $sandbox ? 'sandbox' : 'production';
             $cnpj = strtoupper(preg_replace(
                 '/[^A-Z0-9]/i',
                 '',
-                (string) setting('nfse.cnpj_prestador', ''),
+                (string) ($settings['cnpj_prestador'] ?? ''),
             ) ?? '');
 
-            $context = $clients->adn($sandbox);
+            $context = $clients->adn($sandbox, $companyId);
 
             try {
                 $cursor = $synchronization->cursor($companyId, $environment);

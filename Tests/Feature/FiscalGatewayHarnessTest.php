@@ -7,10 +7,12 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
+use Modules\Nfse\Support\Testing\SyntheticPkcs12Factory;
 use Modules\Nfse\Tests\Support\FakeHttpTransport;
 use Modules\Nfse\Tests\Support\InMemorySecretStore;
-use Modules\Nfse\Tests\Support\SyntheticPkcs12;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\HttpTransportInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\HttpResponseData;
@@ -21,6 +23,7 @@ final class FiscalGatewayHarnessTest extends FeatureTestCase
     private const CNPJ = '11222333000181';
 
     private string $pfxDirectory;
+    private string $companyPfxPath = '';
 
     protected function setUp(): void
     {
@@ -39,21 +42,35 @@ final class FiscalGatewayHarnessTest extends FeatureTestCase
             }
         }
 
+        if ($this->companyPfxPath !== '' && is_file($this->companyPfxPath)) {
+            unlink($this->companyPfxPath);
+        }
+
         parent::tearDown();
     }
 
     public function testContainerCanRunFiscalClientWithSyntheticCertificateAndFakeTransport(): void
     {
-        $pkcs12 = SyntheticPkcs12::create($this->pfxDirectory);
+        $companyId = (int) company_id();
+        $reference = NfseCompanyCertificatePath::newReference();
+        $this->companyPfxPath = NfseCompanyCertificatePath::filePath($companyId, $reference);
+        $pkcs12 = SyntheticPkcs12Factory::create(
+            dirname($this->companyPfxPath),
+            basename($this->companyPfxPath),
+        );
 
-        setting()->set([
-            'nfse.cnpj_prestador' => self::CNPJ,
-            'nfse.sandbox_mode' => '1',
+        NfseCompanyProfile::query()->create([
+            'company_id' => $companyId,
+            'status' => 'active',
+            'certificate_ref' => $reference,
+            'certificate_cnpj' => self::CNPJ,
+            'certificate_valid_from' => time() - 3600,
+            'certificate_valid_to' => time() + 3600,
+            'fiscal_parameters' => ['sandbox_mode' => true],
         ]);
-        setting()->save();
 
         $secretStore = new InMemorySecretStore([
-            'pfx/' . self::CNPJ => [
+            NfseCompanyCertificatePath::vaultPath($companyId, $reference) => [
                 'password' => $pkcs12['password'],
                 'pfx_path' => $pkcs12['path'],
             ],
@@ -72,7 +89,7 @@ final class FiscalGatewayHarnessTest extends FeatureTestCase
         $this->app->instance(SecretStoreInterface::class, $secretStore);
         $this->app->instance(HttpTransportInterface::class, $transport);
 
-        $context = $this->app->make(FiscalClientFactory::class)->adn(true);
+        $context = $this->app->make(FiscalClientFactory::class)->adn(true, (int) company_id());
 
         try {
             $result = $context->adnClient()->getDfe(0);

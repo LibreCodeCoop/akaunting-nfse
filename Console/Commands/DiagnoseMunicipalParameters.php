@@ -9,6 +9,7 @@ namespace Modules\Nfse\Console\Commands;
 
 use Illuminate\Console\Command;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\QueryException;
 
 final class DiagnoseMunicipalParameters extends Command
@@ -51,10 +52,11 @@ final class DiagnoseMunicipalParameters extends Command
         try {
             company($companyId)->makeCurrent();
 
-            $municipio = trim((string) setting('nfse.municipio_ibge', ''));
+            $settings = (new NfseCompanyFiscalSettings())->all($companyId);
+            $municipio = trim((string) ($settings['municipio_ibge'] ?? ''));
             $sandbox = $this->option('production')
                 ? false
-                : $this->booleanSetting(setting('nfse.sandbox_mode', true));
+                : $this->booleanSetting($settings['sandbox_mode'] ?? true);
 
             if (preg_match('/^\\d{7}$/', $municipio) !== 1) {
                 $this->error('Configured municipality IBGE code is invalid.');
@@ -62,7 +64,7 @@ final class DiagnoseMunicipalParameters extends Command
                 return self::FAILURE;
             }
 
-            $context = $clients->municipalParameters($sandbox);
+            $context = $clients->municipalParameters($sandbox, $companyId);
 
             try {
                 $client = $context->municipalParametersClient();

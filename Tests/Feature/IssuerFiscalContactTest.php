@@ -9,164 +9,108 @@ namespace Modules\Nfse\Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Http\Controllers\InvoiceController;
+use Modules\Nfse\Models\NfseCompanyProfile;
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 use Tests\Feature\FeatureTestCase;
 
 final class IssuerFiscalContactTest extends FeatureTestCase
 {
-    public function testFiscalIssuerFieldsPersistWithinActiveCompanyAndReloadInForm(): void
+    private const CNPJ = '11222333000181';
+
+    public function testFiscalIssuerFieldsPersistWithinOwningCompanyAndReloadFromProfileApi(): void
     {
         $this->loginAs();
-        $companyId = (int) company_id();
-
-        setting([
-            'nfse.bao_addr' => 'https://vault.example.invalid',
-            'nfse.bao_mount' => '/secret',
-            'nfse.bao_token' => 'fixture-token',
-        ]);
-        setting()->save();
-
-        (new \Modules\Nfse\Support\GlobalVaultSettings())->save([
-            'addr' => 'https://vault.example.invalid',
-            'mount' => '/secret',
-            'auth_mode' => 'token',
-            'token' => 'synthetic-global-fixture-token',
+        $owner = (int) company_id();
+        $other = $this->secondCompany();
+        $this->profile($owner, ['prestador_email' => 'before@example.test']);
+        $this->profile($other, [
+            'prestador_email' => 'other-company@example.test',
+            'prestador_inscricao_municipal' => '654321',
         ]);
 
-        DB::table('settings')->insert([
-            'company_id' => $companyId + 50000,
-            'key' => 'nfse.prestador_email',
-            'value' => 'other-company@example.invalid',
-        ]);
-
-        $this->patch(route('nfse.settings.fiscal'), [
-            'nfse' => [
-                'cnpj_prestador' => '11222333000181',
+        $this->patchJson(route('nfse.settings.company-profiles.update', $owner), [
+            'fiscal_parameters' => [
                 'uf' => 'RJ',
-                'municipio_nome' => 'Curitiba',
-                'municipio_ibge' => '4106902',
-                'tributacao_issqn' => '1',
-                'tipo_retencao_iss' => '1',
+                'municipio_ibge' => '3303302',
                 'prestador_telefone' => '(00) 90000-0000',
-                'prestador_email' => 'fiscal@example.invalid',
+                'prestador_email' => 'fiscal@example.test',
                 'prestador_inscricao_municipal' => '123456',
             ],
-        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'fiscal']))
-            ->assertSessionHas('success');
+        ])->assertOk()
+            ->assertJsonPath('data.company_id', $owner)
+            ->assertJsonPath('data.fiscal_parameters.prestador_email', 'fiscal@example.test')
+            ->assertJsonPath('data.fiscal_parameters.prestador_inscricao_municipal', '123456');
 
-        self::assertSame('(00) 90000-0000', (string) setting('nfse.prestador_telefone'));
-        self::assertSame('fiscal@example.invalid', (string) setting('nfse.prestador_email'));
-        self::assertSame('123456', (string) setting('nfse.prestador_inscricao_municipal'));
-        self::assertSame('other-company@example.invalid', (string) DB::table('settings')
-            ->where('company_id', $companyId + 50000)
-            ->where('key', 'nfse.prestador_email')
-            ->value('value'));
+        $profiles = $this->getJson(route('nfse.settings.company-profiles.index'))
+            ->assertOk()->json('profiles');
+        $byCompany = array_column($profiles, null, 'company_id');
 
-        $this->get(route('nfse.settings.edit', ['tab' => 'fiscal']))
-            ->assertOk()
-            ->assertSee('data-nfse-active-company="true"', false)
-            ->assertSee('value="fiscal@example.invalid"', false)
-            ->assertSee('value="123456"', false);
+        self::assertSame('(00) 90000-0000', $byCompany[$owner]['fiscal_parameters']['prestador_telefone']);
+        self::assertSame('fiscal@example.test', $byCompany[$owner]['fiscal_parameters']['prestador_email']);
+        self::assertSame('123456', $byCompany[$owner]['fiscal_parameters']['prestador_inscricao_municipal']);
+        self::assertSame('other-company@example.test', $byCompany[$other]['fiscal_parameters']['prestador_email']);
+        self::assertSame('654321', $byCompany[$other]['fiscal_parameters']['prestador_inscricao_municipal']);
+
+        $settings = new NfseCompanyFiscalSettings();
+        self::assertSame('fiscal@example.test', $settings->value($owner, 'nfse.prestador_email'));
+        self::assertSame('other-company@example.test', $settings->value($other, 'nfse.prestador_email'));
     }
 
-    public function testSimplesApurationPersistsOnlyForActiveCompanyWithoutGuessingSelection(): void
+    public function testSimplesApurationPersistsOnlyForOwnerWithoutGuessingSelection(): void
     {
         $this->loginAs();
-        $companyId = (int) company_id();
-        setting([
-            'nfse.bao_addr' => 'https://vault.example.invalid',
-            'nfse.bao_mount' => '/secret',
-            'nfse.bao_token' => 'fixture-token',
+        $owner = (int) company_id();
+        $other = $this->secondCompany();
+        $this->profile($owner, [
+            'opcao_simples_nacional' => '3',
+            'regime_apuracao_simples_nacional' => '1',
         ]);
-        setting()->save();
-
-        (new \Modules\Nfse\Support\GlobalVaultSettings())->save([
-            'addr' => 'https://vault.example.invalid',
-            'mount' => '/secret',
-            'auth_mode' => 'token',
-            'token' => 'synthetic-global-fixture-token',
+        $this->profile($other, [
+            'opcao_simples_nacional' => '3',
+            'regime_apuracao_simples_nacional' => '3',
         ]);
 
-        DB::table('settings')->insert([
-            'company_id' => $companyId + 50000,
-            'key' => 'nfse.regime_apuracao_simples_nacional',
-            'value' => '3',
-        ]);
+        $this->patchJson(route('nfse.settings.company-profiles.update', $owner), [
+            'fiscal_parameters' => ['regime_apuracao_simples_nacional' => '2'],
+        ])->assertOk()
+            ->assertJsonPath('data.fiscal_parameters.opcao_simples_nacional', '3')
+            ->assertJsonPath('data.fiscal_parameters.regime_apuracao_simples_nacional', '2');
 
-        $this->patch(route('nfse.settings.fiscal'), [
-            'nfse' => [
-                'cnpj_prestador' => '11222333000181',
-                'uf' => 'RJ',
-                'municipio_nome' => 'Cidade Fictícia',
-                'municipio_ibge' => '3303302',
-                'opcao_simples_nacional' => '3',
-                'regime_apuracao_simples_nacional' => '2',
-                'regime_especial_tributacao' => '9',
-                'tributacao_issqn' => '1',
-                'tipo_retencao_iss' => '1',
-            ],
-        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'fiscal']))
-            ->assertSessionHas('success');
+        $settings = new NfseCompanyFiscalSettings();
+        self::assertSame('3', $settings->value($owner, 'nfse.opcao_simples_nacional'));
+        self::assertSame('2', $settings->value($owner, 'nfse.regime_apuracao_simples_nacional'));
+        self::assertSame('3', $settings->value($other, 'nfse.regime_apuracao_simples_nacional'));
 
-        self::assertSame('2', (string) setting('nfse.regime_apuracao_simples_nacional'));
-        self::assertSame('9', (string) setting('nfse.regime_especial_tributacao'));
-        self::assertSame('3', (string) DB::table('settings')
-            ->where('company_id', $companyId + 50000)
-            ->where('key', 'nfse.regime_apuracao_simples_nacional')
-            ->value('value'));
-
-        $this->get(route('nfse.settings.edit', ['tab' => 'fiscal']))
-            ->assertOk()
-            ->assertSee('name="nfse[regime_apuracao_simples_nacional]"', false);
+        $profiles = $this->getJson(route('nfse.settings.company-profiles.index'))
+            ->assertOk()->json('profiles');
+        $byCompany = array_column($profiles, null, 'company_id');
+        self::assertSame('2', $byCompany[$owner]['fiscal_parameters']['regime_apuracao_simples_nacional']);
+        self::assertSame('3', $byCompany[$other]['fiscal_parameters']['regime_apuracao_simples_nacional']);
     }
 
-    public function testSpecialRegimeCompanySettingRoundTripDoesNotModifyAnotherCompany(): void
+    public function testSpecialRegimeRoundTripDoesNotModifyAnotherCompany(): void
     {
         $this->loginAs();
-        $companyId = (int) company_id();
-        setting([
-            'nfse.bao_addr' => 'https://vault.example.invalid',
-            'nfse.bao_mount' => '/secret',
-            'nfse.bao_token' => 'test-only-token',
-        ]);
-        setting()->save();
+        $owner = (int) company_id();
+        $other = $this->secondCompany();
+        $this->profile($owner, ['regime_especial_tributacao' => '0']);
+        $this->profile($other, ['regime_especial_tributacao' => '5']);
 
-        (new \Modules\Nfse\Support\GlobalVaultSettings())->save([
-            'addr' => 'https://vault.example.invalid',
-            'mount' => '/secret',
-            'auth_mode' => 'token',
-            'token' => 'synthetic-global-fixture-token',
-        ]);
+        $this->patchJson(route('nfse.settings.company-profiles.update', $owner), [
+            'fiscal_parameters' => ['regime_especial_tributacao' => '9'],
+        ])->assertOk()
+            ->assertJsonPath('data.fiscal_parameters.regime_especial_tributacao', '9');
 
-        DB::table('settings')->insert([
-            'company_id' => $companyId + 50000,
-            'key' => 'nfse.regime_especial_tributacao',
-            'value' => '5',
-        ]);
+        $settings = new NfseCompanyFiscalSettings();
+        self::assertSame('9', $settings->value($owner, 'nfse.regime_especial_tributacao'));
+        self::assertSame('5', $settings->value($other, 'nfse.regime_especial_tributacao'));
 
-        $this->patch(route('nfse.settings.fiscal'), [
-            'nfse' => [
-                'cnpj_prestador' => '11222333000181',
-                'uf' => 'RJ',
-                'municipio_nome' => 'Cidade Fictícia',
-                'municipio_ibge' => '3303302',
-                'opcao_simples_nacional' => '1',
-                'tributacao_issqn' => '1',
-                'tipo_retencao_iss' => '1',
-                'regime_especial_tributacao' => '9',
-            ],
-        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'fiscal']))
-            ->assertSessionHas('success');
-
-        self::assertSame('9', (string) setting('nfse.regime_especial_tributacao'));
-        self::assertSame('5', (string) DB::table('settings')
-            ->where('company_id', $companyId + 50000)
-            ->where('key', 'nfse.regime_especial_tributacao')
-            ->value('value'));
-
-        $this->get(route('nfse.settings.edit', ['tab' => 'fiscal']))
-            ->assertOk()
-            ->assertSee('name="nfse[regime_especial_tributacao]"', false)
-            ->assertSee('value="9" data-regime-nonzero="1"', false);
+        $profiles = $this->getJson(route('nfse.settings.company-profiles.index'))
+            ->assertOk()->json('profiles');
+        $byCompany = array_column($profiles, null, 'company_id');
+        self::assertSame('9', $byCompany[$owner]['fiscal_parameters']['regime_especial_tributacao']);
+        self::assertSame('5', $byCompany[$other]['fiscal_parameters']['regime_especial_tributacao']);
     }
 
     public function testConfiguredProviderPhoneAndEmailOverrideAkauntingCompanyOnlyInFiscalPayload(): void
@@ -189,5 +133,40 @@ final class IssuerFiscalContactTest extends FeatureTestCase
             'telefone' => '00900000000',
             'email' => 'issuer@example.invalid',
         ], $controller->inspectIssuerContact());
+    }
+
+    /**
+     * A metadata-only profile update does not require Vault access or an
+     * actual certificate. The profile still has a distinct, valid reference.
+     *
+     * @param array<string,mixed> $parameters
+     */
+    private function profile(int $companyId, array $parameters): void
+    {
+        NfseCompanyProfile::query()->create([
+            'company_id' => $companyId,
+            'status' => 'active',
+            'certificate_ref' => NfseCompanyCertificatePath::newReference(),
+            'certificate_cnpj' => self::CNPJ,
+            'certificate_valid_from' => time() - 3600,
+            'certificate_valid_to' => time() + 3600,
+            'fiscal_parameters' => $parameters,
+        ]);
+    }
+
+    private function secondCompany(): int
+    {
+        $companyId = (int) DB::table('companies')->insertGetId([
+            'domain' => 'synthetic-second-fiscal-company.example.test',
+            'enabled' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('user_companies')->insert([
+            'user_id' => (int) auth()->id(),
+            'company_id' => $companyId,
+        ]);
+
+        return $companyId;
     }
 }

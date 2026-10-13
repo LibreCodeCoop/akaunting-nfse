@@ -80,15 +80,15 @@ final class FiscalClientFactoryTest extends TestCase
 
         $factory = $this->factory($transport);
 
-        $nfse = $factory->nfse(true);
+        $nfse = $factory->nfse(true, 11);
         self::assertSame('42', $nfse->nfseClient()->query('ACCESS-KEY')->nfseNumber);
         $this->assertTransportMaterialLifecycle($nfse, $transport->requests[array_key_last($transport->requests)]);
 
-        $adn = $factory->adn(true);
+        $adn = $factory->adn(true, 11);
         self::assertSame('OK', $adn->adnClient()->listEvents('ACCESS-KEY')->statusProcessamento);
         $this->assertTransportMaterialLifecycle($adn, $transport->requests[array_key_last($transport->requests)]);
 
-        $municipal = $factory->municipalParameters(true);
+        $municipal = $factory->municipalParameters(true, 11);
         self::assertSame(
             ['convenio' => true],
             $municipal->municipalParametersClient()->convenio('3303302'),
@@ -107,7 +107,7 @@ final class FiscalClientFactoryTest extends TestCase
             }
         };
 
-        $context = $this->factory($transport)->adn(true);
+        $context = $this->factory($transport)->adn(true, 11);
         $client = $context->adnClient();
 
         $readCert = \Closure::bind(
@@ -165,8 +165,12 @@ final class FiscalClientFactoryTest extends TestCase
             transport: $transport,
             runtimeContextFactory: new NfseRuntimeContextFactory($manager),
             secretStoreFactory: static fn (): SecretStoreInterface => $secretStore,
-            cnpjResolver: static fn (): string => '12345678000195',
-            pfxPathResolver: fn (): string => $this->pfxPath,
+            profileResolver: fn (int $companyId): array => [
+                'cnpj' => '12345678000195',
+                'pfx_path' => $this->pfxPath,
+                'vault_path' => 'pfx/companies/' . $companyId . '/' . str_repeat('a', 32),
+                'sandbox_mode' => true,
+            ],
         );
     }
 

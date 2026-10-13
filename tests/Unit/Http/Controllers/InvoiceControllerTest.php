@@ -260,7 +260,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
 
             self::assertStringContainsString(
-                '$this->clientContext = $this->makeFiscalClientFactory()->nfse($sandboxMode);',
+                '$this->clientContext = $this->makeFiscalClientFactory()->nfse($sandboxMode, $companyId);',
                 $content,
             );
             self::assertStringContainsString('return $this->clientContext->nfseClient();', $content);
@@ -664,7 +664,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1050,7 +1050,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     ]);
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     $this->clientCalls[] = ['sandbox' => $sandboxMode];
 
@@ -1190,7 +1190,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1263,7 +1263,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1325,7 +1325,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1394,7 +1394,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1454,7 +1454,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1514,7 +1514,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1602,7 +1602,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1665,7 +1665,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1745,7 +1745,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1810,7 +1810,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1878,7 +1878,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -1952,7 +1952,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -2091,7 +2091,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -2150,7 +2150,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -2226,7 +2226,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -2332,7 +2332,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -2433,7 +2433,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -2549,7 +2549,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -3618,7 +3618,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     $this->capturedSandbox = $sandboxMode;
 
@@ -3679,7 +3679,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -3737,7 +3737,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -3818,7 +3818,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -3874,7 +3874,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -3934,7 +3934,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -3994,7 +3994,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -4053,7 +4053,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -4118,7 +4118,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -4768,7 +4768,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     ];
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     throw new \RuntimeException('Client must not be created when readiness is not satisfied.');
                 }
@@ -4866,7 +4866,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -4927,7 +4927,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -4983,7 +4983,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5047,7 +5047,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ) {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5111,7 +5111,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 ) {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5183,7 +5183,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return ['isReady' => true, 'checklist' => []];
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     $this->transportOpened = true;
                     throw new \LogicException('No transport may open for a preflight failure.');
@@ -5222,7 +5222,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return ['isReady' => true, 'checklist' => []];
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     $this->transportOpened = true;
                     throw new \LogicException('A missing E0166 field cannot reach SEFIN.');
@@ -5324,7 +5324,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5446,7 +5446,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5537,7 +5537,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5603,7 +5603,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5658,7 +5658,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5715,7 +5715,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5773,7 +5773,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5834,7 +5834,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5901,7 +5901,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -5969,7 +5969,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -6037,7 +6037,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -6090,7 +6090,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -6143,7 +6143,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -6204,7 +6204,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -6260,7 +6260,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -6315,7 +6315,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -6371,7 +6371,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 {
                 }
 
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
                 }
@@ -6397,7 +6397,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             InvoiceControllerIsolationState::makeReceipt(302, 'CHAVE-302', 'emitted');
 
             $controller = new class () extends UnitFederalControllerFixture {
-                protected function makeClient(bool $sandboxMode): NfseClientInterface
+                protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     throw new \RuntimeException('Client must not be created when receipt is not cancelled.');
                 }

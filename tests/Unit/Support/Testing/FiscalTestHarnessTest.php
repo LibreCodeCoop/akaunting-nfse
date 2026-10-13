@@ -38,16 +38,16 @@ final class FiscalTestHarnessTest extends TestCase
         $store = new EnvironmentFixtureSecretStore(
             cnpj: '11222333000181',
             password: 'secret',
-            pfxPath: '/tmp/test.p12',
+            pfxPath: '/tmp/nfse/pfx/companies/11/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.pfx',
         );
 
         self::assertSame([
             'password' => 'secret',
-            'pfx_path' => '/tmp/test.p12',
-        ], $store->get('pfx/11222333000181'));
+            'pfx_path' => '/tmp/nfse/pfx/companies/11/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.pfx',
+        ], $store->get('pfx/companies/11/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'));
 
         $this->expectException(SecretStoreException::class);
-        $store->get('pfx/00000000000000');
+        $store->get('pfx/companies/12/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     }
 
     public function testFixtureSecretStoreIsReadOnly(): void
@@ -59,7 +59,7 @@ final class FiscalTestHarnessTest extends TestCase
         );
 
         $this->expectException(SecretStoreException::class);
-        $store->put('pfx/11222333000181', ['password' => 'changed']);
+        $store->put('pfx/companies/11/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', ['password' => 'changed']);
     }
 
     public function testDeterministicTransportEmitsWithoutNetwork(): void
