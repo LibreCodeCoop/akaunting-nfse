@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
+use Modules\Nfse\Application\SimplesOptionCode;
 use Modules\Nfse\Application\SpecialTaxRegimePolicy;
 use Modules\Nfse\Models\ApproximateTaxSource;
 use Modules\Nfse\Support\BrazilianStates;
@@ -973,7 +974,10 @@ class SettingsController extends Controller
         $code = array_key_exists('regime_especial_tributacao', $input)
             ? $input['regime_especial_tributacao']
             : ($settings['regime_especial_tributacao'] ?? null);
-        $simples = (int) ($input['opcao_simples_nacional'] ?? $settings['opcao_simples_nacional'] ?? 1);
+        $rawSimples = array_key_exists('opcao_simples_nacional', $input)
+            ? $input['opcao_simples_nacional']
+            : ($settings['opcao_simples_nacional'] ?? null);
+        $simples = SimplesOptionCode::observed($rawSimples) ?? 0;
         $issqn = (int) ($input['tributacao_issqn'] ?? $settings['tributacao_issqn'] ?? 1);
         $apuration = array_key_exists('regime_apuracao_simples_nacional', $input)
             ? $input['regime_apuracao_simples_nacional']

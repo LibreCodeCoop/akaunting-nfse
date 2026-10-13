@@ -53,10 +53,13 @@ final class ApproximateTaxSourceResolver
     /**
      * @return array{status:string,reason:?string,source:?array<string,mixed>,federal:string,state:string,municipal:string}
      */
-    public function resolve(int $companyId, string $nationalCode, int $simplesOption, string $competence): array
+    public function resolve(int $companyId, string $nationalCode, ?int $simplesOption, string $competence): array
     {
         if ($companyId <= 0 || preg_match('/^\d{6}$/D', $nationalCode) !== 1) {
             return $this->unknown('missing_company_or_service');
+        }
+        if ($simplesOption === null) {
+            return $this->unknown('simples_option_unverifiable');
         }
 
         if (!in_array($simplesOption, [1, 2, 3], true) || !$this->dateValid($competence)) {

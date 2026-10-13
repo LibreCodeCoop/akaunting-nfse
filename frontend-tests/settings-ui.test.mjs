@@ -42,6 +42,13 @@ test('municipal query uses normalized explicit parameters', () => {
 });
 
 test('special tax and Simples apuration UI preserve legal combinations', () => {
+    assert.deepEqual(settings.specialRegimeUiState('', '1', '0'), {
+        canSelectSpecial: false,
+        hasIncompatibleSelection: false,
+        requiresRuntimeReview: false,
+        reason: 'simples_unknown',
+    });
+    assert.equal(settings.specialRegimeUiState('4', '1', '6').hasIncompatibleSelection, true);
     assert.deepEqual(settings.specialRegimeUiState('1', '1', '6'), {
         canSelectSpecial: true,
         hasIncompatibleSelection: false,

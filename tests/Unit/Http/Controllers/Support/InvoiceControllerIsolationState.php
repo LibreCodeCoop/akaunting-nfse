@@ -27,6 +27,9 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers\Support {
         public static function reset(): void
         {
             ControllerIsolationState::reset();
+            // Controller mechanics tests use an explicitly confirmed non-optant.
+            // Unknown Simples is tested separately in the fiscal Feature suite.
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 1;
             NfseReceipt::$records = [];
             NfseReceipt::$updateOrCreateCalls = [];
             NfseReceipt::$paginateItems = [];

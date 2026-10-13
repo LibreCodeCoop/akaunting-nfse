@@ -948,6 +948,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse.bao_token' => 'unit-test-token',
                 'nfse.item_lista_servico' => '0107',
                 'nfse.codigo_tributacao_nacional' => '010701',
+                'nfse.opcao_simples_nacional' => 1,
                 'nfse.regime_especial_tributacao' => '0',
                 'nfse.aliquota' => '4.50',
                 'nfse.federal_piscofins_situacao_tributaria' => '1',
@@ -975,6 +976,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testEmitBuildsDpsPersistsReceiptAndRedirectsToShowPage(): void
         {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 2;
             ControllerIsolationState::$settings['nfse.ibs_cbs_enabled'] = true;
             ControllerIsolationState::$settings['nfse.ibs_cbs_ind_final'] = '0';
             ControllerIsolationState::$settings['nfse.ibs_cbs_c_ind_op'] = '010101';
