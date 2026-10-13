@@ -13,10 +13,16 @@ Runs on every pull request and on main. It provisions a local Akaunting instance
 a synthetic PKCS#12 certificate and deterministic fiscal transport. It never
 contacts SEFIN or ADN and uses no fiscal secrets.
 
+The smoke, full-ui and bulk-ui CI jobs each own an isolated GitHub-hosted runner
+and SQLite file. Keep Playwright at one worker **per database**: sharing SQLite
+and mutable fiscal fixtures across workers is unsafe. Parallelism between
+isolated jobs is safe. Only versioned Chromium binaries are cached; never
+cache the database, PFX files or tenant configuration.
+
 ## full-ui
 
-Runs on main, nightly and on demand against the same deterministic local Akaunting
-environment. It covers broader settings, modal and invoice UI behavior while the
+Runs on relevant pull requests, main, nightly and on demand against an
+isolated deterministic local Akaunting environment. It covers broader settings, modal and invoice UI behavior while the
 fiscal boundary remains fake.
 
 ## live-fiscal

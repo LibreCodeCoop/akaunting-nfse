@@ -126,6 +126,13 @@ jobs:
         working-directory: akaunting/modules/Nfse
         run: node scripts/ci/playwright-smoke.mjs assets
 
+      # Cache locked browser binaries, never mutable SQLite/PFX fixtures.
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('akaunting/modules/Nfse/package-lock.json') }}
+
       - name: Install Playwright
         working-directory: akaunting/modules/Nfse
         run: |
