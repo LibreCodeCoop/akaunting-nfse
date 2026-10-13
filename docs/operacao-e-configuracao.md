@@ -39,6 +39,10 @@ Alterações administrativas exigem `update-nfse-settings`; diagnóstico manual
 exige `read-nfse-settings`. Os segredos são criptografados no banco usando
 a chave da aplicação Akaunting e não retornam em respostas. Faça backup seguro
 da chave de aplicação: sua perda impede descriptografar credenciais.
+Ao alterar o endereço do Vault, informe novamente o token ou o par AppRole.
+Campos de credenciais omitidos só preservam valores quando o servidor não muda.
+Se faltarem credenciais para o novo servidor, a alteração é recusada e o
+registro global anterior permanece intacto.
 
 O diagnóstico sob demanda não armazena nem modifica certificados. Verifica
 saúde, autenticação, KV v2 e capacidade de leitura/criação/atualização

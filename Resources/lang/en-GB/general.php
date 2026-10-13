@@ -625,7 +625,7 @@ return [
         'auth_mode_option_token' => 'Token',
         'auth_mode_option_approle' => 'AppRole',
         'bao_token'        => 'Vault token',
-        'bao_token_hint'   => 'Leave blank to keep the currently saved token.',
+        'bao_token_hint'   => 'Leave blank to keep the token only if the Vault address stays unchanged.',
         'bao_token_local_dev_hint' => 'In local development, the default token is often dev-only-root-token.',
         'clear_bao_token'  => 'Clear saved token on save',
         'bao_role_id'      => 'AppRole Role ID',
