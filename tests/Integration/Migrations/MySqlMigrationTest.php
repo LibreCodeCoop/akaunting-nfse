@@ -356,6 +356,71 @@ final class MySqlMigrationTest extends TestCase
         self::assertSame(2, (int) DB::table('nfse_dps_series')->where('id', $series)->value('last_number'));
     }
 
+    public function testTwoIsolatedMysqlDatabasesCanAllocateIdenticalNationalDpsIdentity(): void
+    {
+        // Counterexample, NOT a successful uniqueness test. Both installations
+        // have independent transactional counters and can allocate DPS 1.
+        // This proves why a local status/reference cannot authorize production.
+        $database = (string) getenv('NFSE_MIGRATION_TEST_DB');
+        $peerDatabase = $database . '_peer';
+        $pdo = DB::connection()->getPdo();
+        $pdo->exec('CREATE DATABASE IF NOT EXISTS `' . $peerDatabase . '`');
+        $other = new \PDO(
+            'mysql:host=' . (getenv('NFSE_MIGRATION_TEST_HOST') ?: '127.0.0.1')
+            . ';port=' . (getenv('NFSE_MIGRATION_TEST_PORT') ?: '3306')
+            . ';dbname=' . $peerDatabase,
+            getenv('NFSE_MIGRATION_TEST_USER') ?: 'root',
+            getenv('NFSE_MIGRATION_TEST_PASSWORD') ?: '',
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION],
+        );
+
+        try {
+            $this->migration('2026_10_08_000002_create_nfse_emission_attempts')->up();
+            $this->migration('2026_10_12_230000_create_nfse_dps_reservations')->up();
+            $firstId = $this->insertSyntheticDpsSeries();
+
+            // A second installation owns this separate database. Recreate only
+            // the same immutable counter fields; no FK/transport is involved.
+            $other->exec('CREATE TABLE series_fixture ('
+                . 'id INT PRIMARY KEY, environment INT NOT NULL, issuer VARCHAR(32) NOT NULL, '
+                . 'series CHAR(5) NOT NULL, coordination_reference VARCHAR(255) NOT NULL, '
+                . 'last_number BIGINT NOT NULL) ENGINE=InnoDB');
+            $other->exec("INSERT INTO series_fixture VALUES (1, 2, '11222333000181', '00001', 'synthetic-mysql-connection-test', 0)");
+
+            $pdo->beginTransaction();
+            $other->beginTransaction();
+            try {
+                $first = $pdo->query('SELECT last_number FROM nfse_dps_series WHERE id = '
+                    . $firstId . ' FOR UPDATE')->fetch(\PDO::FETCH_ASSOC);
+                $second = $other->query('SELECT last_number FROM series_fixture WHERE id = 1 FOR UPDATE')
+                    ->fetch(\PDO::FETCH_ASSOC);
+
+                self::assertSame('0', (string) $first['last_number']);
+                self::assertSame('0', (string) $second['last_number']);
+
+                $pdo->exec('UPDATE nfse_dps_series SET last_number = 1 WHERE id = ' . $firstId);
+                $other->exec('UPDATE series_fixture SET last_number = 1 WHERE id = 1');
+                $pdo->commit();
+                $other->commit();
+            } finally {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                if ($other->inTransaction()) {
+                    $other->rollBack();
+                }
+            }
+
+            // No local UNIQUE or row lock can prevent this cross-database
+            // collision, even when the two reference strings are identical.
+            self::assertSame('1', (string) DB::table('nfse_dps_series')->where('id', $firstId)->value('last_number'));
+            self::assertSame('1', (string) $other->query('SELECT last_number FROM series_fixture WHERE id = 1')->fetchColumn());
+        } finally {
+            $other = null;
+            $pdo->exec('DROP DATABASE IF EXISTS `' . $peerDatabase . '`');
+        }
+    }
+
     private function insertSyntheticDpsSeries(): int
     {
         return (int) DB::table('nfse_dps_series')->insertGetId([

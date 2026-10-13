@@ -14,6 +14,7 @@ use Modules\Nfse\Application\DpsFiscalIssuer;
 use Modules\Nfse\Application\DpsOperationKey;
 use Modules\Nfse\Application\DpsReservationAuthorizer;
 use Modules\Nfse\Application\DpsReservationService;
+use Modules\Nfse\Application\DpsSeriesCoordinationVerifier;
 use Tests\Feature\FeatureTestCase;
 
 /**
@@ -332,7 +333,54 @@ final class DpsReservationServiceTest extends FeatureTestCase
         self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
     }
 
-    private function service(?int $onlyEnvironment = null): DpsReservationService
+    public function testUnverifiedActiveRowCannotAllocateEvenWithCoordinationReference(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+        try {
+            $this->service(null, false)->reserve(
+                (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
+                DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2), 'manual',
+            );
+            self::fail('Local text is not external evidence.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('independently verified', $exception->getMessage());
+        }
+        self::assertSame(0, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
+    public function testLostCoordinationCannotReplayExistingReservationViaAllocator(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+        $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2);
+        $this->service()->reserve((int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1', $key, 'manual');
+        $this->expectException(\LogicException::class);
+        $this->service(null, false)->reserve(
+            (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1', $key, 'automatic',
+        );
+    }
+
+    public function testUnverifiedReferenceChangeFailsClosed(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+        DB::table('nfse_dps_series')->update(['coordination_reference' => 'unverified-other-installation']);
+        $this->expectException(\LogicException::class);
+        $this->service()->reserve(
+            (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
+            DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2), 'manual',
+        );
+    }
+
+    private function service(?int $onlyEnvironment = null, bool $withSyntheticProof = true): DpsReservationService
     {
         // Synthetic fake only. The production authorization adapter belongs
         // to the verified multi-company profile/context contract (#417/#421).
@@ -353,7 +401,18 @@ final class DpsReservationServiceTest extends FeatureTestCase
             }
         };
 
-        return new DpsReservationService($authorizer);
+        $verifier = $withSyntheticProof ? new class implements DpsSeriesCoordinationVerifier {
+            public function assertCanReserve(
+                DpsFiscalIssuer $issuer, int $environment, string $series,
+                string $mode, string $reference, int $lastNumber,
+            ): void {
+                if ($mode !== 'shared_database' || $reference !== 'synthetic-feature-test-shared-db-only') {
+                    throw new \LogicException('Synthetic test proof invalid.');
+                }
+            }
+        } : null;
+
+        return new DpsReservationService($authorizer, $verifier);
     }
 
     private function invoice(): Document

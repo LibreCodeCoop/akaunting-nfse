@@ -22,7 +22,7 @@ final class DpsReservationService
 {
     private const MAX_DPS_NUMBER = 999999999999999;
 
-    public function __construct(private readonly DpsReservationAuthorizer $authorizer)
+    public function __construct(private readonly DpsReservationAuthorizer $authorizer, private readonly ?DpsSeriesCoordinationVerifier $coordinationVerifier = null)
     {
     }
 
@@ -113,18 +113,17 @@ final class DpsReservationService
                     throw new \LogicException('Fiscal operation key is bound to a different immutable DPS identity.');
                 }
 
+                // Recovery is read-only when coordination proof is unavailable.
+                $this->verifyCoordination($originalSeries, $issuer, $environment, $series);
                 return $this->result($existing, $companyId, $invoiceId, $series);
             }
 
             $counter = $counterQuery->lockForUpdate()->first();
 
-            if (!is_object($counter)
-                || (string) $counter->status !== 'active'
-                || (string) $counter->coordination_mode !== 'shared_database'
-                || trim((string) $counter->coordination_reference) === '') {
-                throw new \LogicException('Fiscal series has no proven active local coordination; reserve denied.');
+            if (!is_object($counter) || (string) $counter->status !== 'active') {
+                throw new \LogicException('Fiscal series is not active; reserve denied.');
             }
-
+            $this->verifyCoordination($counter, $issuer, $environment, $series);
             $current = (int) $counter->last_number;
 
             if ($current >= self::MAX_DPS_NUMBER) {
@@ -160,6 +159,19 @@ final class DpsReservationService
     /**
      * @return array{reservation_id:int,company_id:int,invoice_id:int,series:string,number:string}
      */
+    private function verifyCoordination(object $counter, DpsFiscalIssuer $issuer, int $environment, string $series): void
+    {
+        $mode = (string) $counter->coordination_mode;
+        $reference = trim((string) $counter->coordination_reference);
+        if ($mode !== 'shared_database' || $reference === '' || $this->coordinationVerifier === null) {
+            throw new \LogicException('Fiscal series has no independently verified coordination; reserve denied.');
+        }
+
+        $this->coordinationVerifier->assertCanReserve(
+            $issuer, $environment, $series, $mode, $reference, (int) $counter->last_number,
+        );
+    }
+
     private function result(object $record, int $companyId, int $invoiceId, string $series): array
     {
         return [

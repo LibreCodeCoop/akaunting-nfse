@@ -116,6 +116,44 @@ installations may each allocate the same fiscal identity even if both write
 identical `coordination_reference` strings. There is no cross-installation
 coordinator or verified exclusive-series registry in this kernel.
 
+As of #476, the allocator also requires an independently supplied
+`DpsSeriesCoordinationVerifier` for each reservation call. Its default
+construction has **no** verifier, so a locally active row, a nonempty
+`coordination_reference`, or a copied database cannot allocate a new DPS.
+A reservation replay through the allocator is also denied without current
+proof; recovery of an already transmitted identity must be **read-only**
+through the existing authorized journal, never treated as a new first POST.
+The feature-test verifier is synthetic and must not be deployed.
+
+A production verifier must be independent of the local claims and bind its
+assertion to the *exact* issuer municipality, registration type and value,
+environment, normalized series, coordination reference and high-water mark.
+Its durable evidence must demonstrate:
+- all allocating installations really use the same atomic counter **or**
+  each disjoint series has one enforceable exclusive owner;
+- no other live/stale process, restored backup or external issuer can use the
+  same series while that owner allocates;
+- the initial number exceeds previously reserved/transmitted identifiers,
+  including numbers not locally recorded, with no automatic rejected-number
+  recycling;
+- revocation/fencing and loss of authority fail closed before activation
+  and before the final first-POST boundary.
+
+**A check-only verifier is not an implementation of distributed exclusion.**
+In particular, a finite-lived assertion followed by an unguarded local
+increment has a time-of-check/time-of-use race. A future provider must
+demonstrate an atomic allocation/fencing transaction and durable ownership
+under split brain, crash, rotation and restore. Merely injecting a verifier
+that returns normally, or testing two connections to one database, does
+**not** satisfy this deployment gate. No such production provider is shipped
+here.
+
+The MySQL regression test `testTwoIsolatedMysqlDatabasesCanAllocateIdenticalNationalDpsIdentity`
+reproduces the counterexample: independent schemas with identical
+registration/series/reference both successfully commit local number 1.
+This establishes the need for external coordination; it is not a test of
+coordinator correctness and never calls SEFIN.
+
 Before enabling a series, #417/#421 must require durable evidence of one of:
 a genuinely shared atomic allocation store used by **all** installations for
 that issuer/environment/series, or externally enforceable exclusive
