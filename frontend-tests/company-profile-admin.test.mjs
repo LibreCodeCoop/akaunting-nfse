@@ -44,6 +44,23 @@ test('fiscal status is distinct from generic Vault availability', () => {
     assert.deepEqual(admin.pendingLabels(profile), ['UF do prestador', 'Validade do certificado']);
 });
 
+test('ISSQN-specific pending fields have actionable labels', () => {
+    const profile = {
+        fiscal_readiness: { pending: [
+            'issqn_pais_resultado',
+            'issqn_tipo_imunidade',
+            'issqn_tipo_suspensao',
+            'issqn_numero_processo_suspensao',
+        ] },
+    };
+    assert.deepEqual(admin.pendingLabels(profile), [
+        'País do resultado do serviço',
+        'Tipo de imunidade do ISSQN',
+        'Tipo de suspensão do ISSQN',
+        'Processo de suspensão do ISSQN',
+    ]);
+});
+
 test('API permission, validation, and domain errors remain intelligible', () => {
     assert.match(admin.errorMessage(403, { message: 'internal secret' }), /não autorizado/);
     assert.equal(admin.errorMessage(422, { errors: { company_id: ['Empresa inválida'] } }), 'Empresa inválida');
