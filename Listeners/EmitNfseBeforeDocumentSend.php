@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Listeners;
 
 use App\Models\Document\Document;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 
@@ -20,23 +21,26 @@ use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
  */
 final class EmitNfseBeforeDocumentSend
 {
-    /** @var \Closure(string,mixed):mixed */
-    private readonly \Closure $settingResolver;
+    /** @var (\Closure(string,mixed):mixed)|null */
+    private readonly ?\Closure $settingResolver;
 
     public function __construct(
         private readonly AutomaticInvoiceEmissionPreflight $preflight,
         private readonly BulkEmissionUnitIssuerInterface $issuer,
         ?\Closure $settingResolver = null,
     ) {
-        $this->settingResolver = $settingResolver
-            ?? static fn (string $key, mixed $default): mixed => function_exists('setting')
-                ? \setting($key, $default)
-                : $default;
+        // An explicit resolver is for deterministic isolated tests. Production
+        // reads only the owning company's NFS-e profile.
+        $this->settingResolver = $settingResolver;
     }
 
     /** @return array<string,mixed> */
-    private function nfseSettings(): array
+    private function nfseSettings(int $companyId): array
     {
+        if ($this->settingResolver === null) {
+            return (new NfseCompanyFiscalSettings())->all($companyId);
+        }
+
         $keys = [
             'opcao_simples_nacional',
             'ibs_cbs_enabled',
@@ -79,16 +83,26 @@ final class EmitNfseBeforeDocumentSend
             return;
         }
 
-        $policy = strtolower(trim((string) ($this->settingResolver)(
-            'nfse.emission_policy',
-            'manual',
-        )));
+        $companyId = (int) ($document->company_id ?? 0);
+        $activeCompany = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0 || ($activeCompany > 0 && $activeCompany !== $companyId)) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Cannot emit another company invoice.');
+        }
 
+        try {
+            $settings = $this->nfseSettings($companyId);
+        } catch (\DomainException) {
+            // No active NFS-e profile means this is a normal Akaunting send,
+            // never an implicit request to issue under another company's data.
+            return;
+        }
+
+        $policy = strtolower(trim((string) ($settings['emission_policy'] ?? 'manual')));
         if ($policy !== 'emit_on_send') {
             return;
         }
 
-        $result = $this->preflight->evaluate($document, $this->nfseSettings());
+        $result = $this->preflight->evaluate($document, $settings);
         $status = (string) ($result['status'] ?? 'blocked');
 
         if ($status === 'already_issued') {
