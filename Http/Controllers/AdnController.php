@@ -311,11 +311,16 @@ class AdnController extends Controller
             ], 422);
         }
 
-        $cnpj = strtoupper(preg_replace(
-            '/[^A-Z0-9]/i',
-            '',
-            (string) $request->query('cnpj', (new \Modules\Nfse\Support\NfseCompanyFiscalSettings())->value((int) company_id(), 'nfse.cnpj_prestador', '')),
-        ) ?? '');
+        // Request::query() evaluates its default argument eagerly. Resolve
+        // the owning company only when a CNPJ was not supplied.
+        $cnpjInput = $request->query('cnpj');
+        if ($cnpjInput === null) {
+            $companyId = function_exists('company_id') ? (int) company_id() : 0;
+            $cnpjInput = (new \Modules\Nfse\Support\NfseCompanyFiscalSettings())
+                ->value($companyId, 'nfse.cnpj_prestador', '');
+        }
+
+        $cnpj = strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $cnpjInput) ?? '');
 
         if ($cnpj !== '' && preg_match('/^[A-Z0-9]{12}\\d{2}$/', $cnpj) !== 1) {
             return $this->jsonResponse([
