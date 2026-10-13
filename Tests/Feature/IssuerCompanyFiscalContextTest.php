@@ -11,6 +11,7 @@ use App\Models\Document\Document as Invoice;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Models\NfseCompanyProfile;
+use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Support\NfseCompanyIssuerPayload;
 use Tests\Feature\FeatureTestCase;
@@ -110,6 +111,44 @@ final class IssuerCompanyFiscalContextTest extends FeatureTestCase
 
         self::assertFalse($readiness['isReady']);
         self::assertFalse($readiness['checklist']['company_certificate']);
+    }
+
+    public function testBulkReceiptReconciliationCannotSelectAnotherCompanyReceipt(): void
+    {
+        $this->loginAs();
+        $other = $this->secondCompany();
+
+        $ownInvoice = Invoice::factory()->invoice()->create();
+        $otherInvoice = Invoice::factory()->invoice()->create(['company_id' => $other]);
+
+        $own = NfseReceipt::query()->create([
+            'invoice_id' => $ownInvoice->id,
+            'nfse_number' => 'SYNTH-OWN',
+            'chave_acesso' => str_repeat('A', 50),
+            'status' => 'processing',
+        ]);
+        $foreign = NfseReceipt::query()->create([
+            'invoice_id' => $otherInvoice->id,
+            'nfse_number' => 'SYNTH-FOREIGN',
+            'chave_acesso' => str_repeat('B', 50),
+            'status' => 'processing',
+        ]);
+
+        $controller = new class () extends InvoiceController {
+            /** @return list<int> */
+            public function refreshableIds(): array
+            {
+                $ids = [];
+                foreach ($this->refreshableReceipts() as $receipt) {
+                    $ids[] = (int) $receipt->id;
+                }
+
+                return $ids;
+            }
+        };
+
+        self::assertSame([(int) $own->id], $controller->refreshableIds());
+        self::assertNotContains((int) $foreign->id, $controller->refreshableIds());
     }
 
     private function controller(): InvoiceController
