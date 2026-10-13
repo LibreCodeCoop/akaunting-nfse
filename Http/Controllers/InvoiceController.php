@@ -2816,10 +2816,12 @@ class InvoiceController extends Controller
 
     protected function receiptsForIndex(string $status, int $perPage, ?string $search, ?array $dateFilter = null): mixed
     {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
         $query = NfseReceipt::with('invoice.contact');
 
         if (is_object($query) && is_callable([$query, 'whereHas'])) {
             $query = $query->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery
+                ->where('company_id', $companyId)
                 ->where('type', Invoice::INVOICE_TYPE)
                 ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE)));
         }
@@ -2875,11 +2877,13 @@ class InvoiceController extends Controller
      */
     protected function listingOverviewCounts(): array
     {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
         try {
             $totalReceiptsQuery = NfseReceipt::query();
 
             if (is_object($totalReceiptsQuery) && is_callable([$totalReceiptsQuery, 'whereHas'])) {
                 $totalReceiptsQuery = $totalReceiptsQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery
+                    ->where('company_id', $companyId)
                     ->where('type', Invoice::INVOICE_TYPE)
                     ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE)));
             }
@@ -2896,6 +2900,7 @@ class InvoiceController extends Controller
 
             if (is_object($emittedQuery) && is_callable([$emittedQuery, 'whereHas'])) {
                 $emittedQuery = $emittedQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery
+                    ->where('company_id', $companyId)
                     ->where('type', Invoice::INVOICE_TYPE)
                     ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE)));
             }
@@ -2912,6 +2917,7 @@ class InvoiceController extends Controller
 
             if (is_object($processingQuery) && is_callable([$processingQuery, 'whereHas'])) {
                 $processingQuery = $processingQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery
+                    ->where('company_id', $companyId)
                     ->where('type', Invoice::INVOICE_TYPE)
                     ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE)));
             }
@@ -2928,6 +2934,7 @@ class InvoiceController extends Controller
 
             if (is_object($cancelledQuery) && is_callable([$cancelledQuery, 'whereHas'])) {
                 $cancelledQuery = $cancelledQuery->whereHas('invoice', static fn ($invoiceQuery) => $invoiceQuery
+                    ->where('company_id', $companyId)
                     ->where('type', Invoice::INVOICE_TYPE)
                     ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE)));
             }
@@ -4453,7 +4460,15 @@ class InvoiceController extends Controller
 
     protected function refreshableReceipts(): iterable
     {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0) {
+            return [];
+        }
+
         return NfseReceipt::query()
+            ->whereHas('invoice', static fn ($query) => $query
+                ->where('company_id', $companyId)
+                ->where('type', Invoice::INVOICE_TYPE))
             ->whereNotNull('chave_acesso')
             ->where('status', '!=', 'cancelled')
             ->latest()
