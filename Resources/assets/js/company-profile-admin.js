@@ -16,6 +16,10 @@
         regime_especial_tributacao: 'Regime especial de tributação',
         tributacao_issqn: 'Tributação do ISSQN',
         tipo_retencao_iss: 'Retenção de ISSQN',
+        issqn_pais_resultado: 'País do resultado do serviço',
+        issqn_tipo_imunidade: 'Tipo de imunidade do ISSQN',
+        issqn_tipo_suspensao: 'Tipo de suspensão do ISSQN',
+        issqn_numero_processo_suspensao: 'Processo de suspensão do ISSQN',
     };
 
     const reasonLabels = {

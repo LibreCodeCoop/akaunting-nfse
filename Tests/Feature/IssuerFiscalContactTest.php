@@ -113,6 +113,76 @@ final class IssuerFiscalContactTest extends FeatureTestCase
         self::assertSame('5', $byCompany[$other]['fiscal_parameters']['regime_especial_tributacao']);
     }
 
+    public function testSpecialIssqnAndIbsCbsMetadataRoundTripsWithoutCrossCompanyWrites(): void
+    {
+        $this->loginAs();
+        $owner = (int) company_id();
+        $other = $this->secondCompany();
+        $this->profile($owner, ['tributacao_issqn' => '1']);
+        $this->profile($other, [
+            'tributacao_issqn' => '2',
+            'issqn_tipo_imunidade' => '3',
+            'ibs_cbs_ind_final' => '0',
+        ]);
+
+        $this->patchJson(route('nfse.settings.company-profiles.update', $owner), [
+            'fiscal_parameters' => [
+                'tributacao_issqn' => '3',
+                'issqn_pais_resultado' => 'US',
+                'issqn_tipo_imunidade' => '2',
+                'issqn_tipo_suspensao' => '1',
+                'issqn_numero_processo_suspensao' => str_repeat('1', 30),
+                'ibs_cbs_ind_final' => '1',
+                'ibs_cbs_ind_dest' => '0',
+            ],
+        ])->assertOk()
+            ->assertJsonPath('data.fiscal_parameters.issqn_pais_resultado', 'US')
+            ->assertJsonPath('data.fiscal_parameters.ibs_cbs_ind_dest', '0');
+
+        $profiles = $this->getJson(route('nfse.settings.company-profiles.index'))->assertOk()->json('profiles');
+        $byCompany = array_column($profiles, null, 'company_id');
+        self::assertSame('US', $byCompany[$owner]['fiscal_parameters']['issqn_pais_resultado']);
+        self::assertSame('2', $byCompany[$owner]['fiscal_parameters']['issqn_tipo_imunidade']);
+        self::assertSame('1', $byCompany[$owner]['fiscal_parameters']['issqn_tipo_suspensao']);
+        self::assertSame(str_repeat('1', 30), $byCompany[$owner]['fiscal_parameters']['issqn_numero_processo_suspensao']);
+        self::assertSame('1', $byCompany[$owner]['fiscal_parameters']['ibs_cbs_ind_final']);
+        self::assertSame('0', $byCompany[$owner]['fiscal_parameters']['ibs_cbs_ind_dest']);
+        self::assertSame('3', $byCompany[$other]['fiscal_parameters']['issqn_tipo_imunidade']);
+        self::assertSame('0', $byCompany[$other]['fiscal_parameters']['ibs_cbs_ind_final']);
+
+        $settings = new NfseCompanyFiscalSettings();
+        self::assertSame('US', $settings->value($owner, 'nfse.issqn_pais_resultado'));
+        self::assertSame('3', $settings->value($other, 'nfse.issqn_tipo_imunidade'));
+    }
+
+    public function testInvalidSpecialIssqnMetadataIsRejectedWithoutChangingOtherCompanies(): void
+    {
+        $this->loginAs();
+        $this->withExceptionHandling();
+        $owner = (int) company_id();
+        $other = $this->secondCompany();
+        $this->profile($owner, ['tributacao_issqn' => '1']);
+        $this->profile($other, ['issqn_tipo_imunidade' => '2']);
+
+        foreach ([
+            ['issqn_pais_resultado' => 'BR'],
+            ['issqn_tipo_imunidade' => '9'],
+            ['issqn_tipo_suspensao' => '3'],
+            ['issqn_numero_processo_suspensao' => '123'],
+            ['ibs_cbs_ind_final' => '2'],
+            ['ibs_cbs_ind_dest' => '2'],
+        ] as $invalid) {
+            $this->patchJson(route('nfse.settings.company-profiles.update', $owner), [
+                'fiscal_parameters' => $invalid,
+            ])->assertUnprocessable();
+        }
+
+        self::assertSame(['tributacao_issqn' => '1'],
+            NfseCompanyProfile::query()->where('company_id', $owner)->firstOrFail()->fiscal_parameters);
+        self::assertSame(['issqn_tipo_imunidade' => '2'],
+            NfseCompanyProfile::query()->where('company_id', $other)->firstOrFail()->fiscal_parameters);
+    }
+
     public function testConfiguredProviderPhoneAndEmailOverrideAkauntingCompanyOnlyInFiscalPayload(): void
     {
         $this->loginAs();
