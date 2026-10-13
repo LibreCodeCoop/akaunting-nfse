@@ -108,6 +108,73 @@ final class ManualNormativeIssuanceGuardTest extends FeatureTestCase
         }
     }
 
+    /** @return iterable<string,array{string,mixed}> */
+    public static function unverifiableSimplesCases(): iterable
+    {
+        foreach (['emit', 'reemit'] as $operation) {
+            yield $operation . ' missing' => [$operation, null];
+            yield $operation . ' empty' => [$operation, ''];
+            yield $operation . ' invalid' => [$operation, 4];
+            yield $operation . ' leading zero' => [$operation, '02'];
+            yield $operation . ' boolean' => [$operation, true];
+        }
+    }
+
+    #[DataProvider('unverifiableSimplesCases')]
+    public function testUnknownSimplesBlocksManualIssuanceWithoutChangingFiscalHistory(
+        string $operation,
+        mixed $simples,
+    ): void {
+        $invoice = $this->invoice('2026-09-30', '0107', '010701');
+        setting([
+            'nfse.opcao_simples_nacional' => $simples,
+            'nfse.ibs_cbs_enabled' => false,
+            'nfse.enforce_item_federal_taxes' => false,
+        ]);
+        setting()->save();
+
+        $authorizedXml = '<NFSe><infNFSe><DPS><infDPS>synthetic</infDPS></DPS></infNFSe></NFSe>';
+        $receipt = null;
+        if ($operation === 'reemit') {
+            $receipt = NfseReceipt::query()->create([
+                'invoice_id' => $invoice->id,
+                'nfse_number' => '9001',
+                'chave_acesso' => str_repeat('9', 50),
+                'status' => 'cancelled',
+            ]);
+            $receipt->payload()->create(['authorized_xml' => $authorizedXml]);
+        }
+
+        $controller = new class () extends InvoiceController {
+            public int $clientOpens = 0;
+
+            protected function makeClient(bool $sandboxMode): NfseClientInterface
+            {
+                $this->clientOpens++;
+
+                throw new \LogicException('Unverified taxpayer status must never open a fiscal client.');
+            }
+        };
+
+        $request = new Request();
+        $response = $operation === 'emit'
+            ? $controller->emit($invoice, $request)
+            : $controller->reemit($invoice, $request);
+
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame(
+            trans('nfse::general.invoices.simples_option_unverifiable'),
+            (string) session()->get('error', ''),
+        );
+        self::assertSame(0, $controller->clientOpens);
+        self::assertSame(0, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
+        self::assertSame($receipt === null ? 0 : 1, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
+        if ($receipt instanceof NfseReceipt) {
+            self::assertSame('cancelled', (string) $receipt->fresh()->status);
+            self::assertSame($authorizedXml, $receipt->fresh()->payload()->value('authorized_xml'));
+        }
+    }
+
     private function invoice(string $date, string $service, string $national): Document
     {
         // Akaunting needs the active tenant for native redirect route defaults,

@@ -437,6 +437,31 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
         $issuer->issue((int) $invoice->id, 'service:wrong|tax:wrong|rate:0');
     }
 
+    public function testMissingSimplesSettingNeverFallsBackToNonOptantInAutomaticIssuer(): void
+    {
+        $invoice = $this->invoiceWithProfile();
+        $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
+        $clientOpens = 0;
+        $issuer = new AutomaticInvoiceFiscalIssuer(
+            clientContextFactory: static function (bool $sandbox) use (&$clientOpens): FiscalClientContext {
+                $clientOpens++;
+
+                throw new \LogicException('Unverified taxpayer status must not open the fiscal client.');
+            },
+            settingResolver: static fn (string $key, mixed $default): mixed => $default,
+        );
+
+        try {
+            $issuer->issue((int) $invoice->id, (string) $group['key']);
+            self::fail('Missing Simples must block before opening SEFIN.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('simples_option_unverifiable', $exception->getMessage());
+        }
+
+        self::assertSame(0, $clientOpens);
+        self::assertSame(0, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
+    }
+
     private function invoiceWithProfile(): Document
     {
         $invoice = Document::factory()->invoice()->create();
