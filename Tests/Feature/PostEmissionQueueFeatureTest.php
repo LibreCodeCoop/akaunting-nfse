@@ -115,6 +115,70 @@ final class PostEmissionQueueFeatureTest extends FeatureTestCase
         self::assertSame('completed', $payload->email_status);
     }
 
+    public function testRedispatchDoesNotEraseCompletedEmail(): void
+    {
+        Bus::fake();
+
+        $invoice = Document::factory()->invoice()->draft()->create();
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '125',
+            'chave_acesso' => str_repeat('5', 50),
+            'status' => 'emitted',
+        ]);
+        $sentAt = now()->subMinute();
+        NfseReceiptPayload::query()->create([
+            'receipt_id' => $receipt->id,
+            'authorized_xml' => '<NFSe/>',
+            'email_status' => 'completed',
+            'post_emission_email_sent_at' => $sentAt,
+        ]);
+
+        $dispatcher = new PostEmissionDispatcher();
+        $dispatcher->dispatch((int) $invoice->id, (int) $receipt->id);
+        $dispatcher->dispatch((int) $invoice->id, (int) $receipt->id, [
+            'attach_danfse' => false,
+            'attach_xml' => false,
+            'custom_mail' => [
+                'to' => ['first@example.test', 'second@example.test'],
+                'cc' => ['visible@example.test'],
+                'bcc' => ['hidden@example.test'],
+            ],
+        ]);
+
+        $payload = $receipt->payload()->firstOrFail();
+        self::assertSame('completed', $payload->email_status);
+        self::assertSame($sentAt->getTimestamp(), $payload->post_emission_email_sent_at->getTimestamp());
+    }
+
+    public function testEmailClaimRejectsCompetingWorkersAndAlreadySentReceipt(): void
+    {
+        $invoice = Document::factory()->invoice()->draft()->create();
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '126',
+            'chave_acesso' => str_repeat('6', 50),
+            'status' => 'emitted',
+        ]);
+        NfseReceiptPayload::query()->create([
+            'receipt_id' => $receipt->id,
+            'authorized_xml' => '<NFSe/>',
+            'email_status' => 'pending',
+        ]);
+
+        $state = new PostEmissionState();
+        self::assertTrue($state->claimEmailProcessing((int) $receipt->id));
+        self::assertFalse($state->claimEmailProcessing((int) $receipt->id));
+
+        // A repeated dispatch cannot release a claim held by a live worker.
+        $state->initialize((int) $receipt->id, true);
+        self::assertSame('processing', $receipt->payload()->firstOrFail()->email_status);
+        self::assertFalse($state->claimEmailProcessing((int) $receipt->id));
+
+        $state->markEmailCompleted((int) $receipt->id);
+        self::assertFalse($state->claimEmailProcessing((int) $receipt->id));
+    }
+
     public function testMailTransportFailureDoesNotPersistPrivateRecipientInStatus(): void
     {
         $invoice = Document::factory()->invoice()->draft()->create();
