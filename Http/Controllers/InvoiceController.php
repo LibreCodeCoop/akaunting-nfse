@@ -1000,13 +1000,20 @@ class InvoiceController extends Controller
         $redirect = $this->cancellationRedirect($invoice, $request);
 
         try {
-            $client = $this->makeClient($this->sandboxModeEnabled(), (int) $invoice->company_id);
+            $issuerFiscal = $this->bindIssuerFiscalParameters($invoice);
+            $client = $this->makeClient(
+                (new NfseCompanyIssuerPayload())->sandboxMode($issuerFiscal),
+                (int) $invoice->company_id,
+            );
             (new CancelInvoiceNfse())->cancel(
                 $client,
                 $receipt,
                 $cancellation['code'],
                 $cancellation['description'],
             );
+        } catch (\DomainException) {
+            return $this->ajaxAwareRedirect($request, $redirect
+                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
         } catch (SecretStoreException) {
             return $this->ajaxAwareRedirect(
                 $request,
@@ -1210,7 +1217,11 @@ class InvoiceController extends Controller
         }
 
         try {
-            $client = $this->makeClient($this->sandboxModeEnabled());
+            $issuerFiscal = $this->bindIssuerFiscalParameters($invoice);
+            $client = $this->makeClient(
+                (new NfseCompanyIssuerPayload())->sandboxMode($issuerFiscal),
+                (int) $invoice->company_id,
+            );
             $updatedReceipt = (new RefreshInvoiceNfse())->refresh($client, $receipt);
             $resolvedReceiptNumber = (new ReceiptNumberResolver())->resolve($updatedReceipt);
 
@@ -1251,7 +1262,15 @@ class InvoiceController extends Controller
         $failed = 0;
 
         try {
-            $client = $this->makeClient($this->sandboxModeEnabled());
+            $companyId = function_exists('company_id') ? (int) company_id() : 0;
+            $issuerFiscal = (new NfseCompanyFiscalSettings())->all($companyId);
+            $client = $this->makeClient(
+                (new NfseCompanyIssuerPayload())->sandboxMode($issuerFiscal),
+                $companyId,
+            );
+        } catch (\DomainException) {
+            return redirect()->route('nfse.invoices.index')
+                ->with('warning', trans('nfse::general.invoices.emit_blocked_not_ready'));
         } catch (SecretStoreException) {
             return redirect()->route('nfse.invoices.index')
                 ->with('warning', trans('nfse::general.nfse_secret_store_failed'));
@@ -2778,11 +2797,20 @@ class InvoiceController extends Controller
      */
     protected function dashboardStats(): array
     {
+        try {
+            $companyId = function_exists('company_id') ? (int) company_id() : 0;
+            $sandboxMode = (new NfseCompanyIssuerPayload())->sandboxMode(
+                (new NfseCompanyFiscalSettings())->all($companyId),
+            );
+        } catch (\DomainException) {
+            $sandboxMode = true;
+        }
+
         return [
             'total' => NfseReceipt::count(),
             'emitted' => NfseReceipt::where('status', 'emitted')->count(),
             'cancelled' => NfseReceipt::where('status', 'cancelled')->count(),
-            'sandbox_mode' => $this->sandboxModeEnabled(),
+            'sandbox_mode' => $sandboxMode,
         ];
     }
 
@@ -4363,10 +4391,26 @@ class InvoiceController extends Controller
     {
         return (new ArtifactPathBuilder())->basePath(
             template: (string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'),
-            cnpj: (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
+            cnpj: $this->fiscalCnpjForInvoice($invoice),
             customerName: (string) ($invoice->contact?->name ?? 'sem-cliente'),
             receipt: $receipt,
         );
+    }
+
+    protected function fiscalCnpjForInvoice(Invoice $invoice): string
+    {
+        try {
+            $fiscal = $this->issuerContextCompanyId === (int) $invoice->company_id
+                ? $this->issuerFiscalContext
+                : $this->fiscalParametersForInvoice($invoice);
+            $cnpj = trim((string) ($fiscal['cnpj_prestador'] ?? ''));
+
+            return $cnpj !== '' ? $cnpj : 'unknown-cnpj';
+        } catch (\DomainException) {
+            // Historical artifacts retain their saved paths; never substitute
+            // the active user's CNPJ for another invoice's fiscal identity.
+            return 'unknown-cnpj';
+        }
     }
 
     protected function buildWebDavArtifactFilePath(string $basePath, Invoice $invoice, ReceiptData $receipt, string $extension): string
@@ -4374,7 +4418,7 @@ class InvoiceController extends Controller
         return (new ArtifactPathBuilder())->filePath(
             basePath: $basePath,
             template: (string) setting('nfse.webdav_filename_template', '{chave_acesso}'),
-            cnpj: (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
+            cnpj: $this->fiscalCnpjForInvoice($invoice),
             customerName: (string) ($invoice->contact?->name ?? 'sem-cliente'),
             receipt: $receipt,
             extension: $extension,
