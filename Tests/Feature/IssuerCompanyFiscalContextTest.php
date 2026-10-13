@@ -145,10 +145,18 @@ final class IssuerCompanyFiscalContextTest extends FeatureTestCase
 
                 return $ids;
             }
+
+            /** @return array{total:int,emitted:int,cancelled:int,sandbox_mode:bool} */
+            public function scopedStats(): array
+            {
+                return $this->dashboardStats();
+            }
         };
 
         self::assertSame([(int) $own->id], $controller->refreshableIds());
         self::assertNotContains((int) $foreign->id, $controller->refreshableIds());
+        self::assertSame(1, $controller->scopedStats()['total']);
+        self::assertSame(0, $controller->scopedStats()['emitted']);
     }
 
     private function controller(): InvoiceController
