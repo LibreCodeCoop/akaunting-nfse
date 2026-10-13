@@ -18,8 +18,10 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\GlobalVaultSettings;
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
 use Modules\Nfse\Support\Testing\SyntheticPkcs12Factory;
 
@@ -93,9 +95,30 @@ final class ProvisionTestHarness extends Command
             return $this->fail('The item atomicity browser fixture requires SQLite.');
         }
 
-        $directory = storage_path('app/nfse/pfx');
-        $fileName = $cnpj . '.pfx';
-        $pkcs12 = SyntheticPkcs12Factory::create($directory, $fileName, $password);
+        // Strictly local/testing: provision a profile with the same
+        // immutable company-specific certificate paths as production.
+        $profile = NfseCompanyProfile::query()->firstOrNew(['company_id' => $companyId]);
+        $reference = (string) ($profile->certificate_ref ?: NfseCompanyCertificatePath::newReference());
+        $certificatePath = NfseCompanyCertificatePath::filePath($companyId, $reference);
+        $pkcs12 = SyntheticPkcs12Factory::create(dirname($certificatePath), basename($certificatePath), $password);
+        $profile->fill([
+            'status' => 'active',
+            'certificate_ref' => $reference,
+            'staged_certificate_ref' => null,
+            'certificate_cnpj' => $cnpj,
+            'certificate_valid_from' => time() - 3600,
+            'certificate_valid_to' => time() + 3600,
+            'fiscal_parameters' => [
+                'municipio_ibge' => $municipio,
+                'item_lista_servico' => $itemLista,
+                'codigo_tributacao_nacional' => $codigoNacional,
+                'opcao_simples_nacional' => '1',
+                'regime_especial_tributacao' => '0',
+                'sandbox_mode' => true,
+                'enforce_item_federal_taxes' => false,
+            ],
+        ]);
+        $profile->save();
 
         setting()->set([
             'nfse.cnpj_prestador' => $cnpj,
