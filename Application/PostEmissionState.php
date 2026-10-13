@@ -19,12 +19,19 @@ final class PostEmissionState
     {
         $payload = $this->payloadForReceiptId($receiptId);
 
+        // Do not discard a completed send or reset a worker's in-flight claim.
+        $status = $payload->email_status;
+        $emailStatus = $payload->post_emission_email_sent_at !== null
+            ? 'completed'
+            : ($emailRequested && $status !== 'processing'
+                ? 'pending'
+                : ($status ?? ($emailRequested ? 'pending' : 'not_requested')));
+
         $payload->update([
             'artifacts_status' => 'pending',
-            'email_status' => $emailRequested ? 'pending' : 'not_requested',
+            'email_status' => $emailStatus,
             'post_processing_error' => null,
             'artifacts_completed_at' => null,
-            'post_emission_email_sent_at' => null,
         ]);
     }
 
@@ -61,12 +68,25 @@ final class PostEmissionState
         ]);
     }
 
-    public function markEmailProcessing(int $receiptId): void
+    /**
+     * Claim delivery atomically so concurrent workers cannot send twice.
+     * Explicit retry of a failed delivery remains possible.
+     */
+    public function claimEmailProcessing(int $receiptId): bool
     {
-        $this->payloadForReceiptId($receiptId)->update([
-            'email_status' => 'processing',
-            'post_processing_error' => null,
-        ]);
+        $this->payloadForReceiptId($receiptId);
+
+        return NfseReceiptPayload::query()
+            ->where('receipt_id', $receiptId)
+            ->whereNull('post_emission_email_sent_at')
+            ->where(static function ($query): void {
+                $query->whereNull('email_status')
+                    ->orWhereIn('email_status', ['pending', 'retrying', 'failed']);
+            })
+            ->update([
+                'email_status' => 'processing',
+                'post_processing_error' => null,
+            ]) === 1;
     }
 
     public function markEmailCompleted(int $receiptId): void

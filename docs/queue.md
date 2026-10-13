@@ -113,7 +113,7 @@ Os jobs são encadeados: o e-mail só é executado depois do job de artefatos. I
 
 A autorização na SEFIN é a fronteira de consistência mais importante. Depois que o recibo foi persistido, falhas de infraestrutura de fila não podem fazer o controller retornar uma falsa falha de emissão.
 
-O módulo registra erro de dispatch, mas mantém a NFS-e autorizada como emitida. Nunca reemita automaticamente uma nota apenas porque Redis, WebDAV, DANFSE ou e-mail falharam.
+O módulo registra erro de dispatch, mas mantém a NFS-e autorizada como emitida. Nunca reemita automaticamente uma nota apenas porque Redis, WebDAV, DANFSE ou e-mail falharam. Reprocessar artefatos não apaga a confirmação de e-mail enviado. A reivindicação de entrega é atômica no banco, impedindo workers concorrentes de iniciar a mesma mensagem; um retry manual após falha exige avaliação, pois a entrega SMTP e o marcador local não formam uma transação distribuída.
 
 Para jobs já enviados à fila:
 
