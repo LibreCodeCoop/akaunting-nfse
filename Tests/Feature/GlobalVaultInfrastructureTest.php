@@ -359,4 +359,86 @@ final class GlobalVaultInfrastructureTest extends FeatureTestCase
         self::assertSame('role', $store->effective()['roleId']);
         self::assertSame('secret', $store->effective()['secretId']);
     }
+
+    public function testChangingVaultEndpointRejectsOmittedTokenWithoutOverwritingExistingSettings(): void
+    {
+        $this->loginAs();
+        $store = new GlobalVaultSettings();
+        $store->save([
+            'addr' => 'https://vault-a.example.test',
+            'mount' => '/nfse',
+            'auth_mode' => 'token',
+            'token' => 'synthetic-token-a',
+        ]);
+        $before = $store->effective();
+
+        $this->patch(route('nfse.settings.vault'), [
+            'auth_mode_ui' => 'token',
+            'nfse' => [
+                'bao_addr' => 'https://vault-b.example.test',
+                'bao_mount' => '/nfse',
+            ],
+        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'vault']))
+            ->assertSessionHas('error');
+        self::assertSame($before, $store->effective());
+
+        $this->patch(route('nfse.settings.vault'), [
+            'auth_mode_ui' => 'token',
+            'nfse' => [
+                'bao_addr' => 'https://vault-b.example.test',
+                'bao_mount' => '/nfse',
+                'bao_token' => 'synthetic-token-b',
+            ],
+        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'vault']))
+            ->assertSessionHas('success');
+        self::assertSame('https://vault-b.example.test', $store->effective()['addr']);
+        self::assertSame('synthetic-token-b', $store->effective()['token']);
+    }
+
+    public function testChangingVaultEndpointRejectsPartialAppRoleWithoutOverwritingExistingSettings(): void
+    {
+        $this->loginAs();
+        $store = new GlobalVaultSettings();
+        $store->save([
+            'addr' => 'https://vault-a.example.test',
+            'mount' => '/nfse',
+            'auth_mode' => 'approle',
+            'roleId' => 'synthetic-role-a',
+            'secretId' => 'synthetic-secret-a',
+        ]);
+        $before = $store->effective();
+
+        // Unchanged endpoint may retain existing AppRole credentials.
+        $store->save([
+            'addr' => 'https://vault-a.example.test',
+            'mount' => '/nfse',
+            'auth_mode' => 'approle',
+        ]);
+        self::assertSame($before, $store->effective());
+
+        $this->patch(route('nfse.settings.vault'), [
+            'auth_mode_ui' => 'approle',
+            'nfse' => [
+                'bao_addr' => 'https://vault-b.example.test',
+                'bao_mount' => '/nfse',
+                'bao_role_id' => 'synthetic-role-b',
+            ],
+        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'vault']))
+            ->assertSessionHas('error');
+        self::assertSame($before, $store->effective());
+
+        $this->patch(route('nfse.settings.vault'), [
+            'auth_mode_ui' => 'approle',
+            'nfse' => [
+                'bao_addr' => 'https://vault-b.example.test',
+                'bao_mount' => '/nfse',
+                'bao_role_id' => 'synthetic-role-b',
+                'bao_secret_id' => 'synthetic-secret-b',
+            ],
+        ])->assertRedirect(route('nfse.settings.edit', ['tab' => 'vault']))
+            ->assertSessionHas('success');
+        self::assertSame('https://vault-b.example.test', $store->effective()['addr']);
+        self::assertSame('synthetic-role-b', $store->effective()['roleId']);
+        self::assertSame('synthetic-secret-b', $store->effective()['secretId']);
+    }
 }

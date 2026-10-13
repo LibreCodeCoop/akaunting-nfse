@@ -226,7 +226,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <div id="vault-approle-section" class="space-y-4 @if($selectedAuthMode !== 'approle') hidden @endif" @if($selectedAuthMode !== 'approle') hidden @endif>
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="bao_role_id">{{ trans('nfse::general.settings.bao_role_id') }}</label>
-                                <input id="bao_role_id" name="nfse[bao_role_id]" type="password" autocomplete="new-password" class="w-full border rounded px-3 py-2" placeholder="Configured values remain stored when left blank">
+                                <input id="bao_role_id" name="nfse[bao_role_id]" type="password" autocomplete="new-password" class="w-full border rounded px-3 py-2" placeholder="Blank keeps saved value only when Vault address is unchanged">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1" for="bao_secret_id">{{ trans('nfse::general.settings.bao_secret_id') }}</label>

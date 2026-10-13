@@ -83,7 +83,8 @@ final class GlobalVaultSettings
 
     /**
      * Only the selected auth mode is persisted. Missing secrets preserve the
-     * previous encrypted value for that mode; explicit null clears it.
+     * previous encrypted value only when the authentication mode and Vault endpoint
+     * are unchanged; explicit null clears it.
      *
      * @param array{addr:string,mount:string,auth_mode:string,token?:?string,roleId?:?string,secretId?:?string} $input
      */
@@ -102,14 +103,18 @@ final class GlobalVaultSettings
             $previous = null;
         }
         $sameMode = ($previous['auth_mode'] ?? null) === $mode;
-        $value = static function (string $key) use ($input, $previous, $sameMode): ?string {
+        // Never reuse a credential with a different Vault endpoint.
+        $sameEndpoint = $previous !== null
+            && rtrim(trim($previous['addr']), '/') === rtrim(trim($input['addr']), '/');
+        $keepExistingSecret = $sameMode && $sameEndpoint;
+        $value = static function (string $key) use ($input, $previous, $keepExistingSecret): ?string {
             if (array_key_exists($key, $input)) {
                 $raw = $input[$key];
 
                 return is_string($raw) && trim($raw) !== '' ? trim($raw) : null;
             }
 
-            return $sameMode ? ($previous[$key] ?? null) : null;
+            return $keepExistingSecret ? ($previous[$key] ?? null) : null;
         };
 
         $config = [
@@ -123,7 +128,8 @@ final class GlobalVaultSettings
 
         // An operator can explicitly clear an existing credential to disable
         // Vault, but an absent secret must never silently configure a new
-        // endpoint or authentication mode. Omitted secrets still mean "keep".
+        // endpoint or authentication mode. Omitted secrets mean "keep" only
+        // when the endpoint is unchanged.
         $clearedToken = $sameMode && array_key_exists('token', $input) && $input['token'] === null;
         $clearedAppRole = $sameMode && (
             (array_key_exists('roleId', $input) && $input['roleId'] === null)
