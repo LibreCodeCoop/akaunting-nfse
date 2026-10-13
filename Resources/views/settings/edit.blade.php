@@ -145,6 +145,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         <p id="profile-regime-help" class="text-xs text-amber-800" aria-live="polite"></p>
                         <details class="rounded border bg-white p-3 text-sm">
+                            <summary class="cursor-pointer font-medium">ISSQN: exportação, imunidade e suspensão</summary>
+                            <p class="mt-2 text-xs text-gray-600">Preencha somente os detalhes aplicáveis à tributação selecionada. Valores registrados são mantidos para revisão e não autorizam emissão.</p>
+                            <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <label class="block" for="profile-issqn-pais">País do resultado (exportação, exceto BR)
+                                    <input id="profile-issqn-pais" name="fiscal_parameters[issqn_pais_resultado]" maxlength="2" pattern="[A-Za-z]{2}" placeholder="US" class="mt-1 block w-full rounded border p-2 uppercase">
+                                </label>
+                                <label class="block" for="profile-issqn-imunidade">Tipo de imunidade
+                                    <select id="profile-issqn-imunidade" name="fiscal_parameters[issqn_tipo_imunidade]" class="mt-1 block w-full rounded border p-2">
+                                        <option value="">Não informado</option>
+                                        @for($value = 1; $value <= 5; $value++)
+                                            <option value="{{ $value }}">{{ $value }}</option>
+                                        @endfor
+                                    </select>
+                                </label>
+                                <label class="block" for="profile-issqn-suspensao">Suspensão da exigibilidade
+                                    <select id="profile-issqn-suspensao" name="fiscal_parameters[issqn_tipo_suspensao]" class="mt-1 block w-full rounded border p-2">
+                                        <option value="">Sem suspensão</option>
+                                        <option value="1">Judicial</option>
+                                        <option value="2">Administrativa</option>
+                                    </select>
+                                </label>
+                                <label class="block" for="profile-issqn-processo">Número do processo de suspensão
+                                    <input id="profile-issqn-processo" name="fiscal_parameters[issqn_numero_processo_suspensao]" inputmode="numeric" maxlength="30" pattern="[0-9]{30}" class="mt-1 block w-full rounded border p-2">
+                                </label>
+                            </div>
+                        </details>
+                        <details class="rounded border bg-white p-3 text-sm">
                             <summary class="cursor-pointer font-medium">Complementos fiscais e integrações</summary>
                             <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                                 @foreach ([
@@ -164,6 +191,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     <select id="profile-ibs-enabled" name="fiscal_parameters[ibs_cbs_enabled]" class="mt-1 block w-full rounded border p-2">
                                         <option value="0">Não habilitado</option>
                                         <option value="1">Habilitado (requer validação fiscal)</option>
+                                    </select>
+                                </label>
+                                <label class="block" for="profile-ibs-final">IBS/CBS: consumidor final
+                                    <select id="profile-ibs-final" name="fiscal_parameters[ibs_cbs_ind_final]" class="mt-1 block w-full rounded border p-2">
+                                        <option value="">Não informado</option>
+                                        <option value="0">Não</option>
+                                        <option value="1">Sim</option>
+                                    </select>
+                                </label>
+                                <label class="block" for="profile-ibs-dest">IBS/CBS: local de destino
+                                    <select id="profile-ibs-dest" name="fiscal_parameters[ibs_cbs_ind_dest]" class="mt-1 block w-full rounded border p-2">
+                                        <option value="">Não informado</option>
+                                        <option value="0">Mesmo município</option>
+                                        <option value="1">Outro município</option>
                                     </select>
                                 </label>
                             </div>

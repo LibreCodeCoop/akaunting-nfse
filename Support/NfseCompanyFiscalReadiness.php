@@ -53,6 +53,32 @@ final class NfseCompanyFiscalReadiness
             $pending[] = 'tipo_retencao_iss';
         }
 
+        // These conditional ISSQN details are administrative metadata. Missing
+        // inputs must remain visible for review, never inferred or defaulted.
+        if ($issqn === '3') {
+            $country = strtoupper(trim((string) ($fields['issqn_pais_resultado'] ?? '')));
+            if (preg_match('/^[A-Z]{2}$/D', $country) !== 1 || $country === 'BR') {
+                $pending[] = 'issqn_pais_resultado';
+            }
+        }
+
+        if ($issqn === '2' && !in_array((string) ($fields['issqn_tipo_imunidade'] ?? ''), ['1', '2', '3', '4', '5'], true)) {
+            $pending[] = 'issqn_tipo_imunidade';
+        }
+
+        if ($issqn === '1') {
+            $suspension = trim((string) ($fields['issqn_tipo_suspensao'] ?? ''));
+            $process = trim((string) ($fields['issqn_numero_processo_suspensao'] ?? ''));
+            if ($suspension !== '' || $process !== '') {
+                if (!in_array($suspension, ['1', '2'], true)) {
+                    $pending[] = 'issqn_tipo_suspensao';
+                }
+                if (preg_match('/^\d{30}$/D', $process) !== 1) {
+                    $pending[] = 'issqn_numero_processo_suspensao';
+                }
+            }
+        }
+
         $regime = (new SpecialTaxRegimePolicy())->evaluate(
             $fields['regime_especial_tributacao'] ?? null,
             (int) $simples,
