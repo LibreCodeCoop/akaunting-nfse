@@ -201,7 +201,7 @@ class InvoiceController extends Controller
         if ($includesPendingStatus && $pendingInvoices !== null) {
             $pendingInvoices = $this->annotatePendingInvoicesFederalReadiness($pendingInvoices);
         }
-        $pendingReadiness = $includesPendingStatus ? $this->emissionReadiness() : ['isReady' => true, 'checklist' => []];
+        $pendingReadiness = $includesPendingStatus ? $this->companyEmissionReadiness() : ['isReady' => true, 'checklist' => []];
         $sortBy = $this->indexSortBy;
         $sortDirection = $this->indexSortDirection;
 
@@ -473,7 +473,14 @@ class InvoiceController extends Controller
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
 
-        $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
+        try {
+            $issuerFiscal = $this->bindIssuerFiscalParameters($invoice);
+        } catch (\DomainException) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
+        }
+
+        $opcaoSimplesNacional = SimplesOptionCode::observed($issuerFiscal['opcao_simples_nacional'] ?? null);
         if ($opcaoSimplesNacional === null) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.simples_option_unverifiable')));
@@ -574,7 +581,7 @@ class InvoiceController extends Controller
             competenceDate: (string) ($this->competenceDate($invoice) ?? ''),
             opcaoSimplesNacional: $opcaoSimplesNacional,
             itemListaServico: $ibsCbsServiceCode,
-            settings: is_array(setting('nfse', [])) ? setting('nfse', []) : [],
+            settings: $issuerFiscal,
             rtcSupplyCategory: $rtcCategory,
         );
 
@@ -597,16 +604,16 @@ class InvoiceController extends Controller
                 ->with('error', $this->emitBlockedFederalTaxMessage($federalTaxReadiness['missing'] ?? [])));
         }
 
-        $readiness = $this->emissionReadiness();
+        $readiness = $this->companyEmissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
         }
 
-        $cnpj    = setting('nfse.cnpj_prestador');
-        $ibge    = setting('nfse.municipio_ibge');
-        $sandbox = $this->sandboxModeEnabled();
+        $cnpj = (string) ($issuerFiscal['cnpj_prestador'] ?? '');
+        $ibge = (string) ($issuerFiscal['municipio_ibge'] ?? '');
+        $sandbox = (new NfseCompanyIssuerPayload())->sandboxMode($issuerFiscal);
         $tomadorDocument = $this->resolvedTomadorDocument($invoice);
         $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
 
@@ -649,12 +656,12 @@ class InvoiceController extends Controller
                     ])),
             );
         }
-        $ibsCbsPayload = $this->ibsCbsPayloadValues();
+        $ibsCbsPayload = (new NfseCompanyIssuerPayload())->ibsCbs($issuerFiscal);
         if ($ibsCbsPayload['enabled'] && !(new \Modules\Nfse\Support\NbsEmissionReadiness())->valid((string) ($emissionProfile['codigo_nbs'] ?? ''), true)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_missing_nbs')));
         }
-        $issqnPayload = $this->issqnPayloadValues();
+        $issqnPayload = (new NfseCompanyIssuerPayload())->issqn($issuerFiscal);
 
         if (!$foreignTomador['enabled']) {
             $missingAddress = (new TakerAddressReadiness())->missing($tomadorPayload, $ibsCbsPayload);
@@ -666,7 +673,10 @@ class InvoiceController extends Controller
             }
         }
 
-        $providerContact = $this->providerContact();
+        $providerContact = (new NfseCompanyIssuerPayload())->contact(
+            $issuerFiscal,
+            $this->nativeIssuerCompany($invoice),
+        );
 
         try {
             $dps = (new InvoiceDpsBuilder())->build([
@@ -674,7 +684,7 @@ class InvoiceController extends Controller
                 'municipioIbge' => $ibge,
                 'prestadorTelefone' => $providerContact['telefone'],
                 'prestadorEmail' => $providerContact['email'],
-                'prestadorInscricaoMunicipal' => trim((string) setting('nfse.prestador_inscricao_municipal', '')),
+                'prestadorInscricaoMunicipal' => trim((string) ($issuerFiscal['prestador_inscricao_municipal'] ?? '')),
                 'itemListaServico' => (string) $emissionProfile['item_lista_servico'],
                 'codigoTributacaoNacional' => (string) $emissionProfile['codigo_tributacao_nacional'],
                 'codigoTributacaoMunicipal' => (string) ($emissionProfile['codigo_tributacao_municipal'] ?? ''),
@@ -691,8 +701,8 @@ class InvoiceController extends Controller
                 'tomador' => $tomadorPayload,
                 'foreignTomador' => $foreignTomador,
                 'opcaoSimplesNacional' => $opcaoSimplesNacional,
-                'regimeEspecialTributacao' => setting('nfse.regime_especial_tributacao', null),
-                'regimeApuracaoSimplesNacional' => setting('nfse.regime_apuracao_simples_nacional', null),
+                'regimeEspecialTributacao' => $issuerFiscal['regime_especial_tributacao'] ?? null,
+                'regimeApuracaoSimplesNacional' => $issuerFiscal['regime_apuracao_simples_nacional'] ?? null,
                 'issqn' => $issqnPayload,
                 'tipoAmbiente' => $sandbox ? 2 : 1,
                 'serie' => $this->dpsSerie($invoice),
@@ -810,7 +820,7 @@ class InvoiceController extends Controller
             'aliquota' => $dps->aliquota,
             'tipoAmbiente' => $dps->tipoAmbiente,
             'indicador_tributacao' => $dps->indicadorTributacao,
-            'tributacao_federal_mode' => (string) setting('nfse.tributacao_federal_mode', 'per_invoice_amounts'),
+            'tributacao_federal_mode' => (string) ($issuerFiscal['tributacao_federal_mode'] ?? 'per_invoice_amounts'),
             'federal_piscofins_situacao_tributaria' => $dps->federalPiscofinsSituacaoTributaria,
             'federal_piscofins_tipo_retencao' => $dps->federalPiscofinsTipoRetencao,
             'federal_piscofins_base_calculo' => $dps->federalPiscofinsBaseCalculo,
@@ -1290,7 +1300,14 @@ class InvoiceController extends Controller
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
 
-        $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
+        try {
+            $issuerFiscal = $this->bindIssuerFiscalParameters($invoice);
+        } catch (\DomainException) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
+        }
+
+        $opcaoSimplesNacional = SimplesOptionCode::observed($issuerFiscal['opcao_simples_nacional'] ?? null);
         if ($opcaoSimplesNacional === null) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.simples_option_unverifiable')));
@@ -1329,15 +1346,18 @@ class InvoiceController extends Controller
                 ->with('warning', trans('nfse::general.nfse_reemit_not_cancelled')));
         }
 
-        $readiness = $this->emissionReadiness();
+        $readiness = $this->companyEmissionReadiness();
 
         if (($readiness['isReady'] ?? false) !== true) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready')));
         }
 
-        $sandboxReemit = $this->sandboxModeEnabled();
-        $providerContact = $this->providerContact();
+        $sandboxReemit = (new NfseCompanyIssuerPayload())->sandboxMode($issuerFiscal);
+        $providerContact = (new NfseCompanyIssuerPayload())->contact(
+            $issuerFiscal,
+            $this->nativeIssuerCompany($invoice),
+        );
         $tomadorDocument = $this->resolvedTomadorDocument($invoice);
         $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
         $serviceAmount = $this->invoiceServiceAmount($invoice);
@@ -1388,8 +1408,7 @@ class InvoiceController extends Controller
             );
         }
 
-        $nfseSettings = setting('nfse', []);
-        $nfseSettings = is_array($nfseSettings) ? $nfseSettings : [];
+        $nfseSettings = $issuerFiscal;
         $ibsCbsReadiness = (new IbsCbsEmissionReadiness())->evaluate(
             competenceDate: (string) ($this->competenceDate($invoice) ?? ''),
             opcaoSimplesNacional: $opcaoSimplesNacional,
@@ -1405,7 +1424,7 @@ class InvoiceController extends Controller
             );
         }
 
-        $ibsCbsPayload = $this->ibsCbsPayloadValues();
+        $ibsCbsPayload = (new NfseCompanyIssuerPayload())->ibsCbs($issuerFiscal);
         if ($ibsCbsPayload['enabled'] && !(new \Modules\Nfse\Support\NbsEmissionReadiness())->valid((string) ($itemFiscalProfile['codigo_nbs'] ?? ''), true)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_missing_nbs')));
@@ -1421,11 +1440,11 @@ class InvoiceController extends Controller
 
         try {
             $dps = $this->makeDpsData([
-            'cnpjPrestador' => (string) setting('nfse.cnpj_prestador'),
-            'municipioIbge' => (string) setting('nfse.municipio_ibge'),
+            'cnpjPrestador' => (string) ($issuerFiscal['cnpj_prestador'] ?? ''),
+            'municipioIbge' => (string) ($issuerFiscal['municipio_ibge'] ?? ''),
             'prestadorTelefone' => $providerContact['telefone'],
             'prestadorEmail' => $providerContact['email'],
-            'prestadorInscricaoMunicipal' => trim((string) setting('nfse.prestador_inscricao_municipal', '')),
+            'prestadorInscricaoMunicipal' => trim((string) ($issuerFiscal['prestador_inscricao_municipal'] ?? '')),
             'versaoAplicativo' => substr('LibreCode/' . (new \Modules\Nfse\Application\ModuleVersion())->get(), 0, 20),
             'itemListaServico' => (string) $itemFiscalProfile['item_lista_servico'],
             'codigoTributacaoNacional' => (string) $itemFiscalProfile['codigo_tributacao_nacional'],
@@ -1447,14 +1466,14 @@ class InvoiceController extends Controller
             'tomadorEmail' => $tomadorPayload['email'],
             'opcaoSimplesNacional' => $opcaoSimplesNacional,
             'regimeEspecialTributacao' => (new \Modules\Nfse\Application\SpecialTaxRegimePolicy())->forIssuance(
-                setting('nfse.regime_especial_tributacao', null),
+                $issuerFiscal['regime_especial_tributacao'] ?? null,
                 $opcaoSimplesNacional,
-                (int) ($this->issqnPayloadValues()['tributacaoIssqn'] ?? 1),
+                (int) ((new NfseCompanyIssuerPayload())->issqn($issuerFiscal)['tributacaoIssqn'] ?? 1),
                 $this->competenceDate($invoice),
-                setting('nfse.regime_apuracao_simples_nacional', null),
+                $issuerFiscal['regime_apuracao_simples_nacional'] ?? null,
             ),
             'regimeApuracaoSimplesNacional' => $opcaoSimplesNacional === 3
-                ? (int) setting('nfse.regime_apuracao_simples_nacional', 0)
+                ? (int) ($issuerFiscal['regime_apuracao_simples_nacional'] ?? 0)
                 : null,
             'tipoAmbiente' => $sandboxReemit ? 2 : 1,
             'serie' => $this->dpsSerie($invoice),
@@ -1484,7 +1503,7 @@ class InvoiceController extends Controller
                 'codigoTributacaoMunicipal',
                 'regimeEspecialTributacao',
                 $opcaoSimplesNacional === 3 ? 'regimeApuracaoSimplesNacional' : null,
-                trim((string) setting('nfse.prestador_inscricao_municipal', '')) !== '' ? 'prestadorInscricaoMunicipal' : null,
+                trim((string) ($issuerFiscal['prestador_inscricao_municipal'] ?? '')) !== '' ? 'prestadorInscricaoMunicipal' : null,
                 $ibsCbsPayload['enabled'] ? 'codigoNbs' : null,
                 $ibsCbsPayload['enabled'] ? 'ibsCbsFinalidade' : null,
                 $ibsCbsPayload['enabled'] ? 'ibsCbsIndFinal' : null,
@@ -2103,12 +2122,12 @@ class InvoiceController extends Controller
     ): array {
         $policy = new FederalTaxReadiness();
         $requiredBuckets = $policy->requiredBuckets(
-            enforce: setting('nfse.enforce_item_federal_taxes', true),
+            enforce: $this->issuerFiscalValue('enforce_item_federal_taxes', true),
             piscofinsSituation: $this->normalizedFederalSelectValue(
-                setting('nfse.federal_piscofins_situacao_tributaria', ''),
+                $this->issuerFiscalValue('federal_piscofins_situacao_tributaria', ''),
             ),
             retentionType: $this->normalizedFederalSelectValue(
-                setting('nfse.federal_piscofins_tipo_retencao', ''),
+                $this->issuerFiscalValue('federal_piscofins_tipo_retencao', ''),
             ),
         );
 
@@ -2180,7 +2199,12 @@ class InvoiceController extends Controller
             return $invoice;
         }
 
-        $readiness = $this->federalTaxReadinessForInvoice($invoice);
+        try {
+            $this->bindIssuerFiscalParameters($invoice);
+            $readiness = $this->federalTaxReadinessForInvoice($invoice);
+        } catch (\DomainException) {
+            $readiness = ['isReady' => false, 'missing' => ['company_fiscal_profile']];
+        }
 
         $invoice->nfse_emit_ready = $readiness['isReady'];
         $invoice->nfse_emit_block_reason = $readiness['isReady']
