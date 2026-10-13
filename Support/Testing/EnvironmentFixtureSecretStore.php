@@ -34,7 +34,11 @@ final class EnvironmentFixtureSecretStore implements SecretStoreInterface
             );
         }
 
-        if ($path !== 'pfx/' . $cnpj) {
+        // Verify exact tenant + immutable revision from the generated fixture,
+        // never resolve by a shared CNPJ. No real Vault call is permitted.
+        $normalizedPath = str_replace('\\', '/', $pfxPath);
+        if (preg_match('#/nfse/pfx/companies/([1-9][0-9]*)/([a-f0-9]{32})\\.pfx$#D', $normalizedPath, $matches) !== 1
+            || $path !== 'pfx/companies/' . $matches[1] . '/' . $matches[2]) {
             throw new SecretStoreException('Unknown deterministic fiscal secret path: ' . $path);
         }
 
