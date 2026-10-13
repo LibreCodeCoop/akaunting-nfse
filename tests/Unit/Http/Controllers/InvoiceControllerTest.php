@@ -976,6 +976,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testEmitBuildsDpsPersistsReceiptAndRedirectsToShowPage(): void
         {
+            ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 2;
             ControllerIsolationState::$settings['nfse.ibs_cbs_enabled'] = true;
             ControllerIsolationState::$settings['nfse.ibs_cbs_ind_final'] = '0';
             ControllerIsolationState::$settings['nfse.ibs_cbs_c_ind_op'] = '010101';
