@@ -342,6 +342,7 @@ return [
                 'reemit_requires_separate_fiscal_groups' => 'A reemissão manual não pode combinar serviços com classificações fiscais diferentes, inclusive NBS. Revise os grupos fiscais antes de emitir.',
         'emit_blocked_missing_nbs' => 'A DPS contém IBS/CBS, mas o código NBS do item está ausente ou inválido. Abra Itens, edite o serviço da fatura, selecione a NBS oficial e salve antes de reemitir.',
         'emit_runtime_unsupported' => 'Este módulo NFS-e precisa de uma versão mais recente do runtime nfse-php para os dados selecionados. Atualize as dependências de runtime do módulo e tente novamente.',
+        'simples_option_unverifiable' => 'Situação do prestador no Simples Nacional ausente ou inválida. Confirme o enquadramento nas configurações fiscais antes de emitir ou reemitir.',
         'emit_modal_email_section' => 'Envio por e-mail',
         'emit_modal_send_email' => 'Enviar e-mail após a emissão',
         'emit_modal_send_email_hint' => 'Ative para personalizar e enviar a notificação agora.',

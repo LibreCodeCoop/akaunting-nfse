@@ -42,6 +42,7 @@ use Modules\Nfse\Application\ReceiptPersistence;
 use Modules\Nfse\Application\RecoverInvoiceEmission;
 use Modules\Nfse\Application\RefreshInvoiceNfse;
 use Modules\Nfse\Application\RuntimeDpsFactory;
+use Modules\Nfse\Application\SimplesOptionCode;
 use Modules\Nfse\Application\SubstituteInvoiceNfse;
 use Modules\Nfse\Application\SubstitutionDpsBuilder;
 use Modules\Nfse\Models\ItemFiscalProfile;
@@ -463,6 +464,12 @@ class InvoiceController extends Controller
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
 
+        $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
+        if ($opcaoSimplesNacional === null) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.simples_option_unverifiable')));
+        }
+
         try {
             $validatedEmail = $this->preparePostEmitEmail($request, $invoice);
         } catch (\InvalidArgumentException $exception) {
@@ -556,7 +563,7 @@ class InvoiceController extends Controller
             : (string) ($itemFiscalProfile['item_lista_servico'] ?? '');
         $ibsCbsReadiness = (new IbsCbsEmissionReadiness())->evaluate(
             competenceDate: (string) ($this->competenceDate($invoice) ?? ''),
-            opcaoSimplesNacional: $this->normalizedOpcaoSimplesNacional(),
+            opcaoSimplesNacional: $opcaoSimplesNacional,
             itemListaServico: $ibsCbsServiceCode,
             settings: is_array(setting('nfse', [])) ? setting('nfse', []) : [],
             rtcSupplyCategory: $rtcCategory,
@@ -615,7 +622,6 @@ class InvoiceController extends Controller
             $tomadorPayload['inscricao_municipal'] = '';
         }
 
-        $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         try {
             $federalPayload = $this->federalPayloadValues(
                 $invoice,
@@ -1275,6 +1281,12 @@ class InvoiceController extends Controller
         $request = $this->currentRequest($request);
         $this->ensureInvoiceRelationsLoaded($invoice);
 
+        $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
+        if ($opcaoSimplesNacional === null) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoices.simples_option_unverifiable')));
+        }
+
         try {
             $validatedEmail = $this->preparePostEmitEmail($request, $invoice);
         } catch (\InvalidArgumentException $exception) {
@@ -1319,7 +1331,6 @@ class InvoiceController extends Controller
         $providerContact = $this->providerContact();
         $tomadorDocument = $this->resolvedTomadorDocument($invoice);
         $tomadorPayload = $this->tomadorPayload($invoice->contact, $invoice);
-        $opcaoSimplesNacional = $this->normalizedOpcaoSimplesNacional();
         $serviceAmount = $this->invoiceServiceAmount($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
         try {
@@ -3504,11 +3515,9 @@ class InvoiceController extends Controller
         return $user !== null && isset($user->company_id) ? (int) $user->company_id : 0;
     }
 
-    protected function normalizedOpcaoSimplesNacional(): int
+    protected function normalizedOpcaoSimplesNacional(): ?int
     {
-        $configured = (int) setting('nfse.opcao_simples_nacional', 2);
-
-        return in_array($configured, [1, 2, 3], true) ? $configured : 1;
+        return SimplesOptionCode::observed(setting('nfse.opcao_simples_nacional', null));
     }
 
     protected function dpsRuntimeErrorMessage(\LogicException $exception): string

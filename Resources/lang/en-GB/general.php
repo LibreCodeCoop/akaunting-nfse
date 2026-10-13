@@ -341,6 +341,7 @@ return [
                 'reemit_requires_separate_fiscal_groups' => 'Manual reissuance cannot combine services with different fiscal classifications, including NBS. Review fiscal groups before issuing.',
         'emit_blocked_missing_nbs' => 'The DPS includes IBS/CBS but the NBS code for this item is missing or invalid. Edit the associated service under Items, choose the official NBS, save, then retry.',
         'emit_runtime_unsupported' => 'This NFS-e module requires a newer nfse-php runtime for the selected issuance data. Update the module runtime dependencies and try again.',
+        'simples_option_unverifiable' => 'Taxpayer Simples Nacional status is missing or invalid. Confirm the status in fiscal settings before issuing or reissuing.',
         'emit_modal_email_section' => 'Email delivery',
         'emit_modal_send_email' => 'Send email after issuance',
         'emit_modal_send_email_hint' => 'Enable this to customize and send the notification now.',
