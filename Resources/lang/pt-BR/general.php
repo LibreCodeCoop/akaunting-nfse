@@ -532,6 +532,8 @@ return [
         'municipio_nome'   => 'Município',
         'municipio_ibge'   => 'Código IBGE do Município',
         'opcao_simples_nacional' => 'Situação no Simples Nacional',
+        'opcao_simples_nacional_select' => 'Selecione o enquadramento fiscal (obrigatório)',
+        'simples_status_missing' => 'Confirme o enquadramento no Simples Nacional antes de selecionar regime especial ou emitir NFS-e.',
         'opcao_simples_nacional_not_optant' => 'Não optante',
         'opcao_simples_nacional_mei' => 'Optante - Microempreendedor Individual (MEI)',
         'opcao_simples_nacional_me_epp' => 'Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP)',

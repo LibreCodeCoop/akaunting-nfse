@@ -534,6 +534,8 @@ return [
         'municipio_nome'   => 'Municipality',
         'municipio_ibge'   => 'Municipality IBGE Code',
         'opcao_simples_nacional' => 'Simples Nacional status',
+        'opcao_simples_nacional_select' => 'Choose the fiscal status (required)',
+        'simples_status_missing' => 'Confirm Simples Nacional status before selecting a special regime or issuing an NFS-e.',
         'opcao_simples_nacional_not_optant' => 'Not opted into Simples Nacional',
         'opcao_simples_nacional_mei' => 'Opted in - Individual Microentrepreneur (MEI)',
         'opcao_simples_nacional_me_epp' => 'Opted in - Micro or Small Business (ME/EPP)',

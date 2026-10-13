@@ -475,10 +475,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         <div>
                             <label class="block text-sm font-medium mb-1" for="opcao_simples_nacional">{{ trans('nfse::general.settings.opcao_simples_nacional') }}</label>
-                            <select id="opcao_simples_nacional" name="nfse[opcao_simples_nacional]" class="w-full border rounded px-3 py-2">
-                                <option value="1" @selected((string) old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 1)) === '1')>{{ trans('nfse::general.settings.opcao_simples_nacional_not_optant') }}</option>
-                                <option value="2" @selected((string) old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 1)) === '2')>{{ trans('nfse::general.settings.opcao_simples_nacional_mei') }}</option>
-                                <option value="3" @selected((string) old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 1)) === '3')>{{ trans('nfse::general.settings.opcao_simples_nacional_me_epp') }}</option>
+                            <select id="opcao_simples_nacional" name="nfse[opcao_simples_nacional]" class="w-full border rounded px-3 py-2" required>
+                                <option value="" @selected(\Modules\Nfse\Application\SimplesOptionCode::observed(old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', null))) === null)>{{ trans('nfse::general.settings.opcao_simples_nacional_select') }}</option>
+                                <option value="1" @selected((string) old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', null)) === '1')>{{ trans('nfse::general.settings.opcao_simples_nacional_not_optant') }}</option>
+                                <option value="2" @selected((string) old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', null)) === '2')>{{ trans('nfse::general.settings.opcao_simples_nacional_mei') }}</option>
+                                <option value="3" @selected((string) old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', null)) === '3')>{{ trans('nfse::general.settings.opcao_simples_nacional_me_epp') }}</option>
                             </select>
                         </div>
 
@@ -913,12 +914,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 'certificateLabel' => trans('nfse::general.settings.certificate'),
                 'invalidPfx' => trans('nfse::general.invalid_pfx'),
                 'cnpjNotFound' => trans('nfse::general.cnpj_not_found'),
-                'selectedOpcaoSimplesNacional' => old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', 2)),
+                'selectedOpcaoSimplesNacional' => old('nfse.opcao_simples_nacional', setting('nfse.opcao_simples_nacional', null)),
                 'specialRegimeHelp' => trans('nfse::general.settings.special_regime_help'),
                 'specialRegimeMissing' => trans('nfse::general.settings.special_regime_missing_help'),
                 'specialRegimeBlocked' => trans('nfse::general.settings.special_regime_inapplicable'),
                 'specialRegimeUnsupported' => trans('nfse::general.settings.special_regime_simples_unsupported'),
                 'specialRegimeApurationRequired' => trans('nfse::general.settings.simples_apuration_missing'),
+                'specialRegimeSimplesRequired' => trans('nfse::general.settings.simples_status_missing'),
                 'specialRegimeApurationRequiresNone' => trans('nfse::general.settings.simples_apuration_requires_none'),
                 'specialRegimeInvalid' => trans('nfse::general.settings.special_regime_selected_invalid'),
                 'selectedUf' => old('nfse.uf', setting('nfse.uf', '')),
