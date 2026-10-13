@@ -68,11 +68,36 @@ válido, senha correta, identidade fiscal identificável e igualdade com
 `company.tax_number` do Akaunting. As permissões no **caminho real**
 do KV v2 devem ser verificadas; uma probe genérica não basta.
 
-### Contrato administrativo de backend
+### Administração pela interface
 
-A interface de empresas (#420) deverá utilizar estas rotas nomeadas.
-A consulta deve permanecer possível mesmo durante indisponibilidade
-temporária do Vault:
+Na seção **Empresas NFS-e**, o operador vê os perfis das empresas nativas do
+Akaunting às quais tem acesso. **Adicionar** só está disponível quando alguma
+empresa atribuída e habilitada ainda não possui perfil; caso contrário, é
+necessário cadastrar uma empresa primeiro no próprio Akaunting.
+
+O cadastro exige selecionar a empresa, enviar PFX/P12 com sua senha e informar
+complementos fiscais. A edição não permite transferir o perfil para outra empresa.
+Um novo certificado e sua senha são necessários somente para a rotação.
+Pendências de preenchimento devem ser corrigidas antes de tentar emitir, mas
+preencher os campos não implica autorização fiscal de transmissão.
+
+A seção **Infraestrutura** concentra Configurar/Editar e o diagnóstico recolhido.
+O diagnóstico verifica saúde, autenticação, KV v2 e permissões genéricas em
+certificados, identificando a última verificação feita na página. O backend
+continua verificando o caminho específico de cada novo certificado. Se o Vault
+ficar indisponível, novos cadastros ficam bloqueados, enquanto a listagem dos
+perfis existentes permanece consultável.
+
+Excluir requer confirmação: a empresa do Akaunting e os documentos fiscais
+históricos permanecem intactos. Operações fiscais pendentes podem impedir a
+exclusão; se a limpeza de segredos for interrompida, use **Retomar limpeza**
+antes de tentar recadastrar a empresa. Depois da exclusão efetiva, a empresa
+volta à lista elegível.
+
+### Contrato HTTP administrativo
+
+A interface utiliza estas rotas nomeadas. A consulta permanece possível
+mesmo durante indisponibilidade temporária do Vault:
 
 - `nfse.settings.company-profiles.index`: GET; retorna `profiles`
   (metadados sem credenciais) e `eligible_companies` (somente empresas
