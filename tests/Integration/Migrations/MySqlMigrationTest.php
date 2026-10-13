@@ -288,6 +288,74 @@ final class MySqlMigrationTest extends TestCase
         $other->commit();
     }
 
+    public function testTwoMySqlConnectionsCommitDistinctNumbersForTheSameFiscalSeries(): void
+    {
+        $this->migration('2026_10_08_000002_create_nfse_emission_attempts')->up();
+        $this->migration('2026_10_12_230000_create_nfse_dps_reservations')->up();
+        $series = $this->insertSyntheticDpsSeries();
+        DB::table('documents')->insert(['id' => 2]);
+
+        $first = DB::connection()->getPdo();
+        $second = new \PDO(
+            'mysql:host=' . (getenv('NFSE_MIGRATION_TEST_HOST') ?: '127.0.0.1')
+            . ';port=' . (getenv('NFSE_MIGRATION_TEST_PORT') ?: '3306')
+            . ';dbname=' . getenv('NFSE_MIGRATION_TEST_DB'),
+            getenv('NFSE_MIGRATION_TEST_USER') ?: 'root',
+            getenv('NFSE_MIGRATION_TEST_PASSWORD') ?: '',
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION],
+        );
+        $second->exec('SET SESSION innodb_lock_wait_timeout = 1');
+
+        $first->beginTransaction();
+
+        try {
+            $row = $first->query('SELECT last_number FROM nfse_dps_series WHERE id = ' . $series . ' FOR UPDATE')->fetch();
+            self::assertSame('0', (string) $row['last_number']);
+            $first->exec('UPDATE nfse_dps_series SET last_number = 1 WHERE id = ' . $series);
+            $first->exec('INSERT INTO nfse_dps_reservations (series_id, company_id, invoice_id, operation_key, number, origin)'
+                . " VALUES ($series, 1, 1, '" . str_repeat('a', 64) . "', 1, 'manual')");
+
+            $second->beginTransaction();
+            try {
+                $second->query('SELECT last_number FROM nfse_dps_series WHERE id = ' . $series . ' FOR UPDATE');
+                self::fail('The second connection cannot allocate while the first transaction holds the row lock.');
+            } catch (\PDOException $exception) {
+                self::assertSame('HY000', $exception->getCode());
+                self::assertSame(1205, (int) ($exception->errorInfo[1] ?? 0));
+            } finally {
+                if ($second->inTransaction()) {
+                    $second->rollBack();
+                }
+            }
+
+            $first->commit();
+        } finally {
+            if ($first->inTransaction()) {
+                $first->rollBack();
+            }
+        }
+
+        $second->beginTransaction();
+        try {
+            $row = $second->query('SELECT last_number FROM nfse_dps_series WHERE id = ' . $series . ' FOR UPDATE')->fetch();
+            self::assertSame('1', (string) $row['last_number']);
+            $second->exec('UPDATE nfse_dps_series SET last_number = 2 WHERE id = ' . $series);
+            $second->exec('INSERT INTO nfse_dps_reservations (series_id, company_id, invoice_id, operation_key, number, origin)'
+                . " VALUES ($series, 2, 2, '" . str_repeat('b', 64) . "', 2, 'automatic')");
+            $second->commit();
+        } finally {
+            if ($second->inTransaction()) {
+                $second->rollBack();
+            }
+        }
+
+        self::assertSame(['1', '2'], array_map(
+            'strval',
+            DB::table('nfse_dps_reservations')->orderBy('number')->pluck('number')->all(),
+        ));
+        self::assertSame(2, (int) DB::table('nfse_dps_series')->where('id', $series)->value('last_number'));
+    }
+
     private function insertSyntheticDpsSeries(): int
     {
         return (int) DB::table('nfse_dps_series')->insertGetId([
