@@ -8,13 +8,12 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Unit\Application;
 
 use Modules\Nfse\Application\RtcSupplyCategoryPolicy;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class RtcSupplyCategoryPolicyTest extends TestCase
 {
-    /**
-     * @dataProvider categoryCases
-     */
+    #[DataProvider('categoryCases')]
     public function testExplicitNonLc116CategoryBeginsOnDecemberFirst2026(string $category): void
     {
         $policy = new RtcSupplyCategoryPolicy();

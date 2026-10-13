@@ -7,6 +7,10 @@
     bootstrap="vendor/autoload.php"
     cacheDirectory=".phpunit.cache"
     colors="true"
+    displayDetailsOnPhpunitDeprecations="true"
+    displayDetailsOnTestsThatTriggerDeprecations="true"
+    failOnDeprecation="true"
+    failOnPhpunitDeprecation="true"
     failOnRisky="true"
     failOnWarning="true"
 >

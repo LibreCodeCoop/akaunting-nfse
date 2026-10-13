@@ -13,6 +13,7 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 final class TransportCertificateManagerTest extends TestCase
 {
@@ -133,9 +134,7 @@ final class TransportCertificateManagerTest extends TestCase
         self::assertFileDoesNotExist($privateKeyPath);
     }
 
-    /**
-     * @dataProvider missingOrInvalidPasswordProvider
-     */
+    #[DataProvider('missingOrInvalidPasswordProvider')]
     public function testEnsureThrowsExplicitExceptionWhenPasswordIsMissingOrInvalid(array $secret, string $expectedException, string $expectedMessageFragment): void
     {
         $manager = $this->makeManager();

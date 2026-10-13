@@ -9,6 +9,7 @@ namespace Modules\Nfse\Tests\Unit\Application;
 
 use Modules\Nfse\Application\IbsCbsEmissionReadiness;
 use Modules\Nfse\Application\IbsCbsObligationPolicy;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class IbsCbsObligationPolicyTest extends TestCase
@@ -21,9 +22,7 @@ final class IbsCbsObligationPolicyTest extends TestCase
         self::assertTrue($policy->evaluate('2026-10-01', 1, '0101')['required']);
     }
 
-    /**
-     * @dataProvider deferredServices
-     */
+    #[DataProvider('deferredServices')]
     public function testDeferredLc116ServicesBecomeRequiredOnDecemberFirst2026(string $service): void
     {
         $policy = new IbsCbsObligationPolicy();
@@ -45,9 +44,7 @@ final class IbsCbsObligationPolicyTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider simplesOptions
-     */
+    #[DataProvider('simplesOptions')]
     public function testSimplesBecomesRequiredOnlyIn2027(int $option): void
     {
         $policy = new IbsCbsObligationPolicy();
@@ -141,9 +138,7 @@ final class IbsCbsObligationPolicyTest extends TestCase
         self::assertSame(['ibs_cbs_c_ind_op'], $result['missing']);
     }
 
-    /**
-     * @dataProvider nonLc116Categories
-     */
+    #[DataProvider('nonLc116Categories')]
     public function testNonLc116RtcDateIsKnownButDpsRemainsUnsupported(string $category): void
     {
         $readiness = new IbsCbsEmissionReadiness();
