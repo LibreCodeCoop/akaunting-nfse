@@ -252,139 +252,25 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('const suggestedDescription = typeof payload.suggested_description === \'string\' ? payload.suggested_description : \'\';', $content);
         }
 
-        public function testSettingsViewShowsVaultStatusAndSensitiveFieldClearControls(): void
+        public function testSettingsViewProtectsVaultCredentialsAndNativeCompanyAdministration(): void
         {
-            $settingsPath = dirname(__DIR__, 3) . '/Resources/views/settings/edit.blade.php';
-            $content = (string) file_get_contents($settingsPath);
+            $content = (string) file_get_contents(dirname(__DIR__, 3) . '/Resources/views/settings/edit.blade.php');
 
-            self::assertStringContainsString('id="vault-status-token"', $content);
-            self::assertStringContainsString('id="vault-status-auth-mode"', $content);
+            self::assertStringContainsString('id="nfse-companies-title"', $content);
+            self::assertStringContainsString('id="nfse-vault-title"', $content);
+            self::assertStringContainsString('id="vault-diagnostics"', $content);
+            self::assertStringContainsString('id="vault-editor"', $content);
+            self::assertStringContainsString('id="profile-add"', $content);
+            self::assertStringContainsString('id="profile-editor"', $content);
+            self::assertStringContainsString('name="nfse[bao_token]"', $content);
+            self::assertStringContainsString('name="nfse[bao_secret_id]"', $content);
             self::assertStringContainsString('name="nfse[clear_bao_token]"', $content);
-            self::assertStringContainsString('name="nfse[clear_bao_secret_id]"', $content);
-            self::assertStringContainsString("trans('nfse::general.settings.sensitive_fields_behavior_hint')", $content);
-            self::assertStringContainsString("trans('nfse::general.settings.vault_gate_locked_notice')", $content);
-            self::assertStringContainsString("trans('nfse::general.settings.vault_gate_ready_notice')", $content);
-            self::assertStringContainsString("trans('nfse::general.settings.vault_section_title')", $content);
-            self::assertStringContainsString("trans('nfse::general.settings.bao_token_local_dev_hint')", $content);
-            self::assertStringContainsString('id="toggle-pfx-password"', $content);
-            self::assertStringContainsString('id="toggle-bao-token"', $content);
-            self::assertStringContainsString('id="toggle-bao-secret-id"', $content);
-            self::assertStringContainsString('id="tab-btn-{{ $tabKey }}"', $content);
-            self::assertStringContainsString('class="tab-button', $content);
-            self::assertStringContainsString('id="tab-panel-vault"', $content);
-            self::assertStringContainsString('id="tab-panel-certificate"', $content);
-            self::assertStringContainsString('id="tab-panel-fiscal"', $content);
-            self::assertStringContainsString('data-eye-open', $content);
-            self::assertStringContainsString('data-eye-off', $content);
-            self::assertStringContainsString("document.getElementById('pfx_password')", $content);
-            self::assertStringContainsString("document.getElementById('bao_token')", $content);
-            self::assertStringContainsString("document.getElementById('bao_secret_id')", $content);
-            self::assertStringContainsString("trans('nfse::general.settings.show_password')", $content);
-            self::assertStringContainsString("trans('nfse::general.settings.hide_password')", $content);
-            // Auth mode toggle (token / approle mutually exclusive sections)
-            self::assertStringContainsString('id="vault-auth-mode-fieldset"', $content);
-            self::assertStringContainsString('id="vault-auth-mode-hint"', $content);
-            self::assertStringContainsString("trans('nfse::general.settings.auth_mode_group_label')", $content);
-            self::assertStringContainsString("trans('nfse::general.settings.auth_mode_group_hint')", $content);
-            self::assertStringContainsString("trans('nfse::general.settings.auth_mode_option_token')", $content);
-            self::assertStringContainsString("trans('nfse::general.settings.auth_mode_option_approle')", $content);
-            self::assertStringContainsString('name="auth_mode_ui"', $content);
-            self::assertStringContainsString('id="auth-mode-token"', $content);
-            self::assertStringContainsString('id="auth-mode-approle"', $content);
-            self::assertStringContainsString("document.getElementById('vault-token-section')", $content);
-            self::assertStringContainsString("document.getElementById('vault-approle-section')", $content);
-            self::assertStringContainsString('id="vault-token-section"', $content);
-            self::assertStringContainsString('id="vault-approle-section"', $content);
-            $fieldsetStart = strpos($content, 'id="vault-auth-mode-fieldset"');
-            $fieldsetEnd = strpos($content, '</fieldset>', (int) $fieldsetStart);
-            $tokenSection = strpos($content, 'id="vault-token-section"');
-            $approleSection = strpos($content, 'id="vault-approle-section"');
-            $vaultTitle = strpos($content, "trans('nfse::general.settings.vault_section_title')");
-            $vaultReadyNotice = strpos($content, "trans('nfse::general.settings.vault_gate_ready_notice')");
-            $certificateStep = strpos($content, "trans('nfse::general.step_certificate')");
-            $settingsStep = strpos($content, "trans('nfse::general.step_settings')");
-            self::assertIsInt($fieldsetStart);
-            self::assertIsInt($fieldsetEnd);
-            self::assertIsInt($tokenSection);
-            self::assertIsInt($approleSection);
-            self::assertIsInt($vaultTitle);
-            self::assertIsInt($vaultReadyNotice);
-            self::assertIsInt($certificateStep);
-            self::assertIsInt($settingsStep);
-            self::assertGreaterThan($fieldsetStart, $tokenSection);
-            self::assertGreaterThan($fieldsetStart, $approleSection);
-            self::assertLessThan($fieldsetEnd, $tokenSection);
-            self::assertLessThan($fieldsetEnd, $approleSection);
-            self::assertGreaterThan($vaultTitle, $vaultReadyNotice);
-            self::assertGreaterThan($vaultTitle, $certificateStep);
-            self::assertGreaterThan($vaultTitle, $settingsStep);
-            self::assertStringContainsString('id="delete-certificate-form"', $content);
-            self::assertStringContainsString("old('nfse.bao_mount', \$settings['bao_mount'] ?? '/nfse')", $content);
-            self::assertStringContainsString("old('nfse.bao_addr', \$settings['bao_addr'] ?? '')", $content);
-            self::assertStringNotContainsString("setting('nfse.bao_addr', 'http://openbao:8200')", $content);
-        }
-
-        public function testSettingsViewDoesNotExposeLegacyServicesTabAndKeepsFiscalControls(): void
-        {
-            $settingsPath = dirname(__DIR__, 3) . '/Resources/views/settings/edit.blade.php';
-            $content = (string) file_get_contents($settingsPath);
-
-            $federalTabPos = strpos($content, "trans('nfse::general.settings.federal.tab_title')");
-            self::assertIsInt($federalTabPos);
-            self::assertStringNotContainsString("trans('nfse::general.settings.services.tab_title')", $content);
+            self::assertStringContainsString("route('nfse.settings.company-profiles.index')", $content);
+            self::assertStringContainsString("route('nfse.settings.company-profiles.destroy'", $content);
+            self::assertStringContainsString("route('nfse.settings.company-profiles.cleanup'", $content);
+            self::assertStringNotContainsString("route('nfse.certificate.upload')", $content);
+            self::assertStringNotContainsString('name="nfse[cnpj_prestador]"', $content);
             self::assertStringNotContainsString('id="tab-panel-services"', $content);
-
-            self::assertStringContainsString('name="nfse[opcao_simples_nacional]"', $content);
-            self::assertStringContainsString('name="nfse[emission_policy]"', $content);
-            self::assertStringContainsString('name="nfse[tributacao_issqn]"', $content);
-            self::assertStringContainsString('name="nfse[tipo_retencao_iss]"', $content);
-            self::assertStringContainsString('name="nfse[issqn_pais_resultado]"', $content);
-            self::assertStringContainsString('name="nfse[issqn_tipo_imunidade]"', $content);
-            self::assertStringContainsString('name="nfse[issqn_tipo_suspensao]"', $content);
-            self::assertStringContainsString('name="nfse[issqn_numero_processo_suspensao]"', $content);
-            self::assertStringContainsString('id="municipal-parameters-panel"', $content);
-            self::assertStringContainsString("route('nfse.municipal-parameters')", $content);
-            self::assertStringContainsString('id="municipal-parameters-query"', $content);
-            self::assertStringContainsString('id="municipal-parameters-result"', $content);
-            self::assertStringNotContainsString('name="nfse[item_lista_servico_display]"', $content);
-            self::assertStringNotContainsString('name="nfse[item_lista_servico]"', $content);
-            self::assertStringNotContainsString('id="lc116_services"', $content);
-            self::assertStringNotContainsString("document.getElementById('item_lista_servico_display')", $content);
-            self::assertStringContainsString("trans('nfse::general.settings.federal.tab_title')", $content);
-            self::assertStringContainsString("route('nfse.settings.federal')", $content);
-            self::assertStringContainsString('name="nfse[tributacao_federal_mode]" type="hidden" value="percentage_profile"', $content);
-            self::assertStringNotContainsString('value="per_invoice_amounts"', $content);
-            self::assertStringContainsString('name="nfse[federal_piscofins_situacao_tributaria]"', $content);
-            self::assertStringContainsString('name="nfse[federal_piscofins_tipo_retencao]"', $content);
-            self::assertStringContainsString('id="federal-piscofins-preview-note"', $content);
-            self::assertStringContainsString("trans('nfse::general.settings.federal.piscofins_preview_note')", $content);
-            self::assertStringNotContainsString('name="nfse[federal_piscofins_base_calculo]"', $content);
-            self::assertStringNotContainsString('name="nfse[federal_piscofins_valor_pis]"', $content);
-            self::assertStringNotContainsString('name="nfse[federal_piscofins_valor_cofins]"', $content);
-            self::assertStringContainsString('name="nfse[federal_valor_csll]"', $content);
-            self::assertStringContainsString('id="federal-piscofins-panel"', $content);
-            self::assertStringContainsString('id="federal-piscofins-situacao"', $content);
-            self::assertStringContainsString('id="federal-piscofins-tipo-retencao"', $content);
-            self::assertStringNotContainsString('name="nfse[tributos_fed_p]"', $content);
-            self::assertStringNotContainsString('name="nfse[tributos_mun_sn]"', $content);
-            self::assertStringContainsString("route('nfse.settings.approximate-taxes')", $content);
-            self::assertStringContainsString('id="approximate-tax-sources"', $content);
-            self::assertStringContainsString('id="federal-save-button"', $content);
-            self::assertStringContainsString('id="ibs-cbs-panel"', $content);
-            self::assertStringContainsString('name="nfse[ibs_cbs_enabled]"', $content);
-            self::assertStringContainsString('name="nfse[ibs_cbs_ind_final]"', $content);
-            self::assertStringContainsString('name="nfse[ibs_cbs_c_ind_op]"', $content);
-            self::assertStringContainsString('name="nfse[ibs_cbs_ind_dest]"', $content);
-            self::assertStringContainsString('name="nfse[ibs_cbs_cst]"', $content);
-            self::assertStringContainsString('name="nfse[ibs_cbs_c_class_trib]"', $content);
-            self::assertStringContainsString("trans('nfse::general.settings.federal.ibs_cbs_notice')", $content);
-            self::assertStringContainsString('bg-green-50', $content);
-            self::assertStringNotContainsString('id="federal_opcao_simples_status"', $content);
-            self::assertStringNotContainsString("trans('nfse::general.settings.federal.current_simples_status')", $content);
-            self::assertStringContainsString('data-tax-affix="percent"', $content);
-            self::assertStringContainsString('pointer-events-none absolute inset-y-0 right-0', $content);
-            self::assertStringNotContainsString('R$ = valor monetario', $content);
-            self::assertStringContainsString("trans('nfse::general.settings.federal.canonical_source_notice')", $content);
         }
 
         public function testInvoiceViewsExposeTaxPolicyNotices(): void
