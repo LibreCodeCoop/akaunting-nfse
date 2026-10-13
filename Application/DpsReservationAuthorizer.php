@@ -14,8 +14,10 @@ namespace Modules\Nfse\Application;
  * persisted fiscal profile's ownership. A company_id supplied by a request
  * or job is not itself proof of authorization. This interface deliberately
  * does not copy fiscal profiles, certificates or Vault readiness.
+ * Authorization covers the exact environment and normalized series, not
+ * merely a matching federal registration.
  */
 interface DpsReservationAuthorizer
 {
-    public function assertCanReserve(int $companyId, int $invoiceId, DpsFiscalIssuer $issuer): void;
+    public function assertCanReserve(int $companyId, int $invoiceId, DpsFiscalIssuer $issuer, int $environment, string $series): void;
 }

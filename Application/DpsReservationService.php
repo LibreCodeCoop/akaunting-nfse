@@ -81,7 +81,7 @@ final class DpsReservationService
             // Validate actual caller + fiscal-profile authority before looking
             // up even an existing reservation. The invoice tenant alone does
             // not authorize use of an arbitrary issuer registration.
-            $this->authorizer->assertCanReserve($companyId, $invoiceId, $issuer);
+            $this->authorizer->assertCanReserve($companyId, $invoiceId, $issuer, $environment, $series);
 
             $counterQuery = DB::table('nfse_dps_series')
                 ->where('environment', $environment)

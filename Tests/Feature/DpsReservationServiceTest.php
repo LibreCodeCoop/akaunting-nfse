@@ -137,6 +137,49 @@ final class DpsReservationServiceTest extends FeatureTestCase
         self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
     }
 
+    public function testUnapprovedSeriesFailsEvenIfItsCounterIsActive(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer, 2, '00002');
+
+        try {
+            $this->service()->reserve(
+                (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '2',
+                DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2),
+                'manual',
+            );
+            self::fail('An active counter cannot authorize an unapproved fiscal series.');
+        } catch (AuthorizationException) {
+        }
+
+        self::assertSame(0, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
+    public function testEnvironmentMustBeAuthorizedSeparatelyFromIssuer(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer, 1);
+
+        try {
+            // Test-only authorizer grants restricted issuance, not production.
+            $this->service(2)->reserve(
+                (int) $invoice->company_id, (int) $invoice->id, $issuer, 1, '1',
+                DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 1),
+                'automatic',
+            );
+            self::fail('An authorized fiscal issuer does not imply production permission.');
+        } catch (AuthorizationException) {
+        }
+
+        self::assertSame(0, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
     public function testReservationRejectsContextMutationAfterAllocation(): void
     {
         $this->loginAs();
@@ -166,14 +209,22 @@ final class DpsReservationServiceTest extends FeatureTestCase
         );
     }
 
-    private function service(): DpsReservationService
+    private function service(?int $onlyEnvironment = null): DpsReservationService
     {
         // Synthetic fake only. The production authorization adapter belongs
         // to the verified multi-company profile/context contract (#417/#421).
-        $authorizer = new class () implements DpsReservationAuthorizer {
-            public function assertCanReserve(int $companyId, int $invoiceId, DpsFiscalIssuer $issuer): void
+        $authorizer = new class ($onlyEnvironment) implements DpsReservationAuthorizer {
+            public function __construct(private readonly ?int $onlyEnvironment)
             {
-                if ((int) company_id() !== $companyId || $issuer->registration !== '11222333000181') {
+            }
+
+            public function assertCanReserve(
+                int $companyId, int $invoiceId, DpsFiscalIssuer $issuer, int $environment, string $series,
+            ): void {
+                if ((int) company_id() !== $companyId
+                    || $issuer->registration !== '11222333000181'
+                    || $series !== '00001'
+                    || ($this->onlyEnvironment !== null && $environment !== $this->onlyEnvironment)) {
                     throw new AuthorizationException('Fiscal issuer is not authorized for the company.');
                 }
             }
@@ -192,14 +243,14 @@ final class DpsReservationServiceTest extends FeatureTestCase
         return new DpsFiscalIssuer('3303302', 2, '11222333000181');
     }
 
-    private function activateSyntheticSeries(DpsFiscalIssuer $issuer, int $environment = 2): void
+    private function activateSyntheticSeries(DpsFiscalIssuer $issuer, int $environment = 2, string $series = '00001'): void
     {
         DB::table('nfse_dps_series')->insert([
             'environment' => $environment,
             'issuer_municipality' => $issuer->municipality,
             'issuer_registration_type' => $issuer->registrationType,
             'issuer_registration' => $issuer->registration,
-            'series' => '00001',
+            'series' => $series,
             'status' => 'active',
             'coordination_mode' => 'shared_database',
             'coordination_reference' => 'synthetic-feature-test-shared-db-only',
