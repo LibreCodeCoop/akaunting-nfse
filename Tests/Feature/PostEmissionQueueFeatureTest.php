@@ -179,6 +179,65 @@ final class PostEmissionQueueFeatureTest extends FeatureTestCase
         self::assertFalse($state->claimEmailProcessing((int) $receipt->id));
     }
 
+    public function testOverlappingEmailJobsDoNotDispatchTwoMessages(): void
+    {
+        $invoice = Document::factory()->invoice()->draft()->create();
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '127',
+            'chave_acesso' => str_repeat('7', 50),
+            'status' => 'emitted',
+        ]);
+        NfseReceiptPayload::query()->create([
+            'receipt_id' => $receipt->id,
+            'authorized_xml' => '<NFSe/>',
+            'email_status' => 'pending',
+        ]);
+
+        $job = new SendIssuedNfseEmail(
+            invoiceId: (int) $invoice->id,
+            receiptId: (int) $receipt->id,
+            attachDanfse: false,
+            attachXml: false,
+            customMail: [
+                'to' => ['first@example.test', 'second@example.test'],
+                'cc' => ['visible@example.test'],
+                'bcc' => ['hidden@example.test'],
+            ],
+        );
+        $state = new PostEmissionState();
+        $calls = [];
+
+        $sender = new class ($calls, $job, $state) extends IssuedNfseEmailSender {
+            public function __construct(
+                private array &$calls,
+                private SendIssuedNfseEmail $job,
+                private PostEmissionState $state,
+            ) {
+            }
+
+            public function send(
+                Document $invoice,
+                NfseReceipt $receipt,
+                bool $attachDanfse,
+                bool $attachXml,
+                array $customMail,
+            ): void {
+                $this->calls[] = $customMail;
+
+                // Simulate another worker entering while SMTP send is active.
+                if (count($this->calls) === 1) {
+                    $this->job->handle($this, $this->state);
+                }
+            }
+        };
+
+        $job->handle($sender, $state);
+
+        self::assertCount(1, $calls);
+        self::assertSame('completed', $receipt->payload()->firstOrFail()->email_status);
+    }
+
     public function testMailTransportFailureDoesNotPersistPrivateRecipientInStatus(): void
     {
         $invoice = Document::factory()->invoice()->draft()->create();
