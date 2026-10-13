@@ -64,6 +64,34 @@ final class PfxInspectorTest extends TestCase
         self::assertLessThan(0, $result['days_until_expiry']);
     }
 
+    public function testLegacyScratchFileIsPrivateWithPermissiveUmask(): void
+    {
+        $path = sys_get_temp_dir() . '/nfse-pfx-private-' . bin2hex(random_bytes(8));
+        $umask = umask(0o022);
+        $writer = new \ReflectionMethod(PfxBundleReader::class, 'writeProtectedFile');
+        $reader = new PfxBundleReader();
+
+        try {
+            $writer->invoke($reader, $path, 'synthetic-only-secret');
+            clearstatcache(true, $path);
+
+            self::assertSame(0o600, fileperms($path) & 0o777);
+            self::assertSame('synthetic-only-secret', file_get_contents($path));
+
+            try {
+                $writer->invoke($reader, $path, 'replacement');
+                self::fail('An existing scratch file must not be overwritten.');
+            } catch (PfxImportException) {
+                self::assertSame('synthetic-only-secret', file_get_contents($path));
+            }
+        } finally {
+            umask($umask);
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+    }
+
     public function testBundleReaderRejectsWrongPassword(): void
     {
         $this->expectException(PfxImportException::class);

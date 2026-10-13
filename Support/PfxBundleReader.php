@@ -81,16 +81,11 @@ final class PfxBundleReader
         $pemPath = $base . '.pem';
 
         try {
-            if (file_put_contents($pfxPath, $pfxContent) === false) {
-                throw new PfxImportException('Failed to stage legacy PFX fallback input for CNPJ ' . $cnpj);
-            }
-
-            if (file_put_contents($passPath, $password) === false) {
-                throw new PfxImportException('Failed to stage legacy PFX fallback password for CNPJ ' . $cnpj);
-            }
-
-            chmod($pfxPath, 0o600);
-            chmod($passPath, 0o600);
+            // Pre-create all scratch files as private *before* writing
+            // password, PFX or unencrypted PEM material.
+            $this->writeProtectedFile($pfxPath, $pfxContent);
+            $this->writeProtectedFile($passPath, $password);
+            $this->writeProtectedFile($pemPath, '');
 
             $command = sprintf(
                 '%s pkcs12 -legacy -in %s -passin file:%s -nodes -out %s 2>/dev/null',
@@ -120,6 +115,45 @@ final class PfxBundleReader
                     unlink($path);
                 }
             }
+        }
+    }
+
+    /**
+     * The default umask may create files as 0644. Never put certificate
+     * material on disk until the newly created file is restricted to 0600.
+     * Exclusive creation also prevents replacing an existing scratch file.
+     */
+    private function writeProtectedFile(string $path, string $contents): void
+    {
+        $handle = @fopen($path, 'xb');
+
+        if ($handle === false) {
+            throw new PfxImportException('Unable to create protected legacy PFX temporary file.');
+        }
+
+        try {
+            if (!@chmod($path, 0o600)) {
+                throw new PfxImportException('Unable to secure legacy PFX temporary file.');
+            }
+
+            $written = 0;
+            $length = strlen($contents);
+
+            while ($written < $length) {
+                $count = fwrite($handle, substr($contents, $written));
+
+                if ($count === false || $count === 0) {
+                    throw new PfxImportException('Unable to write protected legacy PFX temporary file.');
+                }
+
+                $written += $count;
+            }
+
+            if (!fflush($handle)) {
+                throw new PfxImportException('Unable to flush protected legacy PFX temporary file.');
+            }
+        } finally {
+            fclose($handle);
         }
     }
 
