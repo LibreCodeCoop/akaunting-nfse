@@ -2797,19 +2797,23 @@ class InvoiceController extends Controller
      */
     protected function dashboardStats(): array
     {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
         try {
-            $companyId = function_exists('company_id') ? (int) company_id() : 0;
             $sandboxMode = (new NfseCompanyIssuerPayload())->sandboxMode(
-                (new NfseCompanyFiscalSettings())->all($companyId),
+                $this->companyFiscalParameters($companyId),
             );
         } catch (\DomainException) {
             $sandboxMode = true;
         }
 
+        $receipts = NfseReceipt::query()->whereHas('invoice', static fn ($query) => $query
+            ->where('company_id', $companyId)
+            ->where('type', Invoice::INVOICE_TYPE));
+
         return [
-            'total' => NfseReceipt::count(),
-            'emitted' => NfseReceipt::where('status', 'emitted')->count(),
-            'cancelled' => NfseReceipt::where('status', 'cancelled')->count(),
+            'total' => (clone $receipts)->count(),
+            'emitted' => (clone $receipts)->where('status', 'emitted')->count(),
+            'cancelled' => (clone $receipts)->where('status', 'cancelled')->count(),
             'sandbox_mode' => $sandboxMode,
         ];
     }
