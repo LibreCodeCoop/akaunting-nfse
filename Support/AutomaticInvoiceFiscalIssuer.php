@@ -232,7 +232,7 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
     private function nfseSettings(): array
     {
         return [
-            'opcao_simples_nacional' => $this->setting('nfse.opcao_simples_nacional', 1),
+            'opcao_simples_nacional' => $this->setting('nfse.opcao_simples_nacional', null),
             'ibs_cbs_enabled' => $this->setting('nfse.ibs_cbs_enabled', false),
             'ibs_cbs_ind_final' => $this->setting('nfse.ibs_cbs_ind_final', ''),
             'ibs_cbs_ind_dest' => $this->setting('nfse.ibs_cbs_ind_dest', ''),
