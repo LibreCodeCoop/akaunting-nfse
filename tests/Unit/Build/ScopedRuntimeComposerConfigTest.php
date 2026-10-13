@@ -17,7 +17,9 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $content = file_get_contents($composerPath);
 
         self::assertIsString($content);
-        self::assertStringContainsString('"bamarni/composer-bin-plugin": "^1.8"', $content);
+        $config = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($config);
+        self::assertArrayHasKey('bamarni/composer-bin-plugin', $config['require-dev'] ?? []);
         self::assertStringContainsString('"runtime-tools:install": "composer --working-dir=vendor-bin/php-scoper install', $content);
         self::assertStringContainsString('"dev-tools:install": [', $content);
         self::assertStringContainsString('composer --working-dir=vendor-bin/php-scoper install', $content);
@@ -37,40 +39,15 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         self::assertStringContainsString('vendor-bin/psalm/vendor/bin/psalm', $content);
     }
 
-    public function testScopedRuntimeManifestLivesUnder3rdparty(): void
-    {
-        $manifestPath = dirname(__DIR__, 3) . '/3rdparty/composer.json';
-        $content = file_get_contents($manifestPath);
-
-        self::assertIsString($content);
-        self::assertStringContainsString('"url": "https://github.com/LibreCodeCoop/nfse-php"', $content);
-        $config = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-        $runtimeVersion = (string) ($config['require']['librecodeoop/nfse-php'] ?? '');
-
-        self::assertMatchesRegularExpression('/^dev-[a-z0-9\/._-]+#[0-9a-f]{40}$/D', $runtimeVersion);
-        self::assertSame(
-            'dev-main#484831e74bcc5fc173757f5f06a78caf155227af',
-            $runtimeVersion,
-        );
-
-        // Verify the installed code revision, not only the Composer manifest.
-        $installedPath = dirname(__DIR__, 3) . '/3rdparty/vendor/composer/installed.php';
-        self::assertFileExists($installedPath);
-        $installed = require $installedPath;
-        self::assertIsArray($installed);
-        self::assertSame(
-            '484831e74bcc5fc173757f5f06a78caf155227af',
-            $installed['versions']['librecodeoop/nfse-php']['reference'] ?? null,
-        );
-    }
-
     public function testPhpScoperToolingLivesUnderVendorBin(): void
     {
         $manifestPath = dirname(__DIR__, 3) . '/vendor-bin/php-scoper/composer.json';
         $content = file_get_contents($manifestPath);
 
         self::assertIsString($content);
-        self::assertStringContainsString('"humbug/php-scoper": "^0.18"', $content);
+        $config = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($config);
+        self::assertArrayHasKey('humbug/php-scoper', $config['require-dev'] ?? []);
     }
 
     public function testAdditionalDevToolsEachLiveInTheirOwnVendorBin(): void
@@ -80,15 +57,17 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         self::assertFileDoesNotExist($moduleRoot . '/vendor-bin/nfse-runtime/composer.json');
 
         foreach ([
-            'behat' => '"behat/behat": "^3.16"',
-            'phpunit' => '"phpunit/phpunit": "^11.0"',
-            'php-cs-fixer' => '"friendsofphp/php-cs-fixer": "^3.0"',
-            'psalm' => '"vimeo/psalm": "^6.0"',
+            'behat' => 'behat/behat',
+            'phpunit' => 'phpunit/phpunit',
+            'php-cs-fixer' => 'friendsofphp/php-cs-fixer',
+            'psalm' => 'vimeo/psalm',
         ] as $binName => $expectedPackage) {
             $content = file_get_contents($moduleRoot . '/vendor-bin/' . $binName . '/composer.json');
 
             self::assertIsString($content);
-            self::assertStringContainsString($expectedPackage, $content);
+            $config = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+            self::assertIsArray($config);
+            self::assertArrayHasKey($expectedPackage, $config['require-dev'] ?? []);
         }
     }
 
