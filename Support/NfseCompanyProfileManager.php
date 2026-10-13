@@ -17,10 +17,12 @@ use Modules\Nfse\Models\NfseCompanyProfile;
  */
 final class NfseCompanyProfileManager
 {
+    /** @var array<string,true> */
     public function __construct(
         private readonly NfseCompanyCertificateStore $certificates,
         private readonly NfseCompanyProfilePendingOperations $pending,
         private readonly PfxInspector $inspector = new PfxInspector(),
+        private readonly NfseCompanyProfileOperationLock $operations = new NfseCompanyProfileOperationLock(),
     ) {
     }
 
@@ -28,6 +30,12 @@ final class NfseCompanyProfileManager
      * @param array<string,mixed> $fiscal
      */
     public function create(int $companyId, string $pfx, string $password, array $fiscal): NfseCompanyProfile
+    {
+        return $this->operations->run($companyId, fn (): NfseCompanyProfile => $this->createLocked($companyId, $pfx, $password, $fiscal));
+    }
+
+    /** @param array<string,mixed> $fiscal */
+    private function createLocked(int $companyId, string $pfx, string $password, array $fiscal): NfseCompanyProfile
     {
         $details = $this->validatedCertificate($companyId, $pfx, $password);
         $ref = NfseCompanyCertificatePath::newReference();
@@ -68,6 +76,12 @@ final class NfseCompanyProfileManager
         ?string $pfx = null,
         ?string $password = null,
     ): NfseCompanyProfile {
+        return $this->operations->run($companyId, fn (): NfseCompanyProfile => $this->updateLocked($companyId, $fiscal, $pfx, $password));
+    }
+
+    /** @param array<string,mixed> $fiscal */
+    private function updateLocked(int $companyId, array $fiscal, ?string $pfx, ?string $password): NfseCompanyProfile
+    {
         if ($pfx === null) {
             return DB::transaction(function () use ($companyId, $fiscal): NfseCompanyProfile {
                 $profile = $this->lockedProfile($companyId);
@@ -131,6 +145,13 @@ final class NfseCompanyProfileManager
 
     public function delete(int $companyId): void
     {
+        $this->operations->run($companyId, function () use ($companyId): void {
+            $this->deleteLocked($companyId);
+        });
+    }
+
+    private function deleteLocked(int $companyId): void
+    {
         DB::transaction(function () use ($companyId): void {
             $profile = $this->lockedProfile($companyId);
             $this->pending->assertNone($companyId);
@@ -146,9 +167,16 @@ final class NfseCompanyProfileManager
      */
     public function cleanup(int $companyId): void
     {
+        $this->operations->run($companyId, function () use ($companyId): void {
+            $this->cleanupLocked($companyId);
+        });
+    }
+
+    private function cleanupLocked(int $companyId): void
+    {
         $profile = NfseCompanyProfile::query()->where('company_id', $companyId)->firstOrFail();
         if (in_array($profile->status, ['provisioning', 'deleting'], true)) {
-            $this->delete($companyId);
+            $this->deleteLocked($companyId);
 
             return;
         }

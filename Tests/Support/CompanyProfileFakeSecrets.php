@@ -20,6 +20,7 @@ final class CompanyProfileFakeSecrets implements SecretStoreInterface
 
     public bool $failPutAfterWrite = false;
     public bool $failDelete = false;
+    public ?\Closure $beforePut = null;
 
     public function get(string $path): array
     {
@@ -32,6 +33,10 @@ final class CompanyProfileFakeSecrets implements SecretStoreInterface
 
     public function put(string $path, array $data): void
     {
+        if ($this->beforePut !== null) {
+            ($this->beforePut)($path);
+        }
+
         $this->data[$path] = $data;
         if (isset($data['pfx_path']) && is_string($data['pfx_path'])) {
             $this->filePaths[] = $data['pfx_path'];

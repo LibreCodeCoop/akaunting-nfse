@@ -11,6 +11,7 @@ use Illuminate\Database\Capsule\Manager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
+use Modules\Nfse\Support\NfseCompanyProfileOperationLock;
 use PHPUnit\Framework\TestCase;
 
 final class NfseCompanyProfileConcurrencyTest extends TestCase
@@ -107,6 +108,46 @@ final class NfseCompanyProfileConcurrencyTest extends TestCase
         }
 
         self::assertSame(1, DB::table('nfse_company_profiles')->where('company_id', 120)->count());
+    }
+
+    public function testCompanyOperationLockSerializesIndependentMysqlConnections(): void
+    {
+        // The isolated migrations suite intentionally has no module PSR-4 loader.
+        require_once __DIR__ . '/../../../Support/NfseCompanyProfileOperationLock.php';
+
+        $second = new \PDO(
+            'mysql:host=' . (getenv('NFSE_MIGRATION_TEST_HOST') ?: '127.0.0.1')
+            . ';port=' . (getenv('NFSE_MIGRATION_TEST_PORT') ?: '3306')
+            . ';dbname=' . getenv('NFSE_MIGRATION_TEST_DB'),
+            getenv('NFSE_MIGRATION_TEST_USER') ?: 'root',
+            getenv('NFSE_MIGRATION_TEST_PASSWORD') ?: '',
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION],
+        );
+        $lock = new NfseCompanyProfileOperationLock();
+        $entered = false;
+
+        $lock->run(120, static function () use ($second, &$entered): void {
+            $entered = true;
+            self::assertSame(0, (int) $second->query("SELECT GET_LOCK('nfse-profile-120', 0)")->fetchColumn());
+            self::assertSame(1, (int) $second->query("SELECT GET_LOCK('nfse-profile-121', 0)")->fetchColumn());
+            self::assertSame(1, (int) $second->query("SELECT RELEASE_LOCK('nfse-profile-121')")->fetchColumn());
+        });
+
+        self::assertTrue($entered);
+        self::assertSame(1, (int) $second->query("SELECT GET_LOCK('nfse-profile-120', 0)")->fetchColumn());
+        self::assertSame(1, (int) $second->query("SELECT RELEASE_LOCK('nfse-profile-120')")->fetchColumn());
+
+        try {
+            $lock->run(120, static function (): never {
+                throw new \DomainException('Synthetic interrupted profile operation.');
+            });
+            self::fail('The synthetic exception must propagate.');
+        } catch (\DomainException $error) {
+            self::assertSame('Synthetic interrupted profile operation.', $error->getMessage());
+        }
+
+        self::assertSame(1, (int) $second->query("SELECT GET_LOCK('nfse-profile-120', 0)")->fetchColumn());
+        self::assertSame(1, (int) $second->query("SELECT RELEASE_LOCK('nfse-profile-120')")->fetchColumn());
     }
 
     public function testRollbackRefusesToOrphanAnyPersistedCertificateReference(): void
