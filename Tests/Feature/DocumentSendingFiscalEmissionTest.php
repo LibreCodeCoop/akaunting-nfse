@@ -14,6 +14,8 @@ use App\Models\Document\Document;
 use Illuminate\Support\Facades\Notification;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Models\NfseCompanyProfile;
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Models\NfseReceipt;
 use Tests\Feature\FeatureTestCase;
 
@@ -42,7 +44,7 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         ]);
         setting()->save();
 
-        $invoice = $this->invoiceWithProfile();
+        $invoice = $this->invoiceWithProfile('emit_on_send');
         $issuer = $this->fakeIssuer();
 
         $this->app->instance(BulkEmissionUnitIssuerInterface::class, $issuer);
@@ -62,7 +64,7 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         setting()->set(['nfse.emission_policy' => 'emit_on_send']);
         setting()->save();
 
-        $invoice = $this->invoiceWithProfile();
+        $invoice = $this->invoiceWithProfile('emit_on_send');
         $invoice->contact->forceFill(['country' => 'GB'])->saveQuietly();
         $invoice->unsetRelation('contact');
 
@@ -83,7 +85,7 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         ]);
         setting()->save();
 
-        $invoice = $this->invoiceWithProfile();
+        $invoice = $this->invoiceWithProfile('emit_on_send');
         $invoice->contact->forceFill(['email' => 'customer@example.test'])->saveQuietly();
         $invoice->unsetRelation('contact');
         $invoice->load(['contact', 'items']);
@@ -119,7 +121,7 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         ]);
         setting()->save();
 
-        $invoice = $this->invoiceWithProfile();
+        $invoice = $this->invoiceWithProfile('emit_on_send', null);
         $issuer = $this->fakeIssuer();
         $this->app->instance(BulkEmissionUnitIssuerInterface::class, $issuer);
 
@@ -138,7 +140,7 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         setting()->set(['nfse.emission_policy' => 'emit_on_send']);
         setting()->save();
 
-        $invoice = $this->invoiceWithProfile();
+        $invoice = $this->invoiceWithProfile('emit_on_send');
 
         NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
@@ -156,7 +158,7 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         self::assertSame([], $issuer->calls);
     }
 
-    private function invoiceWithProfile(): Document
+    private function invoiceWithProfile(string $policy = 'manual', mixed $simples = '1'): Document
     {
         $invoice = Document::factory()->invoice()->create([
             'issued_at' => '2026-09-30 12:00:00',
@@ -186,6 +188,22 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         ]);
 
         $invoice->load(['items', 'contact']);
+
+        // Native send policy belongs to the owning company's NFS-e profile.
+        // Legacy settings set above are deliberately not consulted by the listener.
+        NfseCompanyProfile::query()->create([
+            'company_id' => (int) $invoice->company_id,
+            'status' => 'active',
+            'certificate_ref' => NfseCompanyCertificatePath::newReference(),
+            'certificate_cnpj' => '11222333000181',
+            'certificate_valid_from' => time() - 3600,
+            'certificate_valid_to' => time() + 3600,
+            'fiscal_parameters' => [
+                'emission_policy' => $policy,
+                'opcao_simples_nacional' => $simples,
+                'ibs_cbs_enabled' => false,
+            ],
+        ]);
 
         return $invoice;
     }

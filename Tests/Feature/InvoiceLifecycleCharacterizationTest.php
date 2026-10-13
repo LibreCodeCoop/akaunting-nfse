@@ -9,6 +9,8 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseCompanyProfile;
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Tests\Support\FiscalScenarioBuilder;
 use Tests\Feature\FeatureTestCase;
 
@@ -221,12 +223,18 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
         $invoice->items()->delete();
         $invoice->unsetRelation('items');
 
-        // Characterize the no-items guard with a confirmed fiscal status.
-        // Unknown Simples status is independently covered by
-        // ManualNormativeIssuanceGuardTest.
+        // Characterize the no-items guard with a confirmed tenant fiscal status.
+        // Unknown Simples is independently covered by ManualNormativeIssuanceGuardTest.
         $this->loginAs();
-        setting()->set(['nfse.opcao_simples_nacional' => 1]);
-        setting()->save();
+        NfseCompanyProfile::query()->create([
+            'company_id' => (int) $invoice->company_id,
+            'status' => 'active',
+            'certificate_ref' => NfseCompanyCertificatePath::newReference(),
+            'certificate_cnpj' => '11222333000181',
+            'certificate_valid_from' => time() - 3600,
+            'certificate_valid_to' => time() + 3600,
+            'fiscal_parameters' => ['opcao_simples_nacional' => '1'],
+        ]);
 
         $this->post(route('nfse.invoices.emit', $invoice))
             ->assertRedirect(route('invoices.show', $invoice))

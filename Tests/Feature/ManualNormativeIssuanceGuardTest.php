@@ -81,7 +81,7 @@ final class ManualNormativeIssuanceGuardTest extends FeatureTestCase
         $controller = new class () extends InvoiceController {
             public int $clientOpens = 0;
 
-            protected function emissionReadiness(): array
+            protected function companyEmissionReadiness(): array
             {
                 return ['isReady' => true, 'checklist' => []];
             }
