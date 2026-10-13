@@ -94,7 +94,7 @@ final class NfseCompanyProfileCatalog
 
         return array_merge($profile->publicData(), [
             'cleanup_pending' => $profile->staged_certificate_ref !== null || $pendingRetirements,
-            'fiscal_readiness' => (new NfseCompanyFiscalReadiness())->evaluate($profile),
+            'fiscal_readiness' => (new NfseCompanyFiscalReadiness())->evaluate($profile->publicData()),
         ]);
     }
 

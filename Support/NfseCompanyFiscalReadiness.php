@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace Modules\Nfse\Support;
 
 use Modules\Nfse\Application\SpecialTaxRegimePolicy;
-use Modules\Nfse\Models\NfseCompanyProfile;
 
 /**
  * Administrative fiscal checklist, never an authorization to issue a DPS.
@@ -17,18 +16,18 @@ use Modules\Nfse\Models\NfseCompanyProfile;
 final class NfseCompanyFiscalReadiness
 {
     /** @return array{basic_complete:bool,pending:list<string>,municipal_review_required:bool} */
-    public function evaluate(NfseCompanyProfile $profile, ?int $now = null): array
+    public function evaluate(array $profile, ?int $now = null): array
     {
-        $fields = $profile->fiscal_parameters ?? [];
+        $fields = $profile['fiscal_parameters'] ?? [];
         $pending = [];
 
-        if ($profile->status !== 'active') {
+        if (($profile['status'] ?? '') !== 'active') {
             $pending[] = 'profile_status';
         }
 
         $clock = $now ?? time();
-        if (!$profile->certificate_valid_from || !$profile->certificate_valid_to
-            || $clock < $profile->certificate_valid_from || $clock > $profile->certificate_valid_to) {
+        if (empty($profile['certificate_valid_from']) || empty($profile['certificate_valid_to'])
+            || $clock < (int) $profile['certificate_valid_from'] || $clock > (int) $profile['certificate_valid_to']) {
             $pending[] = 'certificate_validity';
         }
 

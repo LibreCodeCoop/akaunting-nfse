@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Unit\Support;
 
-use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Support\NfseCompanyFiscalReadiness;
 use PHPUnit\Framework\TestCase;
 
@@ -15,12 +14,12 @@ final class NfseCompanyFiscalReadinessTest extends TestCase
 {
     public function testIncompleteProfileDoesNotDependOnVaultAvailability(): void
     {
-        $model = new NfseCompanyProfile([
+        $model = [
             'status' => 'active',
             'certificate_valid_from' => 50,
             'certificate_valid_to' => 150,
             'fiscal_parameters' => ['municipio_ibge' => '3304557'],
-        ]);
+        ];
         $readiness = (new NfseCompanyFiscalReadiness())->evaluate($model, 100);
 
         self::assertFalse($readiness['basic_complete']);
@@ -31,7 +30,7 @@ final class NfseCompanyFiscalReadinessTest extends TestCase
 
     public function testBasicFiscalFieldsDoNotMeanMunicipalAuthorization(): void
     {
-        $model = new NfseCompanyProfile([
+        $model = [
             'status' => 'active',
             'certificate_valid_from' => 50,
             'certificate_valid_to' => 150,
@@ -42,7 +41,7 @@ final class NfseCompanyFiscalReadinessTest extends TestCase
                 'regime_especial_tributacao' => '9',
                 'tributacao_issqn' => '1', 'tipo_retencao_iss' => '1',
             ],
-        ]);
+        ];
 
         $readiness = (new NfseCompanyFiscalReadiness())->evaluate($model, 100);
         self::assertTrue($readiness['basic_complete']);
@@ -51,7 +50,7 @@ final class NfseCompanyFiscalReadinessTest extends TestCase
 
     public function testExpiredCertificateAndInvalidSimplesCombinationRemainPending(): void
     {
-        $model = new NfseCompanyProfile([
+        $model = [
             'status' => 'active',
             'certificate_valid_from' => 50,
             'certificate_valid_to' => 90,
@@ -62,7 +61,7 @@ final class NfseCompanyFiscalReadinessTest extends TestCase
                 'regime_especial_tributacao' => '9',
                 'tributacao_issqn' => '1', 'tipo_retencao_iss' => '1',
             ],
-        ]);
+        ];
         $readiness = (new NfseCompanyFiscalReadiness())->evaluate($model, 100);
         self::assertFalse($readiness['basic_complete']);
         self::assertContains('certificate_validity', $readiness['pending']);
