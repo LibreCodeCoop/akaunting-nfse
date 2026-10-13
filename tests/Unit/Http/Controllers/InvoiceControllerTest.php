@@ -197,18 +197,51 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
         public function testGroupedIssuanceDispatchesRequestedEmailOnlyForFreshReceipt(): void
         {
-            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 42201, amount: 150.0);
+            $receipt = InvoiceControllerIsolationState::makeReceipt((int) $invoice->id, 'CHAVE-GRUPO-422');
+            $remote = new ReceiptData('NF-GRUPO-422', 'CHAVE-GRUPO-422', '2026-10-12T10:00:00-03:00');
+            $dispatches = [];
 
-            $guard = "if (!\$groupResult['reused'] && \$groupResult['remote_receipt'] instanceof ReceiptData)";
-            $start = strpos($content, $guard);
-            self::assertNotFalse($start, 'A reused fiscal group must never enqueue email again.');
-            $end = strpos($content, ');', $start);
-            self::assertNotFalse($end);
-            $dispatch = substr($content, $start, $end - $start + 2);
+            $controller = new class ($dispatches) extends UnitFederalControllerFixture {
+                public function __construct(private array &$dispatches)
+                {
+                }
 
-            self::assertStringContainsString('$this->dispatchPostEmission(', $dispatch);
-            self::assertStringContainsString('$validatedEmail,', $dispatch);
-            self::assertStringNotContainsString('null,', $dispatch);
+                public function dispatchGroup(Invoice $invoice, array $result, ?array $email): void
+                {
+                    $this->dispatchNewFiscalGroupPostEmission($invoice, $result, $email);
+                }
+
+                protected function dispatchPostEmission(Invoice $invoice, NfseReceipt $receipt, ?array $email): void
+                {
+                    $this->dispatches[] = [
+                        'invoice_id' => (int) $invoice->id,
+                        'receipt_id' => (int) $receipt->id,
+                        'email' => $email,
+                    ];
+                }
+            };
+
+            $recipients = [
+                'attach_danfse' => true,
+                'attach_xml' => false,
+                'custom_mail' => [
+                    'to' => ['first@example.test', 'second@example.test'],
+                    'cc' => ['copy@example.test'],
+                    'bcc' => ['hidden@example.test'],
+                ],
+            ];
+            $freshGroup = ['receipt' => $receipt, 'remote_receipt' => $remote, 'reused' => false];
+
+            $controller->dispatchGroup($invoice, $freshGroup, $recipients);
+            $controller->dispatchGroup($invoice, ['receipt' => $receipt, 'remote_receipt' => null, 'reused' => true], $recipients);
+            $controller->dispatchGroup($invoice, ['receipt' => $receipt, 'remote_receipt' => null, 'reused' => false], $recipients);
+            $controller->dispatchGroup($invoice, $freshGroup, null);
+
+            self::assertSame([
+                ['invoice_id' => 42201, 'receipt_id' => (int) $receipt->id, 'email' => $recipients],
+                ['invoice_id' => 42201, 'receipt_id' => (int) $receipt->id, 'email' => null],
+            ], $dispatches);
         }
 
         public function testDanfseDownloadUsesAuthorizedXmlBeforeWebDavArtifact(): void
