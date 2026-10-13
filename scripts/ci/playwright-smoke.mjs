@@ -271,7 +271,6 @@ export async function startServer(core = coreRoot, { io = fs, launch = spawn, ch
         ...process.env,
         NFSE_TEST_HARNESS: '1', NFSE_TEST_CNPJ: testCnpj,
         NFSE_TEST_PFX_PASSWORD: testPfxPassword,
-        NFSE_TEST_PFX_PATH: path.join(core, 'storage/app/nfse/pfx', `${testCnpj}.pfx`),
       },
     });
   } finally {
