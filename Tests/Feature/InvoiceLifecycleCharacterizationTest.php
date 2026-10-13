@@ -221,8 +221,14 @@ final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
         $invoice->items()->delete();
         $invoice->unsetRelation('items');
 
-        $this->loginAs()
-            ->post(route('nfse.invoices.emit', $invoice))
+        // Characterize the no-items guard with a confirmed fiscal status.
+        // Unknown Simples status is independently covered by
+        // ManualNormativeIssuanceGuardTest.
+        $this->loginAs();
+        setting()->set(['nfse.opcao_simples_nacional' => 1]);
+        setting()->save();
+
+        $this->post(route('nfse.invoices.emit', $invoice))
             ->assertRedirect(route('invoices.show', $invoice))
             ->assertSessionHas('error', trans('nfse::general.invoices.emit_blocked_no_items'));
 
