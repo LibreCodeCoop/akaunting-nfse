@@ -18,19 +18,19 @@ source for unresolved external coordination and rejected-number policy.
 
 | Input | Authoritative source / validation |
 | --- | --- |
-| Fiscal operation owner | Persisted Akaunting \`documents.id\` + \`documents.company_id\` with \`type = invoice\`; never a client-supplied \`company_id\` alone |
+| Fiscal operation owner | Persisted Akaunting `documents.id` + `documents.company_id` with `type = invoice`; never a client-supplied `company_id` alone |
 | Caller | #421's actual authorized HTTP principal or independently authorized CLI/job principal, bound to the persisted owner; no HTTP session inference in workers |
-| Fiscal identity | #417's persisted, authorized fiscal profile for the owner: issuing municipality, registration type and normalized federal registration; resolve with \`DpsFiscalIssuer\` |
+| Fiscal identity | #417's persisted, authorized fiscal profile for the owner: issuing municipality, registration type and normalized federal registration; resolve with `DpsFiscalIssuer` |
 | Environment and series | Explicitly approved profile/environment/series activation snapshot; never defaults from the invoice ID, origin or an arbitrary API parameter |
 | Fiscal operation | Persisted invoice, existing validated fiscal group key (when applicable), or owned original cancelled/substituted receipt; distinguish each logical operation |
-| Idempotency | \`DpsOperationKey::forInvoice(companyId, invoiceId, environment, groupKey, cancelledReceiptId, substitutedReceiptId)\` using persisted identifiers, not caller origin |
-| Origin | Auditable label (\`manual\`, \`manual_group\`, \`automatic\`, \`reemit\`, \`substitution\`, future scheduler/API); not part of fiscal identity or idempotency |
+| Idempotency | `DpsOperationKey::forInvoice(companyId, invoiceId, environment, groupKey, cancelledReceiptId, substitutedReceiptId)` using persisted identifiers, not caller origin |
+| Origin | Auditable label (`manual`, `manual_group`, `automatic`, `reemit`, `substitution`, future scheduler/API); not part of fiscal identity or idempotency |
 | Preflight | #429 pure assessment of the resolved company's immutable fiscal/municipal and invoice context, by actual group, rechecked at the last boundary before any first POST |
 
 For each **new** reservation, #421 must inject a concrete
-\`DpsReservationAuthorizer\` implementing this exact contract:
+`DpsReservationAuthorizer` implementing this exact contract:
 
-\`\`\`php
+```php
 public function assertCanReserve(
     int $companyId,
     int $invoiceId,
@@ -38,29 +38,29 @@ public function assertCanReserve(
     int $environment,
     string $series,
 ): void;
-\`\`\`
+```
 
 The authorizer must independently prove that the authenticated/delegated actor
 may operate on that invoice and the corresponding fiscal profile, including
 the **specific target environment and normalized series**. A matching CNPJ,
 a request field, a company selected in an unrelated HTTP session or a row
-labelled \`shared_database\` is not permission. Denials must occur before
+labelled `shared_database` is not permission. Denials must occur before
 a new sequence mutation and must not reveal another tenant's reservation.
 
 For a **new** fiscal operation, invoke the existing kernel as follows only
 after owner, fiscal profile, series entitlement and nonmutating preflight have
 been independently validated:
 
-\`\`\`php
+```php
 $reserved = $reservations->reserve(
     $companyId, $invoiceId, $issuer, $environment,
     $approvedSeries, $persistedOperationKey, $origin,
 );
 // reservation_id, company_id, invoice_id, series, number
-\`\`\`
+```
 
 This API is not a certificate or profile resolver. #421 must retain the
-verified fiscal-profile snapshot and ensure \`reservation_id\` belongs to
+verified fiscal-profile snapshot and ensure `reservation_id` belongs to
 the exact issuer/environment/series/owner/operation when building or
 reconciling a DPS. Production code must not install an allow-all authorizer.
 
@@ -75,20 +75,20 @@ reconciling a DPS. Production code must not install an allow-all authorizer.
    suspended, but must still pass caller authorization; distinct operations
    must never reuse its number. A changed immutable context conflicts.
 3. Build the DPS using **only** the returned reserved series/number and the
-   verified fiscal-profile snapshot. The canonical \`nfse-php\` contract owns
+   verified fiscal-profile snapshot. The canonical `nfse-php` contract owns
    XML, signing, protocol fields and identifier formation; verify its scoped
    Composer revision before replacing legacy identifier formation.
-4. Link \`nfse_emission_attempts.dps_reservation_id\` to the verified reserved
+4. Link `nfse_emission_attempts.dps_reservation_id` to the verified reserved
    DPS for **new** attempts without rewriting historical attempts. Before the
    initial POST, atomically and durably claim the first transmission in the
-   existing \`EmissionAttemptJournal\`; do not add a second retry journal.
+   existing `EmissionAttemptJournal`; do not add a second retry journal.
    #429 performs its final check of the actual payload at the last mutable
    boundary. A blocked assessment causes **zero POSTs** and never releases
    an allocated number for automatic reuse.
-5. Journal states remain distinct: \`pending\` before first POST,
-   \`authorized\` only with a persisted valid receipt, \`rejected\` only
-   after a confirmed official response, \`ambiguous\` after an uncertain
-   response or persistence failure, and \`technical_failure\` only where a
+5. Journal states remain distinct: `pending` before first POST,
+   `authorized` only with a persisted valid receipt, `rejected` only
+   after a confirmed official response, `ambiguous` after an uncertain
+   response or persistence failure, and `technical_failure` only where a
    local pre-POST failure is confirmed. Persist receipt and authorized
    transition in one transaction. Do not demote an authorized receipt.
 6. On timeout, lost response, crash, 5xx of uncertain provenance, or a
@@ -110,10 +110,10 @@ an unguarded POST, and create the journal record only afterward.
 
 ## Deployment and external coordination gate
 
-The current unique indexes and \`SELECT ... FOR UPDATE\` protect only
+The current unique indexes and `SELECT ... FOR UPDATE` protect only
 connections sharing the **same** MySQL data store. Two independent database
 installations may each allocate the same fiscal identity even if both write
-identical \`coordination_reference\` strings. There is no cross-installation
+identical `coordination_reference` strings. There is no cross-installation
 coordinator or verified exclusive-series registry in this kernel.
 
 Before enabling a series, #417/#421 must require durable evidence of one of:
@@ -124,9 +124,9 @@ restore/rollback, a second Akaunting company and stale processes. Without
 this proof, **production series activation and first POST must stay blocked**.
 Do not create a standalone microservice without evidence of necessity.
 
-The XSD snapshot documents 45-character \`TSIdDPS\` with issuing municipality,
+The XSD snapshot documents 45-character `TSIdDPS` with issuing municipality,
 federal registration type/registration, series and number; it is not scoped
-by Akaunting \`company_id\`. \`TSNumDPS\` is positive 1–15 decimal digits.
+by Akaunting `company_id`. `TSNumDPS` is positive 1–15 decimal digits.
 The series normalization used by the kernel is a local convention, not
 proof of a nationally recommended default. The current February XSD
 snapshot has a series-pattern inconsistency and an identifier digit pattern
@@ -171,5 +171,5 @@ before making these capabilities operational.
 origin-specific integrations. #429 owns the last mutable fiscal preflight.
 #423 retains the distributed coordination, normative reuse/gap policy,
 integrated verification and explicit downstream handoff. Update the
-per-company operational instructions in \`docs/operacao-e-configuracao.md\`
+per-company operational instructions in `docs/operacao-e-configuracao.md`
 only when the series activation path is actually delivered.
