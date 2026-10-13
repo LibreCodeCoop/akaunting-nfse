@@ -102,15 +102,12 @@ final class AdnSynchronizationTest extends FeatureTestCase
 
     public function testReceivedNfseEntersReviewQueueAndResyncPreservesIgnoredState(): void
     {
-        setting()->set(['nfse.cnpj_prestador' => '11222333000181']);
-        setting()->save();
-
         $xml = '<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe><DPS><infDPS>'
             . '<prest><CNPJ>99887766000155</CNPJ></prest>'
             . '<toma><CNPJ>11222333000181</CNPJ></toma>'
             . '</infDPS></DPS></infNFSe></NFSe>';
 
-        $service = new AdnSynchronizationService();
+        $service = new AdnSynchronizationService(static fn (int $owner): string => '11222333000181');
         $batch = $this->distribution([
             new AdnDocumentData(14, str_repeat('4', 50), 'NFSE', null, $xml),
         ], 14);
@@ -141,15 +138,12 @@ final class AdnSynchronizationTest extends FeatureTestCase
 
     public function testOwnIssuedNfseIsNotQueuedForAccountingImport(): void
     {
-        setting()->set(['nfse.cnpj_prestador' => '11222333000181']);
-        setting()->save();
-
         $xml = '<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe><DPS><infDPS>'
             . '<prest><CNPJ>11222333000181</CNPJ></prest>'
             . '<toma><CNPJ>99887766000155</CNPJ></toma>'
             . '</infDPS></DPS></infNFSe></NFSe>';
 
-        (new AdnSynchronizationService())->apply(
+        (new AdnSynchronizationService(static fn (int $owner): string => '11222333000181'))->apply(
             company_id(),
             'sandbox',
             $this->distribution([

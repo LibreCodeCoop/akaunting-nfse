@@ -11,12 +11,18 @@ use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\AdnSyncState;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\AdnDistributionData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\AdnDocumentData;
 
 final class AdnSynchronizationService
 {
     private const EVENT_CANCELLATION = '101101';
+
+    /** @param (\Closure(int):string)|null $companyCnpjResolver */
+    public function __construct(private readonly ?\Closure $companyCnpjResolver = null)
+    {
+    }
 
     public function cursor(int $companyId, string $environment): int
     {
@@ -86,7 +92,7 @@ final class AdnSynchronizationService
         $companyCnpj = strtoupper(preg_replace(
             '/[^A-Z0-9]/i',
             '',
-            (string) setting('nfse.cnpj_prestador', ''),
+            $this->companyCnpj($companyId),
         ) ?? '');
         $role = (new AdnImportCandidateClassifier())->classify(
             xml: $document->xml,
@@ -127,8 +133,18 @@ final class AdnSynchronizationService
         if ($recognizedEvent && $accessKey !== '') {
             NfseReceipt::query()
                 ->where('chave_acesso', $accessKey)
+                ->whereHas('invoice', static function ($query) use ($companyId): void {
+                    $query->where('company_id', $companyId);
+                })
                 ->update(['status' => 'cancelled']);
         }
+    }
+
+    private function companyCnpj(int $companyId): string
+    {
+        return $this->companyCnpjResolver !== null
+            ? ($this->companyCnpjResolver)($companyId)
+            : (string) (new NfseCompanyFiscalSettings())->value($companyId, 'nfse.cnpj_prestador', '');
     }
 
     private function documentKey(AdnDocumentData $document): string

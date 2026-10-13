@@ -314,7 +314,7 @@ class AdnController extends Controller
         $cnpj = strtoupper(preg_replace(
             '/[^A-Z0-9]/i',
             '',
-            (string) $request->query('cnpj', setting('nfse.cnpj_prestador', '')),
+            (string) $request->query('cnpj', (new \Modules\Nfse\Support\NfseCompanyFiscalSettings())->value((int) company_id(), 'nfse.cnpj_prestador', '')),
         ) ?? '');
 
         if ($cnpj !== '' && preg_match('/^[A-Z0-9]{12}\\d{2}$/', $cnpj) !== 1) {
@@ -339,6 +339,10 @@ class AdnController extends Controller
 
     public function events(Invoice $invoice): JsonResponse
     {
+        if ((int) $invoice->company_id !== (int) company_id()) {
+            abort(404);
+        }
+
         $accessKey = $this->receiptAccessKey($invoice);
 
         if ($accessKey === '') {
@@ -485,7 +489,12 @@ class AdnController extends Controller
      */
     protected function withAdnClient(\Closure $operation): mixed
     {
-        $context = $this->makeFiscalClientFactory()->adn($this->sandboxModeEnabled());
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0) {
+            throw new \DomainException('ADN query requires an authorized company context.');
+        }
+
+        $context = $this->makeFiscalClientFactory()->adn($this->sandboxModeEnabled(), $companyId);
 
         try {
             return $operation($context->adnClient());
@@ -560,7 +569,8 @@ class AdnController extends Controller
 
     protected function sandboxModeEnabled(): bool
     {
-        $value = setting('nfse.sandbox_mode', true);
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $value = (new \Modules\Nfse\Support\NfseCompanyFiscalSettings())->value($companyId, 'nfse.sandbox_mode', true);
 
         if (is_bool($value)) {
             return $value;
