@@ -17,7 +17,12 @@ permissions:
   contents: read
 
 jobs:
-  feature:
+  feature_shard:
+    name: feature-shard-${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -74,5 +79,25 @@ jobs:
           composer config optimize-autoloader false
           composer test
 
-      - name: Run NFS-e Feature tests
-        run: php artisan test modules/Nfse/Tests/Feature
+      - name: Run NFS-e Feature tests (isolated shard ${{ matrix.shard }})
+        env:
+          NFSE_FEATURE_SHARD_INDEX: ${{ matrix.shard }}
+          NFSE_FEATURE_SHARD_COUNT: 4
+        run: bash modules/Nfse/tools/bin/run-feature-shard.sh
+
+  # Preserve the existing required check without changes to branch rulesets.
+  # Each matrix entry gets a separate disposable runner, database and filesystem.
+  feature:
+    name: feature
+    needs: feature_shard
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all isolated feature shards to pass
+        env:
+          SHARD_RESULT: ${{ needs.feature_shard.result }}
+        run: |
+          if [ "$SHARD_RESULT" != "success" ]; then
+            echo "An isolated Akaunting Feature shard failed or was cancelled."
+            exit 1
+          fi
