@@ -1263,7 +1263,7 @@ class InvoiceController extends Controller
 
         try {
             $companyId = function_exists('company_id') ? (int) company_id() : 0;
-            $issuerFiscal = (new NfseCompanyFiscalSettings())->all($companyId);
+            $issuerFiscal = $this->companyFiscalParameters($companyId);
             $client = $this->makeClient(
                 (new NfseCompanyIssuerPayload())->sandboxMode($issuerFiscal),
                 $companyId,
@@ -3944,6 +3944,12 @@ class InvoiceController extends Controller
             throw new \DomainException('Fiscal invoice does not belong to the active company.');
         }
 
+        return $this->companyFiscalParameters($companyId);
+    }
+
+    /** @return array<string,mixed> */
+    protected function companyFiscalParameters(int $companyId): array
+    {
         return (new NfseCompanyFiscalSettings())->all($companyId);
     }
 

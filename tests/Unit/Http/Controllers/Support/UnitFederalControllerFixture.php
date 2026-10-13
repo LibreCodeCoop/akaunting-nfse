@@ -23,6 +23,12 @@ class UnitFederalControllerFixture extends InvoiceController
     /** @return array<string,mixed> */
     protected function fiscalParametersForInvoice(Invoice $invoice): array
     {
+        return $this->companyFiscalParameters((int) $invoice->company_id);
+    }
+
+    /** @return array<string,mixed> */
+    protected function companyFiscalParameters(int $companyId): array
+    {
         $fiscal = [];
         foreach (ControllerIsolationState::$settings as $key => $value) {
             if (str_starts_with((string) $key, 'nfse.')) {

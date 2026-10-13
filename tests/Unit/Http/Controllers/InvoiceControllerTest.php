@@ -3071,7 +3071,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_discriminacao_custom' => 'Valor que nao deve ser salvo',
             ]);
 
-            $response = (new InvoiceController())->emit($invoice, $request);
+            $response = (new UnitFederalControllerFixture())->emit($invoice, $request);
 
             self::assertSame('invoices.show', $response->route);
             self::assertSame('Padrao geral anterior', ControllerIsolationState::$settings['invoice.notes']);
@@ -3096,7 +3096,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'nfse_discriminacao_custom' => 'Descricao que nao deve ser salva',
             ]);
 
-            $response = (new InvoiceController())->reemit($invoice, $request);
+            $response = (new UnitFederalControllerFixture())->reemit($invoice, $request);
 
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame(
@@ -5276,6 +5276,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 3;
             ControllerIsolationState::$settings['nfse.regime_apuracao_simples_nacional'] = '1';
             ControllerIsolationState::$settings['nfse.regime_especial_tributacao'] = '0';
+            ControllerIsolationState::$settings['nfse.prestador_telefone'] = '21987654321';
+            ControllerIsolationState::$settings['nfse.prestador_email'] = 'issuer-reemit@example.invalid';
 
             $invoice = InvoiceControllerIsolationState::makeInvoice(
                 id: 301,
@@ -5327,11 +5329,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
                 {
                     return $this->client;
-                }
-
-                protected function providerContact(): array
-                {
-                    return ['telefone' => '21987654321', 'email' => 'issuer-reemit@example.invalid'];
                 }
 
                 protected function federalPayloadValues(
