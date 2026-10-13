@@ -132,7 +132,10 @@ contribuição previdenciária. Use nomes explícitos, por exemplo `IRRF - Servi
 ou `cod:pis`; códigos numéricos isolados podem ser ambíguos.
 Confira o enquadramento tributário com o responsável fiscal.
 
-Na aba fiscal de cada empresa, indique a opção pelo Simples Nacional, o
+Na aba fiscal de cada empresa, selecione explicitamente a situação do prestador
+no Simples Nacional (não optante, MEI ou ME/EPP). Ausência ou código inválido
+permanece desconhecido: a interface não escolhe automaticamente "não optante",
+e nenhuma emissão ou reemissão pode presumir esse status. Confirme ainda o
 **regime especial de tributação** da DPS e, para ME/EPP, o **regime de apuração
 tributária do Simples Nacional** (`regApTribSN`). Os valores desse último campo
 são `1` (tributos federais e ISSQN pelo Simples), `2` (federais pelo Simples,

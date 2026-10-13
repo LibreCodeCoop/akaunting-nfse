@@ -62,6 +62,7 @@
         const value = String(selected);
         const selectedApuration = String(apuration);
         const isMeEpp = option === '3';
+        const missingSimples = !['1', '2', '3'].includes(option);
         const missingApuration = isMeEpp && !['1', '2', '3'].includes(selectedApuration);
         const available = taxation === '1' && (option === '1' || (isMeEpp && ['2', '3'].includes(selectedApuration)));
         const incompatible = !available && value !== '' && value !== '0';
@@ -70,7 +71,7 @@
             canSelectSpecial: available,
             hasIncompatibleSelection: incompatible,
             requiresRuntimeReview: missingApuration,
-            reason: missingApuration ? 'sn_apuration_missing'
+            reason: missingSimples ? 'simples_unknown' : missingApuration ? 'sn_apuration_missing'
                 : isMeEpp && selectedApuration === '1' ? 'sn_requires_none'
                     : taxation !== '1' ? 'issqn' : option === '2' ? 'mei' : 'available',
         };
@@ -309,15 +310,18 @@
                 const federalTributosProfileP = documentRef.getElementById('federal-tributos-profile-p');
                 const federalTributosProfileSn = documentRef.getElementById('federal-tributos-profile-sn');
                 const federalFields = Array.from(documentRef.querySelectorAll('.federal-piscofins-field'));
-                const selectedOpcaoSimplesNacional = String(config.selectedOpcaoSimplesNacional);
+                const fiscalSimplesSelect = documentRef.getElementById('opcao_simples_nacional');
 
                 const syncFederalTributosProfileVisibility = () => {
-                    // Official DPS codes: 2 = MEI, 3 = ME/EPP.
-                    const isSimplesNacionalOptant = ['2', '3'].includes(selectedOpcaoSimplesNacional);
+                    const selected = String(fiscalSimplesSelect?.value ?? '');
+                    const verified = ['1', '2', '3'].includes(selected);
+                    const isSimplesNacionalOptant = selected === '2' || selected === '3';
 
-                    federalTributosProfileP?.classList.toggle('hidden', isSimplesNacionalOptant);
-                    federalTributosProfileSn?.classList.toggle('hidden', !isSimplesNacionalOptant);
+                    // Unknown never appears as confirmed non-optant.
+                    federalTributosProfileP?.classList.toggle('hidden', !verified || isSimplesNacionalOptant);
+                    federalTributosProfileSn?.classList.toggle('hidden', !verified || !isSimplesNacionalOptant);
                 };
+                fiscalSimplesSelect?.addEventListener('change', syncFederalTributosProfileVisibility);
 
                 const blockPiscofinsFields = (blockAndZero) => {
                     federalFields.forEach((field) => {
@@ -426,8 +430,10 @@
                     });
                     specialRegime.setAttribute('aria-invalid', state.hasIncompatibleSelection ? 'true' : 'false');
                     if (specialHelp) {
-                        specialHelp.textContent = state.reason === 'sn_apuration_missing'
-                            ? config.specialRegimeApurationRequired
+                        specialHelp.textContent = state.reason === 'simples_unknown'
+                            ? config.specialRegimeSimplesRequired
+                            : state.reason === 'sn_apuration_missing'
+                                ? config.specialRegimeApurationRequired
                             : state.hasIncompatibleSelection
                                 ? state.reason === 'sn_requires_none'
                                     ? config.specialRegimeApurationRequiresNone
