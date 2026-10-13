@@ -33,6 +33,29 @@
         verified: 'Diagnóstico genérico positivo; o backend verifica cada caminho real ao cadastrar.',
     };
 
+    // Mirror the emission-domain restrictions without silently changing a saved
+    // fiscal choice. An invalid selection remains visible for operator review.
+    function specialRegimeUiState(simples, issqn, selected, apuration = '') {
+        const option = String(simples);
+        const taxation = String(issqn);
+        const current = String(selected);
+        const apurationCode = String(apuration);
+        const isMeEpp = option === '3';
+        const missingSimples = !['1', '2', '3'].includes(option);
+        const missingApuration = isMeEpp && !['1', '2', '3'].includes(apurationCode);
+        const canSelectSpecial = taxation === '1'
+            && (option === '1' || (isMeEpp && ['2', '3'].includes(apurationCode)));
+
+        return {
+            canSelectSpecial,
+            hasIncompatibleSelection: !canSelectSpecial && current !== '' && current !== '0',
+            requiresRuntimeReview: missingApuration,
+            reason: missingSimples ? 'simples_unknown' : missingApuration ? 'sn_apuration_missing'
+                : isMeEpp && apurationCode === '1' ? 'sn_requires_none'
+                    : taxation !== '1' ? 'issqn' : option === '2' ? 'mei' : 'available',
+        };
+    }
+
     function visibleEligible(snapshot) {
         return Array.isArray(snapshot?.eligible_companies) ? snapshot.eligible_companies : [];
     }
@@ -111,6 +134,32 @@
             }
         }
 
+        function syncFiscalRegime() {
+            const simples = el('profile-simples');
+            const issqn = el('profile-issqn');
+            const apuration = el('profile-apuracao');
+            const regime = el('profile-regime');
+            const help = el('profile-regime-help');
+            if (!simples || !issqn || !apuration || !regime || !help) return;
+            const isMeEpp = simples.value === '3';
+            apuration.disabled = !isMeEpp;
+            apuration.closest('label').hidden = !isMeEpp;
+            const state = specialRegimeUiState(simples.value, issqn.value, regime.value, apuration.value);
+            regime.setAttribute('aria-invalid', String(state.hasIncompatibleSelection));
+            for (const option of regime.options) {
+                if (option.value !== '' && option.value !== '0') {
+                    option.disabled = !state.canSelectSpecial;
+                }
+            }
+            help.textContent = state.hasIncompatibleSelection
+                ? 'Regime incompatível com Simples, apuração ou tributação ISSQN. Revise antes de emitir.'
+                : state.requiresRuntimeReview
+                    ? 'ME/EPP exige escolher explicitamente o regime de apuração do Simples.'
+                    : !state.canSelectSpecial
+                        ? 'Regimes especiais dependem do enquadramento do prestador e da tributação ISSQN.'
+                        : 'Regimes municipais especiais exigem verificação específica antes da emissão.';
+        }
+
         function openEditor(profile) {
             message(el('profile-form-error'), '');
             form.reset();
@@ -138,6 +187,7 @@
                 if (value !== undefined && value !== null) input.value = String(value);
             }
             editor.hidden = false;
+            syncFiscalRegime();
             el('profile-editor-title').focus();
         }
 
@@ -351,6 +401,9 @@
         el('profile-cancel')?.addEventListener('click', closeEditor);
         el('profile-cancel-bottom')?.addEventListener('click', closeEditor);
         form.addEventListener('submit', submitProfile);
+        for (const name of ['profile-simples', 'profile-issqn', 'profile-apuracao', 'profile-regime']) {
+            el(name)?.addEventListener('change', syncFiscalRegime);
+        }
         el('vault-edit')?.addEventListener('click', () => setVaultEditorVisibility(el('vault-editor').hidden));
         el('vault-check').addEventListener('click', checkVault);
         documentRef.querySelectorAll('input[name="auth_mode_ui"]').forEach((input) => input.addEventListener('change', syncAuthMode));
@@ -376,7 +429,7 @@
         }
     }
 
-    return { visibleEligible, showAdd, canCreate, pendingLabels, errorMessage, init, boot };
+    return { visibleEligible, showAdd, canCreate, pendingLabels, errorMessage, specialRegimeUiState, init, boot };
 });
 
 if (typeof document !== 'undefined' && typeof fetch !== 'undefined' && globalThis.NfseCompanyAdmin) {

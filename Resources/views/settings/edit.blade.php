@@ -105,7 +105,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </select>
                             </label>
                             <label class="block text-sm" for="profile-regime">Regime especial de tributação
-                                <select id="profile-regime" name="fiscal_parameters[regime_especial_tributacao]" class="mt-1 block w-full rounded border p-2">
+                                <select id="profile-regime" name="fiscal_parameters[regime_especial_tributacao]" aria-describedby="profile-regime-help" aria-invalid="false" class="mt-1 block w-full rounded border p-2">
                                     <option value="">Selecione</option>
                                     @foreach (['0' => 'Nenhum (0)', '1' => 'Microempresa municipal', '2' => 'Estimativa', '3' => 'Sociedade de profissionais', '4' => 'Cooperativa', '5' => 'MEI', '6' => 'ME/EPP', '9' => 'Outro regime especial'] as $code => $label)
                                         <option value="{{ $code }}">{{ $label }}</option>
@@ -143,6 +143,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </label>
                         </div>
 
+                        <p id="profile-regime-help" class="text-xs text-amber-800" aria-live="polite"></p>
                         <details class="rounded border bg-white p-3 text-sm">
                             <summary class="cursor-pointer font-medium">Complementos fiscais e integrações</summary>
                             <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -50,3 +50,18 @@ test('API permission, validation, and domain errors remain intelligible', () => 
     assert.equal(admin.errorMessage(409, { message: 'Profile deletion remains pending certificate cleanup.' }),
         'Profile deletion remains pending certificate cleanup.');
 });
+
+test('fiscal regime transitions keep incompatible saved choices visible for review', () => {
+    const state = admin.specialRegimeUiState;
+    assert.deepEqual(state('3', '1', '9', ''), {
+        canSelectSpecial: false, hasIncompatibleSelection: true,
+        requiresRuntimeReview: true, reason: 'sn_apuration_missing',
+    });
+    assert.equal(state('1', '1', '9').canSelectSpecial, true);
+    assert.equal(state('2', '1', '9').hasIncompatibleSelection, true);
+    assert.equal(state('3', '1', '9', '1').hasIncompatibleSelection, true);
+    assert.equal(state('3', '1', '9', '2').canSelectSpecial, true);
+    assert.equal(state('3', '1', '9', '3').canSelectSpecial, true);
+    assert.equal(state('3', '3', '9', '2').hasIncompatibleSelection, true);
+    assert.equal(state('3', '3', '0', '2').hasIncompatibleSelection, false);
+});
