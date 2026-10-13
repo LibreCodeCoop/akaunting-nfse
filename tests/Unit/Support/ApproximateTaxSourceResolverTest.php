@@ -24,6 +24,25 @@ final class ApproximateTaxSourceResolverTest extends TestCase
         self::assertNull($result['source']);
     }
 
+    public function testUnknownSimplesCannotQueryAnApproximateTaxSource(): void
+    {
+        $called = false;
+        $resolver = new ApproximateTaxSourceResolver(
+            static function () use (&$called): ?array {
+                $called = true;
+
+                return null;
+            },
+        );
+
+        $result = $resolver->resolve(5, '010701', null, '2026-10-12');
+        self::assertFalse($called);
+        self::assertSame('unknown', $result['status']);
+        self::assertSame('simples_option_unverifiable', $result['reason']);
+        self::assertSame('', $result['federal']);
+        self::assertNull($result['source']);
+    }
+
     public function testDocumentedZeroIsDistinctFromUnknown(): void
     {
         $resolver = new ApproximateTaxSourceResolver(static fn (): ?array => self::source([

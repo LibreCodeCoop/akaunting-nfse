@@ -164,6 +164,8 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
             'municipal_percent' => '0.00',
         ];
         $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => $key === 'nfse.opcao_simples_nacional'
+                ? 1 : $default,
             taxFactsResolver: static fn (): array => [],
             approximateTaxSources: new ApproximateTaxSourceResolver(
                 static fn (): ?array => $source,
@@ -175,6 +177,41 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         self::assertSame('0.00', $payload['totalTributosPercentualFederal']);
         self::assertSame('0.00', $payload['totalTributosPercentualMunicipal']);
         self::assertSame('synthetic-v1', $payload['approximateTaxEvidence']['source']['version']);
+    }
+
+    /** @return iterable<string,array{mixed}> */
+    public static function unverifiedSimplesCodes(): iterable
+    {
+        yield 'missing' => [null];
+        yield 'empty' => [''];
+        yield 'invalid number' => [4];
+        yield 'leading zero' => ['02'];
+        yield 'boolean' => [true];
+    }
+
+    #[DataProvider('unverifiedSimplesCodes')]
+    public function testUnverifiedSimplesCannotSelectNonOptantApproximateTaxes(mixed $code): void
+    {
+        $lookups = 0;
+        $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => $key === 'nfse.opcao_simples_nacional'
+                ? $code : $default,
+            taxFactsResolver: static fn (): array => [],
+            approximateTaxSources: new ApproximateTaxSourceResolver(
+                static function () use (&$lookups): ?array {
+                    $lookups++;
+
+                    return null;
+                },
+            ),
+        );
+
+        $payload = $resolver->resolve(self::invoice(), null, null, null, '010701', '2026-10-12');
+        self::assertSame(0, $lookups, 'An unknown regime must never select a non-optant source.');
+        self::assertSame('unknown', $payload['approximateTaxEvidence']['status']);
+        self::assertSame('simples_option_unverifiable', $payload['approximateTaxEvidence']['reason']);
+        self::assertSame(0, $payload['indicadorTributacao']);
+        self::assertSame('', $payload['totalTributosPercentualFederal']);
     }
 
     private static function invoice(): Document

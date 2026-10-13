@@ -10,6 +10,7 @@ namespace Modules\Nfse\Support;
 use App\Models\Document\Document as Invoice;
 use Modules\Nfse\Application\FederalTaxPayloadFacts;
 use Modules\Nfse\Application\InvoiceDpsIdentity;
+use Modules\Nfse\Application\SimplesOptionCode;
 
 /**
  * Adapts company-scoped Akaunting tax observations to the federal DPS fields.
@@ -223,11 +224,9 @@ final class InvoiceFederalPayloadResolver
         return is_array($items) ? array_values($items) : [];
     }
 
-    private function simplesNacional(): int
+    private function simplesNacional(): ?int
     {
-        $value = (int) $this->setting('nfse.opcao_simples_nacional', 1);
-
-        return in_array($value, [1, 2, 3], true) ? $value : 1;
+        return SimplesOptionCode::observed($this->setting('nfse.opcao_simples_nacional', null));
     }
 
     private function select(mixed $value): string
