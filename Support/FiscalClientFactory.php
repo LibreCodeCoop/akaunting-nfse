@@ -83,7 +83,14 @@ final class FiscalClientFactory
             $client = new NfseClient(
                 environment: new EnvironmentConfig(sandboxMode: $sandboxMode),
                 cert: $context->cert,
-                secretStore: $context->secretStore,
+                // The pinned nfse-php DpsSigner still asks for pfx/{cnpj}.
+                // Translate only that signer lookup to this explicit owner's
+                // immutable Vault revision; never read the old CNPJ key.
+                secretStore: new CompanyScopedSignerSecretStore(
+                    $context->secretStore,
+                    $context->cert->cnpj,
+                    $context->cert->vaultPath,
+                ),
                 transport: $this->transport,
             );
         } catch (\Throwable $e) {

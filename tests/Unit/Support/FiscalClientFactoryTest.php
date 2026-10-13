@@ -168,7 +168,7 @@ final class FiscalClientFactoryTest extends TestCase
             profileResolver: fn (int $companyId): array => [
                 'cnpj' => '12345678000195',
                 'pfx_path' => $this->pfxPath,
-                'vault_path' => 'pfx/companies/' . $companyId . '/synthetic-reference',
+                'vault_path' => 'pfx/companies/' . $companyId . '/' . str_repeat('a', 32),
                 'sandbox_mode' => true,
             ],
         );
