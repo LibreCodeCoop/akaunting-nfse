@@ -17,6 +17,9 @@ use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\GlobalVaultSettings;
 use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Support\NfseCompanyProfileManager;
+use Modules\Nfse\Support\NfseCompanyProfilePendingOperations;
+use Modules\Nfse\Support\NfseCompanyCertificateStore;
+use Modules\Nfse\Support\PfxInspector;
 use Modules\Nfse\Support\VaultDiagnostics;
 use Modules\Nfse\Tests\Support\CompanyProfileFakeSecrets;
 use Modules\Nfse\Tests\Support\CompanyProfileFakeVaultTransport;
@@ -111,6 +114,8 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
             'fiscal_parameters' => ['emission_policy' => 'manual'],
         ])->assertNotFound();
         $this->delete(route('nfse.settings.company-profiles.destroy', $other))
+            ->assertNotFound();
+        $this->post(route('nfse.settings.company-profiles.cleanup', $other))
             ->assertNotFound();
     }
 
@@ -376,6 +381,89 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         ])->assertUnprocessable();
 
         self::assertSame(1, NfseCompanyProfile::query()->where('company_id', $id)->count());
+    }
+
+    public function testInvalidPfxPasswordContentAndCompanyIdentityRejectCreation(): void
+    {
+        $id = (int) $this->company->id;
+        $wrongPassword = $this->creation($id);
+        $wrongPassword['pfx_password'] = 'synthetic-incorrect-password';
+        $this->post(route('nfse.settings.company-profiles.store'), $wrongPassword)->assertStatus(409);
+        self::assertSame(0, NfseCompanyProfile::query()->count());
+
+        $corrupted = $this->creation($id);
+        $corrupted['pfx_file'] = UploadedFile::fake()->createWithContent('corrupted.pfx', 'invalid PKCS#12 bytes');
+        $this->post(route('nfse.settings.company-profiles.store'), $corrupted)->assertStatus(409);
+        self::assertSame(0, NfseCompanyProfile::query()->count());
+
+        $mismatched = $this->creation($id);
+        $mismatched['pfx_file'] = UploadedFile::fake()->createWithContent(
+            'mismatched.p12',
+            SyntheticCompanyPkcs12::bytes('98765432000199'),
+        );
+        $this->post(route('nfse.settings.company-profiles.store'), $mismatched)->assertStatus(409);
+        self::assertSame(0, NfseCompanyProfile::query()->count());
+        self::assertSame([], $this->secrets->data);
+    }
+
+    public function testExpiredCertificateCannotCreateCompanyProfile(): void
+    {
+        $inspector = new PfxInspector(clock: static fn (): int => time() + 14 * 86400);
+        app()->bind(NfseCompanyProfileManager::class, static fn ($app): NfseCompanyProfileManager => new NfseCompanyProfileManager(
+            $app->make(NfseCompanyCertificateStore::class),
+            $app->make(NfseCompanyProfilePendingOperations::class),
+            $inspector,
+        ));
+
+        $this->post(route('nfse.settings.company-profiles.store'), $this->creation((int) $this->company->id))
+            ->assertStatus(409);
+        self::assertSame(0, NfseCompanyProfile::query()->count());
+        self::assertSame([], $this->secrets->data);
+    }
+
+    public function testTemporaryVaultOutageBlocksOtherCreationButKeepsCurrentProfilesVisible(): void
+    {
+        $id = (int) $this->company->id;
+        $second = $this->secondCompany(true);
+        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($id))
+            ->assertCreated();
+
+        $this->vault->offline = true;
+        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($second))
+            ->assertStatus(409);
+
+        $listing = $this->get(route('nfse.settings.company-profiles.index'))
+            ->assertOk()->json();
+        self::assertCount(1, $listing['profiles']);
+        self::assertSame($id, $listing['profiles'][0]['company_id']);
+        self::assertSame([$second], array_column($listing['eligible_companies'], 'company_id'));
+        self::assertSame(0, NfseCompanyProfile::query()->where('company_id', $second)->count());
+    }
+
+    public function testRotationDoesNotTouchAnotherCompanyWithTheSameCnpj(): void
+    {
+        $id = (int) $this->company->id;
+        $other = $this->secondCompany(true);
+        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($id))
+            ->assertCreated();
+        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($other))
+            ->assertCreated();
+
+        $before = NfseCompanyProfile::query()->where('company_id', $other)->firstOrFail();
+        $otherRef = (string) $before->certificate_ref;
+        $otherVault = (string) $before->certificateVaultPath();
+        $otherData = $this->secrets->data[$otherVault];
+
+        $this->patch(route('nfse.settings.company-profiles.update', $id), [
+            'pfx_file' => $this->certificate(),
+            'pfx_password' => SyntheticCompanyPkcs12::PASSWORD,
+        ])->assertOk();
+
+        $after = NfseCompanyProfile::query()->where('company_id', $other)->firstOrFail();
+        self::assertSame($otherRef, $after->certificate_ref);
+        self::assertSame($otherData, $this->secrets->data[$otherVault]);
+        self::assertFileExists((string) $after->certificateFilePath());
+        self::assertCount(2, $this->secrets->data);
     }
 
     public function testReadOnlyUserMayListButCannotModifyCompanyProfiles(): void
