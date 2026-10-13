@@ -158,6 +158,7 @@ final class IssuerFiscalContactTest extends FeatureTestCase
     public function testInvalidSpecialIssqnMetadataIsRejectedWithoutChangingOtherCompanies(): void
     {
         $this->loginAs();
+        $this->withExceptionHandling();
         $owner = (int) company_id();
         $other = $this->secondCompany();
         $this->profile($owner, ['tributacao_issqn' => '1']);
