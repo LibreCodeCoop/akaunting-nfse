@@ -732,13 +732,7 @@ class InvoiceController extends Controller
                     approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
                 );
 
-                if (!$groupResult['reused'] && $groupResult['remote_receipt'] instanceof ReceiptData) {
-                    $this->dispatchPostEmission(
-                        $invoice,
-                        $groupResult['receipt'],
-                        null,
-                    );
-                }
+                $this->dispatchNewFiscalGroupPostEmission($invoice, $groupResult, $validatedEmail);
 
                 $remaining = $this->remainingFiscalGroups($invoice, $fiscalGroups);
 
@@ -4427,6 +4421,24 @@ class InvoiceController extends Controller
         }
 
         return redirect()->route('nfse.invoices.show', $invoice)->with('error', $message);
+    }
+
+    /**
+     * Do not repeat post-emission delivery for a recovered fiscal group.
+     *
+     * @param array{receipt:NfseReceipt,remote_receipt:?ReceiptData,reused:bool} $result
+     * @param array<string, mixed>|null $email
+     */
+    protected function dispatchNewFiscalGroupPostEmission(
+        Invoice $invoice,
+        array $result,
+        ?array $email,
+    ): void {
+        if ($result['reused'] || !$result['remote_receipt'] instanceof ReceiptData) {
+            return;
+        }
+
+        $this->dispatchPostEmission($invoice, $result['receipt'], $email);
     }
 
     /**

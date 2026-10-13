@@ -49,12 +49,13 @@ final class SendIssuedNfseEmail implements ShouldQueue
         $payload = $receipt->payload()->firstOrCreate();
 
         if ($payload->post_emission_email_sent_at !== null) {
-            $state->markEmailCompleted($this->receiptId);
-
             return;
         }
 
-        $state->markEmailProcessing($this->receiptId);
+        if (!$state->claimEmailProcessing($this->receiptId)) {
+            // A different worker has already claimed or completed this send.
+            return;
+        }
 
         try {
             $sender->send(
