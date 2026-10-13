@@ -160,7 +160,6 @@ final class GlobalVaultInfrastructureTest extends FeatureTestCase
         $this->get(route('nfse.settings.edit'))
             ->assertOk()
             ->assertSee('vault-configuration-unreadable', false)
-            ->assertSee('11222333000181')
             ->assertViewHas('settings', static function ($settings): bool {
                 return !array_key_exists('bao_token', $settings)
                     && !array_key_exists('bao_role_id', $settings)

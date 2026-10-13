@@ -1,433 +1,119 @@
 // SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
 import { test, expect, type Page } from '@playwright/test';
 import { loginToAkaunting } from './support/auth';
 
 test.use({ serviceWorkers: 'block' });
 
-async function openTab(page: Page, tabId: string, panelId: string) {
-  const tab = page.locator(tabId);
-  await expect(tab).toBeVisible();
-  await expect(tab).toBeEnabled();
-  await tab.click();
-  await expect(page.locator(panelId)).toBeVisible();
+const company = (id: number) => ({ company_id: id, name: 'Empresa sintética ' + id });
+const profile = (id: number) => ({
+  ...company(id), status: 'active', cleanup_pending: false,
+  certificate_valid_from: 1, certificate_valid_to: 1900000000,
+  fiscal_parameters: { uf: 'RJ', municipio_ibge: '3304557', emission_policy: 'manual' },
+  fiscal_readiness: { basic_complete: false, pending: ['opcao_simples_nacional'], municipal_review_required: false },
+});
+
+async function mockApi(page: Page, profiles: any[], eligible: any[], vaultState = 'operational') {
+  let currentProfiles = profiles;
+  let currentEligible = eligible;
+  await page.route('**/nfse/settings/vault/diagnostics', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ state: vaultState, reason: vaultState === 'operational' ? 'verified' : 'network_failure',
+      capabilities: { network: vaultState === 'operational', authentication: vaultState === 'operational',
+        kv_v2: vaultState === 'operational', certificate_read: vaultState === 'operational',
+        certificate_write: vaultState === 'operational' } }),
+  }));
+  await page.route('**/nfse/settings/company-profiles**', async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const url = request.url();
+    if (method === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ profiles: currentProfiles, eligible_companies: currentEligible }) });
+      return;
+    }
+    if (method === 'DELETE') {
+      const id = Number(url.match(/company-profiles\/(\d+)/)?.[1]);
+      const selected = currentProfiles.find((p) => p.company_id === id);
+      currentProfiles = currentProfiles.filter((p) => p.company_id !== id);
+      if (selected) currentEligible.push(company(id));
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    if (method === 'POST' && url.endsWith('/company-profiles')) {
+      const id = Number(request.postData()?.match(/name="company_id"[\s\S]*?\r?\n\r?\n(\d+)/)?.[1]);
+      if (id && currentEligible.some((p) => p.company_id === id)) {
+        currentProfiles.push(profile(id));
+        currentEligible = currentEligible.filter((p) => p.company_id !== id);
+        await route.fulfill({ status: 201, contentType: 'application/json',
+          body: JSON.stringify({ data: profile(id) }) });
+      } else {
+        await route.fulfill({ status: 409, contentType: 'application/json',
+          body: JSON.stringify({ message: 'Empresa indisponível' }) });
+      }
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: profile(1) }) });
+  });
 }
 
-test('replace action works even while async lookups are still loading', async ({ page }, testInfo) => {
-  await loginToAkaunting(page, testInfo);
-
-  await page.route('**/nfse/ibge/ufs', async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          { uf: 'SP', name: 'Sao Paulo' },
-          { uf: 'RJ', name: 'Rio de Janeiro' },
-        ],
-      }),
-    });
-  });
-
-  await page.route('**/nfse/lc116/services', async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          {
-            code: '0107',
-            display_code: '1.07',
-            description: 'Suporte tecnico em informatica, inclusive instalacao, configuracao e manutencao',
-            label: '1.07 - Suporte tecnico em informatica, inclusive instalacao, configuracao e manutencao',
-          },
-        ],
-      }),
-    });
-  });
-
+test('eligibility, fiscal pendencies, Vault outage and native administration', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [profile(1)], [company(2)], 'failed');
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
-
-  await openTab(page, '#tab-btn-certificate', '#tab-panel-certificate');
-
-  const showReplaceButton = page.locator('#btn-show-replace-cert');
-  if (await showReplaceButton.isVisible()) {
-    await showReplaceButton.click();
-    await expect(page.locator('#replace-cert-fields')).toBeVisible();
-  }
+  await expect(page.locator('#profiles-body tr')).toHaveCount(1);
+  await expect(page.locator('#profiles-body')).toContainText('Empresa sintética 1');
+  await expect(page.locator('#profiles-body')).toContainText('Enquadramento do Simples Nacional');
+  await expect(page.locator('#profile-add')).toBeDisabled();
+  await expect(page.locator('#vault-status')).toContainText('Falha');
+  await expect(page.locator('#vault-diagnostics')).not.toHaveAttribute('open');
+  await page.locator('#vault-diagnostics summary').click();
+  await expect(page.locator('#vault-check')).toBeVisible();
+  await expect(page.locator('#profiles-body')).toContainText('Editar');
 });
 
-test('NFS-e settings screen is reachable and visible', async ({ page }, testInfo) => {
-  await loginToAkaunting(page, testInfo);
-
-  await page.route('**/certificate/parse', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ data: { cnpj: '12345678000195' } }),
-    });
-  });
-
-  await page.route('**/nfse/ibge/ufs', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          { uf: 'SP', name: 'Sao Paulo' },
-          { uf: 'RJ', name: 'Rio de Janeiro' },
-        ],
-      }),
-    });
-  });
-
-  await page.route('**/nfse/ibge/municipalities/SP', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          { ibge_code: '3550308', name: 'Sao Paulo' },
-          { ibge_code: '3509502', name: 'Campinas' },
-        ],
-      }),
-    });
-  });
-
+test('only available native company appears, and successful deletion makes it eligible', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [profile(1)], [company(2)]);
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
-
-  await expect(page).toHaveURL(/\/1\/nfse\/settings/);
-  await expect(page.locator('h1:has-text("NFS-e")')).toBeVisible();
-
-  await openTab(page, '#tab-btn-certificate', '#tab-panel-certificate');
-
-  await expect(page.locator('input[name="pfx_file"]')).toBeAttached();
-  await expect(page.locator('#btn-show-replace-cert')).toBeVisible();
-  await expect(page.locator('#btn-read-cert')).toBeHidden();
-  await page.locator('#btn-show-replace-cert').click();
-  await expect(page.locator('#replace-cert-fields')).toBeVisible();
-  await expect(page.locator('#btn-read-cert')).toBeVisible();
-
-  await page.locator('input[name="pfx_file"]').setInputFiles('e2e/fixtures/test-cert.p12');
-  await page.locator('input[name="pfx_password"]').fill('e2e-certificate-fixture');
-  await page.locator('#btn-read-cert').click();
-
-  await expect(page.locator('#cert-cnpj-display')).toBeVisible();
-  await expect(page.locator('#cert-cnpj-value')).toHaveText('12345678000195');
-  await expect(page.locator('#btn-upload-cert')).toBeEnabled();
-
-  await openTab(page, '#tab-btn-fiscal', '#tab-panel-fiscal');
-
-  const cnpjInput = page.locator('input[name="nfse[cnpj_prestador]"]');
-  await expect(cnpjInput).toBeVisible();
-  await expect(cnpjInput).toHaveAttribute('readonly');
-
-  await expect(page.locator('select[name="nfse[uf]"]')).toBeVisible();
-  await expect(page.locator('select[name="nfse[municipio_nome]"]')).toBeVisible();
-  await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toBeAttached();
-
-  await page.locator('select[name="nfse[uf]"]').selectOption('SP');
-  await page.locator('select[name="nfse[municipio_nome]"]').selectOption('Sao Paulo');
-  await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('3550308');
+  await expect(page.locator('#profile-add')).toBeEnabled();
+  await page.locator('#profile-add').click();
+  await expect(page.locator('#profile-company option')).toHaveCount(1);
+  await expect(page.locator('#profile-company')).toHaveValue('2');
+  await page.locator('#profile-cancel').click();
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Excluir' }).click();
+  await expect(page.locator('#profiles-body tr')).toHaveCount(0);
+  await expect(page.locator('#profile-add')).toBeEnabled();
+  await page.locator('#profile-add').click();
+  await expect(page.locator('#profile-company option')).toHaveCount(2);
 });
 
-test('vault status summary shows certificate secret checklist row', async ({ page }, testInfo) => {
-  await loginToAkaunting(page, testInfo);
-
+test('no eligible company hides Add and guides native Akaunting company creation', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [], []);
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
-
-  await expect(page).toHaveURL(/\/1\/nfse\/settings/);
-  await expect(page.locator('#vault-status-certificate-secret')).toBeVisible();
+  await expect(page.locator('#profile-add')).toBeHidden();
+  await expect(page.locator('#profiles-empty')).toContainText('Cadastre uma empresa no Akaunting');
 });
 
-test('federal tab visibility matrix matches situacao tributaria and tipo retencao', async ({ page }, testInfo) => {
-  await loginToAkaunting(page, testInfo);
-
-  await page.goto('/1/nfse/settings?tab=federal', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
-
-  await expect(page.locator('#tab-panel-federal')).toBeVisible();
-
-  const situacaoSelect = page.locator('#federal-piscofins-situacao');
-  const tipoRetencaoSelect = page.locator('#federal-piscofins-tipo-retencao');
-  const piscofinsPanel = page.locator('#federal-piscofins-panel');
-  const retentionRow = page.locator('#federal-piscofins-retention-row');
-  const csllRow = page.locator('#federal-valor-csll-row');
-
-  await expect(piscofinsPanel).toBeVisible();
-  await expect(situacaoSelect).toBeVisible();
-
-  for (const situacao of ['', '0']) {
-    await situacaoSelect.selectOption(situacao);
-    await expect(situacaoSelect).toBeVisible();
-    await expect(retentionRow).toBeHidden();
-    await expect(csllRow).toBeHidden();
-  }
-
-  await situacaoSelect.selectOption('1');
-  await expect(retentionRow).toBeVisible();
-
-  const matrix = [
-    { tipoRetencao: '0', shouldShowCsll: false },
-    { tipoRetencao: '3', shouldShowCsll: true },
-    { tipoRetencao: '4', shouldShowCsll: false },
-    { tipoRetencao: '5', shouldShowCsll: false },
-    { tipoRetencao: '6', shouldShowCsll: false },
-    { tipoRetencao: '7', shouldShowCsll: true },
-    { tipoRetencao: '8', shouldShowCsll: true },
-    { tipoRetencao: '9', shouldShowCsll: true },
-  ];
-
-  for (const entry of matrix) {
-    await tipoRetencaoSelect.selectOption(entry.tipoRetencao);
-
-    if (entry.shouldShowCsll) {
-      await expect(csllRow).toBeVisible();
-    } else {
-      await expect(csllRow).toBeHidden();
-    }
-  }
-});
-
-test('fiscal tab resets municipality IBGE when UF changes and updates after new selection', async ({ page }, testInfo) => {
-  await loginToAkaunting(page, testInfo);
-
-  await page.route('**/nfse/ibge/ufs', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          { uf: 'SP', name: 'Sao Paulo' },
-          { uf: 'RJ', name: 'Rio de Janeiro' },
-        ],
-      }),
-    });
-  });
-
-  await page.route('**/nfse/ibge/municipalities/SP', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          { ibge_code: '3550308', name: 'Sao Paulo' },
-          { ibge_code: '3509502', name: 'Campinas' },
-        ],
-      }),
-    });
-  });
-
-  await page.route('**/nfse/ibge/municipalities/RJ', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          { ibge_code: '3303302', name: 'Niteroi' },
-          { ibge_code: '3304557', name: 'Rio de Janeiro' },
-        ],
-      }),
-    });
-  });
-
-  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
-
-  await expect(page.locator('#tab-panel-fiscal')).toBeVisible();
-
-  await page.locator('select[name="nfse[uf]"]').selectOption('SP');
-  await page.locator('select[name="nfse[municipio_nome]"]').selectOption('Sao Paulo');
-  await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('3550308');
-
-  await page.locator('select[name="nfse[uf]"]').selectOption('RJ');
-
-  // Changing UF must clear stale municipality/IBGE until the user selects a city from the new UF.
-  await expect(page.locator('select[name="nfse[municipio_nome]"]')).toHaveValue('');
-  await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('');
-
-  await page.locator('select[name="nfse[municipio_nome]"]').selectOption('Niteroi');
-  await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('3303302');
-});
-
-test('full dependent setup flow covers vault, certificate, fiscal and services steps', async ({ page }, testInfo) => {
-  await loginToAkaunting(page, testInfo);
-
-  await page.route('**/nfse/ibge/ufs', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          { uf: 'SP', name: 'Sao Paulo' },
-          { uf: 'RJ', name: 'Rio de Janeiro' },
-        ],
-      }),
-    });
-  });
-
-  await page.route('**/nfse/ibge/municipalities/SP', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: [
-          { ibge_code: '3550308', name: 'Sao Paulo' },
-          { ibge_code: '3509502', name: 'Campinas' },
-        ],
-      }),
-    });
-  });
-
+test('edit remains available without Vault and never transfers company identity', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [profile(1)], [], 'failed');
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
-
-  // Step 1: Vault server config must save first.
-  await expect(page.locator('#tab-panel-vault')).toBeVisible();
-  await page.locator('input[name="nfse[bao_addr]"]').fill('http://openbao:8200');
-  await page.locator('input[name="nfse[bao_mount]"]').fill('/nfse');
-  await page.locator('input[name="nfse[bao_token]"]').fill('e2e-vault-fixture');
-  await page.locator('#tab-panel-vault button[type="submit"]').click();
-  await page.waitForLoadState('networkidle');
-  await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=vault/);
-
-  // Step 2: Certificate depends on Vault; failed upload must stay in settings and tab 2.
-  await openTab(page, '#tab-btn-certificate', '#tab-panel-certificate');
-
-  const showReplaceButton = page.locator('#btn-show-replace-cert');
-  if (await showReplaceButton.count()) {
-    await showReplaceButton.click();
-  }
-
-  await page.locator('input[name="pfx_file"]').setInputFiles('e2e/fixtures/test-cert.p12');
-  await page.locator('input[name="pfx_password"]').fill('e2e-invalid-certificate-fixture');
-  await page.locator('#btn-upload-cert').click();
-  await page.waitForLoadState('networkidle');
-
-  await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=certificate/);
-  await expect(page).not.toHaveURL(/\/1\/nfse\/ibge\/municipalities\//);
-  await expect(page.locator('#tab-panel-certificate')).toBeVisible();
-
-  // Step 3: Fiscal settings depends on previous steps being available.
-  await openTab(page, '#tab-btn-fiscal', '#tab-panel-fiscal');
-  await page.locator('select[name="nfse[uf]"]').selectOption('SP');
-  await page.locator('select[name="nfse[municipio_nome]"]').selectOption('Sao Paulo');
-  await expect(page.locator('input[name="nfse[municipio_ibge]"]')).toHaveValue('3550308');
-  await page.locator('#tab-panel-fiscal button[type="submit"]').click();
-  await page.waitForLoadState('networkidle');
-  await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=fiscal/);
-
-  // Step 4: Legacy services tab is retired in the item-native flow.
-  await expect(page.locator('#tab-btn-services')).toHaveCount(0);
-  await expect(page.locator('#tab-panel-services')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Editar' }).click();
+  await expect(page.locator('#profile-company')).toBeDisabled();
+  await expect(page.locator('#profile-company')).toHaveValue('1');
+  await expect(page.locator('#profile-pfx')).not.toHaveAttribute('required');
 });
 
-test('settings no longer expose legacy services create route', async ({ page }, testInfo) => {
-  await loginToAkaunting(page, testInfo);
-
-  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
-
-  await expect(page.locator('#tab-btn-services')).toHaveCount(0);
-  await expect(page.locator('a[href*="/nfse/settings/services/create"]')).toHaveCount(0);
-});
-
-
-
-test('readiness blocker guides operator to the focused corrective settings tab', async ({ page }, testInfo) => {
-  test.setTimeout(120_000);
-
-  await loginToAkaunting(page, testInfo);
-
-  await page.goto('/1/nfse/settings?tab=vault', { waitUntil: 'domcontentloaded' });
-
-  const clearToken = page.locator('#clear_bao_token');
-  await clearToken.check();
-
-  const clearTokenResponse = page.waitForResponse((response) => {
-    return response.request().method() === 'POST' && response.url().includes('/nfse/settings');
+test('administrative UI synthetic screenshot', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [profile(1)], [company(2)]);
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#profile-add')).toBeEnabled();
+  await info.attach('nfse-company-admin-synthetic.png', {
+    body: await page.locator('#nfse-company-admin').screenshot({ animations: 'disabled' }),
+    contentType: 'image/png',
   });
-  await page.locator('#tab-panel-vault button[type="submit"]').click();
-  await clearTokenResponse;
-  await page.waitForLoadState('domcontentloaded');
-
-  const summary = page.locator('#nfse-readiness-summary');
-  await expect(summary).toBeVisible();
-
-  const vaultCorrectiveLink = summary.locator('a[href*="tab=vault"]').first();
-  await expect(vaultCorrectiveLink).toBeVisible();
-
-  await Promise.all([
-    page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-    vaultCorrectiveLink.click(),
-  ]);
-
-  await expect(page).toHaveURL(/\/1\/nfse\/settings\?tab=vault/);
-  await expect(page.locator('#tab-panel-vault')).toBeVisible();
-
-  await page.locator('input[name="nfse[bao_token]"]').fill('e2e-restored-fixture');
-  await page.locator('#clear_bao_token').uncheck();
-
-  const restoreTokenResponse = page.waitForResponse((response) => {
-    return response.request().method() === 'POST' && response.url().includes('/nfse/settings');
-  });
-  await page.locator('#tab-panel-vault button[type="submit"]').click();
-  await restoreTokenResponse;
-  await page.waitForLoadState('domcontentloaded');
-
-  await expect(page.locator('#nfse-readiness-summary a[href*="tab=vault"]')).toHaveCount(0);
-});
-
-
-test('special regime selector disables inapplicable codes but preserves old choice', async ({ page }, testInfo) => {
-  await loginToAkaunting(page, testInfo);
-  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
-  await expect(page.locator('#tab-panel-fiscal')).toBeVisible();
-
-  const simple = page.locator('#opcao_simples_nacional');
-  const issqn = page.locator('#tributacao_issqn');
-  const regime = page.locator('#regime_especial_tributacao');
-
-  await expect(regime).toBeVisible();
-  await simple.selectOption('1');
-  await issqn.selectOption('1');
-  await regime.selectOption('6');
-  await expect(regime).toHaveValue('6');
-  await expect(regime).toHaveAttribute('aria-invalid', 'false');
-
-  await simple.selectOption('2');
-  await expect(regime).toHaveValue('6');
-  await expect(regime).toHaveAttribute('aria-invalid', 'true');
-  await expect(regime.locator('option[value="9"]')).toBeDisabled();
-  await expect(page.locator('#regime-especial-help')).not.toBeEmpty();
-
-  await regime.selectOption('0');
-  await expect(regime).toHaveAttribute('aria-invalid', 'false');
-  await issqn.selectOption('3');
-  await expect(regime.locator('option[value="6"]')).toBeDisabled();
-
-  await simple.selectOption('1');
-  await issqn.selectOption('1');
-  await expect(regime.locator('option[value="9"]')).toBeEnabled();
-});
-
-test('Simples apuration is shown only for ME/EPP and keeps explicit choice on unrelated setting changes', async ({ page }, testInfo) => {
-  await loginToAkaunting(page, testInfo);
-  await page.goto('/1/nfse/settings?tab=fiscal', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle');
-  const simples = page.locator('#opcao_simples_nacional');
-  const apuration = page.locator('#regime_apuracao_simples_nacional');
-  await simples.selectOption('3');
-  await expect(apuration).toBeVisible();
-  await apuration.selectOption('2');
-  await simples.selectOption('1');
-  await expect(apuration).toBeDisabled();
-  await simples.selectOption('3');
-  await expect(apuration).toHaveValue('2');
 });
