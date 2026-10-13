@@ -49,7 +49,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
 
         self::assertMatchesRegularExpression('/^dev-[a-z0-9\/._-]+#[0-9a-f]{40}$/D', $runtimeVersion);
         self::assertSame(
-            'dev-main#22b71d6b1a0949197412b625759d8015d32c1b54',
+            'dev-main#484831e74bcc5fc173757f5f06a78caf155227af',
             $runtimeVersion,
         );
 
@@ -59,7 +59,7 @@ final class ScopedRuntimeComposerConfigTest extends TestCase
         $installed = require $installedPath;
         self::assertIsArray($installed);
         self::assertSame(
-            '22b71d6b1a0949197412b625759d8015d32c1b54',
+            '484831e74bcc5fc173757f5f06a78caf155227af',
             $installed['versions']['librecodeoop/nfse-php']['reference'] ?? null,
         );
     }
