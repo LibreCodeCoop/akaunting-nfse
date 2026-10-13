@@ -73,6 +73,8 @@ return [
         'hint' => 'Complete the pending items below to enable issuance.',
         'checks' => [
             'runtime_contract' => 'NFS-e fiscal runtime contract is available',
+            'fiscal_profile' => 'Fiscal profile of this company is complete and valid',
+            'company_certificate' => 'A1 certificate of this company is present in private storage',
             'cnpj_prestador' => 'Service provider CNPJ is valid',
             'certificate_cnpj_matches' => 'Certificate CNPJ matches the configured service provider',
             'municipio_ibge' => 'IBGE municipality configured',
