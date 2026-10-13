@@ -209,6 +209,129 @@ final class DpsReservationServiceTest extends FeatureTestCase
         );
     }
 
+    public function testReusingExistingReservationAfterSuspensionDoesNotAdvanceCounter(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+        $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2);
+        $service = $this->service();
+
+        $original = $service->reserve(
+            (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1', $key, 'manual',
+        );
+        DB::table('nfse_dps_series')->update(['status' => 'suspended']);
+        $repeated = $service->reserve(
+            (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '00001', $key, 'automatic',
+        );
+
+        self::assertSame($original, $repeated);
+        $other = $this->invoice();
+
+        try {
+            $service->reserve(
+                (int) $other->company_id, (int) $other->id, $issuer, 2, '1',
+                DpsOperationKey::forInvoice((int) $other->company_id, (int) $other->id, 2),
+                'manual',
+            );
+            self::fail('Suspended series must not issue new reservations.');
+        } catch (\LogicException) {
+        }
+
+        self::assertSame(1, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(1, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
+    public function testDuplicateAllocationConflictRollsBackCounterUpdate(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+        $service = $this->service();
+
+        $service->reserve(
+            (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
+            DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2),
+            'manual',
+        );
+
+        // Synthetic stale counter: a restored local sequence must not
+        // silently reuse an already allocated national number.
+        DB::table('nfse_dps_series')->update(['last_number' => 0]);
+        $other = $this->invoice();
+
+        try {
+            $service->reserve(
+                (int) $other->company_id, (int) $other->id, $issuer, 2, '1',
+                DpsOperationKey::forInvoice((int) $other->company_id, (int) $other->id, 2),
+                'automatic',
+            );
+            self::fail('Duplicate fiscal number must be rejected by storage.');
+        } catch (\Illuminate\Database\QueryException) {
+        }
+
+        self::assertSame(1, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
+    public function testLastValidNumberIsAllocatedOnceAndNextOverflows(): void
+    {
+        $this->loginAs();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+        DB::table('nfse_dps_series')->update(['last_number' => 999999999999998]);
+        $service = $this->service();
+        $first = $this->invoice();
+
+        $reserved = $service->reserve(
+            (int) $first->company_id, (int) $first->id, $issuer, 2, '1',
+            DpsOperationKey::forInvoice((int) $first->company_id, (int) $first->id, 2),
+            'manual',
+        );
+        self::assertSame('999999999999999', $reserved['number']);
+
+        $second = $this->invoice();
+        try {
+            $service->reserve(
+                (int) $second->company_id, (int) $second->id, $issuer, 2, '1',
+                DpsOperationKey::forInvoice((int) $second->company_id, (int) $second->id, 2),
+                'manual',
+            );
+            self::fail('A fifteen-digit DPS sequence must not wrap.');
+        } catch (\OverflowException) {
+        }
+
+        self::assertSame(1, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(999999999999999, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
+    public function testUnimplementedExternalCoordinationModeCannotAllocate(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+
+        DB::table('nfse_dps_series')->update([
+            'coordination_mode' => 'external',
+            'coordination_reference' => 'unverified-synthetic-coordinator',
+        ]);
+        try {
+            $this->service()->reserve(
+                (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
+                DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2),
+                'manual',
+            );
+            self::fail('An external coordinator must not be simulated by a text reference.');
+        } catch (\LogicException) {
+        }
+
+        self::assertSame(0, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
     private function service(?int $onlyEnvironment = null): DpsReservationService
     {
         // Synthetic fake only. The production authorization adapter belongs
