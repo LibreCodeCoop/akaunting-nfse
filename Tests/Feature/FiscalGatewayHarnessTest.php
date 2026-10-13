@@ -72,7 +72,7 @@ final class FiscalGatewayHarnessTest extends FeatureTestCase
         $this->app->instance(SecretStoreInterface::class, $secretStore);
         $this->app->instance(HttpTransportInterface::class, $transport);
 
-        $context = $this->app->make(FiscalClientFactory::class)->adn(true);
+        $context = $this->app->make(FiscalClientFactory::class)->adn(true, (int) company_id());
 
         try {
             $result = $context->adnClient()->getDfe(0);

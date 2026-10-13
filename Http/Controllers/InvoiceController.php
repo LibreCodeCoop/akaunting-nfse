@@ -724,7 +724,7 @@ class InvoiceController extends Controller
 
         if (is_array($selectedFiscalGroup)) {
             try {
-                $client = $this->makeClient($sandbox);
+                $client = $this->makeClient($sandbox, (int) $invoice->company_id);
                 $groupResult = (new IssueInvoiceFiscalGroup())->issue(
                     client: $client,
                     invoiceId: (int) $invoice->id,
@@ -981,7 +981,7 @@ class InvoiceController extends Controller
         $redirect = $this->cancellationRedirect($invoice, $request);
 
         try {
-            $client = $this->makeClient($this->sandboxModeEnabled());
+            $client = $this->makeClient($this->sandboxModeEnabled(), (int) $invoice->company_id);
             (new CancelInvoiceNfse())->cancel(
                 $client,
                 $receipt,
@@ -1495,7 +1495,7 @@ class InvoiceController extends Controller
         }
 
         try {
-            $client = $this->makeClient($sandboxReemit);
+            $client = $this->makeClient($sandboxReemit, (int) $invoice->company_id);
             $issuance = (new EmissionAttemptJournal())->issue(
                 client: $client,
                 dps: $dps,
@@ -3856,15 +3856,19 @@ class InvoiceController extends Controller
         }
     }
 
-    protected function makeClient(bool $sandboxMode): NfseClientInterface
+    protected function makeClient(bool $sandboxMode, ?int $companyId = null): NfseClientInterface
     {
+        $companyId ??= function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0) {
+            throw new \DomainException('Fiscal operation requires a company owner.');
+        }
         $this->cleanupClientTransportArtifacts();
 
         try {
-            $this->clientContext = $this->makeFiscalClientFactory()->nfse($sandboxMode);
+            $this->clientContext = $this->makeFiscalClientFactory()->nfse($sandboxMode, $companyId);
         } catch (SecretStoreException|PfxImportException $exception) {
             $this->safeLogError('NFS-e transport certificate preparation failed', [
-                'cnpj' => (string) setting('nfse.cnpj_prestador', ''),
+                'company_id' => $companyId,
                 'sandbox_mode' => $sandboxMode,
                 'message' => $exception->getMessage(),
             ]);
