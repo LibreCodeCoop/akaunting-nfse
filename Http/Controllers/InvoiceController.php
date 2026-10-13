@@ -736,7 +736,7 @@ class InvoiceController extends Controller
                     $this->dispatchPostEmission(
                         $invoice,
                         $groupResult['receipt'],
-                        null,
+                        $validatedEmail,
                     );
                 }
 

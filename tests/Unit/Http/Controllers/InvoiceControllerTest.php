@@ -195,6 +195,22 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringNotContainsString('$this->storeArtifacts($invoice, $receipt, $persistedReceipt, $client);', $content);
         }
 
+        public function testGroupedIssuanceDispatchesRequestedEmailOnlyForFreshReceipt(): void
+        {
+            $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
+
+            $guard = "if (!\$groupResult['reused'] && \$groupResult['remote_receipt'] instanceof ReceiptData)";
+            $start = strpos($content, $guard);
+            self::assertNotFalse($start, 'A reused fiscal group must never enqueue email again.');
+            $end = strpos($content, ');', $start);
+            self::assertNotFalse($end);
+            $dispatch = substr($content, $start, $end - $start + 2);
+
+            self::assertStringContainsString('$this->dispatchPostEmission(', $dispatch);
+            self::assertStringContainsString('$validatedEmail,', $dispatch);
+            self::assertStringNotContainsString('null,', $dispatch);
+        }
+
         public function testDanfseDownloadUsesAuthorizedXmlBeforeWebDavArtifact(): void
         {
             $content = (string) file_get_contents(dirname(__DIR__, 4) . '/Http/Controllers/InvoiceController.php');
