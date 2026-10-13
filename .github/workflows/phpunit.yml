@@ -61,4 +61,4 @@ jobs:
 
       - name: Run PHPUnit (Unit)
         working-directory: modules/Nfse
-        run: composer test:unit -- --display-deprecations --display-phpunit-deprecations
+        run: composer test:unit
