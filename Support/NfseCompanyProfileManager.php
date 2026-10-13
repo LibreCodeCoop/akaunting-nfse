@@ -18,12 +18,11 @@ use Modules\Nfse\Models\NfseCompanyProfile;
 final class NfseCompanyProfileManager
 {
     /** @var array<string,true> */
-    private static array $operationLocks = [];
-
     public function __construct(
         private readonly NfseCompanyCertificateStore $certificates,
         private readonly NfseCompanyProfilePendingOperations $pending,
         private readonly PfxInspector $inspector = new PfxInspector(),
+        private readonly NfseCompanyProfileOperationLock $operations = new NfseCompanyProfileOperationLock(),
     ) {
     }
 
@@ -32,7 +31,7 @@ final class NfseCompanyProfileManager
      */
     public function create(int $companyId, string $pfx, string $password, array $fiscal): NfseCompanyProfile
     {
-        return $this->guardCompany($companyId, fn (): NfseCompanyProfile => $this->createLocked($companyId, $pfx, $password, $fiscal));
+        return $this->operations->run($companyId, fn (): NfseCompanyProfile => $this->createLocked($companyId, $pfx, $password, $fiscal));
     }
 
     /** @param array<string,mixed> $fiscal */
@@ -77,7 +76,7 @@ final class NfseCompanyProfileManager
         ?string $pfx = null,
         ?string $password = null,
     ): NfseCompanyProfile {
-        return $this->guardCompany($companyId, fn (): NfseCompanyProfile => $this->updateLocked($companyId, $fiscal, $pfx, $password));
+        return $this->operations->run($companyId, fn (): NfseCompanyProfile => $this->updateLocked($companyId, $fiscal, $pfx, $password));
     }
 
     /** @param array<string,mixed> $fiscal */
@@ -146,7 +145,7 @@ final class NfseCompanyProfileManager
 
     public function delete(int $companyId): void
     {
-        $this->guardCompany($companyId, function () use ($companyId): void {
+        $this->operations->run($companyId, function () use ($companyId): void {
             $this->deleteLocked($companyId);
         });
     }
@@ -168,7 +167,7 @@ final class NfseCompanyProfileManager
      */
     public function cleanup(int $companyId): void
     {
-        $this->guardCompany($companyId, function () use ($companyId): void {
+        $this->operations->run($companyId, function () use ($companyId): void {
             $this->cleanupLocked($companyId);
         });
     }
@@ -297,53 +296,6 @@ final class NfseCompanyProfileManager
             $this->certificates->delete($companyId, (string) $retired->certificate_ref);
             DB::table('nfse_company_certificate_retirements')
                 ->where('id', $retired->id)->where('company_id', $companyId)->delete();
-        }
-    }
-
-    /**
-     * Serialize the whole database + filesystem + Vault lifecycle per tenant.
-     * Row locks alone end before the external write and cannot protect cleanup.
-     * MySQL advisory locks protect independent workers; the local guard also
-     * rejects reentrant calls and supports SQLite-backed feature tests.
-     *
-     * @template T
-     * @param \Closure():T $operation
-     * @return T
-     */
-    private function guardCompany(int $companyId, \Closure $operation): mixed
-    {
-        if ($companyId <= 0) {
-            throw new \DomainException('Akaunting company is unavailable.');
-        }
-
-        $name = 'nfse-profile-' . $companyId;
-        if (isset(self::$operationLocks[$name])) {
-            throw new \DomainException('Another NFS-e profile operation is in progress for this company.');
-        }
-
-        self::$operationLocks[$name] = true;
-        $connection = DB::connection();
-        $mysql = $connection->getDriverName() === 'mysql';
-        $acquired = false;
-
-        try {
-            if ($mysql) {
-                $row = $connection->selectOne('SELECT GET_LOCK(?, 0) AS acquired', [$name]);
-                $acquired = (int) ($row->acquired ?? 0) === 1;
-                if (!$acquired) {
-                    throw new \DomainException('Another NFS-e profile operation is in progress for this company.');
-                }
-            }
-
-            return $operation();
-        } finally {
-            try {
-                if ($acquired) {
-                    $connection->selectOne('SELECT RELEASE_LOCK(?) AS released', [$name]);
-                }
-            } finally {
-                unset(self::$operationLocks[$name]);
-            }
         }
     }
 
