@@ -89,12 +89,12 @@ test('special tax regime stays visible but invalid across incompatible Simples o
   await simples.selectOption('2');
   await expect(regime).toHaveValue('6');
   await expect(regime).toHaveAttribute('aria-invalid', 'true');
-  await expect(regime.locator('option[value="9"]')).toBeDisabled();
+  await expect(regime.locator('option[value="9"]')).toHaveAttribute('disabled', '');
   await regime.selectOption('0');
   await expect(regime).toHaveAttribute('aria-invalid', 'false');
 
   await issqn.selectOption('3');
-  await expect(regime.locator('option[value="6"]')).toBeDisabled();
+  await expect(regime.locator('option[value="6"]')).toHaveAttribute('disabled', '');
   await expect(regime).toHaveValue('0');
 });
 
@@ -113,9 +113,9 @@ test('ME/EPP apuration enables eligible special regimes without clearing saved c
   await expect(apuration).toHaveValue('');
   await regime.selectOption('0');
   await apuration.selectOption('1');
-  await expect(regime.locator('option[value="9"]')).toBeDisabled();
+  await expect(regime.locator('option[value="9"]')).toHaveAttribute('disabled', '');
   await apuration.selectOption('2');
-  await expect(regime.locator('option[value="9"]')).toBeEnabled();
+  await expect(regime.locator('option[value="9"]')).not.toHaveAttribute('disabled');
   await regime.selectOption('9');
   await apuration.selectOption('1');
   await expect(regime).toHaveValue('9');

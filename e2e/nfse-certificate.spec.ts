@@ -27,7 +27,7 @@ test('multi-company certificate form accepts PFX/P12 with password and owner loc
   await expect(page.locator('#profile-pfx-password')).toHaveAttribute('type', 'password');
   await expect(page.locator('#profile-pfx')).toHaveAttribute('required');
   await page.locator('#profile-cancel').click();
-  await page.getByRole('button', {name: 'Editar'}).click();
+  await page.locator('#profiles-body').getByRole('button', {name: 'Editar'}).click();
   await expect(page.locator('#profile-company')).toBeDisabled();
   await expect(page.locator('#profile-pfx')).not.toHaveAttribute('required');
   await expect(page.locator('#profile-rotation-hint')).toBeVisible();

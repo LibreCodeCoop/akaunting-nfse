@@ -101,7 +101,7 @@ test('edit remains available without Vault and never transfers company identity'
   await loginToAkaunting(page, info);
   await mockApi(page, [profile(1)], [], 'failed');
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: 'Editar' }).click();
+  await page.locator('#profiles-body').getByRole('button', { name: 'Editar' }).click();
   await expect(page.locator('#profile-company')).toBeDisabled();
   await expect(page.locator('#profile-company')).toHaveValue('1');
   await expect(page.locator('#profile-pfx')).not.toHaveAttribute('required');
