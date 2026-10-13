@@ -15,6 +15,8 @@ use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseCompanyProfile;
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\FeatureTestCase;
@@ -52,6 +54,10 @@ final class ManualNormativeIssuanceGuardTest extends FeatureTestCase
         string $effectiveDate,
     ): void {
         $invoice = $this->invoice($date, $service, $national);
+        $this->profile($invoice, [
+            'opcao_simples_nacional' => (string) $simples,
+            'ibs_cbs_enabled' => false,
+        ]);
         setting([
             'nfse.opcao_simples_nacional' => $simples,
             'nfse.ibs_cbs_enabled' => false,
@@ -75,7 +81,7 @@ final class ManualNormativeIssuanceGuardTest extends FeatureTestCase
         $controller = new class () extends InvoiceController {
             public int $clientOpens = 0;
 
-            protected function emissionReadiness(): array
+            protected function companyEmissionReadiness(): array
             {
                 return ['isReady' => true, 'checklist' => []];
             }
@@ -126,6 +132,10 @@ final class ManualNormativeIssuanceGuardTest extends FeatureTestCase
         mixed $simples,
     ): void {
         $invoice = $this->invoice('2026-09-30', '0107', '010701');
+        $this->profile($invoice, [
+            'opcao_simples_nacional' => $simples,
+            'ibs_cbs_enabled' => false,
+        ]);
         setting([
             'nfse.opcao_simples_nacional' => $simples,
             'nfse.ibs_cbs_enabled' => false,
@@ -173,6 +183,21 @@ final class ManualNormativeIssuanceGuardTest extends FeatureTestCase
             self::assertSame('cancelled', (string) $receipt->fresh()->status);
             self::assertSame($authorizedXml, $receipt->fresh()->payload()->value('authorized_xml'));
         }
+    }
+
+    /** @param array<string,mixed> $parameters */
+    private function profile(Document $invoice, array $parameters): void
+    {
+        // Synthetic metadata only: the guard must block before any PFX/Vault operation.
+        NfseCompanyProfile::query()->create([
+            'company_id' => (int) $invoice->company_id,
+            'status' => 'active',
+            'certificate_ref' => NfseCompanyCertificatePath::newReference(),
+            'certificate_cnpj' => '11222333000181',
+            'certificate_valid_from' => time() - 3600,
+            'certificate_valid_to' => time() + 3600,
+            'fiscal_parameters' => $parameters,
+        ]);
     }
 
     private function invoice(string $date, string $service, string $national): Document

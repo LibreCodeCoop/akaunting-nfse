@@ -73,6 +73,8 @@ return [
         'hint' => 'Complete os itens pendentes abaixo para liberar a emissão.',
         'checks' => [
             'runtime_contract' => 'Contrato do runtime fiscal da NFS-e disponível',
+            'fiscal_profile' => 'Perfil fiscal desta empresa completo e válido',
+            'company_certificate' => 'Certificado A1 desta empresa presente no armazenamento privado',
             'cnpj_prestador' => 'CNPJ do prestador válido',
             'certificate_cnpj_matches' => 'CNPJ do certificado corresponde ao prestador configurado',
             'municipio_ibge' => 'Município IBGE configurado',

@@ -20,6 +20,36 @@ use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
  */
 class UnitFederalControllerFixture extends InvoiceController
 {
+    /** @return array<string,mixed> */
+    protected function fiscalParametersForInvoice(Invoice $invoice): array
+    {
+        return $this->companyFiscalParameters((int) $invoice->company_id);
+    }
+
+    /** @return array<string,mixed> */
+    protected function companyFiscalParameters(int $companyId): array
+    {
+        $fiscal = [];
+        foreach (ControllerIsolationState::$settings as $key => $value) {
+            if (str_starts_with((string) $key, 'nfse.')) {
+                $fiscal[substr((string) $key, 5)] = $value;
+            }
+        }
+
+        return $fiscal;
+    }
+
+    protected function issuerFiscalValue(string $key, mixed $default = null): mixed
+    {
+        return ControllerIsolationState::$settings['nfse.' . $key] ?? $default;
+    }
+
+    /** @return array{isReady:bool,checklist:array<string,bool>} */
+    protected function companyEmissionReadiness(): array
+    {
+        return $this->emissionReadiness();
+    }
+
     protected function invoiceFederalPayloadResolver(): InvoiceFederalPayloadResolver
     {
         return new InvoiceFederalPayloadResolver(
