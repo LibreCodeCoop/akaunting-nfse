@@ -18,7 +18,7 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 final class NfseCompanyCertificateStore
 {
     public function __construct(
-        private readonly SecretStoreInterface $secrets,
+        private readonly SecretStoreInterface|\Closure $secrets,
         private readonly VaultDiagnostics $diagnostics,
     ) {
     }
@@ -75,8 +75,9 @@ final class NfseCompanyCertificateStore
         }
 
         $path = NfseCompanyCertificatePath::vaultPath($companyId, $reference);
-        $this->secrets->put($path, ['password' => $password, 'pfx_path' => $filePath]);
-        $confirmed = $this->secrets->get($path);
+        $secretStore = $this->secretStore();
+        $secretStore->put($path, ['password' => $password, 'pfx_path' => $filePath]);
+        $confirmed = $secretStore->get($path);
 
         if (($confirmed['pfx_path'] ?? null) !== $filePath
             || !is_string($confirmed['password'] ?? null)
@@ -88,11 +89,20 @@ final class NfseCompanyCertificateStore
     public function delete(int $companyId, string $reference): void
     {
         $this->assertOperational($companyId, $reference);
-        $this->secrets->delete(NfseCompanyCertificatePath::vaultPath($companyId, $reference));
+        $this->secretStore()->delete(NfseCompanyCertificatePath::vaultPath($companyId, $reference));
 
         $filePath = NfseCompanyCertificatePath::filePath($companyId, $reference);
         if (is_file($filePath) && !unlink($filePath)) {
             throw new \RuntimeException('Certificate secret was removed but local cleanup remains pending.');
         }
+    }
+
+    /**
+     * Metadata-only profile updates must never instantiate Vault credentials.
+     * Resolve the service only for an authorized certificate write or removal.
+     */
+    private function secretStore(): SecretStoreInterface
+    {
+        return $this->secrets instanceof \Closure ? ($this->secrets)() : $this->secrets;
     }
 }

@@ -33,6 +33,7 @@ use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\ItemMunicipalValidationResolver;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\NfseRuntimeContextFactory;
+use Modules\Nfse\Support\NfseCompanyCertificateStore;
 use Modules\Nfse\Support\Testing\DeterministicFiscalHttpTransport;
 use Modules\Nfse\Support\Testing\EnvironmentFixtureSecretStore;
 use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
@@ -125,6 +126,16 @@ class Main extends Provider
                 },
             );
         }
+
+        // Profile metadata edits never need a Vault client. Certificate operations
+        // still resolve the same shared SecretStore when they actually use it.
+        $this->app->bind(
+            NfseCompanyCertificateStore::class,
+            fn (): NfseCompanyCertificateStore => new NfseCompanyCertificateStore(
+                secrets: fn (): SecretStoreInterface => $this->app->make(SecretStoreInterface::class),
+                diagnostics: $this->app->make(\Modules\Nfse\Support\VaultDiagnostics::class),
+            ),
+        );
 
         $this->app->bind(
             NfseRuntimeContextFactory::class,
