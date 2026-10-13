@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Feature;
 
 use Illuminate\Routing\Route;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\FeatureTestCase;
 
 final class AdminRouteRegistrationTest extends FeatureTestCase
@@ -71,9 +72,7 @@ final class AdminRouteRegistrationTest extends FeatureTestCase
         }
     }
 
-    /**
-     * @dataProvider registeredRoutes
-     */
+    #[DataProvider('registeredRoutes')]
     public function testModuleRouteIsRegisteredInCompanyAwareAdminGroup(string $name, string $method): void
     {
         $route = app('router')->getRoutes()->getByName($name);

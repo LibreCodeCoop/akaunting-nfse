@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Unit\Application;
 use DateTimeImmutable;
 use Modules\Nfse\Application\RtcSupplyAssessmentPolicy;
 use Modules\Nfse\Contracts\FiscalContext;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class RtcSupplyAssessmentPolicyTest extends TestCase
@@ -17,9 +18,8 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
     /**
      * Expected dates and obligation flags are transcribed independently
      * from Ato Conjunto RFB/CGIBS 4/2026, art. 1, III and §1.
-     *
-     * @dataProvider officialCalendarCases
      */
+    #[DataProvider('officialCalendarCases')]
     public function testOfficialOperationCalendar(
         string $category,
         string $lc116,
@@ -66,7 +66,7 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
         self::assertSame('art. 1, III, a', $platform['provision']);
     }
 
-    /** @dataProvider simplesCases */
+    #[DataProvider('simplesCases')]
     public function testSimplesCalendarDoesNotDependOnIbsCbsCollectionElection(
         string $category,
         ?string $lc116,
@@ -109,7 +109,7 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
         ];
     }
 
-    /** @dataProvider unverifiableInputs */
+    #[DataProvider('unverifiableInputs')]
     public function testUnknownFactsNeverBecomeDefaultNonOptantOrCompliant(
         ?string $category,
         ?string $service,
@@ -150,7 +150,7 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
         ];
     }
 
-    /** @dataProvider conflictingDateCases */
+    #[DataProvider('conflictingDateCases')]
     public function testTaxableEventDateNeverFallsBackToCompetence(
         ?string $event,
         ?string $competence,
@@ -210,7 +210,7 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
         self::assertNull($norm->observedCents);
     }
 
-    /** @dataProvider simulatedSefinOutcomes */
+    #[DataProvider('simulatedSefinOutcomes')]
     public function testFakeSefinResponseCannotRewriteLegalCalendar(bool $authorized): void
     {
         // The pure assessment has no external transport input. Even a fake
@@ -232,7 +232,7 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
         return ['fake accepts' => [true], 'fake rejects' => [false]];
     }
 
-    /** @dataProvider nonLc116Modalities */
+    #[DataProvider('nonLc116Modalities')]
     public function testUnsupportedProtocolIsSeparateFromDocumentCalendar(
         string $category,
         string $expectedProvision,

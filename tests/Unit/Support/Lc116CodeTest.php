@@ -9,12 +9,11 @@ namespace Modules\Nfse\Tests\Unit\Support;
 
 use Modules\Nfse\Support\Lc116Code;
 use Modules\Nfse\Tests\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 final class Lc116CodeTest extends TestCase
 {
-    /**
-     * @dataProvider canonicalInputs
-     */
+    #[DataProvider('canonicalInputs')]
     public function testNormalizesSupportedRepresentations(mixed $input, string $expected): void
     {
         self::assertSame($expected, Lc116Code::normalize($input));

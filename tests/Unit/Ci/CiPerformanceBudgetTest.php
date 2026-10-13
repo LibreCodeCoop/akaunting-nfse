@@ -7,13 +7,12 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Unit\Ci;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class CiPerformanceBudgetTest extends TestCase
 {
-    /**
-     * @dataProvider requiredWorkflowBudgets
-     */
+    #[DataProvider('requiredWorkflowBudgets')]
     public function testExpensiveCiJobsDeclareReviewableTimeoutBudget(string $workflow, int $minutes): void
     {
         $path = dirname(__DIR__, 3) . '/.github/workflows/' . $workflow;

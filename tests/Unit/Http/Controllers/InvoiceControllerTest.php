@@ -30,6 +30,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
     use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
+    use PHPUnit\Framework\Attributes\DataProvider;
 
     final class InvoiceControllerTest extends TestCase
     {
@@ -361,9 +362,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         }
 
 
-        /**
-         * @dataProvider federalTaxBucketByNameProvider
-         */
+        #[DataProvider('federalTaxBucketByNameProvider')]
         public function testFederalTaxBucketFromNameMatchesExpectedBucket(string $name, ?string $expectedBucket): void
         {
             self::assertSame(
@@ -400,10 +399,10 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         }
 
         /**
-         * @dataProvider federalTaxReadinessProvider
          * @param list<array<string, mixed>> $items
          * @param list<string> $expectedMissing
          */
+        #[DataProvider('federalTaxReadinessProvider')]
         public function testFederalTaxReadinessForInvoice(array $items, bool $expectedReady, array $expectedMissing): void
         {
             ControllerIsolationState::$settings['nfse.enforce_item_federal_taxes'] = true;
