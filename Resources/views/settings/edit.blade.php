@@ -245,8 +245,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </section>
         </div>
 
-        <script id="nfse-company-admin-config" type="application/json">
-            @json([
+        @php
+            $nfseCompanyAdminConfig = [
                 'listUrl' => route('nfse.settings.company-profiles.index'),
                 'createUrl' => route('nfse.settings.company-profiles.store'),
                 'updateUrl' => route('nfse.settings.company-profiles.update', ['companyId' => '__COMPANY__']),
@@ -256,7 +256,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 'csrfToken' => csrf_token(),
                 'canUpdate' => $canUpdateProfiles,
                 'canDelete' => $canDeleteProfiles,
-            ])
+            ];
+        @endphp
+        <script id="nfse-company-admin-config" type="application/json">
+            @json($nfseCompanyAdminConfig)
         </script>
         <script src="{{ asset('modules/Nfse/Resources/assets/js/company-profile-admin.js?v=' . module_version('nfse')) }}" data-nfse-company-admin="true"></script>
     </x-slot>

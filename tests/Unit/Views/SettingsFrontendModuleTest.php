@@ -16,6 +16,8 @@ final class SettingsFrontendModuleTest extends TestCase
         $blade = (string) file_get_contents(dirname(__DIR__, 3) . '/Resources/views/settings/edit.blade.php');
         self::assertStringContainsString('<x-layouts.admin>', $blade);
         self::assertStringContainsString('id="nfse-company-admin-config"', $blade);
+        self::assertStringContainsString('@json($nfseCompanyAdminConfig)', $blade);
+        self::assertStringNotContainsString('@json([', $blade);
         self::assertStringContainsString('data-nfse-company-admin="true"', $blade);
         self::assertStringContainsString('id="profiles-body"', $blade);
         self::assertStringContainsString('id="vault-diagnostics"', $blade);
