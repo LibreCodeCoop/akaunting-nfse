@@ -36,6 +36,12 @@ the caller **must not** re-create local state or send a new first POST.
 `assertExisting()` is read-only, verifies the central mapping and refuses
 fenced members. This does not require SEFIN transport.
 
+The local Laravel reservation transaction uses **one attempt**, not a
+blind deadlock retry: the central transaction can commit before the local
+transaction fails. Any retry of the same operation then finds an existing
+central allocation and deliberately requires read-only recovery; it must
+not reconstruct the local reservation or initiate a fresh fiscal POST.
+
 The separate local `nfse_dps_series.last_number` is now only an observed
 high-water mark. It may jump due to allocations by peer installations.
 The local `nfse_dps_reservations` ledger and `EmissionAttemptJournal`

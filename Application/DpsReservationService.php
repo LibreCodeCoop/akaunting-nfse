@@ -182,7 +182,10 @@ final class DpsReservationService
                 'series' => $series,
                 'number' => (string) $next,
             ];
-        }, 3);
+        // Never retry this local transaction automatically: the central
+        // allocation can already be committed when a local deadlock occurs.
+        // Recovery must inspect the immutable central operation read-only.
+        }, 1);
     }
 
     /**
