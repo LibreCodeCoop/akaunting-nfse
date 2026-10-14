@@ -155,10 +155,34 @@ por CNPJ retornam HTTP 410 (`Gone`). O endpoint de inspeção PFX (somente
 leitura) permanece disponível. A configuração WebDAV usa as preferências
 nativas da empresa Akaunting ativa, separada dos parâmetros do emissor.
 
-A nova interface pertence à #420 e o consumo do perfil pelos emissores,
-filas, recuperação, ADN e WebDAV pertence à #421. **Não interprete um
-perfil `active` como autorização para transmitir NFS-e** enquanto
-esses consumidores não tiverem sido integrados e testados.
+A infraestrutura e os perfis fiscais são isolados por empresa. Um perfil
+`active` não autoriza transmissão por si só: emissão, recuperação e filas
+permanecem condicionadas à validação fiscal, certificado, Vault e identidade
+DPS conforme o fluxo e o ambiente em uso.
+
+## Associações fiscais de impostos existentes
+
+Em **Configurações NFS-e → Revisar associações fiscais dos impostos existentes**,
+o operador pode consultar os impostos nativos da empresa ativa e confirmar
+explicitamente identidade fiscal (ISSQN, PIS, COFINS, CSLL, IRRF, CP, IBS ou CBS),
+papel (devido, retido ou estimativa de transparência), vigência e referência
+documental. A ação exige permissão `update-nfse-settings`; leitura requer
+`read-nfse-settings`. Cada confirmação registra seu autor e não altera
+`taxes`, itens, valores financeiros nem documentos fiscais autorizados.
+
+Associações são revisões datadas: não podem sobrepor o período de outra
+classificação para o mesmo `tax_id`; repetir a mesma confirmação por seu
+autor é idempotente. Se uma vigência já confirmada precisar ser revista,
+a alteração deve seguir revisão administrativa explícita: esta interface
+não sobrescreve registros históricos. Escolha períodos finitos quando
+mudanças futuras forem esperadas.
+
+Uma associação comprova somente que um operador atribuiu identidade e papel
+ao imposto existente. Não comprova incidência, alíquota, base, retenção ou
+obrigação legal. Impostos homônimos não são mapeados automaticamente,
+e IBS/CBS não são inseridos nas linhas de faturas por conta da exigência
+documental na NFS-e. Para alteração da alíquota ou criação de imposto, use
+o cadastro nativo de impostos do Akaunting com orientação contábil.
 
 ## Dados fiscais e validação
 
@@ -170,11 +194,16 @@ emissão. A ausência de classificação não autoriza substituir códigos fisca
 por valores de outra empresa. Isso inclui os métodos administrativos de
 emissão manual, que não devem consultar `nfse.item_lista_servico`,
 `nfse.codigo_tributacao_nacional` nem `nfse.aliquota` descontinuados.
-A classificação dos impostos federais dos itens considera nomes e
-identificadores textuais configurados no Akaunting: PIS, COFINS, IRRF, CSLL e
-contribuição previdenciária. Use nomes explícitos, por exemplo `IRRF - Serviços`
-ou `cod:pis`; códigos numéricos isolados podem ser ambíguos.
-Confira o enquadramento tributário com o responsável fiscal.
+Para os impostos **existentes** no Akaunting, confirme em separado o
+vínculo fiscal por `company_id + tax_id`, papel e vigência, sem inferir
+identidade a partir de nome ou percentual. Uma associação confirmada
+não comprova a incidência, o cálculo ou a retenção legal na competência.
+
+Alguns caminhos legados de agregação ainda interpretam nomes textuais
+de impostos; **isso não constitui evidência tributária válida** e está
+sob revisão de #428/#429. Não altere nomes ou alíquotas para forçar
+uma classificação silenciosa. Confira o enquadramento com o responsável
+fiscal antes da transmissão.
 
 Na aba fiscal de cada empresa, selecione explicitamente a situação do prestador
 no Simples Nacional (não optante, MEI ou ME/EPP). Ausência ou código inválido
