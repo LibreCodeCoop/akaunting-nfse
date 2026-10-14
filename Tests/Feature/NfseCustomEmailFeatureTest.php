@@ -58,6 +58,27 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
         );
     }
 
+    public function testNotificationIssuerIdentityComesFromAuthorizedXmlNotLegacySettings(): void
+    {
+        $this->loginAs();
+        $invoice = Document::factory()->invoice()->create();
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '104',
+            'chave_acesso' => str_repeat('4', 50),
+            'status' => 'emitted',
+        ]);
+        $xml = file_get_contents(__DIR__ . '/../../tests/fixtures/nfse_exemplo.xml');
+        self::assertIsString($xml);
+        $receipt->payload()->create(['authorized_xml' => $xml]);
+
+        setting()->set(['nfse.cnpj_prestador' => '99999999000199']);
+        setting()->save();
+
+        $notification = new NfseIssued($invoice->fresh(['company']), $receipt, false, false);
+        self::assertSame('11222333000181', $notification->getTagsReplacement()[0]);
+    }
+
     public function testNativeMailerEnvelopesHavePrivateBccRecipientsWithoutPublicBccHeaders(): void
     {
         $this->loginAs();

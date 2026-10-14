@@ -311,19 +311,47 @@ class NfseIssued extends Notification
 
     protected function resolveCnpj(): string
     {
-        if (function_exists('setting')) {
-            try {
-                $providerCnpj = (string) setting('nfse.cnpj_prestador', '');
-
-                if ($providerCnpj !== '') {
-                    return $providerCnpj;
+        // A persisted authorization is an immutable record of the issuer,
+        // unlike the active worker's legacy fiscal settings.
+        try {
+            if (method_exists($this->receipt, 'payload')) {
+                $xml = $this->receipt->payload()->value('authorized_xml');
+                if (is_string($xml)) {
+                    $issuer = $this->issuerCnpjFromXml($xml);
+                    if ($issuer !== null) {
+                        return $issuer;
+                    }
                 }
-            } catch (\Throwable) {
-                // In isolated unit tests the setting container may not be bootstrapped.
             }
+        } catch (\Throwable) {
+            // Missing historical XML must not activate a legacy setting.
         }
 
         return (string) ($this->invoice->company?->tax_number ?? '');
+    }
+
+    protected function issuerCnpjFromXml(string $xml): ?string
+    {
+        if (trim($xml) === '' || preg_match('/<!DOCTYPE/i', $xml) === 1) {
+            return null;
+        }
+
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $document = new \DOMDocument();
+            if (!$document->loadXML($xml, LIBXML_NONET)) {
+                return null;
+            }
+            $xpath = new \DOMXPath($document);
+            $cnpj = preg_replace('/\D+/', '', trim((string) $xpath->evaluate(
+                "string((//*[local-name()='infNFSe']/*[local-name()='emit']/*[local-name()='CNPJ'])[1])",
+            ))) ?: '';
+
+            return preg_match('/^\d{14}$/D', $cnpj) === 1 ? $cnpj : null;
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
     }
 
     public function toMail(mixed $notifiable): MailMessage
@@ -392,7 +420,7 @@ class NfseIssued extends Notification
             }
         }
 
-        $danfsePath = $this->resolveArtifactPath('pdf', $this->receipt->danfse_webdav_path ?? null);
+        $danfsePath = $this->resolveArtifactPath($this->receipt->danfse_webdav_path ?? null);
 
         if ($this->attachDanfse && $danfsePath !== null) {
             try {
@@ -411,11 +439,11 @@ class NfseIssued extends Notification
             }
         }
 
-        $xmlPath = $this->resolveArtifactPath('xml', $this->receipt->xml_webdav_path ?? null);
+        $xmlPath = $this->resolveArtifactPath($this->receipt->xml_webdav_path ?? null);
 
         if ($this->attachXml && $xmlPath !== null) {
             try {
-            $content = $this->makeWebDavClient()->get($xmlPath);
+                $content = $this->makeWebDavClient()->get($xmlPath);
 
                 if ($content !== '') {
                     $nfseNumber = (string) ($this->receipt->nfse_number ?? '');
@@ -459,43 +487,13 @@ class NfseIssued extends Notification
         );
     }
 
-    protected function resolveArtifactPath(string $extension, mixed $persistedPath): ?string
+    protected function resolveArtifactPath(mixed $persistedPath): ?string
     {
-        if (is_string($persistedPath)) {
-            $normalizedPersistedPath = trim($persistedPath);
+        // Never guess a remote key for a historical receipt: companies with
+        // the same CNPJ may share a WebDAV server and access key.
+        $path = is_string($persistedPath) ? trim($persistedPath) : '';
 
-            if ($normalizedPersistedPath !== '') {
-                return $normalizedPersistedPath;
-            }
-        }
-
-        $issueDate = $this->resolveIssueDate();
-        $cnpj = preg_replace('/\D+/', '', $this->resolveCnpj());
-
-        $replacements = [
-            '{cnpj}' => is_string($cnpj) ? $cnpj : '',
-            '{year}' => $issueDate?->format('Y') ?? '',
-            '{month}' => $issueDate?->format('m') ?? '',
-            '{day}' => $issueDate?->format('d') ?? '',
-            '{invoice_number}' => (string) ($this->invoice->document_number ?? ''),
-            '{nfse_number}' => (string) ($this->receipt->nfse_number ?? ''),
-            '{chave_acesso}' => (string) ($this->receipt->chave_acesso ?? ''),
-        ];
-
-        $pathTemplate = trim($this->settingString('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'));
-        $filenameTemplate = trim($this->settingString('nfse.webdav_filename_template', '{chave_acesso}'));
-
-        $basePath = trim(strtr($pathTemplate, $replacements), " \t\n\r\0\x0B/");
-        $filenameBase = trim(strtr($filenameTemplate, $replacements));
-
-        if ($filenameBase === '') {
-            return null;
-        }
-
-        $filename = $filenameBase . '.' . trim($extension, '.');
-        $joinedPath = $basePath !== '' ? ($basePath . '/' . $filename) : $filename;
-
-        return trim(preg_replace('#/+#', '/', str_replace('\\\\', '/', $joinedPath)) ?? '');
+        return $path !== '' ? $path : null;
     }
 
     protected function settingString(string $key, string $default = ''): string

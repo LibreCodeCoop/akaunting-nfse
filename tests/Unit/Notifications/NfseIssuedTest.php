@@ -269,6 +269,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $notification = new NfseIssued($invoice, $receipt);
             $replacements = $notification->getTagsReplacement();
 
+            self::assertSame('12345678000199', $replacements[0]);
             self::assertContains('INV-123', $replacements);
             self::assertContains('9988', $replacements);
             self::assertContains('ACESSO-XYZ', $replacements);
@@ -549,9 +550,8 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
 
             $message = $notification->toMail($notifiable);
 
-            self::assertCount(2, $message->attachments);
-            self::assertContains('nfse/12345678000199/2026/04/15/CHAVE-XYZ.pdf', $notification->requestedPaths);
-            self::assertContains('nfse/12345678000199/2026/04/15/CHAVE-XYZ.xml', $notification->requestedPaths);
+            self::assertCount(0, $message->attachments);
+            self::assertSame([], $notification->requestedPaths, 'Missing persisted paths must not trigger guessed cross-company downloads.');
         }
 
         public function testToMailWorksAfterSerializationRoundTrip(): void

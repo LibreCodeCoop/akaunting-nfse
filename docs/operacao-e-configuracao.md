@@ -192,6 +192,9 @@ transmissão da NFS-e. Desativar o e-mail mantém a emissão fiscal sem
 notificação, independentemente de endereços preenchidos. Assunto, corpo
 e anexos seguem as preferências já existentes. Erros de notificação
 posteriores à autorização não exigem nova transmissão fiscal.
+Os anexos WebDAV enviados por e-mail utilizam apenas caminhos já gravados no
+recibo; não são inferidos de templates legados quando não há registro, evitando
+acesso a arquivos de outra empresa que possua CNPJ coincidente.
 
 ## Fluxos e documentos
 
