@@ -489,6 +489,43 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         self::assertSame(0, NfseCompanyProfile::query()->count());
     }
 
+    public function testMunicipalAttestationIsBoundToCertificateAndMunicipality(): void
+    {
+        $this->loginAs();
+        $companyId = (int) $this->company->id;
+        $creation = $this->creation($companyId);
+        $creation['fiscal_parameters']['provider_establishment_confirmed'] = '1';
+
+        $this->post(route('nfse.settings.company-profiles.store'), $creation)->assertCreated();
+        $profile = NfseCompanyProfile::query()->where('company_id', $companyId)->firstOrFail();
+        $fiscal = $profile->fiscal_parameters;
+
+        self::assertSame('1', $fiscal['provider_establishment_confirmed']);
+        self::assertSame(self::CNPJ, $fiscal['provider_establishment_confirmed_cnpj']);
+        self::assertSame('3304557', $fiscal['provider_establishment_confirmed_municipality']);
+        self::assertSame((string) auth()->id(), $fiscal['provider_establishment_confirmed_by']);
+        self::assertNotEmpty($fiscal['provider_establishment_confirmed_at']);
+
+        // A simultaneous municipality switch and checked checkbox cannot
+        // transfer an attestation to a new establishment.
+        $this->patch(route('nfse.settings.company-profiles.update', $companyId), [
+            'fiscal_parameters' => [
+                'municipio_ibge' => '3303302',
+                'provider_establishment_confirmed' => '1',
+            ],
+        ])->assertOk();
+        $fiscal = $profile->refresh()->fiscal_parameters;
+        self::assertSame('0', $fiscal['provider_establishment_confirmed']);
+        self::assertSame('', $fiscal['provider_establishment_confirmed_cnpj']);
+
+        $this->patch(route('nfse.settings.company-profiles.update', $companyId), [
+            'fiscal_parameters' => ['provider_establishment_confirmed' => '1'],
+        ])->assertOk();
+        $fiscal = $profile->refresh()->fiscal_parameters;
+        self::assertSame('1', $fiscal['provider_establishment_confirmed']);
+        self::assertSame('3303302', $fiscal['provider_establishment_confirmed_municipality']);
+    }
+
     /** @return array<string,mixed> */
     private function creation(int $companyId): array
     {
