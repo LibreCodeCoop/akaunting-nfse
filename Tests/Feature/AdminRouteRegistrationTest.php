@@ -22,6 +22,8 @@ final class AdminRouteRegistrationTest extends FeatureTestCase
             'dashboard' => ['nfse.dashboard.index', 'GET'],
             'settings edit' => ['nfse.settings.edit', 'GET'],
             'settings update' => ['nfse.settings.update', 'PATCH'],
+            'tax association list' => ['nfse.settings.tax-associations.index', 'GET'],
+            'tax association confirmation' => ['nfse.settings.tax-associations.store', 'POST'],
             'certificate upload' => ['nfse.certificate.upload', 'POST'],
             'certificate destroy' => ['nfse.certificate.destroy', 'DELETE'],
             'certificate parse' => ['nfse.certificate.parse', 'POST'],
@@ -50,6 +52,8 @@ final class AdminRouteRegistrationTest extends FeatureTestCase
         $permissions = [
             'nfse.settings.edit' => 'permission:read-nfse-settings',
             'nfse.settings.update' => 'permission:update-nfse-settings',
+            'nfse.settings.tax-associations.index' => 'permission:read-nfse-settings',
+            'nfse.settings.tax-associations.store' => 'permission:update-nfse-settings',
             'nfse.settings.vault' => 'permission:update-nfse-settings',
             'nfse.settings.fiscal' => 'permission:update-nfse-settings',
             'nfse.settings.federal' => 'permission:update-nfse-settings',

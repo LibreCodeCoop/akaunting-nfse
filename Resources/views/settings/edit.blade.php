@@ -18,6 +18,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <div>
                 <h1 class="text-xl font-semibold">{{ trans('nfse::general.settings.title') }}</h1>
                 <p class="mt-1 text-sm text-gray-600">A empresa do Akaunting continua sendo o cadastro principal. O perfil NFS-e apenas acrescenta certificado e parâmetros fiscais.</p>
+                @can('read-nfse-settings')
+                    <p class="mt-2 text-sm"><a class="underline" href="{{ route('nfse.settings.tax-associations.index') }}">Revisar associações fiscais dos impostos existentes</a></p>
+                @endcan
             </div>
 
             @if(session('success'))
