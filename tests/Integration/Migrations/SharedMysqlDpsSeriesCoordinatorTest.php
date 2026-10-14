@@ -391,6 +391,108 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
         }
     }
 
+    public function testCoordinatorWorksWithLeastPrivilegeMysqlCredentials(): void
+    {
+        $issuer = $this->issuer();
+        $this->registerSeries($issuer, 2);
+        $name = 'nfse_dps_test_worker';
+        $login = "'nfse_dps_test_worker'@'%'";
+        $this->admin->exec('DROP USER IF EXISTS ' . $login);
+        $this->admin->exec("CREATE USER " . $login . " IDENTIFIED BY 'synthetic-ci-coordinator-only'");
+
+        try {
+            $schema = '`' . $this->globalDatabase . '`.';
+            $this->admin->exec('GRANT SELECT ON ' . $schema . 'nfse_dps_coordination_series TO ' . $login);
+            $this->admin->exec('GRANT UPDATE (last_number) ON ' . $schema
+                . 'nfse_dps_coordination_series TO ' . $login);
+            $this->admin->exec('GRANT SELECT ON ' . $schema . 'nfse_dps_coordination_members TO ' . $login);
+            $this->admin->exec('GRANT SELECT, INSERT ON ' . $schema
+                . 'nfse_dps_coordination_allocations TO ' . $login);
+
+            $worker = new PDO(
+                'mysql:host=' . (getenv('NFSE_MIGRATION_TEST_HOST') ?: '127.0.0.1')
+                . ';port=' . (getenv('NFSE_MIGRATION_TEST_PORT') ?: '3306')
+                . ';dbname=' . $this->globalDatabase,
+                $name,
+                'synthetic-ci-coordinator-only',
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
+            );
+
+            $coordinator = $this->coordinator(self::INSTALL_A, 1, $worker);
+            $operation = $this->key('least-privileged');
+            self::assertSame(['number' => 1, 'fresh' => true], $coordinator->allocate(
+                $issuer,
+                2,
+                '00001',
+                self::REFERENCE,
+                $operation,
+            ));
+            $coordinator->assertExisting($issuer, 2, '00001', self::REFERENCE, $operation, 1);
+            self::assertSame(['number' => 1, 'fresh' => false], $coordinator->allocate(
+                $issuer,
+                2,
+                '00001',
+                self::REFERENCE,
+                $operation,
+            ));
+
+            try {
+                $worker->exec("UPDATE nfse_dps_coordination_members SET status = 'active'");
+                self::fail('Allocator credentials must not be able to mutate member authority.');
+            } catch (PDOException $exception) {
+                self::assertContains((int) ($exception->errorInfo[1] ?? 0), [1142, 1143]);
+            }
+
+            $worker = null;
+        } finally {
+            $this->admin->exec('DROP USER IF EXISTS ' . $login);
+        }
+    }
+
+    public function testMemberRevocationWaitsForAnInFlightSharedLock(): void
+    {
+        $issuer = $this->issuer();
+        $this->registerSeries($issuer, 2);
+        $another = $this->connect($this->globalDatabase);
+        $another->exec('SET SESSION innodb_lock_wait_timeout = 1');
+
+        $this->global->beginTransaction();
+        try {
+            self::assertNotFalse($this->global->query(
+                'SELECT generation FROM nfse_dps_coordination_members '
+                . "WHERE installation_id = '" . self::INSTALL_A . "' FOR SHARE",
+            )->fetch());
+            $another->beginTransaction();
+            try {
+                $another->exec("UPDATE nfse_dps_coordination_members SET status = 'revoked' "
+                    . "WHERE installation_id = '" . self::INSTALL_A . "'");
+                self::fail('Revocation bypassed an in-flight authorization lock.');
+            } catch (PDOException $exception) {
+                self::assertSame(1205, (int) ($exception->errorInfo[1] ?? 0));
+            } finally {
+                if ($another->inTransaction()) {
+                    $another->rollBack();
+                }
+            }
+            $this->global->commit();
+        } finally {
+            if ($this->global->inTransaction()) {
+                $this->global->rollBack();
+            }
+        }
+
+        $another->exec("UPDATE nfse_dps_coordination_members SET status = 'revoked' "
+            . "WHERE installation_id = '" . self::INSTALL_A . "'");
+        $this->expectException(\LogicException::class);
+        $this->coordinator(self::INSTALL_A)->allocate(
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $this->key('revoked-once-lock-released'),
+        );
+    }
+
     private function coordinator(string $installation, int $generation = 1, ?PDO $pdo = null): SharedMysqlDpsSeriesCoordinator
     {
         return new SharedMysqlDpsSeriesCoordinator($pdo ?? $this->global, $installation, $generation);

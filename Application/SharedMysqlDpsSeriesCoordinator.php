@@ -150,11 +150,12 @@ final class SharedMysqlDpsSeriesCoordinator implements DpsSeriesCoordinator
             throw new \LogicException('Fiscal series has no valid active central authority or starting-number evidence.');
         }
 
-        // This lock serializes generation revocation with number reservation.
-        // A stale process cannot allocate after revocation commits.
+        // A shared read lock blocks concurrent member revocation until the
+        // allocation commits. A SELECT-only privilege is sufficient and
+        // a stale process cannot allocate after revocation commits.
         $member = $this->queryOne(
             'SELECT generation, status FROM nfse_dps_coordination_members '
-            . 'WHERE series_id = :series_id AND installation_id = :installation_id FOR UPDATE',
+            . 'WHERE series_id = :series_id AND installation_id = :installation_id FOR SHARE',
             ['series_id' => (int) $row['id'], 'installation_id' => $this->installationId],
         );
 
@@ -171,7 +172,7 @@ final class SharedMysqlDpsSeriesCoordinator implements DpsSeriesCoordinator
     {
         return $this->queryOne(
             'SELECT series_id, number FROM nfse_dps_coordination_allocations '
-            . 'WHERE installation_id = :installation_id AND operation_key = :operation_key FOR UPDATE',
+            . 'WHERE installation_id = :installation_id AND operation_key = :operation_key FOR SHARE',
             ['installation_id' => $this->installationId, 'operation_key' => $operationKey],
         );
     }

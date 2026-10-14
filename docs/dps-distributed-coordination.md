@@ -90,10 +90,11 @@ Akaunting installation cannot enable this coordinator.
    global fiscal identity, `coordination_mode=shared_database` and
    reference; it **does not itself constitute proof**. Provision/install
    adapters only in #421/#429 after the first-POST claim is implemented.
-7. Use least-privilege MySQL credentials: allocation workers need SELECT,
-   `UPDATE(last_number)` on central series, SELECT on members and
-   SELECT/INSERT on allocations; no DELETE, DROP, member UPDATE, series
-   status/evidence UPDATE or DDL. Separate administrative credentials for
+7. Use least-privilege MySQL credentials: allocation workers need SELECT and column-level `UPDATE(last_number)` on central
+   series; SELECT only on members; SELECT/INSERT on allocations. Shared
+   locking reads on member/allocation rows avoid broad UPDATE privileges.
+   No DELETE, DROP, member UPDATE, series status/evidence UPDATE or DDL.
+   Validate these grants using the least-privilege MySQL integration test. Separate administrative credentials for
    provisioning, revocation and exceptional reconstruction. Restrict
    network access and encrypt transport. Monitor ledger consistency and
    lost connectivity without logging credentials or taxpayer PII.
