@@ -13,6 +13,8 @@ use App\Models\Document\Document;
 use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
 use Modules\Nfse\Application\BulkEmissionDispatcher;
 use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Models\NfseCompanyProfile;
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Tests\Feature\FeatureTestCase;
 
 final class BulkEmissionDispatchControllerTest extends FeatureTestCase
@@ -20,6 +22,7 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
     public function testSelectedInvoicesArePreflightedPersistedAndOnlyEligibleUnitIsDispatched(): void
     {
         $this->loginAs();
+        $this->createCompanyFiscalProfile();
         setting()->set(['nfse.opcao_simples_nacional' => '1']);
         setting()->save();
 
@@ -73,6 +76,7 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
     public function testNativeAkauntingBulkActionDispatchesSelectedInvoices(): void
     {
         $this->loginAs();
+        $this->createCompanyFiscalProfile();
         setting()->set(['nfse.opcao_simples_nacional' => '1']);
         setting()->save();
 
@@ -123,6 +127,22 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
             ->assertSessionHas('error');
 
         $this->assertDatabaseCount('nfse_bulk_emission_runs', 0);
+    }
+
+    private function createCompanyFiscalProfile(): void
+    {
+        NfseCompanyProfile::query()->create([
+            'company_id' => (int) $this->company->id,
+            'status' => 'active',
+            'certificate_ref' => NfseCompanyCertificatePath::newReference(),
+            'certificate_cnpj' => '11222333000181',
+            'certificate_valid_from' => time() - 3600,
+            'certificate_valid_to' => time() + 3600,
+            'fiscal_parameters' => [
+                'opcao_simples_nacional' => '1',
+                'ibs_cbs_enabled' => false,
+            ],
+        ]);
     }
 
     private function invoiceWithProfile(string $service, string $national, string $total): Document
