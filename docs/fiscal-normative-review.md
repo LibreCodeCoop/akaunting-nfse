@@ -27,6 +27,7 @@ oráculo independente. CI verde não substitui deliberação profissional.
 | NF-ISS-02 | E0176–E0178 com regime especial e competência específica | Conferir regra literal e parâmetros municipais da versão vigente | #424 |
 | NF-COOP-01 | Associado não regular fornece serviço à cooperativa | `unverifiable` até conciliação normativa; nunca zero automático | #427 |
 | NF-COOP-02 | Opção não comprovada ou tomador cooperativo não verificado | `unverifiable`; não aplicar benefício | #427 |
+| NF-COOP-03 | Associado não regular: distinguir IBS e CBS na operação de fornecimento à cooperativa | Registrar separadamente a dúvida legal de cada tributo; não conferir alíquota zero por analogia | #427 |
 | NF-RET-01 | Tributos PIS/COFINS próprios sem retenção real | Não construir `vRetCSLL` a partir de tributo devido | #428 |
 | NF-RET-02 | Retenção configurada sem valores confirmados | Não inventar retenção nem converter ausência em zero | #428 |
 | NF-TEMP-01 | Fato gerador anterior à obrigação e transmissão posterior | Usar data legalmente relevante; não data de POST | #361 |
@@ -48,6 +49,8 @@ oráculo independente. CI verde não substitui deliberação profissional.
   https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html
 - Decreto 12.955/2026 consolidado (**CBS**, não extensão automática ao IBS):
   https://www2.camara.leg.br/legin/fed/decret/2026/decreto-12955-29-abril-2026-799019-normaatualizada-pe.html
+- Resolução CGIBS 6/2026, regulamentação do **IBS**, arts. 391–393:
+  https://www.cgibs.gov.br/upload/arquivos/202604/30084927-res-cgibs-n-6-30-abr-2026-regulamenta-o-ibs.pdf
 - Comunicado CGNFS-e sobre 2026:
   https://www.gov.br/nfse/pt-br/noticias/cgnfs-e-orienta-sobre-os-prazos-para%20destaque-de-ibs-cbs-nas-notas-fiscais-de-servico
 
@@ -57,6 +60,23 @@ para uma cópia de Anexo I e linhas E0177=234, E0176=235, E0178=236
 em `xl/worksheets/sheet5.xml`. **Ainda é necessário recuperar novamente
 o binário do endereço governamental e confrontar o hash e o texto integral**.
 Não usar a versão antiga de E0176 como restrição municipal universal.
+
+## Controvérsia cooperativa a ser revisada
+
+Para o fornecimento de serviço do associado à cooperativa, a LC 214/2025,
+art. 271, I, não explicita no próprio inciso uma exigência de regime regular
+do associado. Já o art. 392, II, do Decreto 12.955/2026 (CBS) e o art. 392,
+II, da Resolução CGIBS 6/2026 (IBS) contêm exclusões relativas a associados
+não sujeitos ao regime regular. Isso requer análise **individual** de IBS e
+CBS, da hierarquia normativa, da hipótese concreta e de eventuais alterações
+normativas na data do fato gerador; não basta citar apenas o decreto federal.
+
+O avaliador existente retorna `unverifiable` nessa hipótese e não aplica
+alíquota zero automaticamente. A revisão jurídico-contábil deve registrar,
+para **cada tributo**, qual dispositivo prevalece, por quê, qual condição é
+necessária, quais evidências comprovam a condição e qual consequência haveria
+para uma operação suportada. Até esse parecer, a decisão permanece
+inconclusiva. O documento não contém parecer assinado.
 
 ## Critérios para homologação
 
