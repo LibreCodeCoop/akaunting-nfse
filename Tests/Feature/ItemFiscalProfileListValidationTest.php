@@ -11,9 +11,9 @@ use App\Models\Common\Item;
 use App\Models\Common\ItemTax;
 use App\Models\Setting\Tax;
 use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Models\MunicipalParameterSnapshot;
 use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Support\NfseCompanyCertificatePath;
-use Modules\Nfse\Models\MunicipalParameterSnapshot;
 use Tests\Feature\FeatureTestCase;
 
 final class ItemFiscalProfileListValidationTest extends FeatureTestCase
