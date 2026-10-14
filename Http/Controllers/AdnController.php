@@ -325,21 +325,26 @@ class AdnController extends Controller
             ], 422);
         }
 
-        // Request::query() evaluates its default argument eagerly. Resolve
-        // the owning company only when a CNPJ was not supplied.
         $cnpjInput = $request->query('cnpj');
-        if ($cnpjInput === null) {
-            $companyId = function_exists('company_id') ? (int) company_id() : 0;
-            $cnpjInput = (new NfseCompanyFiscalSettings())
-                ->value($companyId, 'nfse.cnpj_prestador', '');
-        }
-
         $cnpj = strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $cnpjInput) ?? '');
 
         if ($cnpj !== '' && preg_match('/^[A-Z0-9]{12}\\d{2}$/', $cnpj) !== 1) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.adn.invalid_cnpj'),
             ], 422);
+        }
+
+        // The optional ADN filter must never bypass the company-owned
+        // certificate requirement. Without an active profile, fail before
+        // constructing a client or making a remote request.
+        try {
+            $issuerCnpj = $this->companyCnpjForAdn();
+        } catch (\DomainException) {
+            return $this->jsonResponse(['reason' => 'company_profile_unavailable'], 409);
+        }
+
+        if ($cnpjInput === null) {
+            $cnpj = $issuerCnpj;
         }
 
         $loteRaw = strtolower(trim((string) $request->query('lote', '1')));
@@ -354,6 +359,13 @@ class AdnController extends Controller
                 'message' => trans('nfse::general.adn.distribution_query_failed'),
             ], 502);
         }
+    }
+
+    protected function companyCnpjForAdn(): string
+    {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+
+        return (string) (new NfseCompanyFiscalSettings())->value($companyId, 'nfse.cnpj_prestador', '');
     }
 
     public function events(Invoice $invoice): JsonResponse

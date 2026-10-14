@@ -20,6 +20,11 @@ final class AdnControllerTest extends TestCase
             /** @var array{nsu:int, cnpj:?string, lote:bool}|null */
             public ?array $received = null;
 
+            protected function companyCnpjForAdn(): string
+            {
+                return '11222333000181';
+            }
+
             protected function fetchAdnDistribution(int $nsu, ?string $cnpj, bool $lote): array
             {
                 $this->received = [

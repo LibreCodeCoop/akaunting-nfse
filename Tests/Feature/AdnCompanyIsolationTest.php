@@ -14,6 +14,22 @@ use Tests\Feature\FeatureTestCase;
 
 final class AdnCompanyIsolationTest extends FeatureTestCase
 {
+    public function testDistributionWithoutCompanyProfileFailsClosedEvenWithExplicitCnpj(): void
+    {
+        $this->loginAs();
+
+        $this->get(route('nfse.adn.distribution', ['nsu' => 0]))
+            ->assertStatus(409)
+            ->assertJsonPath('reason', 'company_profile_unavailable');
+
+        $this->get(route('nfse.adn.distribution', [
+            'nsu' => 0,
+            'cnpj' => '11222333000181',
+        ]))
+            ->assertStatus(409)
+            ->assertJsonPath('reason', 'company_profile_unavailable');
+    }
+
     public function testReconciliationNeverMatchesReceiptFromAnotherCompany(): void
     {
         $this->loginAs();
