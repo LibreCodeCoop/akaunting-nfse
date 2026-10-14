@@ -14,7 +14,7 @@ use Modules\Nfse\Application\DpsFiscalIssuer;
 use Modules\Nfse\Application\DpsOperationKey;
 use Modules\Nfse\Application\DpsReservationAuthorizer;
 use Modules\Nfse\Application\DpsReservationService;
-use Modules\Nfse\Application\DpsSeriesCoordinationVerifier;
+use Modules\Nfse\Application\DpsSeriesCoordinator;
 use Tests\Feature\FeatureTestCase;
 
 /**
@@ -401,18 +401,42 @@ final class DpsReservationServiceTest extends FeatureTestCase
             }
         };
 
-        $verifier = $withSyntheticProof ? new class implements DpsSeriesCoordinationVerifier {
-            public function assertCanReserve(
-                DpsFiscalIssuer $issuer, int $environment, string $series,
-                string $mode, string $reference, int $lastNumber,
-            ): void {
-                if ($mode !== 'shared_database' || $reference !== 'synthetic-feature-test-shared-db-only') {
+        // Deliberately local and synthetic. The real coordinator's atomic
+        // allocation and fencing are tested against a shared MySQL primary.
+        $coordinator = $withSyntheticProof ? new class implements DpsSeriesCoordinator {
+            private function assertScope(string $reference): void
+            {
+                if ($reference !== 'synthetic-feature-test-shared-db-only') {
                     throw new \LogicException('Synthetic test proof invalid.');
                 }
             }
+
+            public function allocate(
+                DpsFiscalIssuer $issuer, int $environment, string $series,
+                string $reference, string $operationKey,
+            ): array {
+                $this->assertScope($reference);
+
+                $last = DB::table('nfse_dps_series')
+                    ->where('issuer_municipality', $issuer->municipality)
+                    ->where('issuer_registration_type', $issuer->registrationType)
+                    ->where('issuer_registration', $issuer->registration)
+                    ->where('environment', $environment)
+                    ->where('series', $series)
+                    ->value('last_number');
+
+                return ['number' => ((int) $last) + 1, 'fresh' => true];
+            }
+
+            public function assertExisting(
+                DpsFiscalIssuer $issuer, int $environment, string $series,
+                string $reference, string $operationKey, int $number,
+            ): void {
+                $this->assertScope($reference);
+            }
         } : null;
 
-        return new DpsReservationService($authorizer, $verifier);
+        return new DpsReservationService($authorizer, $coordinator);
     }
 
     private function invoice(): Document

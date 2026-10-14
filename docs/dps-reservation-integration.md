@@ -116,37 +116,38 @@ installations may each allocate the same fiscal identity even if both write
 identical `coordination_reference` strings. There is no cross-installation
 coordinator or verified exclusive-series registry in this kernel.
 
-As of #476, the allocator also requires an independently supplied
-`DpsSeriesCoordinationVerifier` for each reservation call. Its default
-construction has **no** verifier, so a locally active row, a nonempty
-`coordination_reference`, or a copied database cannot allocate a new DPS.
-A reservation replay through the allocator is also denied without current
-proof; recovery of an already transmitted identity must be **read-only**
-through the existing authorized journal, never treated as a new first POST.
-The feature-test verifier is synthetic and must not be deployed.
+As of the shared-MySQL coordinator implementation, an eligible deployment
+must explicitly inject a **real atomic** `DpsSeriesCoordinator`; the default is
+null and production reservations remain blocked. The old check-only
+`DpsSeriesCoordinationVerifier` has been removed. The coordinator's
+`allocate()` holds the global fiscal-series row and the installation member
+row under one MySQL transaction, allocates the next number and durably records
+the installation-scoped operation before commit. A locally active row or
+`coordination_reference` is never sufficient. No mock, local-only fallback
+or allow-all verifier is installed in the production provider.
 
-A production verifier must be independent of the local claims and bind its
-assertion to the *exact* issuer municipality, registration type and value,
-environment, normalized series, coordination reference and high-water mark.
-Its durable evidence must demonstrate:
-- all allocating installations really use the same atomic counter **or**
-  each disjoint series has one enforceable exclusive owner;
-- no other live/stale process, restored backup or external issuer can use the
-  same series while that owner allocates;
-- the initial number exceeds previously reserved/transmitted identifiers,
-  including numbers not locally recorded, with no automatic rejected-number
-  recycling;
-- revocation/fencing and loss of authority fail closed before activation
-  and before the final first-POST boundary.
+The shared coordinator does **not** make its remote transaction atomic with
+the local Akaunting commit. If it commits but the local insert fails, the
+durable central operation key survives and a retry is deliberately blocked:
+`fresh=false` requires **read-only reconciliation**, not recreating the
+missing local reservation. Existing local reservations require an exact,
+read-only `assertExisting()` match against the central ledger. Local
+`last_number` records only a per-installation observed high-water mark;
+other installations may consume intervening numbers.
 
-**A check-only verifier is not an implementation of distributed exclusion.**
-In particular, a finite-lived assertion followed by an unguarded local
-increment has a time-of-check/time-of-use race. A future provider must
-demonstrate an atomic allocation/fencing transaction and durable ownership
-under split brain, crash, rotation and restore. Merely injecting a verifier
-that returns normally, or testing two connections to one database, does
-**not** satisfy this deployment gate. No such production provider is shipped
-here.
+Fencing generations are checked and locked together with each atomic
+allocation. A revocation transaction can fence a stale member before it
+allocates again. This **does not yet** fence a previously reserved DPS at the
+final first-POST boundary: #429 must integrate an authoritative, irreversible
+first-transmission claim with #421's company context and the existing
+`EmissionAttemptJournal`; do not add another journal.
+
+See [the deployment architecture and failure matrix](dps-distributed-coordination.md)
+and [external SQL schema](sql/dps-coordination-schema.sql). Provisioning,
+authentic series ownership, disjoint external emitters, up-to-date attested
+floor, durable coordinator recovery/failover and #429's last-POST gate all
+remain **operational prerequisites**, not features inferred from central
+table existence. No production series is automatically activated.
 
 The MySQL regression test `testTwoIsolatedMysqlDatabasesCanAllocateIdenticalNationalDpsIdentity`
 reproduces the counterexample: independent schemas with identical
