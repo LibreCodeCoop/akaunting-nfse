@@ -30,6 +30,7 @@ use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
 use Modules\Nfse\Support\ContactFiscalProfileStore;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\ItemMunicipalCompanyContext;
 use Modules\Nfse\Support\ItemMunicipalValidationResolver;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\NfseCompanyCertificateStore;
@@ -434,6 +435,10 @@ class Main extends Provider
             }
 
             $companyId = function_exists('company_id') ? (int) company_id() : 0;
+            if ($companyId <= 0) {
+                return;
+            }
+
             $placeholders = implode(',', array_fill(0, count($itemIds), '?'));
             $bindings = $itemIds;
             $sql = 'SELECT item_id, item_lista_servico, codigo_tributacao_nacional'
@@ -449,6 +454,7 @@ class Main extends Provider
             $validator = new ItemFiscalProfileValidator();
             $summary = new ItemFiscalValidationSummary();
             $municipalResolver = new ItemMunicipalValidationResolver();
+            $municipalContext = (new ItemMunicipalCompanyContext())->forCompany($companyId);
             $municipalByItem = $municipalResolver->resolveMany(
                 itemNationalCodes: array_reduce(
                     $itemIds,
@@ -464,8 +470,8 @@ class Main extends Provider
                     [],
                 ),
                 companyId: $companyId,
-                municipioIbge: trim((string) setting('nfse.municipio_ibge', '')),
-                sandboxMode: filter_var(setting('nfse.sandbox_mode', true), FILTER_VALIDATE_BOOL),
+                municipioIbge: $municipalContext['municipio_ibge'],
+                sandboxMode: $municipalContext['sandbox_mode'],
             );
             $validation = [];
 
@@ -581,12 +587,13 @@ class Main extends Provider
             );
 
             if ($itemId > 0 && $companyId > 0 && is_object($profile)) {
+                $municipalContext = (new ItemMunicipalCompanyContext())->forCompany($companyId);
                 $municipal = (new ItemMunicipalValidationResolver())->resolve(
                     itemId: $itemId,
                     companyId: $companyId,
                     nationalCode: (string) ($profile->codigo_tributacao_nacional ?? ''),
-                    municipioIbge: trim((string) setting('nfse.municipio_ibge', '')),
-                    sandboxMode: filter_var(setting('nfse.sandbox_mode', true), FILTER_VALIDATE_BOOL),
+                    municipioIbge: $municipalContext['municipio_ibge'],
+                    sandboxMode: $municipalContext['sandbox_mode'],
                 );
                 $validation = (new ItemFiscalValidationSummary())->combine($validation, $municipal);
             }
