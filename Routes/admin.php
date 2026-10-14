@@ -10,6 +10,7 @@ use Modules\Nfse\Http\Controllers\AdnController;
 use Modules\Nfse\Http\Controllers\BulkEmissionController;
 use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\CompanyProfileController;
+use Modules\Nfse\Http\Controllers\DeprecatedFiscalConfigurationController;
 use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
@@ -24,15 +25,15 @@ Route::admin('nfse', function () {
     Route::group(['prefix' => 'settings', 'as' => 'settings.'], function () {
         Route::get('/', [SettingsController::class, 'edit'])
             ->middleware('permission:read-nfse-settings')->name('edit');
-        Route::patch('/', [SettingsController::class, 'update'])
+        Route::patch('/', DeprecatedFiscalConfigurationController::class)
             ->middleware('permission:update-nfse-settings')->name('update');
         Route::patch('/vault', [SettingsController::class, 'updateVault'])
             ->middleware('permission:update-nfse-settings')->name('vault');
         Route::post('/vault/diagnostics', [SettingsController::class, 'diagnoseVault'])
             ->middleware('permission:read-nfse-settings')->name('vault.diagnostics');
-        Route::patch('/fiscal', [SettingsController::class, 'updateFiscal'])
+        Route::patch('/fiscal', DeprecatedFiscalConfigurationController::class)
             ->middleware('permission:update-nfse-settings')->name('fiscal');
-        Route::patch('/federal', [SettingsController::class, 'updateFederal'])
+        Route::patch('/federal', DeprecatedFiscalConfigurationController::class)
             ->middleware('permission:update-nfse-settings')->name('federal');
         Route::get('/approximate-taxes', [SettingsController::class, 'approximateTaxes'])
             ->middleware('permission:read-nfse-settings')->name('approximate-taxes');
@@ -62,11 +63,11 @@ Route::admin('nfse', function () {
     Route::get('municipal-parameters', [SettingsController::class, 'municipalParameters'])->name('municipal-parameters');
 
     // Certificate management
-    Route::post('certificate', [CertificateController::class, 'upload'])
+    Route::post('certificate', DeprecatedFiscalConfigurationController::class)
         ->middleware('permission:update-nfse-settings')->name('certificate.upload');
     Route::post('certificate/parse', [CertificateController::class, 'parsePfx'])
         ->middleware('permission:update-nfse-settings')->name('certificate.parse');
-    Route::delete('certificate', [CertificateController::class, 'destroy'])
+    Route::delete('certificate', DeprecatedFiscalConfigurationController::class)
         ->middleware('permission:delete-nfse-settings')->name('certificate.destroy');
 
     // ADN contributor distribution

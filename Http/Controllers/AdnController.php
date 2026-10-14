@@ -21,6 +21,7 @@ use Modules\Nfse\Application\AdnAccountingPreview;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\AdnDistributionData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\AdnClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlSignatureVerifier;
@@ -30,8 +31,19 @@ class AdnController extends Controller
     public function index(): \Illuminate\View\View
     {
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $issuerCnpj = '';
+        if ($companyId > 0) {
+            try {
+                $issuerCnpj = (string) (new NfseCompanyFiscalSettings())->value(
+                    $companyId, 'nfse.cnpj_prestador', '',
+                );
+            } catch (\DomainException) {
+                // An unconfigured company never displays an unrelated issuer.
+            }
+        }
 
         return view('nfse::adn.index', [
+            'issuerCnpj' => $issuerCnpj,
             'reviewDocuments' => $this->accountingReviewQueue(),
             'reviewVendors' => Contact::query()
                 ->vendor()
@@ -316,7 +328,7 @@ class AdnController extends Controller
         $cnpjInput = $request->query('cnpj');
         if ($cnpjInput === null) {
             $companyId = function_exists('company_id') ? (int) company_id() : 0;
-            $cnpjInput = (new \Modules\Nfse\Support\NfseCompanyFiscalSettings())
+            $cnpjInput = (new NfseCompanyFiscalSettings())
                 ->value($companyId, 'nfse.cnpj_prestador', '');
         }
 
