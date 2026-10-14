@@ -228,6 +228,30 @@ ambíguo deve preservar sua DPS para reconciliação exclusivamente por leitura,
 sem retransmissão automática. O número autorizado da NFS-e nunca é alterado
 por essa política. Consulte o ADR 0003 e o épico #423 antes da ativação.
 
+## Revisão operacional de faturas no fechamento
+
+Em **NFS-e → Fechamento**, os totais fiscais e a exportação CSV existentes
+continuam calculados exclusivamente a partir de recibos e snapshots de XML
+autorizado. Uma seção separada apresenta faturas comerciais do mês informado,
+selecionadas pelo campo financeiro `issued_at`, em páginas de 30 registros.
+
+A revisão indica documento fiscal não vinculado, resultado em recuperação,
+documentos cancelados que exigem revisão, grupos parcialmente vinculados ou
+documento autorizado vinculado. A data financeira não comprova o fato gerador
+nem o prazo de emissão. Nenhum desses estados declara atraso, dispensa,
+regularidade jurídica ou omissão fiscal. Nota emitida externamente ainda
+não vinculada precisa ser conciliada antes de qualquer nova transmissão.
+A consulta não envia DPS, não corrige valores e não modifica o histórico.
+
+Atraso somente poderia ser declarado se a operação, o fato gerador e sua
+data, a regra vigente e seu prazo, bem como a ausência de documento válido
+estivessem comprovados. A DPS nacional segue o prazo de conversão previsto
+na legislação municipal aplicável, que não pode ser presumido com base em
+regras antigas de RPS ou nas datas documentais da reforma IBS/CBS.
+
+Acesso ao fechamento/CSV requer empresa ativa e a permissão
+`read-sales-invoices`.
+
 ## Atualização e testes
 
 Siga [Atualização do runtime nfse-php](nfse-php-runtime-upgrade.md).

@@ -9,6 +9,7 @@ namespace Modules\Nfse\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Modules\Nfse\Application\CommercialFiscalReviewReport;
 use Modules\Nfse\Application\CompetenceClosingReport;
 use Modules\Nfse\Models\NfseReceipt;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -19,10 +20,12 @@ final class ClosingController extends Controller
     {
         $competence = $this->competence($request);
         $closing = $report->build($this->receipts($competence));
+        $commercialReview = (new CommercialFiscalReviewReport())->forInvoiceMonth((int) company_id(), $competence);
 
         return view('nfse::closing.index', [
             'competence' => $competence,
             'closing' => $closing,
+            'commercialReview' => $commercialReview,
         ]);
     }
 
