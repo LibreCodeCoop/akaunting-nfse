@@ -11,6 +11,7 @@ use App\Models\Document\Document as Invoice;
 use Modules\Nfse\Support\InvoiceAutomaticTakerEligibility;
 use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 
 /**
  * Determines whether an Akaunting invoice can be emitted automatically
@@ -84,7 +85,13 @@ final class AutomaticInvoiceEmissionPreflight
         }
 
         $group = $remaining[0];
-        $settings ??= $this->nfseSettings();
+        if ($settings === null) {
+            try {
+                $settings = (new NfseCompanyFiscalSettings())->all((int) ($invoice->company_id ?? 0));
+            } catch (\DomainException) {
+                return $this->blocked('company_profile_unavailable');
+            }
+        }
         $simples = SimplesOptionCode::observed($settings['opcao_simples_nacional'] ?? null);
         if ($simples === null) {
             return $this->blocked('simples_option_unverifiable', ['opcao_simples_nacional']);
@@ -193,18 +200,6 @@ final class AutomaticInvoiceEmissionPreflight
         );
 
         return (new FederalTaxReadiness())->evaluate($snapshot, $required);
-    }
-
-    /** @return array<string,mixed> */
-    private function nfseSettings(): array
-    {
-        if (!function_exists('setting')) {
-            return [];
-        }
-
-        $settings = \setting('nfse', []);
-
-        return is_array($settings) ? $settings : [];
     }
 
     /**
