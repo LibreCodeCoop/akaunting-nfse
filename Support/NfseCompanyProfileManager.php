@@ -38,6 +38,7 @@ final class NfseCompanyProfileManager
     private function createLocked(int $companyId, string $pfx, string $password, array $fiscal): NfseCompanyProfile
     {
         $details = $this->validatedCertificate($companyId, $pfx, $password);
+        $fiscal = $this->attestedFiscalParameters([], $fiscal, (string) $details['cnpj']);
         $ref = NfseCompanyCertificatePath::newReference();
         $this->certificates->assertOperational($companyId, $ref);
 
@@ -86,7 +87,9 @@ final class NfseCompanyProfileManager
             return DB::transaction(function () use ($companyId, $fiscal): NfseCompanyProfile {
                 $profile = $this->lockedProfile($companyId);
                 $this->assertEditable($profile, $companyId);
-                $profile->update(['fiscal_parameters' => array_replace($profile->fiscal_parameters ?? [], $fiscal)]);
+                $profile->update(['fiscal_parameters' => $this->attestedFiscalParameters(
+                    $profile->fiscal_parameters ?? [], $fiscal, (string) $profile->certificate_cnpj,
+                )]);
 
                 return $profile->refresh();
             });
@@ -118,7 +121,9 @@ final class NfseCompanyProfileManager
 
                 $previous = $locked->certificate_ref;
                 $this->pending->assertNone($companyId);
-                $this->applyCertificate($locked, $ref, $details, array_replace($locked->fiscal_parameters ?? [], $fiscal));
+                $this->applyCertificate($locked, $ref, $details, $this->attestedFiscalParameters(
+                    $locked->fiscal_parameters ?? [], $fiscal, (string) $details['cnpj'],
+                ));
 
                 if (is_string($previous) && $previous !== '') {
                     DB::table('nfse_company_certificate_retirements')->insertOrIgnore([
@@ -197,6 +202,56 @@ final class NfseCompanyProfileManager
         }
 
         $this->retireOldCertificates($companyId);
+    }
+
+    /**
+     * Municipal establishment facts are always bound to a certificate CNPJ,
+     * the asserted IBGE municipality and an authenticated operator.
+     *
+     * @param array<string,mixed> $previous
+     * @param array<string,mixed> $changes
+     * @return array<string,mixed>
+     */
+    private function attestedFiscalParameters(array $previous, array $changes, string $cnpj): array
+    {
+        $fiscal = array_replace($previous, $changes);
+        $municipality = trim((string) ($fiscal['municipio_ibge'] ?? ''));
+        $oldMunicipality = trim((string) ($previous['municipio_ibge'] ?? ''));
+        $identityChanged = $previous !== [] && $municipality !== $oldMunicipality;
+        $wasConfirmed = filter_var(
+            $previous['provider_establishment_confirmed'] ?? false, FILTER_VALIDATE_BOOL,
+        );
+        $previousBindingValid = $wasConfirmed
+            && (string) ($previous['provider_establishment_confirmed_cnpj'] ?? '') === $cnpj
+            && (string) ($previous['provider_establishment_confirmed_municipality'] ?? '') === $municipality
+            && trim((string) ($previous['provider_establishment_confirmed_by'] ?? '')) !== ''
+            && trim((string) ($previous['provider_establishment_confirmed_at'] ?? '')) !== '';
+        $requested = filter_var(
+            $fiscal['provider_establishment_confirmed'] ?? false, FILTER_VALIDATE_BOOL,
+        );
+        $actor = function_exists('auth') ? (int) (auth()->id() ?? 0) : 0;
+        $confirmed = $requested && !$identityChanged
+            && (!$wasConfirmed || $previousBindingValid)
+            && $actor > 0
+            && preg_match('/^[0-9]{14}$/D', $cnpj) === 1
+            && preg_match('/^[0-9]{7}$/D', $municipality) === 1;
+
+        $fiscal['provider_establishment_confirmed'] = $confirmed ? '1' : '0';
+        if ($confirmed) {
+            if (!$previousBindingValid) {
+                $fiscal['provider_establishment_confirmed_at'] = now()->toAtomString();
+                $fiscal['provider_establishment_confirmed_by'] = (string) $actor;
+            }
+            $fiscal['provider_establishment_confirmed_cnpj'] = $cnpj;
+            $fiscal['provider_establishment_confirmed_municipality'] = $municipality;
+        } else {
+            $fiscal['provider_establishment_confirmed_at'] = '';
+            $fiscal['provider_establishment_confirmed_by'] = '';
+            $fiscal['provider_establishment_confirmed_cnpj'] = '';
+            $fiscal['provider_establishment_confirmed_municipality'] = '';
+        }
+
+        return $fiscal;
     }
 
     /**
