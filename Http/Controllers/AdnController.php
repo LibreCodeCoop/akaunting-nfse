@@ -35,7 +35,9 @@ class AdnController extends Controller
         if ($companyId > 0) {
             try {
                 $issuerCnpj = (string) (new NfseCompanyFiscalSettings())->value(
-                    $companyId, 'nfse.cnpj_prestador', '',
+                    $companyId,
+                    'nfse.cnpj_prestador',
+                    '',
                 );
             } catch (\DomainException) {
                 // An unconfigured company never displays an unrelated issuer.
