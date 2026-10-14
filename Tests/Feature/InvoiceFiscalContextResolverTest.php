@@ -55,6 +55,35 @@ final class InvoiceFiscalContextResolverTest extends FeatureTestCase
         self::assertSame((int) $documentItem->id, $groups[0]['items'][0]['document_item_id']);
     }
 
+    public function testLegacyTaxAndServiceSettingsNeverPopulateUnconfiguredItemProfile(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
+        $item = Item::factory()->create(['company_id' => $invoice->company_id]);
+        $invoice->items()->create([
+            'company_id' => $invoice->company_id,
+            'type' => 'item',
+            'item_id' => $item->id,
+            'name' => 'Serviço fiscal sem classificação',
+            'quantity' => 1,
+            'price' => '100.00',
+            'total' => '100.00',
+        ]);
+        $invoice->load('items');
+
+        setting()->set([
+            'nfse.item_lista_servico' => '0107',
+            'nfse.codigo_tributacao_nacional' => '010701',
+        ]);
+        setting()->save();
+
+        $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
+
+        self::assertSame('', $group['item_lista_servico']);
+        self::assertSame('', $group['codigo_tributacao_nacional']);
+    }
+
     public function testMultiplePersistedProfilesProduceDistinctFiscalGroups(): void
     {
         $invoice = Document::factory()->invoice()->create();

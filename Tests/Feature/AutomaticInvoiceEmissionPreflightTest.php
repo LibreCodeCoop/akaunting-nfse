@@ -55,6 +55,17 @@ final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
         self::assertSame(['opcao_simples_nacional'], $result['details']);
     }
 
+    public function testMissingCompanyProfileNeverFallsBackToLegacyIssuanceSettings(): void
+    {
+        $invoice = $this->invoiceWithProfile('0107', '010701', '100');
+        setting()->set(['nfse.opcao_simples_nacional' => '1', 'nfse.sandbox_mode' => true]);
+        setting()->save();
+
+        $result = (new AutomaticInvoiceEmissionPreflight())->evaluate($invoice);
+        self::assertSame('blocked', $result['status']);
+        self::assertSame('company_profile_unavailable', $result['reason']);
+    }
+
     public function testBlocksBeforeGatewayWhenNationalTaxCodeIsMissing(): void
     {
         setting(['nfse.codigo_tributacao_nacional' => '']);
