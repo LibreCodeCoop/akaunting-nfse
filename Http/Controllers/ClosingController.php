@@ -74,13 +74,15 @@ final class ClosingController extends Controller
         $end = (new \DateTimeImmutable($start))->modify('last day of this month')->format('Y-m-d');
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
 
+        if ($companyId <= 0) {
+            abort(403, 'An active company is required for fiscal closing.');
+        }
+
         return NfseReceipt::query()
             ->with('invoice')
             ->whereBetween('competence_date', [$start, $end])
-            ->when($companyId > 0, static function ($query) use ($companyId): void {
-                $query->whereHas('invoice', static function ($invoiceQuery) use ($companyId): void {
-                    $invoiceQuery->where('company_id', $companyId);
-                });
+            ->whereHas('invoice', static function ($invoiceQuery) use ($companyId): void {
+                $invoiceQuery->where('company_id', $companyId);
             })
             ->orderBy('competence_date')
             ->orderBy('id')

@@ -7,9 +7,13 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Models\Common\Company;
 use App\Models\Document\Document;
+use Illuminate\Http\Request;
 use Modules\Nfse\Application\CompetenceClosingReport;
+use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Models\NfseReceipt;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Feature\FeatureTestCase;
 
 final class CompetenceClosingReportTest extends FeatureTestCase
@@ -93,6 +97,53 @@ final class CompetenceClosingReportTest extends FeatureTestCase
             'access_key,nfse_number,invoice_number,customer,competence,status,gross_service_value,liquid_value,taxation_group,iss_retention,issqn_value,pis,cofins,irrf,social_security,csll,ibs_total,cbs_total,nfse_total,source_sha256,reconciliation_status',
             $csv,
         );
+    }
+
+    public function testClosingAndCsvExcludeForeignCompanyFiscalDocuments(): void
+    {
+        $this->loginAs();
+        $owner = (int) company_id();
+        $ownInvoice = $this->invoiceWithAmount('100.00');
+        $otherInvoice = $this->invoiceWithAmount('900.00');
+        $otherInvoice->forceFill(['company_id' => $owner + 1000])->saveQuietly();
+
+        $ownReceipt = $this->receipt($ownInvoice, 'emitted', '100.00', '1', '1', '2026-10-10');
+        $foreignReceipt = $this->receipt($otherInvoice, 'emitted', '900.00', '1', '1', '2026-10-10');
+
+        $this->get(route('nfse.closing.index', ['competence' => '2026-10']))
+            ->assertOk()
+            ->assertViewHas('closing', static function (array $closing) use ($ownReceipt, $foreignReceipt): bool {
+                $ids = array_column($closing['rows'], 'receipt_id');
+
+                return in_array($ownReceipt->id, $ids, true)
+                    && !in_array($foreignReceipt->id, $ids, true);
+            });
+
+        $csv = $this->get(route('nfse.closing.export', ['competence' => '2026-10']))
+            ->assertOk()->streamedContent();
+        self::assertStringContainsString($ownReceipt->chave_acesso, $csv);
+        self::assertStringNotContainsString($foreignReceipt->chave_acesso, $csv);
+    }
+
+    public function testClosingFailsWithoutAnActiveCompany(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoiceWithAmount('100.00');
+        $this->receipt($invoice, 'emitted', '100.00', '1', '1', '2026-10-10');
+
+        $current = Company::getCurrent();
+        self::assertNotNull($current);
+        app()->forgetInstance(Company::class);
+        try {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(0);
+            (new ClosingController())->index(
+                Request::create('/nfse/closing?competence=2026-10', 'GET'),
+                new CompetenceClosingReport(),
+            );
+        } finally {
+            app()->instance(Company::class, $current);
+        }
     }
 
     private function invoiceWithAmount(string $amount): Document

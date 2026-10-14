@@ -80,8 +80,10 @@ Route::admin('nfse', function () {
     Route::post('bulk/dispatch', [BulkEmissionController::class, 'enqueue'])->name('bulk.dispatch');
 
     // Competence closing and reconciliation
-    Route::get('closing', [ClosingController::class, 'index'])->name('closing.index');
-    Route::get('closing/export', [ClosingController::class, 'export'])->name('closing.export');
+    Route::get('closing', [ClosingController::class, 'index'])
+        ->middleware('permission:read-sales-invoices')->name('closing.index');
+    Route::get('closing/export', [ClosingController::class, 'export'])
+        ->middleware('permission:read-sales-invoices')->name('closing.export');
 
     // Receipt-oriented fiscal ledger; accounting invoices remain native to Akaunting.
     Route::get('ledger', [InvoiceController::class, 'fiscalLedger'])
