@@ -13,6 +13,7 @@ use Modules\Nfse\Http\Controllers\ControllerIsolationState;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Support\ApproximateTaxSourceResolver;
 use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
+use Modules\Nfse\Support\Lc116Code;
 
 /**
  * Controller-only HTTP fixtures. No law, name or rate is inferred.
@@ -20,6 +21,40 @@ use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
  */
 class UnitFederalControllerFixture extends InvoiceController
 {
+    /**
+     * The isolated controller mechanics suite explicitly injects synthetic
+     * fiscal fixture values; production must never consult these old keys.
+     * A supplied native service is evaluated through the actual controller.
+     */
+    protected function itemListaServico(?object $defaultService = null): string
+    {
+        if ($defaultService !== null) {
+            return parent::itemListaServico($defaultService);
+        }
+
+        return Lc116Code::normalize(ControllerIsolationState::$settings['nfse.item_lista_servico'] ?? '');
+    }
+
+    protected function nationalTaxCode(?object $defaultService = null): string
+    {
+        if ($defaultService !== null) {
+            return parent::nationalTaxCode($defaultService);
+        }
+
+        return (string) (ControllerIsolationState::$settings['nfse.codigo_tributacao_nacional'] ?? '');
+    }
+
+    protected function normalizedAliquota(?object $defaultService = null): string
+    {
+        if ($defaultService !== null) {
+            return parent::normalizedAliquota($defaultService);
+        }
+
+        $raw = (string) (ControllerIsolationState::$settings['nfse.aliquota'] ?? '5.00');
+
+        return number_format((float) str_replace(',', '.', trim($raw)), 2, '.', '');
+    }
+
     /** @return array<string,mixed> */
     protected function fiscalParametersForInvoice(Invoice $invoice): array
     {
