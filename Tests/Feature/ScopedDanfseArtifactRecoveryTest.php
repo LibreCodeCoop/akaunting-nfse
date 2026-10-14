@@ -78,6 +78,11 @@ final class ScopedDanfseArtifactRecoveryTest extends FeatureTestCase
         $storedReceipt = $receipt->fresh();
         self::assertNotEmpty($storedReceipt->xml_webdav_path);
         self::assertNotEmpty($storedReceipt->danfse_webdav_path);
+        self::assertStringStartsWith(
+            'companies/' . $invoice->company_id . '/nfse/11222333000181/',
+            (string) $storedReceipt->xml_webdav_path,
+        );
+        self::assertStringNotContainsString('99999999000199', (string) $storedReceipt->xml_webdav_path);
         self::assertSame('completed', $receipt->payload()->value('artifacts_status'));
         $pdfUrl = 'https://dav.example.test/root/' . implode('/', array_map(
             'rawurlencode',
