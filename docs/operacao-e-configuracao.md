@@ -81,6 +81,14 @@ Um novo certificado e sua senha são necessários somente para a rotação.
 Pendências de preenchimento devem ser corrigidas antes de tentar emitir, mas
 preencher os campos não implica autorização fiscal de transmissão.
 
+A confirmação de estabelecimento para avaliação de incidência municipal é uma
+declaração explícita do operador, registrada no perfil da empresa junto com
+identidade CNPJ do certificado, município IBGE, autor e data/hora. Alterar o
+município invalida a confirmação, mesmo que o formulário a envie marcada;
+após conferir a nova identidade, confirme novamente em uma edição separada.
+Não há leitura da confirmação fiscal antiga `nfse.provider_establishment_*`
+na avaliação municipal.
+
 A seção **Infraestrutura** concentra Configurar/Editar e o diagnóstico recolhido.
 O diagnóstico verifica saúde, autenticação, KV v2 e permissões genéricas em
 certificados, identificando a última verificação feita na página. O backend

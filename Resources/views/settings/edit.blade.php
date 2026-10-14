@@ -148,6 +148,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             <summary class="cursor-pointer font-medium">ISSQN: exportação, imunidade e suspensão</summary>
                             <p class="mt-2 text-xs text-gray-600">Preencha somente os detalhes aplicáveis à tributação selecionada. Valores registrados são mantidos para revisão e não autorizam emissão.</p>
                             <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <label class="block" for="profile-establishment-confirmed">Estabelecimento do prestador neste município
+                                    <select id="profile-establishment-confirmed" name="fiscal_parameters[provider_establishment_confirmed]" class="mt-1 block w-full rounded border p-2">
+                                        <option value="0">Não confirmado</option>
+                                        <option value="1">Confirmo a identidade do estabelecimento e município</option>
+                                    </select>
+                                </label>
                                 <label class="block" for="profile-issqn-pais">País do resultado (exportação, exceto BR)
                                     <input id="profile-issqn-pais" name="fiscal_parameters[issqn_pais_resultado]" maxlength="2" pattern="[A-Za-z]{2}" placeholder="US" class="mt-1 block w-full rounded border p-2 uppercase">
                                 </label>

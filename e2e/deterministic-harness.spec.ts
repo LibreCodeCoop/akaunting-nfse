@@ -30,6 +30,28 @@ test('deterministic ADN browser reaches fiscal transport without real A1 or gove
   await expect(page.locator('#adn-summary-last-nsu')).toHaveText('0');
 });
 
+test('native company fiscal profile renders from real backend, not a mocked API', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+
+  const listed = page.waitForResponse(response =>
+    response.request().method() === 'GET'
+      && response.url().includes('/nfse/settings/company-profiles'),
+  );
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  const response = await listed;
+  expect(response.ok()).toBeTruthy();
+  const payload = await response.json();
+  expect(Array.isArray(payload.profiles)).toBeTruthy();
+  const own = payload.profiles.find((p: { company_id: number }) => p.company_id === 1);
+  expect(own).toBeTruthy();
+  expect(own.certificate_cnpj).toBe('11222333000181');
+  await expect(page.locator('#profiles-body tr')).toHaveCount(payload.profiles.length);
+  await page.locator('#profiles-body').getByRole('button', { name: 'Editar' }).click();
+  await expect(page.locator('#profile-company')).toHaveValue('1');
+  await expect(page.locator('#profile-municipality')).toHaveValue('3303302');
+  await expect(page.locator('#profile-establishment-confirmed')).toHaveValue('0');
+});
+
 // Synthetic profile fixture: no real PFX or Vault connectivity, and no
 // company-scoped legacy nfse.* values are used as configuration.
 async function openFiscalProfile(page: import('@playwright/test').Page) {

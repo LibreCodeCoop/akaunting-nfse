@@ -11,6 +11,7 @@ use App\Models\Document\Document as Invoice;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 use Modules\Nfse\Support\InvoiceMunicipalEvidenceContextResolver;
 use Modules\Nfse\Support\ItemMunicipalValidationResolver;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 
 /**
@@ -101,19 +102,28 @@ final class MunicipalEmissionPreflight
      */
     private function persistedProviderEstablishmentFacts(Invoice $invoice, DpsData $dps): array
     {
-        if (!function_exists('setting') || !function_exists('company_id')
-            || (int) company_id() <= 0 || (int) company_id() !== (int) $invoice->company_id
-            || !filter_var(\setting('nfse.provider_establishment_confirmed', false), FILTER_VALIDATE_BOOL)) {
+        $companyId = (int) ($invoice->company_id ?? 0);
+        $active = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0 || ($active > 0 && $active !== $companyId)) {
+            return [];
+        }
+
+        try {
+            $settings = (new NfseCompanyFiscalSettings())->all($companyId);
+        } catch (\DomainException) {
             return [];
         }
 
         $cnpj = strtoupper(trim((string) $dps->cnpjPrestador));
         $municipality = trim((string) $dps->municipioIbge);
-        if ($cnpj === '' || preg_match('/^\d{7}$/D', $municipality) !== 1
-            || $cnpj !== strtoupper(trim((string) \setting('nfse.cnpj_prestador', '')))
-            || $cnpj !== strtoupper(trim((string) \setting('nfse.provider_establishment_confirmed_cnpj', '')))
-            || $municipality !== trim((string) \setting('nfse.municipio_ibge', ''))
-            || $municipality !== trim((string) \setting('nfse.provider_establishment_confirmed_municipality', ''))) {
+        if (!filter_var($settings['provider_establishment_confirmed'] ?? false, FILTER_VALIDATE_BOOL)
+            || $cnpj === '' || preg_match('/^\d{7}$/D', $municipality) !== 1
+            || $cnpj !== strtoupper(trim((string) ($settings['cnpj_prestador'] ?? '')))
+            || $cnpj !== strtoupper(trim((string) ($settings['provider_establishment_confirmed_cnpj'] ?? '')))
+            || $municipality !== trim((string) ($settings['municipio_ibge'] ?? ''))
+            || $municipality !== trim((string) ($settings['provider_establishment_confirmed_municipality'] ?? ''))
+            || trim((string) ($settings['provider_establishment_confirmed_by'] ?? '')) === ''
+            || trim((string) ($settings['provider_establishment_confirmed_at'] ?? '')) === '') {
             return [];
         }
 

@@ -133,6 +133,7 @@ final class CompanyProfileController extends Controller
             'prestador_inscricao_municipal' => 'nullable|string|max:15',
             'prestador_telefone' => 'nullable|string|max:25',
             'prestador_email' => 'nullable|email|max:255',
+            'provider_establishment_confirmed' => 'nullable|boolean',
             'sandbox_mode' => 'nullable|boolean',
             'emission_policy' => 'nullable|in:manual,emit_on_send',
             'opcao_simples_nacional' => 'nullable|in:1,2,3',

@@ -11,6 +11,8 @@ use App\Models\Common\Item;
 use App\Models\Document\Document;
 use Modules\Nfse\Application\MunicipalEmissionPreflight;
 use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Models\NfseCompanyProfile;
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Models\MunicipalParameterSnapshot;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
@@ -169,8 +171,10 @@ final class MunicipalEstablishmentAttestationTest extends FeatureTestCase
             self::assertSame('unverifiable', $other['municipal']['decision']);
         }
 
-        setting(['nfse.provider_establishment_confirmed_cnpj' => '00111222000133']);
-        setting()->save();
+        $profile = NfseCompanyProfile::query()->where('company_id', $invoice->company_id)->firstOrFail();
+        $parameters = $profile->fiscal_parameters;
+        $parameters['provider_establishment_confirmed_cnpj'] = '00111222000133';
+        $profile->update(['fiscal_parameters' => $parameters]);
         $notConfirmed = $preflight->evaluate($invoice, $this->dps($invoice), (string) $group['key']);
         self::assertSame('municipal_context_incomplete', $notConfirmed['reason']);
         self::assertSame('', $notConfirmed['context']['incidence_municipality']);
@@ -210,14 +214,23 @@ final class MunicipalEstablishmentAttestationTest extends FeatureTestCase
 
     private function confirmEstablishment(): void
     {
-        setting()->set([
-            'nfse.cnpj_prestador' => '11222333000181',
-            'nfse.municipio_ibge' => '3303302',
-            'nfse.provider_establishment_confirmed' => '1',
-            'nfse.provider_establishment_confirmed_cnpj' => '11222333000181',
-            'nfse.provider_establishment_confirmed_municipality' => '3303302',
+        NfseCompanyProfile::query()->create([
+            'company_id' => (int) company_id(),
+            'status' => 'active',
+            'certificate_ref' => NfseCompanyCertificatePath::newReference(),
+            'certificate_cnpj' => '11222333000181',
+            'certificate_valid_from' => time() - 3600,
+            'certificate_valid_to' => time() + 3600,
+            'fiscal_parameters' => [
+                'municipio_ibge' => '3303302',
+                'sandbox_mode' => '1',
+                'provider_establishment_confirmed' => '1',
+                'provider_establishment_confirmed_cnpj' => '11222333000181',
+                'provider_establishment_confirmed_municipality' => '3303302',
+                'provider_establishment_confirmed_by' => (string) auth()->id(),
+                'provider_establishment_confirmed_at' => now()->toAtomString(),
+            ],
         ]);
-        setting()->save();
     }
 
     private function invoiceWithProfile(string $service): Document
