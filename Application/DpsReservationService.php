@@ -22,7 +22,7 @@ final class DpsReservationService
 {
     private const MAX_DPS_NUMBER = 999999999999999;
 
-    public function __construct(private readonly DpsReservationAuthorizer $authorizer, private readonly ?DpsSeriesCoordinationVerifier $coordinationVerifier = null)
+    public function __construct(private readonly DpsReservationAuthorizer $authorizer, private readonly ?DpsSeriesCoordinator $coordinator = null)
     {
     }
 
@@ -90,8 +90,9 @@ final class DpsReservationService
                 ->where('issuer_registration', $issuer->registration)
                 ->where('series', $series);
 
-            // Existing reservations remain recoverable even when the series
-            // was later suspended. Never change their immutable identity.
+            // Immutable reservations require a matching central allocation even
+            // when a local series is suspended. Fiscal recovery itself is
+            // read-only through the separately authorized emission journal.
             $existing = DB::table('nfse_dps_reservations')
                 ->where('operation_key', $operationKey)
                 ->lockForUpdate()
@@ -113,8 +114,15 @@ final class DpsReservationService
                     throw new \LogicException('Fiscal operation key is bound to a different immutable DPS identity.');
                 }
 
-                // Recovery is read-only when coordination proof is unavailable.
-                $this->verifyCoordination($originalSeries, $issuer, $environment, $series);
+                // Even read-only allocator replay requires proof that the immutable
+                // national DPS was allocated by the shared authority.
+                // Journal-based recovery remains a separately authorized path.
+                $this->coordinatorFor($originalSeries)->assertExisting(
+                    $issuer, $environment, $series,
+                    trim((string) $originalSeries->coordination_reference),
+                    $operationKey, (int) $existing->number,
+                );
+
                 return $this->result($existing, $companyId, $invoiceId, $series);
             }
 
@@ -123,14 +131,35 @@ final class DpsReservationService
             if (!is_object($counter) || (string) $counter->status !== 'active') {
                 throw new \LogicException('Fiscal series is not active; reserve denied.');
             }
-            $this->verifyCoordination($counter, $issuer, $environment, $series);
+            $coordinator = $this->coordinatorFor($counter);
             $current = (int) $counter->last_number;
 
             if ($current >= self::MAX_DPS_NUMBER) {
                 throw new \OverflowException('Fiscal DPS series has exhausted its fifteen-digit sequence.');
             }
 
-            $next = $current + 1;
+            // The remote authority commits a unique number BEFORE local state
+            // changes. Its durable (installation, operation) mapping survives
+            // a local crash, rollback and restore. Never infer exclusivity from
+            // the local counter or from a check-only verifier.
+            $allocation = $coordinator->allocate(
+                $issuer, $environment, $series,
+                trim((string) $counter->coordination_reference), $operationKey,
+            );
+            $next = $allocation['number'];
+
+            if (!$allocation['fresh']) {
+                // A central reservation with no local record can mean a crash
+                // after the central commit OR a stale restored local database.
+                // Automatically recreating it could authorize a second POST.
+                throw new \LogicException(
+                    'Authoritative DPS allocation has no local reservation; recover read-only before any emission.',
+                );
+            }
+
+            if ($next <= $current || $next > self::MAX_DPS_NUMBER) {
+                throw new \LogicException('Local DPS high-water mark conflicts with authoritative allocation.');
+            }
             DB::table('nfse_dps_series')->where('id', $counter->id)->update([
                 'last_number' => $next,
                 'updated_at' => now(),
@@ -153,23 +182,24 @@ final class DpsReservationService
                 'series' => $series,
                 'number' => (string) $next,
             ];
-        }, 3);
+        // Never retry this local transaction automatically: the central
+        // allocation can already be committed when a local deadlock occurs.
+        // Recovery must inspect the immutable central operation read-only.
+        }, 1);
     }
 
     /**
      * @return array{reservation_id:int,company_id:int,invoice_id:int,series:string,number:string}
      */
-    private function verifyCoordination(object $counter, DpsFiscalIssuer $issuer, int $environment, string $series): void
+    private function coordinatorFor(object $counter): DpsSeriesCoordinator
     {
-        $mode = (string) $counter->coordination_mode;
-        $reference = trim((string) $counter->coordination_reference);
-        if ($mode !== 'shared_database' || $reference === '' || $this->coordinationVerifier === null) {
+        if ((string) $counter->coordination_mode !== 'shared_database'
+            || trim((string) $counter->coordination_reference) === ''
+            || $this->coordinator === null) {
             throw new \LogicException('Fiscal series has no independently verified coordination; reserve denied.');
         }
 
-        $this->coordinationVerifier->assertCanReserve(
-            $issuer, $environment, $series, $mode, $reference, (int) $counter->last_number,
-        );
+        return $this->coordinator;
     }
 
     private function result(object $record, int $companyId, int $invoiceId, string $series): array

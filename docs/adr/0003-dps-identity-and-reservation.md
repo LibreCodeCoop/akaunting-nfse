@@ -57,6 +57,22 @@ First-POST claim is atomic and durable. A crash after claim is **ambiguous even 
 
 **Distributed limitation:** local SQL guarantees uniqueness only among installations sharing that storage. Multiple independent installations representing one taxpayer must either use an atomic shared coordinator or demonstrate enforced, exclusive, nonoverlapping series ownership. Without this evidence **block production issuance**, do not falsely promise global uniqueness. Do not add a microservice by default. A restore, old external emitter or second local company must not silently reset the counter. For first production use, require explicit series ownership, starting-value evidence and coordination mode; do not seed from invoice IDs or local receipts alone.
 
+## Coordinator implementation update (2026-10-14)
+
+The new [shared MySQL coordinator](../dps-distributed-coordination.md) uses
+an independent, authoritative InnoDB allocation ledger, not a precheck plus
+local counter increment. It binds the complete fiscal series to a durable
+operation/installation key and a revocable fencing generation. All eligible
+installations must access one non-rollbackable primary. Local replicas,
+separate counters, text-only ownership declarations and unregistered external
+issuers remain unsafe. The old check-only verifier is removed.
+
+This implements coordination mechanics, not a deployment-ready series
+activation or final first-POST gate. Recoverability after coordinator/local
+partial commit is fail-closed and read-only; no automatic replay or number
+recycling. The unresolved #429 integration and current official rejection/gap
+policy still block declaring #423 complete.
+
 ## Integration boundaries
 
 - #417 owns global Vault and per-company fiscal-profile administration, not sequence generation.
