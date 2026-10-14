@@ -155,7 +155,9 @@ Códigos de serviço e tributação nacional utilizados nos grupos devem vir dos
 perfis fiscais dos itens da fatura. A configuração antiga `nfse.*` não preenche
 automaticamente classificações ausentes; complete o cadastro dos itens antes da
 emissão. A ausência de classificação não autoriza substituir códigos fiscais
-por valores de outra empresa.
+por valores de outra empresa. Isso inclui os métodos administrativos de
+emissão manual, que não devem consultar `nfse.item_lista_servico`,
+`nfse.codigo_tributacao_nacional` nem `nfse.aliquota` descontinuados.
 A classificação dos impostos federais dos itens considera nomes e
 identificadores textuais configurados no Akaunting: PIS, COFINS, IRRF, CSLL e
 contribuição previdenciária. Use nomes explícitos, por exemplo `IRRF - Serviços`
