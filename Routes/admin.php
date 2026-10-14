@@ -16,6 +16,7 @@ use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\LegacyInvoiceController;
 use Modules\Nfse\Http\Controllers\SettingsController;
+use Modules\Nfse\Http\Controllers\TaxAssociationController;
 use Modules\Nfse\Http\Controllers\Modals\InvoiceEmails;
 
 Route::admin('nfse', function () {
@@ -39,6 +40,10 @@ Route::admin('nfse', function () {
             ->middleware('permission:read-nfse-settings')->name('approximate-taxes');
         Route::post('/approximate-taxes', [SettingsController::class, 'storeApproximateTaxes'])
             ->middleware('permission:update-nfse-settings')->name('approximate-taxes.store');
+        Route::get('/tax-associations', [TaxAssociationController::class, 'index'])
+            ->middleware('permission:read-nfse-settings')->name('tax-associations.index');
+        Route::post('/tax-associations', [TaxAssociationController::class, 'store'])
+            ->middleware('permission:update-nfse-settings')->name('tax-associations.store');
         Route::patch('/artifacts', [SettingsController::class, 'updateArtifacts'])
             ->middleware('permission:update-nfse-settings')->name('artifacts');
 

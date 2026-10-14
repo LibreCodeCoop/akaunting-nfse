@@ -117,3 +117,18 @@ test('administrative UI synthetic screenshot', async ({ page }, info) => {
     contentType: 'image/png',
   });
 });
+
+test('fiscal tax associations are reviewed through native settings, without automatic provisioning', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+
+  const link = page.getByRole('link', { name: 'Revisar associações fiscais dos impostos existentes' });
+  await expect(link).toBeVisible();
+  await link.click();
+
+  await expect(page).toHaveURL(/\/1\/nfse\/settings\/tax-associations$/);
+  await expect(page.getByRole('heading', { name: 'Associações fiscais dos impostos existentes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Impostos cadastrados nesta empresa' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Abrir cadastro de impostos do Akaunting' })).toBeVisible();
+  await expect(page.getByText('A classificação não calcula', { exact: false })).toBeVisible();
+});
