@@ -19,6 +19,7 @@ use Modules\Nfse\Models\ApproximateTaxSource;
 use Modules\Nfse\Support\BrazilianStates;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\GlobalVaultSettings;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 use Modules\Nfse\Support\IbgeLocalities;
 use Modules\Nfse\Support\Lc116Catalog;
 use Modules\Nfse\Support\Lc116Code;
@@ -647,7 +648,18 @@ class SettingsController extends Controller
 
     public function municipalParameters(Request $request): JsonResponse
     {
-        $municipio = trim((string) $request->query('municipio_ibge', setting('nfse.municipio_ibge', '')));
+        $companyId = $this->municipalCompanyId();
+        if ($companyId <= 0) {
+            return $this->jsonResponse(['message' => 'Municipal company context is unavailable.'], 422);
+        }
+
+        try {
+            $fiscal = $this->municipalFiscalSettings($companyId);
+        } catch (\DomainException) {
+            return $this->jsonResponse(['message' => 'NFS-e company profile is not configured.'], 422);
+        }
+
+        $municipio = trim((string) $request->query('municipio_ibge', $fiscal['municipio_ibge'] ?? ''));
         $serviceCode = preg_replace('/[^0-9]/', '', (string) $request->query('service_code', '')) ?? '';
         $competence = trim((string) $request->query('competence', date('Y-m-d')));
 
@@ -670,11 +682,8 @@ class SettingsController extends Controller
             ], 422);
         }
 
-        $companyId = $this->municipalCompanyId();
-        if ($companyId <= 0) {
-            return $this->jsonResponse(['message' => 'Municipal company context is unavailable.'], 422);
-        }
-        $environment = $this->sandboxModeEnabled() ? 'sandbox' : 'production';
+        $environment = filter_var($fiscal['sandbox_mode'] ?? true, FILTER_VALIDATE_BOOL)
+            ? 'sandbox' : 'production';
 
         try {
             $resolved = (new MunicipalParameterSnapshotStore())->resolve(
@@ -708,13 +717,15 @@ class SettingsController extends Controller
      */
     protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array|MunicipalParameterConsultation
     {
-        $cnpj = trim((string) setting('nfse.cnpj_prestador', ''));
+        $companyId = $this->municipalCompanyId();
+        $fiscal = $this->municipalFiscalSettings($companyId);
+        $cnpj = trim((string) ($fiscal['cnpj_prestador'] ?? ''));
         if ($cnpj === '') {
             throw new \RuntimeException('Service provider CNPJ is not configured.');
         }
 
-        $sandbox = $this->sandboxModeEnabled();
-        $context = $this->makeFiscalClientFactory()->municipalParameters($sandbox, (int) company_id());
+        $sandbox = filter_var($fiscal['sandbox_mode'] ?? true, FILTER_VALIDATE_BOOL);
+        $context = $this->makeFiscalClientFactory()->municipalParameters($sandbox, $companyId);
 
         try {
             $client = $context->municipalParametersClient();
@@ -807,6 +818,12 @@ class SettingsController extends Controller
 
             return $e->upstreamPayload;
         }
+    }
+
+    /** @return array<string,mixed> */
+    protected function municipalFiscalSettings(int $companyId): array
+    {
+        return (new NfseCompanyFiscalSettings())->all($companyId);
     }
 
     protected function municipalCompanyId(): int
