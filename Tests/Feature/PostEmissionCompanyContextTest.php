@@ -10,7 +10,13 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Models\Common\Company;
 use App\Models\Document\Document;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Application\IssuedNfseArtifactStore;
+use Modules\Nfse\Application\IssuedNfseEmailSender;
+use Modules\Nfse\Application\PostEmissionState;
+use Modules\Nfse\Jobs\SendIssuedNfseEmail;
+use Modules\Nfse\Jobs\StoreIssuedNfseArtifacts;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseReceiptPayload;
 use Modules\Nfse\Support\NfsePostEmissionCompanyContext;
 use Tests\Feature\FeatureTestCase;
 
@@ -42,6 +48,13 @@ final class PostEmissionCompanyContextTest extends FeatureTestCase
             'status' => 'emitted',
         ]);
 
+        NfseReceiptPayload::query()->create([
+            'receipt_id' => $receipt->id,
+            'authorized_xml' => '<NFSe/>',
+            'artifacts_status' => 'pending',
+            'email_status' => 'pending',
+        ]);
+
         $first->makeCurrent();
         $actual = (new NfsePostEmissionCompanyContext())->run(
             (int) $invoice->id,
@@ -55,6 +68,52 @@ final class PostEmissionCompanyContextTest extends FeatureTestCase
         self::assertSame([(int) $secondId, 'https://second.example.test'], $actual);
         self::assertSame((int) $first->id, (int) Company::getCurrent()?->id);
         self::assertSame('https://first.example.test', setting('nfse.webdav_url'));
+
+        $artifactCompanies = [];
+        $store = new class ($artifactCompanies) extends IssuedNfseArtifactStore {
+            public function __construct(private array &$companies)
+            {
+            }
+
+            public function store(int $invoiceId, int $receiptId): array
+            {
+                $this->companies[] = (int) Company::getCurrent()?->id;
+
+                return ['xml' => 'not_requested', 'danfse' => 'not_requested'];
+            }
+        };
+
+        (new StoreIssuedNfseArtifacts((int) $invoice->id, (int) $receipt->id))
+            ->handle($store, new PostEmissionState());
+
+        $emailCompanies = [];
+        $sender = new class ($emailCompanies) extends IssuedNfseEmailSender {
+            public function __construct(private array &$companies)
+            {
+            }
+
+            public function send(
+                Document $invoice,
+                NfseReceipt $receipt,
+                bool $attachDanfse,
+                bool $attachXml,
+                array $customMail,
+            ): void {
+                $this->companies[] = (int) Company::getCurrent()?->id;
+            }
+        };
+
+        (new SendIssuedNfseEmail(
+            invoiceId: (int) $invoice->id,
+            receiptId: (int) $receipt->id,
+            attachDanfse: false,
+            attachXml: false,
+            customMail: [],
+        ))->handle($sender, new PostEmissionState());
+
+        self::assertSame([(int) $secondId], $artifactCompanies);
+        self::assertSame([(int) $secondId], $emailCompanies);
+        self::assertSame((int) $first->id, (int) Company::getCurrent()?->id);
 
         try {
             (new NfsePostEmissionCompanyContext())->run(
@@ -70,6 +129,19 @@ final class PostEmissionCompanyContextTest extends FeatureTestCase
         }
 
         self::assertSame((int) $first->id, (int) Company::getCurrent()?->id);
+
+        Company::forgetCurrent();
+        try {
+            $withoutPreviousTenant = (new NfsePostEmissionCompanyContext())->run(
+                (int) $invoice->id,
+                (int) $receipt->id,
+                static fn (): int => (int) Company::getCurrent()?->id,
+            );
+            self::assertSame((int) $secondId, $withoutPreviousTenant);
+            self::assertNull(Company::getCurrent());
+        } finally {
+            $first->makeCurrent();
+        }
     }
 
     public function testMismatchedReceiptCannotActivateOtherCompanyContext(): void
