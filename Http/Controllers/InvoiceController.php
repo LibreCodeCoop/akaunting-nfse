@@ -1899,7 +1899,7 @@ class InvoiceController extends Controller
         }
 
         $itemIds = array_values(array_unique($itemIds));
-        $companyId = is_numeric($invoice->company_id ?? null) ? (int) $invoice->company_id : $this->resolveCompanyId();
+        $companyId = is_numeric($invoice->company_id ?? null) ? (int) $invoice->company_id : 0;
 
         return (new InvoiceFiscalProfileSelector())->select(
             items: $items,
@@ -1968,7 +1968,7 @@ class InvoiceController extends Controller
         $itemIds = array_values(array_unique($itemIds));
         $companyId = is_numeric($invoice->company_id ?? null)
             ? (int) $invoice->company_id
-            : $this->resolveCompanyId();
+            : 0;
 
         return (new InvoiceFiscalGroupBuilder())->build(
             items: $items,
@@ -2438,7 +2438,7 @@ class InvoiceController extends Controller
 
         $companyId = is_numeric($invoice->company_id ?? null)
             ? (int) $invoice->company_id
-            : $this->resolveCompanyId();
+            : 0;
         $profileMap = $this->invoiceItemFiscalProfileMap($companyId, $itemIds);
         $defaultNationalCode = $this->nationalTaxCode();
 
@@ -3484,16 +3484,12 @@ class InvoiceController extends Controller
             return $serviceCode;
         }
 
-        return Lc116Code::normalize(setting('nfse.item_lista_servico', ''));
+        return '';
     }
 
     protected function nationalTaxCode(?object $defaultService = null): string
     {
         $configured = preg_replace('/\D+/', '', (string) ($defaultService->codigo_tributacao_nacional ?? '')) ?: '';
-
-        if ($configured === '') {
-            $configured = preg_replace('/\D+/', '', (string) setting('nfse.codigo_tributacao_nacional', '')) ?: '';
-        }
 
         if ($configured !== '') {
             return str_pad(substr($configured, 0, 6), 6, '0', STR_PAD_LEFT);
@@ -3507,7 +3503,7 @@ class InvoiceController extends Controller
         $configured = (string) ($defaultService->aliquota ?? '');
 
         if ($configured === '') {
-            $configured = (string) setting('nfse.aliquota', '5.00');
+            $configured = '5.00';
         }
 
         $normalized = str_replace(',', '.', trim($configured));

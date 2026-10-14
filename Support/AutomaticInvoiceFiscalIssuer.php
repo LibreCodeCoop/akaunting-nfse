@@ -216,6 +216,9 @@ final class AutomaticInvoiceFiscalIssuer implements BulkEmissionUnitIssuerInterf
         } catch (\Throwable) {
             $company = null;
         }
+        if (is_object($company) && (int) ($company->id ?? 0) !== $this->operationCompanyId) {
+            $company = null;
+        }
 
         $phone = trim((string) $this->setting('nfse.prestador_telefone', ''));
         $email = trim((string) $this->setting('nfse.prestador_email', ''));

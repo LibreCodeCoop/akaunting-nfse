@@ -3171,7 +3171,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringContainsString('nfse-cancel-modal', $content);
         }
 
-        public function testNationalTaxCodeFallsBackToSettingWhenDefaultServiceCodeIsMissing(): void
+        public function testNationalTaxCodeNeverFallsBackToLegacySettingWhenDefaultServiceCodeIsMissing(): void
         {
             $controller = new class () extends UnitFederalControllerFixture {
                 public function exposedNationalTaxCode(?object $defaultService = null): string
@@ -3191,7 +3191,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 'aliquota' => '5.00',
             ];
 
-            self::assertSame('010701', $controller->exposedNationalTaxCode($defaultService));
+            self::assertSame('', $controller->exposedNationalTaxCode($defaultService));
         }
 
         public function testNationalTaxCodeDoesNotGuessFromLc116WhenNoExplicitConfigIsPresent(): void

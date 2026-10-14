@@ -40,9 +40,9 @@ final class InvoiceFiscalContextResolver
             items: $items,
             profileMap: $this->profileMap($this->companyId($invoice), $itemIds),
             taxRateMap: $this->taxRateMap($itemIds),
-            defaultServiceCode: Lc116Code::normalize(setting('nfse.item_lista_servico', '')),
-            defaultNationalCode: $this->nationalTaxCode(),
-            defaultRate: $this->defaultRate(),
+            defaultServiceCode: '',
+            defaultNationalCode: '',
+            defaultRate: '5.00',
             unnamedItemLabel: (string) trans('general.na'),
         );
     }
@@ -73,9 +73,9 @@ final class InvoiceFiscalContextResolver
             items: $items,
             profileMap: $this->profileMap($this->companyId($invoice), $itemIds),
             taxRateMap: $this->taxRateMap($itemIds),
-            defaultServiceCode: Lc116Code::normalize(setting('nfse.item_lista_servico', '')),
-            defaultNationalCode: $this->nationalTaxCode(),
-            defaultRate: $this->defaultRate(),
+            defaultServiceCode: '',
+            defaultNationalCode: '',
+            defaultRate: '5.00',
         );
     }
 
@@ -216,30 +216,7 @@ final class InvoiceFiscalContextResolver
     {
         $companyId = is_numeric($invoice->company_id ?? null) ? (int) $invoice->company_id : 0;
 
-        if ($companyId <= 0 && function_exists('company_id')) {
-            $companyId = (int) company_id();
-        }
-
         return $companyId;
     }
 
-    private function nationalTaxCode(): string
-    {
-        $configured = preg_replace(
-            '/\D+/',
-            '',
-            (string) setting('nfse.codigo_tributacao_nacional', ''),
-        ) ?: '';
-
-        return $configured !== ''
-            ? str_pad(substr($configured, 0, 6), 6, '0', STR_PAD_LEFT)
-            : '';
-    }
-
-    private function defaultRate(): string
-    {
-        $normalized = str_replace(',', '.', trim((string) setting('nfse.aliquota', '5.00')));
-
-        return number_format((float) $normalized, 2, '.', '');
-    }
 }
