@@ -11,6 +11,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Modules\Nfse\Application\IssuedNfseArtifactStore;
 use Modules\Nfse\Application\PostEmissionState;
+use Modules\Nfse\Support\NfsePostEmissionCompanyContext;
 
 final class StoreIssuedNfseArtifacts implements ShouldQueue
 {
@@ -34,6 +35,15 @@ final class StoreIssuedNfseArtifacts implements ShouldQueue
 
     public function handle(IssuedNfseArtifactStore $store, PostEmissionState $state): void
     {
+        app(NfsePostEmissionCompanyContext::class)->run(
+            $this->invoiceId,
+            $this->receiptId,
+            fn (): mixed => $this->storeWithinCompany($store, $state),
+        );
+    }
+
+    private function storeWithinCompany(IssuedNfseArtifactStore $store, PostEmissionState $state): void
+    {
         $state->markArtifactsProcessing($this->receiptId);
 
         try {
@@ -49,9 +59,13 @@ final class StoreIssuedNfseArtifacts implements ShouldQueue
     public function failed(?\Throwable $throwable): void
     {
         try {
-            app(PostEmissionState::class)->markArtifactsFailed(
+            app(NfsePostEmissionCompanyContext::class)->run(
+                $this->invoiceId,
                 $this->receiptId,
-                $throwable?->getMessage() ?? 'NFS-e artifact processing failed.',
+                fn (): mixed => app(PostEmissionState::class)->markArtifactsFailed(
+                    $this->receiptId,
+                    $throwable?->getMessage() ?? 'NFS-e artifact processing failed.',
+                ),
             );
         } catch (\Throwable) {
             // Never mask the original queue failure while recording observability state.
