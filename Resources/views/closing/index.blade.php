@@ -57,6 +57,57 @@
                 </section>
             @endif
 
+            <section class="rounded border p-4 space-y-3" aria-labelledby="commercial-review-title">
+                <h2 id="commercial-review-title" class="font-semibold">Revisão de faturas comerciais do mês</h2>
+                <p class="text-sm text-gray-600">
+                    Esta lista usa a data comercial da fatura, não a data do fato gerador.
+                    Ausência de NFS-e local ou emissão parcial é uma pendência de verificação,
+                    nunca prova de atraso ou infração fiscal. Documentos externos exigem conciliação.
+                    Estes valores não entram nos totais fiscais autorizados.
+                </p>
+                <p class="text-sm text-gray-600">{{ $commercialReview['page']->total() }} fatura(s) no mês comercial, 30 por página.</p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="text-left px-3 py-2">Fatura</th>
+                                <th class="text-left px-3 py-2">Data financeira</th>
+                                <th class="text-left px-3 py-2">Status financeiro</th>
+                                <th class="text-left px-3 py-2">Recibos locais</th>
+                                <th class="text-left px-3 py-2">Estado de conciliação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($commercialReview['rows'] as $commercial)
+                                <tr class="border-t">
+                                    <td class="px-3 py-2">
+                                        <a class="underline" href="{{ route('invoices.show', $commercial['invoice_id']) }}">
+                                            {{ $commercial['invoice_number'] ?: ('#' . $commercial['invoice_id']) }}
+                                        </a>
+                                    </td>
+                                    <td class="px-3 py-2">{{ $commercial['issued_at'] }}</td>
+                                    <td class="px-3 py-2">{{ $commercial['financial_status'] }}</td>
+                                    <td class="px-3 py-2">{{ $commercial['local_receipts'] }}</td>
+                                    <td class="px-3 py-2">
+                                        @switch($commercial['status'])
+                                            @case('not_linked') Sem NFS-e vinculada no módulo @break
+                                            @case('reconciliation_required') Recuperação ou conciliação necessária @break
+                                            @case('partially_linked') Grupos fiscais parcialmente vinculados @break
+                                            @case('authorized_locally') NFS-e autorizada localmente (não comprova conformidade integral) @break
+                                            @default Revisão fiscal necessária
+                                        @endswitch
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5" class="px-3 py-4 text-gray-600">Nenhuma fatura neste mês comercial.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                {{ $commercialReview['page']->appends(['competence' => $competence])->links() }}
+            </section>
+
+            <h2 class="font-semibold">Documentos fiscais registrados (XML autorizado)</h2>
             <div class="overflow-x-auto rounded border">
                 <table class="min-w-full text-sm">
                     <thead class="bg-gray-50">

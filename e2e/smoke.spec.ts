@@ -411,3 +411,14 @@ test('real fiscal SQL failure shows operator error without committing commercial
   await expect(page.locator('input[name="name"]')).toHaveValue('NFSE E2E Failing Fiscal Item');
   await expect.poll(() => fiscalSelectedValue(page, 'nfse_codigo_tributacao_nacional')).toBe('010701');
 });
+
+test('fiscal closing separates commercial reconciliation from authorized XML totals', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  const response = await page.goto('/1/nfse/closing?competence=2026-09', { waitUntil: 'domcontentloaded' });
+  expect(response?.status()).toBe(200);
+
+  await expect(page.locator('#commercial-review-title')).toBeVisible();
+  await expect(page.getByText('Esta lista usa a data comercial da fatura', { exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Documentos fiscais registrados (XML autorizado)' })).toBeVisible();
+  await expect(page.getByText('fatura(s) no mês comercial', { exact: false })).toBeVisible();
+});
