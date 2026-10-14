@@ -107,8 +107,9 @@ final class CompetenceClosingReportTest extends FeatureTestCase
         $otherInvoice = $this->invoiceWithAmount('900.00');
         $otherInvoice->forceFill(['company_id' => $owner + 1000])->saveQuietly();
 
-        $ownReceipt = $this->receipt($ownInvoice, 'emitted', '100.00', '1', '1', '2026-10-10');
-        $foreignReceipt = $this->receipt($otherInvoice, 'emitted', '900.00', '1', '1', '2026-10-10');
+        $ownReceipt = $this->receipt($ownInvoice, 'emitted', '100.00', '1', '1', '2026-10-10', str_repeat('1', 50));
+        $foreignReceipt = $this->receipt($otherInvoice, 'emitted', '900.00', '1', '1', '2026-10-10', str_repeat('2', 50));
+        self::assertNotSame($ownReceipt->chave_acesso, $foreignReceipt->chave_acesso);
 
         $this->get(route('nfse.closing.index', ['competence' => '2026-10']))
             ->assertOk()
@@ -161,11 +162,12 @@ final class CompetenceClosingReportTest extends FeatureTestCase
         string $taxation,
         string $retention,
         string $competence,
+        ?string $accessKey = null,
     ): NfseReceipt {
         return NfseReceipt::query()->create([
             'invoice_id' => $invoice->id,
             'nfse_number' => (string) random_int(1000, 9999),
-            'chave_acesso' => str_repeat((string) random_int(1, 8), 50),
+            'chave_acesso' => $accessKey ?? str_repeat((string) random_int(1, 8), 50),
             'status' => $status,
             'competence_date' => $competence,
             'authorized_fiscal_snapshot' => [
