@@ -11,6 +11,8 @@ use App\Models\Common\Item;
 use App\Models\Common\ItemTax;
 use App\Models\Setting\Tax;
 use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Models\NfseCompanyProfile;
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Models\MunicipalParameterSnapshot;
 use Tests\Feature\FeatureTestCase;
 
@@ -87,6 +89,8 @@ final class ItemFiscalProfileListValidationTest extends FeatureTestCase
             'nfse.sandbox_mode' => true,
         ]);
         setting()->save();
+
+        $this->companyFiscalProfile((int) $item->company_id);
 
         MunicipalParameterSnapshot::query()->create([
             'company_id' => $item->company_id,
@@ -167,6 +171,8 @@ final class ItemFiscalProfileListValidationTest extends FeatureTestCase
         setting(['nfse.municipio_ibge' => '3303302', 'nfse.sandbox_mode' => true]);
         setting()->save();
 
+        $this->companyFiscalProfile((int) $item->company_id);
+
         MunicipalParameterSnapshot::query()->create([
             'company_id' => $item->company_id,
             'environment' => 'sandbox',
@@ -180,6 +186,22 @@ final class ItemFiscalProfileListValidationTest extends FeatureTestCase
         $this->loginAs()->get(route('items.edit', $item))->assertOk()
             ->assertSee('data-nfse-municipal-validation="unverifiable"', false)
             ->assertSee('data-nfse-municipal-fetched-at=', false);
+    }
+
+    private function companyFiscalProfile(int $companyId): void
+    {
+        NfseCompanyProfile::query()->create([
+            'company_id' => $companyId,
+            'status' => 'active',
+            'certificate_ref' => NfseCompanyCertificatePath::newReference(),
+            'certificate_cnpj' => '11222333000181',
+            'certificate_valid_from' => time() - 3600,
+            'certificate_valid_to' => time() + 3600,
+            'fiscal_parameters' => [
+                'municipio_ibge' => '3303302',
+                'sandbox_mode' => '1',
+            ],
+        ]);
     }
 
     public function testItemListMarksMissingProfileAsUnverifiableWithoutChangingItem(): void
