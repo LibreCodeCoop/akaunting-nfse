@@ -90,8 +90,9 @@ final class DpsReservationService
                 ->where('issuer_registration', $issuer->registration)
                 ->where('series', $series);
 
-            // Existing reservations remain recoverable even when the series
-            // was later suspended. Never change their immutable identity.
+            // Immutable reservations require a matching central allocation even
+            // when a local series is suspended. Fiscal recovery itself is
+            // read-only through the separately authorized emission journal.
             $existing = DB::table('nfse_dps_reservations')
                 ->where('operation_key', $operationKey)
                 ->lockForUpdate()

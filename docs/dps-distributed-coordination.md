@@ -115,7 +115,7 @@ untrusted cloned installation.
 | Different issuer or target environment | Independent globally unique fiscal scope; same decimal number is allowed |
 | Repeat one operation | Same central allocation; locally persisted replay must match read-only; no new number |
 | Crash after global commit, before local commit | Globally allocated number remains consumed; absent local history causes **block**, operator read-only reconciliation |
-| Restored stale local DB | Central high-water cannot roll back; missing local record with known operation is blocked, never silently resent |
+| Restored stale local DB | Central high-water cannot roll back; missing local record with known operation is blocked, never silently resent. Local high-water may safely jump forward to the authoritative number |
 | Revoked/stale process | Generation/status checked inside transaction; new allocation blocked |
 | Network outage, lock timeout or split primary | Failed coordination means no new allocation. Split-brain CENTRAL primary invalidates safety assumptions and requires operational intervention |
 | Rejection or ambiguous response | Keep allocated number, no automatic recycle or second POST; reconcile immutable DPS via existing journal |

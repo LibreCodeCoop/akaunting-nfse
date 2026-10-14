@@ -380,7 +380,125 @@ final class DpsReservationServiceTest extends FeatureTestCase
         );
     }
 
-    private function service(?int $onlyEnvironment = null, bool $withSyntheticProof = true): DpsReservationService
+    public function testCentralAllocationAlreadyExistsButLocalRowIsMissingFailsClosed(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+
+        try {
+            $this->service(null, true, $this->syntheticRemoteAllocation(17, false))->reserve(
+                (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
+                DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2), 'manual',
+            );
+            self::fail('A stale local restore must not reconstruct a remotely committed reservation.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('recover read-only', $exception->getMessage());
+        }
+
+        self::assertSame(0, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
+    public function testLocalHighWaterMarkCanJumpToAnAuthoritativeNumber(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+
+        $service = $this->service(null, true, $this->syntheticRemoteAllocation(42, true));
+        $operation = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2);
+        $reserved = $service->reserve((int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1', $operation, 'manual');
+        $replayed = $service->reserve((int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1', $operation, 'automatic');
+
+        self::assertSame('42', $reserved['number']);
+        self::assertSame($reserved, $replayed);
+        self::assertSame(42, (int) DB::table('nfse_dps_series')->value('last_number'));
+        self::assertSame(1, DB::table('nfse_dps_reservations')->count());
+    }
+
+    public function testCentralTransportFailureLeavesLocalDatabaseUnchanged(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+
+        try {
+            $this->service(null, true, $this->syntheticRemoteAllocation(0, false, true))->reserve(
+                (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
+                DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2), 'manual',
+            );
+            self::fail('An unavailable global coordinator must not allocate locally.');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('Synthetic central connectivity failure.', $exception->getMessage());
+        }
+
+        self::assertSame(0, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
+    public function testAuthoritativeRegressionCannotRollBackLocalHighWaterMark(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+        DB::table('nfse_dps_series')->update(['last_number' => 42]);
+
+        try {
+            $this->service(null, true, $this->syntheticRemoteAllocation(41, true))->reserve(
+                (int) $invoice->company_id, (int) $invoice->id, $issuer, 2, '1',
+                DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2), 'automatic',
+            );
+            self::fail('A stale central database must never decrease local high-water mark.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('high-water mark conflicts', $exception->getMessage());
+        }
+
+        self::assertSame(0, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(42, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
+    private function syntheticRemoteAllocation(int $number, bool $fresh, bool $offline = false): DpsSeriesCoordinator
+    {
+        return new class ($number, $fresh, $offline) implements DpsSeriesCoordinator {
+            public function __construct(
+                private readonly int $number,
+                private readonly bool $fresh,
+                private readonly bool $offline,
+            ) {
+            }
+
+            public function allocate(
+                DpsFiscalIssuer $issuer, int $environment, string $series,
+                string $reference, string $operationKey,
+            ): array {
+                if ($this->offline) {
+                    throw new \RuntimeException('Synthetic central connectivity failure.');
+                }
+
+                return ['number' => $this->number, 'fresh' => $this->fresh];
+            }
+
+            public function assertExisting(
+                DpsFiscalIssuer $issuer, int $environment, string $series,
+                string $reference, string $operationKey, int $number,
+            ): void {
+                if ($this->offline || $number !== $this->number) {
+                    throw new \LogicException('Central allocation no longer matches local reservation.');
+                }
+            }
+        };
+    }
+
+    private function service(
+        ?int $onlyEnvironment = null,
+        bool $withSyntheticProof = true,
+        ?DpsSeriesCoordinator $remote = null,
+    ): DpsReservationService
     {
         // Synthetic fake only. The production authorization adapter belongs
         // to the verified multi-company profile/context contract (#417/#421).
@@ -436,7 +554,7 @@ final class DpsReservationServiceTest extends FeatureTestCase
             }
         } : null;
 
-        return new DpsReservationService($authorizer, $coordinator);
+        return new DpsReservationService($authorizer, $remote ?? $coordinator);
     }
 
     private function invoice(): Document
