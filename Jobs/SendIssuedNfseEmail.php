@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Modules\Nfse\Application\IssuedNfseEmailSender;
 use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\NfsePostEmissionCompanyContext;
 
 final class SendIssuedNfseEmail implements ShouldQueue
 {
@@ -38,6 +39,15 @@ final class SendIssuedNfseEmail implements ShouldQueue
     }
 
     public function handle(IssuedNfseEmailSender $sender, PostEmissionState $state): void
+    {
+        app(NfsePostEmissionCompanyContext::class)->run(
+            $this->invoiceId,
+            $this->receiptId,
+            fn (): mixed => $this->sendWithinCompany($sender, $state),
+        );
+    }
+
+    private function sendWithinCompany(IssuedNfseEmailSender $sender, PostEmissionState $state): void
     {
         $invoice = Invoice::query()->with('contact')->findOrFail($this->invoiceId);
         $receipt = NfseReceipt::query()->findOrFail($this->receiptId);
