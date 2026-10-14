@@ -46,8 +46,8 @@ final class ScopedDanfseArtifactFlowTest extends FeatureTestCase
 
         try {
             foreach ([
-                [$originalCompany, '11111111000191', 'EMPRESA SINTETICA ALFA', $sourceInvoice],
-                [$otherCompany, '22222222000192', 'COOPERATIVA SINTETICA BETA', $otherInvoice],
+                [$originalCompany, '99999999000199', 'EMPRESA SINTETICA ALFA', $sourceInvoice],
+                [$otherCompany, '99999999000199', 'COOPERATIVA SINTETICA BETA', $otherInvoice],
             ] as $index => [$company, $cnpj, $name, $invoice]) {
                 // A real queue worker restores the company from the job payload.
                 // Document::factory() would silently reset this context instead.
@@ -61,7 +61,7 @@ final class ScopedDanfseArtifactFlowTest extends FeatureTestCase
                 $receipt = NfseReceipt::query()->create([
                     'invoice_id' => $invoice->id,
                     'nfse_number' => (string) (200 + $index),
-                    'chave_acesso' => str_repeat((string) ($index + 1), 50),
+                    'chave_acesso' => str_repeat('1', 50),
                     'data_emissao' => '2026-10-07T10:00:00-03:00',
                     'status' => 'emitted',
                 ]);

@@ -116,12 +116,16 @@ class IssuedNfseArtifactStore
 
     protected function buildBasePath(Invoice $invoice, ReceiptData $receipt): string
     {
-        return (new ArtifactPathBuilder())->basePath(
+        $base = (new ArtifactPathBuilder())->basePath(
             template: (string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'),
-            cnpj: (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
+            cnpj: $this->authorizedIssuerCnpj($receipt),
             customerName: (string) ($invoice->contact?->name ?? 'sem-cliente'),
             receipt: $receipt,
         );
+
+        // The same fiscal CNPJ and access key may exist in independent Akaunting
+        // companies. Never let their archives share a writable WebDAV path.
+        return 'companies/' . (int) $invoice->company_id . '/' . ltrim($base, '/');
     }
 
     protected function buildFilePath(string $basePath, Invoice $invoice, ReceiptData $receipt, string $extension): string
@@ -129,11 +133,41 @@ class IssuedNfseArtifactStore
         return (new ArtifactPathBuilder())->filePath(
             basePath: $basePath,
             template: (string) setting('nfse.webdav_filename_template', '{chave_acesso}'),
-            cnpj: (string) setting('nfse.cnpj_prestador', 'unknown-cnpj'),
+            cnpj: $this->authorizedIssuerCnpj($receipt),
             customerName: (string) ($invoice->contact?->name ?? 'sem-cliente'),
             receipt: $receipt,
             extension: $extension,
         );
+    }
+
+    /**
+     * Use the immutable issuer identity from the authorized fiscal XML, not
+     * the active HTTP/queue company's mutable settings. Historical documents
+     * may outlive the company's fiscal profile.
+     */
+    protected function authorizedIssuerCnpj(ReceiptData $receipt): string
+    {
+        $xml = $receipt->rawXml ?? '';
+        if (!is_string($xml) || trim($xml) === '' || preg_match('/<!DOCTYPE/i', $xml) === 1) {
+            return 'unknown-cnpj';
+        }
+
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $document = new \DOMDocument();
+            if (!$document->loadXML($xml, LIBXML_NONET)) {
+                return 'unknown-cnpj';
+            }
+            $xpath = new \DOMXPath($document);
+            $cnpj = preg_replace('/\\D+/', '', trim((string) $xpath->evaluate(
+                "string((//*[local-name()='infNFSe']/*[local-name()='emit']/*[local-name()='CNPJ'])[1])",
+            ))) ?: '';
+
+            return preg_match('/^\\d{14}$/D', $cnpj) === 1 ? $cnpj : 'unknown-cnpj';
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
     }
 
     protected function receiptData(NfseReceipt $receipt, string $rawXml): ReceiptData

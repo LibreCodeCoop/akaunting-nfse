@@ -303,7 +303,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $resolved = $controller->resolveArtifactPath($invoice, $receipt);
 
-            self::assertSame('nfse/marco/21/nf-2026-000123/cliente-exemplo-ltda', $resolved);
+            self::assertSame('companies/1/nfse/marco/21/nf-2026-000123/cliente-exemplo-ltda', $resolved);
+
+            $invoice->company_id = 2;
+            self::assertSame(
+                'companies/2/nfse/marco/21/nf-2026-000123/cliente-exemplo-ltda',
+                $controller->resolveArtifactPath($invoice, $receipt),
+            );
         }
 
         public function testBuildWebDavArtifactBasePathUsesNfseNumberFromXmlWhenGatewayFieldIsEmpty(): void
@@ -330,7 +336,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $resolved = $controller->resolveArtifactPath($invoice, $receipt);
 
-            self::assertSame('nfse/abril/33/cliente-exemplo-ltda', $resolved);
+            self::assertSame('companies/1/nfse/abril/33/cliente-exemplo-ltda', $resolved);
         }
 
         public function testSandboxModeEnabledFallsBackToDefaultTrueWhenSettingIsEmptyString(): void
