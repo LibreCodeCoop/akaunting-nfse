@@ -32,6 +32,13 @@ final class CommercialFiscalReviewReportTest extends FeatureTestCase
         self::assertNotContains($outside->id, $ids);
         self::assertSame('not_linked', collect($rows)->firstWhere('invoice_id', $own->id)['status']);
         self::assertSame(0, NfseReceipt::query()->count());
+
+        $this->get(route('nfse.closing.index', ['competence' => '2026-10']))
+            ->assertOk()
+            ->assertSee('Sem NFS-e vinculada no módulo')
+            ->assertViewHas('closing', static fn (array $closing): bool =>
+                $closing['summary']['documents']['emitted'] === 0
+            );
     }
 
     public function testPendingAndCancelledReceiptRemainUnresolvedRatherThanAuthorized(): void
