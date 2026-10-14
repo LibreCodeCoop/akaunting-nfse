@@ -30,7 +30,7 @@ class AdnController extends Controller
 {
     public function index(): \Illuminate\View\View
     {
-        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $companyId = $this->requireCompanyId();
         $issuerCnpj = '';
         if ($companyId > 0) {
             try {
@@ -68,7 +68,7 @@ class AdnController extends Controller
 
     public function ignore(int $document): \Illuminate\Http\RedirectResponse
     {
-        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $companyId = $this->requireCompanyId();
 
         $query = AdnSyncDocument::query()
             ->whereKey($document)
@@ -89,7 +89,7 @@ class AdnController extends Controller
 
     public function importDraft(int $document, Request $request): \Illuminate\Http\RedirectResponse
     {
-        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $companyId = $this->requireCompanyId();
 
         $reviewDocument = AdnSyncDocument::query()
             ->whereKey($document)
@@ -285,6 +285,10 @@ class AdnController extends Controller
     protected function accountingReviewQueue(): array
     {
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0) {
+            return [];
+        }
+
         $sql = 'SELECT id, company_id, document_key, chave_acesso, fiscal_role, xml'
             . ' FROM nfse_adn_documents'
             . " WHERE review_status = 'pending'"
@@ -359,6 +363,17 @@ class AdnController extends Controller
                 'message' => trans('nfse::general.adn.distribution_query_failed'),
             ], 502);
         }
+    }
+
+    /** Company-less admin contexts must not widen fiscal queries or mutations. */
+    private function requireCompanyId(): int
+    {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0) {
+            abort(404);
+        }
+
+        return $companyId;
     }
 
     protected function companyCnpjForAdn(): string
@@ -485,6 +500,10 @@ class AdnController extends Controller
         }
 
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
+
+        if ($companyId <= 0) {
+            return [];
+        }
 
         $rows = NfseReceipt::query()
             ->whereIn('chave_acesso', $accessKeys)
