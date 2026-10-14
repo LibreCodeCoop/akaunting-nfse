@@ -149,7 +149,11 @@ O operador deve aplicar a política de retenção adequada no OpenBao/Vault.
 Nenhuma dessas operações apaga a empresa nativa, faturas, NFS-e autorizadas,
 DPS, XML, recibos ou artefatos históricos. As configurações anteriores
 `nfse.*` **não são migradas nem reaproveitadas**: recadastre infraestrutura,
-certificados e complementos fiscais no novo contrato.
+certificados e complementos fiscais no novo contrato. Rotas antigas que
+gravavam configuração fiscal geral, tributos federais globais ou certificados
+por CNPJ retornam HTTP 410 (`Gone`). O endpoint de inspeção PFX (somente
+leitura) permanece disponível. A configuração WebDAV usa as preferências
+nativas da empresa Akaunting ativa, separada dos parâmetros do emissor.
 
 A nova interface pertence à #420 e o consumo do perfil pelos emissores,
 filas, recuperação, ADN e WebDAV pertence à #421. **Não interprete um

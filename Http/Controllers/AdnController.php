@@ -21,6 +21,7 @@ use Modules\Nfse\Application\AdnAccountingPreview;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\AdnDistributionData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\AdnClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlSignatureVerifier;
@@ -29,9 +30,22 @@ class AdnController extends Controller
 {
     public function index(): \Illuminate\View\View
     {
-        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $companyId = $this->requireCompanyId();
+        $issuerCnpj = '';
+        if ($companyId > 0) {
+            try {
+                $issuerCnpj = (string) (new NfseCompanyFiscalSettings())->value(
+                    $companyId,
+                    'nfse.cnpj_prestador',
+                    '',
+                );
+            } catch (\DomainException) {
+                // An unconfigured company never displays an unrelated issuer.
+            }
+        }
 
         return view('nfse::adn.index', [
+            'issuerCnpj' => $issuerCnpj,
             'reviewDocuments' => $this->accountingReviewQueue(),
             'reviewVendors' => Contact::query()
                 ->vendor()
@@ -54,7 +68,7 @@ class AdnController extends Controller
 
     public function ignore(int $document): \Illuminate\Http\RedirectResponse
     {
-        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $companyId = $this->requireCompanyId();
 
         $query = AdnSyncDocument::query()
             ->whereKey($document)
@@ -75,7 +89,7 @@ class AdnController extends Controller
 
     public function importDraft(int $document, Request $request): \Illuminate\Http\RedirectResponse
     {
-        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        $companyId = $this->requireCompanyId();
 
         $reviewDocument = AdnSyncDocument::query()
             ->whereKey($document)
@@ -271,6 +285,10 @@ class AdnController extends Controller
     protected function accountingReviewQueue(): array
     {
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0) {
+            return [];
+        }
+
         $sql = 'SELECT id, company_id, document_key, chave_acesso, fiscal_role, xml'
             . ' FROM nfse_adn_documents'
             . " WHERE review_status = 'pending'"
@@ -311,21 +329,26 @@ class AdnController extends Controller
             ], 422);
         }
 
-        // Request::query() evaluates its default argument eagerly. Resolve
-        // the owning company only when a CNPJ was not supplied.
         $cnpjInput = $request->query('cnpj');
-        if ($cnpjInput === null) {
-            $companyId = function_exists('company_id') ? (int) company_id() : 0;
-            $cnpjInput = (new \Modules\Nfse\Support\NfseCompanyFiscalSettings())
-                ->value($companyId, 'nfse.cnpj_prestador', '');
-        }
-
         $cnpj = strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $cnpjInput) ?? '');
 
         if ($cnpj !== '' && preg_match('/^[A-Z0-9]{12}\\d{2}$/', $cnpj) !== 1) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.adn.invalid_cnpj'),
             ], 422);
+        }
+
+        // The optional ADN filter must never bypass the company-owned
+        // certificate requirement. Without an active profile, fail before
+        // constructing a client or making a remote request.
+        try {
+            $issuerCnpj = $this->companyCnpjForAdn();
+        } catch (\DomainException) {
+            return $this->jsonResponse(['reason' => 'company_profile_unavailable'], 409);
+        }
+
+        if ($cnpjInput === null) {
+            $cnpj = $issuerCnpj;
         }
 
         $loteRaw = strtolower(trim((string) $request->query('lote', '1')));
@@ -340,6 +363,24 @@ class AdnController extends Controller
                 'message' => trans('nfse::general.adn.distribution_query_failed'),
             ], 502);
         }
+    }
+
+    /** Company-less admin contexts must not widen fiscal queries or mutations. */
+    private function requireCompanyId(): int
+    {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        if ($companyId <= 0) {
+            abort(404);
+        }
+
+        return $companyId;
+    }
+
+    protected function companyCnpjForAdn(): string
+    {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+
+        return (string) (new NfseCompanyFiscalSettings())->value($companyId, 'nfse.cnpj_prestador', '');
     }
 
     public function events(Invoice $invoice): JsonResponse
@@ -459,6 +500,10 @@ class AdnController extends Controller
         }
 
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
+
+        if ($companyId <= 0) {
+            return [];
+        }
 
         $rows = NfseReceipt::query()
             ->whereIn('chave_acesso', $accessKeys)

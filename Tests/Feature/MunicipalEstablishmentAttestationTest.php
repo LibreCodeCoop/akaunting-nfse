@@ -20,108 +20,38 @@ use Tests\Feature\FeatureTestCase;
 
 final class MunicipalEstablishmentAttestationTest extends FeatureTestCase
 {
-    public function testAuthenticatedFiscalSettingsSaveAndInvalidateExplicitAttestation(): void
+    public function testLegacyFiscalEndpointCannotCreateMunicipalEstablishmentEvidence(): void
     {
         $this->loginAs();
 
-        setting()->set([
-            'nfse.bao_addr' => 'https://vault.example.test',
-            'nfse.bao_mount' => '/secret',
-            'nfse.bao_token' => 'synthetic-secret',
-            'nfse.cnpj_prestador' => '11222333000181',
-            'nfse.municipio_ibge' => '3303302',
-        ]);
-        setting()->save();
-
-        (new \Modules\Nfse\Support\GlobalVaultSettings())->save([
-            'addr' => 'https://vault.example.test',
-            'mount' => '/secret',
-            'auth_mode' => 'token',
-            'token' => 'synthetic-global-fixture-token',
-        ]);
-
-        $fiscal = [
+        $this->patch(route('nfse.settings.fiscal'), ['nfse' => [
             'cnpj_prestador' => '11222333000181',
-            'uf' => 'RJ',
-            'municipio_nome' => 'Niterói',
             'municipio_ibge' => '3303302',
-            'tributacao_issqn' => '1',
-            'tipo_retencao_iss' => '1',
             'provider_establishment_confirmed' => '1',
-        ];
+        ]])->assertStatus(410);
 
-        $this->patch(route('nfse.settings.fiscal'), ['nfse' => $fiscal])
-            ->assertRedirect(route('nfse.settings.edit', ['tab' => 'fiscal']));
-        self::assertSame('1', (string) setting('nfse.provider_establishment_confirmed'));
-        self::assertSame('11222333000181', (string) setting('nfse.provider_establishment_confirmed_cnpj'));
-        self::assertSame('3303302', (string) setting('nfse.provider_establishment_confirmed_municipality'));
-        self::assertNotSame('', (string) setting('nfse.provider_establishment_confirmed_at'));
-        self::assertSame((string) auth()->id(), (string) setting('nfse.provider_establishment_confirmed_by'));
-
-        // A persisted confirmation cannot follow a changed IBGE municipality.
-        $this->patch(route('nfse.settings.fiscal'), ['nfse' => array_merge($fiscal, [
-            'municipio_nome' => 'Rio de Janeiro',
-            'municipio_ibge' => '3304557',
-        ])])->assertRedirect(route('nfse.settings.edit', ['tab' => 'fiscal']));
-
-        self::assertSame('0', (string) setting('nfse.provider_establishment_confirmed'));
-        self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_municipality'));
-        self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_at'));
+        self::assertNull(setting('nfse.provider_establishment_confirmed'));
+        self::assertNull(setting('nfse.provider_establishment_confirmed_cnpj'));
     }
 
-    public function testLegacySettingsCannotForgeOrResurrectEstablishmentConfirmation(): void
+    public function testLegacyGeneralEndpointCannotForgeMunicipalEstablishmentEvidence(): void
     {
         $this->loginAs();
         setting()->set([
-            'nfse.bao_addr' => 'https://vault.example.test',
-            'nfse.bao_mount' => '/secret',
-            'nfse.bao_token' => 'synthetic-secret',
-            'nfse.cnpj_prestador' => '11222333000181',
-            'nfse.municipio_ibge' => '3303302',
-            'nfse.provider_establishment_confirmed' => '1',
-            'nfse.provider_establishment_confirmed_cnpj' => '11222333000181',
-            'nfse.provider_establishment_confirmed_municipality' => '3303302',
-            'nfse.provider_establishment_confirmed_at' => '2026-10-12T09:00:00-03:00',
-            'nfse.provider_establishment_confirmed_by' => 'synthetic-operator',
+            'nfse.provider_establishment_confirmed' => '0',
+            'nfse.provider_establishment_confirmed_cnpj' => '',
         ]);
         setting()->save();
 
-        (new \Modules\Nfse\Support\GlobalVaultSettings())->save([
-            'addr' => 'https://vault.example.test',
-            'mount' => '/secret',
-            'auth_mode' => 'token',
-            'token' => 'synthetic-global-fixture-token',
-        ]);
-
-        $legacy = [
+        $this->patch(route('nfse.settings.update'), ['nfse' => [
             'cnpj_prestador' => '11222333000181',
-            'uf' => 'RJ',
-            'municipio_nome' => 'Rio de Janeiro',
-            'municipio_ibge' => '3304557',
-            'bao_addr' => 'https://vault.example.test',
-            'bao_mount' => '/secret',
-            'bao_token' => 'synthetic-secret',
+            'municipio_ibge' => '3303302',
             'provider_establishment_confirmed' => '1',
             'provider_establishment_confirmed_cnpj' => '11222333000181',
-            'provider_establishment_confirmed_municipality' => '3304557',
-            'provider_establishment_confirmed_at' => '2030-01-01T00:00:00Z',
-            'provider_establishment_confirmed_by' => 'forged-operator',
-        ];
+        ]])->assertStatus(410);
 
-        $this->patch(route('nfse.settings.update'), ['nfse' => $legacy])
-            ->assertRedirect(route('nfse.settings.edit'));
-        self::assertSame('3304557', (string) setting('nfse.municipio_ibge'));
         self::assertSame('0', (string) setting('nfse.provider_establishment_confirmed'));
         self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_cnpj'));
-        self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_at'));
-        self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_by'));
-
-        // A later return to the original city cannot resurrect the evidence.
-        $legacy['municipio_ibge'] = '3303302';
-        $this->patch(route('nfse.settings.update'), ['nfse' => $legacy])
-            ->assertRedirect(route('nfse.settings.edit'));
-        self::assertSame('0', (string) setting('nfse.provider_establishment_confirmed'));
-        self::assertSame('', (string) setting('nfse.provider_establishment_confirmed_municipality'));
     }
 
     public function testStoredIssuerAttestationSelectsOnlyExactDpsMunicipalSnapshot(): void

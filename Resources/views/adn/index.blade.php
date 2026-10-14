@@ -171,7 +171,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                     <div>
                         <label for="adn-cnpj" class="block text-sm font-medium text-gray-700 mb-1">{{ trans('nfse::general.adn.cnpj') }}</label>
-                        <input id="adn-cnpj" type="text" maxlength="18" value="{{ setting('nfse.cnpj_prestador', '') }}" class="w-full rounded border border-gray-300 px-3 py-2">
+                        <input id="adn-cnpj" type="text" maxlength="18" value="{{ $issuerCnpj ?? '' }}" class="w-full rounded border border-gray-300 px-3 py-2">
                     </div>
 
                     <div class="flex items-end">
