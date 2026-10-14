@@ -199,6 +199,9 @@ A NFS-e autorizada e a fatura Akaunting possuem estados distintos.
 A emissão usa o XML autorizado como fonte fiscal para DANFSe e reconciliação.
 O processamento pós-emissão pode utilizar a fila do Akaunting, com proteção
 contra duplicação após autorizações ambíguas: [Filas](queue.md).
+Novos caminhos de arquivamento WebDAV são isolados por
+`companies/{company_id}/`, mesmo quando empresas distintas usam o mesmo CNPJ.
+Caminhos históricos já persistidos no recibo permanecem inalterados.
 
 Documentos e eventos podem ser consultados pelo ADN conforme as permissões
 da integração. O módulo não aplica automaticamente aos cadastros alterações

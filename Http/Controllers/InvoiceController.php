@@ -4406,12 +4406,14 @@ class InvoiceController extends Controller
 
     protected function buildWebDavArtifactBasePath(Invoice $invoice, ReceiptData $receipt): string
     {
-        return (new ArtifactPathBuilder())->basePath(
+        $base = (new ArtifactPathBuilder())->basePath(
             template: (string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'),
             cnpj: $this->fiscalCnpjForInvoice($invoice),
             customerName: (string) ($invoice->contact?->name ?? 'sem-cliente'),
             receipt: $receipt,
         );
+
+        return 'companies/' . (int) $invoice->company_id . '/' . ltrim($base, '/');
     }
 
     protected function fiscalCnpjForInvoice(Invoice $invoice): string
