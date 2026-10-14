@@ -154,11 +154,11 @@ class IssuedNfseArtifactStore
 
         $previous = libxml_use_internal_errors(true);
         try {
-            $document = new \\DOMDocument();
+            $document = new \DOMDocument();
             if (!$document->loadXML($xml, LIBXML_NONET)) {
                 return 'unknown-cnpj';
             }
-            $xpath = new \\DOMXPath($document);
+            $xpath = new \DOMXPath($document);
             $cnpj = preg_replace('/\\D+/', '', trim((string) $xpath->evaluate(
                 "string((//*[local-name()='infNFSe']/*[local-name()='emit']/*[local-name()='CNPJ'])[1])",
             ))) ?: '';
