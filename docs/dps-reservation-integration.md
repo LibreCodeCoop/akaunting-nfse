@@ -155,6 +155,15 @@ registration/series/reference both successfully commit local number 1.
 This establishes the need for external coordination; it is not a test of
 coordinator correctness and never calls SEFIN.
 
+**Live emission paths are not protected by this opt-in allocator.**
+`IssueInvoiceNfse::issue()` still reaches the underlying `emit()` method,
+and several builders still derive DPS numbers from legacy local IDs. Thus
+the fail-closed guarantee applies to `DpsReservationService` only, not
+every deployed fiscal POST. Production must remain disabled by a separate
+verified operational control until #429 enforces the shared reservation
+and first-POST claim on every mutable emission path. No class in this PR
+implements that last-boundary gate.
+
 Before enabling a series, #417/#421 must require durable evidence of one of:
 a genuinely shared atomic allocation store used by **all** installations for
 that issuer/environment/series, or externally enforceable exclusive

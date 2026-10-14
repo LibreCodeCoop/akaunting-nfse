@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Coordinating DPS numbers across independent Akaunting installations
 
-Status: **coordinator mechanics implemented; production issuance blocked**.
+Status: **opt-in coordinator mechanics implemented; production issuance is NOT blocked by this code**.
 Scope: #423. Does not integrate the emitters or the last first-POST preflight
 owned by #429. Does not create another fiscal journal or retry subsystem.
 
@@ -136,6 +136,32 @@ before revocation could otherwise transmit after revocation. Keep **all
 production first POSTs and new series activation blocked** until the
 operational exclusive-series attestation, final transmission gate, official
 rejection/gap policy and integrated restricted-environment verification exist.
+
+## Unprotected legacy first-POST paths (mandatory rollout gate)
+
+The existing `IssueInvoiceNfse::issue()` still calls
+`NfseClientInterface::emit()` without invoking this coordinator. The
+legacy `InvoiceDpsIdentity`, `FiscalGroupDpsIdentity`, reissue and
+replacement builders are **not** migrated by this PR. Consequently,
+installing the SQL schema or merging this PR **does not block existing
+transmissions**, and cannot be described as a production-wide fail-closed
+gate. Until the distinct #429/#421 integration is delivered, operations
+must **disable production NFS-e issuance through all current entry points**
+using an independently verified deployment-level control.
+
+At #429's final first-POST boundary, the application must reject a payload
+without a matching immutable reservation, authorized issuer/profile,
+current central authority and an irreversible first-transmission claim.
+The claim and existing `EmissionAttemptJournal` must prevent a second
+mutable POST, including after timeout or crash. A post-reservation
+check-only coordinator call is insufficient: revocation could commit
+between that check and first-POST authorization.
+
+The SEFIN API does not validate a local fencing token. Revocation can
+prevent *new allocations and claims* but cannot reliably recall an already
+authorized in-flight HTTP request. Operators must drain/terminate old
+workers during revocation and treat any in-flight result as ambiguous until
+read-only reconciliation. Do not claim hard real-time transmission revocation.
 
 ## Contract to #421 / #429
 
