@@ -151,12 +151,20 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
         $operation = $this->key('crash-after-global-before-local');
 
         self::assertSame(['number' => 1, 'fresh' => true], $a->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $operation,
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $operation,
         ));
         // Deliberately omit the local insert; simulate crash and stale restore.
         self::assertSame(0, (int) $this->admin->query('SELECT count(*) FROM dps_local_fixture')->fetchColumn());
         self::assertSame(['number' => 1, 'fresh' => false], $a->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $operation,
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $operation,
         ));
         $a->assertExisting($issuer, 2, '00001', self::REFERENCE, $operation, 1);
         try {
@@ -167,7 +175,11 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
 
         // A distinct operation never reclaims the abandoned number.
         self::assertSame(2, $a->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $this->key('next-operation'),
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $this->key('next-operation'),
         )['number']);
         self::assertSame(2, $this->allocationCount());
     }
@@ -178,10 +190,18 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
         $this->registerSeries($issuer, 2);
         $sameLocalKey = $this->key('company=1;invoice=1;environment=2');
         $a = $this->coordinator(self::INSTALL_A)->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $sameLocalKey,
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $sameLocalKey,
         );
         $b = $this->coordinator(self::INSTALL_B, 1, $this->connect($this->globalDatabase))->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $sameLocalKey,
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $sameLocalKey,
         );
 
         self::assertSame(1, $a['number']);
@@ -198,13 +218,25 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
 
         $coordinator = $this->coordinator(self::INSTALL_A);
         self::assertSame(1, $coordinator->allocate(
-            $issuer, 1, '00001', self::REFERENCE, $this->key('prod'),
+            $issuer,
+            1,
+            '00001',
+            self::REFERENCE,
+            $this->key('prod'),
         )['number']);
         self::assertSame(1, $coordinator->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $this->key('restricted'),
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $this->key('restricted'),
         )['number']);
         self::assertSame(1, $coordinator->allocate(
-            $otherIssuer, 2, '00001', self::REFERENCE, $this->key('other-issuer'),
+            $otherIssuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $this->key('other-issuer'),
         )['number']);
     }
 
@@ -214,7 +246,11 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
         $seriesId = $this->registerSeries($issuer, 2);
         $old = $this->coordinator(self::INSTALL_A);
         self::assertSame(1, $old->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $this->key('before-revoke'),
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $this->key('before-revoke'),
         )['number']);
 
         $this->global->exec('UPDATE nfse_dps_coordination_members '
@@ -233,7 +269,11 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
 
         $new = $this->coordinator(self::INSTALL_A, 2, $this->connect($this->globalDatabase));
         self::assertSame(2, $new->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $this->key('after-revoke'),
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $this->key('after-revoke'),
         )['number']);
         $this->expectException(\LogicException::class);
         $old->assertExisting($issuer, 2, '00001', self::REFERENCE, $this->key('before-revoke'), 1);
@@ -274,7 +314,11 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
         $this->global->exec("UPDATE nfse_dps_coordination_series SET status = 'inactive' WHERE id = " . $id);
         $this->expectException(\LogicException::class);
         $this->coordinator(self::INSTALL_A)->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $this->key('inactive'),
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $this->key('inactive'),
         );
     }
 
@@ -311,10 +355,18 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
         self::assertSame(2, $a->allocate($issuer, 2, '00001', self::REFERENCE, $ambiguous)['number']);
         // No API to release or recycle either reservation on fiscal outcome.
         self::assertSame(['number' => 1, 'fresh' => false], $a->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $rejected,
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $rejected,
         ));
         self::assertSame(3, $a->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $this->key('unrelated-new-emission'),
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $this->key('unrelated-new-emission'),
         )['number']);
     }
 
@@ -324,7 +376,11 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
         $this->registerSeries($issuer, 2, 999999999999998);
         $a = $this->coordinator(self::INSTALL_A);
         self::assertSame(999999999999999, $a->allocate(
-            $issuer, 2, '00001', self::REFERENCE, $this->key('last-number'),
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $this->key('last-number'),
         )['number']);
         $this->expectException(\OverflowException::class);
         try {
