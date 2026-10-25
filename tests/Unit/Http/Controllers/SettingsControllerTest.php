@@ -1175,7 +1175,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 /** @return array<string, mixed> */
                 protected function municipalFiscalSettings(int $companyId): array
                 {
-                    self::assertSame(1, $companyId);
+                    \PHPUnit\Framework\Assert::assertSame(1, $companyId);
 
                     return [
                         'municipio_ibge' => '3303302',
@@ -1239,7 +1239,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 /** @return array<string, mixed> */
                 protected function municipalFiscalSettings(int $companyId): array
                 {
-                    self::assertSame(1, $companyId);
+                    \PHPUnit\Framework\Assert::assertSame(1, $companyId);
 
                     return [
                         'municipio_ibge' => '3303302',
