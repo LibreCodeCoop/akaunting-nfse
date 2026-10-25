@@ -22,6 +22,15 @@ final class FeatureContext implements Context
     private string $companyId;
     private ?string $csrfToken = null;
 
+    /** @BeforeScenario */
+    public function resetScenario(): void
+    {
+        $this->cookies->clear();
+        $this->response = null;
+        $this->csrfToken = null;
+        $this->companyId = (string) (getenv('NFSE_BEHAT_COMPANY_ID') ?: '1');
+    }
+
     public function __construct()
     {
         $this->cookies = new CookieJar();
@@ -185,6 +194,16 @@ final class FeatureContext implements Context
         $this->ensure(
             str_contains($body, $text),
             sprintf('Expected response body to contain "%s".', $text)
+        );
+    }
+
+    #[Then('the response body should not contain :text')]
+    public function theResponseBodyShouldNotContain(string $text): void
+    {
+        $this->ensureResponse();
+        $this->ensure(
+            !str_contains((string) $this->response->getBody(), $text),
+            sprintf('Response unexpectedly contains "%s".', $text)
         );
     }
 

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-@auth
+@auth @web
 Feature: NFS-e endpoints contract
   In order to avoid regressions in module routing and basic API flows
   As a module maintainer
