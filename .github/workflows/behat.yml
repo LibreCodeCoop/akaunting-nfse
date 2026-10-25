@@ -122,8 +122,8 @@ jobs:
         run: node scripts/ci/playwright-smoke.mjs provision
 
       - name: Provision isolated second company and permission-negative account
-        working-directory: akaunting
-        run: php artisan tinker --execute='require "modules/Nfse/scripts/ci/behat-fixtures.php";'
+        working-directory: akaunting/modules/Nfse
+        run: php scripts/ci/behat-fixtures.php
 
       - name: Start only this runner's Akaunting server
         id: server

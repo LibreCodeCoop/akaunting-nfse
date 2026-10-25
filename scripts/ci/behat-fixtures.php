@@ -16,6 +16,16 @@ use App\Models\Common\Company;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
+// Run as a standalone CLI script. Unlike tinker --execute, uncaught
+// exceptions must result in a non-zero CI exit status.
+$coreRoot = dirname(__DIR__, 4);
+if (!is_file($coreRoot . '/artisan') || !is_file($coreRoot . '/vendor/autoload.php')) {
+    throw new RuntimeException('Disposable Akaunting checkout is required.');
+}
+require_once $coreRoot . '/vendor/autoload.php';
+$app = require $coreRoot . '/bootstrap/app.php';
+$app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
 if (!app()->environment('testing')
     || DB::connection()->getDriverName() !== 'sqlite'
     || getenv('NFSE_TEST_HARNESS') !== '1') {
@@ -36,11 +46,18 @@ if ($otherId === 1) {
 }
 
 $other->makeCurrent();
+// Company seeders may send messages: initialize required native settings first.
+setting()->set([
+    'company.name' => 'Behat other company',
+    'company.email' => 'other@behat.invalid',
+    'default.currency' => 'USD',
+    'default.locale' => 'en-GB',
+    'email.protocol' => 'array',
+]);
+setting()->save();
 if (Artisan::call('company:seed', ['company' => $otherId]) !== 0) {
     throw new RuntimeException('Failed to seed the second native Akaunting company.');
 }
-setting()->set(['company.name' => 'Behat other company', 'company.email' => 'other@behat.invalid']);
-setting()->save();
 
 if (Artisan::call('module:install', [
     'alias' => 'nfse',

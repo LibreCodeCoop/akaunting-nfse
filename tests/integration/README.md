@@ -37,12 +37,10 @@ Use the established Akaunting CI harness lifecycle:
    install the core and scoped module runtime, then `php artisan migrate:fresh
    --force` and the native `Database\Seeds\TestCompany` seeder **inside the
    disposable core only**.
-4. Run the existing `playwright-smoke.mjs provision` profile for synthetic
-   test user, pending invoice and synthetic NFS-e cert. With
-   `NFSE_TEST_HARNESS=1`, `php artisan tinker --execute='require
-   "modules/Nfse/scripts/ci/behat-fixtures.php";'` provisions a second native
-   Akaunting company with its own synthetic profile and account plus a role
-   without fiscal permissions.
+4. Run the existing Playwright smoke provision profile. With
+   NFSE_TEST_HARNESS=1, invoke php scripts/ci/behat-fixtures.php from
+   the module directory to provision the synthetic second native company
+   and the permission-negative account. The script exits non-zero on failures.
 5. Start the disposable HTTP server with the existing
    `playwright-smoke.mjs start-server`, run Behat, and stop it through
    `playwright-smoke.mjs stop-server` even on failure.

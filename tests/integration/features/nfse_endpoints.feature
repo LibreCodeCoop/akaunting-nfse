@@ -14,9 +14,10 @@ Feature: Authenticated NFS-e administrative pages remain available
     When I send "GET" request to "/<company_id>/nfse/settings"
     Then the response status should be 200
 
-  Scenario: Authorized administrator can view pending invoice page
+  Scenario: The former pending-invoice page redirects to Akaunting native invoices
     When I send "GET" request to "/<company_id>/nfse/invoices/pending"
-    Then the response status should be 200
+    Then the response status should be 302
+    And the response should redirect to "/invoices"
 
   Scenario: Unknown invoices remain inaccessible from administrative pages
     When I send "GET" request to "/<company_id>/nfse/invoices/999999"
