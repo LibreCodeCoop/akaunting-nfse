@@ -65,8 +65,8 @@ jobs:
       NFSE_BEHAT_PASSWORD: 'NfseE2E!123456'
       NFSE_BEHAT_OTHER_EMAIL: nfse-behat-other@example.test
       NFSE_BEHAT_OTHER_PASSWORD: 'NfseBehatOther!123456'
-      NFSE_BEHAT_DENIED_EMAIL: nfse-behat-denied@example.test
-      NFSE_BEHAT_DENIED_PASSWORD: 'NfseBehatDenied!123456'
+      NFSE_BEHAT_DENIED_EMAIL: nfse-e2e-restricted@example.test
+      NFSE_BEHAT_DENIED_PASSWORD: 'NfseE2ERestricted!123456'
 
     steps:
       - name: Checkout Akaunting core
@@ -162,7 +162,7 @@ jobs:
           if [ -f ../../storage/logs/playwright-server.log ]; then
             sed -e 's/NfseE2E!123456/[REDACTED]/g' \
                 -e 's/NfseBehatOther!123456/[REDACTED]/g' \
-                -e 's/NfseBehatDenied!123456/[REDACTED]/g' \
+                -e 's/NfseE2ERestricted!123456/[REDACTED]/g' \
                 ../../storage/logs/playwright-server.log > build/behat/server.log
           fi
 
