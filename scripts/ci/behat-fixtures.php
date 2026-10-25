@@ -58,6 +58,13 @@ try {
         'email.protocol' => 'array',
     ]);
     setting()->save();
+    // Switching companies applies settings before this fixture initializes the
+    // new company's email. Reload native overrides before calling core seeders.
+    \App\Utilities\Overrider::load('settings');
+    if (config('mail.from.address') !== 'other@behat.invalid') {
+        throw new RuntimeException('Synthetic company mail configuration did not load.');
+    }
+
     $fixtureStage = 'seed-second-company';
     if (Artisan::call('company:seed', ['company' => $otherId]) !== 0) {
         throw new RuntimeException('Failed to seed the second native Akaunting company.');
