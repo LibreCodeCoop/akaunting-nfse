@@ -4,49 +4,174 @@
 name: Behat API Contracts
 
 on:
-  workflow_dispatch:
-    inputs:
-      base_url:
-        description: "Akaunting base URL (e.g. https://your-akaunting.example)"
-        required: true
-        type: string
-      company_id:
-        description: "Company ID used in route prefix"
-        required: false
-        default: "1"
-        type: string
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: behat-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
-  NFSE_BEHAT_BASE_URL: ${{ inputs.base_url }}
-  NFSE_BEHAT_COMPANY_ID: ${{ inputs.company_id }}
-  NFSE_BEHAT_EMAIL: ${{ secrets.NFSE_BEHAT_EMAIL }}
-  NFSE_BEHAT_PASSWORD: ${{ secrets.NFSE_BEHAT_PASSWORD }}
+  COMPOSER_NO_INTERACTION: 1
+  COMPOSER_NO_AUDIT: 1
+  COMPOSER_PROCESS_TIMEOUT: 0
 
 jobs:
-  behat:
+  toolchain:
+    name: Behat 4 discovery (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
     steps:
       - uses: actions/checkout@v7
+      - name: Configure PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
         with:
-          path: modules/Nfse
+          php-version: ${{ matrix.php }}
+          tools: composer
+          extensions: mbstring, xml, zip
+          coverage: none
+
+      - name: Install Behat tools with the committed PHP 8.2 lock
+        run: composer --working-dir=vendor-bin/behat install --prefer-dist --no-progress --no-interaction
+
+      - name: Discover all Gherkin steps
+        run: vendor-bin/behat/vendor/bin/behat --config=behat.php --dry-run --no-colors --format=progress --no-snippets
+
+  http-contracts:
+    name: HTTP contracts (disposable Akaunting)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_ENV: testing
+      APP_URL: http://127.0.0.1:8082
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ${{ github.workspace }}/akaunting/database/playwright.sqlite
+      MAIL_MAILER: array
+      MAIL_FROM_ADDRESS: nfse-e2e@example.test
+      MAIL_FROM_NAME: NFS-e E2E
+      NFSE_TEST_HARNESS: '1'
+      NFSE_BEHAT_BASE_URL: http://127.0.0.1:8082
+      NFSE_BEHAT_COMPANY_ID: '1'
+      NFSE_BEHAT_EMAIL: nfse-e2e@example.test
+      NFSE_BEHAT_PASSWORD: 'NfseE2E!123456'
+      NFSE_BEHAT_OTHER_EMAIL: nfse-behat-other@example.test
+      NFSE_BEHAT_OTHER_PASSWORD: 'NfseBehatOther!123456'
+      NFSE_BEHAT_DENIED_EMAIL: nfse-behat-denied@example.test
+      NFSE_BEHAT_DENIED_PASSWORD: 'NfseBehatDenied!123456'
+
+    steps:
+      - name: Checkout Akaunting core
+        uses: actions/checkout@v7
+        with:
+          repository: akaunting/akaunting
+          ref: master
+          path: akaunting
+
+      - name: Checkout NFS-e module
+        uses: actions/checkout@v7
+        with:
+          path: akaunting/modules/Nfse
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          tools: composer
+          extensions: bcmath, ctype, curl, dom, fileinfo, gd, intl, json, mbstring, openssl, pdo, pdo_sqlite, soap, sqlite3, xml, zip
           coverage: none
+          tools: composer
 
-      - name: Install dependencies
-        working-directory: modules/Nfse
-        run: composer install --prefer-dist --no-progress
+      - name: Prepare disposable Akaunting test environment
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs prepare-env
 
-      - name: Run Behat contracts
-        working-directory: modules/Nfse
-        run: composer test:behat:guest
+      - name: Install Akaunting dependencies
+        working-directory: akaunting
+        run: composer test
 
-      - name: Run Behat authenticated contracts
-        if: env.NFSE_BEHAT_EMAIL != '' && env.NFSE_BEHAT_PASSWORD != ''
-        working-directory: modules/Nfse
-        run: composer test:behat:auth
+      - name: Build scoped NFS-e runtime and isolated Behat tools
+        working-directory: akaunting/modules/Nfse
+        run: |
+          composer install --prefer-dist --no-progress --no-interaction --no-scripts
+          composer thirdparty:install
+          composer runtime-tools:install
+          composer thirdparty:scope
+          composer --working-dir=vendor-bin/behat install --prefer-dist --no-progress --no-interaction
+
+      - name: Initialize disposable SQLite database and native Akaunting company
+        working-directory: akaunting
+        run: |
+          php artisan migrate:fresh --force
+          php artisan db:seed --class='\Database\Seeds\TestCompany' --force
+
+      - name: Provision existing synthetic NFS-e harness
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs provision
+
+      - name: Provision isolated second company and permission-negative account
+        working-directory: akaunting
+        run: php artisan tinker --execute='require "modules/Nfse/scripts/ci/behat-fixtures.php";'
+
+      - name: Start only this runner's Akaunting server
+        id: server
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs start-server
+
+      - name: Run serial HTTP API contracts and guest web guards
+        working-directory: akaunting/modules/Nfse
+        run: |
+          mkdir -p build/behat-junit
+          start=$(date +%s)
+          set +e
+          vendor-bin/behat/vendor/bin/behat --config=behat.php --strict --no-colors --no-snippets \
+            --tag-expression='not @external' \
+            --format=progress --out=std --format=junit --out=build/behat-junit
+          result=$?
+          set -e
+          echo "Behat serial wall-clock: $(($(date +%s) - start)) seconds"
+          if [ "$result" -ne 0 ]; then
+            exit "$result"
+          fi
+          # A second order catches accidental scenario-to-scenario state dependencies.
+          vendor-bin/behat/vendor/bin/behat --config=behat.php --strict --no-colors --no-snippets \
+            --tag-expression='not @external' --order=random --format=progress
+
+      - name: Stop disposable server
+        if: always()
+        working-directory: akaunting/modules/Nfse
+        run: node scripts/ci/playwright-smoke.mjs stop-server
+
+      - name: Sanitize test server diagnostics
+        if: failure()
+        working-directory: akaunting/modules/Nfse
+        run: |
+          mkdir -p build/behat
+          if [ -f ../../storage/logs/playwright-server.log ]; then
+            sed -e 's/NfseE2E!123456/[REDACTED]/g' \
+                -e 's/NfseBehatOther!123456/[REDACTED]/g' \
+                -e 's/NfseBehatDenied!123456/[REDACTED]/g' \
+                ../../storage/logs/playwright-server.log > build/behat/server.log
+          fi
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: behat-http-contracts
+          if-no-files-found: ignore
+          path: |
+            akaunting/modules/Nfse/build/behat-junit
+            akaunting/modules/Nfse/build/behat/server.log

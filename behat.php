@@ -10,9 +10,11 @@ use Behat\Config\Profile;
 use Behat\Config\Suite;
 
 require_once __DIR__ . '/tests/integration/features/bootstrap/FeatureContext.php';
+require_once __DIR__ . '/tests/integration/features/bootstrap/AkauntingHttpContext.php';
+require_once __DIR__ . '/tests/integration/features/bootstrap/NfseApiContext.php';
 
 return (new Config())
     ->withProfile((new Profile('default'))
         ->withSuite((new Suite('default'))
             ->withPaths('%paths.base%/tests/integration/features')
-            ->withContexts('FeatureContext')));
+            ->withContexts('FeatureContext', 'NfseApiContext')));
