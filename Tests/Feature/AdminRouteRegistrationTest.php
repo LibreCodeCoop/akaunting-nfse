@@ -30,6 +30,7 @@ final class AdminRouteRegistrationTest extends FeatureTestCase
             'IBGE states' => ['nfse.ibge.ufs', 'GET'],
             'IBGE municipalities' => ['nfse.ibge.municipalities', 'GET'],
             'LC116 services' => ['nfse.lc116.services', 'GET'],
+            'municipal parameter diagnostics' => ['nfse.municipal-parameters', 'GET'],
             'ADN index' => ['nfse.adn.index', 'GET'],
             'ADN distribution' => ['nfse.adn.distribution', 'GET'],
             'ADN invoice events' => ['nfse.invoices.adn-events', 'GET'],
@@ -52,6 +53,7 @@ final class AdminRouteRegistrationTest extends FeatureTestCase
         $permissions = [
             'nfse.settings.edit' => 'permission:read-nfse-settings',
             'nfse.settings.update' => 'permission:update-nfse-settings',
+            'nfse.municipal-parameters' => 'permission:read-nfse-settings',
             'nfse.settings.tax-associations.index' => 'permission:read-nfse-settings',
             'nfse.settings.tax-associations.store' => 'permission:update-nfse-settings',
             'nfse.settings.vault' => 'permission:update-nfse-settings',

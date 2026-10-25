@@ -491,6 +491,25 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         self::assertSame(0, NfseCompanyProfile::query()->count());
     }
 
+    public function testMunicipalDiagnosticsRejectAdminWithoutFiscalReadPermission(): void
+    {
+        $companyId = (int) $this->company->id;
+        $role = $this->createRole('nfse-municipal-diagnostics-no-permission');
+        $this->attachPermission($role, 'read-admin-panel');
+        $operator = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
+            'enabled' => 1,
+            'companies' => [$companyId],
+            'roles' => [$role->id],
+        ])));
+        $this->loginAs($operator);
+
+        $this->get(route('nfse.municipal-parameters', [
+            'municipio_ibge' => '3304557',
+            'service_code' => '010701000',
+            'competence' => '2026-10-05',
+        ]))->assertForbidden();
+    }
+
     public function testMunicipalAttestationIsBoundToCertificateAndMunicipality(): void
     {
         $this->loginAs();
