@@ -139,6 +139,32 @@ Feature: NFS-e JSON contracts respect authentication, tenant boundaries and fisc
     And the JSON response should have these field types:
       | data | array |
 
+  Scenario: Retrying a synthetic issuance reuses its authorized receipt
+    Given the "administrator" synthetic Akaunting user is authenticated
+    When I make a "POST" JSON request to "/<company_id>/nfse/invoices/<ready_invoice_id>/emit" with body:
+      """
+      {"nfse_force_ajax":true}
+      """
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON boolean at "success" should be "true"
+    When I make a "GET" JSON request to "/<company_id>/nfse/invoices/<ready_invoice_id>/emission-attempts"
+    Then the API response status should be 200
+    And the JSON array at "data" should contain exactly 1 item
+    And the JSON value at "data.0.status" should be "authorized"
+    And the JSON response should have these field types:
+      | data.0.receipt_id | integer |
+    When I make a "POST" JSON request to "/<company_id>/nfse/invoices/<ready_invoice_id>/emit" with body:
+      """
+      {"nfse_force_ajax":true}
+      """
+    Then the API response status should be 200
+    And the JSON boolean at "success" should be "true"
+    When I make a "GET" JSON request to "/<company_id>/nfse/invoices/<ready_invoice_id>/emission-attempts"
+    Then the API response status should be 200
+    And the JSON array at "data" should contain exactly 1 item
+    And the JSON value at "data.0.status" should be "authorized"
+
   Scenario: An unknown invoice cannot be issued
     Given the "administrator" synthetic Akaunting user is authenticated
     When I make a "POST" JSON request to "/<company_id>/nfse/invoices/999999/emit" with body:

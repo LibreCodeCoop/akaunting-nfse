@@ -13,6 +13,7 @@ declare(strict_types=1);
 use App\Models\Auth\Role;
 use App\Models\Auth\User;
 use App\Models\Common\Company;
+use App\Models\Document\Document;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
@@ -96,8 +97,30 @@ try {
         '--json' => true,
     ]);
 
-    $fixtureStage = 'verify-restricted-user';
+    $fixtureStage = 'finish-native-company-wizard';
+    // Akaunting's native company seeder initializes wizard.completed=0.
+    // The HTTP middleware redirects every company-two route until its own
+    // synthetic company setup is explicitly complete.
+    $other->makeCurrent();
+    setting()->set('wizard.completed', '1');
+    setting()->save();
+
+    $fixtureStage = 'provision-ready-emission-fixture';
     $first->makeCurrent();
+    // Same official local/testing fiscal harness; real SEFIN transport is
+    // never bound while NFSE_TEST_HARNESS is enabled.
+    $invoke('nfse:test-harness:provision', [
+        '--company-id' => '1',
+        '--bulk-emission-fixture' => true,
+        '--json' => true,
+    ]);
+    $readyInvoice = Document::query()
+        ->where('company_id', 1)
+        ->where('type', 'invoice')
+        ->where('document_number', 'NFSE-E2E-BULK-READY')
+        ->firstOrFail();
+
+    $fixtureStage = 'verify-restricted-user';
     // The existing pending-invoice harness already provides a restricted operator
     // with access to the admin shell but no NFS-e / invoice permissions. Reuse it.
     $role = Role::query()->where('name', 'nfse-e2e-restricted')->firstOrFail();
@@ -127,7 +150,12 @@ try {
     if (!is_string($envFile) || $envFile === '' || !is_file($envFile)) {
         throw new RuntimeException('GITHUB_ENV is required for the disposable CI fixture.');
     }
-    if (file_put_contents($envFile, "NFSE_BEHAT_OTHER_COMPANY_ID={$otherId}\n", FILE_APPEND | LOCK_EX) === false) {
+    $variables = sprintf(
+        "NFSE_BEHAT_OTHER_COMPANY_ID=%d\nNFSE_BEHAT_READY_INVOICE_ID=%d\n",
+        $otherId,
+        (int) $readyInvoice->id,
+    );
+    if (file_put_contents($envFile, $variables, FILE_APPEND | LOCK_EX) === false) {
         throw new RuntimeException('Unable to publish the synthetic second company ID.');
     }
     echo "Behat synthetic company memberships and permission fixtures verified.\n";

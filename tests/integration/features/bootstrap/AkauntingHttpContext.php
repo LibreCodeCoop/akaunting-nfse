@@ -190,6 +190,15 @@ abstract class AkauntingHttpContext implements Context
         }
     }
 
+    #[Then('the JSON array at :path should contain exactly :count item')]
+    public function jsonArrayExactly(string $path, int $count): void
+    {
+        $entries = $this->jsonAt($path);
+        if (!is_array($entries) || !array_is_list($entries) || count($entries) !== $count) {
+            throw new RuntimeException(sprintf('JSON "%s" should contain exactly %d items.', $path, $count));
+        }
+    }
+
     #[Then('the JSON response should not include :path')]
     public function jsonNotInclude(string $path): void
     {
@@ -221,6 +230,7 @@ abstract class AkauntingHttpContext implements Context
             'company' => 'NFSE_BEHAT_COMPANY_ID',
             'other-company' => 'NFSE_BEHAT_OTHER_COMPANY_ID',
             'pending-invoice' => 'NFSE_E2E_PENDING_INVOICE_ID',
+            'ready-invoice' => 'NFSE_BEHAT_READY_INVOICE_ID',
         ];
         if (!isset($names[$fixture])) {
             throw new RuntimeException('Unknown synthetic fixture: ' . $fixture);
@@ -277,11 +287,12 @@ abstract class AkauntingHttpContext implements Context
             throw new RuntimeException('Unsupported HTTP method.');
         }
         $path = preg_replace_callback(
-            '/<(company_id|other_company_id|pending_invoice_id)>/',
+            '/<(company_id|other_company_id|pending_invoice_id|ready_invoice_id)>/',
             fn (array $match): string => (string) $this->fixtureId(match ($match[1]) {
                 'company_id' => 'company',
                 'other_company_id' => 'other-company',
                 'pending_invoice_id' => 'pending-invoice',
+                'ready_invoice_id' => 'ready-invoice',
             }),
             $path,
         );

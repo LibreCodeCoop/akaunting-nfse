@@ -86,17 +86,20 @@ personal data.
 
 Each Behat scenario creates its own HTTP session and authenticates a specified
 synthetic user. Database fixtures are provisioned *before* scenarios, contain
-no customer data, and remain read-only during successful contract checks.
-Negative mutation tests must be rejected **before** the application can mutate
+no customer data, and remain read-only except for the single synthetic
+issuance scenario. Negative mutation tests must be rejected **before** any
+application code can mutate
 tenant state or fiscal state. The pending-invoice status is checked after denied
 issuance to detect authorization regressions. A second native company has a
 synthetic profile with the **same** provider CNPJ, to detect accidental
 cross-company access despite equal fiscal identities.
 
 Catalog pagination is tested with an explicit result bound. The existing
-journal/status endpoints are read without transmitting a DPS. Do not create
-an endpoint merely for Behat/MCP, perform real fiscal emission, or turn a
-transmission ambiguity into an automatic retry. Future state-transition and
-idempotency scenarios must use the approved local fake fiscal transport and
-must be independently executable. Evidence of extra networking, non-isolated
-state or order-dependent results blocks concurrency.
+journal/status endpoints are queried through actual Akaunting routes.
+The issuance case provisions a separate ready invoice using the existing
+test-only harness and uses the in-process fake fiscal transport to simulate
+SEFIN; duplicate HTTP actions must retain one authorized attempt and receipt.
+Do not create an endpoint merely for Behat/MCP, call real fiscal services,
+or retry on ambiguous fiscal outcomes. Each scenario must be independently
+executable. Evidence of extra networking, leaked state or order dependence
+blocks concurrency.
