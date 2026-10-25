@@ -682,8 +682,7 @@ class SettingsController extends Controller
             ], 422);
         }
 
-        $environment = filter_var($fiscal['sandbox_mode'] ?? true, FILTER_VALIDATE_BOOL)
-            ? 'sandbox' : 'production';
+        $environment = filter_var($fiscal['sandbox_mode'] ?? true, FILTER_VALIDATE_BOOL) ? 'sandbox' : 'production';
 
         try {
             $resolved = (new MunicipalParameterSnapshotStore())->resolve(

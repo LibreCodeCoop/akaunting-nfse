@@ -1172,6 +1172,18 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                     return 1;
                 }
 
+                /** @return array<string, mixed> */
+                protected function municipalFiscalSettings(int $companyId): array
+                {
+                    self::assertSame(1, $companyId);
+
+                    return [
+                        'municipio_ibge' => '3303302',
+                        'sandbox_mode' => true,
+                        'cnpj_prestador' => '11222333000181',
+                    ];
+                }
+
                 protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
                 {
                     $this->received = [
@@ -1222,6 +1234,18 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 protected function municipalCompanyId(): int
                 {
                     return 1;
+                }
+
+                /** @return array<string, mixed> */
+                protected function municipalFiscalSettings(int $companyId): array
+                {
+                    self::assertSame(1, $companyId);
+
+                    return [
+                        'municipio_ibge' => '3303302',
+                        'sandbox_mode' => true,
+                        'cnpj_prestador' => '11222333000181',
+                    ];
                 }
 
                 protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
