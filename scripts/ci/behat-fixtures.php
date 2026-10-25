@@ -13,9 +13,12 @@ declare(strict_types=1);
 use App\Models\Auth\Role;
 use App\Models\Auth\User;
 use App\Models\Common\Company;
+use App\Models\Common\Contact;
 use App\Models\Document\Document;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Models\NfseCompanyProfile;
+use Modules\Nfse\Support\NfseCompanyFiscalReadiness;
 
 // Run as a standalone CLI script. Unlike tinker --execute, uncaught
 // exceptions must result in a non-zero CI exit status.
@@ -119,6 +122,37 @@ try {
         ->where('type', 'invoice')
         ->where('document_number', 'NFSE-E2E-BULK-READY')
         ->firstOrFail();
+
+    $fixtureStage = 'complete-synthetic-emission-readiness';
+    // The shared test harness establishes certificate identity and issuer tax
+    // mode, while the browser bulk fixture tests preflight presentation only.
+    // For an actual HTTP issuance, the disposable tenant must additionally
+    // make the explicit regulatory choices that production never guesses.
+    $profile = NfseCompanyProfile::query()->where('company_id', 1)->firstOrFail();
+    $fiscal = $profile->fiscal_parameters ?? [];
+    $profile->forceFill(['fiscal_parameters' => array_merge($fiscal, [
+        'uf' => 'RJ',
+        'tributacao_issqn' => '1',
+        'tipo_retencao_iss' => '2',
+    ])])->save();
+
+    $readiness = (new NfseCompanyFiscalReadiness())->evaluate($profile->fresh()->publicData());
+    if (!$readiness['basic_complete']) {
+        throw new RuntimeException('Synthetic fiscal profile must be ready before HTTP issuance.');
+    }
+    // Use only fictitious contact details. Do not weaken the production
+    // requirement for a populated, tenant-owned service taker.
+    $contact = Contact::query()
+        ->where('company_id', 1)
+        ->whereKey((int) $readyInvoice->contact_id)
+        ->firstOrFail();
+    $contact->forceFill([
+        'country' => 'BR',
+        'state' => 'RJ',
+        'city' => '3303302',
+        'zip_code' => '24020040',
+        'address' => 'Rua Sintetica, 10 - Centro',
+    ])->save();
 
     $fixtureStage = 'verify-restricted-user';
     // The existing pending-invoice harness already provides a restricted operator
