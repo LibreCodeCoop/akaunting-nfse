@@ -45,6 +45,17 @@ final class BulkEmissionRunRecorder
         }
 
         return DB::transaction(function () use ($companyId, $requestedBy, $normalized): array {
+            $invoiceIds = array_values(array_unique(array_column($normalized, 'invoice_id')));
+            $ownedIds = DB::table('documents')
+                ->whereIn('id', $invoiceIds)
+                ->where('company_id', $companyId)
+                ->where('type', 'invoice')
+                ->lockForUpdate()
+                ->pluck('id');
+            if ($ownedIds->count() !== count($invoiceIds)) {
+                throw new \DomainException('Bulk emission invoices must belong to the run company.');
+            }
+
             $selectionHash = $this->selectionHash($companyId, $normalized);
             $existing = BulkEmissionRun::query()
                 ->where('company_id', $companyId)

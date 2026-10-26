@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Support;
 
-use App\Models\Common\Company;
 use Closure;
 use Illuminate\Support\Facades\DB;
 
@@ -29,22 +28,6 @@ final class NfsePostEmissionCompanyContext
             throw new \DomainException('Post-emission operation has no verified company owner.');
         }
 
-        $original = Company::getCurrent();
-        if ((int) ($original?->id ?? 0) === (int) $companyId) {
-            return $action();
-        }
-
-        $company = Company::query()->findOrFail((int) $companyId);
-        $company->makeCurrent();
-
-        try {
-            return $action();
-        } finally {
-            if ($original instanceof Company) {
-                $original->makeCurrent();
-            } else {
-                Company::forgetCurrent();
-            }
-        }
+        return (new NfseCompanyJobContext())->run((int) $companyId, $action);
     }
 }

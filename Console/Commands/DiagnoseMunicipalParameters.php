@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Console\Commands;
 
+use App\Models\Common\Company;
 use Illuminate\Console\Command;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\NfseCompanyFiscalSettings;
@@ -47,7 +48,7 @@ final class DiagnoseMunicipalParameters extends Command
             return self::FAILURE;
         }
 
-        $previousCompanyId = function_exists('company_id') ? (int) company_id() : 0;
+        $previousCompany = Company::getCurrent();
 
         try {
             company($companyId)->makeCurrent();
@@ -94,8 +95,10 @@ final class DiagnoseMunicipalParameters extends Command
 
             return self::FAILURE;
         } finally {
-            if ($previousCompanyId > 0 && $previousCompanyId !== $companyId) {
-                company($previousCompanyId)->makeCurrent();
+            if ($previousCompany instanceof Company) {
+                $previousCompany->makeCurrent();
+            } else {
+                Company::forgetCurrent();
             }
         }
     }

@@ -13,6 +13,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Modules\Nfse\Application\BulkEmissionUnitProcessor;
+use Modules\Nfse\Support\NfseBulkEmissionCompanyContext;
 
 final class ProcessBulkEmissionUnit implements ShouldQueue
 {
@@ -32,6 +33,9 @@ final class ProcessBulkEmissionUnit implements ShouldQueue
 
     public function handle(BulkEmissionUnitProcessor $processor): void
     {
-        $processor->process($this->unitId);
+        (new NfseBulkEmissionCompanyContext())->run(
+            $this->unitId,
+            fn (): mixed => $processor->process($this->unitId),
+        );
     }
 }
