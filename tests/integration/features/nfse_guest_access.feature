@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+@web
 Feature: NFS-e guest access guard
   In order to enforce security at middleware level
   As a maintainer

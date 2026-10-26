@@ -6,7 +6,8 @@
 declare(strict_types=1);
 
 use Behat\Behat\Context\Context;
-use Behat\Gherkin\Node\TableNode;
+use Behat\Hook\BeforeScenario;
+use Behat\Step\DataTable;
 use Behat\Step\Given;
 use Behat\Step\Then;
 use Behat\Step\When;
@@ -21,6 +22,15 @@ final class FeatureContext implements Context
     private ?ResponseInterface $response = null;
     private string $companyId;
     private ?string $csrfToken = null;
+
+    #[BeforeScenario]
+    public function resetScenario(): void
+    {
+        $this->cookies->clear();
+        $this->response = null;
+        $this->csrfToken = null;
+        $this->companyId = (string) (getenv('NFSE_BEHAT_COMPANY_ID') ?: '1');
+    }
 
     public function __construct()
     {
@@ -74,8 +84,6 @@ final class FeatureContext implements Context
                 'Expected authentication redirect after POST /auth/login.'
             );
 
-            $this->ensureBaselineNfseSettings();
-
             return;
         }
 
@@ -84,7 +92,6 @@ final class FeatureContext implements Context
             'Expected authentication redirect after POST /auth/login.'
         );
 
-        $this->ensureBaselineNfseSettings();
     }
 
     #[Given('I use company id :companyId')]
@@ -100,10 +107,10 @@ final class FeatureContext implements Context
     }
 
     #[When('I send :method request to :path with form data:')]
-    public function iSendRequestToWithFormData(string $method, string $path, TableNode $table): void
+    public function iSendRequestToWithFormData(string $method, string $path, DataTable $table): void
     {
         $formData = [];
-        foreach ($table->getRowsHash() as $key => $value) {
+        foreach ($table->asMap() as $key => $value) {
             $formData[$key] = $value;
         }
 
@@ -188,6 +195,16 @@ final class FeatureContext implements Context
         );
     }
 
+    #[Then('the response body should not contain :text')]
+    public function theResponseBodyShouldNotContain(string $text): void
+    {
+        $this->ensureResponse();
+        $this->ensure(
+            !str_contains((string) $this->response->getBody(), $text),
+            sprintf('Response unexpectedly contains "%s".', $text)
+        );
+    }
+
     #[Then('the response should mark :elementId as configured :configuredValue')]
     public function theResponseShouldMarkElementAsConfigured(string $elementId, string $configuredValue): void
     {
@@ -233,61 +250,6 @@ final class FeatureContext implements Context
         );
 
         $this->csrfToken = $this->extractCsrfToken((string) $response->getBody());
-    }
-
-    private function ensureBaselineNfseSettings(): void
-    {
-        $settingsPath = $this->replaceCompanyPlaceholder('/<company_id>/nfse/settings');
-        $response = $this->client->request('GET', $settingsPath);
-
-        $this->ensure(
-            $response->getStatusCode() === 200,
-            'Unable to load settings page after authentication.'
-        );
-
-        $body = (string) $response->getBody();
-        $this->csrfToken = $this->extractCsrfToken($body);
-
-        if (str_contains($body, 'nfse[cnpj_prestador]') && str_contains($body, 'nfse[opcao_simples_nacional]')) {
-            return;
-        }
-
-        $seedResponse = $this->client->request('PATCH', $settingsPath, [
-            'form_params' => [
-                '_token' => $this->csrfToken,
-                'nfse[cnpj_prestador]' => '12345678901234',
-                'nfse[uf]' => 'SP',
-                'nfse[municipio_nome]' => 'Sao Paulo',
-                'nfse[municipio_ibge]' => '3550308',
-                'nfse[opcao_simples_nacional]' => '2',
-                'nfse[sandbox_mode]' => '1',
-                'nfse[bao_addr]' => 'https://vault.local.test',
-                'nfse[bao_mount]' => 'nfse',
-                'nfse[bao_token]' => 'token-behat-seed',
-                'nfse[bao_role_id]' => 'role-behat-seed',
-                'nfse[bao_secret_id]' => 'secret-behat-seed',
-            ],
-        ]);
-
-        $this->ensure(
-            in_array($seedResponse->getStatusCode(), [302, 303], true),
-            sprintf('Expected baseline NFS-e settings seed to redirect, got %d.', $seedResponse->getStatusCode())
-        );
-
-        $confirmedResponse = $this->client->request('GET', $settingsPath);
-        $confirmedBody = (string) $confirmedResponse->getBody();
-
-        $this->ensure(
-            $confirmedResponse->getStatusCode() === 200,
-            'Unable to reload settings page after seeding baseline NFS-e settings.'
-        );
-
-        $this->ensure(
-            str_contains($confirmedBody, 'nfse[cnpj_prestador]') && str_contains($confirmedBody, 'nfse[opcao_simples_nacional]'),
-            'Baseline NFS-e settings seed did not unlock the fiscal settings form.'
-        );
-
-        $this->csrfToken = $this->extractCsrfToken($confirmedBody);
     }
 
     private function extractCsrfToken(string $html): string

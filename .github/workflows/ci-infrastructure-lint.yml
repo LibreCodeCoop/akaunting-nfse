@@ -9,6 +9,7 @@ on:
       - '.github/workflows/playwright-*.yml'
       - '.github/workflows/akaunting-feature.yml'
       - '.github/workflows/phpunit.yml'
+      - '.github/workflows/behat.yml'
       - '.github/workflows/frontend-unit.yml'
       - '.github/workflows/ci-infrastructure-lint.yml'
       - 'scripts/ci/**'
@@ -20,6 +21,7 @@ on:
       - '.github/workflows/playwright-*.yml'
       - '.github/workflows/akaunting-feature.yml'
       - '.github/workflows/phpunit.yml'
+      - '.github/workflows/behat.yml'
       - '.github/workflows/frontend-unit.yml'
       - '.github/workflows/ci-infrastructure-lint.yml'
       - 'scripts/ci/**'
@@ -43,5 +45,6 @@ jobs:
             .github/workflows/playwright-*.yml \
             .github/workflows/akaunting-feature.yml \
             .github/workflows/phpunit.yml \
+            .github/workflows/behat.yml \
             .github/workflows/frontend-unit.yml \
             .github/workflows/ci-infrastructure-lint.yml
