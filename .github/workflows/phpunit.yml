@@ -20,13 +20,23 @@ env:
   COMPOSER_CACHE_DIR: /tmp/composer-cache
 
 jobs:
+  versions:
+    runs-on: ubuntu-latest
+    outputs:
+      php: ${{ steps.resolve.outputs.php }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: resolve
+        run: echo "php=$(node scripts/ci/php-matrix.mjs)" >> "$GITHUB_OUTPUT"
+
   phpunit:
+    needs: versions
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.2', '8.3', '8.4']
+        php: ${{ fromJSON(needs.versions.outputs.php) }}
 
     steps:
       - uses: actions/checkout@v7

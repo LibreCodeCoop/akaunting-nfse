@@ -27,60 +27,67 @@ implementation details.
 
 ## Disposable test environment
 
-Use the established Akaunting CI harness lifecycle:
+The canonical runner is `scripts/ci/behat-ci.mjs`. It reuses Akaunting's
+existing test harness and the Playwright smoke setup, but runs independently
+of GitHub Actions, without `GITHUB_ENV` or service credentials. It does not
+use the shared `akaunting-docker` installation.
 
-1. Checkout Akaunting core into `akaunting` and NFS-e under `akaunting/modules/Nfse`.
-2. Set `APP_ENV=testing`, `DB_CONNECTION=sqlite` and a **new private**
-   SQLite database path. Never point the harness at the shared development
-   Docker database.
-3. Run `node scripts/ci/playwright-smoke.mjs prepare-env` from the module,
-   install the core and scoped module runtime, then `php artisan migrate:fresh
-   --force` and the native `Database\Seeds\TestCompany` seeder **inside the
-   disposable core only**.
-4. Run the existing Playwright smoke provision profile. With
-   NFSE_TEST_HARNESS=1, invoke php scripts/ci/behat-fixtures.php from
-   the module directory to provision the synthetic second native company
-   and the permission-negative account. The script exits non-zero on failures.
-5. Start the disposable HTTP server with the existing
-   `playwright-smoke.mjs start-server`, run Behat, and stop it through
-   `playwright-smoke.mjs stop-server` even on failure.
+Provisioning is destructive **only inside the explicitly authorized test
+checkout**. Use a separate Akaunting Git checkout containing NFS-e at
+`modules/Nfse`, with its own SQLite file. Never point these commands at a
+persistent customer, development or production installation. The runner checks
+that the directory layout is correct, requires `APP_ENV=testing`,
+`DB_CONNECTION=sqlite`, `NFSE_TEST_HARNESS=1`, and refuses setup unless
+`NFSE_BEHAT_DISPOSABLE=1` is explicitly set.
 
-The GitHub Actions workflow performs all preparation on a fresh hosted runner.
-It does not require the local Docker stack, real accounts, official fiscal
-credentials or a real SEFIN/ADN service. It never invokes `migrate:fresh`
-against a persistent shared installation.
-
-The BEHAT accounts are intentionally fake and defined only within the
-disposable CI workflow. When running locally, supply
-`NFSE_BEHAT_BASE_URL`, `NFSE_BEHAT_COMPANY_ID`,
-`NFSE_BEHAT_OTHER_COMPANY_ID`, `NFSE_E2E_PENDING_INVOICE_ID`, and the
-three synthetic account email/password pairs described in the CI workflow.
-Do **not** point any of these steps to production data.
-
-## Commands
+The GitHub Actions workflow checks out a known-good, pinned Akaunting core
+revision and performs these commands from `akaunting/modules/Nfse`. A local
+run needs the same isolated directory layout. For example, in an independent
+throwaway checkout:
 
 ```sh
-composer --working-dir=vendor-bin/behat install
-composer test:behat                     # full local suite, requiring synthetic fixtures
-composer test:behat:api                 # JSON contracts, no separately hosted fakes
-composer test:behat:ci                  # all serial non-external scenarios
-composer test:behat:guest               # unauthenticated browser-facing routes
-vendor-bin/behat/vendor/bin/behat --config=behat.php --tag-expression='@api and not @external'
-vendor-bin/behat/vendor/bin/behat --config=behat.php tests/integration/features/nfse_api_contracts.feature
+export APP_ENV=testing DB_CONNECTION=sqlite NFSE_TEST_HARNESS=1 NFSE_BEHAT_DISPOSABLE=1
+node scripts/ci/behat-ci.mjs prepare
+node scripts/ci/behat-ci.mjs run
 ```
 
-To emit JUnit alongside terminal progress, run:
+`prepare` installs dependencies, migrates the **disposable** SQLite database,
+provisions the original synthetic NFS-e harness plus native second-company
+fixtures and writes numeric IDs to private `build/behat/fixture-ids.json`.
+The actor emails/passwords live in `scripts/ci/behat-actors.json`, are all
+synthetic and are passed to the Behat process only. They are not copied into
+GitHub workflow YAML or build reports. `run` starts the disposable Akaunting
+server, executes all non-external scenarios serially and in randomized order,
+writes JUnit, and stops the server even if an assertion fails.
+
+The runner's `prepare` and `run` operations can be exercised locally without
+GitHub Actions; unit tests for environment protection, fixture parsing,
+redaction and cleanup run with `node --test frontend-tests/behat-ci-runner.test.mjs`.
+
+### Direct Behat commands
+
+After `prepare`, the runner is preferred because it supplies synthetic users
+and fixture IDs automatically. For an already-running, isolated test server
+with equivalent `NFSE_BEHAT_*` environment variables, the underlying tool is:
 
 ```sh
-mkdir -p build/behat-junit
-vendor-bin/behat/vendor/bin/behat --config=behat.php \
-  --tag-expression='not @external' --format=progress --out=std --format=junit --out=build/behat-junit
+composer test:behat:ci
+composer test:behat:api
+composer test:behat:guest
 ```
 
-GitHub Actions stores JUnit and sanitized server diagnostics as artifacts on
-failure. Feature/scenario names are preserved in the report; assertions must
-never expose raw response bodies, credentials, private certificate bytes or
-personal data.
+JUnit reports are retained under `build/behat-junit/`. Sanitized diagnostic
+logs are retained under `build/behat/server.log` on failure. CI publishes
+these files when a job fails; it does not upload raw server logs.
+
+### Supported PHP versions
+
+`composer.json` is the source for the project's compatible PHP constraint and
+explicit list of *tested* PHP minor versions (`extra.ci.php_versions`). The
+PHPUnit workflow reads the tested list using `scripts/ci/php-matrix.mjs`.
+The Behat HTTP integration runner uses PHP 8.3 and is **not** a functional
+matrix across all PHP minors. Updating Akaunting's pinned core revision must
+be accompanied by a fresh integration CI run.
 
 ## Isolation and coverage contract
 

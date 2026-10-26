@@ -104,6 +104,13 @@
         "bamarni-bin": {
             "bin-links": false,
             "forward-command": true
+        },
+        "ci": {
+            "php_versions": [
+                "8.2",
+                "8.3",
+                "8.4"
+            ]
         }
     },
     "scripts-descriptions": {
