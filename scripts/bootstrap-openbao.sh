@@ -137,6 +137,8 @@ else
     echo "AppRole auth method already enabled."
 fi
 
+# The single-quoted command is evaluated by the shell inside OpenBao.
+# shellcheck disable=SC2016
 {
     printf '%s\n' "$root_token"
     printf 'path "%s/data/*" {\n  capabilities = ["create", "read", "update", "delete"]\n}\n' "$NFSE_MOUNT"
