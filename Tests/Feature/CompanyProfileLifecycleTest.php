@@ -10,8 +10,10 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Jobs\Auth\CreateUser;
 use App\Models\Document\Document;
 use App\Traits\Permissions;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Http\Controllers\SettingsController;
 use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\GlobalVaultSettings;
@@ -489,6 +491,25 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         self::assertSame(0, NfseCompanyProfile::query()->count());
     }
 
+    public function testMunicipalDiagnosticsRejectAdminWithoutFiscalReadPermission(): void
+    {
+        $companyId = (int) $this->company->id;
+        $role = $this->createRole('nfse-municipal-diagnostics-no-permission');
+        $this->attachPermission($role, 'read-admin-panel');
+        $operator = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
+            'enabled' => 1,
+            'companies' => [$companyId],
+            'roles' => [$role->id],
+        ])));
+        $this->loginAs($operator);
+
+        $this->get(route('nfse.municipal-parameters', [
+            'municipio_ibge' => '3304557',
+            'service_code' => '010701000',
+            'competence' => '2026-10-05',
+        ]))->assertForbidden();
+    }
+
     public function testMunicipalAttestationIsBoundToCertificateAndMunicipality(): void
     {
         $this->loginAs();
@@ -524,6 +545,77 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         $fiscal = $profile->refresh()->fiscal_parameters;
         self::assertSame('1', $fiscal['provider_establishment_confirmed']);
         self::assertSame('3303302', $fiscal['provider_establishment_confirmed_municipality']);
+    }
+
+
+    public function testMunicipalDiagnosticsResolveOwningProfileInsteadOfLegacySettings(): void
+    {
+        $companyId = (int) $this->company->id;
+        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($companyId))
+            ->assertCreated();
+
+        // Both old values are valid-looking but belong to the obsolete contract.
+        // A passing check must use the active company's municipality and environment.
+        setting()->set([
+            'nfse.municipio_ibge' => '3303302',
+            'nfse.sandbox_mode' => '0',
+            'nfse.cnpj_prestador' => '00000000000000',
+        ]);
+        setting()->save();
+
+        $controller = new class () extends SettingsController {
+            protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
+            {
+                return [
+                    'municipio_ibge' => $municipio,
+                    'service_code' => $serviceCode,
+                    'competence' => $competence,
+                ];
+            }
+        };
+
+        $response = $controller->municipalParameters(new Request([
+            'service_code' => '010701000',
+            'competence' => '2026-10-05',
+        ]));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('3304557', $response->getData(true)['data']['municipio_ibge'] ?? null);
+        $snapshot = DB::table('nfse_municipal_parameter_snapshots')
+            ->where('company_id', $companyId)->sole();
+        self::assertSame('sandbox', $snapshot->environment);
+        self::assertSame('3304557', $snapshot->municipio_ibge);
+    }
+
+    public function testMunicipalDiagnosticsRejectLegacySettingsWhenCompanyProfileIsMissing(): void
+    {
+        setting()->set([
+            'nfse.municipio_ibge' => '3303302',
+            'nfse.sandbox_mode' => '1',
+            'nfse.cnpj_prestador' => self::CNPJ,
+        ]);
+        setting()->save();
+
+        $controller = new class () extends SettingsController {
+            public bool $queried = false;
+
+            protected function fetchMunicipalParameters(string $municipio, string $serviceCode, string $competence): array
+            {
+                $this->queried = true;
+
+                return ['municipio_ibge' => $municipio];
+            }
+        };
+
+        $response = $controller->municipalParameters(new Request([
+            'municipio_ibge' => '3303302',
+            'service_code' => '010701000',
+            'competence' => '2026-10-05',
+        ]));
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertFalse($controller->queried);
+        self::assertSame(0, DB::table('nfse_municipal_parameter_snapshots')->count());
     }
 
     /** @return array<string,mixed> */

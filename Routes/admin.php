@@ -65,7 +65,8 @@ Route::admin('nfse', function () {
     Route::get('ibge/municipalities/{uf}', [SettingsController::class, 'municipalities'])->name('ibge.municipalities');
     Route::get('lc116/services', [SettingsController::class, 'lc116Services'])->name('lc116.services');
     Route::get('national-services', [SettingsController::class, 'nationalServices'])->name('national-services');
-    Route::get('municipal-parameters', [SettingsController::class, 'municipalParameters'])->name('municipal-parameters');
+    Route::get('municipal-parameters', [SettingsController::class, 'municipalParameters'])
+        ->middleware('permission:read-nfse-settings')->name('municipal-parameters');
 
     // Certificate management
     Route::post('certificate', DeprecatedFiscalConfigurationController::class)
