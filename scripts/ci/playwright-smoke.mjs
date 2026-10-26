@@ -159,11 +159,10 @@ export function writeGitHubEnvironment(variables, outputPath, io = fs) {
   io.appendFileSync(outputPath, `${lines.join('\n')}\n`, 'utf8');
 }
 
-export function provisionFixtures(core = coreRoot, env = process.env, run = execute, io = fs, profile = 'smoke') {
+export function provisionFixtureData(core = coreRoot, env = process.env, run = execute, profile = 'smoke') {
   const configuration = fixtureProfiles[profile];
   if (!configuration) throw new Error(`Unknown fiscal fixture profile: ${profile}`);
   ensureTestingEnvironment(env);
-  if (!env.GITHUB_ENV) throw new Error('GITHUB_ENV is required for fiscal fixture IDs.');
   try {
     run('php', [
       'artisan', 'nfse:test-user:provision', '--company-id=1',
@@ -184,6 +183,14 @@ export function provisionFixtures(core = coreRoot, env = process.env, run = exec
     throw processFailure('Synthetic fiscal fixture provisioning', error);
   }
   const variables = parseFixtureVariables(output, configuration.fields);
+  return variables;
+}
+
+/** GitHub Actions adapter; ordinary fixture provisioning has no Actions dependency. */
+export function provisionFixtures(core = coreRoot, env = process.env, run = execute, io = fs, profile = 'smoke') {
+  ensureTestingEnvironment(env);
+  if (!env.GITHUB_ENV) throw new Error('GITHUB_ENV is required for fiscal fixture IDs.');
+  const variables = provisionFixtureData(core, env, run, profile);
   writeGitHubEnvironment(variables, env.GITHUB_ENV, io);
   return variables;
 }

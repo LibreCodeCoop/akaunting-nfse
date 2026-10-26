@@ -1,0 +1,14 @@
+{
+  "administrator": {
+    "email": "nfse-e2e@example.test",
+    "password": "NfseE2E!123456"
+  },
+  "other-company-administrator": {
+    "email": "nfse-behat-other@example.test",
+    "password": "NfseBehatOther!123456"
+  },
+  "no-permission": {
+    "email": "nfse-e2e-restricted@example.test",
+    "password": "NfseE2ERestricted!123456"
+  }
+}

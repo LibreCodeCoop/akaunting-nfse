@@ -6,8 +6,8 @@
 declare(strict_types=1);
 
 /**
- * Run with artisan tinker --execute against a newly provisioned testing SQLite
- * database only. The canonical NFS-e harness creates synthetic certificates.
+ * Run directly with PHP against a disposable SQLite testing database only.
+ * The canonical NFS-e harness creates synthetic certificates.
  * This file adds only the native Akaunting tenant and ACL test actors.
  */
 use App\Models\Auth\Role;
@@ -36,6 +36,20 @@ try {
         || DB::connection()->getDriverName() !== 'sqlite'
         || getenv('NFSE_TEST_HARNESS') !== '1') {
         throw new LogicException('Behat fixtures require a disposable testing SQLite environment.');
+    }
+    $actors = json_decode(
+        file_get_contents(__DIR__ . '/behat-actors.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+    foreach (['administrator', 'other-company-administrator', 'no-permission'] as $actor) {
+        if (!is_string($actors[$actor]['email'] ?? null)
+            || !str_ends_with($actors[$actor]['email'], '@example.test')
+            || !is_string($actors[$actor]['password'] ?? null)
+            || $actors[$actor]['password'] === '') {
+            throw new RuntimeException('Behat test accounts must be nonempty and synthetic.');
+        }
     }
     $first = Company::query()->find(1);
     if (!$first instanceof Company) {
@@ -94,8 +108,8 @@ try {
     $fixtureStage = 'provision-second-user';
     $invoke('nfse:test-user:provision', [
         '--company-id' => (string) $otherId,
-        '--email' => 'nfse-behat-other@example.test',
-        '--password' => 'NfseBehatOther!123456',
+        '--email' => $actors['other-company-administrator']['email'],
+        '--password' => $actors['other-company-administrator']['password'],
         '--role' => 'admin',
         '--json' => true,
     ]);
@@ -164,9 +178,9 @@ try {
         throw new RuntimeException('Existing restricted fixture unexpectedly has fiscal permissions.');
     }
 
-    $firstUser = User::query()->where('email', 'nfse-e2e@example.test')->firstOrFail();
-    $otherUser = User::query()->where('email', 'nfse-behat-other@example.test')->firstOrFail();
-    $deniedUser = User::query()->where('email', 'nfse-e2e-restricted@example.test')->firstOrFail();
+    $firstUser = User::query()->where('email', $actors['administrator']['email'])->firstOrFail();
+    $otherUser = User::query()->where('email', $actors['other-company-administrator']['email'])->firstOrFail();
+    $deniedUser = User::query()->where('email', $actors['no-permission']['email'])->firstOrFail();
     foreach ([$firstUser, $deniedUser] as $member) {
         if ($member->companies()->whereKey($otherId)->exists()) {
             throw new RuntimeException('Unexpected access to the synthetic second company.');
@@ -179,20 +193,13 @@ try {
         throw new RuntimeException('Denied fixture user does not possess the expected role.');
     }
 
-    $fixtureStage = 'publish-company-id';
-    $envFile = getenv('GITHUB_ENV');
-    if (!is_string($envFile) || $envFile === '' || !is_file($envFile)) {
-        throw new RuntimeException('GITHUB_ENV is required for the disposable CI fixture.');
-    }
-    $variables = sprintf(
-        "NFSE_BEHAT_OTHER_COMPANY_ID=%d\nNFSE_BEHAT_READY_INVOICE_ID=%d\n",
-        $otherId,
-        (int) $readyInvoice->id,
-    );
-    if (file_put_contents($envFile, $variables, FILE_APPEND | LOCK_EX) === false) {
-        throw new RuntimeException('Unable to publish the synthetic second company ID.');
-    }
-    echo "Behat synthetic company memberships and permission fixtures verified.\n";
+    $fixtureStage = 'report-fixtures';
+    // Only numeric test IDs leave this process. No GitHub-specific environment
+    // file or secret is required; the caller passes IDs to its test process.
+    echo json_encode([
+        'other_company_id' => $otherId,
+        'ready_invoice_id' => (int) $readyInvoice->id,
+    ], JSON_THROW_ON_ERROR) . "\n";
 } catch (\Throwable $exception) {
     // CI diagnostics may identify the failure stage and exception class, never
     // secret material or exception values supplied by untrusted fixtures.

@@ -29,7 +29,8 @@ path = [
     "tests/psalm-baseline.xml",
     "tests/integration/features/**/*.feature",
     "tests/integration/features/assets/*",
-    "tests/fixtures/fiscal-normative/*.json"
+    "tests/fixtures/fiscal-normative/*.json",
+    "scripts/ci/behat-actors.json"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 LibreCode coop and contributors"
