@@ -40,102 +40,64 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
     final class SettingsControllerTest extends TestCase
     {
-        public function testEditReturnsSettingsAndCertificateStateIncludingLocalCertificatePresence(): void
+        public function testEditDoesNotExposeLegacyFiscalStateOrCertificateMetadata(): void
         {
             ControllerIsolationState::reset();
             ControllerIsolationState::$settings = [
                 'nfse.cnpj_prestador' => '12345678000190',
                 'nfse.uf' => 'RJ',
-            ];
-
-            $localCertificatePath = storage_path('app/nfse/pfx/12345678000190.pfx');
-            if (!is_dir(dirname($localCertificatePath))) {
-                mkdir(dirname($localCertificatePath), 0o777, true);
-            }
-            file_put_contents($localCertificatePath, 'fake-pfx');
-
-            $response = (new SettingsController())->edit();
-
-            self::assertSame('nfse::settings.edit', $response->name);
-            self::assertSame([
-                'cnpj_prestador' => '12345678000190',
-                'uf' => 'RJ',
-            ], array_diff_key($response->data['settings'] ?? [], array_flip(['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'])));
-            self::assertSame('12345678000190', $response->data['certificateState']['cnpj'] ?? null);
-            self::assertSame($localCertificatePath, $response->data['certificateState']['local_path'] ?? null);
-            self::assertTrue($response->data['certificateState']['has_local_certificate'] ?? false);
-            self::assertTrue($response->data['certificateState']['has_saved_settings'] ?? false);
-            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
-            self::assertFalse($response->data['vaultUiState']['token_configured'] ?? true);
-        }
-
-        public function testEditReturnsEmptyCertificateStateWhenNoSavedCnpjExists(): void
-        {
-            ControllerIsolationState::reset();
-
-            $response = (new SettingsController())->edit();
-
-            self::assertSame('nfse::settings.edit', $response->name);
-            self::assertSame([], array_diff_key($response->data['settings'] ?? [], array_flip(['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'])));
-            self::assertSame('', $response->data['certificateState']['cnpj'] ?? null);
-            self::assertSame('', $response->data['certificateState']['local_path'] ?? null);
-            self::assertFalse($response->data['certificateState']['has_local_certificate'] ?? true);
-            self::assertFalse($response->data['certificateState']['has_saved_settings'] ?? true);
-            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
-        }
-
-        public function testEditReturnsSavedCnpjStateWithoutLocalCertificateWhenFileIsMissing(): void
-        {
-            ControllerIsolationState::reset();
-            ControllerIsolationState::$settings = [
-                'nfse.cnpj_prestador' => '98765432000199',
-                'nfse.uf' => 'SP',
+                'nfse.certificate_valid_to' => 1798761600,
+                'nfse.bao_token' => 'synthetic-legacy-token',
             ];
 
             $response = (new SettingsController())->edit();
 
             self::assertSame('nfse::settings.edit', $response->name);
-            self::assertSame([
-                'cnpj_prestador' => '98765432000199',
-                'uf' => 'SP',
-            ], array_diff_key($response->data['settings'] ?? [], array_flip(['bao_addr', 'bao_mount', 'bao_token', 'bao_role_id', 'bao_secret_id'])));
-            self::assertSame('98765432000199', $response->data['certificateState']['cnpj'] ?? null);
-            self::assertSame(storage_path('app/nfse/pfx/98765432000199.pfx'), $response->data['certificateState']['local_path'] ?? null);
-            self::assertFalse($response->data['certificateState']['has_local_certificate'] ?? true);
-            self::assertTrue($response->data['certificateState']['has_saved_settings'] ?? false);
+            self::assertSame(['bao_addr', 'bao_mount'], array_keys($response->data['settings'] ?? []));
+            self::assertArrayNotHasKey('certificateState', $response->data);
+            self::assertArrayNotHasKey('readiness', $response->data);
             self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
+            self::assertArrayNotHasKey('certificate_secret_available', $response->data['vaultUiState']);
         }
 
-        public function testEditIgnoresCompanyScopedAppRoleCredentials(): void
+        public function testEditDoesNotProbeObsoleteCnpjSecretPaths(): void
         {
             ControllerIsolationState::reset();
             ControllerIsolationState::$settings = [
-                'nfse.bao_token' => 'persisted-token',
-                'nfse.bao_role_id' => 'role-id',
-                'nfse.bao_secret_id' => 'secret-id',
+                'nfse.cnpj_prestador' => '12345678000190',
+            ];
+
+            $controller = new class () extends SettingsController {
+                public int $certificateLookups = 0;
+
+                protected function hasCertificateSecret(string $cnpj): bool
+                {
+                    ++$this->certificateLookups;
+
+                    return false;
+                }
+            };
+
+            $controller->edit();
+
+            self::assertSame(0, $controller->certificateLookups);
+        }
+
+        public function testEditIgnoresCompanyScopedVaultCredentials(): void
+        {
+            ControllerIsolationState::reset();
+            ControllerIsolationState::$settings = [
+                'nfse.bao_token' => 'synthetic-company-token',
+                'nfse.bao_role_id' => 'synthetic-company-role',
+                'nfse.bao_secret_id' => 'synthetic-company-secret',
+                'nfse.bao_addr' => 'https://legacy-company.example.test',
             ];
 
             $response = (new SettingsController())->edit();
 
             self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
-            self::assertFalse($response->data['vaultUiState']['token_configured'] ?? true);
-            self::assertFalse($response->data['vaultUiState']['approle_complete'] ?? true);
-        }
-
-        public function testEditIgnoresCompanyScopedTokenCredentials(): void
-        {
-            ControllerIsolationState::reset();
-            ControllerIsolationState::$settings = [
-                'nfse.bao_token' => 'persisted-token',
-                'nfse.bao_role_id' => '',
-                'nfse.bao_secret_id' => '',
-            ];
-
-            $response = (new SettingsController())->edit();
-
-            self::assertSame('incomplete', $response->data['vaultUiState']['auth_mode'] ?? null);
-            self::assertFalse($response->data['vaultUiState']['token_configured'] ?? true);
-            self::assertFalse($response->data['vaultUiState']['approle_complete'] ?? true);
+            self::assertFalse($response->data['vaultUiState']['ready'] ?? true);
+            self::assertSame(['bao_addr', 'bao_mount'], array_keys($response->data['settings'] ?? []));
         }
 
         public function testPrepareNfseInputNormalizesFieldsAndDropsEmptySensitiveFields(): void

@@ -25,7 +25,6 @@ use Modules\Nfse\Support\Lc116Code;
 use Modules\Nfse\Support\MunicipalParameterConsultation;
 use Modules\Nfse\Support\MunicipalParameterSnapshotStore;
 use Modules\Nfse\Support\NfseCompanyFiscalSettings;
-use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\PfxReader;
 use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\VaultConfigurationUnreadable;
@@ -56,10 +55,8 @@ class SettingsController extends Controller
             }
         }
 
-        $settings = setting('nfse', []);
-        $settingsArray = is_array($settings) ? $settings : [];
-        // Keep existing fiscal settings accessible if encrypted infrastructure
-        // becomes unreadable. Never fall back to another Vault or credentials.
+        // The admin screen only displays global infrastructure metadata.
+        // Never resolve legacy certificate-by-CNPJ settings on this route.
         $vaultConfigurationUnreadable = false;
         try {
             $global = VaultConfig::secretStoreConfig();
@@ -70,37 +67,23 @@ class SettingsController extends Controller
             ];
             $vaultConfigurationUnreadable = true;
         }
-        $settingsArray = array_merge($settingsArray, [
-            'bao_addr' => $global['addr'], 'bao_mount' => $global['mount'],
-            'bao_token' => $global['token'] ?? '', 'bao_role_id' => $global['roleId'] ?? '',
-            'bao_secret_id' => $global['secretId'] ?? '',
-        ]);
-        $certificateState = $this->certificateState();
-        $vaultUiState = $this->vaultUiState($settingsArray, $certificateState, $global);
+
+        $vaultUiState = $this->vaultUiState($global);
         $vaultUiState['configuration_error'] = $vaultConfigurationUnreadable;
-        $readiness = (new OperationalReadinessResolver())->evaluate(
-            settings: $settingsArray,
-            hasCertificateSecret: $this->hasCertificateSecret(
-                trim((string) ($settingsArray['cnpj_prestador'] ?? '')),
-            ),
-            certificatePath: (string) ($certificateState['local_path'] ?? ''),
-        );
 
         $rawTab = $request !== null ? $request->query('tab') : null;
         $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'federal', 'artifacts'], true))
             ? $rawTab
             : 'vault';
 
-        // The template only needs safe address/mount metadata. Keep raw
-        // credentials out of view data, including during exception rendering.
-        $displaySettings = $settingsArray;
-        unset($displaySettings['bao_token'], $displaySettings['bao_role_id'], $displaySettings['bao_secret_id']);
-
+        // Do not pass fiscal settings, legacy certificate state, or plaintext
+        // Vault credentials to the administrative view.
         return view('nfse::settings.edit', [
-            'settings' => $displaySettings,
-            'certificateState' => $certificateState,
+            'settings' => [
+                'bao_addr' => $global['addr'],
+                'bao_mount' => $global['mount'],
+            ],
             'vaultUiState' => $vaultUiState,
-            'readiness' => $readiness,
             'activeTab' => $activeTab,
         ]);
     }
@@ -1043,47 +1026,23 @@ class SettingsController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $settings
-     * @param array<string, mixed> $certificateState
-     * @return array<string, bool|string>
+     * Global Vault metadata only. Certificate readiness belongs to the
+     * company profiles and must not be inferred from a legacy CNPJ.
+     *
+     * @param array{addr:string,mount:string,token:?string,roleId:?string,secretId:?string} $globalVault
+     * @return array{auth_mode:string,ready:bool}
      */
-    protected function vaultUiState(
-        array $settings,
-        array $certificateState,
-        ?array $resolvedGlobalVault = null,
-    ): array {
-        $globalVault = $resolvedGlobalVault ?? VaultConfig::secretStoreConfig();
-        $settings = array_merge($settings, [
-            'bao_addr' => $globalVault['addr'], 'bao_mount' => $globalVault['mount'],
-            'bao_token' => $globalVault['token'] ?? '', 'bao_role_id' => $globalVault['roleId'] ?? '',
-            'bao_secret_id' => $globalVault['secretId'] ?? '',
-        ]);
-        $addrConfigured = ((string) ($settings['bao_addr'] ?? '')) !== '';
-        $mountConfigured = ((string) ($settings['bao_mount'] ?? '')) !== '';
-        $tokenConfigured = ((string) ($settings['bao_token'] ?? '')) !== '';
-        $roleIdConfigured = ((string) ($settings['bao_role_id'] ?? '')) !== '';
-        $secretIdConfigured = ((string) ($settings['bao_secret_id'] ?? '')) !== '';
-        $approleComplete = $roleIdConfigured && $secretIdConfigured;
-
-        $authMode = 'incomplete';
-        if ($approleComplete) {
-            $authMode = 'approle';
-        } elseif ($tokenConfigured) {
-            $authMode = 'token';
-        }
-
-        $cnpj = (string) ($settings['cnpj_prestador'] ?? ($certificateState['cnpj'] ?? ''));
+    protected function vaultUiState(array $globalVault): array
+    {
+        $token = trim((string) ($globalVault['token'] ?? '')) !== '';
+        $approle = trim((string) ($globalVault['roleId'] ?? '')) !== ''
+            && trim((string) ($globalVault['secretId'] ?? '')) !== '';
 
         return [
-            'addr_configured' => $addrConfigured,
-            'mount_configured' => $mountConfigured,
-            'token_configured' => $tokenConfigured,
-            'role_id_configured' => $roleIdConfigured,
-            'secret_id_configured' => $secretIdConfigured,
-            'approle_complete' => $approleComplete,
-            'auth_mode' => $authMode,
-            'ready' => $this->isVaultReady($settings),
-            'certificate_secret_available' => $this->hasCertificateSecret($cnpj),
+            'auth_mode' => $approle ? 'approle' : ($token ? 'token' : 'incomplete'),
+            'ready' => trim($globalVault['addr']) !== ''
+                && trim($globalVault['mount']) !== ''
+                && ($token || $approle),
         ];
     }
 
@@ -1196,49 +1155,6 @@ class SettingsController extends Controller
     protected function jsonResponse(array $payload, int $status = 200): JsonResponse
     {
         return response()->json($payload, $status);
-    }
-
-    private function certificateState(): array
-    {
-        $cnpj = (string) setting('nfse.cnpj_prestador', '');
-        $path = $cnpj !== '' ? storage_path('app/nfse/pfx/' . $cnpj . '.pfx') : '';
-        $hasLocalCertificate = $path !== '' && is_file($path);
-        $validFrom = (int) setting('nfse.certificate_valid_from', 0);
-        $validTo = (int) setting('nfse.certificate_valid_to', 0);
-        $validityKnown = $validFrom > 0 && $validTo > $validFrom;
-        $now = time();
-        $isCurrentlyValid = $validityKnown ? ($now >= $validFrom && $now <= $validTo) : null;
-        $daysUntilExpiry = $validityKnown ? (int) floor(($validTo - $now) / 86400) : null;
-
-        return [
-            'cnpj' => $cnpj,
-            'local_path' => $path,
-            'has_local_certificate' => $hasLocalCertificate,
-            'has_saved_settings' => $cnpj !== '',
-            'validity_known' => $validityKnown,
-            'valid_from' => $validFrom > 0 ? $validFrom : null,
-            'valid_to' => $validTo > 0 ? $validTo : null,
-            'valid_to_iso' => $validTo > 0 ? gmdate(DATE_ATOM, $validTo) : null,
-            'days_until_expiry' => $daysUntilExpiry,
-            'is_currently_valid' => $isCurrentlyValid,
-            'expires_soon' => $daysUntilExpiry !== null && $daysUntilExpiry >= 0 && $daysUntilExpiry <= 30,
-            'fingerprint_sha256' => (string) setting('nfse.certificate_fingerprint_sha256', ''),
-        ];
-    }
-
-    protected function hasCertificateSecret(string $cnpj): bool
-    {
-        if ($cnpj === '') {
-            return false;
-        }
-
-        try {
-            $secret = $this->makeSecretStore()->get('pfx/' . $cnpj);
-
-            return (($secret['password'] ?? '') !== '') && (($secret['pfx_path'] ?? '') !== '');
-        } catch (Throwable) {
-            return false;
-        }
     }
 
     protected function readUploadedCertificate(UploadedFile $file): string
