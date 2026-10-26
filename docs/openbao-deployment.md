@@ -3,36 +3,37 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# Optional OpenBao deployment for NFS-e
+# Implantação opcional do OpenBao para NFS-e
 
-The NFS-e module uses a KV v2 secret store for certificate passwords. **OpenBao
-and HashiCorp Vault are alternatives**, not dependencies of Akaunting itself.
-An existing Vault/OpenBao service should be reused where feasible; do not
-deploy another server just to install the module.
+O módulo NFS-e utiliza armazenamento de segredos KV v2 para proteger senhas
+de certificados digitais. OpenBao e HashiCorp Vault são alternativas.
+Nenhum deles faz parte do runtime obrigatório do Akaunting. Quando já houver
+um serviço de segredos disponível, prefira reutilizá-lo.
 
-This directory contains an **optional standalone OpenBao example**. It does
-not install Akaunting, does not modify the application's Compose project and
-does not expose OpenBao on a public host port. Consult
-[Module configuration](operacao-e-configuracao.md) for the application's
-current global infrastructure settings, access control and company profiles.
+Este repositório oferece um exemplo **opcional e independente** de OpenBao.
+Ele não instala o Akaunting, não altera o Compose da aplicação e não publica
+a porta do OpenBao no host.
 
-## New OpenBao instance only
+## Arquivos do exemplo
 
-The sample is in `deploy/openbao/`:
+- `deploy/openbao/compose.yml`: serviço OpenBao, rede interna, persistência
+  PebbleDB, restrições de segurança e verificação de saúde.
+- `deploy/openbao/openbao.hcl`: configuração do serviço e desbloqueio
+  automático por chave estática.
+- `scripts/bootstrap-openbao.sh`: inicialização exclusiva de uma
+  **instalação nova**, com KV v2, política de acesso e AppRole para NFS-e.
 
-- `compose.yml`: OpenBao 2.7.1, isolated Docker network, persistent PebbleDB,
-  static-key auto-unseal, security restrictions and health check.
-- `openbao.hcl`: listener, storage and seal configuration.
-- `scripts/bootstrap-openbao.sh`: one-time initialization and NFS-e-scoped
-  KV v2/AppRole bootstrap. It operates **only** on this standalone example.
+O exemplo utiliza o padrão de armazenamento da LibreCode:
 
-The example uses the same `volumes/` convention as LibreCode's other
-Docker projects. Persistent OpenBao state is stored under
-`volumes/openbao/data/` and the static seal key under
-`volumes/openbao/seal.key`. The entire `volumes/` directory is
-ignored by Git.
+- `volumes/openbao/data/`: dados persistentes do OpenBao;
+- `volumes/openbao/seal.key`: chave estática de desbloqueio.
 
-For a **new, dedicated installation only**, from the repository root:
+O diretório `volumes/` inteiro é ignorado pelo Git. Não mova esses arquivos
+para pastas versionadas.
+
+## Instalação nova
+
+Na raiz do repositório, em um terminal interativo:
 
 ```sh
 sudo bash scripts/bootstrap-openbao.sh
@@ -40,41 +41,38 @@ docker compose -f deploy/openbao/compose.yml ps
 docker compose -f deploy/openbao/compose.yml exec -T openbao bao status
 ```
 
-The helper requires an interactive terminal and host privileges to prepare
-storage for UID 100. It refuses to initialize existing state. If an
-installation already uses a shared OpenBao/Vault service, configure the
-module to use that service instead of starting another instance.
+O script requer privilégios para preparar o armazenamento com o UID 100 e
+recusa executar quando encontra dados ou chave de uma instalação existente.
+**Não execute esse script em um servidor OpenBao já inicializado.**
+Para uma instalação existente, configure o módulo para usar o serviço atual.
 
-By default, OpenBao is accessible only on the internal Docker network
-`nfse-openbao`. Give the Akaunting/PHP runtime access only to that
-network through the deployment's own private Compose override. Its
-application-facing address is `http://openbao:8200`; for an external
-Vault/OpenBao deployment use its secured HTTPS endpoint instead.
+O OpenBao fica disponível apenas na rede Docker interna `nfse-openbao`,
+pelo endereço `http://openbao:8200`. O runtime PHP do Akaunting precisa
+participar dessa rede por configuração própria de implantação. Quando o
+serviço de segredos for externo, utilize um endpoint HTTPS protegido.
 
-The standalone example intentionally has **no Akaunting/PHP service**, no
-database or credentials from the host application, and no automatic changes
-to the module's settings. Configure the admin-managed NFS-e infrastructure
-using the Role ID and Secret ID returned by the bootstrap; consult the
-module's current settings documentation for the correct UI/API. Never
-paste these secrets into a command line, Git commit, issue or CI log.
+Após a inicialização, guarde a chave de recuperação, o token administrativo
+inicial e as credenciais AppRole em local seguro. Configure o módulo pela
+interface administrativa, conforme a
+[documentação operacional](operacao-e-configuracao.md). Não inclua tokens,
+Role ID, Secret ID ou chaves em comandos publicados, logs de CI ou issues.
 
-Static Key Auto Unseal trusts possession of the static key. Treat the host
-and backups as highly privileged. Keep a separately protected recovery copy
-of the seal key, **separate** from a backup of PebbleDB data, and secure
-the recovery key and initial administrative token outside that host.
-A host breach exposing both key and storage can compromise the secrets.
-Do not use the example's HTTP listener outside its isolated network.
+## Segurança e recuperação
 
-If bootstrap fails, inspect the existing state rather than rerunning it. Never
-reinitialize existing OpenBao storage or regenerate its seal key.
+O desbloqueio automático com chave estática pressupõe confiança no host
+Docker. O comprometimento simultâneo do armazenamento e da chave pode expor
+os segredos. Proteja os backups de dados e da chave separadamente e mantenha
+o material de recuperação fora do host.
 
-## Scope and recovery
+O exemplo usa HTTP **somente dentro da rede Docker isolada**. Não exponha
+essa porta à Internet nem reutilize a configuração sem TLS para conexões
+externas.
 
-The generic [Akaunting Docker runtime](https://github.com/LibreCodeCoop/akaunting-docker)
-owns the application stack. This example is optional module infrastructure.
-Keep persistent state under `volumes/` (ignored by Git), never in
-tracked source files. The helper refuses to initialize an existing state
-directory. Use an established OpenBao backup and recovery procedure to restore
-existing storage and its corresponding seal key.
+Caso a inicialização falhe, examine os dados existentes antes de qualquer
+nova tentativa. Não reinicialize o armazenamento nem gere outra chave para
+uma instalação existente. A recuperação deve utilizar backups verificados
+do armazenamento e da chave correspondente.
 
-Do not use fiscal issuance as a deployment smoke test.
+O [runtime Docker genérico](https://github.com/LibreCodeCoop/akaunting-docker)
+continua responsável pelo Akaunting, PHP, Nginx e banco de dados. O exemplo
+de OpenBao não realiza emissões fiscais nem testes de transmissão de NFS-e.

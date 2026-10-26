@@ -3,31 +3,35 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# NFS-e development environment
+# Ambiente de desenvolvimento da NFS-e
 
-The NFS-e module can be developed against any supported Akaunting runtime.
-[LibreCode's generic Docker environment](https://github.com/LibreCodeCoop/akaunting-docker)
-is one option, not a runtime requirement. Reuse the existing shared local
-instance where one is already running; do not create a competing environment
-or reset shared data.
+O módulo NFS-e pode ser desenvolvido em qualquer ambiente compatível com o
+Akaunting. O [ambiente Docker da LibreCode](https://github.com/LibreCodeCoop/akaunting-docker)
+é uma opção, não uma dependência. Reutilize o ambiente de desenvolvimento já
+disponível; não crie outra instância nem reinicialize dados compartilhados.
 
-For a development instance, confirm the installed Akaunting Core version,
-the NFS-e module revision, the `nfse-php` scoped library reference and
-Composer lock before testing. Run PHP, Artisan and dependency commands using
-the chosen runtime's documented process, not an assumed host PHP binary.
-The module's scoped runtime is rebuilt with `composer thirdparty:build:prod`
-**only when its dependency pin or build requires it**.
+Antes de executar os testes, confirme a versão instalada do Core Akaunting,
+a revisão do módulo, a referência da biblioteca `nfse-php` empacotada e
+as dependências do Composer. Execute PHP, Artisan e Composer no ambiente
+compatível com o runtime instalado, conforme sua documentação.
 
-Use the module's Behat/API and PHPUnit integration suites to verify the
-current implementation. Run them against the intended development environment
-according to the CI and testing documentation. Do not run fiscal issuance
-against a real taxpayer during a smoke test.
+O comando `composer thirdparty:build:prod` recompila as dependências
+isoladas do módulo quando necessário, por exemplo, após uma alteração da
+versão fixada da biblioteca fiscal. Não execute atualizações adicionais
+de dependências sem identificar a necessidade.
 
-Existing local `.env` and Compose overrides, volumes, certificates and
-secrets are not replaceable templates. Review config before modifying any
-shared state. Keep local runtime data under the owning project's ignored `volumes/` directory. Do not commit machine-specific
-addresses, credentials or real fiscal/customer data to this module.
+## Validação
 
-For an optional secret store see [OpenBao deployment](openbao-deployment.md).
-For global infrastructure settings and company profiles see
-[Module configuration](operacao-e-configuracao.md).
+Utilize as suítes existentes de PHPUnit, Behat e testes de API, seguindo os
+workflows e a configuração de testes do repositório. Verifique os contratos
+do módulo no ambiente de desenvolvimento, sem transmitir notas fiscais reais
+como teste de funcionamento.
+
+As configurações locais (`.env`, overrides do Compose), os certificados,
+os segredos e os dados persistentes devem ser preservados. Mantenha os dados
+de execução no diretório `volumes/` do projeto responsável pelo ambiente,
+fora do versionamento. Nunca publique credenciais ou dados fiscais reais.
+
+Para armazenamento de segredos, consulte a
+[implantação opcional do OpenBao](openbao-deployment.md) e a
+[configuração do módulo](operacao-e-configuracao.md).

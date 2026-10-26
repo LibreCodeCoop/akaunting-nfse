@@ -15,7 +15,6 @@ on:
       - 'scripts/ci/**'
       - 'scripts/bootstrap-openbao.sh'
       - 'deploy/openbao/**'
-      - 'tests/deployment/**'
       - 'docs/openbao-deployment.md'
       - 'docs/development-environment.md'
       - 'composer.json'
@@ -33,7 +32,6 @@ on:
       - 'scripts/ci/**'
       - 'scripts/bootstrap-openbao.sh'
       - 'deploy/openbao/**'
-      - 'tests/deployment/**'
       - 'docs/openbao-deployment.md'
       - 'docs/development-environment.md'
       - 'composer.json'
@@ -61,7 +59,7 @@ jobs:
             .github/workflows/frontend-unit.yml \
             .github/workflows/ci-infrastructure-lint.yml
 
-      - name: Validate optional NFS-e secret-store deployment
+      - name: Validate optional OpenBao configuration
         run: |
-          shellcheck scripts/bootstrap-openbao.sh tests/deployment/check-openbao-example.sh
-          sh tests/deployment/check-openbao-example.sh
+          shellcheck scripts/bootstrap-openbao.sh
+          docker compose -f deploy/openbao/compose.yml config --quiet
