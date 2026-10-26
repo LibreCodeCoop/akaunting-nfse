@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
-  validateDisposableSetup, fixtureIds, readActors, buildBehatEnv,
+  validateDisposableSetup, disposableRuntimeEnv, fixtureIds, readActors, buildBehatEnv,
   redactDiagnostics, behatArgs, executeContracts, writeFixtureFile, loadFixtureFile,
 } from '../scripts/ci/behat-ci.mjs';
 import { testedPhpVersions } from '../scripts/ci/php-matrix.mjs';
@@ -37,6 +37,14 @@ test('Behat refuses unsafe database, production or non-disposable setup', () => 
   }
   assert.throws(() => validateDisposableSetup({ ...options, module: '/tmp/unrelated/Nfse' }));
   assert.throws(() => validateDisposableSetup({ ...options, exists: () => false }));
+});
+
+test('Migrations, seeders and HTTP use the same disposable SQLite path', () => {
+  const core = '/tmp/ephemeral/akaunting';
+  const configured = disposableRuntimeEnv(core, environment);
+  assert.equal(configured.DB_DATABASE, core + '/database/playwright.sqlite');
+  assert.equal(configured.APP_ENV, 'testing');
+  assert.throws(() => disposableRuntimeEnv(core, { ...environment, DB_DATABASE: '/tmp/other.sqlite' }));
 });
 
 test('Behat fixture IDs are numeric and cannot inject environment assignments', () => {

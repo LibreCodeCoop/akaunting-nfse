@@ -36,6 +36,15 @@ export function validateDisposableSetup({ core = coreRoot, module = moduleRoot, 
   }
 }
 
+/** Enforce a single SQLite database for migrations, seeders, fixtures and HTTP. */
+export function disposableRuntimeEnv(core, env) {
+  const database = path.resolve(core, 'database/playwright.sqlite');
+  if (env.DB_DATABASE && path.resolve(env.DB_DATABASE) !== database) {
+    throw new Error('DB_DATABASE cannot point outside the disposable checkout.');
+  }
+  return { ...env, DB_DATABASE: database };
+}
+
 export function fixtureIds(primary, secondary) {
   const ids = { ...primary };
   if (secondary?.other_company_id !== undefined) ids.NFSE_BEHAT_OTHER_COMPANY_ID = secondary.other_company_id;
@@ -144,20 +153,21 @@ function stage(name, work) {
 
 export function prepare({ core = coreRoot, module = moduleRoot, env = process.env } = {}) {
   validateDisposableSetup({ core, module, env });
+  const scoped = disposableRuntimeEnv(core, env);
   stage('prepare disposable application configuration', () => prepareEnvironment(core));
-  stage('install Akaunting runtime', () => command('composer', ['test'], core, env));
+  stage('install Akaunting runtime', () => command('composer', ['test'], core, scoped));
   stage('install NFS-e scoped runtime', () => {
-    command('composer', ['install', '--prefer-dist', '--no-progress', '--no-interaction', '--no-scripts'], module, env);
-    command('composer', ['thirdparty:build:prod'], module, env);
-    command('composer', ['--working-dir=vendor-bin/behat', 'install', '--prefer-dist', '--no-progress', '--no-interaction'], module, env);
+    command('composer', ['install', '--prefer-dist', '--no-progress', '--no-interaction', '--no-scripts'], module, scoped);
+    command('composer', ['thirdparty:build:prod'], module, scoped);
+    command('composer', ['--working-dir=vendor-bin/behat', 'install', '--prefer-dist', '--no-progress', '--no-interaction'], module, scoped);
   });
   stage('initialize disposable SQLite and synthetic company', () => {
-    command('php', ['artisan', 'migrate:fresh', '--force'], core, env);
-    command('php', ['artisan', 'db:seed', '--class=\\Database\\Seeds\\TestCompany', '--force'], core, env);
+    command('php', ['artisan', 'migrate:fresh', '--force'], core, scoped);
+    command('php', ['artisan', 'db:seed', '--class=\\Database\\Seeds\\TestCompany', '--force'], core, scoped);
   });
-  const first = stage('provision shared NFS-e synthetic harness', () => provisionFixtureData(core, env));
+  const first = stage('provision shared NFS-e synthetic harness', () => provisionFixtureData(core, scoped));
   const output = stage('provision Behat tenant and fiscal actor fixtures', () =>
-    command('php', ['scripts/ci/behat-fixtures.php'], module, env, 'pipe'));
+    command('php', ['scripts/ci/behat-fixtures.php'], module, scoped, 'pipe'));
   // Only fixture IDs are persisted; synthetic passwords stay in source fixtures.
   const ids = fixtureIds(first, JSON.parse(output.trim()));
   writeFixtureFile(ids, path.join(module, 'build/behat/fixture-ids.json'));
@@ -166,13 +176,14 @@ export function prepare({ core = coreRoot, module = moduleRoot, env = process.en
 
 export async function run({ core = coreRoot, module = moduleRoot, env = process.env } = {}) {
   validateDisposableSetup({ core, module, env });
+  const runtimeEnv = disposableRuntimeEnv(core, env);
   const ids = loadFixtureFile(path.join(module, 'build/behat/fixture-ids.json'));
   const actors = readActors();
-  const scoped = buildBehatEnv(env, ids, actors);
+  const scoped = buildBehatEnv(runtimeEnv, ids, actors);
   const report = path.join(module, 'build/behat/server.log');
   try {
     await executeContracts({
-      start: () => startServer(core),
+      start: () => startServer(core, { env: runtimeEnv }),
       stop: () => stopServer(core),
       invoke: random => {
         fs.mkdirSync(path.join(module, 'build/behat-junit'), { recursive: true });
