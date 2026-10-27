@@ -20,8 +20,11 @@ final class VaultDiagnosticPolicy
         }
 
         $endpoint = $config['addr'];
+        // The bundled Compose example uses an isolated, unpublished network.
+        // Never grant this exception to an arbitrary HTTP host or port.
+        $internalOpenBao = in_array($endpoint, ['http://openbao:8200', 'http://openbao:8200/'], true);
         if (filter_var($endpoint, FILTER_VALIDATE_URL) === false
-            || parse_url($endpoint, PHP_URL_SCHEME) !== 'https'
+            || (parse_url($endpoint, PHP_URL_SCHEME) !== 'https' && !$internalOpenBao)
             || parse_url($endpoint, PHP_URL_USER) !== null
             || parse_url($endpoint, PHP_URL_PASS) !== null
             || parse_url($endpoint, PHP_URL_QUERY) !== null

@@ -38,6 +38,45 @@ final class VaultDiagnosticPolicyTest extends TestCase
         }
     }
 
+    public function testOnlyTheBundledInternalOpenBaoEndpointCanUseHttp(): void
+    {
+        $config = [
+            'addr' => 'http://openbao:8200',
+            'mount' => '/nfse',
+            'token' => 'synthetic-token',
+            'roleId' => null,
+            'secretId' => null,
+        ];
+
+        foreach (['http://openbao:8200', 'http://openbao:8200/'] as $endpoint) {
+            self::assertNull(VaultDiagnosticPolicy::configurationError(
+                array_replace($config, ['addr' => $endpoint]),
+            ));
+        }
+
+        foreach ([
+            'http://vault:8200',
+            'http://localhost:8200',
+            'http://127.0.0.1:8200',
+            'http://169.254.169.254',
+            'http://openbao:8201',
+            'http://openbao.example.test:8200',
+            'http://openbao:8200/v1/sys/health',
+            'http://openbao:8200//',
+            'http://openbao:8200?token=synthetic',
+            'http://openbao:8200#fragment',
+            'http://user:pass@openbao:8200',
+        ] as $endpoint) {
+            self::assertSame('invalid_endpoint', VaultDiagnosticPolicy::configurationError(
+                array_replace($config, ['addr' => $endpoint]),
+            ), $endpoint);
+        }
+
+        self::assertNull(VaultDiagnosticPolicy::configurationError(
+            array_replace($config, ['addr' => 'https://vault.example.test']),
+        ));
+    }
+
     public function testKvVersionMustBeExactlyTwo(): void
     {
         self::assertTrue(VaultDiagnosticPolicy::isKvV2(['data' => ['type' => 'kv', 'options' => ['version' => '2']]]));

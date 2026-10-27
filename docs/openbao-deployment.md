@@ -51,12 +51,18 @@ Para uma instalação existente, configure o módulo para usar o serviço atual.
 
 O OpenBao fica disponível apenas na rede Docker interna `nfse-openbao`,
 pelo endereço `http://openbao:8200`. O runtime PHP do Akaunting precisa
-participar dessa rede por configuração própria de implantação. **O diagnóstico
-administrativo atual do módulo exige HTTPS e não aceita esse endereço HTTP.**
-Antes de utilizar o exemplo com essa interface, disponibilize um endpoint TLS
-com certificado confiável ao runtime PHP e configure o endereço HTTPS.
-Não desabilite a validação TLS para contornar essa exigência.
-Quando o serviço de segredos for externo, utilize igualmente HTTPS.
+participar dessa rede por configuração própria de implantação. O diagnóstico
+administrativo aceita exclusivamente `http://openbao:8200` (com ou sem
+barra final) como exceção HTTP para este serviço interno. Endereços externos,
+outros nomes de host e portas continuam exigindo HTTPS válido.
+
+A rede Docker `nfse-openbao` é interna e não publica a porta no host.
+Essa segmentação limita o acesso, mas **não criptografa o tráfego**: use
+uma rede restrita aos serviços necessários e proteja o host. Se houver
+tráfego entre hosts, redes não confiáveis ou exigência de criptografia
+em trânsito, configure TLS com uma CA de confiança do cliente. Não
+desative a validação de certificados nem aceite um certificado autoassinado
+sem configurar sua CA como confiável.
 
 Após a inicialização, guarde a chave de recuperação, o token administrativo
 inicial e as credenciais AppRole em local seguro. Configure o módulo pela

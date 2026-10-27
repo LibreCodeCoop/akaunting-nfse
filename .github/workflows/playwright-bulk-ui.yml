@@ -47,7 +47,8 @@ env:
 
 jobs:
   bulk_ui:
-    runs-on: ubuntu-latest
+    # Chromium in the locked Playwright version does not support Ubuntu 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:

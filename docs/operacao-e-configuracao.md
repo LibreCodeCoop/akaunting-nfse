@@ -52,8 +52,12 @@ saúde, autenticação, KV v2 e capacidade de leitura/criação/atualização
 em um caminho sintético `pfx/__nfse_capability_probe__`. O resultado
 `operational` descreve apenas o instante da verificação e não garante
 operações futuras. A consulta não é requisito para listar documentos/perfis
-pré-existentes. O endpoint exige HTTPS; conexões inseguras não são verificadas.
-O teste não envia NFS-e nem utiliza SEFIN/ADN.
+pré-existentes. Endereços externos exigem HTTPS com certificado válido.
+Apenas `http://openbao:8200` (com ou sem barra final) é aceito sem TLS,
+para o serviço da rede Docker interna do exemplo de implantação. Não
+publique a porta desse serviço e não utilize essa exceção para tráfego
+entre hosts ou redes não confiáveis. O teste não envia NFS-e nem utiliza
+SEFIN/ADN.
 
 ## Perfis NFS-e por empresa
 

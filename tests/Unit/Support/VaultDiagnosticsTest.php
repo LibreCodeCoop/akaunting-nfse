@@ -125,6 +125,31 @@ final class VaultDiagnosticsTest extends TestCase
         self::assertStringNotContainsString('fixture-secret', json_encode($result));
     }
 
+    public function testInternalDockerOpenBaoCanCompleteAppRoleDiagnosticWithoutTls(): void
+    {
+        $steps = $this->successResponses();
+        array_splice($steps, 1, 0, [[
+            'status' => 200,
+            'body' => ['auth' => ['client_token' => 'synthetic-issued-token']],
+        ]]);
+
+        $transport = new FakeVaultDiagnosticTransport($steps);
+        $result = (new VaultDiagnostics($transport))->check($this->config([
+            'addr' => 'http://openbao:8200',
+            'token' => null,
+            'roleId' => 'synthetic-role',
+            'secretId' => 'synthetic-secret',
+        ]));
+
+        self::assertSame('operational', $result['state']);
+        self::assertCount(5, $transport->requests);
+        foreach ($transport->requests as $request) {
+            self::assertStringStartsWith('http://openbao:8200/v1/', $request['url']);
+        }
+        self::assertStringNotContainsString('synthetic-secret', json_encode($result));
+        self::assertStringNotContainsString('synthetic-issued-token', json_encode($result));
+    }
+
     public function testMissingOrRejectedAppRoleTokenFailsClosed(): void
     {
         foreach ([
