@@ -79,16 +79,9 @@
         @foreach((new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog())->searchNbs() as $entry)
             @php($nbsOptions[(string) $entry['code']] = $entry['code'] . ' - ' . ($entry['description'] ?: trans('nfse::general.items.codigo_nbs_generic')))
         @endforeach
-        @php($nationalServiceOptions = [])
-        @foreach(($nfseNationalServiceCatalog ?? []) as $entry)
-            @php($entryCode = preg_replace('/\D+/', '', (string) ($entry['code'] ?? '')) ?? '')
-            @if(strlen($entryCode) === 6)
-                @php($nationalServiceOptions[$entryCode] = $entryCode . ' - ' . (string) ($entry['description'] ?? ''))
-            @endif
-        @endforeach
-        @if($oldNationalCode !== '' && !array_key_exists((string) $oldNationalCode, $nationalServiceOptions))
-            @php($nationalServiceOptions[(string) $oldNationalCode] = (string) $oldNationalCode . ' - ' . trans('nfse::general.items.codigo_tributacao_nacional_legacy'))
-        @endif
+        {{-- Preserve only the saved code in the initial form. Labels and
+             available national codes are loaded from the shared JSON catalog. --}}
+        @php($nationalServiceOptions = $oldNationalCode !== '' ? [(string) $oldNationalCode => (string) $oldNationalCode] : [])
         @php($lc116Options = [])
         @foreach(($nfseLc116Catalog ?? []) as $entry)
             @php($entryCode = \Modules\Nfse\Support\Lc116Code::normalize($entry['code'] ?? ''))

@@ -31,7 +31,11 @@
             pending = new AbortController();
             try {
                 const query = new URLSearchParams(params);
-                const response = await fetcher(url + '?' + query.toString(), { signal: pending.signal });
+                const response = await fetcher(url + '?' + query.toString(), {
+                    signal: pending.signal,
+                    credentials: 'same-origin',
+                    headers: { Accept: 'application/json' },
+                });
                 if (!response.ok) throw new Error('Search failed');
                 const body = await response.json();
                 return current === sequence ? body.data : null;
@@ -55,6 +59,41 @@
         const component = selectComponent(element);
         return component ? String(component.selected ?? '') : String(element.value ?? '');
     }
+    function populateNationalOptions(element, entries) {
+        const component = selectComponent(element);
+        if (!component || !Array.isArray(entries)) return false;
+        const lists = [component.sorted_options, component.full_options]
+            .filter(Array.isArray);
+        if (!lists.length) return false;
+
+        for (const entry of entries) {
+            if (typeof entry?.code !== 'string' || !/^\d{6}$/.test(entry.code)
+                || typeof entry.description !== 'string') continue;
+
+            const label = entry.code + ' - ' + entry.description;
+            for (const options of lists) {
+                const index = options.findIndex(option => String(option.key) === entry.code);
+                const option = { key: entry.code, value: label, option: { key: entry.code, value: label } };
+                if (index < 0) options.push(option);
+                else if (options[index].value !== label) options.splice(index, 1, option);
+            }
+        }
+        // Never change the selected code: a user can start editing before
+        // the catalog request resolves, and unknown saved codes stay visible.
+        return true;
+    }
+    async function loadNationalOptions(url, element, fetcher) {
+        const response = await fetcher(url + '?limit=500', {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error('Catalog loading failed');
+        const body = await response.json();
+        if (!Array.isArray(body?.data) || !populateNationalOptions(element, body.data)) {
+            throw new Error('Invalid catalog response');
+        }
+    }
+
     function selectValue(element, value, label) {
         const component = selectComponent(element);
         if (!component) return false;
@@ -123,6 +162,9 @@
             }
         }
         const scheduled = debounce(refresh, 300);
+        loadNationalOptions(root.dataset.searchUrl, national, fetcher).catch(() => {
+            summary.textContent = root.dataset.errorLabel || '';
+        });
         input.addEventListener('input', scheduled);
         listenToSelect(service, scheduled);
         listenToSelect(national, () => {
@@ -131,5 +173,5 @@
         });
         if (digits(selectedValue(service)).length === 4) scheduled();
     }
-    return { digits, lcForNational, debounce, createSearch, selectComponent, selectedValue, selectValue, listenToSelect, init };
+    return { digits, lcForNational, debounce, createSearch, selectComponent, selectedValue, selectValue, populateNationalOptions, loadNationalOptions, listenToSelect, init };
 });

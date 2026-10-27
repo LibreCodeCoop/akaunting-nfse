@@ -22,10 +22,20 @@ final class NationalServicesController extends Controller
     {
         $rawLc = $request->query('lc116', '');
         $rawQuery = $request->query('q', '');
-        $lc = is_string($rawLc) ? Lc116Code::normalize($rawLc) : '';
-        $query = is_string($rawQuery) ? trim($rawQuery) : '';
+        $rawLimit = $request->query('limit', '50');
 
-        if ($lc !== '' && preg_match('/^\\d{4}$/', $lc) !== 1) {
+        if (!is_string($rawLc) || !is_string($rawQuery)
+            || (!is_string($rawLimit) && !is_int($rawLimit))
+            || preg_match('/^[1-9]\d{0,2}$/', (string) $rawLimit) !== 1
+            || (int) $rawLimit > 500) {
+            return response()->json(['data' => []], 422);
+        }
+
+        $lc = Lc116Code::normalize($rawLc);
+        $query = trim($rawQuery);
+        $limit = (int) $rawLimit;
+
+        if ($rawLc !== '' && $lc === '') {
             return response()->json(['data' => []], 422);
         }
 
@@ -33,12 +43,12 @@ final class NationalServicesController extends Controller
             return response()->json(['data' => []], 422);
         }
 
-        // The official catalog API applies a maximum result cap; querying by LC
-        // prefix first preserves related codes before additional text filtering.
-        if ($lc === '' && mb_strlen($query) < 2) {
+        if ($lc === '' && $query !== '' && mb_strlen($query) < 2) {
             return response()->json(['data' => []]);
         }
 
+        // Query a bounded official catalog. LC prefix filtering precedes
+        // the optional text filter and the requested page-size cap.
         $entries = $catalog->searchNationalServices($lc !== '' ? $lc : $query, 500);
         if ($lc !== '') {
             $entries = array_values(array_filter(
@@ -55,7 +65,6 @@ final class NationalServicesController extends Controller
             ));
         }
 
-        return response()->json(['data' => array_slice($entries, 0, 50)]);
+        return response()->json(['data' => array_slice($entries, 0, $limit)]);
     }
-
 }
