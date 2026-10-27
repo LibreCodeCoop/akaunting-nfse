@@ -7,10 +7,31 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Jobs\Auth\CreateUser;
+use App\Traits\Permissions;
 use Tests\Feature\FeatureTestCase;
 
 final class NationalTaxCatalogSearchTest extends FeatureTestCase
 {
+    use Permissions;
+
+    public function testBrowserCatalogDeniesAdminWithoutFiscalReadPermission(): void
+    {
+        $this->loginAs();
+        $role = $this->createRole('nfse-catalog-no-fiscal-read');
+        $this->attachPermission($role, 'read-admin-panel');
+
+        $user = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
+            'enabled' => 1,
+            'companies' => [$this->company->id],
+            'roles' => [$role->id],
+        ])));
+
+        $this->withExceptionHandling()->loginAs($user);
+        $this->getJson(route('nfse.national-services', ['lc116' => '0101']))
+            ->assertForbidden();
+    }
+
     public function testCatalogSearchReturnsNationalCodesRelatedToLc116(): void
     {
         $response = $this->loginAs()->getJson(route('nfse.national-services', ['lc116' => '0101']));

@@ -29,6 +29,12 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     Then the API response status should be 403
     And the API response should be JSON
 
+  Scenario: Browser session cannot read the fiscal catalog without fiscal permission
+    Given the "no-permission" synthetic Akaunting user is authenticated
+    When I make a "GET" JSON request to "/<company_id>/nfse/national-services?lc116=0101"
+    Then the API response status should be 403
+    And the API response should be JSON
+
   Scenario: Browser session endpoint preserves the fiscal JSON contract
     Given the "administrator" synthetic Akaunting user is authenticated
     When I make a "GET" JSON request to "/<company_id>/nfse/national-services?lc116=0101"
