@@ -37,7 +37,7 @@ final class SubstitutionDpsBuilderTest extends TestCase
             'Correcao de dados fiscais da nota original.',
         );
 
-        self::assertSame('700000000000042', $replacement->numeroDps);
+        self::assertSame('123', $replacement->numeroDps, 'Only the journal may assign the final fiscal DPS number.');
         self::assertSame('100.00', $replacement->valorServico);
         self::assertSame(str_repeat('1', 50), $replacement->substituicao?->chaveNfseSubstituida);
         self::assertSame('01', $replacement->substituicao?->codigoMotivo);

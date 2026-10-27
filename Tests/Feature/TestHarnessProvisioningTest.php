@@ -9,6 +9,10 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
 use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
+use Modules\Nfse\Application\DpsIssuanceIdentityContract;
+use Modules\Nfse\Support\Testing\SyntheticDpsSeriesCoordinator;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
+use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\InvoiceDpsIdentity;
 use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Support\VaultConfig;
@@ -74,6 +78,77 @@ final class TestHarnessProvisioningTest extends FeatureTestCase
         self::assertTrue(openssl_pkcs12_read($pkcs12, $certificates, 'browser-test-password'));
         self::assertArrayHasKey('cert', $certificates);
         self::assertArrayHasKey('pkey', $certificates);
+    }
+
+    public function testDisposableCoordinatorPersistsOneReservationAndRefusesASecondFirstPost(): void
+    {
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            self::markTestSkipped('Disposable DPS fixture is SQLite-only.');
+        }
+
+        \putenv('NFSE_TEST_HARNESS=1');
+        $this->loginAs();
+        $this->artisan('nfse:test-harness:provision', [
+            '--company-id' => (string) $this->company->id,
+        ])->assertSuccessful();
+
+        $invoice = Document::factory()->invoice()->create([
+            'company_id' => (int) $this->company->id,
+        ]);
+        $draft = new DpsData(
+            cnpjPrestador: self::CNPJ,
+            municipioIbge: '3303302',
+            itemListaServico: '0107',
+            valorServico: '100.00',
+            aliquota: '2.00',
+            discriminacao: 'Synthetic claim regression',
+            tipoAmbiente: 2,
+            serie: '00001',
+            numeroDps: '1',
+        );
+
+        $identity = app(DpsIssuanceIdentityContract::class);
+        $first = $identity->prepare((int) $invoice->id, $draft, 'manual');
+        $repeated = $identity->prepare((int) $invoice->id, $draft, 'automatic');
+        self::assertSame($first['reservation_id'], $repeated['reservation_id']);
+        self::assertSame($first['operation_key'], $repeated['operation_key']);
+        self::assertEquals($first['dps'], $repeated['dps']);
+        self::assertSame('99999', $first['dps']->serie);
+        self::assertSame('1', $first['dps']->numeroDps);
+        self::assertSame(1, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(1, (int) DB::table('nfse_dps_series')->value('last_number'));
+
+        $identity->claimFirstPost(
+            (int) $invoice->company_id,
+            (int) $invoice->id,
+            $first['reservation_id'],
+            $first['dps'],
+            hash('sha256', 'synthetic first POST'),
+        );
+        self::assertSame(1, DB::table('nfse_test_dps_first_posts')->count());
+
+        try {
+            $identity->claimFirstPost(
+                (int) $invoice->company_id,
+                (int) $invoice->id,
+                $first['reservation_id'],
+                $first['dps'],
+                hash('sha256', 'synthetic first POST'),
+            );
+            self::fail('One synthetic fiscal operation cannot receive a second first-POST claim.');
+        } catch (\LogicException $error) {
+            self::assertStringContainsString('already claimed', $error->getMessage());
+        }
+
+        self::assertSame(1, DB::table('nfse_test_dps_first_posts')->count());
+    }
+
+    public function testSyntheticCoordinatorRefusesMissingHarnessPermission(): void
+    {
+        \putenv('NFSE_TEST_HARNESS');
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('isolated SQLite testing harness');
+        new SyntheticDpsSeriesCoordinator();
     }
 
     public function testBulkFixtureUsesStableCompetenceAndPreflightOutcomes(): void

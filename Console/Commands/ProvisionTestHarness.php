@@ -16,6 +16,9 @@ use App\Models\Setting\Category;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Modules\Nfse\Support\Testing\SyntheticDpsSeriesCoordinator;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseCompanyProfile;
@@ -115,10 +118,49 @@ final class ProvisionTestHarness extends Command
                 'opcao_simples_nacional' => '1',
                 'regime_especial_tributacao' => '0',
                 'sandbox_mode' => true,
+                'dps_series' => '99999',
                 'enforce_item_federal_taxes' => false,
             ],
         ]);
         $profile->save();
+
+        // Test-only durable reservation and claim proof. This is not the
+        // operational shared MySQL ledger and cannot be activated outside
+        // the disposable SQLite testing harness.
+        if (app()->environment('testing') && DB::connection()->getDriverName() === 'sqlite') {
+            if (!Schema::hasTable('nfse_test_dps_first_posts')) {
+                Schema::create('nfse_test_dps_first_posts', static function (Blueprint $table): void {
+                    $table->char('operation_key', 64)->primary();
+                    $table->char('payload_fingerprint', 64);
+                    $table->timestamp('created_at');
+                });
+            }
+
+            $scope = [
+                'environment' => 2,
+                'issuer_municipality' => $municipio,
+                'issuer_registration_type' => 2,
+                'issuer_registration' => $cnpj,
+                'series' => '99999',
+            ];
+            $reference = SyntheticDpsSeriesCoordinator::reference();
+            $series = DB::table('nfse_dps_series')->where($scope)->first();
+            if (!is_object($series)) {
+                DB::table('nfse_dps_series')->insert([
+                    ...$scope,
+                    'status' => 'active',
+                    'coordination_mode' => 'shared_database',
+                    'coordination_reference' => $reference,
+                    'last_number' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } elseif ((string) $series->coordination_reference !== $reference
+                || (string) $series->coordination_mode !== 'shared_database'
+                || (string) $series->status !== 'active') {
+                throw new \LogicException('Unexpected synthetic DPS fixture authority.');
+            }
+        }
 
         setting()->set([
             'nfse.cnpj_prestador' => $cnpj,

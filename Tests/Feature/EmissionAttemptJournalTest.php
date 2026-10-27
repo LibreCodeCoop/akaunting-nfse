@@ -22,10 +22,17 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\IssuanceException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 final class EmissionAttemptJournalTest extends FeatureTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        SyntheticDpsIssuanceIdentity::install();
+    }
+
     public function testAuthorizedAttemptLinksExistingReceiptAndXmlWithoutDoublePost(): void
     {
         $invoice = $this->invoice();

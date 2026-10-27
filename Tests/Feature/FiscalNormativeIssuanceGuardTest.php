@@ -19,6 +19,7 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 /**
@@ -31,6 +32,12 @@ use Tests\Feature\FeatureTestCase;
  */
 final class FiscalNormativeIssuanceGuardTest extends FeatureTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        SyntheticDpsIssuanceIdentity::install();
+    }
+
     /**
      * @return iterable<string,array{string,int,string,string,string,?string}>
      */

@@ -38,12 +38,13 @@ final class EmissionAttemptJournal
         private readonly RecoverInvoiceEmission $recovery = new RecoverInvoiceEmission(),
         private readonly OfficialIssuanceRejection $rejections = new OfficialIssuanceRejection(),
         private readonly MunicipalEmissionPreflight $municipalPreflight = new MunicipalEmissionPreflight(),
+        private readonly ?DpsIssuanceIdentityContract $identity = null,
     ) {
     }
 
     /**
      * @param callable(ReceiptData):NfseReceipt $persist
-     * @param (callable():ReceiptData)|null $transmit Uses IssueInvoiceNfse by default.
+     * @param (callable(DpsData):ReceiptData)|null $transmit Uses IssueInvoiceNfse by default.
      * @return array{receipt:NfseReceipt,remote_receipt:?ReceiptData,reused:bool}
      */
     public function issue(
@@ -55,8 +56,21 @@ final class EmissionAttemptJournal
         ?string $groupKey = null,
         ?callable $transmit = null,
         ?array $approximateTaxEvidence = null,
+        ?int $cancelledReceiptId = null,
+        ?int $substitutedReceiptId = null,
     ): array {
-        $registration = $this->begin($invoiceId, $dps, $origin, $groupKey, $approximateTaxEvidence);
+        // Historical homologation attempts without a reservation can only be
+        // read/reconciled, never granted an uncoordinated first POST.
+        $legacy = $this->historicalAttemptExists($invoiceId, $dps);
+        $reservationId = null;
+        if (!$legacy) {
+            $prepared = $this->identity()->prepare(
+                $invoiceId, $dps, $origin, $groupKey, $cancelledReceiptId, $substitutedReceiptId,
+            );
+            $dps = $prepared['dps'];
+            $reservationId = $prepared['reservation_id'];
+        }
+        $registration = $this->begin($invoiceId, $dps, $origin, $groupKey, $approximateTaxEvidence, $reservationId);
         $attempt = $registration['attempt'];
 
         if ((string) $attempt->status === self::AUTHORIZED) {
@@ -87,6 +101,7 @@ final class EmissionAttemptJournal
                 throw new NetworkException('DPS result remains ambiguous; reconcile without repeating POST.');
             }
         } else {
+            $claimStarted = false;
             try {
                 // All mutable callers converge here (manual, grouped, send,
                 // queue/batch, reissue and substitution). Recovery and already
@@ -100,8 +115,16 @@ final class EmissionAttemptJournal
                     throw new MunicipalIssuanceBlocked('Municipal issuance preflight blocked: ' . $assessment['reason']);
                 }
 
+                // Durable local journal is already committed. A first-POST
+                // claim is irreversible in the shared MySQL authority. Any
+                // timeout here is ambiguous, not permission to try again.
+                $claimStarted = true;
+                $this->identity()->claimFirstPost(
+                    (int) $attempt->company_id, $invoiceId, (int) $reservationId,
+                    $dps, (string) $attempt->payload_fingerprint,
+                );
                 $remote = $transmit !== null
-                    ? $transmit()
+                    ? $transmit($dps)
                     : (new IssueInvoiceNfse($this->recovery))->issue($client, $dps);
             } catch (GatewayException $exception) {
                 $rejection = $this->rejections->fromException($exception);
@@ -126,9 +149,17 @@ final class EmissionAttemptJournal
                 // IssueInvoiceNfse already tried DPS recovery. Leave any
                 // unresolved result to a later read-only reconciliation.
                 throw $exception;
-            } catch (SecretStoreException|PfxImportException|\InvalidArgumentException|\LogicException $exception) {
+            } catch (SecretStoreException|PfxImportException $exception) {
+                // Known pre-network signing/secret failures cannot have sent a
+                // POST, but the consumed central claim is never released.
                 $this->transition($attempt, self::TECHNICAL_FAILURE, ['failure_class' => 'local_preflight']);
-
+                throw $exception;
+            } catch (\InvalidArgumentException|\LogicException $exception) {
+                $this->transition(
+                    $attempt,
+                    $claimStarted ? self::AMBIGUOUS : self::TECHNICAL_FAILURE,
+                    ['failure_class' => $claimStarted ? 'first_post_uncertain' : 'local_preflight'],
+                );
                 throw $exception;
             } catch (\Throwable $exception) {
                 // We cannot prove that an arbitrary failure occurred before POST.
@@ -177,11 +208,15 @@ final class EmissionAttemptJournal
     /**
      * @return array{attempt:NfseEmissionAttempt,recovery_only:bool}
      */
-    private function begin(int $invoiceId, DpsData $dps, string $origin, ?string $groupKey, ?array $approximateTaxEvidence): array
-    {
-        if ($invoiceId <= 0 || !in_array($origin, [
-            'manual', 'manual_group', 'automatic', 'reemit', 'substitution',
-        ], true)) {
+    private function begin(
+        int $invoiceId,
+        DpsData $dps,
+        string $origin,
+        ?string $groupKey,
+        ?array $approximateTaxEvidence,
+        ?int $reservationId,
+    ): array {
+        if ($invoiceId <= 0 || preg_match('/^[a-z][a-z0-9_]{0,31}$/D', $origin) !== 1) {
             throw new \InvalidArgumentException('Valid invoice and emission origin are required.');
         }
 
@@ -191,7 +226,8 @@ final class EmissionAttemptJournal
         $environment = (int) $dps->tipoAmbiente;
 
         return DB::transaction(function () use (
-            $invoiceId, $dps, $origin, $groupKey, $identifier, $fingerprint, $environment, $approximateTaxEvidence,
+            $invoiceId, $dps, $origin, $groupKey, $identifier, $fingerprint, $environment,
+            $approximateTaxEvidence, $reservationId,
         ): array {
             $invoice = DB::table('documents')
                 ->where('id', $invoiceId)
@@ -218,6 +254,9 @@ final class EmissionAttemptJournal
                 throw new \Illuminate\Auth\Access\AuthorizationException('Cannot issue for another company.');
             }
 
+            if ($reservationId !== null) {
+                $this->identity()->assertLocal($companyId, $invoiceId, $reservationId, $dps);
+            }
             $previous = NfseEmissionAttempt::query()
                 ->where('company_id', $companyId)
                 ->where('environment', $environment)
@@ -227,6 +266,9 @@ final class EmissionAttemptJournal
                 ->first();
 
             if ($previous instanceof NfseEmissionAttempt) {
+                if ((int) ($previous->dps_reservation_id ?? 0) !== (int) ($reservationId ?? 0)) {
+                    throw new \LogicException('Existing fiscal attempt uses a different immutable DPS reservation.');
+                }
                 if ((int) $previous->invoice_id !== $invoiceId || (string) ($previous->emission_group_key ?? '') !== (string) ($groupKey ?? '')) {
                     throw new \LogicException('DPS identifier already belongs to another invoice or fiscal group.');
                 }
@@ -241,6 +283,11 @@ final class EmissionAttemptJournal
                     throw new MunicipalIssuanceBlocked('SEFIN E0312 already rejected this exact DPS; review its fiscal context.');
                 }
 
+                // Rejection does not prove that national sequencing permits
+                // another POST of the same logical fiscal operation.
+                if ((string) $previous->status === self::REJECTED) {
+                    throw new MunicipalIssuanceBlocked('Rejected DPS identity is consumed; review fiscal policy before a new operation.');
+                }
                 if (in_array((string) $previous->status, [self::PENDING, self::AMBIGUOUS, self::AUTHORIZED], true)) {
                     if (!hash_equals((string) $previous->payload_fingerprint, $fingerprint)) {
                         throw new \LogicException('DPS content changed before its previous result was reconciled.');
@@ -257,6 +304,10 @@ final class EmissionAttemptJournal
                 }
             }
 
+            if ($reservationId === null) {
+                throw new \LogicException('Historical DPS has no new first-POST permission.');
+            }
+
             $national = preg_replace('/\\D+/', '', (string) $dps->codigoTributacaoNacional) ?: '';
             $municipal = preg_replace('/\\D+/', '', (string) $dps->codigoTributacaoMunicipal) ?: '';
             $competence = trim((string) ($dps->dataCompetencia ?? ''));
@@ -264,6 +315,7 @@ final class EmissionAttemptJournal
             $attempt = NfseEmissionAttempt::query()->create([
                 'company_id' => $companyId,
                 'invoice_id' => $invoiceId,
+                'dps_reservation_id' => $reservationId,
                 'emission_group_key' => $groupKey,
                 'dps_identifier' => $identifier,
                 'environment' => $environment,
@@ -282,6 +334,28 @@ final class EmissionAttemptJournal
 
             return ['attempt' => $attempt, 'recovery_only' => false];
         });
+    }
+
+    private function identity(): DpsIssuanceIdentityContract
+    {
+        return $this->identity ?? app(DpsIssuanceIdentityContract::class);
+    }
+
+    private function historicalAttemptExists(int $invoiceId, DpsData $dps): bool
+    {
+        $invoice = DB::table('documents')->where('id', $invoiceId)
+            ->where('type', 'invoice')->first(['company_id']);
+        if (!is_object($invoice)) {
+            return false;
+        }
+
+        return NfseEmissionAttempt::query()
+            ->where('company_id', (int) $invoice->company_id)
+            ->where('invoice_id', $invoiceId)
+            ->where('environment', (int) $dps->tipoAmbiente)
+            ->where('dps_identifier', $this->recovery->dpsIdentifier($dps))
+            ->whereNull('dps_reservation_id')
+            ->exists();
     }
 
     private function recoverSafely(NfseClientInterface $client, DpsData $dps): ?ReceiptData

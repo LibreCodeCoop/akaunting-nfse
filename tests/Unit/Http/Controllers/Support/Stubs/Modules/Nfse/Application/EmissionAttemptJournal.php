@@ -20,9 +20,11 @@ namespace Modules\Nfse\Application {
                 ?string $groupKey = null,
                 ?callable $transmit = null,
                 ?array $approximateTaxEvidence = null,
+                ?int $cancelledReceiptId = null,
+                ?int $substitutedReceiptId = null,
             ): array {
                 $remote = $transmit !== null
-                    ? $transmit()
+                    ? $transmit($dps)
                     : (new IssueInvoiceNfse())->issue($client, $dps);
 
                 if ($origin === 'reemit') {

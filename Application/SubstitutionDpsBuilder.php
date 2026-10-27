@@ -28,7 +28,8 @@ final class SubstitutionDpsBuilder
         }
 
         $payload = get_object_vars($baseDps);
-        $payload['numeroDps'] = (new SubstitutionDpsNumber())->forOriginalReceipt((int) $originalReceipt->id);
+        // Numbering is assigned by the shared fiscal reservation authority.
+        // The draft number is a placeholder; no receipt-derived prefix is used.
         $payload['substituicao'] = new SubstitutionData(
             chaveNfseSubstituida: $accessKey,
             codigoMotivo: $reasonCode,

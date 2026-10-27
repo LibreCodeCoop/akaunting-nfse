@@ -26,6 +26,7 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\IssuanceException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 /**
@@ -34,6 +35,12 @@ use Tests\Feature\FeatureTestCase;
  */
 final class MunicipalEmissionPreflightIntegrationTest extends FeatureTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        SyntheticDpsIssuanceIdentity::install();
+    }
+
     public function testInvalidNationalOrMunicipalProfileStopsMutablePost(): void
     {
         foreach ([
@@ -171,7 +178,7 @@ final class MunicipalEmissionPreflightIntegrationTest extends FeatureTestCase
         self::assertSame('unverifiable', $anotherCompetence['municipal']['decision']);
     }
 
-    public function testSameDpsE0312CannotPostTwiceButDifferentCompetenceCanBeTried(): void
+    public function testRejectedFiscalOperationCannotBeRepostedAfterChangingItsCompetence(): void
     {
         $invoice = $this->invoiceWithProfiles(['123']);
         $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
@@ -194,13 +201,18 @@ final class MunicipalEmissionPreflightIntegrationTest extends FeatureTestCase
         }
 
         self::assertSame(1, $client->emits);
-        $different = $this->dps($invoice, '010701', '123', '2026-10-01');
-        $this->issueFromJournal($invoice, $client, $different, (string) $group['key']);
-        self::assertSame(2, $client->emits);
+        $changedCompetence = $this->dps($invoice, '010701', '123', '2026-10-01');
+        try {
+            $this->issueFromJournal($invoice, $client, $changedCompetence, (string) $group['key']);
+            self::fail('Changing an already rejected logical operation must not grant another POST.');
+        } catch (MunicipalIssuanceBlocked $error) {
+            self::assertStringContainsString('E0312', $error->getMessage());
+        }
+
+        self::assertSame(1, $client->emits);
         self::assertSame(
-            ['rejected', 'authorized'],
-            NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)
-                ->orderBy('attempt_number')->pluck('status')->all(),
+            ['rejected'],
+            NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->pluck('status')->all(),
         );
     }
 
