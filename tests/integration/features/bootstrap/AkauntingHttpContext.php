@@ -107,6 +107,28 @@ abstract class AkauntingHttpContext implements Context
         }
     }
 
+    #[When('I make a native API GET request to :path with synthetic :actor credentials')]
+    public function nativeApiGetAs(string $path, string $actor): void
+    {
+        $accounts = [
+            'administrator' => ['NFSE_BEHAT_EMAIL', 'NFSE_BEHAT_PASSWORD'],
+            'other-company-administrator' => ['NFSE_BEHAT_OTHER_EMAIL', 'NFSE_BEHAT_OTHER_PASSWORD'],
+            'no-permission' => ['NFSE_BEHAT_DENIED_EMAIL', 'NFSE_BEHAT_DENIED_PASSWORD'],
+        ];
+        if (!isset($accounts[$actor])) {
+            throw new RuntimeException('Unknown synthetic account.');
+        }
+        [$emailKey, $passwordKey] = $accounts[$actor];
+        $email = getenv($emailKey);
+        $password = getenv($passwordKey);
+        if (!is_string($email) || $email === '' || !is_string($password) || $password === '') {
+            throw new RuntimeException('Missing synthetic API credentials.');
+        }
+
+        $this->resetHttpScenario();
+        $this->sendJson('GET', $path, null, ['auth' => [$email, $password]]);
+    }
+
     #[When('I make a :method JSON request to :path')]
     public function makeJsonRequest(string $method, string $path): void
     {
@@ -280,7 +302,7 @@ abstract class AkauntingHttpContext implements Context
         return $decoded;
     }
 
-    private function sendJson(string $method, string $path, ?array $body = null): void
+    private function sendJson(string $method, string $path, ?array $body = null, array $extraOptions = []): void
     {
         $method = strtoupper($method);
         if (!in_array($method, ['GET', 'POST', 'PATCH', 'DELETE'], true)) {
@@ -303,7 +325,7 @@ abstract class AkauntingHttpContext implements Context
         if (!in_array($method, ['GET'], true) && $this->csrf !== null) {
             $headers['X-CSRF-TOKEN'] = $this->csrf;
         }
-        $options = ['headers' => $headers];
+        $options = array_merge(['headers' => $headers], $extraOptions);
         if ($body !== null) {
             $options['json'] = $body;
         }

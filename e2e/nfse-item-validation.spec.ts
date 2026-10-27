@@ -29,3 +29,24 @@ test('item list exposes the fiscal validation badge and edit action', async ({ p
     new RegExp('/common/items/' + itemId + '/edit#nfse-fiscal-fields$'),
   );
 });
+
+
+test('fiscal code assistant consults the authenticated JSON catalog without Basic credentials', async ({ page }, testInfo) => {
+  await loginToAkaunting(page, testInfo);
+  await page.goto('/1/common/items/create', { waitUntil: 'domcontentloaded' });
+  const assistant = page.locator('[data-nfse-tax-code-assistant]');
+  await expect(assistant).toBeVisible();
+
+  const requestPromise = page.waitForRequest((request) =>
+    request.method() === 'GET' && /\/1\/nfse\/national-services\?/.test(request.url()),
+  );
+  await assistant.locator('[data-nfse-tax-code-query]').fill('consultoria');
+  const request = await requestPromise;
+
+  expect(request.headers()['authorization']).toBeUndefined();
+  const response = await request.response();
+  expect(response?.status()).toBe(200);
+  expect(response?.headers()['content-type']).toContain('application/json');
+  const body = await response?.json();
+  expect(Array.isArray(body?.data)).toBe(true);
+});
