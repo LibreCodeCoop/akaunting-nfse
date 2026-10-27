@@ -29,10 +29,23 @@ final class NationalTaxCatalogSearchTest extends FeatureTestCase
             ->assertStatus(422);
     }
 
-    public function testCatalogSearchRequiresAQueryOrLc116Selection(): void
+    public function testCatalogSearchDefaultsToFiftyOfficialCodesWithoutFilters(): void
     {
-        $this->loginAs()->getJson(route('nfse.national-services'))
-            ->assertOk()
-            ->assertExactJson(['data' => []]);
+        $response = $this->loginAs()->getJson(route('nfse.national-services'));
+
+        $response->assertOk()->assertJsonStructure(['data' => [['code', 'description']]]);
+        $entries = $response->json('data');
+        self::assertCount(50, $entries);
+        self::assertSame('010101', $entries[0]['code']);
+    }
+
+    public function testCatalogSearchSupportsBoundedCompleteCatalogForFrontend(): void
+    {
+        $response = $this->loginAs()->getJson(route('nfse.national-services', ['limit' => 500]));
+
+        $response->assertOk()->assertJsonStructure(['data' => [['code', 'description']]]);
+        $entries = $response->json('data');
+        self::assertGreaterThan(50, count($entries));
+        self::assertLessThanOrEqual(500, count($entries));
     }
 }

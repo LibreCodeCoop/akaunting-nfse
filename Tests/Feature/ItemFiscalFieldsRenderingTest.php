@@ -32,13 +32,14 @@ final class ItemFiscalFieldsRenderingTest extends FeatureTestCase
             ->assertSee('data-nfse-tax-code-query', false);
     }
 
-    public function testCreateItemPageIncludesOfficialNationalCodesWithoutPersistedSelection(): void
+    public function testCreateItemPageLoadsNationalCodesThroughJsonWithoutEmbeddingTheCatalog(): void
     {
         $this->loginAs()
             ->get(route('items.create'))
             ->assertOk()
-            ->assertSee('010101 -', false)
-            ->assertSee('010601 -', false);
+            ->assertSee(route('nfse.national-services'), false)
+            ->assertDontSee('010101 -', false)
+            ->assertDontSee('010601 -', false);
     }
 
     public function testEditItemPageRendersNfseFiscalFields(): void
@@ -51,6 +52,6 @@ final class ItemFiscalFieldsRenderingTest extends FeatureTestCase
             ->assertSee('name="nfse_item_lista_servico"', false)
             ->assertSee('name="nfse_codigo_tributacao_nacional"', false)
             ->assertSee(route('nfse.national-services'), false)
-            ->assertSee('010101 -', false);
+            ->assertDontSee('010101 -', false);
     }
 }
