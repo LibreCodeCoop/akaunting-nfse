@@ -32,14 +32,25 @@ test('item list exposes the fiscal validation badge and edit action', async ({ p
 
 
 test('fiscal code assistant consults the authenticated JSON catalog without Basic credentials', async ({ page }, testInfo) => {
+  const itemId = process.env.NFSE_E2E_ITEM_VALIDATION_ID;
+  expect(itemId).toMatch(/^\d+$/);
+
   await loginToAkaunting(page, testInfo);
-  await page.goto('/1/common/items/create', { waitUntil: 'domcontentloaded' });
+  // Core plan limits redirect item creation in CI. The seeded item's edit
+  // form renders the same fiscal assistant without bypassing that restriction.
+  const navigation = await page.goto('/1/common/items/' + itemId + '/edit', { waitUntil: 'domcontentloaded' });
+  expect(navigation?.status()).toBe(200);
+  await expect(page).toHaveURL(new RegExp('/common/items/' + itemId + '/edit$'));
+
   const assistant = page.locator('[data-nfse-tax-code-assistant]');
   await expect(assistant).toBeVisible();
 
-  const requestPromise = page.waitForRequest((request) =>
-    request.method() === 'GET' && /\/1\/nfse\/national-services\?/.test(request.url()),
-  );
+  const requestPromise = page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return request.method() === 'GET'
+      && url.pathname === '/1/nfse/national-services'
+      && url.searchParams.get('q') === 'consultoria';
+  });
   await assistant.locator('[data-nfse-tax-code-query]').fill('consultoria');
   const request = await requestPromise;
 
