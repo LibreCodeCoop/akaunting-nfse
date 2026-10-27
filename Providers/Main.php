@@ -76,7 +76,20 @@ class Main extends Provider
     {
         $this->loadModuleVendorAutoload();
         $this->app->bind(CoreItemRequest::class, ValidatedFiscalItem::class);
-        $this->app->scoped(DpsIssuanceIdentityContract::class, DpsIssuanceIdentity::class);
+        $this->app->scoped(DpsIssuanceIdentityContract::class, function (): DpsIssuanceIdentityContract {
+            // Test-only fixture authority. Never make an SQLite/local fallback
+            // available to real emission; production requires central MySQL.
+            if (FiscalTestHarnessConfig::enabled(
+                (string) app()->environment(),
+                getenv('NFSE_TEST_HARNESS'),
+            ) && app()->environment('testing') && DB::connection()->getDriverName() === 'sqlite') {
+                return new DpsIssuanceIdentity(
+                    coordinator: new \Modules\Nfse\Support\Testing\SyntheticDpsSeriesCoordinator(),
+                );
+            }
+
+            return new DpsIssuanceIdentity();
+        });
         $this->app->scoped(PersistItemFiscalProfile::class, PersistItemFiscalProfile::class);
         $this->app->scoped(PersistContactFiscalProfile::class, PersistContactFiscalProfile::class);
         $this->registerFiscalClientComposition();

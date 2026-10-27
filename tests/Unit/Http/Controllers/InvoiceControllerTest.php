@@ -5386,7 +5386,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('1149.75', $client->capturedDps?->federalValorCsll);
             self::assertStringStartsWith('LibreCode/', (string) $client->capturedDps?->versaoAplicativo);
             self::assertLessThanOrEqual(20, strlen((string) $client->capturedDps?->versaoAplicativo));
-            self::assertSame('9' . str_pad((string) $existingReceipt->id, 14, '0', STR_PAD_LEFT), $client->capturedDps?->numeroDps);
+            self::assertSame('1', $client->capturedDps?->numeroDps, 'Controller draft must not number DPS from a receipt ID.');
             self::assertSame([], NfseReceipt::$updateOrCreateCalls);
             self::assertSame('cancelled', $existingReceipt->status);
             self::assertSame([], $existingReceipt->updatedPayloads);

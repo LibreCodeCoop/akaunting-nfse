@@ -21,10 +21,17 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        SyntheticDpsIssuanceIdentity::install();
+    }
+
     public function testAutomaticIssuanceBlocksUnsupportedMeiSpecialRegimeBeforeAnyPost(): void
     {
         $invoice = $this->invoiceWithProfile();
