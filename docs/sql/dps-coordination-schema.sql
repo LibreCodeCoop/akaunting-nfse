@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS nfse_dps_coordination_allocations (
     operation_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     number BIGINT UNSIGNED NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    first_post_claimed_at TIMESTAMP(6) NULL,
+    claimed_generation BIGINT UNSIGNED NULL,
+    first_post_fingerprint CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
     UNIQUE KEY nfse_dps_global_fiscal_number (series_id, number),
     UNIQUE KEY nfse_dps_global_operation (installation_id, operation_key),
     CONSTRAINT nfse_dps_global_allocation_member_fk FOREIGN KEY (series_id, installation_id)

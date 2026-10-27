@@ -36,6 +36,31 @@ the caller **must not** re-create local state or send a new first POST.
 `assertExisting()` is read-only, verifies the central mapping and refuses
 fenced members. This does not require SEFIN transport.
 
+## Irreversible first-POST claim in the central authority
+
+`claimFirstTransmission()` acquires the exact central fiscal-series and
+installation-membership locks, checks the immutable operation/number mapping,
+then records `first_post_claimed_at`, the fencing generation and the payload
+SHA-256 in the existing allocation row. A second claim fails permanently.
+The claim commits **before** any fiscal HTTP POST. A timeout or lost commit
+acknowledgment must be treated as potentially claimed; never retry the claim
+with the expectation of obtaining another POST permission. Reconcile the same
+DPS read-only instead. No expiring lease or second retry journal is introduced.
+
+For a fresh shared database, use the updated
+[`dps-coordination-schema.sql`](sql/dps-coordination-schema.sql). For an
+existing coordinator, run the one-time
+[`dps-first-post-upgrade.sql`](sql/dps-first-post-upgrade.sql) only after a
+backup. **Before enabling emission**, identify and reconcile all previously
+transmitted allocations: the upgrade cannot reconstruct earlier first-POST
+claims. An allocation whose historical transmission state is unknown must
+remain blocked; do not interpret a new nullable claim field as permission.
+
+The coordinator blocks revoked generations at claim time. It cannot recall a
+POST already initiated before revocation, so workers must be drained and
+in-flight results reconciled. A central MySQL split-brain or rollback of the
+allocation ledger invalidates the guarantee and requires suspension.
+
 The local Laravel reservation transaction uses **one attempt**, not a
 blind deadlock retry: the central transaction can commit before the local
 transaction fails. Any retry of the same operation then finds an existing
@@ -97,8 +122,10 @@ Akaunting installation cannot enable this coordinator.
    reference; it **does not itself constitute proof**. Provision/install
    adapters only in #421/#429 after the first-POST claim is implemented.
 7. Use least-privilege MySQL credentials: allocation workers need SELECT and column-level `UPDATE(last_number)` on central
-   series; SELECT only on members; SELECT/INSERT on allocations. Shared
-   locking reads on member/allocation rows avoid broad UPDATE privileges.
+   series; SELECT only on members; SELECT/INSERT and column-scoped UPDATE
+   (`first_post_claimed_at`, `claimed_generation`, `first_post_fingerprint`)
+   on allocations. Shared locking reads on member/allocation rows avoid broad
+   UPDATE privileges.
    No DELETE, DROP, member UPDATE, series status/evidence UPDATE or DDL.
    Validate these grants using the least-privilege MySQL integration test. Separate administrative credentials for
    provisioning, revocation and exceptional reconstruction. Restrict

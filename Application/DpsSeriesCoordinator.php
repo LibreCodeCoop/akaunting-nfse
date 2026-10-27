@@ -29,6 +29,21 @@ interface DpsSeriesCoordinator
         string $operationKey,
     ): array;
 
+    /**
+     * Irrevocably claim the ONLY first fiscal POST for a reserved operation.
+     * An uncertain commit MUST be reconciled; calling again must not grant
+     * another POST, even for an identical payload or a new process.
+     */
+    public function claimFirstTransmission(
+        DpsFiscalIssuer $issuer,
+        int $environment,
+        string $series,
+        string $reference,
+        string $operationKey,
+        int $number,
+        string $payloadFingerprint,
+    ): void;
+
     /** Read-only check for a locally persisted, immutable reservation. */
     public function assertExisting(
         DpsFiscalIssuer $issuer,
