@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 const require = createRequire(import.meta.url);
-const { lcForNational, debounce, createSearch, populateNationalOptions, loadNationalOptions } = require('../Resources/assets/js/tax-code-assistant.js');
+const { digits, lcForNational, lc116Filter, debounce, createSearch, populateNationalOptions, loadNationalOptions } = require('../Resources/assets/js/tax-code-assistant.js');
 
 test('national code identifies a LC 116 subitem', () => {
     assert.equal(lcForNational('010701'), 'lc:0107');
@@ -138,4 +138,14 @@ test('catalog loading uses same-origin JSON endpoint and rejects invalid respons
         loadNationalOptions('/1/nfse/national-services', field, async () => ({ ok: false })),
         /Catalog loading failed/,
     );
+});
+
+test('LC 116 filtering ignores incomplete native-select values without weakening API validation', () => {
+    assert.equal(digits('lc:0107'), '0107');
+    assert.equal(digits('abc123def'), '123');
+    assert.equal(lc116Filter('lc:0107'), '0107');
+    assert.equal(lc116Filter('0101'), '0101');
+    assert.equal(lc116Filter('lc:0'), '');
+    assert.equal(lc116Filter(''), '');
+    assert.equal(lc116Filter('lc:010701'), '');
 });

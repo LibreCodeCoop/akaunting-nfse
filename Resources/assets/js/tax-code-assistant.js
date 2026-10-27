@@ -13,8 +13,12 @@
         }
     }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
-    const digits = value => String(value ?? '').replace(/\\D/g, '');
+    const digits = value => String(value ?? '').replace(/\D/g, '');
     const lcForNational = code => digits(code).length === 6 ? 'lc:' + digits(code).slice(0, 4) : '';
+    const lc116Filter = value => {
+        const code = digits(value);
+        return code.length === 4 ? code : '';
+    };
     function debounce(fn, delay, schedule = setTimeout, clear = clearTimeout) {
         let timeout;
         return (...args) => {
@@ -150,7 +154,7 @@
             const current = ++revision;
             try {
                 const entries = await search(root.dataset.searchUrl, {
-                    lc116: digits(selectedValue(service)).slice(0, 4),
+                    lc116: lc116Filter(selectedValue(service)),
                     q: input.value.trim(),
                 });
                 if (current === revision && entries !== null) render(entries);
@@ -173,5 +177,5 @@
         });
         if (digits(selectedValue(service)).length === 4) scheduled();
     }
-    return { digits, lcForNational, debounce, createSearch, selectComponent, selectedValue, selectValue, populateNationalOptions, loadNationalOptions, listenToSelect, init };
+    return { digits, lcForNational, lc116Filter, debounce, createSearch, selectComponent, selectedValue, selectValue, populateNationalOptions, loadNationalOptions, listenToSelect, init };
 });
