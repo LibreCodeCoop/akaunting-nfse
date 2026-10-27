@@ -61,6 +61,19 @@ em `xl/worksheets/sheet5.xml`. **Ainda é necessário recuperar novamente
 o binário do endereço governamental e confrontar o hash e o texto integral**.
 Não usar a versão antiga de E0176 como restrição municipal universal.
 
+## Implantação da NT009 por ambiente — referência de 27/10/2026
+
+A publicação da NT009 v1.01 não ativa automaticamente um leiaute em ambos os ambientes. O comunicado do CGNFS-e de 20/10/2026 registra somente em **produção restrita** a primeira etapa: reposicionamento de `CST` e `cClassTrib`, códigos 99.02–99.04 e `vAjusteBC`. Em **produção**, o leiaute da NT004 v2.0 permanece até 30/11/2026; implantação prevista para 01/12/2026 requer nova confirmação antes da ativação.
+
+Evidências oficiais:
+
+- https://www.gov.br/nfse/pt-br/noticias/cgnfs-e-informa-disponibilizadas-no-ambiente-de-testes-o-release-1-das-evolucoes-da-nota-tecnica-009
+- https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/atualizacoes-e-implantacoes
+- https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual
+- https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/producao-restrita
+
+**Evidência ainda não obtida:** o download binário de `gov.br` retornou HTTP 403 no ambiente de auditoria. Os SHA-256 dos anexos de produção restrita e o confronto literal integral de E0176–E0178 com os anexos atuais continuam sem verificação independente. Não converter versões ou hashes históricos em atestado atual.
+
 ## Controvérsia cooperativa a ser revisada
 
 Para o fornecimento de serviço do associado à cooperativa, a LC 214/2025,
