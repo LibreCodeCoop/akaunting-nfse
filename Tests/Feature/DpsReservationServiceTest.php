@@ -483,6 +483,13 @@ final class DpsReservationServiceTest extends FeatureTestCase
                 return ['number' => $this->number, 'fresh' => $this->fresh];
             }
 
+            public function claimFirstTransmission(
+                DpsFiscalIssuer $issuer, int $environment, string $series,
+                string $reference, string $operationKey, int $number, string $payloadFingerprint,
+            ): void {
+                throw new \LogicException('Reservation unit fake never performs a fiscal POST.');
+            }
+
             public function assertExisting(
                 DpsFiscalIssuer $issuer, int $environment, string $series,
                 string $reference, string $operationKey, int $number,
@@ -544,6 +551,13 @@ final class DpsReservationServiceTest extends FeatureTestCase
                     ->value('last_number');
 
                 return ['number' => ((int) $last) + 1, 'fresh' => true];
+            }
+
+            public function claimFirstTransmission(
+                DpsFiscalIssuer $issuer, int $environment, string $series,
+                string $reference, string $operationKey, int $number, string $payloadFingerprint,
+            ): void {
+                throw new \LogicException('Reservation unit fake never performs a fiscal POST.');
             }
 
             public function assertExisting(

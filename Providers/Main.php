@@ -12,6 +12,8 @@ use App\Models\Common\Contact;
 use App\Models\Common\Item;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
+use Modules\Nfse\Application\DpsIssuanceIdentity;
+use Modules\Nfse\Application\DpsIssuanceIdentityContract;
 use Modules\Nfse\Application\ItemFiscalProfileValidator;
 use Modules\Nfse\Application\ItemFiscalValidationSummary;
 use Modules\Nfse\Application\PostEmissionState;
@@ -74,6 +76,7 @@ class Main extends Provider
     {
         $this->loadModuleVendorAutoload();
         $this->app->bind(CoreItemRequest::class, ValidatedFiscalItem::class);
+        $this->app->scoped(DpsIssuanceIdentityContract::class, DpsIssuanceIdentity::class);
         $this->app->scoped(PersistItemFiscalProfile::class, PersistItemFiscalProfile::class);
         $this->app->scoped(PersistContactFiscalProfile::class, PersistContactFiscalProfile::class);
         $this->registerFiscalClientComposition();

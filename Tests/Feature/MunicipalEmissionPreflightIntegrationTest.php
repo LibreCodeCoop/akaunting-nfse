@@ -26,6 +26,7 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\IssuanceException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 /**
@@ -34,6 +35,12 @@ use Tests\Feature\FeatureTestCase;
  */
 final class MunicipalEmissionPreflightIntegrationTest extends FeatureTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        SyntheticDpsIssuanceIdentity::install();
+    }
+
     public function testInvalidNationalOrMunicipalProfileStopsMutablePost(): void
     {
         foreach ([

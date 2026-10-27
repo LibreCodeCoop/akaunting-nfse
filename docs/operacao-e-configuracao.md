@@ -59,6 +59,51 @@ publique a porta desse serviço e não utilize essa exceção para tráfego
 entre hosts ou redes não confiáveis. O teste não envia NFS-e nem utiliza
 SEFIN/ADN.
 
+## Numeração DPS e coordenação entre instalações
+
+A identidade fiscal de uma DPS é formada pelo município emissor, inscrição
+federal e seu tipo, ambiente (produção ou produção restrita), série e número.
+O identificador da fatura Akaunting ou do grupo fiscal **não** é número de DPS.
+A mesma operação reutiliza a reserva; substituição e reemissão de uma nota
+cancelada constituem novas operações, com numeração própria e vínculo ao
+documento original.
+
+**Não habilite emissão** antes de comprovar exclusividade de série perante
+outros emissores, numeração histórica máxima e coordenação de todas as
+instalações que compartilhem a identidade fiscal. Configure uma série decimal
+explícita de 1 a 5 dígitos, diferente de zero, no campo `dps_series` do perfil
+fiscal; ela não é ativada automaticamente. Cadastre a série local
+`nfse_dps_series` como `active` apenas após verificar identidade,
+`coordination_mode=shared_database` e correspondência da referência
+criptograficamente aleatória com o coordenador central.
+
+O coordenador requer um MySQL primário único e transacional, provisionado
+separadamente por meio de
+[`dps-coordination-schema.sql`](sql/dps-coordination-schema.sql).
+Para instalações existentes, confira o procedimento de atualização de
+[`dps-first-post-upgrade.sql`](sql/dps-first-post-upgrade.sql).
+Configure na instalação, fora do Git e de backups de banco locais:
+
+- `NFSE_DPS_COORDINATOR_DSN`: DSN PDO MySQL do primário compartilhado.
+- `NFSE_DPS_COORDINATOR_USER` e `NFSE_DPS_COORDINATOR_PASSWORD`:
+  credenciais de privilégio mínimo, com transporte autenticado e protegido.
+- `NFSE_DPS_INSTALLATION_ID`: UUID estável, exclusivo da instalação.
+- `NFSE_DPS_INSTALLATION_GENERATION`: geração positiva autorizada pelo
+  coordenador, atualizada ao revogar processos anteriores.
+
+A ausência de qualquer configuração, a perda de contato com o primário,
+a revogação da instalação ou a divergência da reserva deve **impedir
+novos POSTs fiscais**. A reivindicação de primeiro POST fica registrada
+duravelmente no banco central **antes** do envio e não expira. Um timeout
+ou falha de persistência exige consulta da DPS original, jamais um novo
+POST. Não reutilize automaticamente números rejeitados ou abandonados.
+
+Consulte [a arquitetura e a matriz de falhas](dps-distributed-coordination.md)
+para gestão de failover, rollback, PITR, evidência de posse da série,
+reconciliação do histórico e recuperação. O coordenador protege somente
+emissores participantes; o uso da mesma série por um emissor externo continua
+sendo risco operacional e impede habilitação segura.
+
 ## Perfis NFS-e por empresa
 
 O Akaunting continua sendo o cadastro mestre de empresas. Um perfil NFS-e

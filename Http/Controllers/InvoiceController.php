@@ -755,6 +755,7 @@ class InvoiceController extends Controller
                     ),
                     descriptionOverride: $customDiscriminacao,
                     approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
+                    substitutionOriginal: $substitutionReceipt instanceof NfseReceipt ? $substitutionReceipt : null,
                 );
 
                 $this->dispatchNewFiscalGroupPostEmission($invoice, $groupResult, $validatedEmail);
@@ -850,6 +851,7 @@ class InvoiceController extends Controller
                 invoiceId: (int) $invoice->id,
                 origin: $substitutionReceipt instanceof NfseReceipt ? 'substitution' : 'manual',
                 approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
+                substitutedReceiptId: $substitutionReceipt instanceof NfseReceipt ? (int) $substitutionReceipt->id : null,
                 persist: fn (ReceiptData $authorized): NfseReceipt => $substitutionReceipt instanceof NfseReceipt
                     ? (new ReceiptPersistence())->createReplacement(
                         invoiceId: (int) $invoice->id,
@@ -858,13 +860,13 @@ class InvoiceController extends Controller
                         original: $substitutionReceipt,
                     )
                     : $this->storeEmittedReceipt($invoice, $authorized),
-                transmit: fn (): ReceiptData => $substitutionReceipt instanceof NfseReceipt
+                transmit: fn (DpsData $reserved): ReceiptData => $substitutionReceipt instanceof NfseReceipt
                     ? (new SubstituteInvoiceNfse())->issue(
                         client: $client,
-                        replacementDps: $dps,
+                        replacementDps: $reserved,
                         originalAccessKey: (string) $substitutionReceipt->chave_acesso,
                     )
-                    : (new IssueInvoiceNfse())->issue($client, $dps),
+                    : (new IssueInvoiceNfse())->issue($client, $reserved),
             );
             $persistedReceipt = $issuance['receipt'];
         } catch (MunicipalIssuanceBlocked $e) {
@@ -1496,7 +1498,7 @@ class InvoiceController extends Controller
                 : null,
             'tipoAmbiente' => $sandboxReemit ? 2 : 1,
             'serie' => $this->dpsSerie($invoice),
-            'numeroDps' => $this->dpsNumberForReemit($invoice),
+            'numeroDps' => '1', // Replaced by the centralized fiscal reservation.
             'dataCompetencia' => $this->competenceDate($invoice),
             'indicadorTributacao' => $federalPayload['indicadorTributacao'],
             'totalTributosPercentualFederal' => $federalPayload['totalTributosPercentualFederal'],
@@ -1548,13 +1550,14 @@ class InvoiceController extends Controller
                 dps: $dps,
                 invoiceId: (int) $invoice->id,
                 origin: 'reemit',
+                cancelledReceiptId: (int) $this->findReceiptForInvoice($invoice)->id,
                 approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
                 persist: fn (ReceiptData $authorized): NfseReceipt => (new ReceiptPersistence())->createReemitted(
                     invoiceId: (int) $invoice->id,
                     receipt: $authorized,
                     resolvedNumber: $this->resolveReceiptNfseNumber($authorized),
                 ),
-                transmit: fn (): ReceiptData => (new IssueInvoiceNfse())->issue($client, $dps),
+                transmit: fn (DpsData $reserved): ReceiptData => (new IssueInvoiceNfse())->issue($client, $reserved),
             );
             $persistedReceipt = $issuance['receipt'];
         } catch (MunicipalIssuanceBlocked $e) {

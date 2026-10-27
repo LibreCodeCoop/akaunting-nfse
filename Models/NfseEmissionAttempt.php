@@ -19,7 +19,7 @@ final class NfseEmissionAttempt extends Model
     protected $table = 'nfse_emission_attempts';
 
     protected $fillable = [
-        'company_id', 'invoice_id', 'emission_group_key', 'dps_identifier',
+        'company_id', 'invoice_id', 'dps_reservation_id', 'emission_group_key', 'dps_identifier',
         'environment', 'attempt_number', 'payload_fingerprint', 'approximate_tax_evidence',
         'municipio_ibge', 'codigo_tributacao_nacional',
         'codigo_tributacao_municipal', 'codigo_servico', 'competence_date',
@@ -31,6 +31,7 @@ final class NfseEmissionAttempt extends Model
     protected $casts = [
         'company_id' => 'integer',
         'invoice_id' => 'integer',
+        'dps_reservation_id' => 'integer',
         'environment' => 'integer',
         'attempt_number' => 'integer',
         'receipt_id' => 'integer',
