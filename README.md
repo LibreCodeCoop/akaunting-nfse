@@ -39,6 +39,8 @@ Para requisitos de versão, instalação e atualização do módulo, consulte a 
 ## Documentação
 
 - [Configuração e operação da NFS-e no Akaunting](docs/operacao-e-configuracao.md)
+- [OpenBao opcional para segredos da NFS-e](docs/openbao-deployment.md)
+- [Ambiente de desenvolvimento e testes de integração](docs/development-environment.md)
 - [Emissão e requisitos fiscais](docs/emissao-vigente.md)
 - [Fontes e versões dos tributos aproximados](docs/approximate-tax-sources.md)
 - [Garantias de segurança fiscal](docs/fiscal-safety.md)

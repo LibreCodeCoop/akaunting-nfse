@@ -8,3 +8,4 @@
 /test-results/
 /vendor-bin/**/vendor/
 .env.e2e
+/volumes/

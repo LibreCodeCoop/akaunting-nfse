@@ -13,6 +13,11 @@ on:
       - '.github/workflows/frontend-unit.yml'
       - '.github/workflows/ci-infrastructure-lint.yml'
       - 'scripts/ci/**'
+      - 'scripts/bootstrap-openbao.sh'
+      - 'tests/bats/**'
+      - 'deploy/openbao/**'
+      - 'docs/openbao-deployment.md'
+      - 'docs/development-environment.md'
       - 'composer.json'
       - 'frontend-tests/playwright-smoke-setup.test.mjs'
   push:
@@ -26,6 +31,11 @@ on:
       - '.github/workflows/frontend-unit.yml'
       - '.github/workflows/ci-infrastructure-lint.yml'
       - 'scripts/ci/**'
+      - 'scripts/bootstrap-openbao.sh'
+      - 'tests/bats/**'
+      - 'deploy/openbao/**'
+      - 'docs/openbao-deployment.md'
+      - 'docs/development-environment.md'
       - 'composer.json'
 
 permissions:
@@ -50,3 +60,14 @@ jobs:
             .github/workflows/behat.yml \
             .github/workflows/frontend-unit.yml \
             .github/workflows/ci-infrastructure-lint.yml
+
+      - name: Validate optional OpenBao configuration
+        run: |
+          shellcheck scripts/bootstrap-openbao.sh tests/bats/fixtures/docker
+          docker compose -f deploy/openbao/compose.yml config --quiet
+
+      - name: Test OpenBao bootstrap with Bats
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bats
+          bats tests/bats/bootstrap-openbao.bats

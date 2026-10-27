@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Fake Docker CLI for the OpenBao bootstrap Bats suite; never starts a container.
+set -euo pipefail
+
+printf '%q ' "$@" >> "$MOCK_DOCKER_LOG"
+printf '\n' >> "$MOCK_DOCKER_LOG"
+
+[[ "$1" == compose && "$2" == -f ]] || exit 80
+shift 3
+case "$1" in
+    config)
+        [[ "${MOCK_CONFIG_FAILURE:-0}" != 1 ]] || exit 81
+        ;;
+    ps)
+        [[ "${MOCK_PS_FAILURE:-0}" != 1 ]] || exit 98
+        if [[ "${MOCK_EXISTING_PROJECT:-0}" == 1 ]]; then
+            printf 'existing-container-id\n'
+        fi
+        ;;
+    up)
+        [[ "${MOCK_UP_FAILURE:-0}" != 1 ]] || exit 82
+        ;;
+    restart)
+        touch "$MOCK_BAO_STATE/restarted"
+        ;;
+    logs)
+        printf 'Synthetic OpenBao log\n'
+        ;;
+    exec)
+        shift
+        [[ "$1" == -T && "$2" == openbao ]] || exit 83
+        shift 2
+        if [[ "$1" == bao ]]; then
+            shift
+            case "$1" in
+                status)
+                    [[ "${MOCK_STATUS_TIMEOUT:-0}" != 1 ]] || exit 2
+                    if [[ -e "$MOCK_BAO_STATE/initialized" || "${MOCK_ALREADY_INITIALIZED:-0}" == 1 ]]; then
+                        printf 'Initialized    true\n'
+                        if [[ -e "$MOCK_BAO_STATE/restarted" && "${MOCK_RESTART_SEALED:-0}" == 1 ]]; then
+                            printf 'Sealed         true\n'
+                        else
+                            printf 'Sealed         false\n'
+                        fi
+                    else
+                        printf 'Initialized    false\nSealed         true\n'
+                    fi
+                    ;;
+                operator)
+                    [[ "$2" == init ]] || exit 84
+                    [[ "${MOCK_INIT_FAILURE:-0}" != 1 ]] || exit 85
+                    touch "$MOCK_BAO_STATE/initialized"
+                    printf 'Recovery Key 1: fake-recovery-key\n'
+                    if [[ "${MOCK_INIT_NO_TOKEN:-0}" != 1 ]]; then
+                        printf 'Initial Root Token: fake-root-token\n'
+                    fi
+                    ;;
+                *)
+                    exit 86
+                    ;;
+            esac
+        elif [[ "$1" == sh && "$2" == -c ]]; then
+            shift 4
+            IFS= read -r token || exit 87
+            [[ "$token" == fake-root-token ]] || exit 88
+            case "$1" in
+                token)
+                    [[ "$2" == lookup ]] || exit 89
+                    ;;
+                secrets)
+                    [[ "$2" == enable && "$3" == -path=* && "$4" == kv-v2 ]] || exit 90
+                    ;;
+                auth)
+                    [[ "$2" == enable && "$3" == approle ]] || exit 91
+                    [[ "${MOCK_AUTH_FAILURE:-0}" != 1 ]] || exit 92
+                    ;;
+                policy)
+                    [[ "$2" == write && "$4" == - ]] || exit 93
+                    cat > "$MOCK_BAO_STATE/policy"
+                    ;;
+                write)
+                    if [[ "$2" == -field=secret_id ]]; then
+                        printf 'fake-secret-id\n'
+                    fi
+                    ;;
+                read)
+                    [[ "$2" == -field=role_id ]] || exit 94
+                    printf 'fake-role-id\n'
+                    ;;
+                *)
+                    exit 95
+                    ;;
+            esac
+        else
+            exit 96
+        fi
+        ;;
+    *)
+        exit 97
+        ;;
+esac

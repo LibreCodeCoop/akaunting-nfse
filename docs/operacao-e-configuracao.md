@@ -22,6 +22,9 @@ instalação dependem da hospedagem e não fazem parte do contrato do módulo.
 
 Os recursos de proteção de certificado utilizam OpenBao ou HashiCorp Vault,
 com KV v2. Configure URL, mount e credenciais pela interface prevista.
+Para quem ainda não possui um servidor de segredos, há um
+[exemplo opcional de implantação OpenBao](openbao-deployment.md). A utilização
+de Vault/OpenBao externo permanece suportada, sem Docker obrigatório.
 Prefira credenciais com escopo mínimo e ciclo de vida gerenciável, como AppRole
 quando suportado. Não registre nem publique senha PFX, token, Role/Secret ID
 ou chave privada. Não envie esses valores em anexos de issues ou logs.
