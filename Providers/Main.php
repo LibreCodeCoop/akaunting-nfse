@@ -221,6 +221,7 @@ class Main extends Provider
         }
 
         $this->loadRoutesFrom(__DIR__ . '/../Routes/admin.php');
+        $this->loadRoutesFrom(__DIR__ . '/../Routes/api.php');
     }
 
     protected function syncEmailTemplates(): void

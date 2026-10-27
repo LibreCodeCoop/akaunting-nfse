@@ -15,6 +15,7 @@ use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\LegacyInvoiceController;
+use Modules\Nfse\Http\Controllers\NationalServicesController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 use Modules\Nfse\Http\Controllers\TaxAssociationController;
 use Modules\Nfse\Http\Controllers\Modals\InvoiceEmails;
@@ -64,7 +65,7 @@ Route::admin('nfse', function () {
     Route::get('ibge/ufs', [SettingsController::class, 'ufs'])->name('ibge.ufs');
     Route::get('ibge/municipalities/{uf}', [SettingsController::class, 'municipalities'])->name('ibge.municipalities');
     Route::get('lc116/services', [SettingsController::class, 'lc116Services'])->name('lc116.services');
-    Route::get('national-services', [SettingsController::class, 'nationalServices'])->name('national-services');
+    Route::get('national-services', [NationalServicesController::class, 'nationalServices'])->name('national-services');
     Route::get('municipal-parameters', [SettingsController::class, 'municipalParameters'])
         ->middleware('permission:read-nfse-settings')->name('municipal-parameters');
 
