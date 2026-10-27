@@ -23,7 +23,6 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 final class IssueInvoiceFiscalGroup
 {
     public function __construct(
-        private readonly FiscalGroupDpsIdentity $identity = new FiscalGroupDpsIdentity(),
         private readonly IssueInvoiceNfse $issuer = new IssueInvoiceNfse(),
         private readonly ReceiptPersistence $persistence = new ReceiptPersistence(),
         private readonly RuntimeDpsFactory $dpsFactory = new RuntimeDpsFactory(),
@@ -44,6 +43,7 @@ final class IssueInvoiceFiscalGroup
         ?string $additionalDescription = null,
         ?string $descriptionOverride = null,
         ?array $approximateTaxEvidence = null,
+        ?NfseReceipt $substitutionOriginal = null,
     ): array {
         $groupKey = trim((string) ($group['key'] ?? ''));
         $category = trim((string) ($group['rtc_supply_category'] ?? ''));
@@ -69,9 +69,25 @@ final class IssueInvoiceFiscalGroup
             throw new \Illuminate\Auth\Access\AuthorizationException('Cannot issue another company invoice.');
         }
 
-        $existing = $this->persistence->findGrouped($invoiceId, $groupKey);
+        if ($substitutionOriginal instanceof NfseReceipt
+            && ((int) $substitutionOriginal->invoice_id !== $invoiceId
+                || (string) $substitutionOriginal->emission_group_key !== $groupKey)) {
+            throw new \LogicException('Replacement must target the original receipt of this fiscal group.');
+        }
 
-        if ($existing instanceof NfseReceipt) {
+        $existing = $this->persistence->findGrouped($invoiceId, $groupKey);
+        if ($substitutionOriginal instanceof NfseReceipt && $existing instanceof NfseReceipt
+            && (int) $existing->id === (int) $substitutionOriginal->id
+            && (string) $existing->status !== 'emitted') {
+            throw new \LogicException('A cancelled or already substituted fiscal group cannot be replaced again.');
+        }
+        if ($substitutionOriginal instanceof NfseReceipt && $existing instanceof NfseReceipt
+            && (int) $existing->id !== (int) $substitutionOriginal->id
+            && (int) $existing->replaces_receipt_id !== (int) $substitutionOriginal->id) {
+            throw new \LogicException('Group receipt is already associated with another fiscal operation.');
+        }
+        if ($existing instanceof NfseReceipt && ($substitutionOriginal === null
+            || (int) $existing->id !== (int) $substitutionOriginal->id)) {
             return [
                 'receipt' => $existing,
                 'remote_receipt' => null,
@@ -79,7 +95,7 @@ final class IssueInvoiceFiscalGroup
             ];
         }
 
-        $identity = $this->identity->forGroup($invoiceId, $groupKey);
+        // The historical fiscal-group ID is NOT a national DPS sequence.
         $payload = get_object_vars($baseDps);
         $payload['itemListaServico'] = trim((string) ($group['item_lista_servico'] ?? ''));
         $payload['codigoTributacaoNacional'] = preg_replace(
@@ -109,24 +125,30 @@ final class IssueInvoiceFiscalGroup
             $additionalDescription,
             $descriptionOverride,
         );
-        $payload['serie'] = $identity['series'];
-        $payload['numeroDps'] = $identity['number'];
-
         $dps = $this->dpsFactory->make($payload);
         return $this->attempts->issue(
             client: $client,
             dps: $dps,
             invoiceId: $invoiceId,
-            origin: $origin,
+            origin: $substitutionOriginal instanceof NfseReceipt ? 'substitution' : $origin,
             groupKey: $groupKey,
+            substitutedReceiptId: $substitutionOriginal instanceof NfseReceipt
+                ? (int) $substitutionOriginal->id : null,
             approximateTaxEvidence: $approximateTaxEvidence,
-            transmit: fn (): ReceiptData => $this->issuer->issue($client, $dps),
-            persist: fn (ReceiptData $remote): NfseReceipt => $this->persistence->createGrouped(
-                invoiceId: $invoiceId,
-                receipt: $remote,
-                resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
-                groupKey: $groupKey,
-            ),
+            transmit: fn (DpsData $reserved): ReceiptData => $this->issuer->issue($client, $reserved),
+            persist: fn (ReceiptData $remote): NfseReceipt => $substitutionOriginal instanceof NfseReceipt
+                ? $this->persistence->createReplacement(
+                    invoiceId: $invoiceId,
+                    receipt: $remote,
+                    resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
+                    original: $substitutionOriginal,
+                )
+                : $this->persistence->createGrouped(
+                    invoiceId: $invoiceId,
+                    receipt: $remote,
+                    resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
+                    groupKey: $groupKey,
+                ),
         );
     }
 }

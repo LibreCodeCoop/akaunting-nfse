@@ -91,6 +91,60 @@ final class SharedMysqlDpsSeriesCoordinator implements DpsSeriesCoordinator
         });
     }
 
+    public function claimFirstTransmission(
+        DpsFiscalIssuer $issuer,
+        int $environment,
+        string $series,
+        string $reference,
+        string $operationKey,
+        int $number,
+        string $payloadFingerprint,
+    ): void {
+        $this->validate($environment, $series, $reference, $operationKey);
+        if ($number < 1 || $number > self::MAX_DPS_NUMBER
+            || preg_match('/^[a-f0-9]{64}$/D', $payloadFingerprint) !== 1) {
+            throw new \InvalidArgumentException('Invalid first-POST DPS identity or fingerprint.');
+        }
+
+        // The authority and member generation are locked before the unique
+        // claim is written. A revocation committed before this call fences it.
+        // An already committed claim can never be repeated, even after a
+        // timeout, process crash or restoration of the local database.
+        $this->transaction(function () use (
+            $issuer, $environment, $series, $reference, $operationKey, $number, $payloadFingerprint,
+        ): void {
+            $authority = $this->lockAuthorizedSeries($issuer, $environment, $series, $reference);
+            $allocation = $this->queryOne(
+                'SELECT id, series_id, number, first_post_claimed_at '
+                . 'FROM nfse_dps_coordination_allocations '
+                . 'WHERE installation_id = :installation_id AND operation_key = :operation_key FOR UPDATE',
+                ['installation_id' => $this->installationId, 'operation_key' => $operationKey],
+            );
+
+            if ($allocation === null
+                || (int) $allocation['series_id'] !== (int) $authority['id']
+                || (int) $allocation['number'] !== $number
+                || $allocation['first_post_claimed_at'] !== null) {
+                throw new \LogicException('DPS first fiscal transmission is unavailable or already claimed.');
+            }
+
+            $statement = $this->pdo->prepare(
+                'UPDATE nfse_dps_coordination_allocations '
+                . 'SET first_post_claimed_at = CURRENT_TIMESTAMP(6), '
+                . 'claimed_generation = :generation, first_post_fingerprint = :fingerprint '
+                . 'WHERE id = :id AND first_post_claimed_at IS NULL',
+            );
+            $statement->execute([
+                'generation' => $this->generation,
+                'fingerprint' => $payloadFingerprint,
+                'id' => (int) $allocation['id'],
+            ]);
+            if ($statement->rowCount() !== 1) {
+                throw new \LogicException('DPS first fiscal transmission claim was not unique.');
+            }
+        });
+    }
+
     public function assertExisting(
         DpsFiscalIssuer $issuer,
         int $environment,

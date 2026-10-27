@@ -5,9 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # DPS reservation handoff for the multi-company emission boundary
 
-Status: **integration specification only**. The local reservation kernel is not wired
-into fiscal transmission. This document does not authorize series activation,
-production emission or completion of #423.
+Status: **integrated implementation contract pending CI, independent review and operating validation**. This document does not authorize series activation, production emission or completion of #423.
 
 Scope: #423, fiscal profile ownership in #417, authoritative company context in
 #421 and the last mutable preflight in #429. The existing
@@ -113,8 +111,7 @@ an unguarded POST, and create the journal record only afterward.
 The current unique indexes and `SELECT ... FOR UPDATE` protect only
 connections sharing the **same** MySQL data store. Two independent database
 installations may each allocate the same fiscal identity even if both write
-identical `coordination_reference` strings. There is no cross-installation
-coordinator or verified exclusive-series registry in this kernel.
+identical `coordination_reference` strings. Coordination requires the independently provisioned shared MySQL primary, and cannot prove ownership against nonparticipating external issuers.
 
 As of the shared-MySQL coordinator implementation, an eligible deployment
 must explicitly inject a **real atomic** `DpsSeriesCoordinator`; the default is
@@ -155,7 +152,7 @@ registration/series/reference both successfully commit local number 1.
 This establishes the need for external coordination; it is not a test of
 coordinator correctness and never calls SEFIN.
 
-**Live emission paths are not protected by this opt-in allocator.**
+**Historical warning (superseded by the integrated journal change):**
 `IssueInvoiceNfse::issue()` still reaches the underlying `emit()` method,
 and several builders still derive DPS numbers from legacy local IDs. Thus
 the fail-closed guarantee applies to `DpsReservationService` only, not

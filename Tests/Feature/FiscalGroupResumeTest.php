@@ -9,17 +9,23 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
 use Illuminate\Auth\Access\AuthorizationException;
-use Modules\Nfse\Application\FiscalGroupDpsIdentity;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 final class FiscalGroupResumeTest extends FeatureTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        SyntheticDpsIssuanceIdentity::install();
+    }
+
     public function testAlreadyIssuedGroupReturnsBeforeAnotherMutablePost(): void
     {
         $invoice = Document::factory()->invoice()->create();
@@ -117,7 +123,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
 
         self::assertFalse($result['reused']);
         self::assertSame(1, $client->emits);
-        self::assertSame(FiscalGroupDpsIdentity::SERIES, $client->lastDps?->serie);
+        self::assertSame($this->baseDps()->serie, $client->lastDps?->serie);
         self::assertSame('60.00', $client->lastDps?->valorServico);
         self::assertSame('0101', $client->lastDps?->itemListaServico);
         self::assertSame('010101', $client->lastDps?->codigoTributacaoNacional);

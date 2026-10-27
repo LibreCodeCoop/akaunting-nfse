@@ -493,6 +493,106 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
         );
     }
 
+    public function testFirstPostCanBeClaimedOnceAcrossConnectionsAndNotReplayedAfterRestore(): void
+    {
+        $issuer = $this->issuer();
+        $this->registerSeries($issuer, 2);
+        $a = $this->coordinator(self::INSTALL_A);
+        $peer = $this->coordinator(self::INSTALL_A, 1, $this->connect($this->globalDatabase));
+        $operation = $this->key('first-post-only');
+        $fingerprint = $this->key('payload-v1');
+        $number = $a->allocate($issuer, 2, '00001', self::REFERENCE, $operation)['number'];
+
+        $a->claimFirstTransmission($issuer, 2, '00001', self::REFERENCE, $operation, $number, $fingerprint);
+        $this->expectException(\LogicException::class);
+        $peer->claimFirstTransmission($issuer, 2, '00001', self::REFERENCE, $operation, $number, $fingerprint);
+    }
+
+    public function testRevocationOrMissingAllocationBlocksFirstPostWithoutClaiming(): void
+    {
+        $issuer = $this->issuer();
+        $this->registerSeries($issuer, 2);
+        $a = $this->coordinator(self::INSTALL_A);
+        $operation = $this->key('revoked-post');
+        $fingerprint = $this->key('payload-revoked');
+        $a->allocate($issuer, 2, '00001', self::REFERENCE, $operation);
+        $this->global->exec("UPDATE nfse_dps_coordination_members SET status = 'revoked' "
+            . "WHERE installation_id = '" . self::INSTALL_A . "'");
+
+        try {
+            $a->claimFirstTransmission($issuer, 2, '00001', self::REFERENCE, $operation, 1, $fingerprint);
+            self::fail('Revoked installation cannot start the first fiscal POST.');
+        } catch (\LogicException) {
+        }
+
+        self::assertSame(0, (int) $this->global->query(
+            'SELECT COUNT(*) FROM nfse_dps_coordination_allocations WHERE first_post_claimed_at IS NOT NULL',
+        )->fetchColumn());
+    }
+
+    public function testFailedClaimDoesNotConsumeAnotherOperationOrEmit(): void
+    {
+        $issuer = $this->issuer();
+        $this->registerSeries($issuer, 2);
+        $a = $this->coordinator(self::INSTALL_A);
+        $first = $this->key('first');
+        $second = $this->key('second');
+        $a->allocate($issuer, 2, '00001', self::REFERENCE, $first);
+        $a->allocate($issuer, 2, '00001', self::REFERENCE, $second);
+        try {
+            $a->claimFirstTransmission($issuer, 2, '00001', self::REFERENCE, $first, 2, $this->key('bad'));
+            self::fail('Wrong number is not entitled to first POST.');
+        } catch (\LogicException) {
+        }
+        $a->claimFirstTransmission($issuer, 2, '00001', self::REFERENCE, $first, 1, $this->key('good'));
+        $a->claimFirstTransmission($issuer, 2, '00001', self::REFERENCE, $second, 2, $this->key('good2'));
+
+        self::assertSame(2, (int) $this->global->query(
+            'SELECT COUNT(*) FROM nfse_dps_coordination_allocations WHERE first_post_claimed_at IS NOT NULL',
+        )->fetchColumn());
+    }
+
+    public function testTwoConnectionsCannotClaimFirstPostWhileTheAuthorityRowIsLocked(): void
+    {
+        $issuer = $this->issuer();
+        $this->registerSeries($issuer, 2);
+        $operation = $this->key('first-post-lock');
+        $fingerprint = $this->key('first-post-payload');
+        $authority = $this->coordinator(self::INSTALL_A);
+        $authority->allocate($issuer, 2, '00001', self::REFERENCE, $operation);
+
+        $other = $this->connect($this->globalDatabase);
+        $other->exec('SET SESSION innodb_lock_wait_timeout = 1');
+        $this->global->beginTransaction();
+        try {
+            self::assertNotFalse($this->global->query(
+                'SELECT id FROM nfse_dps_coordination_allocations FOR UPDATE',
+            )->fetch());
+
+            try {
+                $this->coordinator(self::INSTALL_A, 1, $other)
+                    ->claimFirstTransmission($issuer, 2, '00001', self::REFERENCE, $operation, 1, $fingerprint);
+                self::fail('Second connection bypassed the authoritative first-POST lock.');
+            } catch (PDOException $exception) {
+                self::assertSame(1205, (int) ($exception->errorInfo[1] ?? 0));
+            }
+
+            self::assertSame(0, (int) $this->global->query(
+                'SELECT COUNT(*) FROM nfse_dps_coordination_allocations WHERE first_post_claimed_at IS NOT NULL',
+            )->fetchColumn());
+            $this->global->commit();
+        } finally {
+            if ($this->global->inTransaction()) {
+                $this->global->rollBack();
+            }
+        }
+
+        $authority->claimFirstTransmission($issuer, 2, '00001', self::REFERENCE, $operation, 1, $fingerprint);
+        self::assertSame(1, (int) $this->global->query(
+            'SELECT COUNT(*) FROM nfse_dps_coordination_allocations WHERE first_post_claimed_at IS NOT NULL',
+        )->fetchColumn());
+    }
+
     private function coordinator(string $installation, int $generation = 1, ?PDO $pdo = null): SharedMysqlDpsSeriesCoordinator
     {
         return new SharedMysqlDpsSeriesCoordinator($pdo ?? $this->global, $installation, $generation);

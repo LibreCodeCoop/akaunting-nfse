@@ -135,6 +135,7 @@ final class CompanyProfileController extends Controller
             'prestador_email' => 'nullable|email|max:255',
             'provider_establishment_confirmed' => 'nullable|boolean',
             'sandbox_mode' => 'nullable|boolean',
+            'dps_series' => ['nullable', 'string', 'regex:/^[0-9]{1,5}$/', 'not_in:0,00,000,0000,00000'],
             'emission_policy' => 'nullable|in:manual,emit_on_send',
             'opcao_simples_nacional' => 'nullable|in:1,2,3',
             'regime_especial_tributacao' => 'nullable|in:0,1,2,3,4,5,6,9',

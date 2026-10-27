@@ -97,7 +97,7 @@ final class ReceiptPersistence
             ->first();
 
         if ($receipt instanceof NfseReceipt) {
-            return $receipt;
+            return $this->currentGroupReceipt($receipt);
         }
 
         // A fiscal item may acquire its NBS after an earlier grouped invoice
@@ -113,7 +113,21 @@ final class ReceiptPersistence
             ->where('emission_group_key', $legacyKey)
             ->first();
 
-        return $legacyReceipt instanceof NfseReceipt ? $legacyReceipt : null;
+        return $legacyReceipt instanceof NfseReceipt ? $this->currentGroupReceipt($legacyReceipt) : null;
+    }
+
+    private function currentGroupReceipt(NfseReceipt $original): NfseReceipt
+    {
+        if ((string) $original->status !== 'substituted') {
+            return $original;
+        }
+
+        $replacement = NfseReceipt::query()
+            ->where('replaces_receipt_id', (int) $original->id)
+            ->where('invoice_id', (int) $original->invoice_id)
+            ->first();
+
+        return $replacement instanceof NfseReceipt ? $replacement : $original;
     }
 
     /**

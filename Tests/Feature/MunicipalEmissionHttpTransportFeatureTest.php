@@ -29,6 +29,7 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\IssuanceException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\NoOpSecretStore;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 /**
@@ -37,6 +38,12 @@ use Tests\Feature\FeatureTestCase;
  */
 final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        SyntheticDpsIssuanceIdentity::install();
+    }
+
     public function testInvalidNationalProfileNeverCallsScopedSefinPost(): void
     {
         [$invoice, $key] = $this->invoiceWithGroup();
