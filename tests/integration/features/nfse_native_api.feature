@@ -36,3 +36,38 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the API response should be JSON
     And the JSON response should have these field types:
       | data | array |
+
+  Scenario: Session cookie alone cannot authenticate against the external API
+    Given the "administrator" synthetic Akaunting user is authenticated
+    When I make a "GET" JSON request to "/<company_id>/api/nfse/national-services?limit=500"
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: External API can retrieve the bounded national catalog for a native select
+    When I make a native API GET request to "/<company_id>/api/nfse/national-services?limit=500" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON array at "data" should contain at most 500 items
+
+  Scenario: Browser session can retrieve the same bounded catalog contract
+    Given the "administrator" synthetic Akaunting user is authenticated
+    When I make a "GET" JSON request to "/<company_id>/nfse/national-services?limit=500"
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON array at "data" should contain at most 500 items
+
+  Scenario: Invalid native API limit is rejected without leaking the catalog
+    When I make a native API GET request to "/<company_id>/api/nfse/national-services?limit=501" with synthetic "administrator" credentials
+    Then the API response status should be 422
+    And the API response should be JSON
+    And the JSON array at "data" should contain exactly 0 item
+
+  Scenario: Invalid structured LC 116 input is rejected
+    When I make a native API GET request to "/<company_id>/api/nfse/national-services?lc116%5B%5D=0101" with synthetic "administrator" credentials
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Unrecognized LC 116 codes do not turn into an unfiltered catalog query
+    When I make a native API GET request to "/<company_id>/api/nfse/national-services?lc116=foobar" with synthetic "administrator" credentials
+    Then the API response status should be 422
+    And the API response should be JSON

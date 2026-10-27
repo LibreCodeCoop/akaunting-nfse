@@ -207,7 +207,7 @@ test('native national tax code dropdown includes official code without prior sel
   // the same live component used by the tax code assistant, not a template tag.
   const national = page.locator('[name="nfse_codigo_tributacao_nacional"]');
   await expect(national).toHaveCount(1);
-  const options = await national.evaluate(element => {
+  await expect.poll(() => national.evaluate(element => {
     const api = (window as any).NfseTaxCodeAssistant;
     const component = api?.selectComponent(element);
     const sorted = Array.isArray(component?.sorted_options) ? component.sorted_options : [];
@@ -216,8 +216,7 @@ test('native national tax code dropdown includes official code without prior sel
       code: String(option.key),
       label: String(option.value),
     }));
-  });
-  expect(options).toEqual(expect.arrayContaining([
+  })).toEqual(expect.arrayContaining([
     { code: '010101', label: expect.stringContaining('Análise e desenvolvimento de sistemas') },
     { code: '010601', label: expect.stringContaining('Assessoria e consultoria') },
   ]));

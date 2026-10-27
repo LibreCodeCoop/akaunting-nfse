@@ -36,6 +36,12 @@ test('fiscal code assistant consults the authenticated JSON catalog without Basi
   expect(itemId).toMatch(/^\d+$/);
 
   await loginToAkaunting(page, testInfo);
+  const catalogRequest = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === 'GET'
+      && url.pathname === '/1/nfse/national-services'
+      && url.searchParams.get('limit') === '500';
+  });
   // Core plan limits redirect item creation in CI. The seeded item's edit
   // form renders the same fiscal assistant without bypassing that restriction.
   const navigation = await page.goto('/1/common/items/' + itemId + '/edit', { waitUntil: 'domcontentloaded' });
@@ -44,6 +50,22 @@ test('fiscal code assistant consults the authenticated JSON catalog without Basi
 
   const assistant = page.locator('[data-nfse-tax-code-assistant]');
   await expect(assistant).toBeVisible();
+
+  // The selector is populated from JSON, not an HTML-embedded catalog.
+  const loadedCatalog = await catalogRequest;
+  expect(loadedCatalog.status()).toBe(200);
+  expect(loadedCatalog.headers()['content-type']).toContain('application/json');
+  expect(loadedCatalog.request().headers()['authorization']).toBeUndefined();
+  const listing = await loadedCatalog.json();
+  expect(Array.isArray(listing.data)).toBe(true);
+  expect(listing.data.length).toBeGreaterThan(100);
+  const field = page.locator('[name="nfse_codigo_tributacao_nacional"]');
+  await expect.poll(() => field.evaluate((element) => {
+    const component = (window as any).NfseTaxCodeAssistant.selectComponent(element);
+    return Array.isArray(component?.sorted_options)
+      ? component.sorted_options.some((option: { key: string }) => option.key === '010101')
+      : false;
+  })).toBe(true);
 
   const requestPromise = page.waitForRequest((request) => {
     const url = new URL(request.url());
