@@ -32,7 +32,6 @@ use Modules\Nfse\Support\VaultDiagnostics;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\MunicipalParametersConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Domain\OfficialDomainCatalog;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\QueryException;
 use Throwable;
 
