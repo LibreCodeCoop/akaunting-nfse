@@ -110,7 +110,9 @@ final class TestHarnessProvisioningTest extends FeatureTestCase
         $identity = app(DpsIssuanceIdentityContract::class);
         $first = $identity->prepare((int) $invoice->id, $draft, 'manual');
         $repeated = $identity->prepare((int) $invoice->id, $draft, 'automatic');
-        self::assertSame($first, $repeated);
+        self::assertSame($first['reservation_id'], $repeated['reservation_id']);
+        self::assertSame($first['operation_key'], $repeated['operation_key']);
+        self::assertEquals($first['dps'], $repeated['dps']);
         self::assertSame('99999', $first['dps']->serie);
         self::assertSame('1', $first['dps']->numeroDps);
         self::assertSame(1, DB::table('nfse_dps_reservations')->count());

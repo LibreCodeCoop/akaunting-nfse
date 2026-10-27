@@ -82,7 +82,7 @@ class Main extends Provider
             if (FiscalTestHarnessConfig::enabled(
                 (string) app()->environment(),
                 getenv('NFSE_TEST_HARNESS'),
-            ) && app()->environment('testing') && DB::connection()->getDriverName() === 'sqlite') {
+            ) && app()->environment('testing') && config('database.default') === 'sqlite') {
                 return new DpsIssuanceIdentity(
                     coordinator: new \Modules\Nfse\Support\Testing\SyntheticDpsSeriesCoordinator(),
                 );
