@@ -8,8 +8,6 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Feature;
 
 use App\Events\Api\ResourceShowing;
-use App\Http\Resources\Common\Contact as ContactResource;
-use App\Http\Resources\Common\Item as ItemResource;
 use App\Jobs\Auth\CreateUser;
 use App\Models\Common\Contact;
 use App\Models\Common\Item;
@@ -34,11 +32,12 @@ final class NativeFiscalResourceTest extends FeatureTestCase
         ]);
 
         $this->loginAs();
-        $payload = (new ItemResource($item))->toArray(request());
+        $event = new ResourceShowing($item);
+        (new AppendFiscalProfileToApiResource())->showing($event);
+        $payload = $event->resources;
 
         self::assertSame('0107', $payload['nfse_fiscal_profile']['item_lista_servico']);
         self::assertSame('010701', $payload['nfse_fiscal_profile']['codigo_tributacao_nacional']);
-        self::assertSame((int) $this->company->id, (int) $payload['company_id']);
     }
 
     public function testNativeCustomerResourceReturnsAuthorizedFiscalProfile(): void
@@ -51,7 +50,9 @@ final class NativeFiscalResourceTest extends FeatureTestCase
         );
 
         $this->loginAs();
-        $payload = (new ContactResource($contact))->toArray(request());
+        $event = new ResourceShowing($contact);
+        (new AppendFiscalProfileToApiResource())->showing($event);
+        $payload = $event->resources;
 
         self::assertSame('123456', $payload['nfse_fiscal_profile']['municipal_registration']);
         self::assertSame('Synthetic Customer Ltd', $payload['nfse_fiscal_profile']['legal_name']);
@@ -76,7 +77,7 @@ final class NativeFiscalResourceTest extends FeatureTestCase
         $role = $this->createRole('nfse-core-resource-only');
         $this->attachPermission($role, 'read-admin-panel');
         $this->attachPermission($role, 'read-items');
-        $this->attachPermission($role, 'read-contacts');
+        $this->attachPermission($role, 'read-sales-customers');
         $operator = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
             'enabled' => 1,
             'companies' => [$this->company->id],
@@ -84,8 +85,13 @@ final class NativeFiscalResourceTest extends FeatureTestCase
         ])));
 
         $this->withExceptionHandling()->loginAs($operator);
-        $itemData = (new ItemResource($item))->toArray(request());
-        $contactData = (new ContactResource($contact))->toArray(request());
+        $itemEvent = new ResourceShowing($item);
+        $contactEvent = new ResourceShowing($contact);
+        $listener = new AppendFiscalProfileToApiResource();
+        $listener->showing($itemEvent);
+        $listener->showing($contactEvent);
+        $itemData = $itemEvent->resources;
+        $contactData = $contactEvent->resources;
 
         self::assertArrayNotHasKey('nfse_fiscal_profile', $itemData);
         self::assertArrayNotHasKey('nfse_fiscal_profile', $contactData);

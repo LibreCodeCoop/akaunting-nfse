@@ -20,13 +20,13 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
       | data | array |
 
   Scenario: Native Akaunting item API includes authorized fiscal profile data
-    When I make a native API GET request to "/<company_id>/api/items/<valid_item_id>" with synthetic "administrator" credentials
+    When I make a native API GET request to "/api/items/<valid_item_id>?company_id=<company_id>" with synthetic "administrator" credentials
     Then the API response status should be 200
     And the API response should be JSON
     And the JSON value at "data.nfse_fiscal_profile.codigo_tributacao_nacional" should be "010701"
 
   Scenario: Native item API persists a valid fiscal profile on creation
-    When I make a native API "POST" JSON request to "/<company_id>/api/items" with synthetic "administrator" credentials and body:
+    When I make a native API "POST" JSON request to "/api/items?company_id=<company_id>" with synthetic "administrator" credentials and body:
       """
       {"type":"service","name":"Synthetic native API fiscal item","sale_price":"100.00","nfse_item_lista_servico":"0107","nfse_codigo_tributacao_nacional":"010701"}
       """
@@ -35,7 +35,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the JSON value at "data.nfse_fiscal_profile.codigo_tributacao_nacional" should be "010701"
 
   Scenario: Native item API update preserves fiscal fields omitted by the request
-    When I make a native API "PATCH" JSON request to "/<company_id>/api/items/<valid_item_id>" with synthetic "administrator" credentials and body:
+    When I make a native API "PATCH" JSON request to "/api/items/<valid_item_id>?company_id=<company_id>" with synthetic "administrator" credentials and body:
       """
       {"type":"service","name":"NFSE E2E Fiscal Item","sale_price":"100.00"}
       """
@@ -44,7 +44,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the JSON value at "data.nfse_fiscal_profile.codigo_tributacao_nacional" should be "010701"
 
   Scenario: Native item API rejects an invalid national taxation code
-    When I make a native API "POST" JSON request to "/<company_id>/api/items" with synthetic "administrator" credentials and body:
+    When I make a native API "POST" JSON request to "/api/items?company_id=<company_id>" with synthetic "administrator" credentials and body:
       """
       {"type":"service","name":"Synthetic invalid fiscal item","sale_price":"100.00","nfse_codigo_tributacao_nacional":"999999"}
       """
@@ -52,7 +52,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the API response should be JSON
 
   Scenario: Native API writes cannot switch to another company
-    When I make a native API "POST" JSON request to "/<other_company_id>/api/items" with synthetic "administrator" credentials and body:
+    When I make a native API "POST" JSON request to "/api/items?company_id=<other_company_id>" with synthetic "administrator" credentials and body:
       """
       {"type":"service","name":"Synthetic cross-company item","sale_price":"100.00","nfse_codigo_tributacao_nacional":"010701"}
       """
@@ -60,7 +60,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the API response should be JSON
 
   Scenario: Native contact API persists a fiscal customer profile
-    When I make a native API "POST" JSON request to "/<company_id>/api/contacts" with synthetic "administrator" credentials and body:
+    When I make a native API "POST" JSON request to "/api/contacts?company_id=<company_id>" with synthetic "administrator" credentials and body:
       """
       {"type":"customer","name":"Synthetic native API customer","currency_code":"USD","nfse_legal_name":"Synthetic Customer Ltd","nfse_municipal_registration":"123456"}
       """
@@ -69,7 +69,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the JSON value at "data.nfse_fiscal_profile.legal_name" should be "Synthetic Customer Ltd"
 
   Scenario: Native contact API rejects an invalid municipal registration
-    When I make a native API "POST" JSON request to "/<company_id>/api/contacts" with synthetic "administrator" credentials and body:
+    When I make a native API "POST" JSON request to "/api/contacts?company_id=<company_id>" with synthetic "administrator" credentials and body:
       """
       {"type":"customer","name":"Synthetic invalid API customer","currency_code":"USD","nfse_municipal_registration":"1234567890123456"}
       """
@@ -77,7 +77,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the API response should be JSON
 
   Scenario: Native item API cannot cross the company boundary
-    When I make a native API GET request to "/<company_id>/api/items/<valid_item_id>" with synthetic "other-company-administrator" credentials
+    When I make a native API GET request to "/api/items/<valid_item_id>?company_id=<company_id>" with synthetic "other-company-administrator" credentials
     Then the API response status should be 401
     And the API response should be JSON
 

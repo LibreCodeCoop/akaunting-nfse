@@ -56,7 +56,7 @@ final class AppendFiscalProfileToApiResource
             return;
         }
 
-        if ($model->type !== Contact::CUSTOMER_TYPE || !$user->can('read-contacts')) {
+        if ($model->type !== Contact::CUSTOMER_TYPE || !$user->can('read-sales-customers')) {
             return;
         }
 
