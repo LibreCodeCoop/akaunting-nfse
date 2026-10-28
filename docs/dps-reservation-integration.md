@@ -133,17 +133,16 @@ read-only `assertExisting()` match against the central ledger. Local
 other installations may consume intervening numbers.
 
 Fencing generations are checked and locked together with each atomic
-allocation. A revocation transaction can fence a stale member before it
-allocates again. This **does not yet** fence a previously reserved DPS at the
-final first-POST boundary: #429 must integrate an authoritative, irreversible
-first-transmission claim with #421's company context and the existing
-`EmissionAttemptJournal`; do not add another journal.
+allocation. #515/#516 additionally fence the first fiscal POST at the
+central claim boundary, with the immutable reservation and authorized company
+context verified by `EmissionAttemptJournal`. This does not revoke a POST
+already in flight. Do not add another journal.
 
 See [the deployment architecture and failure matrix](dps-distributed-coordination.md)
 and [external SQL schema](sql/dps-coordination-schema.sql). Provisioning,
 authentic series ownership, disjoint external emitters, up-to-date attested
-floor, durable coordinator recovery/failover and #429's last-POST gate all
-remain **operational prerequisites**, not features inferred from central
+floor, durable coordinator recovery/failover and the already integrated first-POST gate all
+remain **contractual prerequisites**, not features inferred from central
 table existence. No production series is automatically activated.
 
 The MySQL regression test `testTwoIsolatedMysqlDatabasesCanAllocateIdenticalNationalDpsIdentity`
@@ -152,14 +151,14 @@ registration/series/reference both successfully commit local number 1.
 This establishes the need for external coordination; it is not a test of
 coordinator correctness and never calls SEFIN.
 
-**Historical warning (superseded by the integrated journal change):**
-`IssueInvoiceNfse::issue()` still reaches the underlying `emit()` method,
-and several builders still derive DPS numbers from legacy local IDs. Thus
-the fail-closed guarantee applies to `DpsReservationService` only, not
-every deployed fiscal POST. Production must remain disabled by a separate
-verified operational control until #429 enforces the shared reservation
-and first-POST claim on every mutable emission path. No class in this PR
-implements that last-boundary gate.
+**Current transport boundary:** `IssueInvoiceNfse::issue()` remains a
+low-level transport helper, not a public issuance entrypoint. The supported
+manual, automatic, grouped/batch, reissue and substitution callers now pass
+through `EmissionAttemptJournal`, where #515/#516 bind the immutable
+reservation and first-POST claim. The historical deterministic draft numbers
+are replaced before transmission. Keep real emission disabled until
+operational series ownership, historical reconciliation and restricted
+environment validation have been established.
 
 Before enabling a series, #417/#421 must require durable evidence of one of:
 a genuinely shared atomic allocation store used by **all** installations for

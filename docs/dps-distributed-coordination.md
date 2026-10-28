@@ -5,9 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Coordinating DPS numbers across independent Akaunting installations
 
-Status: **opt-in coordinator mechanics implemented; production issuance is NOT blocked by this code**.
-Scope: #423. Does not integrate the emitters or the last first-POST preflight
-owned by #429. Does not create another fiscal journal or retry subsystem.
+Status: **central reservation and first-POST claim integrated through #515/#516;
+operational series activation and real fiscal issuance remain blocked until
+exclusive ownership, historical reconciliation and restricted validation**.
+Scope: #423, integrated with the #421 company context and #429 municipal
+preflight. The existing journal remains the sole emission attempt ledger.
 
 ## Decision and guarantees
 
@@ -157,32 +159,27 @@ untrusted cloned installation.
 
 **Hard boundary:** this coordinator cannot prevent a nonparticipating
 external issuer from using the same series, nor prove that a manually
-attested historical maximum is true. The current module also has no final
-first-POST fencing/claim wired into #429. A process that reserved a number
-before revocation could otherwise transmit after revocation. Keep **all
-production first POSTs and new series activation blocked** until the
-operational exclusive-series attestation, final transmission gate, official
-rejection/gap policy and integrated restricted-environment verification exist.
+attested historical maximum is true. #515/#516 added an irreversible
+first-transmission claim in the shared MySQL ledger. A claim already committed
+before installation revocation cannot recall an in-flight fiscal POST. Keep
+**real first POSTs and series activation disabled** until verified exclusive
+series ownership, official sequencing policy review, existing-ledger
+reconciliation and restricted-environment verification are complete.
 
-## Unprotected legacy first-POST paths (mandatory rollout gate)
+## Direct fiscal transport boundary (mandatory rollout gate)
 
-The existing `IssueInvoiceNfse::issue()` still calls
-`NfseClientInterface::emit()` without invoking this coordinator. The
-legacy `InvoiceDpsIdentity`, `FiscalGroupDpsIdentity`, reissue and
-replacement builders are **not** migrated by this PR. Consequently,
-installing the SQL schema or merging this PR **does not block existing
-transmissions**, and cannot be described as a production-wide fail-closed
-gate. Until the distinct #429/#421 integration is delivered, operations
-must **disable production NFS-e issuance through all current entry points**
-using an independently verified deployment-level control.
+The supported manual, automatic, grouped, batch, reissue and substitution
+callers now pass through `EmissionAttemptJournal::issue()`, which binds the
+local immutable reservation, runs municipal preflight and commits the global
+first-POST claim before invoking transport. `IssueInvoiceNfse::issue()`
+remains a low-level transport helper that can call `emit()` directly; it is
+not an authorized public issuance entrypoint. New callers must never invoke
+that helper outside the journal. Tests must cover these actual call paths.
 
-At #429's final first-POST boundary, the application must reject a payload
-without a matching immutable reservation, authorized issuer/profile,
-current central authority and an irreversible first-transmission claim.
-The claim and existing `EmissionAttemptJournal` must prevent a second
-mutable POST, including after timeout or crash. A post-reservation
-check-only coordinator call is insufficient: revocation could commit
-between that check and first-POST authorization.
+Neither the PHP code nor the shared ledger attests exclusive ownership of a
+series against outside emitters. The safe default is to reject issuance when
+the coordinator or authorized profile is unavailable. Do not activate the
+first real fiscal POST merely because #515/#516 merged.
 
 The SEFIN API does not validate a local fencing token. Revocation can
 prevent *new allocations and claims* but cannot reliably recall an already
