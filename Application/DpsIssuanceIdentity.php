@@ -28,8 +28,8 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
     public static function normalizeSeries(mixed $value): string
     {
         if (!is_string($value) || preg_match('/^[0-9]{1,5}$/D', $value) !== 1
-            || (int) $value === 0) {
-            throw new \LogicException('An explicitly approved numeric DPS series is required.');
+            || (int) $value === 0 || (int) $value > 49999) {
+            throw new \LogicException('An explicitly approved API DPS series from 00001 to 49999 is required.');
         }
 
         return str_pad((string) (int) $value, 5, '0', STR_PAD_LEFT);
