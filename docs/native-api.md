@@ -38,6 +38,15 @@ The two HTTP paths are deliberate security transports, not two domain APIs:
 the API group is stateless, whereas the admin group includes session and CSRF.
 Do not forward browser cookies into the native API group.
 
+## Read-only emission attempt history
+
+The existing fiscal attempt journal supports both HTTP transports using the same controller:
+
+- External: `GET /{company_id}/{api_prefix}/nfse/invoices/{invoice_id}/emission-attempts`
+- Browser: `GET /{company_id}/nfse/invoices/{invoice_id}/emission-attempts`
+
+The native Core API requires its own authentication and `read-api` along with `read-sales-invoices`. The browser continues to use the admin session. Both responses contain up to 100 newest attempts for an invoice owned by the active company, without raw XML or full transmitted documents. A fiscal attempt is distinct from an issued NFS-e receipt and from the Akaunting commercial invoice.
+
 No write operation is exposed in this foundation. Future fiscal mutations
 require distinct operation-level ACL, tenant and object checks, CSRF for cookie
 authentication, idempotency and negative integration tests before publication.

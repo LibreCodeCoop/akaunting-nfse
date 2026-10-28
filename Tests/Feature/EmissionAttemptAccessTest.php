@@ -17,6 +17,16 @@ final class EmissionAttemptAccessTest extends FeatureTestCase
 {
     use Permissions;
 
+    public function testNativeAttemptHistoryRouteUsesCoreApiAndInvoiceReadPermission(): void
+    {
+        $route = app('router')->getRoutes()->getByName('api.nfse.invoices.emission-attempts.index');
+
+        self::assertNotNull($route);
+        self::assertContains('api', $route->gatherMiddleware());
+        self::assertContains('permission:read-sales-invoices', $route->gatherMiddleware());
+        self::assertStringContainsString('api/nfse/invoices/', $route->uri());
+    }
+
     public function testReadOnlyHistoryIsTenantScopedAndDoesNotExposeRawFiscalPayload(): void
     {
         $this->loginAs();
