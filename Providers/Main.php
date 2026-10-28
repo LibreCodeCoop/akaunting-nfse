@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Providers;
 
+use App\Http\Requests\Common\Contact as CoreContactRequest;
 use App\Http\Requests\Common\Item as CoreItemRequest;
 use App\Models\Common\Contact;
 use App\Models\Common\Item;
@@ -22,6 +23,7 @@ use Modules\Nfse\Console\Commands\ProvisionTestHarness;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Console\Commands\SyncAdn;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
+use Modules\Nfse\Http\Requests\ValidatedFiscalContact;
 use Modules\Nfse\Http\Requests\ValidatedFiscalItem;
 use Modules\Nfse\Listeners\PersistContactFiscalProfile;
 use Modules\Nfse\Listeners\PersistItemFiscalProfile;
@@ -75,6 +77,7 @@ class Main extends Provider
     {
         $this->loadModuleVendorAutoload();
         $this->app->bind(CoreItemRequest::class, ValidatedFiscalItem::class);
+        $this->app->bind(CoreContactRequest::class, ValidatedFiscalContact::class);
         $this->app->scoped(DpsIssuanceIdentityContract::class, function (): DpsIssuanceIdentityContract {
             // Test-only fixture authority. Never make an SQLite/local fallback
             // available to real emission; production requires central MySQL.

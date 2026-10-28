@@ -57,6 +57,23 @@ final class ContactFiscalProfileRoundTripTest extends FeatureTestCase
             ->assertSee('value="987654"', false);
     }
 
+    public function testInvalidFiscalRegistrationCannotCreateNativeCustomer(): void
+    {
+        $request = Contact::factory()->customer()->enabled()->raw();
+        $request['nfse_municipal_registration'] = '1234567890123456';
+
+        $this->withExceptionHandling();
+        $this->loginAs()
+            ->postJson(route('customers.store'), $request)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('nfse_municipal_registration');
+
+        $this->assertDatabaseMissing('contacts', [
+            'company_id' => company_id(),
+            'email' => $request['email'],
+        ]);
+    }
+
     public function testCustomerFiscalRegistrationIsOptionalAndTenantScoped(): void
     {
         $request = Contact::factory()->customer()->enabled()->raw();

@@ -110,6 +110,30 @@ abstract class AkauntingHttpContext implements Context
     #[When('I make a native API GET request to :path with synthetic :actor credentials')]
     public function nativeApiGetAs(string $path, string $actor): void
     {
+        $credentials = $this->syntheticApiCredentials($actor);
+        $this->resetHttpScenario();
+        $this->sendJson('GET', $path, null, ['auth' => $credentials]);
+    }
+
+    #[When('I make a native API :method JSON request to :path with synthetic :actor credentials and body:')]
+    public function nativeApiWriteAs(string $method, string $path, string $actor, DocString $document): void
+    {
+        if (!in_array(strtoupper($method), ['POST', 'PATCH'], true)) {
+            throw new RuntimeException('Native API test writes must be POST or PATCH.');
+        }
+        $payload = json_decode($document->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($payload) || array_is_list($payload)) {
+            throw new RuntimeException('Native API test payload must be a JSON object.');
+        }
+
+        $credentials = $this->syntheticApiCredentials($actor);
+        $this->resetHttpScenario();
+        $this->sendJson($method, $path, $payload, ['auth' => $credentials]);
+    }
+
+    /** @return array{string,string} */
+    private function syntheticApiCredentials(string $actor): array
+    {
         $accounts = [
             'administrator' => ['NFSE_BEHAT_EMAIL', 'NFSE_BEHAT_PASSWORD'],
             'other-company-administrator' => ['NFSE_BEHAT_OTHER_EMAIL', 'NFSE_BEHAT_OTHER_PASSWORD'],
@@ -124,9 +148,7 @@ abstract class AkauntingHttpContext implements Context
         if (!is_string($email) || $email === '' || !is_string($password) || $password === '') {
             throw new RuntimeException('Missing synthetic API credentials.');
         }
-
-        $this->resetHttpScenario();
-        $this->sendJson('GET', $path, null, ['auth' => [$email, $password]]);
+        return [$email, $password];
     }
 
     #[When('I make a :method JSON request to :path')]
@@ -253,6 +275,7 @@ abstract class AkauntingHttpContext implements Context
             'other-company' => 'NFSE_BEHAT_OTHER_COMPANY_ID',
             'pending-invoice' => 'NFSE_E2E_PENDING_INVOICE_ID',
             'ready-invoice' => 'NFSE_BEHAT_READY_INVOICE_ID',
+            'valid-item' => 'NFSE_E2E_VALID_ITEM_ID',
         ];
         if (!isset($names[$fixture])) {
             throw new RuntimeException('Unknown synthetic fixture: ' . $fixture);
@@ -309,12 +332,13 @@ abstract class AkauntingHttpContext implements Context
             throw new RuntimeException('Unsupported HTTP method.');
         }
         $path = preg_replace_callback(
-            '/<(company_id|other_company_id|pending_invoice_id|ready_invoice_id)>/',
+            '/<(company_id|other_company_id|pending_invoice_id|ready_invoice_id|valid_item_id)>/',
             fn (array $match): string => (string) $this->fixtureId(match ($match[1]) {
                 'company_id' => 'company',
                 'other_company_id' => 'other-company',
                 'pending_invoice_id' => 'pending-invoice',
                 'ready_invoice_id' => 'ready-invoice',
+                'valid_item_id' => 'valid-item',
             }),
             $path,
         );

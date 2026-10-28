@@ -38,7 +38,31 @@ The two HTTP paths are deliberate security transports, not two domain APIs:
 the API group is stateless, whereas the admin group includes session and CSRF.
 Do not forward browser cookies into the native API group.
 
-No write operation is exposed in this foundation. Future fiscal mutations
-require distinct operation-level ACL, tenant and object checks, CSRF for cookie
-authentication, idempotency and negative integration tests before publication.
+## Fiscal data in native Akaunting item and customer resources
+
+The module extends the Core's existing item and contact API JSON resources via
+`App\Events\Api\ResourceShowing`. It does not add another item/contact
+CRUD endpoint. The extra `nfse_fiscal_profile` member is returned only when
+the authenticated user has the native resource read permission
+(`read-items` or `read-contacts`) **and** `read-nfse-settings`, and the
+resource belongs to the active Akaunting company. It is omitted entirely
+without the fiscal read permission, and is `null` when no profile exists.
+
+- `GET /{company_id}/{api_prefix}/items/{id}`: `nfse_fiscal_profile` contains
+  `item_lista_servico`, `codigo_tributacao_nacional`,
+  `codigo_tributacao_municipal`, `codigo_nbs` and `rtc_supply_category`.
+- `GET /{company_id}/{api_prefix}/contacts/{id}`: for customers, the member
+  contains `municipal_registration` and `legal_name`; other contact types
+  retain their native Core representation.
+
+Core controls authentication, native item/contact ACL, tenant routing and CRUD
+operations. The module's existing fiscal listeners persist item/customer
+attributes within the native Core create/update jobs. Browser forms continue
+using their existing authenticated native Core form routes; fiscal catalog
+lookups use the session-protected JSON transport described above. No external
+API credentials are placed in HTML or JavaScript.
+
+No new fiscal mutation route is introduced by the catalog foundation. Future
+fiscal mutations require operation-level ACL, tenant and object checks, CSRF
+for session-authenticated writes, idempotency and negative integration tests.
 The native Core API remains unchanged.
