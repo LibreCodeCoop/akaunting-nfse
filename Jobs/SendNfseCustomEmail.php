@@ -10,7 +10,7 @@ namespace Modules\Nfse\Jobs;
 use App\Abstracts\Job;
 use App\Models\Document\Document as Invoice;
 use Modules\Nfse\Models\NfseReceipt;
-use Modules\Nfse\Notifications\NfseIssued;
+use Modules\Nfse\Support\NfsePostEmissionCompanyContext;
 
 class SendNfseCustomEmail extends Job
 {
@@ -36,18 +36,23 @@ class SendNfseCustomEmail extends Job
             return;
         }
 
-        try {
-            (new \Modules\Nfse\Application\IssuedNfseEmailSender())->send(
-                $this->invoice,
-                $receipt,
-                $this->attachDanfse,
-                $this->attachXml,
-                $this->customMail,
-            );
-        } catch (\Throwable) {
-            // Errors may be serialized in queue logs; do not expose SMTP
-            // failures containing private recipients or credentials.
-            throw new \RuntimeException('NFS-e email delivery failed.');
-        }
+        (new NfsePostEmissionCompanyContext())->run(
+            (int) $this->invoice->id,
+            (int) $receipt->id,
+            function () use ($receipt): void {
+                try {
+                    (new \Modules\Nfse\Application\IssuedNfseEmailSender())->send(
+                        Invoice::query()->with('contact')->findOrFail((int) $this->invoice->id),
+                        NfseReceipt::query()->findOrFail((int) $receipt->id),
+                        $this->attachDanfse,
+                        $this->attachXml,
+                        $this->customMail,
+                    );
+                } catch (\Throwable) {
+                    // Never leak mail transport recipients or credentials to job logs.
+                    throw new \RuntimeException('NFS-e email delivery failed.');
+                }
+            },
+        );
     }
 }

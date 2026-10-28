@@ -8,9 +8,12 @@ declare(strict_types=1);
 namespace Modules\Nfse\Listeners;
 
 use App\Models\Document\Document;
-use Modules\Nfse\Support\NfseCompanyFiscalSettings;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
+use Modules\Nfse\Support\NfseCompanyFiscalSettings;
+use Modules\Nfse\Support\NfseCompanyJobContext;
 
 /**
  * Makes emit-on-send a fail-closed capability of Akaunting's native send job.
@@ -86,9 +89,32 @@ final class EmitNfseBeforeDocumentSend
         $companyId = (int) ($document->company_id ?? 0);
         $activeCompany = function_exists('company_id') ? (int) company_id() : 0;
         if ($companyId <= 0 || ($activeCompany > 0 && $activeCompany !== $companyId)) {
-            throw new \Illuminate\Auth\Access\AuthorizationException('Cannot emit another company invoice.');
+            throw new AuthorizationException('Cannot emit another company invoice.');
         }
 
+        if ($activeCompany === 0) {
+            // Only an unauthenticated background worker may recover a missing
+            // context from the actual persisted invoice. An HTTP actor must
+            // select an authorized company before requesting fiscal issuance.
+            if (!app()->runningInConsole() || auth()->check()
+                || !DB::table('documents')->where('id', (int) $document->id)
+                    ->where('type', 'invoice')->where('company_id', $companyId)->exists()) {
+                throw new AuthorizationException('Fiscal invoice has no verified company context.');
+            }
+
+            (new NfseCompanyJobContext())->run(
+                $companyId,
+                fn (): mixed => $this->emitForCompany($document, $companyId),
+            );
+
+            return;
+        }
+
+        $this->emitForCompany($document, $companyId);
+    }
+
+    private function emitForCompany(Document $document, int $companyId): void
+    {
         try {
             $settings = $this->nfseSettings($companyId);
         } catch (\DomainException) {
