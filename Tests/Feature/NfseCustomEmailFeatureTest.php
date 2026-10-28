@@ -9,7 +9,9 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Events\Document\DocumentSending;
 use App\Events\Document\DocumentSent;
+use App\Models\Common\Company;
 use App\Models\Document\Document;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Modules\Nfse\Jobs\SendNfseCustomEmail;
@@ -56,6 +58,100 @@ final class NfseCustomEmailFeatureTest extends FeatureTestCase
                     && ($notifiable->routes['mail'] ?? null) === ['customer@example.test'];
             },
         );
+    }
+
+    public function testCustomEmailUsesPersistedReceiptOwnerAndRestoresReusedWorkerContext(): void
+    {
+        $this->loginAs();
+        $previous = $this->company;
+        $ownerId = DB::table('companies')->insertGetId([
+            'domain' => 'custom-email-owner.example.test',
+            'enabled' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $owner = Company::query()->findOrFail($ownerId);
+        $owner->makeCurrent();
+        setting()->set([
+            'company.name' => 'Synthetic fiscal owner',
+            'company.email' => 'sender-owner@example.test',
+            'company.tax_number' => '11222333000181',
+        ]);
+        setting()->save();
+        $invoice = Document::factory()->invoice()->draft()->create(['company_id' => $ownerId]);
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => 'SYNTH-EMAIL-OWNER',
+            'chave_acesso' => str_repeat('6', 50),
+            'status' => 'emitted',
+        ]);
+
+        $previous->makeCurrent();
+        Notification::fake();
+        $transitions = [];
+        Event::listen(
+            \App\Events\Common\CompanyMadeCurrent::class,
+            static function (\App\Events\Common\CompanyMadeCurrent $event) use (&$transitions): void {
+                $transitions[] = [
+                    (int) $event->company->id,
+                    (string) setting('company.email', ''),
+                ];
+            },
+        );
+        try {
+            (new SendNfseCustomEmail(
+                $invoice,
+                $receipt,
+                false,
+                false,
+                [
+                    'to' => ['recipient@example.test'],
+                    'subject' => 'Synthetic NFS-e notification',
+                    'body' => 'Synthetic fiscal notice.',
+                ],
+            ))->handle();
+
+            Notification::assertSentOnDemand(
+                NfseIssued::class,
+                static fn (NfseIssued $notification): bool =>
+                    (int) $notification->invoice->company_id === (int) $ownerId,
+            );
+            self::assertCount(2, $transitions);
+            self::assertSame([(int) $ownerId, 'sender-owner@example.test'], $transitions[0]);
+            self::assertSame((int) $previous->id, $transitions[1][0]);
+            self::assertSame((int) $previous->id, (int) Company::getCurrent()?->id);
+        } finally {
+            $previous->makeCurrent();
+        }
+    }
+
+    public function testCustomEmailRefusesMismatchedReceiptWithoutSending(): void
+    {
+        $this->loginAs();
+        $invoice = Document::factory()->invoice()->draft()->create();
+        $other = Document::factory()->invoice()->draft()->create();
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => $other->id,
+            'nfse_number' => 'SYNTH-EMAIL-DENY',
+            'chave_acesso' => str_repeat('5', 50),
+            'status' => 'emitted',
+        ]);
+        Notification::fake();
+
+        try {
+            (new SendNfseCustomEmail(
+                $invoice,
+                $receipt,
+                false,
+                false,
+                ['to' => ['recipient@example.test']],
+            ))->handle();
+            self::fail('Expected mismatched receipt ownership to fail.');
+        } catch (\DomainException $error) {
+            self::assertSame('Post-emission operation has no verified company owner.', $error->getMessage());
+        }
+
+        Notification::assertNothingSent();
     }
 
     public function testNotificationIssuerIdentityComesFromAuthorizedXmlNotLegacySettings(): void
