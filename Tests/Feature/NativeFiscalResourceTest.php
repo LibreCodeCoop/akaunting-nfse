@@ -99,7 +99,7 @@ final class NativeFiscalResourceTest extends FeatureTestCase
         $item->company_id = (int) $this->company->id + 1000;
         $event = new ResourceShowing($item);
 
-        (new AppendFiscalProfileToApiResource())->handle($event);
+        (new AppendFiscalProfileToApiResource())->showing($event);
 
         self::assertSame([], $event->resources);
     }

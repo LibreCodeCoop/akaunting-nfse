@@ -18,7 +18,7 @@ use Modules\Nfse\Support\ContactFiscalProfileStore;
  */
 final class AppendFiscalProfileToApiResource
 {
-    public function handle(ResourceShowing $event): void
+    public function showing(ResourceShowing $event): void
     {
         $model = $event->model;
         if (!$model instanceof Item && !$model instanceof Contact) {

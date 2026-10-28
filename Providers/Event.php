@@ -17,7 +17,7 @@ class Event extends Provider
 {
     protected $listen = [
         'App\\Events\\Api\\ResourceShowing' => [
-            AppendFiscalProfileToApiResource::class,
+            AppendFiscalProfileToApiResource::class . '@showing',
         ],
         'App\\Events\\Common\\ContactCreating' => [
             PersistContactFiscalProfile::class . '@creating',
