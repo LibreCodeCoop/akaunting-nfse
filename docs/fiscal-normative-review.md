@@ -35,6 +35,42 @@ oráculo independente. CI verde não substitui deliberação profissional.
 | NF-PROT-01 | NT009 publicada mas sem ativação comprovada no ambiente | Não alterar emissor ativo | nfse-php#121 |
 | NF-SCOPE-01 | Operação RTC não-LC116 | Reportar `unsupported`, sem emissão como LC116 | #432 |
 
+## Matriz para deliberação jurídico-contábil independente
+
+A referência temporal deve ser selecionada pela hipótese: fato gerador,
+competência do serviço ou pagamento efetivo, conforme o ato aplicável.
+A coluna de testes identifica contraprovas disponíveis, **não** certificação
+jurídica, conformidade integral de produção ou autorização da SEFIN.
+Aprovação técnica de política e aceite profissional são registros distintos.
+
+| Hipótese | Fonte e período | Contexto e resultado esperado | Evidência técnica / teste | Revisão profissional |
+| --- | --- | --- | --- | --- |
+| RTC-ORD | Ato Conjunto RFB/CGIBS 4/2026; 01/10/2026, ressalvadas categorias excepcionais | Serviço LC 116 ordinário; comparar fato gerador antes/depois, sem usar data do POST ou presença do XML como prova da obrigação | `RtcSupplyAssessmentPolicyTest`; `IndependentTemporalOracleTest` | Pendente: enquadramento e data legal |
+| RTC-EXC | Ato 4/2026, art. 1º, III, b/c; 01/12/2026 | LC 116 01.03, 01.05, 01.09 e 16.01; não aplicar corte ordinário | Mesmos oráculos temporais | Pendente: classificação da prestação |
+| RTC-SN | Ato 4/2026, art. 1º, § 1º; 01/01/2027 | MEI/Simples sujeitos às regras próprias; ausência de prova do regime não equivale a não optante | `RtcSupplyAssessmentPolicyTest`; `IndependentTemporalOracleTest` | Pendente: regime comprovado por competência |
+| RTC-OUT | Ato 4/2026 e modalidade de operação; vigência conforme categoria | Locação, plataforma e outras operações não-LC116: não serializar como serviço LC116 sem suporte de protocolo | `RtcSupplyCategoryPolicyTest`; `RtcSupplyAssessmentPolicyTest` | Pendente: qualificação da operação |
+| ISS-BASE | LC 116/2003 e legislação municipal na competência | ISS próprio e retido dependem de serviço, município de incidência, prestador e tomador; nenhum percentual genérico | `IndependentFinancialOracleTest`; `MunicipalIncidenceResolverTest` | Pendente: lei/parametrização do município concreto |
+| ISS-E0176 | Anexo I oficial por ambiente e competência | Autônomo: cadastro em município emissor ou de incidência ou admissão sem verificação pelo município de incidência, quando parametrizada | Anexos I confrontados; `MunicipalAdmissibilityEvaluatorTest`; `SpecialTaxRegimePolicyTest` | Pendente: prova municipal por prestador |
+| ISS-E0177 | Anexo I oficial por ambiente e competência | Rejeição do regime **não admitido** pelo município de incidência; ausência de consulta não prova proibição | Anexos I confrontados; `MunicipalAdmissibilityEvaluatorTest` | Pendente: parâmetro municipal vigente |
+| ISS-E0178 | Anexo I oficial por ambiente e competência | Vincular contribuinte, serviço e competência; autorização municipal pode restringir ou não códigos de tributação | Anexos I confrontados; `SpecialTaxRegimePolicyTest` | Pendente: autorização individual e código |
+| REG-SN | Anexo I E0160/E0162/E0166 e E0172/E0174/E0175 na versão aplicável | `opSimpNac`, `regApTribSN` e `regEspTrib` são fatos distintos; código ISS não comprova opção IBS/CBS | `FiscalContext`; `SpecialTaxRegimePolicyTest` | Pendente: cadastro e regime por competência |
+| FED-RET | Lei 10.833/2003, arts. 30–32, e normas do pagador; considerar evento de pagamento quando exigido | PIS, COFINS e CSLL retidos somente sob hipóteses verificadas; valor próprio não é valor efetivamente retido nem autorização de `vRetCSLL` | `IndependentFinancialOracleTest`; `FederalSocialRetentionCalculatorTest` | Pendente: serviço, pagador e dispensa concretos |
+| FED-OWN | Leis 10.637/2002 e 10.833/2003, regime e período | Apuração própria PIS/COFINS separada da retenção e da configuração contábil; sem alíquota genérica | `FederalTaxSnapshotBuilderTest`; `IndependentFinancialOracleTest` | Pendente: regime, base e exceções |
+| FED-IRRF | Lei 9.430/1996 e demais atos aplicáveis ao tipo de pagador/serviço | Não inferir IRRF de CPF/CNPJ, nome ou esfera pública genérica; verificar pagamento e retenção real | `IndependentFinancialOracleTest`; `InvoiceTaxFactsResolverTest` | Pendente: identificação do pagador e ato aplicável |
+| TRANS-CONS | Lei 12.741/2012 e Decreto 8.264/2014; venda a consumidor final | Estimativa de transparência é distinta de tributo próprio e retenção; desconhecido não é zero | `ApproximateTaxSourceResolverTest`; `ApproximateTaxSourceFeatureTest` | Pendente: operação e dispensa aplicável |
+| COOP-OPTION | LC 214/2025, art. 271, § 3º; Decreto 12.955/2026 e Resolução CGIBS 6/2026, art. 393; opção para 2027 | Exigir registro da opção, envio da lista e comprovação de efetividade; 31/10/2026 é o prazo comunicado, prorrogação anunciada em 29/10 ainda não formalizada | `CooperativeIbsCbsFactsTest`; `CooperativeIbsCbsEligibilityAssessorTest` | Pendente: recibos oficiais e decisão empresarial |
+| COOP-IBS | LC 214/2025, art. 271, I, versus Resolução CGIBS 6/2026, art. 392, II; exame do ano de 2027 | Associado não regular fornece à cooperativa: `unverifiable`, sem zero presumido; separação da controvérsia do IBS | `CooperativeIbsCbsEligibilityAssessorTest`; `IndependentCooperativeCounterexamplesTest` | Pendente: parecer IBS e hierarquia normativa |
+| COOP-CBS | LC 214/2025, art. 271, I, versus Decreto 12.955/2026, art. 392, II; exame do ano de 2027 | Mesma operação: `unverifiable`, sem extrapolar norma da CBS ao IBS | Mesmos testes, diagnóstico CBS específico | Pendente: parecer CBS e hierarquia normativa |
+| FISC-HISTORY | ADR 0002 e atos aplicáveis à competência/evento | Preservar fatos, fonte, versão, decisão e XML autorizado sem recálculo retrospectivo por norma nova | `AuthorizedFiscalSnapshotExtractorTest`; contratos tipados; testes de integração separados | Pendente: auditoria integrada da persistência |
+| NT009 | NT009 e comunicado oficial de 20/10/2026; produção restrita ativa para primeira etapa, produção planejada para 01/12/2026 | Separar publicação da NT, implantação por ambiente e obrigação legal; não ativar antecipadamente produção | Anexos e XSD recuperados; testes de contrato `NfsePhpCurrentIssuanceContractTest` | Pendente: confirmação do rollout real |
+
+**Situação de aceite:** as evidências técnicas e a matriz estão preparadas
+para revisão. A hipótese cooperativa controvertida não está juridicamente
+homologada. A ausência de resposta ou de prova municipal não autoriza
+classificar a emissão como legalmente correta nem inventar bloqueio SEFIN.
+Uma aprovação independente deve identificar revisor, data, hipótese, fontes,
+conclusão, ressalvas, contraprovas e assinatura; até lá, não fechar #427.
+
 ## Evidência primária
 
 - Portal de produção, Anexo I v1.01 de 09/02/2026:
@@ -112,7 +148,7 @@ incidências tributárias nem três bloqueios: registra a divergência das norma
 sobre uma única hipótese concreta, sem alterar a emissão atual.
 
 O [manual oficial da RFB](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/manuais/reforma-tributaria-do-consumo/manual_cooperativas.pdf/view)
-(versão 1.12, setembro de 2026) confirma que a opção para 2027 exige
+(versão 1.1, publicada em 15/09/2026) confirma que a opção para 2027 exige
 **registro da opção e envio da listagem de associados**, e a orientação
 [conjunta RFB/CGIBS](https://www.gov.br/fazenda/pt-br/assuntos/noticias/2026/setembro/receita-federal-e-comite-gestor-do-imposto-sobre-bens-e-servicos-divulgam-orientacao-conjunta)
 fixa o prazo de 31/10/2026 para produzir efeitos em 01/01/2027.
