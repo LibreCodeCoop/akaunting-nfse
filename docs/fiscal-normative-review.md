@@ -116,13 +116,21 @@ E0178 admite atribuição ao contribuinte com ou sem limitação por códigos
 de tributação, segundo observação da versão restrita. Não presumir veto
 universal apenas pelo código `regEspTrib`.
 
-## Implantação da NT009 por ambiente — referência de 27/10/2026
+## Implantação da NT009 por ambiente — revisada em 29/10/2026
 
-A publicação da NT009 v1.01 não ativa automaticamente um leiaute em ambos os ambientes. O comunicado do CGNFS-e de 20/10/2026 registra somente em **produção restrita** a primeira etapa: reposicionamento de `CST` e `cClassTrib`, códigos 99.02–99.04 e `vAjusteBC`. Em **produção**, o leiaute da NT004 v2.0 permanece até 30/11/2026; implantação prevista para 01/12/2026 requer nova confirmação antes da ativação.
+A publicação da NT009 v1.01 não ativa automaticamente um leiaute em ambos os ambientes. O comunicado de 20/10/2026 registra somente em **produção restrita** o release 1: reposicionamento de `CST` e `cClassTrib`, códigos 99.02–99.04 e `vAjusteBC`.
+
+O [esclarecimento oficial de 29/10/2026](https://www.gov.br/nfse/pt-br/noticias/nfs-e-nacional-confira-oas-rientacoes-sobre-leiaute-em-producao-regras-de-preenchimento-de-ibs-cbs-e-status-da-nota-tecnica-009) confirma que:
+
+- Em **produção**, o leiaute permanece na NT004, com o domínio pertinente de retenção PIS/COFINS da NT007. Não enviar antecipadamente XML da NT009.
+- Em **produção restrita**, o release 1 da NT009 v1.0 está no emissor web e na API, mas operações 99.02–99.04 são disponibilizadas por **API**, não pelo formulário web específico ainda pendente.
+- O release 2, com ajustes da NT009 v1.01 e posteriores, será disponibilizado primeiro em produção restrita; os releases 1 a 3 são **previstos** em produção para 01/12/2026, sem comprovação de ativação efetiva hoje.
+- O ambiente restrito é de teste e não produz efeitos fiscais. Publicação da NT, obrigatoriedade legal e implantação XSD/SEFIN são decisões temporais distintas.
 
 Evidências oficiais:
 
 - https://www.gov.br/nfse/pt-br/noticias/cgnfs-e-informa-disponibilizadas-no-ambiente-de-testes-o-release-1-das-evolucoes-da-nota-tecnica-009
+- https://www.gov.br/nfse/pt-br/noticias/nfs-e-nacional-confira-oas-rientacoes-sobre-leiaute-em-producao-regras-de-preenchimento-de-ibs-cbs-e-status-da-nota-tecnica-009
 - https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/atualizacoes-e-implantacoes
 - https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual
 - https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/producao-restrita
