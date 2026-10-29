@@ -54,12 +54,31 @@ oráculo independente. CI verde não substitui deliberação profissional.
 - Comunicado CGNFS-e sobre 2026:
   https://www.gov.br/nfse/pt-br/noticias/cgnfs-e-orienta-sobre-os-prazos-para%20destaque-de-ibs-cbs-nas-notas-fiscais-de-servico
 
-O registro histórico na #427 informa SHA-256
-`de5bc492959eadc8bfa7540e16939995924f2188f743648eaf84d3b31e9eeb7c`
-para uma cópia de Anexo I e linhas E0177=234, E0176=235, E0178=236
-em `xl/worksheets/sheet5.xml`. **Ainda é necessário recuperar novamente
-o binário do endereço governamental e confrontar o hash e o texto integral**.
-Não usar a versão antiga de E0176 como restrição municipal universal.
+## Anexo I: conferência dos arquivos oficiais em 27/10/2026
+
+Foram recuperados diretamente de `www.gov.br` os arquivos XLSX oficiais dos
+ambientes de produção e produção restrita. O SHA-256 local de produção
+(`de5bc492959eadc8bfa7540e16939995924f2188f743648eaf84d3b31e9eeb7c`)
+confirma o hash histórico. O hash demonstra identidade do binário recuperado,
+mas não substitui assinatura digital oficial ou prova de ativação da SEFIN.
+As regras nacionais E0176, E0177 e E0178 foram confrontadas nos dois pacotes.
+Sua aplicabilidade a uma DPS ainda depende de dados municipais específicos.
+
+| Artefato oficial | SHA-256 conferido |
+| --- | --- |
+| [Anexo I produção 09/02/2026](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/anexo_i-sefin_adn-dps_nfse-snnfse-v1-01-20260209.xlsx) | `de5bc492959eadc8bfa7540e16939995924f2188f743648eaf84d3b31e9eeb7c` |
+| [Anexo I produção restrita 20/10/2026](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/producao-restrita/anexo_i-sefin_adn-dps_nfse-snnfse_prodrest-v1-01-20261020.xlsx) | `72b05981c8882cdd807f3acf901b669465360f9cf1b9d9e235ac4363dacfb2d8` |
+| [XSD produção restrita 20/10/2026](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/producao-restrita/esquemas_prod_restrita_20261020.zip) | `25fdcecc651a67a216496ab10d7566631e6ed10f721e37d62c7845dadb0ea267` |
+| [Anexo VIII consultivo 26/10/2026](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/rtc/anexo_viii-tabela-correlacao-v01-02-00-20261026.xlsx) | `12cc80bc92687856b47e961b98cdbaa3f8cae568c099b3ef71994e73482ac7d0` |
+
+No Anexo I de produção, E0177/E0176/E0178 estão nas linhas de regra
+231/232/233 da aba `RN DPS_NFS-e`; em produção restrita, nas linhas
+247/248/249 de `RN DPS_NFS-e 1.01`. E0176 distingue parametrização
+do profissional autônomo no município emissor ou de incidência e
+a admissão sem verificação na parametrização do município de incidência.
+E0178 admite atribuição ao contribuinte com ou sem limitação por códigos
+de tributação, segundo observação da versão restrita. Não presumir veto
+universal apenas pelo código `regEspTrib`.
 
 ## Implantação da NT009 por ambiente — referência de 27/10/2026
 
@@ -72,7 +91,7 @@ Evidências oficiais:
 - https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual
 - https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/producao-restrita
 
-**Evidência ainda não obtida:** o download binário de `gov.br` retornou HTTP 403 no ambiente de auditoria. Os SHA-256 dos anexos de produção restrita e o confronto literal integral de E0176–E0178 com os anexos atuais continuam sem verificação independente. Não converter versões ou hashes históricos em atestado atual.
+**Evidência obtida em 27/10/2026:** os anexos/XSD oficiais indicados acima foram recuperados, seus SHA-256 calculados e E0176–E0178 confrontadas em ambos os Anexos I. Continuam sem prova a parametrização municipal de uma operação particular e a ativação em produção do leiaute NT009. O Anexo VIII consultivo não substitui validação fiscal normativa.
 
 ## Controvérsia cooperativa a ser revisada
 
@@ -84,12 +103,30 @@ não sujeitos ao regime regular. Isso requer análise **individual** de IBS e
 CBS, da hierarquia normativa, da hipótese concreta e de eventuais alterações
 normativas na data do fato gerador; não basta citar apenas o decreto federal.
 
-O avaliador existente retorna `unverifiable` nessa hipótese e não aplica
-alíquota zero automaticamente. A revisão jurídico-contábil deve registrar,
-para **cada tributo**, qual dispositivo prevalece, por quê, qual condição é
-necessária, quais evidências comprovam a condição e qual consequência haveria
-para uma operação suportada. Até esse parecer, a decisão permanece
-inconclusiva. O documento não contém parecer assinado.
+O avaliador retorna `unverifiable` nessa hipótese e não aplica alíquota
+zero automaticamente. O diagnóstico conserva **três fontes independentes**:
+`COOP-ZERO-CONFLICT-LC271-I` (lei complementar),
+`COOP-ZERO-CONFLICT-DEC392-II` (CBS) e
+`COOP-ZERO-CONFLICT-CGIBS392-II` (IBS). Essa separação não implica três
+incidências tributárias nem três bloqueios: registra a divergência das normas
+sobre uma única hipótese concreta, sem alterar a emissão atual.
+
+O [manual oficial da RFB](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/manuais/reforma-tributaria-do-consumo/manual_cooperativas.pdf/view)
+(versão 1.12, setembro de 2026) confirma que a opção para 2027 exige
+**registro da opção e envio da listagem de associados**, e a orientação
+[conjunta RFB/CGIBS](https://www.gov.br/fazenda/pt-br/assuntos/noticias/2026/setembro/receita-federal-e-comite-gestor-do-imposto-sobre-bens-e-servicos-divulgam-orientacao-conjunta)
+fixa o prazo de 31/10/2026 para produzir efeitos em 01/01/2027.
+Em [comunicado de 29/10/2026](https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/outubro/receita-federal-e-cgibs-discutem-ampliacao-do-prazo-de-opcao-pelo-regime-especifico-da-cbs-e-do-ibs-para-as-cooperativas-ate-30-de-novembro/),
+a RFB e o CGIBS **informaram que estudam** uma prorrogação até
+30/11/2026. A proposta ainda depende de formalização; não substituir o
+prazo vigente por uma data apenas anunciada como possibilidade.
+A natureza cooperativa, o Lucro Real ou o envio de somente uma dessas etapas
+não comprovam opção efetiva nem autorizam redução a zero.
+
+A revisão jurídico-contábil deverá registrar, para **cada tributo**, qual
+dispositivo é aplicável, fundamento da interpretação, data, fatos requeridos
+e ressalvas. Até esse parecer, a controvérsia permanece inconclusiva.
+Este documento não contém aceite profissional assinado.
 
 ## Critérios para homologação
 
