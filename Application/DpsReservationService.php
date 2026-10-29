@@ -46,8 +46,8 @@ final class DpsReservationService
             throw new \InvalidArgumentException('Invalid DPS target environment.');
         }
 
-        if (preg_match('/^[0-9]{1,5}$/D', $series) !== 1 || (int) $series === 0) {
-            throw new \InvalidArgumentException('DPS series must contain one to five nonzero decimal digits.');
+        if (preg_match('/^[0-9]{1,5}$/D', $series) !== 1 || (int) $series === 0 || (int) $series > 49999) {
+            throw new \InvalidArgumentException('DPS series for API issuance must be between 00001 and 49999.');
         }
 
         $series = str_pad((string) ((int) $series), 5, '0', STR_PAD_LEFT);

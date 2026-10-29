@@ -5,7 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # DPS reservation handoff for the multi-company emission boundary
 
-Status: **integrated implementation contract pending CI, independent review and operating validation**. This document does not authorize series activation, production emission or completion of #423.
+Status: **the journal, reservation and irreversible first-POST claim are
+integrated; operational series activation and restricted-environment acceptance
+remain pending**. This does not authorize production emission or close #423.
 
 Scope: #423, fiscal profile ownership in #417, authoritative company context in
 #421 and the last mutable preflight in #429. The existing
@@ -25,8 +27,8 @@ source for unresolved external coordination and rejected-number policy.
 | Origin | Auditable label (`manual`, `manual_group`, `automatic`, `reemit`, `substitution`, future scheduler/API); not part of fiscal identity or idempotency |
 | Preflight | #429 pure assessment of the resolved company's immutable fiscal/municipal and invoice context, by actual group, rechecked at the last boundary before any first POST |
 
-For each **new** reservation, #421 must inject a concrete
-`DpsReservationAuthorizer` implementing this exact contract:
+For each **new** reservation, `DpsIssuanceIdentity` uses the
+`CompanyProfileDpsReservationAuthorizer`, implementing this contract:
 
 ```php
 public function assertCanReserve(
@@ -45,9 +47,11 @@ a request field, a company selected in an unrelated HTTP session or a row
 labelled `shared_database` is not permission. Denials must occur before
 a new sequence mutation and must not reveal another tenant's reservation.
 
-For a **new** fiscal operation, invoke the existing kernel as follows only
-after owner, fiscal profile, series entitlement and nonmutating preflight have
-been independently validated:
+For a **new** fiscal operation, `EmissionAttemptJournal::issue()`
+calls `DpsIssuanceIdentity::prepare()` after verifying fiscal authority.
+The final municipal preflight runs **after reservation** but **before** the
+irreversible claim and HTTP POST. A preflight denial can consume a reservation;
+it is never silently recycled. The allocator contract is:
 
 ```php
 $reserved = $reservations->reserve(
@@ -57,17 +61,19 @@ $reserved = $reservations->reserve(
 // reservation_id, company_id, invoice_id, series, number
 ```
 
-This API is not a certificate or profile resolver. #421 must retain the
-verified fiscal-profile snapshot and ensure `reservation_id` belongs to
-the exact issuer/environment/series/owner/operation when building or
-reconciling a DPS. Production code must not install an allow-all authorizer.
+The allocator API is not a certificate or profile resolver. The integrated
+issuance identity resolves the persisted profile and validates the exact
+issuer/environment/series/owner/operation against the local immutable
+`reservation_id` before a central claim. There is no allow-all
+production authorizer.
 
 ## Integration and irreversible transitions
 
-1. Load the persisted invoice and original receipt/group when relevant. #421
-   resolves authorized company/profile/certificate and target environment.
+1. Load the persisted invoice and original receipt/group when relevant.
+   Resolve authorized company/profile/certificate and target environment.
    Reject absent, suspended, cross-tenant or inconsistent profiles with no
-   fallback. #429 evaluates all applicable business/fiscal checks without POST.
+   fallback. The municipal preflight executes after reservation but before
+   the central claim and any POST.
 2. Derive the stable operation key and obtain the reservation. Repeated
    compatible calls receive the **same** reservation even after a series is
    suspended, but must still pass caller authorization; distinct operations
@@ -133,17 +139,16 @@ read-only `assertExisting()` match against the central ledger. Local
 other installations may consume intervening numbers.
 
 Fencing generations are checked and locked together with each atomic
-allocation. A revocation transaction can fence a stale member before it
-allocates again. This **does not yet** fence a previously reserved DPS at the
-final first-POST boundary: #429 must integrate an authoritative, irreversible
-first-transmission claim with #421's company context and the existing
-`EmissionAttemptJournal`; do not add another journal.
+allocation. #515/#516 additionally fence the first fiscal POST at the
+central claim boundary, with the immutable reservation and authorized company
+context verified by `EmissionAttemptJournal`. This does not revoke a POST
+already in flight. Do not add another journal.
 
 See [the deployment architecture and failure matrix](dps-distributed-coordination.md)
 and [external SQL schema](sql/dps-coordination-schema.sql). Provisioning,
 authentic series ownership, disjoint external emitters, up-to-date attested
-floor, durable coordinator recovery/failover and #429's last-POST gate all
-remain **operational prerequisites**, not features inferred from central
+floor, durable coordinator recovery/failover and the already integrated first-POST gate all
+remain **contractual prerequisites**, not features inferred from central
 table existence. No production series is automatically activated.
 
 The MySQL regression test `testTwoIsolatedMysqlDatabasesCanAllocateIdenticalNationalDpsIdentity`
@@ -152,14 +157,14 @@ registration/series/reference both successfully commit local number 1.
 This establishes the need for external coordination; it is not a test of
 coordinator correctness and never calls SEFIN.
 
-**Historical warning (superseded by the integrated journal change):**
-`IssueInvoiceNfse::issue()` still reaches the underlying `emit()` method,
-and several builders still derive DPS numbers from legacy local IDs. Thus
-the fail-closed guarantee applies to `DpsReservationService` only, not
-every deployed fiscal POST. Production must remain disabled by a separate
-verified operational control until #429 enforces the shared reservation
-and first-POST claim on every mutable emission path. No class in this PR
-implements that last-boundary gate.
+**Current transport boundary:** `IssueInvoiceNfse::issue()` remains a
+low-level transport helper, not a public issuance entrypoint. The supported
+manual, automatic, grouped/batch, reissue and substitution callers now pass
+through `EmissionAttemptJournal`, where #515/#516 bind the immutable
+reservation and first-POST claim. The historical deterministic draft numbers
+are replaced before transmission. Keep real emission disabled until
+operational series ownership, historical reconciliation and restricted
+environment validation have been established.
 
 Before enabling a series, #417/#421 must require durable evidence of one of:
 a genuinely shared atomic allocation store used by **all** installations for
@@ -211,10 +216,9 @@ before making these capabilities operational.
 
 ## Ownership and remaining decisions
 
-#417 provisions the company profile and safely approves series ownership.
-#421 provides the authoritative context, reservation adapter and all
-origin-specific integrations. #429 owns the last mutable fiscal preflight.
-#423 retains the distributed coordination, normative reuse/gap policy,
-integrated verification and explicit downstream handoff. Update the
-per-company operational instructions in `docs/operacao-e-configuracao.md`
-only when the series activation path is actually delivered.
+#417 owns the fiscal profile and series-ownership prerequisites.
+#421 provides authoritative company context and origin-specific boundaries;
+#429 owns the final municipal preflight. #423 retains distributed
+coordination, normative reuse/gap policy and operational acceptance.
+`docs/operacao-e-configuracao.md` describes the current setup; its
+presence does not imply that any real series is activated.

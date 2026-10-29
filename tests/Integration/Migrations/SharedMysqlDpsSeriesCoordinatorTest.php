@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Integration\Migrations;
 
 use Modules\Nfse\Application\DpsFiscalIssuer;
+use Modules\Nfse\Application\DpsIssuanceIdentity;
 use Modules\Nfse\Application\SharedMysqlDpsSeriesCoordinator;
 use PDO;
 use PDOException;
@@ -16,6 +17,8 @@ use PHPUnit\Framework\TestCase;
 // The dedicated migration harness intentionally has no Akaunting autoloader.
 require_once dirname(__DIR__, 3) . '/Application/DpsFiscalIssuer.php';
 require_once dirname(__DIR__, 3) . '/Application/DpsSeriesCoordinator.php';
+require_once dirname(__DIR__, 3) . '/Application/DpsIssuanceIdentityContract.php';
+require_once dirname(__DIR__, 3) . '/Application/DpsIssuanceIdentity.php';
 require_once dirname(__DIR__, 3) . '/Application/SharedMysqlDpsSeriesCoordinator.php';
 
 /**
@@ -82,6 +85,36 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
         }
         $this->admin = null;
         parent::tearDown();
+    }
+
+    public function testApiSeriesOutsideOwnSoftwareRangeAreRejectedBeforeAllocation(): void
+    {
+        self::assertSame('00001', DpsIssuanceIdentity::normalizeSeries('1'));
+        self::assertSame('49999', DpsIssuanceIdentity::normalizeSeries('49999'));
+
+        foreach (['50000', '70000', '99999'] as $unsupported) {
+            try {
+                DpsIssuanceIdentity::normalizeSeries($unsupported);
+                self::fail('An API emitter cannot select series ' . $unsupported);
+            } catch (\LogicException $exception) {
+                self::assertStringContainsString('series', $exception->getMessage());
+            }
+
+            try {
+                $this->coordinator(self::INSTALL_A)->allocate(
+                    $this->issuer(),
+                    2,
+                    $unsupported,
+                    self::REFERENCE,
+                    $this->key('api-series-' . $unsupported),
+                );
+                self::fail('The authoritative allocator cannot accept series ' . $unsupported);
+            } catch (\InvalidArgumentException $exception) {
+                self::assertStringContainsString('scope', $exception->getMessage());
+            }
+        }
+
+        self::assertSame(0, $this->allocationCount());
     }
 
     public function testIndependentAkauntingDatabasesAllocateDistinctNumbersWithOneGlobalAuthority(): void
@@ -428,6 +461,53 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
                 $operation,
             ));
             $coordinator->assertExisting($issuer, 2, '00001', self::REFERENCE, $operation, 1);
+
+            // The original least-privilege grants cannot perform the first POST.
+            try {
+                $coordinator->claimFirstTransmission(
+                    $issuer,
+                    2,
+                    '00001',
+                    self::REFERENCE,
+                    $operation,
+                    1,
+                    $this->key('payload'),
+                );
+                self::fail('The coordinator must reject an unprivileged first-POST claim.');
+            } catch (PDOException $exception) {
+                self::assertContains((int) ($exception->errorInfo[1] ?? 0), [1142, 1143]);
+            }
+
+            $this->admin->exec('GRANT UPDATE '
+                . '(first_post_claimed_at, claimed_generation, first_post_fingerprint) ON '
+                . $schema . 'nfse_dps_coordination_allocations TO ' . $login);
+            $coordinator->claimFirstTransmission(
+                $issuer,
+                2,
+                '00001',
+                self::REFERENCE,
+                $operation,
+                1,
+                $this->key('payload'),
+            );
+            self::assertSame(1, (int) $this->global->query(
+                'SELECT COUNT(*) FROM nfse_dps_coordination_allocations WHERE first_post_claimed_at IS NOT NULL',
+            )->fetchColumn());
+            try {
+                $coordinator->claimFirstTransmission(
+                    $issuer,
+                    2,
+                    '00001',
+                    self::REFERENCE,
+                    $operation,
+                    1,
+                    $this->key('payload'),
+                );
+                self::fail('A minimal-privilege worker cannot repeat an already-claimed POST.');
+            } catch (\LogicException $exception) {
+                self::assertStringContainsString('claimed', $exception->getMessage());
+            }
+
             self::assertSame(['number' => 1, 'fresh' => false], $coordinator->allocate(
                 $issuer,
                 2,

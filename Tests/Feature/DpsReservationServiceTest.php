@@ -23,6 +23,30 @@ use Tests\Feature\FeatureTestCase;
  */
 final class DpsReservationServiceTest extends FeatureTestCase
 {
+    public function testApiSeriesFromOtherEmissionChannelsAreRejectedBeforeCounterMutation(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice();
+        $issuer = $this->issuer();
+        $this->activateSyntheticSeries($issuer);
+        $key = DpsOperationKey::forInvoice((int) $invoice->company_id, (int) $invoice->id, 2);
+
+        foreach (['50000', '70000', '99999'] as $unsupported) {
+            try {
+                $this->service()->reserve(
+                    (int) $invoice->company_id, (int) $invoice->id, $issuer,
+                    2, $unsupported, $key, 'manual',
+                );
+                self::fail('An API emission cannot reserve outside its channel series range.');
+            } catch (\InvalidArgumentException $exception) {
+                self::assertStringContainsString('API issuance', $exception->getMessage());
+            }
+        }
+
+        self::assertSame(0, DB::table('nfse_dps_reservations')->count());
+        self::assertSame(0, (int) DB::table('nfse_dps_series')->value('last_number'));
+    }
+
     public function testSameLogicalOperationReusesReservationAcrossOrigins(): void
     {
         $this->loginAs();

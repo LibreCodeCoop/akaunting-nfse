@@ -235,7 +235,7 @@ final class SharedMysqlDpsSeriesCoordinator implements DpsSeriesCoordinator
     {
         if (!in_array($environment, [1, 2], true)
             || preg_match('/^[0-9]{5}$/D', $series) !== 1
-            || $series === '00000'
+            || $series === '00000' || (int) $series > 49999
             || preg_match('/^[a-f0-9]{64}$/D', $reference) !== 1
             || preg_match('/^[a-f0-9]{64}$/D', $operationKey) !== 1) {
             throw new \InvalidArgumentException('Invalid authoritative DPS coordination scope or operation key.');

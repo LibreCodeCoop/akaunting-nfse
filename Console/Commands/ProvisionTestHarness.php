@@ -118,7 +118,7 @@ final class ProvisionTestHarness extends Command
                 'opcao_simples_nacional' => '1',
                 'regime_especial_tributacao' => '0',
                 'sandbox_mode' => true,
-                'dps_series' => '99999',
+                'dps_series' => '49999',
                 'enforce_item_federal_taxes' => false,
             ],
         ]);
@@ -141,7 +141,7 @@ final class ProvisionTestHarness extends Command
                 'issuer_municipality' => $municipio,
                 'issuer_registration_type' => 2,
                 'issuer_registration' => $cnpj,
-                'series' => '99999',
+                'series' => '49999',
             ];
             $reference = SyntheticDpsSeriesCoordinator::reference();
             $series = DB::table('nfse_dps_series')->where($scope)->first();

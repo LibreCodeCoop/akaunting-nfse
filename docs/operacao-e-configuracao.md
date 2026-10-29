@@ -71,8 +71,12 @@ documento original.
 **Não habilite emissão** antes de comprovar exclusividade de série perante
 outros emissores, numeração histórica máxima e coordenação de todas as
 instalações que compartilhem a identidade fiscal. Configure uma série decimal
-explícita de 1 a 5 dígitos, diferente de zero, no campo `dps_series` do perfil
-fiscal; ela não é ativada automaticamente. Cadastre a série local
+explícita de `00001` a `49999` para emissão por API no campo `dps_series` do
+perfil fiscal; ela não é ativada automaticamente. O FAQ oficial de setembro
+de 2026 distingue essa faixa das séries reservadas a outros canais:
+https://www.gov.br/nfse/pt-br/biblioteca/perguntas-e-respostas/perguntas-e-respostas-da-nfs-e
+O FAQ é material de orientação, não substitui os esquemas e regras oficiais do
+ambiente de destino. Cadastre a série local
 `nfse_dps_series` como `active` apenas após verificar identidade,
 `coordination_mode=shared_database` e correspondência da referência
 criptograficamente aleatória com o coordenador central.
