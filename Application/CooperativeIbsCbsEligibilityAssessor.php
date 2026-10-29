@@ -23,6 +23,7 @@ final class CooperativeIbsCbsEligibilityAssessor
 {
     private const LAW_URL = 'https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html';
     private const DECREE_URL = 'https://www2.camara.leg.br/legin/fed/decret/2026/decreto-12955-29-abril-2026-799019-normaatualizada-pe.html';
+    private const IBS_REGULATION_URL = 'https://www.cgibs.gov.br/upload/arquivos/202604/30084927-res-cgibs-n-6-30-abr-2026-regulamenta-o-ibs.pdf';
 
     public function assess(FiscalContext $context): FiscalAssessment
     {
@@ -100,10 +101,10 @@ final class CooperativeIbsCbsEligibilityAssessor
         if ($facts->optionEffectiveFrom !== null
             && $facts->optionEffectiveFrom->format('Y-m-d') !== '2027-01-01') {
             if ($facts->optionAtStartOfOperations !== true || $facts->cooperativeRegistrationDate === null) {
-                return $this->decision('COOP-ZERO-STARTUP-EVIDENCE-MISSING', 'unverifiable', 'cooperativeIbsCbsFacts.optionAtStartOfOperations', 'verify_start_of_activity_election', 'art. 393, para. 3', true);
+                return $this->decision('COOP-ZERO-STARTUP-EVIDENCE-MISSING', 'unverifiable', 'cooperativeIbsCbsFacts.optionAtStartOfOperations', 'verify_start_of_activity_election', 'art. 393, para. 3', 'cbs');
             }
             if ($facts->cooperativeRegistrationDate->format('Y-m-d') !== $facts->optionEffectiveFrom->format('Y-m-d')) {
-                return $this->decision('COOP-ZERO-STARTUP-DATE-MISMATCH', 'unverifiable', 'cooperativeIbsCbsFacts.cooperativeRegistrationDate', 'verify_start_of_activity_registration', 'art. 393, para. 3', true);
+                return $this->decision('COOP-ZERO-STARTUP-DATE-MISMATCH', 'unverifiable', 'cooperativeIbsCbsFacts.cooperativeRegistrationDate', 'verify_start_of_activity_registration', 'art. 393, para. 3', 'cbs');
             }
         }
 
@@ -118,9 +119,9 @@ final class CooperativeIbsCbsEligibilityAssessor
             $facts?->supplyRelation === CooperativeSupplyRelation::UNRELATED || $facts?->associationVerifiedAtEvent === false =>
                 $this->decision('COOP-ZERO-NO-ASSOCIATION', 'not_applicable', 'cooperativeIbsCbsFacts.associationVerifiedAtEvent', null, 'art. 271'),
             $facts?->withinCooperativePurpose === false =>
-                $this->decision('COOP-ZERO-OUTSIDE-PURPOSE', 'not_applicable', 'cooperativeIbsCbsFacts.withinCooperativePurpose', null, 'art. 392, III', true),
+                $this->decision('COOP-ZERO-OUTSIDE-PURPOSE', 'not_applicable', 'cooperativeIbsCbsFacts.withinCooperativePurpose', null, 'art. 392, III', 'cbs'),
             $facts?->forPersonalUseOrConsumption === true =>
-                $this->decision('COOP-ZERO-PERSONAL-USE', 'not_applicable', 'cooperativeIbsCbsFacts.forPersonalUseOrConsumption', null, 'art. 392, IV', true),
+                $this->decision('COOP-ZERO-PERSONAL-USE', 'not_applicable', 'cooperativeIbsCbsFacts.forPersonalUseOrConsumption', null, 'art. 392, IV', 'cbs'),
             default => null,
         };
     }
@@ -182,11 +183,13 @@ final class CooperativeIbsCbsEligibilityAssessor
             return [$this->decision('COOP-ZERO-TAKER-NOT-COOPERATIVE', 'not_applicable', 'takerIsCooperative', null, 'art. 271, I')];
         }
         if ($facts->associateIsRegularIbsCbsTaxpayer === false) {
-            // LC 214/2025 art. 271(I) and Decree 12.955/2026 art. 392(II)
-            // differ on non-regular associates. No silent resolution.
+            // The law does not condition this supply direction on the member's
+            // regular regime, while both tax regulations exclude non-regular
+            // associates. Preserve separate IBS and CBS source evidence.
             return [
                 $this->decision('COOP-ZERO-CONFLICT-LC271-I', 'unverifiable', 'cooperativeIbsCbsFacts.associateIsRegularIbsCbsTaxpayer', 'resolve_statute_regulation_conflict', 'art. 271, I'),
-                $this->decision('COOP-ZERO-CONFLICT-DEC392-II', 'unverifiable', 'cooperativeIbsCbsFacts.associateIsRegularIbsCbsTaxpayer', 'resolve_statute_regulation_conflict', 'art. 392, II', true),
+                $this->decision('COOP-ZERO-CONFLICT-DEC392-II', 'unverifiable', 'cooperativeIbsCbsFacts.associateIsRegularIbsCbsTaxpayer', 'resolve_statute_regulation_conflict', 'art. 392, II', 'cbs'),
+                $this->decision('COOP-ZERO-CONFLICT-CGIBS392-II', 'unverifiable', 'cooperativeIbsCbsFacts.associateIsRegularIbsCbsTaxpayer', 'resolve_statute_regulation_conflict', 'art. 392, II', 'ibs'),
             ];
         }
 
@@ -195,17 +198,23 @@ final class CooperativeIbsCbsEligibilityAssessor
             : $this->decision('COOP-ZERO-ASSOCIATE-REGIME-UNKNOWN', 'unverifiable', 'cooperativeIbsCbsFacts.associateIsRegularIbsCbsTaxpayer', 'verify_associate_regular_status', 'art. 271, I')];
     }
 
-    private function decision(string $rule, string $status, string $field, ?string $correction, string $provision, bool $decree = false): FiscalDecision
+    private function decision(string $rule, string $status, string $field, ?string $correction, string $provision, string $authority = 'law'): FiscalDecision
     {
+        [$sourceUrl, $sourceVersion, $publishedAt] = match ($authority) {
+            'law' => [self::LAW_URL, 'LC 214/2025, consolidada com LC 227/2026', '2025-01-16'],
+            'cbs' => [self::DECREE_URL, 'Decreto 12.955/2026', '2026-04-29'],
+            'ibs' => [self::IBS_REGULATION_URL, 'Resolução CGIBS 6/2026', '2026-04-30'],
+        };
+
         return new FiscalDecision(
             ruleId: $rule,
             category: 'normative',
             status: $status,
             severity: in_array($status, ['pass', 'not_applicable'], true) ? 'info' : 'warn',
-            sourceUrl: $decree ? self::DECREE_URL : self::LAW_URL,
+            sourceUrl: $sourceUrl,
             sourceProvision: $provision,
-            sourceVersion: $decree ? 'Decreto 12.955/2026' : 'LC 214/2025, consolidada com LC 227/2026',
-            sourcePublishedAt: new DateTimeImmutable($decree ? '2026-04-29' : '2025-01-16'),
+            sourceVersion: $sourceVersion,
+            sourcePublishedAt: new DateTimeImmutable($publishedAt),
             effectiveFrom: new DateTimeImmutable('2027-01-01'),
             effectiveUntil: new DateTimeImmutable('2027-12-31'),
             fieldPath: $field,

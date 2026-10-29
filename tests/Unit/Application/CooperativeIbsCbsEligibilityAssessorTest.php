@@ -263,16 +263,21 @@ final class CooperativeIbsCbsEligibilityAssessorTest extends TestCase
 
     /** @param array<string,mixed> $overrides */
     #[DataProvider('statutoryConflictScenarios')]
-    public function testConflictProducesTwoDistinctNormativeSources(array $overrides): void
+    public function testConflictPreservesStatuteAndSeparateIbsCbsRegulations(array $overrides): void
     {
         $assessment = (new CooperativeIbsCbsEligibilityAssessor())->assess(self::context($overrides));
-        self::assertCount(2, $assessment->decisions);
+        self::assertCount(3, $assessment->decisions);
         self::assertSame('COOP-ZERO-CONFLICT-LC271-I', $assessment->decisions[0]->ruleId);
         self::assertSame('COOP-ZERO-CONFLICT-DEC392-II', $assessment->decisions[1]->ruleId);
+        self::assertSame('COOP-ZERO-CONFLICT-CGIBS392-II', $assessment->decisions[2]->ruleId);
         self::assertSame('art. 271, I', $assessment->decisions[0]->sourceProvision);
         self::assertSame('art. 392, II', $assessment->decisions[1]->sourceProvision);
+        self::assertSame('art. 392, II', $assessment->decisions[2]->sourceProvision);
         self::assertStringContainsString('leicomplementar-214', (string) $assessment->decisions[0]->sourceUrl);
         self::assertStringContainsString('decreto-12955', (string) $assessment->decisions[1]->sourceUrl);
+        self::assertStringContainsString('cgibs.gov.br', (string) $assessment->decisions[2]->sourceUrl);
+        self::assertSame('Resolução CGIBS 6/2026', $assessment->decisions[2]->sourceVersion);
+        self::assertSame('2026-04-30', $assessment->decisions[2]->sourcePublishedAt?->format('Y-m-d'));
 
         foreach ($assessment->decisions as $decision) {
             self::assertSame('unverifiable', $decision->status);
