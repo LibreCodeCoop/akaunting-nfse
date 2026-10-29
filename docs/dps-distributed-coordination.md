@@ -76,10 +76,11 @@ remain the sources for local operation history and emission recovery. Global
 allocation history is append-only: even rejected, abandoned or ambiguous
 numbers are not automatically recycled.
 
-**No provider is registered automatically.** The optional dependency in
-`DpsReservationService` defaults to null and fails closed. A boolean check,
-a matching text reference, a fake verifier or SQL locks within only one
-Akaunting installation cannot enable this coordinator.
+**No shared MySQL authority is provisioned automatically.**
+`Providers/Main.php` binds `DpsIssuanceIdentityContract` to the
+production issuance adapter, but without configured central MySQL connection,
+installation membership and approved fiscal series it fails closed. A
+matching text reference or local SQL lock cannot enable issuance.
 
 ## Provisioning and operating boundary
 
@@ -113,16 +114,15 @@ Akaunting installation cannot enable this coordinator.
    series identities are rejected by SQL. Keep the evidence and provisioning
    approvals outside the fiscal logs; never store PFX, tokens or XML here.
 6. Give each installation a durable UUID and fencing generation **outside
-   restored Akaunting database backups** and access to the *same* configured
-   Laravel central-MySQL connection, e.g. use
-   `DB::connection('nfse_dps_coordinator')->getPdo()` only after the operator
-   installs that named connection using existing Akaunting deployment config.
-   Pass it explicitly to `SharedMysqlDpsSeriesCoordinator` with the UUID
-   and generation. No automatic binding and no connection from user input.
-   The locally provisioned, active `nfse_dps_series` row must match the
-   global fiscal identity, `coordination_mode=shared_database` and
-   reference; it **does not itself constitute proof**. Provision/install
-   adapters only in #421/#429 after the first-POST claim is implemented.
+   restored Akaunting database backups**. Configure the same MySQL primary via
+   `NFSE_DPS_COORDINATOR_DSN`, `NFSE_DPS_COORDINATOR_USER`,
+   `NFSE_DPS_COORDINATOR_PASSWORD`, `NFSE_DPS_INSTALLATION_ID`
+   and `NFSE_DPS_INSTALLATION_GENERATION`. The existing
+   `ConfiguredDpsCoordinator` creates its PDO connection and has no local
+   fallback. The local active `nfse_dps_series` row must match the global
+   identity, `coordination_mode=shared_database` and reference; it
+   **does not itself constitute proof**. The adapter and claim are integrated,
+   but activating a fiscal series still needs independent evidence.
 7. Use least-privilege MySQL credentials: allocation workers need SELECT and column-level `UPDATE(last_number)` on central
    series; SELECT only on members; SELECT/INSERT and column-scoped UPDATE
    (`first_post_claimed_at`, `claimed_generation`, `first_post_fingerprint`)
@@ -187,18 +187,17 @@ authorized in-flight HTTP request. Operators must drain/terminate old
 workers during revocation and treat any in-flight result as ambiguous until
 read-only reconciliation. Do not claim hard real-time transmission revocation.
 
-## Contract to #421 / #429
+## Integrated contract with #421 / #429
 
-The planned authorized integration must resolve the persisted invoice's
-company/profile/certificate, its immutable `DpsFiscalIssuer`, environment
-and approved series, stable `DpsOperationKey`, and a concrete coordinator
-bound to the registered installation. Allocate before building the DPS,
-then durably attach the local reservation to the existing attempt journal.
-The final, **irreversible** first-POST claim must check current central
-authority/fencing and be coordinated with the existing journal: it is NOT a
-fresh reservation, a second journal or an expiring lease that licenses
-retransmission. Until that contract is delivered and tested, do not bind
-this class in the production service provider.
+`DpsIssuanceIdentity` resolves the persisted invoice owner and approved
+fiscal profile, validates the immutable issuer/environment/series, derives
+`DpsOperationKey` and reserves an authoritative number. The existing
+`EmissionAttemptJournal` persists the local reservation and rechecks
+municipal preflight before the **irreversible** central first-POST claim.
+The claim checks current authority and fencing; it is neither a new
+reservation nor an expiring retry lease. The provider binds the adapter,
+but real issuance fails closed without a configured coordinator and
+independently verified series activation.
 
 `nfse-php` remains responsible for official XML and identifier formation;
 the pinned module revision is
