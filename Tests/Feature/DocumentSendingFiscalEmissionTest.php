@@ -9,14 +9,15 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Events\Document\DocumentSending;
 use App\Jobs\Document\SendDocument;
+use App\Models\Common\Company;
 use App\Models\Common\Item;
 use App\Models\Document\Document;
 use Illuminate\Support\Facades\Notification;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseCompanyProfile;
-use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Tests\Feature\FeatureTestCase;
 
 final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
@@ -75,6 +76,95 @@ final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
         $this->expectExceptionMessage('foreign_taker_requires_review');
 
         event(new DocumentSending($invoice));
+    }
+
+    public function testBackgroundNativeSendUsesPersistedInvoiceOwnerWithoutHttpSession(): void
+    {
+        $invoice = $this->invoiceWithProfile('emit_on_send');
+        $previous = Company::getCurrent();
+
+        $issuer = new class () implements BulkEmissionUnitIssuerInterface {
+            /** @var list<int> */
+            public array $observedCompanies = [];
+
+            public function issue(int $invoiceId, string $emissionGroupKey): NfseReceipt
+            {
+                $this->observedCompanies[] = (int) Company::getCurrent()?->id;
+
+                return new NfseReceipt([
+                    'invoice_id' => $invoiceId,
+                    'nfse_number' => 'FAKE-CONSOLE',
+                    'status' => 'emitted',
+                    'emission_group_key' => $emissionGroupKey,
+                ]);
+            }
+        };
+        $this->app->instance(BulkEmissionUnitIssuerInterface::class, $issuer);
+
+        Company::forgetCurrent();
+        try {
+            self::assertNull(Company::getCurrent());
+            self::assertNull(auth()->user());
+            event(new DocumentSending($invoice));
+
+            self::assertSame([(int) $invoice->company_id], $issuer->observedCompanies);
+            self::assertNull(Company::getCurrent());
+        } finally {
+            if ($previous instanceof Company) {
+                $previous->makeCurrent();
+            }
+        }
+    }
+
+    public function testBackgroundNativeSendRestoresMissingCompanyAfterIssuerFailure(): void
+    {
+        $invoice = $this->invoiceWithProfile('emit_on_send');
+        $previous = Company::getCurrent();
+
+        $issuer = new class () implements BulkEmissionUnitIssuerInterface {
+            public int $observedCompany = 0;
+
+            public function issue(int $invoiceId, string $emissionGroupKey): NfseReceipt
+            {
+                $this->observedCompany = (int) Company::getCurrent()?->id;
+
+                throw new \RuntimeException('Synthetic fiscal failure before any POST.');
+            }
+        };
+        $this->app->instance(BulkEmissionUnitIssuerInterface::class, $issuer);
+
+        Company::forgetCurrent();
+        try {
+            event(new DocumentSending($invoice));
+            self::fail('Synthetic issuance failure must propagate.');
+        } catch (\RuntimeException $error) {
+            self::assertSame('Synthetic fiscal failure before any POST.', $error->getMessage());
+            self::assertSame((int) $invoice->company_id, $issuer->observedCompany);
+            self::assertNull(Company::getCurrent());
+        } finally {
+            if ($previous instanceof Company) {
+                $previous->makeCurrent();
+            }
+        }
+    }
+
+    public function testAuthenticatedNativeSendWithoutCompanyIsDenied(): void
+    {
+        $invoice = $this->invoiceWithProfile('emit_on_send');
+        $this->loginAs();
+        $previous = Company::getCurrent();
+        Company::forgetCurrent();
+
+        try {
+            event(new DocumentSending($invoice));
+            self::fail('Authenticated send without company context must not infer ownership.');
+        } catch (\Illuminate\Auth\Access\AuthorizationException) {
+            self::assertNull(Company::getCurrent());
+        } finally {
+            if ($previous instanceof Company) {
+                $previous->makeCurrent();
+            }
+        }
     }
 
     public function testNativeSendJobDoesNotNotifyCustomerWhenFiscalIssuanceFails(): void
