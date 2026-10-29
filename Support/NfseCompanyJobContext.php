@@ -29,9 +29,10 @@ final class NfseCompanyJobContext
         }
 
         $owner = Company::query()->findOrFail($companyId);
-        $owner->makeCurrent();
 
         try {
+            $owner->makeCurrent();
+
             return $action();
         } finally {
             if ($previous instanceof Company) {
