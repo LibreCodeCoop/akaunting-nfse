@@ -6,6 +6,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
 
 // The Core applies its configured API authentication, read-api and company
@@ -14,4 +15,8 @@ Route::api('nfse', function (): void {
     Route::get('national-services', [NationalServicesController::class, 'nationalServices'])
         ->middleware('permission:read-nfse-settings')
         ->name('national-services.index');
+
+    Route::get('invoices/{invoice}/emission-attempts', [EmissionAttemptController::class, 'index'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('invoices.emission-attempts.index');
 });

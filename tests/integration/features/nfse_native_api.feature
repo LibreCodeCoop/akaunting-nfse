@@ -43,6 +43,30 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the JSON response should have these field types:
       | data | array |
 
+  Scenario: Native API client reads bounded fiscal emission attempt history
+    When I make a native API GET request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/emission-attempts" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | array |
+    And the JSON array at "data" should contain at most 100 items
+
+  Scenario: Native API fiscal attempt history rejects missing authentication
+    Given the API client is a guest
+    When I make a "GET" JSON request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/emission-attempts"
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native API fiscal attempt history rejects users without invoice permissions
+    When I make a native API GET request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/emission-attempts" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native API fiscal attempt history cannot be queried across companies
+    When I make a native API GET request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/emission-attempts" with synthetic "other-company-administrator" credentials
+    Then the API response status should be 401
+    And the API response should be JSON
+
   Scenario: Session cookie alone cannot authenticate against the external API
     Given the "administrator" synthetic Akaunting user is authenticated
     When I make a "GET" JSON request to "/<company_id>/api/nfse/national-services?limit=500"
