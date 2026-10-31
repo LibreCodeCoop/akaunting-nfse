@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Providers;
 
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as Provider;
+use Modules\Nfse\Listeners\AppendFiscalProfileToApiResource;
 use Modules\Nfse\Listeners\EmitNfseBeforeDocumentSend;
 use Modules\Nfse\Listeners\PersistContactFiscalProfile;
 use Modules\Nfse\Listeners\PersistItemFiscalProfile;
@@ -15,6 +16,9 @@ use Modules\Nfse\Listeners\PersistItemFiscalProfile;
 class Event extends Provider
 {
     protected $listen = [
+        'App\\Events\\Api\\ResourceShowing' => [
+            AppendFiscalProfileToApiResource::class . '@showing',
+        ],
         'App\\Events\\Common\\ContactCreating' => [
             PersistContactFiscalProfile::class . '@creating',
         ],
