@@ -66,3 +66,12 @@ No new fiscal mutation route is introduced by the catalog foundation. Future
 fiscal mutations require operation-level ACL, tenant and object checks, CSRF
 for session-authenticated writes, idempotency and negative integration tests.
 The native Core API remains unchanged.
+
+## Read-only emission attempt history
+
+The existing fiscal attempt journal supports both HTTP transports using the same controller:
+
+- External: `GET /{company_id}/{api_prefix}/nfse/invoices/{invoice_id}/emission-attempts`
+- Browser: `GET /{company_id}/nfse/invoices/{invoice_id}/emission-attempts`
+
+The native Core API requires its own authentication and `read-api` along with `read-sales-invoices`. The browser continues to use the admin session. Both responses contain up to 100 newest attempts for an invoice owned by the active company, without raw XML or full transmitted documents. A fiscal attempt is distinct from an issued NFS-e receipt and from the Akaunting commercial invoice.
