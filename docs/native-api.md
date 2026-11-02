@@ -44,7 +44,7 @@ The module extends the Core's existing item and contact API JSON resources via
 `App\Events\Api\ResourceShowing`. It does not add another item/contact
 CRUD endpoint. The extra `nfse_fiscal_profile` member is returned only when
 the authenticated user has the native resource read permission
-(`read-items` or `read-sales-customers`) **and** `read-nfse-settings`, and the
+(`read-common-items` or `read-sales-customers`) **and** `read-nfse-settings`, and the
 resource belongs to the active Akaunting company. It is omitted entirely
 without the fiscal read permission, and is `null` when no profile exists.
 

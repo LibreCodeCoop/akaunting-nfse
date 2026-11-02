@@ -76,7 +76,7 @@ final class NativeFiscalResourceTest extends FeatureTestCase
         $this->loginAs();
         $role = $this->createRole('nfse-core-resource-only');
         $this->attachPermission($role, 'read-admin-panel');
-        $this->attachPermission($role, 'read-items');
+        $this->attachPermission($role, 'read-common-items');
         $this->attachPermission($role, 'read-sales-customers');
         $operator = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
             'enabled' => 1,

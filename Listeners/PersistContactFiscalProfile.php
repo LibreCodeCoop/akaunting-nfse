@@ -6,6 +6,7 @@ declare(strict_types=1);
 namespace Modules\Nfse\Listeners;
 
 use App\Models\Common\Contact;
+use Illuminate\Http\Request;
 use Modules\Nfse\Support\ContactFiscalProfileInput;
 use Modules\Nfse\Support\ContactFiscalProfileStore;
 
@@ -15,8 +16,7 @@ use Modules\Nfse\Support\ContactFiscalProfileStore;
  */
 final class PersistContactFiscalProfile
 {
-    /** @var array{municipal_registration:string,legal_name:string}|null */
-    private ?array $values = null;
+    private ?Request $request = null;
     private ?string $operation = null;
     private int $companyId = 0;
     private int $contactId = 0;
@@ -44,14 +44,12 @@ final class PersistContactFiscalProfile
             return;
         }
         $this->assertCompanyAndTransaction($contact);
-        $values = $this->values;
+        $store = new ContactFiscalProfileStore();
+        $existing = $this->operation === 'update' ? $store->forContact($contact) : null;
+        $values = ContactFiscalProfileInput::fromRequest($this->request, $existing);
         $this->clear();
         if ($values !== null) {
-            (new ContactFiscalProfileStore())->persist(
-                (int) $contact->company_id,
-                (int) $contact->id,
-                $values,
-            );
+            $store->persist((int) $contact->company_id, (int) $contact->id, $values);
         }
     }
 
@@ -69,7 +67,7 @@ final class PersistContactFiscalProfile
             return;
         }
 
-        $this->values = $values;
+        $this->request = $request;
         $this->operation = $operation;
         $this->companyId = $companyId;
         $this->contactId = $contactId;
@@ -77,7 +75,7 @@ final class PersistContactFiscalProfile
 
     private function matches(Contact $contact, bool $saved): bool
     {
-        if ($this->values === null || ($contact->type ?? '') !== Contact::CUSTOMER_TYPE) {
+        if ($this->request === null || ($contact->type ?? '') !== Contact::CUSTOMER_TYPE) {
             return false;
         }
         if ($this->operation === 'create') {
@@ -99,7 +97,7 @@ final class PersistContactFiscalProfile
 
     private function clear(): void
     {
-        $this->values = null;
+        $this->request = null;
         $this->operation = null;
         $this->companyId = 0;
         $this->contactId = 0;

@@ -36,7 +36,7 @@ final class AppendFiscalProfileToApiResource
         }
 
         if ($model instanceof Item) {
-            if (!$user->can('read-items')) {
+            if (!$user->can('read-common-items')) {
                 return;
             }
 

@@ -55,6 +55,19 @@ final class ContactFiscalProfileRoundTripTest extends FeatureTestCase
             ->assertOk()
             ->assertSee('value="EMPRESA ATUALIZADA LTDA"', false)
             ->assertSee('value="987654"', false);
+
+        unset($request['nfse_legal_name']);
+        $request['nfse_municipal_registration'] = '555555';
+        $this->patch(route('customers.update', $contact->id), $request)
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('nfse_contact_fiscal_profiles', [
+            'company_id' => $contact->company_id,
+            'contact_id' => $contact->id,
+            'legal_name' => 'EMPRESA ATUALIZADA LTDA',
+            'municipal_registration' => '555555',
+        ]);
     }
 
     public function testInvalidFiscalRegistrationCannotCreateNativeCustomer(): void

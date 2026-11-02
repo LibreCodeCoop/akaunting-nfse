@@ -60,7 +60,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the API response should be JSON
 
   Scenario: Native contact API persists a fiscal customer profile
-    When I make a native API "POST" JSON request to "/api/contacts?company_id=<company_id>" with synthetic "administrator" credentials and body:
+    When I make a native API "POST" JSON request to "/api/contacts?company_id=<company_id>&search=type:customer" with synthetic "administrator" credentials and body:
       """
       {"type":"customer","name":"Synthetic native API customer","currency_code":"USD","nfse_legal_name":"Synthetic Customer Ltd","nfse_municipal_registration":"123456"}
       """
@@ -69,7 +69,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the JSON value at "data.nfse_fiscal_profile.legal_name" should be "Synthetic Customer Ltd"
 
   Scenario: Native contact API rejects an invalid municipal registration
-    When I make a native API "POST" JSON request to "/api/contacts?company_id=<company_id>" with synthetic "administrator" credentials and body:
+    When I make a native API "POST" JSON request to "/api/contacts?company_id=<company_id>&search=type:customer" with synthetic "administrator" credentials and body:
       """
       {"type":"customer","name":"Synthetic invalid API customer","currency_code":"USD","nfse_municipal_registration":"1234567890123456"}
       """
