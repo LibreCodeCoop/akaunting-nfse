@@ -38,6 +38,35 @@ The two HTTP paths are deliberate security transports, not two domain APIs:
 the API group is stateless, whereas the admin group includes session and CSRF.
 Do not forward browser cookies into the native API group.
 
+## Fiscal data in native Akaunting item and customer resources
+
+The module extends the Core's existing item and contact API JSON resources via
+`App\Events\Api\ResourceShowing`. It does not add another item/contact
+CRUD endpoint. The extra `nfse_fiscal_profile` member is returned only when
+the authenticated user has the native resource read permission
+(`read-common-items` or `read-sales-customers`) **and** `read-nfse-settings`, and the
+resource belongs to the active Akaunting company. It is omitted entirely
+without the fiscal read permission, and is `null` when no profile exists.
+
+- `GET /{api_prefix}/items/{id}?company_id={company_id}`: `nfse_fiscal_profile` contains
+  `item_lista_servico`, `codigo_tributacao_nacional`,
+  `codigo_tributacao_municipal`, `codigo_nbs` and `rtc_supply_category`.
+- `GET /{api_prefix}/contacts/{id}?company_id={company_id}`: for customers, the member
+  contains `municipal_registration` and `legal_name`; other contact types
+  retain their native Core representation.
+
+Core controls authentication, native item/contact ACL, tenant routing and CRUD
+operations. The module's existing fiscal listeners persist item/customer
+attributes within the native Core create/update jobs. Browser forms continue
+using their existing authenticated native Core form routes; fiscal catalog
+lookups use the session-protected JSON transport described above. No external
+API credentials are placed in HTML or JavaScript.
+
+No new fiscal mutation route is introduced by the catalog foundation. Future
+fiscal mutations require operation-level ACL, tenant and object checks, CSRF
+for session-authenticated writes, idempotency and negative integration tests.
+The native Core API remains unchanged.
+
 ## Read-only emission attempt history
 
 The existing fiscal attempt journal supports both HTTP transports using the same controller:
@@ -46,8 +75,3 @@ The existing fiscal attempt journal supports both HTTP transports using the same
 - Browser: `GET /{company_id}/nfse/invoices/{invoice_id}/emission-attempts`
 
 The native Core API requires its own authentication and `read-api` along with `read-sales-invoices`. The browser continues to use the admin session. Both responses contain up to 100 newest attempts for an invoice owned by the active company, without raw XML or full transmitted documents. A fiscal attempt is distinct from an issued NFS-e receipt and from the Akaunting commercial invoice.
-
-No write operation is exposed in this foundation. Future fiscal mutations
-require distinct operation-level ACL, tenant and object checks, CSRF for cookie
-authentication, idempotency and negative integration tests before publication.
-The native Core API remains unchanged.
