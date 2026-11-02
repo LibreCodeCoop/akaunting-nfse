@@ -10,16 +10,23 @@ use Illuminate\Http\Request;
 /** Validates the two NFS-e-only customer fields without modifying Akaunting Contact. */
 final class ContactFiscalProfileInput
 {
-    /** @return array{municipal_registration:string,legal_name:string}|null */
-    public static function fromRequest(mixed $request): ?array
+    /**
+     * @param array{municipal_registration:string,legal_name:string}|null $existing
+     * @return array{municipal_registration:string,legal_name:string}|null
+     */
+    public static function fromRequest(mixed $request, ?array $existing = null): ?array
     {
         if (!$request instanceof Request
             || (!$request->has('nfse_municipal_registration') && !$request->has('nfse_legal_name'))) {
             return null;
         }
 
-        $registration = $request->input('nfse_municipal_registration', '');
-        $legalName = $request->input('nfse_legal_name', '');
+        $registration = $request->has('nfse_municipal_registration')
+            ? $request->input('nfse_municipal_registration', '')
+            : ($existing['municipal_registration'] ?? '');
+        $legalName = $request->has('nfse_legal_name')
+            ? $request->input('nfse_legal_name', '')
+            : ($existing['legal_name'] ?? '');
         // Akaunting converts empty native form inputs to null.
         // Explicitly clearing either fiscal field must persist as empty.
         if (($registration !== null && !is_string($registration))

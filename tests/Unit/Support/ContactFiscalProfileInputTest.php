@@ -49,6 +49,30 @@ final class ContactFiscalProfileInputTest extends TestCase
         );
     }
 
+    public function testPartialFiscalUpdatePreservesOmittedFields(): void
+    {
+        $existing = ['municipal_registration' => '123456', 'legal_name' => 'Existing Customer Ltd'];
+
+        self::assertSame(
+            ['municipal_registration' => '987654', 'legal_name' => 'Existing Customer Ltd'],
+            ContactFiscalProfileInput::fromRequest(Request::create('/', 'PATCH', [
+                'nfse_municipal_registration' => '987654',
+            ]), $existing),
+        );
+
+        self::assertSame(
+            ['municipal_registration' => '123456', 'legal_name' => 'Updated Customer Ltd'],
+            ContactFiscalProfileInput::fromRequest(Request::create('/', 'PATCH', [
+                'nfse_legal_name' => 'Updated Customer Ltd',
+            ]), $existing),
+        );
+
+        self::assertNull(ContactFiscalProfileInput::fromRequest(
+            Request::create('/', 'PATCH', ['name' => 'Unchanged']),
+            $existing,
+        ));
+    }
+
     public function testNonScalarFiscalFieldsAreRejected(): void
     {
         $this->expectException(\InvalidArgumentException::class);
