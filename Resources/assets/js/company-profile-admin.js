@@ -102,6 +102,8 @@
         let vaultState = 'unverified';
         let editingId = null;
         let saving = false;
+        let mutating = false;
+        let lastEditorTrigger = null;
 
         const message = (node, value) => {
             if (!node) return;
@@ -164,7 +166,9 @@
                         : 'Regimes municipais especiais exigem verificação específica antes da emissão.';
         }
 
-        function openEditor(profile) {
+        function openEditor(profile, trigger = null) {
+            if (saving || mutating) return;
+            lastEditorTrigger = trigger;
             message(el('profile-form-error'), '');
             form.reset();
             editingId = profile ? Number(profile.company_id) : null;
@@ -195,11 +199,13 @@
             el('profile-editor-title').focus();
         }
 
-        function closeEditor() {
+        function closeEditor(restoreFocus = true) {
             editor.hidden = true;
             editingId = null;
             form.reset();
             message(el('profile-form-error'), '');
+            if (restoreFocus && lastEditorTrigger?.isConnected && !lastEditorTrigger.hidden) lastEditorTrigger.focus();
+            lastEditorTrigger = null;
         }
 
         function profileCell(row, value) {
@@ -213,9 +219,10 @@
         function addRowAction(cell, title, action, destructive = false) {
             const button = documentRef.createElement('button');
             button.type = 'button';
-            button.className = 'ml-3 underline ' + (destructive ? 'text-red-700' : 'text-indigo-700');
+            button.className = 'ml-3 inline-block rounded px-1 py-2 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ' + (destructive ? 'text-red-700' : 'text-indigo-700');
+            button.setAttribute('aria-label', title + ' configuração NFS-e de ' + cell.parentElement.firstChild.textContent);
             button.textContent = title;
-            button.addEventListener('click', action);
+            button.addEventListener('click', () => { if (!mutating && !saving) action(button); });
             cell.appendChild(button);
         }
 
@@ -254,20 +261,20 @@
                 const actions = profileCell(row, '');
                 actions.className += ' text-right whitespace-nowrap';
                 if (config.canUpdate && profile.status === 'active' && !profile.cleanup_pending) {
-                    addRowAction(actions, 'Editar', () => openEditor(profile));
+                    addRowAction(actions, 'Editar', (trigger) => openEditor(profile, trigger));
                 }
                 if (config.canDelete && (profile.cleanup_pending || profile.status !== 'active')) {
-                    addRowAction(actions, 'Retomar limpeza', () => cleanup(profile));
+                    addRowAction(actions, 'Retomar limpeza', (trigger) => cleanup(profile, trigger));
                 }
                 if (config.canDelete && profile.status === 'active') {
-                    addRowAction(actions, 'Excluir', () => destroy(profile), true);
+                    addRowAction(actions, 'Excluir', (trigger) => destroy(profile, trigger), true);
                 }
                 el('profiles-body').appendChild(row);
             }
 
             if (addButton) {
                 addButton.hidden = !showAdd(snapshot, config.canUpdate);
-                addButton.disabled = !canCreate(snapshot, vaultState, config.canUpdate);
+                addButton.disabled = mutating || saving || !canCreate(snapshot, vaultState, config.canUpdate);
                 addButton.setAttribute('aria-describedby', 'profile-add-hint');
             }
             let hint = '';
@@ -291,7 +298,7 @@
                 // On access errors never preserve company metadata from an earlier response.
                 loaded = false;
                 snapshot = { profiles: [], eligible_companies: [] };
-                closeEditor();
+                closeEditor(false);
                 el('profiles-loading').hidden = true;
                 el('profiles-table-wrap').hidden = true;
                 el('profiles-empty').hidden = true;
@@ -338,20 +345,33 @@
             }
         }
 
-        async function destroy(profile) {
-            if (!confirmImpl('Excluir a configuração NFS-e de "' + profile.name + '"? A empresa do Akaunting e os documentos fiscais históricos não serão excluídos.')) return;
+        async function destroy(profile, trigger) {
+            if (mutating || saving) return;
+            if (!confirmImpl('Excluir a configuração NFS-e de "' + profile.name + '"? A empresa do Akaunting e os documentos fiscais históricos não serão excluídos. Operações fiscais pendentes podem impedir a exclusão.')) return;
+            mutating = true;
+            trigger.disabled = true;
+            message(el('profile-feedback'), 'Excluindo configuração NFS-e de ' + profile.name + '...');
+            renderProfiles();
             try {
                 await requestJson(urlFor(config.deleteUrl, profile.company_id), 'DELETE');
-                closeEditor();
+                closeEditor(false);
                 message(el('profile-feedback'), 'Configuração excluída. A empresa poderá ser cadastrada novamente.');
                 await refreshProfiles();
             } catch (error) {
                 message(el('profile-feedback'), 'Exclusão não concluída: ' + error.message);
                 await refreshProfiles();
+            } finally {
+                mutating = false;
+                renderProfiles();
             }
         }
 
-        async function cleanup(profile) {
+        async function cleanup(profile, trigger) {
+            if (mutating || saving) return;
+            mutating = true;
+            trigger.disabled = true;
+            message(el('profile-feedback'), 'Retomando limpeza de ' + profile.name + '...');
+            renderProfiles();
             try {
                 await requestJson(urlFor(config.cleanupUrl, profile.company_id), 'POST');
                 message(el('profile-feedback'), 'Limpeza concluída. Estado da empresa atualizado.');
@@ -359,12 +379,15 @@
             } catch (error) {
                 message(el('profile-feedback'), 'Limpeza não concluída: ' + error.message);
                 await refreshProfiles();
+            } finally {
+                mutating = false;
+                renderProfiles();
             }
         }
 
         async function submitProfile(event) {
             event.preventDefault();
-            if (saving) return;
+            if (saving || mutating) return;
             if (editingId === null && !canCreate(snapshot, vaultState, config.canUpdate)) {
                 message(el('profile-form-error'), 'Verifique o Vault e a elegibilidade da empresa antes de cadastrar.');
                 return;
@@ -384,26 +407,31 @@
             }
             saving = true;
             el('profile-save').disabled = true;
+            el('profile-save').textContent = 'Salvando...';
+            renderProfiles();
             message(el('profile-form-error'), '');
             try {
                 const path = editingId === null ? config.createUrl : urlFor(config.updateUrl, editingId);
                 await requestJson(path, 'POST', data);
-                closeEditor();
+                closeEditor(false);
                 message(el('profile-feedback'), 'Configuração salva. Confira a prontidão fiscal e as pendências na lista.');
                 await refreshProfiles();
             } catch (error) {
                 message(el('profile-form-error'), error.message);
+                el('profile-form-error').focus();
             } finally {
                 saving = false;
                 el('profile-save').disabled = false;
+                el('profile-save').textContent = 'Salvar configuração';
+                renderProfiles();
             }
         }
 
         el('profile-add')?.addEventListener('click', () => {
-            if (canCreate(snapshot, vaultState, config.canUpdate)) openEditor(null);
+            if (canCreate(snapshot, vaultState, config.canUpdate)) openEditor(null, addButton);
         });
-        el('profile-cancel')?.addEventListener('click', closeEditor);
-        el('profile-cancel-bottom')?.addEventListener('click', closeEditor);
+        el('profile-cancel')?.addEventListener('click', () => closeEditor());
+        el('profile-cancel-bottom')?.addEventListener('click', () => closeEditor());
         form.addEventListener('submit', submitProfile);
         for (const name of ['profile-simples', 'profile-issqn', 'profile-apuracao', 'profile-regime']) {
             el(name)?.addEventListener('change', syncFiscalRegime);

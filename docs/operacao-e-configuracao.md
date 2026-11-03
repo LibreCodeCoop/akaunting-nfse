@@ -152,6 +152,14 @@ continua verificando o caminho específico de cada novo certificado. Se o Vault
 ficar indisponível, novos cadastros ficam bloqueados, enquanto a listagem dos
 perfis existentes permanece consultável.
 
+Na listagem, a disponibilidade da ação **Adicionar** depende das empresas
+autorizadas sem perfil e do diagnóstico operacional do Vault. Uma falha de
+consulta à listagem oculta os metadados carregados anteriormente e exige
+nova autorização. A edição preserva o vínculo original e mantém o certificado
+existente quando não há novo PFX/P12. Erros de validação ficam no formulário,
+sem expor credenciais; ações de gravação e limpeza sinalizam processamento
+e impedem envios duplicados enquanto estiverem em curso.
+
 Excluir requer confirmação: a empresa do Akaunting e os documentos fiscais
 históricos permanecem intactos. Operações fiscais pendentes podem impedir a
 exclusão; se a limpeza de segredos for interrompida, use **Retomar limpeza**
