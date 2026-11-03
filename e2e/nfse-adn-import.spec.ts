@@ -32,10 +32,21 @@ test('received ADN NFS-e can be reviewed and imported as a draft bill', async ({
   await form.locator('input[name="issued_at"]').fill('2026-10-01');
   await form.locator('input[name="due_at"]').fill('2026-10-31');
 
+  const importResponse = page.waitForResponse((response) =>
+    response.url().includes(`/adn/review/${documentId}/import`)
+    && response.request().method() === 'POST',
+  );
   await Promise.all([
     page.waitForURL(/\/purchases\/bills\/\d+/),
     form.locator('button[type="submit"]').click(),
   ]);
+
+  const apiResponse = await importResponse;
+  expect([200, 201]).toContain(apiResponse.status());
+  expect(apiResponse.request().headers()['accept']).toContain('application/json');
+  const imported = await apiResponse.json();
+  expect(imported.data.review_status).toBe('imported');
+  expect(imported.data.bill_id).toBeGreaterThan(0);
 
   await expect(page).toHaveURL(/\/purchases\/bills\/\d+/);
   await expect(page.locator('body')).toContainText('NFSE E2E Vendor');

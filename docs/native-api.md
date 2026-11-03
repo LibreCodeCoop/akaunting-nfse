@@ -75,3 +75,56 @@ The existing fiscal attempt journal supports both HTTP transports using the same
 - Browser: `GET /{company_id}/nfse/invoices/{invoice_id}/emission-attempts`
 
 The native Core API requires its own authentication and `read-api` along with `read-sales-invoices`. The browser continues to use the admin session. Both responses contain up to 100 newest attempts for an invoice owned by the active company, without raw XML or full transmitted documents. A fiscal attempt is distinct from an issued NFS-e receipt and from the Akaunting commercial invoice.
+
+## ADN distribution, review and import
+
+ADN has one underlying synchronization/import implementation. External clients use
+Akaunting's native API authentication and `read-api`; the administrative Web UI
+uses its own authenticated session and CSRF protection. The two transports call
+the same controller and domain services. They do not synchronize via internal
+HTTP calls.
+
+| Operation | Native API suffix | Browser-session suffix | Permission |
+| --- | --- | --- | --- |
+| Locally synchronized documents | `GET adn/documents` | `GET adn/documents` | `read-purchases-bills` |
+| Accounting preview | `GET adn/documents/{id}/preview` | `GET adn/documents/{id}/preview` | `read-purchases-bills` |
+| Live contributor distribution | `GET adn/distribution` | `GET adn/distribution` | `read-nfse-settings` |
+| Events for an issued invoice | `GET invoices/{id}/adn-events` | `GET invoices/{id}/adn-events` | `read-sales-invoices` |
+| Ignore received document | `POST adn/documents/{id}/ignore` | `POST adn/review/{id}/ignore` | `update-purchases-bills` |
+| Import as draft bill | `POST adn/documents/{id}/import` | `POST adn/review/{id}/import` | `create-purchases-bills` |
+
+Prefix native suffixes with `/{company_id}/{api_prefix}/nfse/` and browser
+suffixes with `/{company_id}/nfse/`. The browser imports and ignores by
+submitting the native JSON representation over its session-protected transport.
+The original HTML forms remain functional without JavaScript.
+
+The persisted document list supports `limit=1..100` (default 50),
+`page`, `review_status`, and `fiscal_role`. Results contain `data`
+and `meta` pagination information; raw XML is deliberately absent.
+`fiscal_role` distinguishes `emitted`, `received`, `intermediated`,
+`event`, and `unknown`. Only `received` and `intermediated` documents
+can be reviewed/imported as financial bills. Importing never creates a new
+issued NFS-e.
+
+The read-only preview parses a locally persisted authorized XML into
+`data.accounting_preview`, without changing the ADN cursor, vendor,
+financial bill, or review state. Invalid preview XML receives HTTP 422 and
+foreign-company identifiers receive HTTP 404.
+
+An import body supplies `contact_id` (or `create_vendor=1`),
+`category_id`, `item_id`, `issued_at` and `due_at`. The result is
+HTTP 201 for a new draft bill or 200 for a previously imported record,
+with `data.bill_id`, `data.redirect_url`, `data.review_status` and
+`data.already_imported`. Import and ignore decisions hold a row lock
+inside a database transaction. Ignoring an already ignored document is
+idempotent (200); ignoring an imported or otherwise non-pending document
+returns 409. Invalid review mappings return 422. The import retains its
+reference to the source ADN document, and the authorized fiscal XML is never
+modified by a review action.
+
+The live distribution query `GET adn/distribution?nsu=0&lote=1` calls the
+existing company-certificate-backed ADN client. It does not persist
+documents or advance synchronization state. Automatic sync still uses
+`AdnSynchronizationService` via the existing jobs/commands. The existing
+company-specific reconciliation is preserved; no alternate sync or
+financial document writer is introduced.

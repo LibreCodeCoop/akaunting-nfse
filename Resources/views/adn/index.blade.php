@@ -65,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                             <div class="mt-4 grid gap-3 md:grid-cols-2">
                                 @if(is_array($accountingPreview))
-                                    <form method="POST" action="{{ route('nfse.adn.review.import', $reviewDocument->id) }}" class="space-y-3 rounded border border-gray-200 p-3">
+                                    <form method="POST" data-adn-json-action="import" action="{{ route('nfse.adn.review.import', $reviewDocument->id) }}" class="space-y-3 rounded border border-gray-200 p-3">
                                         @csrf
 
                                         <div>
@@ -135,7 +135,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     </form>
                                 @endif
 
-                                <form method="POST" action="{{ route('nfse.adn.review.ignore', $reviewDocument->id) }}" class="self-end">
+                                <form method="POST" data-adn-json-action="ignore" action="{{ route('nfse.adn.review.ignore', $reviewDocument->id) }}" class="self-end">
                                     @csrf
                                     <button type="submit" class="rounded border px-3 py-2 text-sm">
                                         {{ trans('nfse::general.adn.review_ignore') }}
@@ -219,6 +219,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         </div>
 
+        <script
+            src="{{ asset('modules/Nfse/Resources/assets/js/adn-review-browser.js?v=' . module_version('nfse')) }}"
+            data-nfse-adn-review-module="true"
+        ></script>
         <script
             src="{{ asset('modules/Nfse/Resources/assets/js/adn-distribution-browser.js?v=' . module_version('nfse')) }}"
             data-nfse-adn-distribution-module="true"
