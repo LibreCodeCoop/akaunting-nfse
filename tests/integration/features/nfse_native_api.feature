@@ -208,7 +208,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
   Scenario: Native ADN review ignore rejects unauthorized fiscal operators
     When I make a native API "POST" JSON request to "/<company_id>/api/nfse/adn/documents/99999999/ignore" with synthetic "no-permission" credentials and body:
       """
-      {}
+      {"confirmed":true}
       """
     Then the API response status should be 403
     And the API response should be JSON
