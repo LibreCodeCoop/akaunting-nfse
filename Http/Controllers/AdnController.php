@@ -66,28 +66,132 @@ class AdnController extends Controller
         ]);
     }
 
-    public function ignore(int $document): \Illuminate\Http\RedirectResponse
+    /**
+     * List locally synchronized ADN records, never exposing raw XML in lists.
+     * This is a read of persisted distribution, not another synchronization.
+     */
+    public function documents(Request $request): JsonResponse
     {
         $companyId = $this->requireCompanyId();
+        $limit = $request->query('limit', 50);
+        $status = $request->query('review_status');
+        $role = $request->query('fiscal_role');
 
-        $query = AdnSyncDocument::query()
-            ->whereKey($document)
-            ->whereIn('fiscal_role', ['received', 'intermediated']);
-
-        if ($companyId > 0) {
-            $query->where('company_id', $companyId);
+        if (!is_scalar($limit) || preg_match('/^[1-9]\d*$/', (string) $limit) !== 1 || (int) $limit > 100) {
+            return $this->jsonResponse(['message' => 'Invalid limit.'], 422);
         }
 
-        $reviewDocument = $query->firstOrFail();
-        $reviewDocument->review_status = 'ignored';
-        $reviewDocument->ignored_at = now();
-        $reviewDocument->save();
+        if ($status !== null && (!is_string($status) || !in_array($status, ['pending', 'ignored', 'imported', 'not_applicable'], true))) {
+            return $this->jsonResponse(['message' => 'Invalid review status.'], 422);
+        }
 
-        return redirect()->route('nfse.adn.index')
-            ->with('success', trans('nfse::general.adn.review_ignored'));
+        if ($role !== null && (!is_string($role) || !in_array($role, ['received', 'intermediated', 'emitted', 'event', 'unknown'], true))) {
+            return $this->jsonResponse(['message' => 'Invalid fiscal role.'], 422);
+        }
+
+        $query = AdnSyncDocument::query()
+            ->where('company_id', $companyId)
+            ->when($status !== null, static fn ($q) => $q->where('review_status', $status))
+            ->when($role !== null, static fn ($q) => $q->where('fiscal_role', $role))
+            ->orderByDesc('id');
+
+        $page = $query->paginate((int) $limit);
+
+        return $this->jsonResponse([
+            'data' => collect($page->items())->map(static fn (AdnSyncDocument $item): array => [
+                'id' => $item->id,
+                'document_key' => $item->document_key,
+                'nsu' => $item->nsu,
+                'chave_acesso' => $item->chave_acesso,
+                'tipo_documento' => $item->tipo_documento,
+                'tipo_evento' => $item->tipo_evento,
+                'data_hora_geracao' => $item->data_hora_geracao,
+                'fiscal_role' => $item->fiscal_role,
+                'review_status' => $item->review_status,
+                'imported_document_id' => $item->imported_document_id,
+                'ignored_at' => $item->ignored_at,
+                'recognized_event' => $item->recognized_event,
+            ])->values()->all(),
+            'meta' => [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+            ],
+        ]);
     }
 
-    public function importDraft(int $document, Request $request): \Illuminate\Http\RedirectResponse
+    /** Preview is deliberately a pure read; never creates a vendor or bill. */
+    public function preview(int $document): JsonResponse
+    {
+        $companyId = $this->requireCompanyId();
+        $row = AdnSyncDocument::query()
+            ->whereKey($document)
+            ->where('company_id', $companyId)
+            ->whereIn('fiscal_role', ['received', 'intermediated'])
+            ->firstOrFail();
+
+        try {
+            $preview = (new AdnAccountingPreview())->fromAuthorizedXml((string) $row->xml);
+        } catch (\InvalidArgumentException) {
+            return $this->jsonResponse(['message' => trans('nfse::general.adn.review_invalid_xml')], 422);
+        }
+
+        return $this->jsonResponse([
+            'data' => [
+                'document_id' => (int) $row->id,
+                'fiscal_role' => $row->fiscal_role,
+                'review_status' => $row->review_status,
+                'accounting_preview' => $preview,
+            ],
+        ]);
+    }
+
+    public function ignore(int $document, ?Request $request = null): \Illuminate\Http\RedirectResponse|JsonResponse
+    {
+        $companyId = $this->requireCompanyId();
+        $request ??= request();
+
+        $status = DB::transaction(function () use ($document, $companyId): string {
+            $reviewDocument = AdnSyncDocument::query()
+                ->whereKey($document)
+                ->where('company_id', $companyId)
+                ->whereIn('fiscal_role', ['received', 'intermediated'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((int) $reviewDocument->imported_document_id > 0) {
+                return 'conflict';
+            }
+
+            if ($reviewDocument->review_status === 'ignored') {
+                return 'ignored';
+            }
+
+            if ($reviewDocument->review_status !== 'pending') {
+                return 'conflict';
+            }
+
+            $reviewDocument->review_status = 'ignored';
+            $reviewDocument->ignored_at = now();
+            $reviewDocument->save();
+
+            return 'ignored';
+        });
+
+        if ($status === 'conflict') {
+            return $request->expectsJson()
+                ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_not_pending')], 409)
+                : redirect()->route('nfse.adn.index')->with('error', trans('nfse::general.adn.review_not_pending'));
+        }
+
+        return $request->expectsJson()
+            ? $this->jsonResponse(['data' => ['document_id' => $document, 'review_status' => 'ignored']])
+            : redirect()->route('nfse.adn.index')
+                ->with('success', trans('nfse::general.adn.review_ignored'));
+    }
+
+    public function importDraft(int $document, Request $request): \Illuminate\Http\RedirectResponse|JsonResponse
     {
         $companyId = $this->requireCompanyId();
 
@@ -105,21 +209,33 @@ class AdnController extends Controller
                 ->first();
 
             if ($existingBill instanceof Invoice) {
-                return redirect()->route('bills.show', $existingBill->id)
-                    ->with('info', trans('nfse::general.adn.review_already_imported'));
+                return $request->expectsJson()
+                    ? $this->jsonResponse(['data' => [
+                        'document_id' => $document,
+                        'bill_id' => (int) $existingBill->id,
+                        'redirect_url' => route('bills.show', $existingBill->id, false),
+                        'review_status' => 'imported',
+                        'already_imported' => true,
+                    ]])
+                    : redirect()->route('bills.show', $existingBill->id)
+                        ->with('info', trans('nfse::general.adn.review_already_imported'));
             }
         }
 
         if ((string) $reviewDocument->review_status !== 'pending') {
-            return redirect()->route('nfse.adn.index')
-                ->with('error', trans('nfse::general.adn.review_not_pending'));
+            return $request->expectsJson()
+                ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_not_pending')], 409)
+                : redirect()->route('nfse.adn.index')
+                    ->with('error', trans('nfse::general.adn.review_not_pending'));
         }
 
         try {
             $preview = (new AdnAccountingPreview())->fromAuthorizedXml((string) $reviewDocument->xml);
         } catch (\InvalidArgumentException) {
-            return redirect()->route('nfse.adn.index')
-                ->with('error', trans('nfse::general.adn.review_invalid_xml'));
+            return $request->expectsJson()
+                ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_invalid_xml')], 422)
+                : redirect()->route('nfse.adn.index')
+                    ->with('error', trans('nfse::general.adn.review_invalid_xml'));
         }
 
         $category = Category::query()
@@ -135,8 +251,10 @@ class AdnController extends Controller
             ->first();
 
         if (!$category instanceof Category || !$item instanceof Item) {
-            return redirect()->route('nfse.adn.index')
-                ->with('error', trans('nfse::general.adn.review_mapping_required'));
+            return $request->expectsJson()
+                ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_mapping_required')], 422)
+                : redirect()->route('nfse.adn.index')
+                    ->with('error', trans('nfse::general.adn.review_mapping_required'));
         }
 
         $issuedAt = trim((string) $request->input('issued_at', ''));
@@ -146,82 +264,117 @@ class AdnController extends Controller
             preg_match('/^\d{4}-\d{2}-\d{2}$/', $issuedAt) !== 1
             || preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueAt) !== 1
         ) {
-            return redirect()->route('nfse.adn.index')
-                ->with('error', trans('nfse::general.adn.review_dates_required'));
-        }
-
-        $contact = $this->resolveReviewedVendor(
-            $request,
-            $preview,
-            $category,
-            $companyId,
-        );
-
-        if (!$contact instanceof Contact) {
-            return redirect()->route('nfse.adn.index')
-                ->with('error', trans('nfse::general.adn.review_vendor_required'));
+            return $request->expectsJson()
+                ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_dates_required')], 422)
+                : redirect()->route('nfse.adn.index')
+                    ->with('error', trans('nfse::general.adn.review_dates_required'));
         }
 
         $grossValue = trim((string) ($preview['gross_value'] ?? ''));
 
         if ($grossValue === '' || !is_numeric($grossValue) || (float) $grossValue <= 0) {
-            return redirect()->route('nfse.adn.index')
-                ->with('error', trans('nfse::general.adn.review_invalid_amount'));
+            return $request->expectsJson()
+                ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_invalid_amount')], 422)
+                : redirect()->route('nfse.adn.index')
+                    ->with('error', trans('nfse::general.adn.review_invalid_amount'));
         }
 
-        $billRequest = new Request([
-            'company_id' => $companyId,
-            'type' => Invoice::BILL_TYPE,
-            'document_number' => app(DocumentNumberInterface::class)->getNextNumber(Invoice::BILL_TYPE, $contact),
-            'issued_at' => $issuedAt . ' 00:00:00',
-            'due_at' => $dueAt . ' 00:00:00',
-            'currency_code' => default_currency(),
-            'currency_rate' => '1',
-            'category_id' => $category->id,
-            'contact_id' => $contact->id,
-            'contact_name' => $contact->name,
-            'contact_email' => (string) ($contact->email ?? ''),
-            'contact_tax_number' => (string) ($contact->tax_number ?? ''),
-            'contact_phone' => (string) ($contact->phone ?? ''),
-            'contact_address' => (string) ($contact->address ?? ''),
-            'status' => 'draft',
-            'notes' => 'NFS-e ADN source: ' . ((string) ($reviewDocument->chave_acesso ?: $reviewDocument->document_key)),
-            'items' => [[
-                'item_id' => $item->id,
-                'name' => $item->name,
-                'description' => (string) ($preview['service_description'] ?? ''),
-                'category_id' => $category->id,
-                'tax_ids' => [],
-                'quantity' => '1',
-                'price' => $grossValue,
-                'currency' => default_currency(),
-            ]],
-        ]);
-
-        $bill = DB::transaction(function () use ($reviewDocument, $billRequest, $companyId): Invoice {
-            $locked = AdnSyncDocument::query()
-                ->whereKey($reviewDocument->id)
-                ->when($companyId > 0, static fn ($query) => $query->where('company_id', $companyId))
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            if ((int) ($locked->imported_document_id ?? 0) > 0) {
-                return Invoice::query()
-                    ->whereKey((int) $locked->imported_document_id)
-                    ->where('type', Invoice::BILL_TYPE)
+        $alreadyImported = false;
+        try {
+            $bill = DB::transaction(function () use (
+                &$alreadyImported,
+                $reviewDocument,
+                $companyId,
+                $request,
+                $preview,
+                $category,
+                $item,
+                $grossValue,
+                $issuedAt,
+                $dueAt
+            ): Invoice {
+                $locked = AdnSyncDocument::query()
+                    ->whereKey($reviewDocument->id)
+                    ->where('company_id', $companyId)
+                    ->lockForUpdate()
                     ->firstOrFail();
+
+                if ((int) ($locked->imported_document_id ?? 0) > 0) {
+                    $alreadyImported = true;
+
+                    return Invoice::query()
+                        ->whereKey((int) $locked->imported_document_id)
+                        ->where('company_id', $companyId)
+                        ->where('type', Invoice::BILL_TYPE)
+                        ->firstOrFail();
+                }
+
+                if ($locked->review_status !== 'pending') {
+                    throw new \DomainException('review_not_pending');
+                }
+
+                $contact = $this->resolveReviewedVendor($request, $preview, $category, $companyId);
+                if (!$contact instanceof Contact) {
+                    throw new \DomainException('review_vendor_required');
+                }
+
+                $billRequest = new Request([
+                    'company_id' => $companyId,
+                    'type' => Invoice::BILL_TYPE,
+                    'document_number' => app(DocumentNumberInterface::class)->getNextNumber(Invoice::BILL_TYPE, $contact),
+                    'issued_at' => $issuedAt . ' 00:00:00',
+                    'due_at' => $dueAt . ' 00:00:00',
+                    'currency_code' => default_currency(),
+                    'currency_rate' => '1',
+                    'category_id' => $category->id,
+                    'contact_id' => $contact->id,
+                    'contact_name' => $contact->name,
+                    'contact_email' => (string) ($contact->email ?? ''),
+                    'contact_tax_number' => (string) ($contact->tax_number ?? ''),
+                    'contact_phone' => (string) ($contact->phone ?? ''),
+                    'contact_address' => (string) ($contact->address ?? ''),
+                    'status' => 'draft',
+                    'notes' => 'NFS-e ADN source: ' . ((string) ($reviewDocument->chave_acesso ?: $reviewDocument->document_key)),
+                    'items' => [[
+                        'item_id' => $item->id,
+                        'name' => $item->name,
+                        'description' => (string) ($preview['service_description'] ?? ''),
+                        'category_id' => $category->id,
+                        'tax_ids' => [],
+                        'quantity' => '1',
+                        'price' => $grossValue,
+                        'currency' => default_currency(),
+                    ]],
+                ]);
+
+                $created = $this->dispatch(new CreateDocument($billRequest));
+                $locked->review_status = 'imported';
+                $locked->imported_document_id = $created->id;
+                $locked->save();
+
+                return $created;
+            });
+        } catch (\DomainException $error) {
+            if (!in_array($error->getMessage(), ['review_not_pending', 'review_vendor_required'], true)) {
+                throw $error;
             }
 
-            $created = $this->dispatch(new CreateDocument($billRequest));
-            $locked->review_status = 'imported';
-            $locked->imported_document_id = $created->id;
-            $locked->save();
+            $reason = $error->getMessage();
+            return $request->expectsJson()
+                ? $this->jsonResponse(['message' => trans('nfse::general.adn.' . $reason)], $reason === 'review_not_pending' ? 409 : 422)
+                : redirect()->route('nfse.adn.index')->with('error', trans('nfse::general.adn.' . $reason));
+        }
 
-            return $created;
-        });
-
-        return redirect()->route('bills.show', $bill->id)
-            ->with('success', trans('nfse::general.adn.review_imported'));
+        return $request->expectsJson()
+            ? $this->jsonResponse(['data' => [
+                'document_id' => $document,
+                'bill_id' => (int) $bill->id,
+                'redirect_url' => route('bills.show', $bill->id, false),
+                'review_status' => 'imported',
+                'already_imported' => $alreadyImported,
+            ]], $alreadyImported ? 200 : 201)
+            : redirect()->route('bills.show', $bill->id)
+                ->with('success', trans('nfse::general.adn.review_imported'));
     }
 
     /**
@@ -247,6 +400,9 @@ class AdnController extends Controller
         if (!$request->boolean('create_vendor')) {
             return null;
         }
+
+        // Importing a bill must not grant the independent right to create vendors.
+        abort_unless(auth()->user()?->can('create-purchases-vendors'), 403);
 
         $name = trim((string) ($preview['supplier_name'] ?? ''));
 
