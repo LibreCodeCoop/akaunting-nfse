@@ -43,12 +43,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <div id="profiles-error" class="mx-4 mt-3 rounded border border-red-300 p-3 text-sm text-red-800" role="alert" hidden></div>
                 <p id="profiles-loading" class="px-4 py-4 text-sm text-gray-500" role="status">Carregando empresas...</p>
                 <div id="profiles-table-wrap" class="overflow-x-auto" hidden>
-                    <table class="min-w-full text-sm">
+                    <table class="min-w-full text-sm" aria-label="Perfis NFS-e por empresa">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-2 text-left">Empresa</th>
-                                <th class="px-4 py-2 text-left">Prontidão fiscal</th>
-                                <th class="px-4 py-2 text-right">Ações</th>
+                                <th scope="col" class="px-4 py-2 text-left">Empresa</th>
+                                <th scope="col" class="px-4 py-2 text-left">Prontidão fiscal</th>
+                                <th scope="col" class="px-4 py-2 text-right">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="profiles-body" class="divide-y"></tbody>
@@ -218,7 +218,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </label>
                             </div>
                         </details>
-                        <p id="profile-form-error" class="text-sm text-red-700" role="alert" hidden></p>
+                        <p id="profile-form-error" class="text-sm text-red-700" role="alert" tabindex="-1" hidden></p>
                         <div class="flex justify-end gap-3">
                             <button type="button" id="profile-cancel-bottom" class="rounded border px-4 py-2">Cancelar</button>
                             <button type="submit" id="profile-save" class="rounded bg-green-700 px-4 py-2 text-white">Salvar configuração</button>

@@ -82,7 +82,7 @@ test('only available native company appears, and successful deletion makes it el
   await expect(page.locator('#profile-company')).toHaveValue('2');
   await page.locator('#profile-cancel').click();
   page.on('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: 'Excluir' }).click();
+  await page.getByRole('button', { name: /Excluir configuração NFS-e de Empresa sintética 1/ }).click();
   await expect(page.locator('#profiles-body tr')).toHaveCount(0);
   await expect(page.locator('#profile-add')).toBeEnabled();
   await page.locator('#profile-add').click();
@@ -131,4 +131,46 @@ test('fiscal tax associations are reviewed through native settings, without auto
   await expect(page.getByRole('heading', { name: 'Impostos cadastrados nesta empresa' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Abrir cadastro de impostos do Akaunting' })).toBeVisible();
   await expect(page.getByText('A classificação não calcula', { exact: false })).toBeVisible();
+});
+
+
+test('profile list failure hides tenant data and creation controls', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [profile(1)], [company(2)]);
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#profiles-body tr')).toHaveCount(1);
+  await page.route('**/nfse/settings/company-profiles', route => route.fulfill({
+    status: 403, contentType: 'application/json',
+    body: JSON.stringify({ message: 'synthetic secret never shown' }),
+  }));
+  page.on('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: /Excluir configuração NFS-e de Empresa sintética 1/ }).click();
+  await expect(page.locator('#profiles-error')).toContainText('não autorizado');
+  await expect(page.locator('#profile-add')).toBeHidden();
+  await expect(page.locator('#profiles-table-wrap')).toBeHidden();
+  await expect(page.locator('#profiles-error')).not.toContainText('synthetic secret');
+});
+
+test('profile editor restores focus on cancel and displays sanitized validation errors', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [profile(1)], [company(2)]);
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  const add = page.locator('#profile-add');
+  await add.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#profile-editor-title')).toBeFocused();
+  await page.locator('#profile-cancel-bottom').click();
+  await expect(add).toBeFocused();
+  const edit = page.getByRole('button', { name: /Editar configuração NFS-e de Empresa sintética 1/ });
+  await edit.click();
+  await expect(page.locator('#profile-editor-title')).toBeFocused();
+  await page.route('**/nfse/settings/company-profiles/1', route => route.fulfill({
+    status: 422, contentType: 'application/json',
+    body: JSON.stringify({ errors: { 'fiscal_parameters.uf': ['UF sintética inválida'] } }),
+  }));
+  await page.locator('#profile-save').click();
+  await expect(page.locator('#profile-form-error')).toContainText('UF sintética inválida');
+  await expect(page.locator('#profile-form-error')).toBeFocused();
+  await expect(page.locator('#profile-save')).toBeEnabled();
+  await page.locator('#profile-cancel').click();
 });
