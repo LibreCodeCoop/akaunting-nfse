@@ -30,16 +30,14 @@ final class FiscalLedgerTest extends FeatureTestCase
         $replacement = $this->receipt($invoice, '81002', 'emitted');
         $foreign = $this->receipt($otherInvoice, '81003', 'emitted');
 
-        $response = $this->get(route('nfse.ledger.index'));
+        $response = $this->get(route('nfse.ledger.data'));
 
         $response->assertOk();
-        $response->assertViewHas('receipts', static function ($receipts) use ($original, $replacement, $foreign): bool {
-            $ids = $receipts->getCollection()->pluck('id')->all();
-
-            return in_array($original->id, $ids, true)
-                && in_array($replacement->id, $ids, true)
-                && !in_array($foreign->id, $ids, true);
-        });
+        $response->assertOk();
+        $ids = array_column($response->json('data'), 'id');
+        self::assertContains($original->id, $ids);
+        self::assertContains($replacement->id, $ids);
+        self::assertNotContains($foreign->id, $ids);
     }
 
     public function testLedgerFiltersFiscalStatusBeforePagination(): void
@@ -50,14 +48,13 @@ final class FiscalLedgerTest extends FeatureTestCase
         $cancelled = $this->receipt($invoice, '82001', 'cancelled');
         $emitted = $this->receipt($invoice, '82002', 'emitted');
 
-        $response = $this->get(route('nfse.ledger.index', ['status' => 'cancelled']));
+        $response = $this->get(route('nfse.ledger.data', ['status' => 'cancelled']));
 
         $response->assertOk();
-        $response->assertViewHas('receipts', static function ($receipts) use ($cancelled, $emitted): bool {
-            $ids = $receipts->getCollection()->pluck('id')->all();
-
-            return in_array($cancelled->id, $ids, true) && !in_array($emitted->id, $ids, true);
-        });
+        $response->assertOk();
+        $ids = array_column($response->json('data'), 'id');
+        self::assertContains($cancelled->id, $ids);
+        self::assertNotContains($emitted->id, $ids);
     }
 
     public function testLedgerCombinesFiscalStatusAndReceiptNumberSearch(): void
@@ -69,17 +66,14 @@ final class FiscalLedgerTest extends FeatureTestCase
         $this->receipt($invoice, '85002', 'emitted');
         $this->receipt($invoice, '85001-OLD', 'cancelled');
 
-        $response = $this->get(route('nfse.ledger.index', [
+        $response = $this->get(route('nfse.ledger.data', [
             'status' => 'emitted',
             'search' => '85001',
         ]));
 
         $response->assertOk();
-        $response->assertViewHas('receipts', static function ($receipts) use ($match): bool {
-            $ids = $receipts->getCollection()->pluck('id')->all();
-
-            return $ids === [$match->id];
-        });
+        $response->assertOk();
+        self::assertSame([$match->id], array_column($response->json('data'), 'id'));
     }
 
     public function testLedgerDownloadsXmlFromSelectedReceiptInsteadOfLatestInvoiceReceipt(): void
@@ -159,17 +153,16 @@ final class FiscalLedgerTest extends FeatureTestCase
         $inside->forceFill(['data_emissao' => '2026-06-15 12:00:00'])->save();
         $outside->forceFill(['data_emissao' => '2026-07-15 12:00:00'])->save();
 
-        $response = $this->get(route('nfse.ledger.index', [
+        $response = $this->get(route('nfse.ledger.data', [
             'from' => '2026-06-01',
             'to' => '2026-06-30',
         ]));
 
         $response->assertOk();
-        $response->assertViewHas('receipts', static function ($receipts) use ($inside, $outside): bool {
-            $ids = $receipts->getCollection()->pluck('id')->all();
-
-            return in_array($inside->id, $ids, true) && !in_array($outside->id, $ids, true);
-        });
+        $response->assertOk();
+        $ids = array_column($response->json('data'), 'id');
+        self::assertContains($inside->id, $ids);
+        self::assertNotContains($outside->id, $ids);
     }
 
     public function testLedgerSearchesAccessKeyWithinSelectedFiscalStatus(): void
@@ -185,16 +178,15 @@ final class FiscalLedgerTest extends FeatureTestCase
         $differentStatus->forceFill(['chave_acesso' => str_repeat('7', 50)])->save();
         $unrelated->forceFill(['chave_acesso' => str_repeat('8', 50)])->save();
 
-        $response = $this->get(route('nfse.ledger.index', [
+        $response = $this->get(route('nfse.ledger.data', [
             'status' => 'emitted',
             'search' => str_repeat('7', 20),
         ]));
 
         $response->assertOk();
-        $response->assertViewHas('receipts', static function ($receipts) use ($matched): bool {
-            return $receipts->total() === 1
-                && $receipts->getCollection()->pluck('id')->all() === [$matched->id];
-        });
+        $response->assertOk();
+        self::assertSame(1, $response->json('meta.total'));
+        self::assertSame([$matched->id], array_column($response->json('data'), 'id'));
     }
 
     public function testLedgerPaginationTotalsAreComputedAfterStatusFilter(): void
@@ -207,14 +199,13 @@ final class FiscalLedgerTest extends FeatureTestCase
         }
         $this->receipt($invoice, '94000', 'cancelled');
 
-        $response = $this->get(route('nfse.ledger.index', ['status' => 'emitted', 'search' => '93000-', 'page' => 2]));
+        $response = $this->get(route('nfse.ledger.data', ['status' => 'emitted', 'search' => '93000-', 'page' => 2]));
         $response->assertOk();
-        $response->assertViewHas('receipts', static function ($receipts): bool {
-            return $receipts->total() === 27
-                && $receipts->lastPage() === 2
-                && $receipts->currentPage() === 2
-                && $receipts->count() === 2;
-        });
+        $response->assertOk()
+            ->assertJsonPath('meta.total', 27)
+            ->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonCount(2, 'data');
     }
 
     public function testLedgerSearchesCustomerWithinCompanyAndFiscalStatus(): void
@@ -232,16 +223,15 @@ final class FiscalLedgerTest extends FeatureTestCase
         $this->receipt($matchInvoice, '95002', 'cancelled');
         $this->receipt($otherInvoice, '95003', 'emitted');
 
-        $response = $this->get(route('nfse.ledger.index', [
+        $response = $this->get(route('nfse.ledger.data', [
             'status' => 'emitted',
             'search' => 'ZXQ729',
         ]));
 
         $response->assertOk();
-        $response->assertViewHas('receipts', static function ($receipts) use ($match): bool {
-            return $receipts->total() === 1
-                && $receipts->getCollection()->pluck('id')->all() === [$match->id];
-        });
+        $response->assertOk();
+        self::assertSame(1, $response->json('meta.total'));
+        self::assertSame([$match->id], array_column($response->json('data'), 'id'));
     }
 
 

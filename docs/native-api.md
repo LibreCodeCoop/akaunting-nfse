@@ -114,3 +114,31 @@ the persisted ID; duplicated revisions or unsupported zero evidence return
 422. Historical records are append-only. The administrative screens load
 their tables and save confirmations over these JSON contracts, without using
 HTML fragments as an integration protocol.
+
+## Fiscal ledger and receipt-scoped authorized artifacts (#503)
+
+`GET /{company_id}/{api_prefix}/nfse/ledger` uses Akaunting's native
+API authentication plus `read-sales-invoices` and returns bounded
+`data` / `meta` pagination of fiscal receipts owned by invoices in
+the authenticated company. This does not duplicate the native
+accounting invoice resource. Query parameters are:
+`status` (`all`, `emitted`, `processing`, `cancelled`, `substituted`),
+`search`, `from`/`to` (YYYY-MM-DD), `limit` (1..100, default 25),
+and `page`. Invalid filters receive 422; no raw XML or artifact path
+is embedded in list responses.
+
+The administrative browser consumes the same
+`FiscalLedgerApiController::index` JSON contract via
+`GET /{company_id}/nfse/ledger/data` using its existing session;
+the HTML route renders only filters, presentation and translated labels.
+
+To download the **selected** authorized fiscal receipt, rather than a
+possibly newer receipt of the same commercial invoice, clients use
+`GET /{company_id}/{api_prefix}/nfse/receipts/{receipt}/artifacts/{artifact}`
+where artifact is `xml` or `danfse`. The native endpoint reuses
+`InvoiceController::downloadLedgerArtifact` under the same company and
+invoice-read permission checks. Invalid artifact kinds return JSON 422,
+unavailable artifacts return 409, and successful responses are raw
+application XML/PDF streams, not JSON-encoded binary. The browser
+continues to use its authenticated session download routes.
+Neither request transmits NFS-e or changes document state.
