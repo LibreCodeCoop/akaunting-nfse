@@ -17,8 +17,18 @@ use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\CompanyProfileController;
 use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
+use Modules\Nfse\Http\Controllers\BulkEmissionApiController;
 use Modules\Nfse\Http\Controllers\AdnController;
 Route::api('nfse', function (): void {
+    Route::post('bulk/plan', [BulkEmissionApiController::class, 'plan'])
+        ->middleware('permission:read-sales-invoices')->name('bulk.plan');
+    Route::post('bulk/dispatch', [BulkEmissionApiController::class, 'dispatch'])
+        ->middleware('permission:update-sales-invoices')->name('bulk.dispatch');
+    Route::get('bulk/runs', [BulkEmissionApiController::class, 'runs'])
+        ->middleware('permission:read-sales-invoices')->name('bulk.runs');
+    Route::get('bulk/runs/{run}', [BulkEmissionApiController::class, 'show'])
+        ->middleware('permission:read-sales-invoices')->name('bulk.runs.show');
+
     // ADN shares the native HTTP authentication and active-company context.
     Route::get('adn/review-options', [AdnController::class, 'reviewOptions'])
         ->middleware('permission:read-purchases-bills')
