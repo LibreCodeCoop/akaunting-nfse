@@ -19,10 +19,18 @@ final class AdnAccountingReviewQueueTest extends FeatureTestCase
 
         $this->get(route('nfse.adn.index'))
             ->assertOk()
-            ->assertSee('Fornecedor Recebido Ltda')
-            ->assertSee('2026-10-01')
-            ->assertSee('100.00')
-            ->assertSee((string) $document->chave_acesso);
+            ->assertSee('id="adn-review-list"', false)
+            ->assertSee('adn-review-browser.js')
+            ->assertDontSee('Fornecedor Recebido Ltda');
+
+        $this->get(route('nfse.adn.documents.index', [
+            'review_status' => 'pending',
+            'include_preview' => '1',
+        ]))->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $document->id)
+            ->assertJsonPath('data.0.accounting_preview.supplier_name', 'Fornecedor Recebido Ltda')
+            ->assertJsonPath('data.0.accounting_preview.gross_value', '100.00');
     }
 
     public function testIgnoreKeepsTraceAndRemovesPendingState(): void
