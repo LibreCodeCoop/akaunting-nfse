@@ -19,6 +19,10 @@ final class SettingsReadinessNavigationTest extends FeatureTestCase
             ->assertSee('nfse-companies-title', false)
             ->assertSee('"currentCompanyId":' . (int) $this->company->id, false)
             ->assertSee('nfse-vault-title', false)
+            ->assertSee(
+                'company-profile-admin.js?v=' . module_version('nfse') . '-' .
+                filemtime(base_path('modules/Nfse/Resources/assets/js/company-profile-admin.js')), false,
+            )
             ->assertSee('vault-diagnostics', false)
             ->assertDontSee('nfse-readiness-summary', false);
     }

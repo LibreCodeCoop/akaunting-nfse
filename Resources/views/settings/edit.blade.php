@@ -311,6 +311,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         <script id="nfse-company-admin-config" type="application/json">
             @json($nfseCompanyAdminConfig)
         </script>
-        <script src="{{ asset('modules/Nfse/Resources/assets/js/company-profile-admin.js?v=' . module_version('nfse')) }}" data-nfse-company-admin="true"></script>
+        <script src="{{ asset('modules/Nfse/Resources/assets/js/company-profile-admin.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/company-profile-admin.js'))) }}" data-nfse-company-admin="true"></script>
     </x-slot>
 </x-layouts.admin>
