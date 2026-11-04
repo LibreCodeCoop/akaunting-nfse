@@ -453,3 +453,43 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     When I make a native API GET request to "/<other_company_id>/api/nfse/invoices/<pending_invoice_id>/post-emission-status" with synthetic "administrator" credentials
     Then the API response status should be 401
     And the API response should be JSON
+
+  Scenario: Native API fiscal issuance rejects an unauthenticated write
+    Given the API client is a guest
+    When I make a "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/emit" with body:
+      """
+      {}
+      """
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native API fiscal issuance requires sales-invoice write permission
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/emit" with synthetic "no-permission" credentials and body:
+      """
+      {"nfse_force_ajax":true}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native API uses the same idempotent SEFIN-fake invoice issuance operation as the Web UI
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/emit" with synthetic "administrator" credentials and body:
+      """
+      {"nfse_force_ajax":true}
+      """
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON boolean at "success" should be "true"
+    And the JSON response should have these field types:
+      | data.invoice_id | integer |
+      | data.receipt_id | integer |
+      | links.status | string |
+      | links.attempts | string |
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/emit" with synthetic "administrator" credentials and body:
+      """
+      {"nfse_force_ajax":true}
+      """
+    Then the API response status should be 200
+    And the JSON boolean at "success" should be "true"
+    When I make a native API GET request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/emission-attempts" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the JSON array at "data" should contain exactly 1 item

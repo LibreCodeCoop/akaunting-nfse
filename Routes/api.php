@@ -21,6 +21,12 @@ use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
 use Modules\Nfse\Http\Controllers\BulkEmissionApiController;
 use Modules\Nfse\Http\Controllers\AdnController;
 Route::api('nfse', function (): void {
+    // Native API issuance reuses the exact manual issuance handler, DPS
+    // journal and recovery services; no second fiscal pipeline is introduced.
+    Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])
+        ->middleware('permission:update-sales-invoices')
+        ->name('invoices.emit');
+
     Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])
         ->middleware('permission:read-sales-invoices')
         ->name('invoices.service-preview');

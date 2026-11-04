@@ -475,6 +475,7 @@ class InvoiceController extends Controller
     public function emit(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
         $request = $this->currentRequest($request);
+        $this->requireReadableInvoice($invoice);
         $this->ensureInvoiceRelationsLoaded($invoice);
 
         try {
@@ -1736,6 +1737,62 @@ class InvoiceController extends Controller
     }
 
 
+    /**
+     * Native clients receive an explicit, non-redirecting write result and
+     * links to persisted state; a gateway ambiguity is never reported as
+     * authorization or as a guarantee that retrying is safe.
+     *
+     * @param array<string,mixed> $flash
+     */
+    private function nativeFiscalCommandResponse(Request $request, array $flash, bool $failed): JsonResponse
+    {
+        $routeInvoice = $request->route('invoice');
+        $invoiceId = $routeInvoice instanceof Invoice ? (int) $routeInvoice->id
+            : (is_numeric($routeInvoice) ? (int) $routeInvoice : 0);
+        if ($invoiceId <= 0) {
+            throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException();
+        }
+
+        $companyId = (int) company_id();
+        $links = [
+            'status' => route('api.nfse.invoices.post-emission-status', [
+                'company_id' => $companyId,
+                'invoice' => $invoiceId,
+            ]),
+            'attempts' => route('api.nfse.invoices.emission-attempts.index', [
+                'company_id' => $companyId,
+                'invoice' => $invoiceId,
+            ]),
+        ];
+
+        if ($failed || !isset($flash['success'])) {
+            return response()->json([
+                'success' => false,
+                'error' => true,
+                'status' => 'not_confirmed',
+                'message' => (string) ($flash['error'] ?? $flash['warning'] ?? ''),
+                'links' => $links,
+            ], 409);
+        }
+
+        $receipt = NfseReceipt::query()
+            ->where('invoice_id', $invoiceId)
+            ->latest('id')
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'error' => false,
+            'status' => $receipt instanceof NfseReceipt ? (string) $receipt->status : 'unknown',
+            'message' => (string) ($flash['success'] ?? ''),
+            'data' => [
+                'invoice_id' => $invoiceId,
+                'receipt_id' => $receipt instanceof NfseReceipt ? (int) $receipt->id : null,
+            ],
+            'links' => $links,
+        ]);
+    }
+
     protected function ajaxAwareRedirect(?Request $request, RedirectResponse $redirect, array $extra = []): RedirectResponse|JsonResponse
     {
         if ($request === null && function_exists('request')) {
@@ -1751,14 +1808,19 @@ class InvoiceController extends Controller
         }
 
         $forcedAjax = $request instanceof Request && $request->boolean('nfse_force_ajax', false);
+        $nativeApi = $request instanceof Request && method_exists($request, 'routeIs') && $request->routeIs('api.nfse.invoices.*');
 
-        if (!$request instanceof Request || (!$request->isXmlHttpRequest() && !$forcedAjax)) {
+        if (!$request instanceof Request || (!$request->isXmlHttpRequest() && !$forcedAjax && !$nativeApi)) {
             return $redirect;
         }
 
         $flash = $this->redirectFlashPayload($redirect);
         $hasSuccess = isset($flash['success']);
         $hasError = !$hasSuccess && (isset($flash['error']) || isset($flash['warning']));
+
+        if ($nativeApi) {
+            return $this->nativeFiscalCommandResponse($request, $flash, $hasError);
+        }
 
         if ($hasError) {
             $message = (string) ($flash['error'] ?? $flash['warning'] ?? '');
