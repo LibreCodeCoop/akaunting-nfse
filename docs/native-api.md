@@ -394,3 +394,11 @@ attempts; do not assume a transport failure proves SEFIN rejection.
 Browser form routes preserve backward compatibility and invoke the same
 application methods; the native transport never receives a browser redirect
 or cookies. No existing authorized XML or receipt history is deleted.
+
+An authorized reissuance is linked to the exact cancelled receipt ID submitted
+by the caller and to the persisted emission-attempt journal. A repeated request
+must inspect that history rather than allocate a new DPS. A success response
+may include an NFS-e access key before the official NFS-e number becomes
+available; in that case, the Web confirmation displays the **persisted access
+key**, and API clients must use the status/receipt resources instead of
+inferring a missing authorization from the absent number.
