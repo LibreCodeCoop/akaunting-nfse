@@ -22,8 +22,13 @@ final class TaxAssociationAdminTest extends FeatureTestCase
 
         $this->get(route('nfse.settings.tax-associations.index'))
             ->assertOk()
-            ->assertSee('Synthetic confirmed PIS')
-            ->assertSee('Sem associação confirmada');
+            ->assertSee('id="tax-associations-body"', false)
+            ->assertDontSee('Synthetic confirmed PIS');
+
+        $this->get(route('nfse.settings.tax-associations.resources'))
+            ->assertOk()
+            ->assertJsonPath('data.taxes.0.name', 'Synthetic confirmed PIS')
+            ->assertJsonCount(0, 'data.taxes.0.revisions');
 
         $data = $this->confirmation($tax);
         $url = route('nfse.settings.tax-associations.store');
@@ -36,6 +41,9 @@ final class TaxAssociationAdminTest extends FeatureTestCase
         self::assertSame('provider_due', $stored[0]->fiscal_role);
         self::assertSame('synthetic-fiscal-assessment', $stored[0]->source_reference);
         self::assertSame((int) auth()->id(), (int) $stored[0]->confirmed_by);
+        $this->get(route('nfse.settings.tax-associations.resources'))
+            ->assertJsonPath('data.taxes.0.revisions.0.fiscal_identity', 'pis')
+            ->assertJsonPath('data.taxes.0.revisions.0.fiscal_role', 'provider_due');
         $after = DB::table('taxes')->where('id', $tax)->first();
         self::assertSame($initial->name, $after->name);
         self::assertSame($initial->rate, $after->rate);
@@ -48,6 +56,9 @@ final class TaxAssociationAdminTest extends FeatureTestCase
         $foreign = $this->tax((int) company_id() + 1000, 'Foreign synthetic secret tax');
 
         $this->get(route('nfse.settings.tax-associations.index'))
+            ->assertOk()
+            ->assertDontSee('Foreign synthetic secret tax');
+        $this->get(route('nfse.settings.tax-associations.resources'))
             ->assertOk()
             ->assertDontSee('Foreign synthetic secret tax');
 
@@ -105,6 +116,32 @@ final class TaxAssociationAdminTest extends FeatureTestCase
         } finally {
             app()->instance(Company::class, $active);
         }
+    }
+
+    public function testJsonConfirmationRetainsAuditAndRejectsForeignTax(): void
+    {
+        $this->withExceptionHandling()->loginAs();
+        $tax = $this->tax((int) company_id(), 'Synthetic API tax');
+        $payload = $this->confirmation($tax);
+        $url = route('nfse.settings.tax-associations.store');
+
+        $this->postJson($url, $payload)->assertCreated()
+            ->assertJsonPath('data.tax_id', $tax)
+            ->assertJsonPath('data.already_confirmed', false);
+        $this->postJson($url, $payload)->assertOk()
+            ->assertJsonPath('data.already_confirmed', true);
+        self::assertSame(1, TaxFiscalAssociation::query()->where('tax_id', $tax)->count());
+
+        $other = $this->confirmation($tax);
+        $other['fiscal_identity'] = 'cofins';
+        $this->postJson($url, $other)->assertStatus(409);
+        $foreign = $this->tax((int) company_id() + 1000, 'Synthetic foreign API tax');
+        $this->postJson($url, $this->confirmation($foreign))->assertStatus(409);
+        $this->get(route('nfse.settings.tax-associations.resources'))
+            ->assertOk()
+            ->assertJsonPath('data.taxes.0.revisions.0.confirmed_by', (int) auth()->id())
+            ->assertDontSee('Synthetic foreign API tax');
+        self::assertSame(0, TaxFiscalAssociation::query()->where('tax_id', $foreign)->count());
     }
 
     private function tax(int $companyId, string $name): int

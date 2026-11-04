@@ -77,6 +77,44 @@ The existing fiscal attempt journal supports both HTTP transports using the same
 The native Core API requires its own authentication and `read-api` along with `read-sales-invoices`. The browser continues to use the admin session. Both responses contain up to 100 newest attempts for an invoice owned by the active company, without raw XML or full transmitted documents. A fiscal attempt is distinct from an issued NFS-e receipt and from the Akaunting commercial invoice.
 
 
+## Fiscal tax associations and approximate-tax provenance (#502)
+
+These contracts expose only classification of **existing** Akaunting taxes
+and versioned estimated-tax evidence. They do not create accounting taxes,
+calculate fiscal incidence, alter financial items or overwrite authorized XML.
+
+| Operation | Native API suffix | Browser-session suffix | Permission |
+| --- | --- | --- | --- |
+| List tax identities, roles, and historical confirmations | `GET settings/tax-associations` | `GET settings/tax-associations/resources` | `read-nfse-settings` |
+| Confirm a fiscal identity/role for a native tax | `POST settings/tax-associations` | `POST settings/tax-associations` | `update-nfse-settings` |
+| Paginate estimated-tax source revisions | `GET settings/approximate-taxes` | `GET settings/approximate-taxes/resources` | `read-nfse-settings` |
+| Append an estimated-tax evidence revision | `POST settings/approximate-taxes` | `POST settings/approximate-taxes` | `update-nfse-settings` |
+
+Prefix native suffixes with `/{company_id}/{api_prefix}/nfse/` and browser
+suffixes with `/{company_id}/nfse/`. Browser JSON POSTs require CSRF; native
+API calls use Akaunting authentication and permission middleware.
+
+The tax association listing returns `data.taxes`, `data.identities` and
+`data.roles`. Each tax contains current native metadata and historical
+`revisions`, including effective period, source, confirming operator, and
+a structural `type_mismatch` warning. The warning is **not** a normative
+tax-incidence decision. Confirmation bodies require the existing `tax_id`,
+`fiscal_identity`, `fiscal_role`, `effective_from`, optional
+`effective_until`, `source_reference` and `acknowledge=true`.
+Exact repetitions return 200 with `data.already_confirmed=true` while
+new confirmations return 201. Ownership is checked on every submission,
+including retries; conflicting periods return 409.
+
+Approximate-tax source queries return `data` and `meta` pagination
+(`limit=1..100`, default 50) scoped to the active company, without
+fabricating zeros for unknown sources. Submissions retain the current
+validation rules for fiscal service code, competence range, source kind,
+provenance, version and three percent values. New revisions return 201 with
+the persisted ID; duplicated revisions or unsupported zero evidence return
+422. Historical records are append-only. The administrative screens load
+their tables and save confirmations over these JSON contracts, without using
+HTML fragments as an integration protocol.
+
 ## Fiscal ledger and receipt-scoped authorized artifacts (#503)
 
 `GET /{company_id}/{api_prefix}/nfse/ledger` uses Akaunting's native

@@ -18,15 +18,16 @@ use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\GlobalVaultSettings;
 use Modules\Nfse\Support\NfseCompanyCertificatePath;
+use Modules\Nfse\Support\NfseCompanyCertificateStore;
 use Modules\Nfse\Support\NfseCompanyProfileManager;
 use Modules\Nfse\Support\NfseCompanyProfilePendingOperations;
-use Modules\Nfse\Support\NfseCompanyCertificateStore;
 use Modules\Nfse\Support\PfxInspector;
 use Modules\Nfse\Support\VaultDiagnostics;
 use Modules\Nfse\Tests\Support\CompanyProfileFakeSecrets;
 use Modules\Nfse\Tests\Support\CompanyProfileFakeVaultTransport;
 use Modules\Nfse\Tests\Support\SyntheticCompanyPkcs12;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\FeatureTestCase;
 
 final class CompanyProfileLifecycleTest extends FeatureTestCase
@@ -99,6 +100,45 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         $this->post(route('nfse.settings.company-profiles.store'), $this->creation($id))
             ->assertStatus(409);
         self::assertSame(1, NfseCompanyProfile::query()->where('company_id', $id)->count());
+    }
+
+    /** @return array<string,array{string}> */
+    public static function unsupportedDpsSeries(): array
+    {
+        return [
+            'first mobile series' => ['50000'],
+            'web portal series' => ['70000'],
+            'manual transcription series' => ['80000'],
+            'highest unsupported series' => ['99999'],
+        ];
+    }
+
+    #[DataProvider('unsupportedDpsSeries')]
+    public function testCompanyProfileRejectsNonApiDpsSeriesBeforeAnyMutation(string $unsupported): void
+    {
+        $companyId = (int) $this->company->id;
+        $creation = $this->creation($companyId);
+        $creation['fiscal_parameters']['dps_series'] = $unsupported;
+
+        $this->post(route('nfse.settings.company-profiles.store'), $creation)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['fiscal_parameters.dps_series']);
+        self::assertSame(0, NfseCompanyProfile::query()->count());
+
+        $valid = $this->creation($companyId);
+        $valid['fiscal_parameters']['dps_series'] = '00001';
+        $this->post(route('nfse.settings.company-profiles.store'), $valid)->assertCreated();
+
+        $this->patch(route('nfse.settings.company-profiles.update', $companyId), [
+            'fiscal_parameters' => ['dps_series' => $unsupported],
+        ])->assertUnprocessable()->assertJsonValidationErrors(['fiscal_parameters.dps_series']);
+
+        $profile = NfseCompanyProfile::query()->where('company_id', $companyId)->sole();
+        self::assertSame('00001', $profile->fiscal_parameters['dps_series']);
+
+        $this->patch(route('nfse.settings.company-profiles.update', $companyId), [
+            'fiscal_parameters' => ['dps_series' => '49999'],
+        ])->assertOk()->assertJsonPath('data.fiscal_parameters.dps_series', '49999');
     }
 
     public function testUserCannotDiscoverOrMutateACompanyOutsideTheirAssignments(): void

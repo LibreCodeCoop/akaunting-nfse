@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,26 +26,54 @@ final class TaxAssociationController extends Controller
 {
     public function index(): View
     {
-        $companyId = $this->companyId();
+        $this->companyId();
 
-        return view('nfse::settings.tax-associations', [
-            'taxes' => DB::table('taxes')
-                ->where('company_id', $companyId)
-                ->whereNull('deleted_at')
-                ->orderBy('name')
-                ->orderBy('id')
-                ->get(['id', 'name', 'type', 'rate', 'enabled']),
-            'associationsByTax' => TaxFiscalAssociation::query()
-                ->where('company_id', $companyId)
-                ->orderBy('effective_from')
-                ->get()
-                ->groupBy('tax_id'),
-            'identities' => FiscalTaxIdentity::cases(),
-            'roles' => FiscalTaxRole::cases(),
-        ]);
+        // Presentation only; company-specific tax facts come from JSON.
+        return view('nfse::settings.tax-associations');
     }
 
-    public function store(Request $request, TaxFiscalAssociationStore $store): RedirectResponse
+    /** Catalog of existing accounting taxes and independently confirmed fiscal classifications. */
+    public function catalog(): JsonResponse
+    {
+        $companyId = $this->companyId();
+        $associations = TaxFiscalAssociation::query()
+            ->where('company_id', $companyId)->orderBy('effective_from')->get();
+
+        $taxes = DB::table('taxes')
+            ->where('company_id', $companyId)
+            ->whereNull('deleted_at')
+            ->orderBy('name')->orderBy('id')
+            ->get(['id', 'name', 'type', 'rate', 'enabled']);
+
+        return response()->json(['data' => [
+            'taxes' => $taxes->map(static function ($tax) use ($associations): array {
+                $revisions = $associations->where('tax_id', $tax->id);
+                return [
+                    'id' => (int) $tax->id,
+                    'name' => (string) $tax->name,
+                    'type' => (string) $tax->type,
+                    'rate' => (string) $tax->rate,
+                    'enabled' => (bool) $tax->enabled,
+                    'revisions' => $revisions->map(static fn (TaxFiscalAssociation $revision): array => [
+                        'id' => (int) $revision->id,
+                        'fiscal_identity' => $revision->fiscal_identity,
+                        'fiscal_role' => $revision->fiscal_role,
+                        'effective_from' => $revision->effective_from,
+                        'effective_until' => $revision->effective_until,
+                        'source_reference' => $revision->source_reference,
+                        'confirmed_by' => (int) $revision->confirmed_by,
+                        'confirmed_at' => $revision->confirmed_at?->toDateString(),
+                        'type_mismatch' => ($tax->type === 'withholding')
+                            !== ($revision->fiscal_role === 'withheld_by_payer'),
+                    ])->values()->all(),
+                ];
+            })->values()->all(),
+            'identities' => array_column(FiscalTaxIdentity::cases(), 'value'),
+            'roles' => array_column(FiscalTaxRole::cases(), 'value'),
+        ]]);
+    }
+
+    public function store(Request $request, TaxFiscalAssociationStore $store): RedirectResponse|JsonResponse
     {
         $companyId = $this->companyId();
         $actorId = (int) auth()->id();
@@ -62,8 +91,9 @@ final class TaxAssociationController extends Controller
         $values['source_reference'] = trim($values['source_reference']);
         $values['effective_until'] ??= null;
 
+        $alreadyConfirmed = $this->identicalRevisionExists($companyId, $actorId, $values);
         try {
-            if (!$this->identicalRevisionExists($companyId, $actorId, $values)) {
+            if (!$alreadyConfirmed) {
                 $store->confirm(
                     $companyId,
                     (int) $values['tax_id'],
@@ -78,10 +108,21 @@ final class TaxAssociationController extends Controller
         } catch (\DomainException|\InvalidArgumentException $exception) {
             // An identical concurrent submission may have won the row lock.
             if (!$this->identicalRevisionExists($companyId, $actorId, $values)) {
-                return redirect()->back()->withInput()->withErrors([
-                    'tax_id' => $exception->getMessage(),
-                ]);
+                return $request->expectsJson()
+                    ? response()->json(['reason' => 'tax_association_conflict', 'message' => 'Fiscal association rejected.'], 409)
+                    : redirect()->back()->withInput()->withErrors([
+                        'tax_id' => $exception->getMessage(),
+                    ]);
             }
+            $alreadyConfirmed = true;
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['data' => [
+                'tax_id' => (int) $values['tax_id'],
+                'status' => 'confirmed',
+                'already_confirmed' => $alreadyConfirmed,
+            ]], $alreadyConfirmed ? 200 : 201);
         }
 
         return redirect()->route('nfse.settings.tax-associations.index')

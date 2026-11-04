@@ -326,25 +326,40 @@ Para dados fiscais de clientes, veja
 [Perfil fiscal do tomador](contact-fiscal-profile.md); para relatórios e
 consulta de registros por nota, utilize as interfaces próprias de NFS-e.
 
-## Numeração fiscal da DPS — implementação em andamento
+## Numeração fiscal da DPS e transição do portal nacional
 
-O épico #423 ainda não habilitou o sequenciamento unificado. As emissões
-existentes **não utilizam** as tabelas de reserva novas. Não iniciar emissões
-em produção presumindo que a arquitetura proposta já esteja integrada.
+O sequenciamento está integrado à emissão: novas operações utilizam a reserva
+persistente, o diário de tentativas já existente e o bloqueio central
+irreversível da primeira transmissão. Uma série cadastrada, mesmo marcada
+como ativa no banco local, **não autoriza** emissão sem coordenador compartilhado
+válido, acesso autorizado e verificação fiscal. A configuração operacional e
+os limites estão descritos em [Numeração DPS e coordenação entre
+instalações](#numeração-dps-e-coordenação-entre-instalações).
 
-A fundação de reserva usa identidade fiscal do emissor (município de emissão,
-tipo e registro federal), ambiente e série; `company_id` permanece apenas
-como propriedade/autorização da operação. Novas séries começam **inativas**.
-A referência de coordenação não garante unicidade entre bancos independentes:
-é indispensável provar que outras instalações e emissores não disputem a
-mesma série ou coordenem as reservas em armazenamento transacional comum.
-Não cadastrar a referência com dados de clientes, credenciais ou certificados.
+Ao substituir a emissão pelo **Portal Nacional Web** pela emissão via API do
+Akaunting, não copie a numeração das notas já autorizadas pelo portal nem
+reescreva os seus documentos, XMLs ou histórico. São canais com faixas
+distintas de série: o aplicativo próprio utiliza `00001` a `49999`; a faixa
+do emissor web nacional é diferente. Consulte o
+[FAQ oficial da NFS-e](https://www.gov.br/nfse/pt-br/biblioteca/perguntas-e-respostas/perguntas-e-respostas-da-nfs-e)
+e confirme as regras efetivamente implantadas no ambiente de destino.
 
-A fonte efetiva de números não pode ser o ID local da fatura, o ID de um
-grupo ou o recibo cancelado. Qualquer operação iniciada que tenha resultado
-ambíguo deve preservar sua DPS para reconciliação exclusivamente por leitura,
-sem retransmissão automática. O número autorizado da NFS-e nunca é alterado
-por essa política. Consulte o ADR 0003 e o épico #423 antes da ativação.
+A série própria só pode começar no número `1` quando houver evidência de que
+ela **nunca foi usada** para o mesmo prestador e ambiente. Verifique
+eventual emissão anterior via integração de terceiros, registre a maior DPS
+historicamente usada e configure o piso atestado e o contador global de acordo.
+Se não existir uso anterior comprovado, o piso pode ser `0`. A existência de
+notas emitidas pelo portal, em outra série, não implica consumo da série própria.
+
+Antes de ativar qualquer série, obtenha evidência de exclusividade,
+provisione e faça backup do primário MySQL, valide as gerações das instalações
+e os privilégios mínimos, verifique a compatibilidade do XSD e conclua os testes
+com fake SEFIN e o aceite em produção restrita. O procedimento detalhado de
+falhas, restauração e revogação está em
+[Coordenação distribuída da DPS](dps-distributed-coordination.md).
+Uma resposta de transmissão desconhecida exige reconciliação por consulta,
+**nunca novo POST automático**. A primeira emissão real requer autorização
+operacional independente.
 
 ## Revisão operacional de faturas no fechamento
 

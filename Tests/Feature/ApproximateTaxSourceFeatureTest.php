@@ -74,9 +74,15 @@ final class ApproximateTaxSourceFeatureTest extends FeatureTestCase
 
         $this->get(route('nfse.settings.approximate-taxes'))
             ->assertOk()
-            ->assertSee('v1-synthetic')
-            ->assertSee('v2-synthetic')
-            ->assertSee('synthetic-archive-entry/estimates-v1');
+            ->assertSee('id="approximate-taxes-body"', false)
+            ->assertDontSee('v1-synthetic');
+
+        $this->get(route('nfse.settings.approximate-taxes.resources'))
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.source_version', 'v2-synthetic')
+            ->assertJsonPath('data.1.source_version', 'v1-synthetic')
+            ->assertJsonPath('data.1.source_reference', 'synthetic-archive-entry/estimates-v1');
 
         unset($payload['source_reference']);
         $payload['source_version'] = 'v3-without-evidence';
@@ -84,6 +90,39 @@ final class ApproximateTaxSourceFeatureTest extends FeatureTestCase
             ->post(route('nfse.settings.approximate-taxes.store'), $payload)
             ->assertSessionHasErrors('source_reference');
         self::assertSame(2, ApproximateTaxSource::query()->where('company_id', $companyId)->count());
+    }
+
+    public function testJsonSourceSubmissionIsAppendOnlyAndInvalidValuesDoNotPersist(): void
+    {
+        $this->withExceptionHandling()->loginAs();
+        $payload = [
+            'national_service_code' => '010701',
+            'simples_option' => '1',
+            'competence_from' => '2026-11-01',
+            'source_kind' => 'independent_estimate',
+            'source_name' => 'Synthetic estimate institution',
+            'source_version' => 'synthetic-api-v1',
+            'source_reference' => 'synthetic-review-evidence-1',
+            'federal_percent' => '7.50',
+            'state_percent' => '0.00',
+            'municipal_percent' => '2.25',
+        ];
+        $url = route('nfse.settings.approximate-taxes.store');
+        $this->postJson($url, $payload)->assertCreated()
+            ->assertJsonPath('data.source_version', 'synthetic-api-v1');
+        $this->postJson($url, $payload)->assertUnprocessable();
+        $this->get(route('nfse.settings.approximate-taxes.resources', ['limit' => 1]))
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.federal_percent', '7.50');
+        $this->get(route('nfse.settings.approximate-taxes.resources', ['limit' => 101]))
+            ->assertUnprocessable();
+
+        $payload['source_version'] = 'synthetic-api-invalid-zero';
+        $payload['source_kind'] = 'documented_zero';
+        $this->postJson($url, $payload)->assertUnprocessable();
+        self::assertSame(1, ApproximateTaxSource::query()
+            ->where('company_id', (int) company_id())->count());
     }
 
     private function source(int $companyId, string $from, string $municipal, string $version): ApproximateTaxSource
