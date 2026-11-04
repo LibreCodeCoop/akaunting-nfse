@@ -22,7 +22,7 @@ use Modules\Nfse\Http\Controllers\AdnController;
 Route::api('nfse', function (): void {
     Route::post('bulk/plan', [BulkEmissionApiController::class, 'plan'])
         ->middleware('permission:read-sales-invoices')->name('bulk.plan');
-    Route::post('bulk/dispatch', [BulkEmissionApiController::class, 'dispatch'])
+    Route::post('bulk/dispatch', [BulkEmissionApiController::class, 'enqueueJson'])
         ->middleware('permission:update-sales-invoices')->name('bulk.dispatch');
     Route::get('bulk/runs', [BulkEmissionApiController::class, 'runs'])
         ->middleware('permission:read-sales-invoices')->name('bulk.runs');

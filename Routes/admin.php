@@ -112,7 +112,7 @@ Route::admin('nfse', function () {
         ->middleware('permission:read-sales-invoices')->name('bulk.runs');
     Route::get('bulk/runs/{run}', [BulkEmissionApiController::class, 'show'])
         ->middleware('permission:read-sales-invoices')->name('bulk.runs.show');
-    Route::post('bulk/dispatch-json', [BulkEmissionApiController::class, 'dispatch'])
+    Route::post('bulk/dispatch-json', [BulkEmissionApiController::class, 'enqueueJson'])
         ->middleware('permission:update-sales-invoices')->name('bulk.dispatch-json');
 
     // Competence closing and reconciliation

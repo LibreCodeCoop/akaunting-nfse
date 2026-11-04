@@ -36,7 +36,7 @@ final class BulkEmissionApiController extends Controller
         ]);
     }
 
-    public function dispatch(Request $request, BulkEmissionOperations $operation): JsonResponse
+    public function enqueueJson(Request $request, BulkEmissionOperations $operation): JsonResponse
     {
         $ids = $this->invoiceIds($request);
         $result = $operation->dispatch($this->companyId(), $this->userId(), $ids);

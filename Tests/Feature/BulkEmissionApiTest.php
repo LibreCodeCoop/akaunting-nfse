@@ -34,6 +34,9 @@ final class BulkEmissionApiTest extends FeatureTestCase
             self::assertNotNull($route, $name);
             self::assertContains('permission:update-sales-invoices', $route->gatherMiddleware(), $name);
         }
+        foreach (['nfse.bulk.dispatch-json', 'api.nfse.bulk.dispatch'] as $name) {
+            self::assertSame('enqueueJson', Route::getRoutes()->getByName($name)->getActionMethod());
+        }
     }
 
     public function testPlanIsReadOnlyAndRejectsMalformedSelections(): void
