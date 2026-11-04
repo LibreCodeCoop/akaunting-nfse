@@ -170,9 +170,13 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
             ->assertCreated();
         $eligible = $this->get(route('nfse.settings.company-profiles.index'))
             ->assertOk()->json('eligible_companies');
-        self::assertSame([$second], array_column($eligible, 'company_id'));
+        self::assertSame([], array_column($eligible, 'company_id'));
+        $this->selectCompany($second);
+        $eligibleSecond = $this->get(route('nfse.settings.company-profiles.index', ['company_id' => $second]))
+            ->assertOk()->json('eligible_companies');
+        self::assertSame([$second], array_column($eligibleSecond, 'company_id'));
 
-        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($second))
+        $this->post(route('nfse.settings.company-profiles.store', ['company_id' => $second]), $this->creation($second))
             ->assertCreated();
 
         $a = NfseCompanyProfile::query()->where('company_id', $first)->firstOrFail();
@@ -183,6 +187,7 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         self::assertNotSame($a->certificateFilePath(), $b->certificateFilePath());
         self::assertCount(2, $this->secrets->data);
 
+        $this->selectCompany($first);
         $this->delete(route('nfse.settings.company-profiles.destroy', $first))
             ->assertNoContent();
         self::assertCount(1, $this->secrets->data);
@@ -191,6 +196,45 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         $available = $this->get(route('nfse.settings.company-profiles.index'))
             ->assertOk()->json('eligible_companies');
         self::assertSame([$first], array_column($available, 'company_id'));
+        $this->selectCompany($second);
+        $otherListing = $this->get(route('nfse.settings.company-profiles.index', ['company_id' => $second]))
+            ->assertOk()->json();
+        self::assertSame([$second], array_column($otherListing['profiles'], 'company_id'));
+    }
+
+    public function testAssignedOperatorCannotCrossCompanyFromSelectedSettingsRoute(): void
+    {
+        $first = (int) $this->company->id;
+        $second = $this->secondCompany(true);
+
+        // Membership in company two does not authorize creating its profile on
+        // company one's settings URL, even when both companies have equal CNPJ.
+        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($second))
+            ->assertNotFound();
+        self::assertSame(0, NfseCompanyProfile::query()->count());
+
+        $this->selectCompany($second);
+        $this->post(route('nfse.settings.company-profiles.store', ['company_id' => $second]), $this->creation($second))
+            ->assertCreated();
+
+        $this->selectCompany($first);
+        $firstListing = $this->get(route('nfse.settings.company-profiles.index'))->assertOk()->json();
+        self::assertSame([], $firstListing['profiles']);
+        self::assertSame([$first], array_column($firstListing['eligible_companies'], 'company_id'));
+        $this->selectCompany($second);
+        $secondListing = $this->get(route('nfse.settings.company-profiles.index', ['company_id' => $second]))
+            ->assertOk()->json();
+        self::assertSame([$second], array_column($secondListing['profiles'], 'company_id'));
+
+        $this->selectCompany($first);
+        $this->patch(route('nfse.settings.company-profiles.update', ['company_id' => $first, 'companyId' => $second]), [
+            'fiscal_parameters' => ['emission_policy' => 'manual'],
+        ])->assertNotFound();
+        $this->delete(route('nfse.settings.company-profiles.destroy', ['company_id' => $first, 'companyId' => $second]))
+            ->assertNotFound();
+        $this->post(route('nfse.settings.company-profiles.cleanup', ['company_id' => $first, 'companyId' => $second]))
+            ->assertNotFound();
+        self::assertSame(1, NfseCompanyProfile::query()->where('company_id', $second)->count());
     }
 
     public function testAHealthyGenericVaultProbeDoesNotGrantTenantCertificateAccess(): void
@@ -471,14 +515,21 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
             ->assertCreated();
 
         $this->vault->offline = true;
-        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($second))
+        $this->selectCompany($second);
+        $this->post(route('nfse.settings.company-profiles.store', ['company_id' => $second]), $this->creation($second))
             ->assertStatus(409);
 
+        $this->selectCompany($id);
         $listing = $this->get(route('nfse.settings.company-profiles.index'))
             ->assertOk()->json();
         self::assertCount(1, $listing['profiles']);
         self::assertSame($id, $listing['profiles'][0]['company_id']);
-        self::assertSame([$second], array_column($listing['eligible_companies'], 'company_id'));
+        self::assertSame([], $listing['eligible_companies']);
+        $this->selectCompany($second);
+        $otherListing = $this->get(route('nfse.settings.company-profiles.index', ['company_id' => $second]))
+            ->assertOk()->json();
+        self::assertSame([], $otherListing['profiles']);
+        self::assertSame([$second], array_column($otherListing['eligible_companies'], 'company_id'));
         self::assertSame(0, NfseCompanyProfile::query()->where('company_id', $second)->count());
     }
 
@@ -488,7 +539,8 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         $other = $this->secondCompany(true);
         $this->post(route('nfse.settings.company-profiles.store'), $this->creation($id))
             ->assertCreated();
-        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($other))
+        $this->selectCompany($other);
+        $this->post(route('nfse.settings.company-profiles.store', ['company_id' => $other]), $this->creation($other))
             ->assertCreated();
 
         $before = NfseCompanyProfile::query()->where('company_id', $other)->firstOrFail();
@@ -496,6 +548,7 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         $otherVault = (string) $before->certificateVaultPath();
         $otherData = $this->secrets->data[$otherVault];
 
+        $this->selectCompany($id);
         $this->patch(route('nfse.settings.company-profiles.update', $id), [
             'pfx_file' => $this->certificate(),
             'pfx_password' => SyntheticCompanyPkcs12::PASSWORD,
@@ -674,6 +727,13 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         return UploadedFile::fake()->createWithContent('synthetic.pfx', SyntheticCompanyPkcs12::bytes(self::CNPJ));
     }
 
+    /** A real Akaunting request gets a fresh active-company container state. */
+    private function selectCompany(int $id): void
+    {
+        \App\Models\Common\Company::query()->findOrFail($id)->makeCurrent(true);
+        app('url')->defaults(['company_id' => $id]);
+    }
+
     private function secondCompany(bool $assigned): int
     {
         $id = (int) DB::table('companies')->insertGetId([
@@ -683,9 +743,8 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
             'updated_at' => now(),
         ]);
         DB::table('settings')->insert([
-            'company_id' => $id,
-            'key' => 'company.tax_number',
-            'value' => self::CNPJ,
+            ['company_id' => $id, 'key' => 'company.tax_number', 'value' => self::CNPJ],
+            ['company_id' => $id, 'key' => 'wizard.completed', 'value' => '1'],
         ]);
 
         if ($assigned) {

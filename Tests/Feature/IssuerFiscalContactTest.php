@@ -49,8 +49,10 @@ final class IssuerFiscalContactTest extends FeatureTestCase
         self::assertSame('(00) 90000-0000', $byCompany[$owner]['fiscal_parameters']['prestador_telefone']);
         self::assertSame('fiscal@example.test', $byCompany[$owner]['fiscal_parameters']['prestador_email']);
         self::assertSame('123456', $byCompany[$owner]['fiscal_parameters']['prestador_inscricao_municipal']);
-        self::assertSame('other-company@example.test', $byCompany[$other]['fiscal_parameters']['prestador_email']);
-        self::assertSame('654321', $byCompany[$other]['fiscal_parameters']['prestador_inscricao_municipal']);
+        self::assertArrayNotHasKey($other, $byCompany);
+        $otherByCompany = $this->profilesForCompany($other);
+        self::assertSame('other-company@example.test', $otherByCompany[$other]['fiscal_parameters']['prestador_email']);
+        self::assertSame('654321', $otherByCompany[$other]['fiscal_parameters']['prestador_inscricao_municipal']);
 
         $settings = new NfseCompanyFiscalSettings();
         self::assertSame('fiscal@example.test', $settings->value($owner, 'nfse.prestador_email'));
@@ -86,7 +88,9 @@ final class IssuerFiscalContactTest extends FeatureTestCase
             ->assertOk()->json('profiles');
         $byCompany = array_column($profiles, null, 'company_id');
         self::assertSame('2', $byCompany[$owner]['fiscal_parameters']['regime_apuracao_simples_nacional']);
-        self::assertSame('3', $byCompany[$other]['fiscal_parameters']['regime_apuracao_simples_nacional']);
+        self::assertArrayNotHasKey($other, $byCompany);
+        $otherByCompany = $this->profilesForCompany($other);
+        self::assertSame('3', $otherByCompany[$other]['fiscal_parameters']['regime_apuracao_simples_nacional']);
     }
 
     public function testSpecialRegimeRoundTripDoesNotModifyAnotherCompany(): void
@@ -110,7 +114,9 @@ final class IssuerFiscalContactTest extends FeatureTestCase
             ->assertOk()->json('profiles');
         $byCompany = array_column($profiles, null, 'company_id');
         self::assertSame('9', $byCompany[$owner]['fiscal_parameters']['regime_especial_tributacao']);
-        self::assertSame('5', $byCompany[$other]['fiscal_parameters']['regime_especial_tributacao']);
+        self::assertArrayNotHasKey($other, $byCompany);
+        $otherByCompany = $this->profilesForCompany($other);
+        self::assertSame('5', $otherByCompany[$other]['fiscal_parameters']['regime_especial_tributacao']);
     }
 
     public function testSpecialIssqnAndIbsCbsMetadataRoundTripsWithoutCrossCompanyWrites(): void
@@ -147,8 +153,10 @@ final class IssuerFiscalContactTest extends FeatureTestCase
         self::assertSame(str_repeat('1', 30), $byCompany[$owner]['fiscal_parameters']['issqn_numero_processo_suspensao']);
         self::assertSame('1', $byCompany[$owner]['fiscal_parameters']['ibs_cbs_ind_final']);
         self::assertSame('0', $byCompany[$owner]['fiscal_parameters']['ibs_cbs_ind_dest']);
-        self::assertSame('3', $byCompany[$other]['fiscal_parameters']['issqn_tipo_imunidade']);
-        self::assertSame('0', $byCompany[$other]['fiscal_parameters']['ibs_cbs_ind_final']);
+        self::assertArrayNotHasKey($other, $byCompany);
+        $otherByCompany = $this->profilesForCompany($other);
+        self::assertSame('3', $otherByCompany[$other]['fiscal_parameters']['issqn_tipo_imunidade']);
+        self::assertSame('0', $otherByCompany[$other]['fiscal_parameters']['ibs_cbs_ind_final']);
 
         $settings = new NfseCompanyFiscalSettings();
         self::assertSame('US', $settings->value($owner, 'nfse.issqn_pais_resultado'));
@@ -224,6 +232,28 @@ final class IssuerFiscalContactTest extends FeatureTestCase
         ]);
     }
 
+    /**
+     * Simulate a separate, authenticated Akaunting request after switching tenant.
+     * The API must never enumerate another company's profile in the current one.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function profilesForCompany(int $companyId): array
+    {
+        $previous = (int) company_id();
+        try {
+            \App\Models\Common\Company::query()->findOrFail($companyId)->makeCurrent(true);
+            app('url')->defaults(['company_id' => $companyId]);
+            $profiles = $this->getJson(route('nfse.settings.company-profiles.index'))
+                ->assertOk()->json('profiles');
+
+            return array_column($profiles, null, 'company_id');
+        } finally {
+            \App\Models\Common\Company::query()->findOrFail($previous)->makeCurrent(true);
+            app('url')->defaults(['company_id' => $previous]);
+        }
+    }
+
     private function secondCompany(): int
     {
         $companyId = (int) DB::table('companies')->insertGetId([
@@ -235,6 +265,12 @@ final class IssuerFiscalContactTest extends FeatureTestCase
         DB::table('user_companies')->insert([
             'user_id' => (int) auth()->id(),
             'company_id' => $companyId,
+        ]);
+        // The admin route redirects companies without the Akaunting setup wizard.
+        DB::table('settings')->insert([
+            'company_id' => $companyId,
+            'key' => 'wizard.completed',
+            'value' => '1',
         ]);
 
         return $companyId;

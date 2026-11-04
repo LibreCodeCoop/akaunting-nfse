@@ -46,7 +46,7 @@ test('native company fiscal profile renders from real backend, not a mocked API'
   expect(own).toBeTruthy();
   expect(own.certificate_cnpj).toBe('11222333000181');
   await expect(page.locator('#profiles-body tr')).toHaveCount(payload.profiles.length);
-  await page.locator('#profiles-body').getByRole('button', { name: 'Editar' }).click();
+  await page.locator('#profiles-body').getByRole('button', { name: /Editar configuração NFS-e/ }).click();
   await expect(page.locator('#profile-company')).toHaveValue('1');
   await expect(page.locator('#profile-municipality')).toHaveValue('3303302');
   await expect(page.locator('#profile-establishment-confirmed')).toHaveValue('0');
@@ -79,7 +79,7 @@ async function openFiscalProfile(page: import('@playwright/test').Page) {
   }));
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#profiles-body tr')).toHaveCount(1);
-  await page.locator('#profiles-body').getByRole('button', { name: 'Editar' }).click();
+  await page.locator('#profiles-body').getByRole('button', { name: /Editar configuração NFS-e/ }).click();
   await expect(page.locator('#profile-editor')).toBeVisible();
 }
 
@@ -88,7 +88,7 @@ test('deterministic fiscal profile displays synthetic company and municipal iden
   await openFiscalProfile(page);
 
   await expect(page.locator('#profile-company')).toHaveValue('1');
-  await expect(page.locator('#profile-company')).toBeDisabled();
+  await expect(page.locator('#profile-company')).toHaveAttribute('type', 'hidden');
   await expect(page.locator('#profile-municipality')).toHaveValue('3303302');
   await expect(page.locator('#profile-simples')).toHaveValue('1');
   await expect(page.locator('#profile-regime')).toHaveValue('0');

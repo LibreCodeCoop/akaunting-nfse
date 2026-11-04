@@ -126,13 +126,19 @@ do KV v2 devem ser verificadas; uma probe genérica não basta.
 
 ### Administração pela interface
 
-Na seção **Empresas NFS-e**, o operador vê os perfis das empresas nativas do
-Akaunting às quais tem acesso. **Adicionar** só está disponível quando alguma
-empresa atribuída e habilitada ainda não possui perfil; caso contrário, é
-necessário cadastrar uma empresa primeiro no próprio Akaunting.
+Na seção **NFS-e desta empresa**, a interface exibe somente o perfil da
+empresa selecionada no Akaunting. Alterne de empresa pelo seletor nativo
+do Akaunting. A infraestrutura OpenBao é global, mas o certificado e os
+parâmetros fiscais pertencem exclusivamente ao identificador dessa empresa.
 
-O cadastro exige selecionar a empresa, enviar PFX/P12 com sua senha e informar
-complementos fiscais. A edição não permite transferir o perfil para outra empresa.
+Sem perfil, a ação **Configurar NFS-e** inicia o cadastro diretamente para a
+empresa selecionada. Se o Vault não estiver operacional, a ação apresenta
+o requisito pendente e abre a configuração de infraestrutura; não permite
+registrar certificados. Com perfil existente, o operador edita ou exclui
+sua configuração, sem cadastrar um segundo perfil para a mesma empresa.
+
+O cadastro exige enviar PFX/P12 com sua senha e informar complementos fiscais.
+A edição não permite transferir o perfil para outra empresa.
 Um novo certificado e sua senha são necessários somente para a rotação.
 Pendências de preenchimento devem ser corrigidas antes de tentar emitir, mas
 preencher os campos não implica autorização fiscal de transmissão.
@@ -152,8 +158,9 @@ continua verificando o caminho específico de cada novo certificado. Se o Vault
 ficar indisponível, novos cadastros ficam bloqueados, enquanto a listagem dos
 perfis existentes permanece consultável.
 
-Na listagem, a disponibilidade da ação **Adicionar** depende das empresas
-autorizadas sem perfil e do diagnóstico operacional do Vault. Uma falha de
+A disponibilidade de **Configurar NFS-e** depende da ausência de perfil na
+empresa selecionada. O diagnóstico do Vault determina se o editor fiscal
+pode abrir ou se o operador precisa configurar a infraestrutura. Uma falha de
 consulta à listagem oculta os metadados carregados anteriormente e exige
 nova autorização. A edição preserva o vínculo original e mantém o certificado
 existente quando não há novo PFX/P12. Erros de validação ficam no formulário,
@@ -172,8 +179,8 @@ A interface utiliza estas rotas nomeadas. A consulta permanece possível
 mesmo durante indisponibilidade temporária do Vault:
 
 - `nfse.settings.company-profiles.index`: GET; retorna `profiles`
-  (metadados sem credenciais) e `eligible_companies` (somente empresas
-  acessíveis ainda sem perfil); permissão `read-nfse-settings`.
+  (metadados sem credenciais) e `eligible_companies` somente da empresa
+  selecionada, quando ainda sem perfil; permissão `read-nfse-settings`.
 - `nfse.settings.company-profiles.store`: POST com `company_id`,
   `pfx_file`, `pfx_password` e `fiscal_parameters` opcionais;
   permissão `update-nfse-settings`.
@@ -186,7 +193,9 @@ mesmo durante indisponibilidade temporária do Vault:
   retoma limpeza interrompida; permissão `delete-nfse-settings`.
 
 Além da permissão de rota, toda mutação exige que o usuário esteja
-associado à empresa nativa especificada. Respostas não incluem PFX,
+associado à empresa nativa e que a empresa ativa resolvida pelo middleware
+IdentifyCompany do Akaunting seja a mesma do perfil. Acesso a outra empresa não permite
+manipulá-la pela URL da empresa atual. Respostas não incluem PFX,
 senha, token ou caminho físico local. `fiscal_parameters` aceita apenas
 as chaves fiscais explicitamente validadas e não armazena credenciais de
 outras integrações. Não há inferência de códigos, alíquotas ou situações

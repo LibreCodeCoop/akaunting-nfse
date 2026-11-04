@@ -6,14 +6,11 @@ import { loginToAkaunting } from './support/auth';
 
 test.use({ serviceWorkers: 'block' });
 
-test('multi-company certificate form accepts PFX/P12 with password and owner lock', async ({ page }, info) => {
+test('selected company certificate form binds PFX to current Akaunting company', async ({ page }, info) => {
   await loginToAkaunting(page, info);
   await page.route('**/nfse/settings/company-profiles', route => route.fulfill({
     status: 200, contentType: 'application/json',
-    body: JSON.stringify({ profiles: [{
-      company_id: 1, name: 'Empresa sintética 1', status: 'active', cleanup_pending: false,
-      fiscal_parameters: {}, fiscal_readiness: {basic_complete: false, pending: ['uf']},
-    }], eligible_companies: [{company_id: 2, name: 'Empresa sintética 2'}] }),
+    body: JSON.stringify({ profiles: [], eligible_companies: [{company_id: 1, name: 'Empresa sintética 1'}] }),
   }));
   await page.route('**/nfse/settings/vault/diagnostics', route => route.fulfill({
     status: 200, contentType: 'application/json',
@@ -22,13 +19,10 @@ test('multi-company certificate form accepts PFX/P12 with password and owner loc
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#profile-add')).toBeEnabled();
   await page.locator('#profile-add').click();
-  await expect(page.locator('#profile-company')).toHaveValue('2');
+  await expect(page.locator('#profile-company')).toHaveValue('1');
+  await expect(page.locator('#profile-company')).toHaveAttribute('type', 'hidden');
   await expect(page.locator('#profile-pfx')).toHaveAttribute('accept', '.pfx,.p12');
   await expect(page.locator('#profile-pfx-password')).toHaveAttribute('type', 'password');
   await expect(page.locator('#profile-pfx')).toHaveAttribute('required');
   await page.locator('#profile-cancel').click();
-  await page.locator('#profiles-body').getByRole('button', {name: /Editar configuração NFS-e de Empresa sintética 1/}).click();
-  await expect(page.locator('#profile-company')).toBeDisabled();
-  await expect(page.locator('#profile-pfx')).not.toHaveAttribute('required');
-  await expect(page.locator('#profile-rotation-hint')).toBeVisible();
 });

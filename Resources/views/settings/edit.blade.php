@@ -33,11 +33,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             <section class="rounded border bg-white" aria-labelledby="nfse-companies-title">
                 <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
                     <div>
-                        <h2 id="nfse-companies-title" class="font-semibold">Empresas NFS-e</h2>
-                        <p class="text-xs text-gray-500">Perfis das empresas às quais você tem acesso</p>
+                        <h2 id="nfse-companies-title" class="font-semibold">NFS-e desta empresa</h2>
+                        <p class="text-xs text-gray-500">Perfil fiscal da empresa selecionada no Akaunting</p>
                     </div>
                     @if($canUpdateProfiles)
-                        <button id="profile-add" type="button" class="rounded bg-green-700 px-3 py-2 text-sm text-white" hidden>Adicionar</button>
+                        <button id="profile-add" type="button" class="rounded bg-green-700 px-3 py-2 text-sm text-white" hidden>Configurar NFS-e</button>
                     @endif
                 </header>
                 <div id="profiles-error" class="mx-4 mt-3 rounded border border-red-300 p-3 text-sm text-red-800" role="alert" hidden></div>
@@ -66,9 +66,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     <p class="mb-3 text-xs text-gray-600">Os dados devem ser conferidos pelo responsável fiscal. Salvar o cadastro não autoriza emissão.</p>
                     <form id="profile-form" enctype="multipart/form-data" class="space-y-4">
                         @csrf
-                        <label class="block text-sm font-medium" for="profile-company">Empresa no Akaunting
-                            <select id="profile-company" name="company_id" class="mt-1 block w-full rounded border px-3 py-2" required></select>
-                        </label>
+                        <p class="text-sm text-gray-700">Empresa selecionada: <strong id="profile-company-name"></strong></p>
+                        <input id="profile-company" type="hidden" name="company_id">
                         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                             <label class="block text-sm" for="profile-pfx">Certificado PFX/P12
                                 <input id="profile-pfx" type="file" name="pfx_file" accept=".pfx,.p12" class="mt-1 block w-full rounded border p-2">
@@ -305,6 +304,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 'cleanupUrl' => route('nfse.settings.company-profiles.cleanup', ['companyId' => '__COMPANY__']),
                 'diagnosticsUrl' => route('nfse.settings.vault.diagnostics'),
                 'csrfToken' => csrf_token(),
+                'currentCompanyId' => (int) company_id(),
                 'canUpdate' => $canUpdateProfiles,
                 'canDelete' => $canDeleteProfiles,
             ];

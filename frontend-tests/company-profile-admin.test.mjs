@@ -11,7 +11,7 @@ const admin = require('../Resources/assets/js/company-profile-admin.js');
 const company = (id) => ({ company_id: id, name: 'Empresa sintética ' + id });
 const eligible = (...ids) => ({ profiles: [], eligible_companies: ids.map(company) });
 
-test('Add follows the authorized company eligibility matrix', () => {
+test('setup follows current company eligibility and permission', () => {
     assert.equal(admin.showAdd(eligible(), true), false);
     assert.equal(admin.showAdd(eligible(1), true), true);
     assert.equal(admin.showAdd({
@@ -81,4 +81,20 @@ test('fiscal regime transitions keep incompatible saved choices visible for revi
     assert.equal(state('3', '1', '9', '3').canSelectSpecial, true);
     assert.equal(state('3', '3', '9', '2').hasIncompatibleSelection, true);
     assert.equal(state('3', '3', '0', '2').hasIncompatibleSelection, false);
+});
+
+test('administrative snapshot is limited to the active native company', () => {
+    const fromApi = {
+        profiles: [{ company_id: 1, name: 'Empresa sintética 1' }],
+        eligible_companies: [company(2), company(3)],
+    };
+    assert.deepEqual(admin.selectedCompanySnapshot(fromApi, 1), {
+        profiles: fromApi.profiles, eligible_companies: [],
+    });
+    assert.deepEqual(admin.selectedCompanySnapshot(fromApi, 2), {
+        profiles: [], eligible_companies: [company(2)],
+    });
+    assert.deepEqual(admin.selectedCompanySnapshot(fromApi, 0), {
+        profiles: [], eligible_companies: [],
+    });
 });
