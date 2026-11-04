@@ -54,40 +54,44 @@ class SettingsController extends Controller
             }
         }
 
-        // The admin screen only displays global infrastructure metadata.
-        // Never resolve legacy certificate-by-CNPJ settings on this route.
-        $vaultConfigurationUnreadable = false;
-        try {
-            $global = VaultConfig::secretStoreConfig();
-        } catch (VaultConfigurationUnreadable) {
-            $global = [
-                'addr' => '', 'mount' => '', 'token' => null,
-                'roleId' => null, 'secretId' => null,
-            ];
-            $vaultConfigurationUnreadable = true;
-        }
-
-        $vaultUiState = $this->vaultUiState($global);
-        $vaultUiState['configuration_error'] = $vaultConfigurationUnreadable;
-
-        $rawTab = $request !== null ? $request->query('tab') : null;
-        $activeTab = (is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'federal', 'artifacts'], true))
-            ? $rawTab
-            : 'vault';
-
-        // Do not pass fiscal settings, legacy certificate state, or plaintext
-        // Vault credentials to the administrative view.
+        // Administrative HTML is presentation only. Safe global Vault metadata
+        // is loaded by the browser through the same JSON contract as clients.
         return view('nfse::settings.edit', [
-            'settings' => [
-                'bao_addr' => $global['addr'],
-                'bao_mount' => $global['mount'],
+            'settings' => ['bao_addr' => '', 'bao_mount' => ''],
+            'vaultUiState' => [
+                'auth_mode' => 'incomplete',
+                'ready' => false,
+                'configuration_error' => false,
             ],
-            'vaultUiState' => $vaultUiState,
-            'activeTab' => $activeTab,
         ]);
     }
 
-    public function updateVault(Request $request): RedirectResponse
+    /** Safe infrastructure metadata; never serialize credential values or vault paths. */
+    public function vaultStatus(): JsonResponse
+    {
+        try {
+            $config = VaultConfig::secretStoreConfig();
+            $state = $this->vaultUiState($config);
+
+            return response()->json(['data' => [
+                'addr' => (string) $config['addr'],
+                'mount' => (string) $config['mount'],
+                'auth_mode' => $state['auth_mode'],
+                'ready' => $state['ready'],
+                'configuration_error' => false,
+            ]]);
+        } catch (VaultConfigurationUnreadable) {
+            return response()->json(['data' => [
+                'addr' => '',
+                'mount' => '',
+                'auth_mode' => 'incomplete',
+                'ready' => false,
+                'configuration_error' => true,
+            ]]);
+        }
+    }
+
+    public function updateVault(Request $request): RedirectResponse|JsonResponse
     {
         $request->validate([
             'nfse.bao_addr' => 'required|url',
@@ -123,8 +127,14 @@ class SettingsController extends Controller
         try {
             $this->saveGlobalVaultSettings($input);
         } catch (\InvalidArgumentException) {
-            return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
-                ->with('error', 'Vault configuration is incomplete.');
+            return $request->expectsJson()
+                ? response()->json(['message' => 'Vault configuration is incomplete.'], 422)
+                : redirect()->route('nfse.settings.edit', ['tab' => 'vault'])
+                    ->with('error', 'Vault configuration is incomplete.');
+        }
+
+        if ($request->expectsJson()) {
+            return $this->vaultStatus();
         }
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'vault'])

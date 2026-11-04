@@ -163,3 +163,39 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     When I make a native API GET request to "/<company_id>/api/nfse/national-services?lc116=foobar" with synthetic "administrator" credentials
     Then the API response status should be 422
     And the API response should be JSON
+
+  Scenario: Native client reads safe global Vault metadata
+    When I make a native API GET request to "/<company_id>/api/nfse/settings/vault" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | object |
+      | data.addr | string |
+      | data.auth_mode | string |
+
+  Scenario: Native client reads company fiscal profiles from shared contract
+    When I make a native API GET request to "/<company_id>/api/nfse/settings/company-profiles" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | profiles | array |
+      | eligible_companies | array |
+
+  Scenario: Native fiscal settings API rejects unauthenticated access
+    Given the API client is a guest
+    When I make a "GET" JSON request to "/<company_id>/api/nfse/settings/vault"
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native fiscal settings write requires independent permission
+    When I make a native API "PATCH" JSON request to "/<company_id>/api/nfse/settings/vault" with synthetic "no-permission" credentials and body:
+      """
+      {"auth_mode_ui":"token","nfse":{"bao_addr":"https://vault.example.test","bao_mount":"/nfse"}}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native fiscal settings cannot be read under a foreign company
+    When I make a native API GET request to "/<other_company_id>/api/nfse/settings/company-profiles" with synthetic "administrator" credentials
+    Then the API response status should be 401
+    And the API response should be JSON
