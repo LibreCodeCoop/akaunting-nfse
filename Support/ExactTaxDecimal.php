@@ -33,12 +33,14 @@ final class ExactTaxDecimal
             throw new \DomainException('Tax amount contains nonzero sub-cent digits; rule-specific rounding required.');
         }
 
+        $minor = (int) substr(str_pad($fraction, 2, '0'), 0, 2);
         $whole = (int) $match[2];
-        if ($whole > intdiv(PHP_INT_MAX - 99, 100)) {
+        $maximumWhole = intdiv(PHP_INT_MAX, 100);
+        if ($whole > $maximumWhole
+            || ($whole === $maximumWhole && $minor > PHP_INT_MAX % 100)) {
             throw new \OverflowException('Observed tax amount exceeds integer-cent capacity.');
         }
 
-        $minor = (int) substr(str_pad($fraction, 2, '0'), 0, 2);
         $cents = ($whole * 100) + $minor;
 
         return $match[1] === '-' ? -$cents : $cents;
