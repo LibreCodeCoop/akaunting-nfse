@@ -389,3 +389,41 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     When I make a native API GET request to "/<company_id>/api/nfse/adn/documents/99999999/review-history" with synthetic "no-permission" credentials
     Then the API response status should be 403
     And the API response should be JSON
+
+  Scenario: Native bulk API lists scoped emission runs without issuing NFS-e
+    When I make a native API GET request to "/<company_id>/api/nfse/bulk/runs" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | array |
+      | meta | object |
+
+  Scenario: Native bulk plan rejects invalid selections before creating a run
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/bulk/plan" with synthetic "administrator" credentials and body:
+      """
+      {"invoice_ids":[]}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native bulk dispatch requires fiscal write permission
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/bulk/dispatch" with synthetic "no-permission" credentials and body:
+      """
+      {"invoice_ids":[1]}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native bulk API refuses a foreign company context
+    When I make a native API GET request to "/<other_company_id>/api/nfse/bulk/runs" with synthetic "administrator" credentials
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Browser bulk progress and native API use equivalent JSON resources
+    Given the "administrator" synthetic Akaunting user is authenticated
+    When I make a "GET" JSON request to "/<company_id>/nfse/bulk/runs"
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | array |
+      | meta | object |

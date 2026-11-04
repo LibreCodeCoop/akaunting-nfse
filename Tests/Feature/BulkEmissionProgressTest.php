@@ -33,14 +33,23 @@ final class BulkEmissionProgressTest extends FeatureTestCase
             'error_message' => 'Business rejection from SEFIN',
         ]);
 
-        $this->loginAs()
-            ->get(route('nfse.bulk.index'))
+        $this->loginAs()->get(route('nfse.bulk.index'))
             ->assertOk()
-            ->assertSee('service:0107|tax:010701|rate:2.00')
-            ->assertSee('rejected')
-            ->assertSee('gateway')
-            ->assertSee('Business rejection from SEFIN')
-            ->assertSee(route('invoices.show', $invoice->id), false);
+            ->assertSee('id="nfse-bulk-runs"', false)
+            ->assertSee('data-nfse-bulk-progress-browser', false)
+            ->assertDontSee('Business rejection from SEFIN');
+
+        $this->getJson(route('nfse.bulk.runs'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', (int) $run->id)
+            ->assertJsonPath('data.0.status', 'partial')
+            ->assertJsonPath('data.0.units.0.emission_group_key', 'service:0107|tax:010701|rate:2.00')
+            ->assertJsonPath('data.0.units.0.status', 'rejected')
+            ->assertJsonPath('data.0.units.0.error_type', 'gateway')
+            ->assertJsonPath('data.0.units.0.error_message', 'Business rejection from SEFIN');
+
+        $this->getJson(route('nfse.bulk.runs.show', $run->id))
+            ->assertOk()->assertJsonPath('data.units.0.invoice_id', (int) $invoice->id);
     }
 
     public function testProgressPageIsCompanyIsolated(): void
@@ -74,10 +83,14 @@ final class BulkEmissionProgressTest extends FeatureTestCase
             'status' => 'queued',
         ]);
 
-        $this->loginAs()
-            ->get(route('nfse.bulk.index'))
+        $this->loginAs()->get(route('nfse.bulk.index'))
+            ->assertOk()->assertDontSee('visible-group')->assertDontSee('hidden-group');
+        $this->getJson(route('nfse.bulk.runs'))
             ->assertOk()
-            ->assertSee('visible-group')
-            ->assertDontSee('hidden-group');
+            ->assertJsonPath('data.0.id', (int) $visibleRun->id)
+            ->assertJsonPath('data.0.units.0.emission_group_key', 'visible-group')
+            ->assertJsonMissing(['emission_group_key' => 'hidden-group']);
+        $this->withExceptionHandling()->getJson(route('nfse.bulk.runs.show', $hiddenRun->id))
+            ->assertNotFound();
     }
 }

@@ -119,6 +119,41 @@ final class BulkEmissionDispatchControllerTest extends FeatureTestCase
         ]);
     }
 
+    public function testNativeJsonBulkDispatchReusesActiveRunWithoutRedispatch(): void
+    {
+        $this->loginAs();
+        $this->createCompanyFiscalProfile();
+        setting()->set(['nfse.opcao_simples_nacional' => '1']);
+        setting()->save();
+
+        $ready = $this->invoiceWithProfile('0107', '010701', '100');
+        $dispatched = [];
+        $this->app->instance(BulkEmissionDispatcher::class, new BulkEmissionDispatcher(
+            dispatchUnit: static function (int $unitId) use (&$dispatched): void {
+                $dispatched[] = $unitId;
+            },
+        ));
+
+        $request = ['invoice_ids' => [(int) $ready->id]];
+        $this->postJson(route('nfse.bulk.plan'), $request)
+            ->assertOk()->assertJsonCount(1, 'data.queued');
+        $this->assertDatabaseCount('nfse_bulk_emission_runs', 0);
+
+        $created = $this->postJson(route('nfse.bulk.dispatch-json'), $request)
+            ->assertStatus(202)
+            ->assertJsonPath('data.dispatched', 1)
+            ->assertJsonPath('data.reused', false);
+        $runId = (int) $created->json('data.run_id');
+        self::assertGreaterThan(0, $runId);
+        $this->postJson(route('nfse.bulk.dispatch-json'), $request)
+            ->assertOk()->assertJsonPath('data.run_id', $runId)
+            ->assertJsonPath('data.dispatched', 0)
+            ->assertJsonPath('data.reused', true);
+        self::assertCount(1, $dispatched);
+        $this->assertDatabaseCount('nfse_bulk_emission_runs', 1);
+        $this->assertDatabaseCount('nfse_bulk_emission_units', 1);
+    }
+
     public function testEmptySelectionDoesNotCreateRun(): void
     {
         $this->loginAs()
