@@ -371,6 +371,7 @@ class AdnController extends Controller
             $bill = DB::transaction(function () use (
                 &$alreadyImported,
                 $reviewDocument,
+                $document,
                 $companyId,
                 $request,
                 $preview,
