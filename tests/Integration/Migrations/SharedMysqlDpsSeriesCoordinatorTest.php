@@ -9,6 +9,7 @@ namespace Modules\Nfse\Tests\Integration\Migrations;
 
 use Modules\Nfse\Application\DpsFiscalIssuer;
 use Modules\Nfse\Application\DpsIssuanceIdentity;
+use Modules\Nfse\Application\DpsOperationKey;
 use Modules\Nfse\Application\SharedMysqlDpsSeriesCoordinator;
 use PDO;
 use PDOException;
@@ -19,6 +20,7 @@ require_once dirname(__DIR__, 3) . '/Application/DpsFiscalIssuer.php';
 require_once dirname(__DIR__, 3) . '/Application/DpsSeriesCoordinator.php';
 require_once dirname(__DIR__, 3) . '/Application/DpsIssuanceIdentityContract.php';
 require_once dirname(__DIR__, 3) . '/Application/DpsIssuanceIdentity.php';
+require_once dirname(__DIR__, 3) . '/Application/DpsOperationKey.php';
 require_once dirname(__DIR__, 3) . '/Application/SharedMysqlDpsSeriesCoordinator.php';
 
 /**
@@ -239,6 +241,71 @@ final class SharedMysqlDpsSeriesCoordinatorTest extends TestCase
 
         self::assertSame(1, $a['number']);
         self::assertSame(2, $b['number']);
+    }
+
+    public function testTwoAkauntingCompaniesWithSameCnpjCannotReuseOneFiscalNumber(): void
+    {
+        $issuer = $this->issuer();
+        $this->registerSeries($issuer, 2, 90);
+        $coordinator = $this->coordinator(self::INSTALL_A);
+
+        // Same national registration and invoice ID, but two independent
+        // Akaunting company records representing the same fiscal issuer.
+        $companyA = DpsOperationKey::forInvoice(101, 777, 2);
+        $companyB = DpsOperationKey::forInvoice(202, 777, 2);
+        self::assertNotSame($companyA, $companyB);
+
+        $first = $coordinator->allocate($issuer, 2, '00001', self::REFERENCE, $companyA);
+        $second = $coordinator->allocate($issuer, 2, '00001', self::REFERENCE, $companyB);
+
+        self::assertSame(['number' => 91, 'fresh' => true], $first);
+        self::assertSame(['number' => 92, 'fresh' => true], $second);
+        self::assertSame(['number' => 91, 'fresh' => false], $coordinator->allocate(
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $companyA,
+        ));
+        self::assertSame(92, $this->highWater());
+        self::assertSame(2, $this->allocationCount());
+
+        try {
+            $coordinator->claimFirstTransmission(
+                $issuer,
+                2,
+                '00001',
+                self::REFERENCE,
+                $companyB,
+                91,
+                $this->key('wrong-company-payload'),
+            );
+            self::fail('An operation of the second company must not claim the first company DPS.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('unavailable', $exception->getMessage());
+        }
+
+        $coordinator->claimFirstTransmission(
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $companyA,
+            91,
+            $this->key('company-a-payload'),
+        );
+        $coordinator->claimFirstTransmission(
+            $issuer,
+            2,
+            '00001',
+            self::REFERENCE,
+            $companyB,
+            92,
+            $this->key('company-b-payload'),
+        );
+        self::assertSame(2, (int) $this->global->query(
+            'SELECT COUNT(*) FROM nfse_dps_coordination_allocations WHERE first_post_claimed_at IS NOT NULL',
+        )->fetchColumn());
     }
 
     public function testProductionRestrictedAndDifferentFiscalIssuersHaveIndependentCounters(): void
