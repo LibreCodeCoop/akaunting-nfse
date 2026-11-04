@@ -80,6 +80,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <button id="approximate-next" type="button" class="rounded border px-3 py-2" disabled>Próxima</button>
             </nav>
         </section>
-        <script src="{{ asset('modules/Nfse/Resources/assets/js/fiscal-tax-admin.js?v=' . module_version('nfse')) }}" data-nfse-fiscal-tax-admin="true"></script>
+        <script src="{{ asset('modules/Nfse/Resources/assets/js/fiscal-tax-admin.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/fiscal-tax-admin.js'))) }}" data-nfse-fiscal-tax-admin="true"></script>
     </x-slot>
 </x-layouts.admin>

@@ -95,6 +95,6 @@
                 </section>
             @endcan
         </div>
-        <script src="{{ asset('modules/Nfse/Resources/assets/js/fiscal-tax-admin.js?v=' . module_version('nfse')) }}" data-nfse-fiscal-tax-admin="true"></script>
+        <script src="{{ asset('modules/Nfse/Resources/assets/js/fiscal-tax-admin.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/fiscal-tax-admin.js'))) }}" data-nfse-fiscal-tax-admin="true"></script>
     </x-slot>
 </x-layouts.admin>
