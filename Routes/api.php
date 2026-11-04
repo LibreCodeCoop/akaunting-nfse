@@ -7,11 +7,19 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
+use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
 
 // The Core applies its configured API authentication, read-api and company
 // identification middleware. Do not share the browser's session on this route.
 Route::api('nfse', function (): void {
+    Route::get('ledger', [FiscalLedgerApiController::class, 'index'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('ledger.index');
+    Route::get('receipts/{receipt}/artifacts/{artifact}', [FiscalLedgerApiController::class, 'artifact'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('receipts.artifacts.download');
+
     Route::get('national-services', [NationalServicesController::class, 'nationalServices'])
         ->middleware('permission:read-nfse-settings')
         ->name('national-services.index');

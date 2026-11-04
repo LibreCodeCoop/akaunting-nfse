@@ -163,3 +163,32 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     When I make a native API GET request to "/<company_id>/api/nfse/national-services?lc116=foobar" with synthetic "administrator" credentials
     Then the API response status should be 422
     And the API response should be JSON
+
+  Scenario: Native fiscal ledger returns paginated current-company receipt records
+    When I make a native API GET request to "/<company_id>/api/nfse/ledger?status=all&limit=25" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | array |
+      | meta | object |
+
+  Scenario: Native fiscal ledger rejects invalid filters
+    When I make a native API GET request to "/<company_id>/api/nfse/ledger?status=invalid" with synthetic "administrator" credentials
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native fiscal ledger requires invoice read permission
+    When I make a native API GET request to "/<company_id>/api/nfse/ledger" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native fiscal ledger rejects unauthenticated requests
+    Given the API client is a guest
+    When I make a "GET" JSON request to "/<company_id>/api/nfse/ledger"
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native fiscal ledger cannot read foreign company receipts
+    When I make a native API GET request to "/<other_company_id>/api/nfse/ledger" with synthetic "administrator" credentials
+    Then the API response status should be 401
+    And the API response should be JSON

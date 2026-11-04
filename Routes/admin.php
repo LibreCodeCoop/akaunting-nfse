@@ -12,6 +12,7 @@ use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\CompanyProfileController;
 use Modules\Nfse\Http\Controllers\DeprecatedFiscalConfigurationController;
 use Modules\Nfse\Http\Controllers\ClosingController;
+use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\LegacyInvoiceController;
@@ -95,6 +96,8 @@ Route::admin('nfse', function () {
         ->middleware('permission:read-sales-invoices')->name('closing.export');
 
     // Receipt-oriented fiscal ledger; accounting invoices remain native to Akaunting.
+    Route::get('ledger/data', [FiscalLedgerApiController::class, 'index'])
+        ->middleware('permission:read-sales-invoices')->name('ledger.data');
     Route::get('ledger', [InvoiceController::class, 'fiscalLedger'])
         ->middleware('permission:read-sales-invoices')
         ->name('ledger.index');

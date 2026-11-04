@@ -114,44 +114,19 @@ class InvoiceController extends Controller
     public function fiscalLedger(?Request $request = null): \Illuminate\View\View
     {
         $request = $this->currentRequest($request);
-        $status = (string) ($request?->query('status', 'all') ?? 'all');
-        if (!in_array($status, ['all', 'emitted', 'cancelled', 'processing', 'substituted'], true)) {
-            $status = 'all';
-        }
-
+        $status = $request?->query('status', 'all');
+        $status = is_string($status)
+            && in_array($status, ['all', 'emitted', 'cancelled', 'processing', 'substituted'], true)
+                ? $status : 'all';
         $search = $this->normalizedIndexSearch($request?->query('search'));
         $from = $request?->query('from');
         $to = $request?->query('to');
-        $from = is_string($from) && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $from) && checkdate((int) substr($from, 5, 2), (int) substr($from, 8, 2), (int) substr($from, 0, 4)) ? $from : null;
-        $to = is_string($to) && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $to) && checkdate((int) substr($to, 5, 2), (int) substr($to, 8, 2), (int) substr($to, 0, 4)) ? $to : null;
-        $query = NfseReceipt::query()
-            ->with('invoice.contact')
-            ->whereHas('invoice', static fn ($query) => $query
-                ->where('company_id', (int) company_id())
-                ->where('type', Invoice::INVOICE_TYPE));
+        $from = is_string($from) ? $from : null;
+        $to = is_string($to) ? $to : null;
 
-        if ($status !== 'all') {
-            $query->where('status', $status);
-        }
-
-        if ($search !== null) {
-            $query->where(static fn ($query) => $query
-                ->where('nfse_number', 'like', '%' . $search . '%')
-                ->orWhere('chave_acesso', 'like', '%' . $search . '%')
-                ->orWhereHas('invoice.contact', static fn ($contact) => $contact
-                    ->where('name', 'like', '%' . $search . '%')));
-        }
-
-        if ($from !== null) {
-            $query->whereDate('data_emissao', '>=', $from);
-        }
-        if ($to !== null) {
-            $query->whereDate('data_emissao', '<=', $to);
-        }
-
-        $receipts = $query->orderByDesc('id')->paginate(25)->withQueryString();
-
-        return view('nfse::ledger.index', compact('receipts', 'status', 'search', 'from', 'to'));
+        // The browser renders this shell, then loads ledger rows over JSON.
+        // All filters and the permission/tenancy boundary are enforced by the API.
+        return view('nfse::ledger.index', compact('status', 'search', 'from', 'to'));
     }
 
     public function index(?Request $request = null): \Illuminate\View\View|RedirectResponse
