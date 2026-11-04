@@ -114,3 +114,72 @@ the persisted ID; duplicated revisions or unsupported zero evidence return
 422. Historical records are append-only. The administrative screens load
 their tables and save confirmations over these JSON contracts, without using
 HTML fragments as an integration protocol.
+
+## ADN distribution, review and import
+
+ADN has one underlying synchronization/import implementation. External clients use
+Akaunting's native API authentication and `read-api`; the administrative Web UI
+uses its own authenticated session and CSRF protection. The two transports call
+the same controller and domain services. They do not synchronize via internal
+HTTP calls.
+
+| Operation | Native API suffix | Browser-session suffix | Permission |
+| --- | --- | --- | --- |
+| Locally synchronized documents | `GET adn/documents` | `GET adn/documents` | `read-purchases-bills` |
+| Review form selections | `GET adn/review-options` | `GET adn/review-options` | `read-purchases-bills` |
+| Accounting preview | `GET adn/documents/{id}/preview` | `GET adn/documents/{id}/preview` | `read-purchases-bills` |
+| ADN review decision history | `GET adn/documents/{id}/review-history` | `GET adn/documents/{id}/review-history` | `read-purchases-bills` |
+| Live contributor distribution | `GET adn/distribution` | `GET adn/distribution` | `read-nfse-settings` |
+| Events for an issued invoice | `GET invoices/{id}/adn-events` | `GET invoices/{id}/adn-events` | `read-sales-invoices` |
+| Ignore received document | `POST adn/documents/{id}/ignore` | `POST adn/review/{id}/ignore` | `update-purchases-bills` |
+| Import as draft bill | `POST adn/documents/{id}/import` | `POST adn/review/{id}/import` | `create-purchases-bills` |
+
+Prefix native suffixes with `/{company_id}/{api_prefix}/nfse/` and browser
+suffixes with `/{company_id}/nfse/`. The browser loads its pending review
+list and selection choices via JSON, then submits review actions over its
+session-protected transport, including CSRF.
+The Blade view only provides presentation templates and translated labels;
+it no longer embeds company fiscal documents or option lists.
+
+The persisted document list supports `limit=1..100` (default 50),
+`page`, `review_status`, `fiscal_role` and `include_preview=1`.
+Results contain `data` and `meta` pagination information; raw XML is
+deliberately absent. Opting into preview parses each bounded received or
+intermediated document and returns `accounting_preview` (or null for an
+invalid XML) without changing persisted state. `adn/review-options`
+returns company-scoped minimal vendor/category/item choices and action
+capabilities; the issuer CNPJ is visible only to a user authorized to
+read NFS-e settings.
+`fiscal_role` distinguishes `emitted`, `received`, `intermediated`,
+`event`, and `unknown`. Only `received` and `intermediated` documents
+can be reviewed/imported as financial bills. Importing never creates a new
+issued NFS-e.
+
+The read-only preview parses a locally persisted authorized XML into
+`data.accounting_preview`, without changing the ADN cursor, vendor,
+financial bill, or review state. Invalid preview XML receives HTTP 422 and
+foreign-company identifiers receive HTTP 404.
+
+An import body supplies `contact_id` (or `create_vendor=1`),
+`category_id`, `item_id`, `issued_at` and `due_at`. The result is
+HTTP 201 for a new draft bill or 200 for a previously imported record,
+with `data.bill_id`, `data.redirect_url`, `data.review_status` and
+`data.already_imported`. Import and ignore decisions hold a row lock
+inside a database transaction. Ignoring an already ignored document is
+idempotent (200); ignoring an imported or otherwise non-pending document
+returns 409. Invalid review mappings return 422. The import retains its
+reference to the source ADN document, and the authorized fiscal XML is never
+modified by a review action. Each accepted ignore/import decision and each
+rejected/conflicting review decision is appended to the company-scoped
+`nfse_adn_review_events` journal, without storing XML or secrets. Repeated
+idempotent requests do not duplicate successful decision entries. The
+`review-history` API returns newest-first audit entries with `data` and
+`meta` pagination, `limit=1..100` (default 50), and the operator ID
+and linked bill ID where applicable. Foreign-company document IDs return 404.
+
+The live distribution query `GET adn/distribution?nsu=0&lote=1` calls the
+existing company-certificate-backed ADN client. It does not persist
+documents or advance synchronization state. Automatic sync still uses
+`AdnSynchronizationService` via the existing jobs/commands. The existing
+company-specific reconciliation is preserved; no alternate sync or
+financial document writer is introduced.

@@ -83,10 +83,19 @@ Route::admin('nfse', function () {
         ->middleware('permission:delete-nfse-settings')->name('certificate.destroy');
 
     // ADN contributor distribution
-    Route::get('adn', [AdnController::class, 'index'])->name('adn.index');
-    Route::get('adn/distribution', [AdnController::class, 'distribution'])->name('adn.distribution');
-    Route::post('adn/review/{document}/ignore', [AdnController::class, 'ignore'])->name('adn.review.ignore');
-    Route::post('adn/review/{document}/import', [AdnController::class, 'importDraft'])->name('adn.review.import');
+    Route::get('adn', [AdnController::class, 'index'])->middleware('permission:read-purchases-bills')->name('adn.index');
+    Route::get('adn/distribution', [AdnController::class, 'distribution'])
+        ->middleware('permission:read-nfse-settings')->name('adn.distribution');
+    Route::get('adn/review-options', [AdnController::class, 'reviewOptions'])
+        ->middleware('permission:read-purchases-bills')->name('adn.review-options');
+    Route::get('adn/documents', [AdnController::class, 'documents'])
+        ->middleware('permission:read-purchases-bills')->name('adn.documents.index');
+    Route::get('adn/documents/{document}/review-history', [AdnController::class, 'reviewHistory'])
+        ->middleware('permission:read-purchases-bills')->name('adn.documents.review-history');
+    Route::get('adn/documents/{document}/preview', [AdnController::class, 'preview'])
+        ->middleware('permission:read-purchases-bills')->name('adn.documents.preview');
+    Route::post('adn/review/{document}/ignore', [AdnController::class, 'ignore'])->middleware('permission:update-purchases-bills')->name('adn.review.ignore');
+    Route::post('adn/review/{document}/import', [AdnController::class, 'importDraft'])->middleware('permission:create-purchases-bills')->name('adn.review.import');
 
     // Controlled bulk emission
     Route::get('bulk', [BulkEmissionController::class, 'index'])->name('bulk.index');
@@ -126,7 +135,7 @@ Route::admin('nfse', function () {
     Route::get('invoices/{invoice}/emission-attempts', [EmissionAttemptController::class, 'index'])
         ->middleware('permission:read-sales-invoices')
         ->name('invoices.emission-attempts');
-    Route::get('invoices/{invoice}/adn-events', [AdnController::class, 'events'])->name('invoices.adn-events');
+    Route::get('invoices/{invoice}/adn-events', [AdnController::class, 'events'])->middleware('permission:read-sales-invoices')->name('invoices.adn-events');
     Route::get('invoices/{invoice}/artifacts/{artifact}', [InvoiceController::class, 'downloadArtifact'])->name('invoices.artifacts.download');
     Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])
         ->middleware('permission:update-sales-invoices')->name('invoices.cancel');

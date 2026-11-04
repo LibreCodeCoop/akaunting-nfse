@@ -210,3 +210,86 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     When I make a native API GET request to "/<other_company_id>/api/nfse/settings/tax-associations" with synthetic "administrator" credentials
     Then the API response status should be 401
     And the API response should be JSON
+
+  Scenario: Native ADN document list requires external authentication
+    Given the API client is a guest
+    When I make a "GET" JSON request to "/<company_id>/api/nfse/adn/documents"
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native ADN document list exposes bounded review metadata without raw XML
+    When I make a native API GET request to "/<company_id>/api/nfse/adn/documents?limit=50" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | array |
+      | meta | object |
+    And the JSON array at "data" should contain at most 50 items
+
+  Scenario: Native ADN document list rejects unauthorized fiscal operators
+    When I make a native API GET request to "/<company_id>/api/nfse/adn/documents" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native ADN document list cannot switch company contexts
+    When I make a native API GET request to "/<other_company_id>/api/nfse/adn/documents" with synthetic "administrator" credentials
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Browser ADN document list uses session and JSON instead of Basic credentials
+    Given the "administrator" synthetic Akaunting user is authenticated
+    When I make a "GET" JSON request to "/<company_id>/nfse/adn/documents"
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | array |
+      | meta | object |
+
+  Scenario: Native ADN review import requires external authentication
+    Given the API client is a guest
+    When I make a "POST" JSON request to "/<company_id>/api/nfse/adn/documents/99999999/import"
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native ADN review ignore rejects unauthorized fiscal operators
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/adn/documents/99999999/ignore" with synthetic "no-permission" credentials and body:
+      """
+      {"confirmed":true}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native ADN review options are company-scoped JSON
+    When I make a native API GET request to "/<company_id>/api/nfse/adn/review-options" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data.vendors | array |
+      | data.categories | array |
+      | data.items | array |
+
+  Scenario: Native ADN review options reject unauthorized clients
+    When I make a native API GET request to "/<company_id>/api/nfse/adn/review-options" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Browser ADN review list accepts optional accounting previews
+    Given the "administrator" synthetic Akaunting user is authenticated
+    When I make a "GET" JSON request to "/<company_id>/nfse/adn/documents?review_status=pending&include_preview=1"
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | array |
+      | meta | object |
+
+
+  Scenario: Native ADN review history requires external authentication
+    Given the API client is a guest
+    When I make a "GET" JSON request to "/<company_id>/api/nfse/adn/documents/99999999/review-history"
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native ADN review history rejects users without bill permission
+    When I make a native API GET request to "/<company_id>/api/nfse/adn/documents/99999999/review-history" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
