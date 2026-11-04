@@ -1440,6 +1440,10 @@ class InvoiceController extends Controller
         }
 
         $receipt = $this->findReceiptForInvoice($invoice);
+        if (!$this->submittedReceiptMatchesCurrent($receipt, $request)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.current_receipt_changed')));
+        }
 
         if (($receipt->status ?? '') !== 'cancelled') {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
@@ -1629,7 +1633,7 @@ class InvoiceController extends Controller
                 dps: $dps,
                 invoiceId: (int) $invoice->id,
                 origin: 'reemit',
-                cancelledReceiptId: (int) $this->findReceiptForInvoice($invoice)->id,
+                cancelledReceiptId: (int) $receipt->id,
                 approximateTaxEvidence: $federalPayload['approximateTaxEvidence'] ?? null,
                 persist: fn (ReceiptData $authorized): NfseReceipt => (new ReceiptPersistence())->createReemitted(
                     invoiceId: (int) $invoice->id,
@@ -1686,7 +1690,7 @@ class InvoiceController extends Controller
             return $this->ajaxAwareRedirect(
                 $request,
                 redirect()->route('nfse.invoices.show', $invoice)
-                    ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $newReceipt->chaveAcesso])),
+                    ->with('success', trans('nfse::general.nfse_reemitted', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : (string) $persistedReceipt->chave_acesso])),
                 ['partial_url' => route('nfse.invoices.emit-success', $invoice)],
             );
         } finally {
