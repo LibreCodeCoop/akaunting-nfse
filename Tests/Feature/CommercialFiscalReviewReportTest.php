@@ -34,11 +34,11 @@ final class CommercialFiscalReviewReportTest extends FeatureTestCase
         self::assertSame(0, NfseReceipt::query()->count());
 
         $this->get(route('nfse.closing.index', ['competence' => '2026-10']))
+            ->assertOk()->assertSee('fiscal-closing-browser.js');
+        $this->get(route('nfse.closing.data', ['competence' => '2026-10']))
             ->assertOk()
-            ->assertSee('Sem NFS-e vinculada no módulo')
-            ->assertViewHas('closing', static fn (array $closing): bool =>
-                $closing['summary']['documents']['emitted'] === 0
-            );
+            ->assertJsonPath('data.summary.documents.emitted', 0)
+            ->assertJsonPath('data.commercial_review.rows.0.status', 'not_linked');
     }
 
     public function testPendingAndCancelledReceiptRemainUnresolvedRatherThanAuthorized(): void

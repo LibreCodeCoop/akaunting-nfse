@@ -95,6 +95,8 @@ Route::admin('nfse', function () {
     Route::post('bulk/dispatch', [BulkEmissionController::class, 'enqueue'])->name('bulk.dispatch');
 
     // Competence closing and reconciliation
+    Route::get('closing/data', [ClosingController::class, 'data'])
+        ->middleware('permission:read-sales-invoices')->name('closing.data');
     Route::get('closing', [ClosingController::class, 'index'])
         ->middleware('permission:read-sales-invoices')->name('closing.index');
     Route::get('closing/export', [ClosingController::class, 'export'])
