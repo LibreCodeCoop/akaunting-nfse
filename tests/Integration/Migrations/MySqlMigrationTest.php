@@ -14,7 +14,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
+use Modules\Nfse\Application\ConfiguredDpsCoordinator;
+use Modules\Nfse\Application\DpsFiscalIssuer;
 use PHPUnit\Framework\TestCase;
+
+require_once dirname(__DIR__, 3) . '/Application/DpsFiscalIssuer.php';
+require_once dirname(__DIR__, 3) . '/Application/DpsSeriesCoordinator.php';
+require_once dirname(__DIR__, 3) . '/Application/SharedMysqlDpsSeriesCoordinator.php';
+require_once dirname(__DIR__, 3) . '/Application/ConfiguredDpsCoordinator.php';
 
 final class MySqlMigrationTest extends TestCase
 {
@@ -421,6 +428,126 @@ final class MySqlMigrationTest extends TestCase
         }
     }
 
+    public function testDpsAuthorityUsesAkauntingSchemaAndKeepsClaimsAfterLocalRollback(): void
+    {
+        $migration = $this->migration('2026_11_04_000001_create_nfse_local_dps_authority');
+        $migration->up();
+        $migration->up();
+        foreach (['nfse_dps_coordination_series', 'nfse_dps_coordination_members',
+            'nfse_dps_coordination_allocations'] as $table) {
+            self::assertTrue(Schema::hasTable($table));
+        }
+
+        $reference = str_repeat('a', 64);
+        $key = str_repeat('b', 64);
+        $installation = '11111111-1111-4111-8111-111111111111';
+        $seriesId = DB::table('nfse_dps_coordination_series')->insertGetId([
+            'environment' => 2,
+            'issuer_municipality' => '3303302',
+            'issuer_registration_type' => 2,
+            'issuer_registration' => '11222333000181',
+            'series' => '00001',
+            'coordination_reference' => $reference,
+            'status' => 'active',
+            'attested_floor' => 123,
+            'evidence_sha256' => str_repeat('c', 64),
+            'last_number' => 123,
+        ]);
+        DB::table('nfse_dps_coordination_members')->insert([
+            'series_id' => $seriesId,
+            'installation_id' => $installation,
+            'generation' => 1,
+            'status' => 'active',
+        ]);
+
+        $previousId = getenv('NFSE_DPS_INSTALLATION_ID');
+        $previousGeneration = getenv('NFSE_DPS_INSTALLATION_GENERATION');
+        putenv('NFSE_DPS_INSTALLATION_ID=' . $installation);
+        putenv('NFSE_DPS_INSTALLATION_GENERATION=1');
+
+        try {
+            $coordinator = (new ConfiguredDpsCoordinator())->connect();
+            $issuer = new DpsFiscalIssuer('3303302', 2, '11222333000181');
+            $local = DB::connection()->getPdo();
+            $local->beginTransaction();
+            try {
+                // An unrelated uncommitted Akaunting change does not share the
+                // coordinator's independent commit, despite sharing the schema.
+                $local->exec("UPDATE nfse_receipts SET status = 'pending' WHERE id = 1");
+                $allocation = $coordinator->allocate($issuer, 2, '00001', $reference, $key);
+                self::assertSame(['number' => 124, 'fresh' => true], $allocation);
+            } finally {
+                if ($local->inTransaction()) {
+                    $local->rollBack();
+                }
+            }
+
+            self::assertSame('emitted', DB::table('nfse_receipts')->where('id', 1)->value('status'));
+            self::assertSame(1, DB::table('nfse_dps_coordination_allocations')->count());
+            self::assertSame(
+                ['number' => 124, 'fresh' => false],
+                $coordinator->allocate($issuer, 2, '00001', $reference, $key)
+            );
+
+            $coordinator->claimFirstTransmission(
+                $issuer,
+                2,
+                '00001',
+                $reference,
+                $key,
+                124,
+                str_repeat('d', 64)
+            );
+            self::assertNotNull(DB::table('nfse_dps_coordination_allocations')
+                ->where('operation_key', $key)->value('first_post_claimed_at'));
+
+            try {
+                $coordinator->claimFirstTransmission(
+                    $issuer,
+                    2,
+                    '00001',
+                    $reference,
+                    $key,
+                    124,
+                    str_repeat('d', 64)
+                );
+                self::fail('A committed first-POST claim must never authorize a second POST.');
+            } catch (\LogicException $exception) {
+                self::assertStringContainsString('already claimed', $exception->getMessage());
+            }
+        } finally {
+            $previousId === false ? putenv('NFSE_DPS_INSTALLATION_ID') : putenv('NFSE_DPS_INSTALLATION_ID=' . $previousId);
+            $previousGeneration === false ? putenv('NFSE_DPS_INSTALLATION_GENERATION')
+                : putenv('NFSE_DPS_INSTALLATION_GENERATION=' . $previousGeneration);
+        }
+
+        try {
+            $migration->down();
+            self::fail('Committed DPS history must survive automatic migration rollback.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('preserved fiscal history', $exception->getMessage());
+        }
+        self::assertSame(1, DB::table('nfse_dps_coordination_allocations')->count());
+    }
+
+    public function testDpsAuthorityCannotConnectWithoutInstallationOrMysqlPrimary(): void
+    {
+        $migration = $this->migration('2026_11_04_000001_create_nfse_local_dps_authority');
+        $migration->up();
+        $previousId = getenv('NFSE_DPS_INSTALLATION_ID');
+        $previousGeneration = getenv('NFSE_DPS_INSTALLATION_GENERATION');
+        putenv('NFSE_DPS_INSTALLATION_ID');
+        putenv('NFSE_DPS_INSTALLATION_GENERATION');
+        try {
+            $this->expectException(\LogicException::class);
+            (new ConfiguredDpsCoordinator())->connect();
+        } finally {
+            $previousId === false ? putenv('NFSE_DPS_INSTALLATION_ID') : putenv('NFSE_DPS_INSTALLATION_ID=' . $previousId);
+            $previousGeneration === false ? putenv('NFSE_DPS_INSTALLATION_GENERATION')
+                : putenv('NFSE_DPS_INSTALLATION_GENERATION=' . $previousGeneration);
+        }
+    }
+
     private function insertSyntheticDpsSeries(): int
     {
         return (int) DB::table('nfse_dps_series')->insertGetId([
@@ -484,7 +611,8 @@ final class MySqlMigrationTest extends TestCase
 
     private function dropFixtures(): void
     {
-        foreach (['nfse_emission_attempts', 'nfse_dps_reservations', 'nfse_dps_series', 'nfse_bulk_emission_units', 'nfse_bulk_emission_runs', 'nfse_receipts', 'documents'] as $table) {
+        foreach (['nfse_dps_coordination_allocations', 'nfse_dps_coordination_members',
+            'nfse_dps_coordination_series', 'nfse_emission_attempts', 'nfse_dps_reservations', 'nfse_dps_series', 'nfse_bulk_emission_units', 'nfse_bulk_emission_runs', 'nfse_receipts', 'documents'] as $table) {
             Schema::dropIfExists($table);
         }
     }
