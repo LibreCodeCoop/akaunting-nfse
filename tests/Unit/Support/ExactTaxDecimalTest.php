@@ -33,6 +33,8 @@ final class ExactTaxDecimalTest extends TestCase
             'negative accounting credit is preserved at ingestion' => ['-1.99', -199],
             'only trailing zero subcents may be removed' => ['1.0500', 105],
             'integer whole amount is accepted' => [7, 700],
+            'largest representable positive cent amount' => ['92233720368547758.07', PHP_INT_MAX],
+            'largest representable negative cent magnitude' => ['-92233720368547758.07', -PHP_INT_MAX],
         ];
     }
 
@@ -53,6 +55,23 @@ final class ExactTaxDecimalTest extends TestCase
             'fractional cent requires a verified rounding policy' => ['1.005'],
             'locale-formatted decimal is not an exact database value' => ['1,05'],
             'exponential notation cannot be assumed exact' => ['1e3'],
+        ];
+    }
+
+    #[DataProvider('overflowAmountCases')]
+    public function testPersistedAmountsBeyondIntegerCentCapacityAreRejected(string $amount): void
+    {
+        $this->expectException(\OverflowException::class);
+        ExactTaxDecimal::cents($amount);
+    }
+
+    /** @return array<string,array{0:string}> */
+    public static function overflowAmountCases(): array
+    {
+        return [
+            'one cent above integer capacity' => ['92233720368547758.08'],
+            'larger fractional overflow' => ['92233720368547758.99'],
+            'large decimal magnitude' => ['999999999999999999999999999.00'],
         ];
     }
 
