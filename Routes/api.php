@@ -10,12 +10,21 @@ use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 use Modules\Nfse\Http\Controllers\TaxAssociationController;
+use Modules\Nfse\Http\Controllers\ClosingController;
 
 // The Core applies its configured API authentication, read-api and company
 // identification middleware. Do not share the browser's session on this route.
 use Modules\Nfse\Http\Controllers\CompanyProfileController;
 use Modules\Nfse\Http\Controllers\CertificateController;
 Route::api('nfse', function (): void {
+    Route::get('closing/export', [ClosingController::class, 'export'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('closing.export');
+    Route::get('closing', [ClosingController::class, 'data'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('closing.index');
+
+
     // One set of company profile, certificate and infrastructure controllers
     // for native clients and authenticated browser sessions.
     Route::get('settings/company-profiles', [CompanyProfileController::class, 'index'])

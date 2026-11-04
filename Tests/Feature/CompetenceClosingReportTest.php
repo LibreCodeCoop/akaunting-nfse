@@ -82,10 +82,17 @@ final class CompetenceClosingReportTest extends FeatureTestCase
         $this->receipt($invoice, 'emitted', '100.00', '1', '1', '2026-10-10');
         $this->receipt($invoice, 'emitted', '200.00', '1', '1', '2026-09-30');
 
-        $this->loginAs()
-            ->get(route('nfse.closing.index', ['competence' => '2026-10']))
+        $this->loginAs()->get(route('nfse.closing.index', ['competence' => '2026-10']))
             ->assertOk()
-            ->assertSee('100.00')
+            ->assertSee('id="nfse-closing"', false)
+            ->assertDontSee('100.00');
+
+        $this->get(route('nfse.closing.data', ['competence' => '2026-10']))
+            ->assertOk()
+            ->assertJsonPath('data.competence', '2026-10')
+            ->assertJsonPath('data.summary.gross_service_value', '100.00')
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.rows.0.gross_service_value', '100.00')
             ->assertDontSee('200.00');
 
         $response = $this->loginAs()
@@ -111,14 +118,12 @@ final class CompetenceClosingReportTest extends FeatureTestCase
         $foreignReceipt = $this->receipt($otherInvoice, 'emitted', '900.00', '1', '1', '2026-10-10', str_repeat('2', 50));
         self::assertNotSame($ownReceipt->chave_acesso, $foreignReceipt->chave_acesso);
 
-        $this->get(route('nfse.closing.index', ['competence' => '2026-10']))
-            ->assertOk()
-            ->assertViewHas('closing', static function (array $closing) use ($ownReceipt, $foreignReceipt): bool {
-                $ids = array_column($closing['rows'], 'receipt_id');
-
-                return in_array($ownReceipt->id, $ids, true)
-                    && !in_array($foreignReceipt->id, $ids, true);
-            });
+        $json = $this->get(route('nfse.closing.data', ['competence' => '2026-10']))
+            ->assertOk()->json();
+        $ids = array_column($json['data']['rows'], 'receipt_id');
+        self::assertContains($ownReceipt->id, $ids);
+        self::assertNotContains($foreignReceipt->id, $ids);
+        self::assertSame(1, $json['meta']['total']);
 
         $csv = $this->get(route('nfse.closing.export', ['competence' => '2026-10']))
             ->assertOk()->streamedContent();
