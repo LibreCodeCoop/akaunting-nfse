@@ -114,6 +114,10 @@ Route::api('nfse', function (): void {
     Route::post('settings/company-profiles/{companyId}/cleanup', [CompanyProfileController::class, 'cleanup'])
         ->middleware('permission:delete-nfse-settings')
         ->name('settings.company-profiles.cleanup');
+    Route::get('settings/artifacts', [SettingsController::class, 'artifactSettings'])
+        ->middleware('permission:read-nfse-settings')->name('settings.artifacts.show');
+    Route::patch('settings/artifacts', [SettingsController::class, 'updateArtifacts'])
+        ->middleware('permission:update-nfse-settings')->name('settings.artifacts.update');
     Route::get('settings/vault', [SettingsController::class, 'vaultStatus'])
         ->middleware('permission:read-nfse-settings')
         ->name('settings.vault.show');

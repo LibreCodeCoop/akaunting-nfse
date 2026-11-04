@@ -290,6 +290,50 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     </div>
                 @endif
             </section>
+
+            @can('read-nfse-settings')
+                <section id="nfse-artifact-settings" class="rounded border bg-white"
+                    data-read-url="{{ route('nfse.settings.artifacts.show') }}"
+                    data-write-url="{{ route('nfse.settings.artifacts') }}"
+                    data-csrf-token="{{ csrf_token() }}"
+                    aria-labelledby="nfse-artifact-settings-title">
+                    <header class="border-b px-4 py-3">
+                        <h2 id="nfse-artifact-settings-title" class="font-semibold">Armazenamento de artefatos · WebDAV</h2>
+                        <p id="nfse-artifact-settings-summary" class="mt-1 text-sm text-gray-600" role="status">Carregando configuração...</p>
+                        <p class="mt-1 text-xs text-gray-600">Credenciais e URL completa não são devolvidas pela API. Informações vazias preservam as credenciais atuais.</p>
+                    </header>
+                    @can('update-nfse-settings')
+                        <form id="nfse-artifact-settings-form" class="space-y-3 p-4" novalidate>
+                            <label class="block text-sm" for="nfse-webdav-url">Nova URL WebDAV (HTTPS; deixe em branco para preservar)
+                                <input id="nfse-webdav-url" name="webdav_url" type="url" placeholder="https://dav.example.test/remote.php/dav/files/service" autocomplete="off" class="mt-1 block w-full rounded border p-2">
+                            </label>
+                            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <label class="block text-sm" for="nfse-webdav-user">Novo usuário (opcional)
+                                    <input id="nfse-webdav-user" name="webdav_username" autocomplete="off" class="mt-1 block w-full rounded border p-2">
+                                </label>
+                                <label class="block text-sm" for="nfse-webdav-password">Nova senha (opcional)
+                                    <input id="nfse-webdav-password" name="webdav_password" type="password" autocomplete="new-password" class="mt-1 block w-full rounded border p-2">
+                                </label>
+                            </div>
+                            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <label class="block text-sm" for="nfse-webdav-path">Padrão do diretório
+                                    <input id="nfse-webdav-path" name="webdav_path_template" class="mt-1 block w-full rounded border p-2" maxlength="255">
+                                </label>
+                                <label class="block text-sm" for="nfse-webdav-filename">Padrão do arquivo
+                                    <input id="nfse-webdav-filename" name="webdav_filename_template" class="mt-1 block w-full rounded border p-2" maxlength="255">
+                                </label>
+                            </div>
+                            <div class="flex flex-wrap gap-4 text-sm">
+                                <label><input id="nfse-webdav-xml" type="checkbox" name="webdav_store_xml"> Arquivar XML autorizado</label>
+                                <label><input id="nfse-webdav-pdf" type="checkbox" name="webdav_store_pdf"> Arquivar DANFSe</label>
+                                <label><input id="nfse-webdav-disable" type="checkbox" name="disable"> Desativar e limpar credenciais WebDAV</label>
+                            </div>
+                            <p id="nfse-artifact-settings-feedback" class="text-sm" role="status" aria-live="polite" tabindex="-1" hidden></p>
+                            <button id="nfse-webdav-save" type="submit" class="rounded bg-green-700 px-4 py-2 text-sm text-white">Salvar armazenamento</button>
+                        </form>
+                    @endcan
+                </section>
+            @endcan
         </div>
 
         @php
@@ -312,5 +356,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             @json($nfseCompanyAdminConfig)
         </script>
         <script src="{{ asset('modules/Nfse/Resources/assets/js/company-profile-admin.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/company-profile-admin.js'))) }}" data-nfse-company-admin="true"></script>
+        <script src="{{ asset('modules/Nfse/Resources/assets/js/artifact-settings-admin.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/artifact-settings-admin.js'))) }}" data-nfse-artifacts="true"></script>
     </x-slot>
 </x-layouts.admin>

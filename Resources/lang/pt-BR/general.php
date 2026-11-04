@@ -779,7 +779,7 @@ return [
             'available_placeholders' => 'Placeholders disponíveis',
             'store_xml' => 'Salvar XML da NFS-e',
             'store_pdf' => 'Salvar DANFSE em PDF',
-            'connection_failed' => 'Não foi possível validar o acesso ao servidor WebDAV: :message',
+            'connection_failed' => 'Não foi possível validar o acesso ao servidor WebDAV.',
             'placeholders' => [
                 '{cnpj}'          => 'CNPJ do prestador de serviço',
                 '{year}'          => 'Ano de emissão (ex: 2026)',

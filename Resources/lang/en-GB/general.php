@@ -781,7 +781,7 @@ return [
             'available_placeholders' => 'Available placeholders',
             'store_xml' => 'Store NFS-e XML',
             'store_pdf' => 'Store DANFSE PDF',
-            'connection_failed' => 'Unable to validate WebDAV server access: :message',
+            'connection_failed' => 'Unable to validate WebDAV server access.',
             'placeholders' => [
                 '{cnpj}'          => 'Service provider CNPJ',
                 '{year}'          => 'Emission year (e.g. 2026)',

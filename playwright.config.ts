@@ -25,6 +25,7 @@ export default defineConfig({
       name: 'full-ui',
       testMatch: [
         'nfse-accessibility.spec.ts',
+        'nfse-artifact-settings.spec.ts',
         'nfse-adn-import.spec.ts',
         'nfse-bulk-emission.spec.ts',
         'nfse-certificate.spec.ts',
