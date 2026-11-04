@@ -163,3 +163,50 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     When I make a native API GET request to "/<company_id>/api/nfse/national-services?lc116=foobar" with synthetic "administrator" credentials
     Then the API response status should be 422
     And the API response should be JSON
+
+
+  Scenario: Native fiscal tax associations list retains a separate read permission
+    When I make a native API GET request to "/<company_id>/api/nfse/settings/tax-associations" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data.taxes | array |
+      | data.identities | array |
+      | data.roles | array |
+
+  Scenario: Native client cannot confirm fiscal tax association without permissions
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/settings/tax-associations" with synthetic "no-permission" credentials and body:
+      """
+      {"tax_id":1,"fiscal_identity":"pis","fiscal_role":"provider_due","effective_from":"2026-01-01","source_reference":"synthetic-evidence","acknowledge":true}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native tax association refuses a request without explicit review
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/settings/tax-associations" with synthetic "administrator" credentials and body:
+      """
+      {"tax_id":1,"fiscal_identity":"pis","fiscal_role":"provider_due","effective_from":"2026-01-01","source_reference":"synthetic-evidence"}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native approximate tax sources expose bounded, company-specific provenance
+    When I make a native API GET request to "/<company_id>/api/nfse/settings/approximate-taxes?limit=50" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | array |
+      | meta | object |
+
+  Scenario: Native approximate tax source rejects invalid disclosure evidence
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/settings/approximate-taxes" with synthetic "administrator" credentials and body:
+      """
+      {"national_service_code":"010701","simples_option":"1","competence_from":"2026-01-01","source_kind":"documented_zero","source_name":"Synthetic study","source_version":"v1","source_reference":"synthetic-evidence","federal_percent":"1.00","state_percent":"0.00","municipal_percent":"0.00"}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native tax association cannot access a foreign company
+    When I make a native API GET request to "/<other_company_id>/api/nfse/settings/tax-associations" with synthetic "administrator" credentials
+    Then the API response status should be 401
+    And the API response should be JSON

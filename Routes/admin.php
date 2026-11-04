@@ -41,6 +41,10 @@ Route::admin('nfse', function () {
             ->middleware('permission:read-nfse-settings')->name('approximate-taxes');
         Route::post('/approximate-taxes', [SettingsController::class, 'storeApproximateTaxes'])
             ->middleware('permission:update-nfse-settings')->name('approximate-taxes.store');
+        Route::get('/approximate-taxes/resources', [SettingsController::class, 'approximateTaxSources'])
+            ->middleware('permission:read-nfse-settings')->name('approximate-taxes.resources');
+        Route::get('/tax-associations/resources', [TaxAssociationController::class, 'catalog'])
+            ->middleware('permission:read-nfse-settings')->name('tax-associations.resources');
         Route::get('/tax-associations', [TaxAssociationController::class, 'index'])
             ->middleware('permission:read-nfse-settings')->name('tax-associations.index');
         Route::post('/tax-associations', [TaxAssociationController::class, 'store'])

@@ -8,10 +8,21 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
+use Modules\Nfse\Http\Controllers\SettingsController;
+use Modules\Nfse\Http\Controllers\TaxAssociationController;
 
 // The Core applies its configured API authentication, read-api and company
 // identification middleware. Do not share the browser's session on this route.
 Route::api('nfse', function (): void {
+    Route::get('settings/tax-associations', [TaxAssociationController::class, 'catalog'])
+        ->middleware('permission:read-nfse-settings')->name('settings.tax-associations.index');
+    Route::post('settings/tax-associations', [TaxAssociationController::class, 'store'])
+        ->middleware('permission:update-nfse-settings')->name('settings.tax-associations.store');
+    Route::get('settings/approximate-taxes', [SettingsController::class, 'approximateTaxSources'])
+        ->middleware('permission:read-nfse-settings')->name('settings.approximate-taxes.index');
+    Route::post('settings/approximate-taxes', [SettingsController::class, 'storeApproximateTaxes'])
+        ->middleware('permission:update-nfse-settings')->name('settings.approximate-taxes.store');
+
     Route::get('national-services', [NationalServicesController::class, 'nationalServices'])
         ->middleware('permission:read-nfse-settings')
         ->name('national-services.index');
