@@ -1,10 +1,11 @@
 -- SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 
--- Apply ONLY to the externally shared, durable MySQL 8+ primary dedicated to
--- DPS coordination. Do NOT install this schema in each Akaunting database.
--- No series, ownership or starting number is activated automatically.
--- See docs/dps-distributed-coordination.md for the operational prerequisites.
+-- Reference DDL for the DPS authority inside the SAME Akaunting MySQL schema.
+-- Normal installations use the versioned Laravel migration rather than
+-- manually executing this file; do not install a separate coordination DB.
+-- Neither migration nor reference DDL activates a series automatically.
+-- See docs/dps-distributed-coordination.md for provisioning and restore gates.
 
 CREATE TABLE IF NOT EXISTS nfse_dps_coordination_series (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

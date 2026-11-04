@@ -79,8 +79,8 @@ class Main extends Provider
         $this->app->bind(CoreItemRequest::class, ValidatedFiscalItem::class);
         $this->app->bind(CoreContactRequest::class, ValidatedFiscalContact::class);
         $this->app->scoped(DpsIssuanceIdentityContract::class, function (): DpsIssuanceIdentityContract {
-            // Test-only fixture authority. Never make an SQLite/local fallback
-            // available to real emission; production requires central MySQL.
+            // Synthetic authority is only available in disposable SQLite tests.
+            // Production always requires the single Akaunting MySQL primary.
             if (FiscalTestHarnessConfig::enabled(
                 (string) app()->environment(),
                 getenv('NFSE_TEST_HARNESS'),

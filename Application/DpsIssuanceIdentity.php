@@ -71,12 +71,16 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
 
         $this->authorizer->assertCanReserve($companyId, $invoiceId, $issuer, $environment, $series);
         $operationKey = DpsOperationKey::forInvoice(
-            $companyId, $invoiceId, $environment, $groupKey, $cancelledReceiptId, $substitutedReceiptId,
+            $companyId,
+            $invoiceId,
+            $environment,
+            $groupKey,
+            $cancelledReceiptId,
+            $substitutedReceiptId,
         );
 
-        // Locally persisted reservations can be used to reconcile during a
-        // central outage. They never grant another first POST without a fresh
-        // irrevocable global claim.
+        // Persisted reservations support read-only reconciliation. They never
+        // grant another first POST without a fresh irreversible authority claim.
         $existing = DB::table('nfse_dps_reservations')
             ->where('operation_key', $operationKey)->first();
         if (is_object($existing)) {
@@ -98,9 +102,16 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
             ];
         } else {
             $reservation = (new DpsReservationService(
-                $this->authorizer, $this->coordinator ?? $this->configuration->connect(),
+                $this->authorizer,
+                $this->coordinator ?? $this->configuration->connect(),
             ))->reserve(
-                $companyId, $invoiceId, $issuer, $environment, $series, $operationKey, $origin,
+                $companyId,
+                $invoiceId,
+                $issuer,
+                $environment,
+                $series,
+                $operationKey,
+                $origin,
             );
         }
 
@@ -116,7 +127,7 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
     }
 
     /**
-     * Verify the immutable local relation before ever requesting a central
+     * Verify the immutable reservation before requesting an independent
      * first-POST claim. This is also used by the journal under its invoice lock.
      */
     public function assertLocal(
@@ -159,12 +170,20 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
         );
         // Recheck actor/tenant/profile immediately before the irreversible claim.
         $this->authorizer->assertCanReserve(
-            $companyId, $invoiceId, $issuer, (int) $row->environment, (string) $row->series,
+            $companyId,
+            $invoiceId,
+            $issuer,
+            (int) $row->environment,
+            (string) $row->series,
         );
         ($this->coordinator ?? $this->configuration->connect())->claimFirstTransmission(
-            $issuer, (int) $row->environment, (string) $row->series,
-            trim((string) $row->coordination_reference), (string) $row->operation_key,
-            (int) $row->number, $fingerprint,
+            $issuer,
+            (int) $row->environment,
+            (string) $row->series,
+            trim((string) $row->coordination_reference),
+            (string) $row->operation_key,
+            (int) $row->number,
+            $fingerprint,
         );
     }
 }

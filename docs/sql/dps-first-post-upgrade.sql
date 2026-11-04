@@ -1,7 +1,8 @@
 -- SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 
--- Run ONCE on the shared MySQL coordinator, not on Akaunting databases.
+-- Legacy upgrade reference only. New installations use the normal Akaunting
+-- migration in the SAME database; do not apply this file on a fresh installation.
 -- Take a verified backup and confirm that the columns do not already exist.
 -- Existing allocations remain unclaimed: do NOT activate an installation
 -- with historical outbound POSTs until those allocations are reconciled and

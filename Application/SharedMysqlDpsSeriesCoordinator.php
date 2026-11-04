@@ -10,15 +10,13 @@ namespace Modules\Nfse\Application;
 use PDO;
 
 /**
- * Direct MySQL coordinator, NOT another local DPS sequencer.
+ * MySQL coordinator for the Akaunting database, using an independent PDO
+ * connection so allocation and first-POST claims commit ahead of the journal.
+ * Both connections use the SAME schema; there is no second database.
  *
- * The PDO connection must address a single independent, non-rollbackable
- * primary store shared by all installations using a given fiscal series.
- * Schema and provisioning are intentionally separate from Akaunting migrations.
- *
- * No configuration/connection is registered by default. The activation and
- * first-POST preflight remain blocked until external-issuer exclusivity,
- * historic number floor and the final emission gate have been demonstrated.
+ * A full database restore can roll back both ledgers. Issuance must remain
+ * suspended until independent historical reconciliation after any restore.
+ * Series activation always requires documented ownership and starting floor.
  */
 final class SharedMysqlDpsSeriesCoordinator implements DpsSeriesCoordinator
 {
@@ -85,8 +83,8 @@ final class SharedMysqlDpsSeriesCoordinator implements DpsSeriesCoordinator
                 ],
             );
 
-            // The central ledger commits before any local reservation. If the
-            // local commit subsequently fails, never reclaim this number.
+            // The independent transaction commits before the invoice-side
+            // reservation. If the latter fails, never reclaim this number.
             return ['number' => $next, 'fresh' => true];
         });
     }
@@ -108,10 +106,17 @@ final class SharedMysqlDpsSeriesCoordinator implements DpsSeriesCoordinator
 
         // The authority and member generation are locked before the unique
         // claim is written. A revocation committed before this call fences it.
-        // An already committed claim can never be repeated, even after a
-        // timeout, process crash or restoration of the local database.
+        // A committed claim cannot be repeated after a transaction rollback,
+        // timeout or crash. A FULL database restore requires separate
+        // operational reconciliation before any next issuance.
         $this->transaction(function () use (
-            $issuer, $environment, $series, $reference, $operationKey, $number, $payloadFingerprint,
+            $issuer,
+            $environment,
+            $series,
+            $reference,
+            $operationKey,
+            $number,
+            $payloadFingerprint,
         ): void {
             $authority = $this->lockAuthorizedSeries($issuer, $environment, $series, $reference);
             $allocation = $this->queryOne(

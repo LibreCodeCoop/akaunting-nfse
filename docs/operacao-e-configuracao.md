@@ -81,26 +81,30 @@ ambiente de destino. Cadastre a série local
 `coordination_mode=shared_database` e correspondência da referência
 criptograficamente aleatória com o coordenador central.
 
-O coordenador requer um MySQL primário único e transacional, provisionado
-separadamente por meio de
-[`dps-coordination-schema.sql`](sql/dps-coordination-schema.sql).
-Para instalações existentes, confira o procedimento de atualização de
-[`dps-first-post-upgrade.sql`](sql/dps-first-post-upgrade.sql).
-Configure na instalação, fora do Git e de backups de banco locais:
+O coordenador utiliza **o mesmo banco MySQL do Akaunting**, com as tabelas
+de autoridade DPS criadas pela migração padrão do módulo. Não existe segundo
+banco, segundo Akaunting nem microsserviço. Uma conexão PDO independente
+confirma irrevogavelmente a alocação e o primeiro POST antes das transações
+do diário fiscal. O termo interno `coordination_mode=shared_database`
+continua suportado apenas como valor de contrato preexistente; refere-se ao
+mesmo banco compartilhado pelos processos PHP e fila.
 
-- `NFSE_DPS_COORDINATOR_DSN`: DSN PDO MySQL do primário compartilhado.
+Para operar, configure fora do banco apenas a identidade estável da
+instalação e sua geração:
+
+- `NFSE_DPS_INSTALLATION_ID`: UUID exclusivo da instalação.
+- `NFSE_DPS_INSTALLATION_GENERATION`: geração positiva aprovada.
 - `NFSE_DPS_COORDINATOR_USER` e `NFSE_DPS_COORDINATOR_PASSWORD`:
-  credenciais de privilégio mínimo, com transporte autenticado e protegido.
-- `NFSE_DPS_INSTALLATION_ID`: UUID estável, exclusivo da instalação.
-- `NFSE_DPS_INSTALLATION_GENERATION`: geração positiva autorizada pelo
-  coordenador, atualizada ao revogar processos anteriores.
+  opcionais, em conjunto, para acesso com privilégios mínimos **ao mesmo
+  banco Akaunting**. Se omitidas, as credenciais MySQL da aplicação são
+  utilizadas; não existe `NFSE_DPS_COORDINATOR_DSN` externo.
 
-A ausência de qualquer configuração, a perda de contato com o primário,
-a revogação da instalação ou a divergência da reserva deve **impedir
-novos POSTs fiscais**. A reivindicação de primeiro POST fica registrada
-duravelmente no banco central **antes** do envio e não expira. Um timeout
-ou falha de persistência exige consulta da DPS original, jamais um novo
-POST. Não reutilize automaticamente números rejeitados ou abandonados.
+A criação de tabelas e de um perfil fiscal não ativa emissão. A série DPS
+precisa ter evidência independente de exclusividade e maior número já
+consumido; cadastre a mesma referência aleatória e o mesmo piso verificado
+nas tabelas locais e de autoridade, e ative a geração autorizada apenas
+após testes e autorização operacional. Todos os passos estão no
+[procedimento de coordenação e restauração](dps-distributed-coordination.md).
 
 Consulte [a arquitetura e a matriz de falhas](dps-distributed-coordination.md)
 para gestão de failover, rollback, PITR, evidência de posse da série,
