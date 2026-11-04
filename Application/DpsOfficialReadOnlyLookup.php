@@ -31,7 +31,7 @@ final class DpsOfficialReadOnlyLookup
                 : app(FiscalClientFactory::class)->nfse($sandbox, $companyId);
             $client = $context->nfseClient();
             if (!is_callable([$client, 'existsDps']) || !is_callable([$client, 'queryDps'])) {
-                return 'inconclusive';
+                throw new \LogicException('DPS lookup is not supported by the fiscal client');
             }
             $exists = $client->existsDps($identifier);
             if ($exists === false) {
