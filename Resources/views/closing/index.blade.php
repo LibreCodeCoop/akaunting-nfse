@@ -5,7 +5,9 @@
     <x-slot name="content">
         <section id="nfse-closing" class="space-y-6"
             data-list-url="{{ route('nfse.closing.data') }}"
-            data-invoice-url="{{ route('invoices.show', '__INVOICE_ID__') }}">
+            data-invoice-url="{{ route('invoices.show', '__INVOICE_ID__') }}"
+            data-evidence-summary-template="{{ trans('nfse::general.closing.ibs_cbs_summary') }}"
+            data-evidence-unavailable="{{ trans('nfse::general.closing.ibs_cbs_unavailable') }}">
             <div class="flex flex-wrap items-end justify-between gap-4">
                 <form method="GET" action="{{ route('nfse.closing.index') }}" class="flex items-end gap-3">
                     <label for="nfse-closing-competence" class="block text-sm font-medium">
@@ -17,10 +19,16 @@
                         {{ trans('nfse::general.closing.apply') }}
                     </button>
                 </form>
-                <a href="{{ route('nfse.closing.export', ['competence' => $competence]) }}"
-                   class="rounded border px-4 py-2 font-medium">
-                    {{ trans('nfse::general.closing.export_csv') }}
-                </a>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('nfse.closing.export', ['competence' => $competence]) }}"
+                       class="rounded border px-4 py-2 font-medium">
+                        {{ trans('nfse::general.closing.export_csv') }}
+                    </a>
+                    <a href="{{ route('nfse.closing.ibs-cbs-evidence', ['competence' => $competence]) }}"
+                       class="rounded border px-4 py-2 font-medium">
+                        {{ trans('nfse::general.closing.ibs_cbs_export_csv') }}
+                    </a>
+                </div>
             </div>
 
             <p id="nfse-closing-status" role="status" aria-live="polite" class="text-sm text-gray-600">
@@ -44,6 +52,16 @@
                     <div id="closing-mismatches" class="text-xl font-semibold">—</div>
                 </div>
             </div>
+
+            <section class="rounded border p-4 space-y-2" aria-labelledby="nfse-ibs-cbs-title">
+                <h2 id="nfse-ibs-cbs-title" class="font-semibold">{{ trans('nfse::general.closing.ibs_cbs_title') }}</h2>
+                <p class="text-sm text-gray-600">
+                    {{ trans('nfse::general.closing.ibs_cbs_disclaimer') }}
+                </p>
+                <p class="text-sm" id="closing-ibs-cbs-summary" aria-live="polite">
+                    {{ trans('nfse::general.closing.ibs_cbs_loading') }}
+                </p>
+            </section>
 
             <section id="nfse-closing-mismatch" class="rounded border border-yellow-300 bg-yellow-50 p-4" hidden
                 aria-labelledby="nfse-closing-mismatch-title">

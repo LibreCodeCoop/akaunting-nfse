@@ -94,6 +94,62 @@ final class AdnNativeApiTest extends FeatureTestCase
         self::assertNull($own->fresh()->imported_document_id);
     }
 
+    public function testReceivedAdnDocumentExposesOnlyProvisionalIbsCbsCreditEvidence(): void
+    {
+        $this->loginAs();
+        $document = $this->document('nfse:received-ibs-cbs', (int) company_id());
+        $xml = (string) $document->xml;
+        $document->xml = str_replace('</infNFSe>',
+            '<IBSCBS><valores><gIBS><vIBSTot>1.20</vIBSTot></gIBS>'
+            . '<gCBS><vCBS>0.00</vCBS></gCBS></valores></IBSCBS></infNFSe>',
+            $xml);
+        $document->save();
+
+        $this->get(route('nfse.adn.documents.index', ['fiscal_role' => 'received']))
+            ->assertOk()->assertJsonMissingPath('data.0.ibs_cbs_credit_candidate');
+
+        $this->get(route('nfse.adn.documents.index', [
+            'include_preview' => '1',
+            'fiscal_role' => 'received',
+        ]))->assertOk()
+            ->assertJsonPath('data.0.ibs_cbs_credit_candidate.credit_eligibility', 'unverifiable')
+            ->assertJsonPath('data.0.ibs_cbs_credit_candidate.ibs.amount', '1.20')
+            ->assertJsonPath('data.0.ibs_cbs_credit_candidate.environment', 'sandbox')
+            ->assertJsonPath('data.0.ibs_cbs_credit_candidate.cbs.status', 'reported_zero')
+            ->assertJsonMissingPath('data.0.xml');
+
+        $this->get(route('nfse.adn.documents.preview', $document->id))
+            ->assertOk()
+            ->assertJsonPath('data.ibs_cbs_credit_candidate.credit_eligibility', 'unverifiable')
+            ->assertJsonPath('data.ibs_cbs_credit_candidate.source_sha256', hash('sha256', $document->xml));
+        self::assertSame('pending', $document->fresh()->review_status);
+        self::assertNull($document->fresh()->imported_document_id);
+    }
+
+    public function testIgnoredReceivedDocumentIsExcludedFromCreditReviewCandidates(): void
+    {
+        $this->loginAs();
+        $document = $this->document('nfse:ignored-credit', (int) company_id());
+        $document->review_status = 'ignored';
+        $document->save();
+
+        $this->get(route('nfse.adn.documents.preview', $document->id))
+            ->assertOk()->assertJsonPath('data.ibs_cbs_credit_candidate', null);
+        $this->get(route('nfse.adn.documents.index', ['include_preview' => '1']))
+            ->assertOk()->assertJsonPath('data.0.ibs_cbs_credit_candidate', null);
+    }
+
+    public function testIntermediatedDocumentIsNeverClassifiedAsCreditCandidate(): void
+    {
+        $this->loginAs();
+        $document = $this->document('nfse:intermediated-credit', (int) company_id());
+        $document->fiscal_role = 'intermediated';
+        $document->save();
+
+        $this->get(route('nfse.adn.documents.preview', $document->id))
+            ->assertOk()->assertJsonPath('data.ibs_cbs_credit_candidate', null);
+    }
+
     public function testReadApiRejectsInvalidFiltersBeforeQuery(): void
     {
         $this->loginAs();

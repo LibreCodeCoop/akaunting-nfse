@@ -7,11 +7,15 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Jobs\Auth\CreateUser;
+use App\Traits\Permissions;
 use Illuminate\Support\Facades\Route;
 use Tests\Feature\FeatureTestCase;
 
 final class FiscalClosingApiTest extends FeatureTestCase
 {
+    use Permissions;
+
     public function testClosingJsonHasStableFiscalAndCommercialPaginationContract(): void
     {
         $this->loginAs();
@@ -22,6 +26,12 @@ final class FiscalClosingApiTest extends FeatureTestCase
             ->assertJsonStructure([
                 'data' => [
                     'summary', 'reconciliation', 'rows',
+                    'ibs_cbs_evidence' => ['summary' => [
+                        'active_documents', 'excluded_documents', 'missing_snapshots',
+                        'duplicate_documents',
+                        'ibs' => ['reported_total', 'reported_count', 'not_reported_count', 'invalid_count'],
+                        'cbs' => ['reported_total', 'reported_count', 'not_reported_count', 'invalid_count'],
+                    ]],
                     'commercial_review' => ['rows', 'meta' => [
                         'current_page', 'last_page', 'per_page', 'total',
                     ]],
@@ -42,9 +52,28 @@ final class FiscalClosingApiTest extends FeatureTestCase
         ]))->assertUnprocessable();
     }
 
+    public function testClosingEvidenceRequiresSalesReadPermissionInBrowserSession(): void
+    {
+        $this->loginAs();
+        $role = $this->createRole('nfse-ibs-cbs-read-denied');
+        $this->attachPermission($role, 'read-admin-panel');
+
+        $operator = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
+            'enabled' => 1,
+            'companies' => [$this->company->id],
+            'roles' => [$role->id],
+        ])));
+
+        $this->withExceptionHandling()->loginAs($operator);
+        foreach (['nfse.closing.data', 'nfse.closing.ibs-cbs-evidence'] as $name) {
+            $this->get(route($name, ['competence' => '2026-10']))->assertForbidden();
+        }
+    }
+
     public function testNativeClosingRouteRequiresSalesInvoiceReadPermission(): void
     {
-        foreach (['api.nfse.closing.index', 'api.nfse.closing.export'] as $name) {
+        foreach (['api.nfse.closing.index', 'api.nfse.closing.export',
+            'api.nfse.closing.ibs-cbs-evidence'] as $name) {
             $route = Route::getRoutes()->getByName($name);
             self::assertNotNull($route);
             self::assertContains('permission:read-sales-invoices', $route->gatherMiddleware());

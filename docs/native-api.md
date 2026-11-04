@@ -189,6 +189,25 @@ fiscal state is modified by the JSON read.
 The native `GET /{company_id}/{api_prefix}/nfse/closing/export?competence=YYYY-MM`
 returns the same CSV stream under API authentication and read permission.
 
+### Documentary IBS/CBS evidence (not a tax assessment)
+
+The fiscal closing JSON also returns `data.ibs_cbs_evidence.summary`, with
+the independent IBS and CBS totals **reported in stored authorized-XML
+snapshots**, counts of reported, absent and invalid fields, duplicate sources,
+missing snapshots and excluded inactive receipts. A missing amount is not
+zero and a reported amount is not an established tax debt, credit, payment
+or declaration.
+
+The following company-scoped, read-only CSV endpoints export the underlying
+document observations, including status and SHA-256 provenance:
+
+- Native API: `GET /{company_id}/{api_prefix}/nfse/closing/ibs-cbs-evidence?competence=YYYY-MM`
+- Browser session: `GET /{company_id}/nfse/closing/ibs-cbs-evidence?competence=YYYY-MM`
+
+Both use the existing `read-sales-invoices` permission. The result never
+includes another company's receipts and cannot trigger tax accounting
+entries or official synchronization.
+
 ## Fiscal ledger and receipt-scoped authorized artifacts (#503)
 
 `GET /{company_id}/{api_prefix}/nfse/ledger` uses Akaunting's native
@@ -252,6 +271,16 @@ invalid XML) without changing persisted state. `adn/review-options`
 returns company-scoped minimal vendor/category/item choices and action
 capabilities; the issuer CNPJ is visible only to a user authorized to
 read NFS-e settings.
+
+With `include_preview=1`, a persisted received ADN document that is not
+ignored can also include `ibs_cbs_credit_candidate` alongside
+`accounting_preview`. It contains the source hash, competence, environment,
+and documentary amounts/statuses. Its `credit_eligibility` remains
+`unverifiable`: it does not establish a credit to appropriate. Intermediated
+and ignored records do not create a candidate. The standard list without
+`include_preview=1` does not expose this additional field. Existing
+`read-purchases-bills` permissions and active-company scoping apply.
+
 `fiscal_role` distinguishes `emitted`, `received`, `intermediated`,
 `event`, and `unknown`. Only `received` and `intermediated` documents
 can be reviewed/imported as financial bills. Importing never creates a new

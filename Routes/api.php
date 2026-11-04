@@ -89,6 +89,9 @@ Route::api('nfse', function (): void {
     Route::get('closing/export', [ClosingController::class, 'export'])
         ->middleware('permission:read-sales-invoices')
         ->name('closing.export');
+    Route::get('closing/ibs-cbs-evidence', [ClosingController::class, 'exportIbsCbs'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('closing.ibs-cbs-evidence');
     Route::get('closing', [ClosingController::class, 'data'])
         ->middleware('permission:read-sales-invoices')
         ->name('closing.index');
