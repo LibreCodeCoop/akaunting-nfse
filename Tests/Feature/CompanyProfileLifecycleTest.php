@@ -703,9 +703,8 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
             'updated_at' => now(),
         ]);
         DB::table('settings')->insert([
-            'company_id' => $id,
-            'key' => 'company.tax_number',
-            'value' => self::CNPJ,
+            ['company_id' => $id, 'key' => 'company.tax_number', 'value' => self::CNPJ],
+            ['company_id' => $id, 'key' => 'wizard.completed', 'value' => '1'],
         ]);
 
         if ($assigned) {

@@ -266,6 +266,12 @@ final class IssuerFiscalContactTest extends FeatureTestCase
             'user_id' => (int) auth()->id(),
             'company_id' => $companyId,
         ]);
+        // The admin route redirects companies without the Akaunting setup wizard.
+        DB::table('settings')->insert([
+            'company_id' => $companyId,
+            'key' => 'wizard.completed',
+            'value' => '1',
+        ]);
 
         return $companyId;
     }
