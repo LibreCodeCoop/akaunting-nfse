@@ -394,3 +394,13 @@ attempts; do not assume a transport failure proves SEFIN rejection.
 Browser form routes preserve backward compatibility and invoke the same
 application methods; the native transport never receives a browser redirect
 or cookies. No existing authorized XML or receipt history is deleted.
+
+## CBS assisted assessment (offline integration contract)
+
+The CBS assisted assessment v2 protocol, incremental response reader and
+in-memory conflict policy are documented in
+[CBS assisted assessment](cbs-assisted-api.md). No official synchronization
+API, scheduled consultation, authenticated source downloader, durable journal
+or tax booking is enabled by this contract. Fiscal review and read-only
+IBS/CBS documentary evidence must not be interpreted as appropriable credits
+or a completed CBS declaration.
