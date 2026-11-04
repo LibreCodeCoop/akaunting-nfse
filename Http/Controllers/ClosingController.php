@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\Nfse\Application\CommercialFiscalReviewReport;
@@ -16,16 +17,53 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class ClosingController extends Controller
 {
-    public function index(Request $request, CompetenceClosingReport $report): View
+    public function index(Request $request): View
+    {
+        abort_if((int) company_id() <= 0, 403, 'An active company is required for fiscal closing.');
+        // The view is presentation only. All fiscal data comes from JSON.
+        $competence = $this->competence($request);
+
+        return view('nfse::closing.index', ['competence' => $competence]);
+    }
+
+    /** The same report services feed external integrations and Web administration. */
+    public function data(Request $request, CompetenceClosingReport $report): JsonResponse
     {
         $competence = $this->competence($request);
+        $page = $request->query('report_page', 1);
+        if (!is_scalar($page) || preg_match('/^[1-9]\d*$/', (string) $page) !== 1
+            || (int) $page > 100000) {
+            return response()->json(['message' => 'Invalid report page.'], 422);
+        }
+
         $closing = $report->build($this->receipts($competence));
         $commercialReview = (new CommercialFiscalReviewReport())->forInvoiceMonth((int) company_id(), $competence);
+        $total = count($closing['rows']);
+        $perPage = 50;
+        $pageNumber = (int) $page;
 
-        return view('nfse::closing.index', [
-            'competence' => $competence,
-            'closing' => $closing,
-            'commercialReview' => $commercialReview,
+        return response()->json([
+            'data' => [
+                'competence' => $competence,
+                'summary' => $closing['summary'],
+                'reconciliation' => $closing['reconciliation'],
+                'rows' => array_slice($closing['rows'], ($pageNumber - 1) * $perPage, $perPage),
+                'commercial_review' => [
+                    'rows' => $commercialReview['rows'],
+                    'meta' => [
+                        'current_page' => $commercialReview['page']->currentPage(),
+                        'last_page' => $commercialReview['page']->lastPage(),
+                        'per_page' => $commercialReview['page']->perPage(),
+                        'total' => $commercialReview['page']->total(),
+                    ],
+                ],
+            ],
+            'meta' => [
+                'current_page' => $pageNumber,
+                'last_page' => max(1, (int) ceil($total / $perPage)),
+                'per_page' => $perPage,
+                'total' => $total,
+            ],
         ]);
     }
 
