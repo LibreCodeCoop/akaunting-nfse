@@ -60,6 +60,7 @@ final class FiscalInvoiceEmissionApiTest extends FeatureTestCase
             'company_id' => $invoice->company_id, 'invoice' => $invoice->id,
         ]), 'POST');
         $nativeRoute = clone Route::getRoutes()->getByName('api.nfse.invoices.emit');
+        $nativeRoute->bind($nativeRequest);
         $nativeRoute->setParameter('invoice', $invoice);
         $nativeRequest->setRouteResolver(static fn () => $nativeRoute);
         app()->instance('request', $nativeRequest);
