@@ -47,10 +47,12 @@ final class CbsAssistedV2ProtocolTest extends TestCase
     {
         $api = new CbsAssistedV2Protocol();
         self::assertSame(['ticket' => 'abc-123', 'estimated_seconds' => 120], $api->accepted(
-            201, ['tiqueteSolicitacao' => 'abc-123', 'tEASegundos' => 120],
+            201,
+            ['tiqueteSolicitacao' => 'abc-123', 'tEASegundos' => 120],
         ));
         self::assertSame(['ticket' => 'abc-123', 'estimated_seconds' => null], $api->accepted(
-            201, ['tiqueteSolicitacao' => 'abc-123', 'tEASegundos' => -1],
+            201,
+            ['tiqueteSolicitacao' => 'abc-123', 'tEASegundos' => -1],
         ));
         self::assertSame('EM_PROCESSAMENTO', $api->statusFromResponse(200, ['situacao' => 'EM_PROCESSAMENTO']));
         self::assertSame('CONCLUIDA', $api->statusFromResponse(200, ['situacao' => 'CONCLUIDA']));

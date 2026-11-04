@@ -50,8 +50,11 @@ final class CbsAssistedV2IncrementalReaderTest extends TestCase
     public function testExactLargeDecimalAndUpdatedObservationRetainSameIdentityWithoutSumming(): void
     {
         $first = $this->debit('90071992547409.12', '90071992547409.10');
-        $second = str_replace(['90071992547409.12', '90071992547409.10', '2026-08-13T20:00:00Z'],
-            ['90071992547409.11', '90071992547409.09', '2026-08-14T20:00:00Z'], $first);
+        $second = str_replace(
+            ['90071992547409.12', '90071992547409.10', '2026-08-13T20:00:00Z'],
+            ['90071992547409.11', '90071992547409.09', '2026-08-14T20:00:00Z'],
+            $first
+        );
 
         $one = $this->parse($first, 'debitos')['events'][0];
         $two = $this->parse($second, 'debitos')['events'][0];
