@@ -82,6 +82,8 @@ Route::admin('nfse', function () {
     Route::get('adn', [AdnController::class, 'index'])->middleware('permission:read-purchases-bills')->name('adn.index');
     Route::get('adn/distribution', [AdnController::class, 'distribution'])
         ->middleware('permission:read-nfse-settings')->name('adn.distribution');
+    Route::get('adn/review-options', [AdnController::class, 'reviewOptions'])
+        ->middleware('permission:read-purchases-bills')->name('adn.review-options');
     Route::get('adn/documents', [AdnController::class, 'documents'])
         ->middleware('permission:read-purchases-bills')->name('adn.documents.index');
     Route::get('adn/documents/{document}/preview', [AdnController::class, 'preview'])

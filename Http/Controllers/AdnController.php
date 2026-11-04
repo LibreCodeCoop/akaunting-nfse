@@ -30,9 +30,21 @@ class AdnController extends Controller
 {
     public function index(): \Illuminate\View\View
     {
+        $this->requireCompanyId();
+
+        // All fiscal data is loaded through the same JSON contracts available
+        // to external clients; HTML only provides presentation and CSRF.
+        return view('nfse::adn.index');
+    }
+
+    /** Company-scoped choices needed to review received services, not a second CRM CRUD. */
+    public function reviewOptions(): JsonResponse
+    {
         $companyId = $this->requireCompanyId();
-        $issuerCnpj = '';
-        if ($companyId > 0) {
+        $operator = auth()->user();
+        $issuerCnpj = null;
+
+        if ($operator?->can('read-nfse-settings')) {
             try {
                 $issuerCnpj = (string) (new NfseCompanyFiscalSettings())->value(
                     $companyId,
@@ -40,30 +52,38 @@ class AdnController extends Controller
                     '',
                 );
             } catch (\DomainException) {
-                // An unconfigured company never displays an unrelated issuer.
+                // An unconfigured company does not leak another issuer.
             }
         }
 
-        return view('nfse::adn.index', [
-            'issuerCnpj' => $issuerCnpj,
-            'reviewDocuments' => $this->accountingReviewQueue(),
-            'reviewVendors' => Contact::query()
-                ->vendor()
-                ->enabled()
-                ->when($companyId > 0, static fn ($query) => $query->where('company_id', $companyId))
-                ->orderBy('name')
-                ->get(['id', 'name', 'tax_number']),
-            'reviewCategories' => Category::query()
-                ->expense()
-                ->when($companyId > 0, static fn ($query) => $query->where('company_id', $companyId))
-                ->orderBy('name')
-                ->get(['id', 'name']),
-            'reviewItems' => Item::query()
-                ->enabled()
-                ->when($companyId > 0, static fn ($query) => $query->where('company_id', $companyId))
-                ->orderBy('name')
-                ->get(['id', 'name']),
-        ]);
+        return $this->jsonResponse(['data' => [
+            'issuer_cnpj' => $issuerCnpj,
+            'can_create_vendor' => (bool) $operator?->can('create-purchases-vendors'),
+            'can_import' => (bool) $operator?->can('create-purchases-bills'),
+            'can_ignore' => (bool) $operator?->can('update-purchases-bills'),
+            'can_query_distribution' => (bool) $operator?->can('read-nfse-settings'),
+            'vendors' => Contact::query()
+                ->vendor()->enabled()->where('company_id', $companyId)
+                ->orderBy('name')->get(['id', 'name'])
+                ->map(static fn (Contact $vendor): array => [
+                    'id' => (int) $vendor->id,
+                    'name' => (string) $vendor->name,
+                ])->values()->all(),
+            'categories' => Category::query()
+                ->expense()->where('company_id', $companyId)
+                ->orderBy('name')->get(['id', 'name'])
+                ->map(static fn (Category $category): array => [
+                    'id' => (int) $category->id,
+                    'name' => (string) $category->name,
+                ])->values()->all(),
+            'items' => Item::query()
+                ->enabled()->where('company_id', $companyId)
+                ->orderBy('name')->get(['id', 'name'])
+                ->map(static fn (Item $item): array => [
+                    'id' => (int) $item->id,
+                    'name' => (string) $item->name,
+                ])->values()->all(),
+        ]]);
     }
 
     /**
@@ -76,6 +96,11 @@ class AdnController extends Controller
         $limit = $request->query('limit', 50);
         $status = $request->query('review_status');
         $role = $request->query('fiscal_role');
+        $includePreview = $request->query('include_preview', '0');
+
+        if (!in_array($includePreview, ['0', '1'], true)) {
+            return $this->jsonResponse(['message' => 'Invalid include_preview.'], 422);
+        }
 
         if (!is_scalar($limit) || preg_match('/^[1-9]\d*$/', (string) $limit) !== 1 || (int) $limit > 100) {
             return $this->jsonResponse(['message' => 'Invalid limit.'], 422);
@@ -96,22 +121,35 @@ class AdnController extends Controller
             ->orderByDesc('id');
 
         $page = $query->paginate((int) $limit);
+        $previewer = $includePreview === '1' ? new AdnAccountingPreview() : null;
 
         return $this->jsonResponse([
-            'data' => collect($page->items())->map(static fn (AdnSyncDocument $item): array => [
-                'id' => $item->id,
-                'document_key' => $item->document_key,
-                'nsu' => $item->nsu,
-                'chave_acesso' => $item->chave_acesso,
-                'tipo_documento' => $item->tipo_documento,
-                'tipo_evento' => $item->tipo_evento,
-                'data_hora_geracao' => $item->data_hora_geracao,
-                'fiscal_role' => $item->fiscal_role,
-                'review_status' => $item->review_status,
-                'imported_document_id' => $item->imported_document_id,
-                'ignored_at' => $item->ignored_at,
-                'recognized_event' => $item->recognized_event,
-            ])->values()->all(),
+            'data' => collect($page->items())->map(static function (AdnSyncDocument $item) use ($previewer): array {
+                $row = [
+                    'id' => $item->id,
+                    'document_key' => $item->document_key,
+                    'nsu' => $item->nsu,
+                    'chave_acesso' => $item->chave_acesso,
+                    'tipo_documento' => $item->tipo_documento,
+                    'tipo_evento' => $item->tipo_evento,
+                    'data_hora_geracao' => $item->data_hora_geracao,
+                    'fiscal_role' => $item->fiscal_role,
+                    'review_status' => $item->review_status,
+                    'imported_document_id' => $item->imported_document_id,
+                    'ignored_at' => $item->ignored_at,
+                    'recognized_event' => $item->recognized_event,
+                ];
+
+                if ($previewer !== null && in_array($item->fiscal_role, ['received', 'intermediated'], true)) {
+                    try {
+                        $row['accounting_preview'] = $previewer->fromAuthorizedXml((string) $item->xml);
+                    } catch (\InvalidArgumentException) {
+                        $row['accounting_preview'] = null;
+                    }
+                }
+
+                return $row;
+            })->values()->all(),
             'meta' => [
                 'current_page' => $page->currentPage(),
                 'last_page' => $page->lastPage(),

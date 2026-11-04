@@ -23,6 +23,7 @@ final class AdnNativeApiTest extends FeatureTestCase
     public function testAllAdnRoutesRequireCorePermissions(): void
     {
         foreach ([
+            'api.nfse.adn.review-options' => 'permission:read-purchases-bills',
             'api.nfse.adn.documents.index' => 'permission:read-purchases-bills',
             'api.nfse.adn.documents.preview' => 'permission:read-purchases-bills',
             'api.nfse.adn.distribution' => 'permission:read-nfse-settings',
@@ -38,6 +39,7 @@ final class AdnNativeApiTest extends FeatureTestCase
 
         foreach ([
             'nfse.adn.index' => 'permission:read-purchases-bills',
+            'nfse.adn.review-options' => 'permission:read-purchases-bills',
             'nfse.adn.documents.index' => 'permission:read-purchases-bills',
             'nfse.adn.documents.preview' => 'permission:read-purchases-bills',
             'nfse.adn.distribution' => 'permission:read-nfse-settings',
@@ -65,6 +67,15 @@ final class AdnNativeApiTest extends FeatureTestCase
             ->assertJsonMissing(['document_key' => $foreign->document_key]);
         $response->assertDontSee('Fornecedor Recebido Ltda');
 
+        $listWithPreview = $this->get(route('nfse.adn.documents.index', [
+            'include_preview' => '1',
+            'review_status' => 'pending',
+        ]));
+        $listWithPreview->assertOk()
+            ->assertJsonPath('data.0.accounting_preview.supplier_name', 'Fornecedor Recebido Ltda')
+            ->assertJsonPath('data.0.accounting_preview.gross_value', '100.00');
+        $listWithPreview->assertJsonMissingPath('data.0.xml');
+
         $preview = $this->get(route('nfse.adn.documents.preview', $own->id));
         $preview->assertOk()
             ->assertJsonPath('data.document_id', $own->id)
@@ -81,9 +92,29 @@ final class AdnNativeApiTest extends FeatureTestCase
     public function testReadApiRejectsInvalidFiltersBeforeQuery(): void
     {
         $this->loginAs();
-        foreach ([['limit' => '101'], ['limit' => '0'], ['limit' => ['1']], ['review_status' => 'unrecognized'], ['fiscal_role' => 'invalid']] as $query) {
+        foreach ([['limit' => '101'], ['limit' => '0'], ['limit' => ['1']], ['review_status' => 'unrecognized'], ['fiscal_role' => 'invalid'], ['include_preview' => 'true']] as $query) {
             $this->get(route('nfse.adn.documents.index', $query))->assertStatus(422);
         }
+    }
+
+    public function testReviewOptionsContainOnlyCurrentCompanyChoices(): void
+    {
+        $this->loginAs();
+        $ownVendor = Contact::factory()->vendor()->enabled()->create([
+            'company_id' => (int) company_id(),
+        ]);
+        $foreignVendor = Contact::factory()->vendor()->enabled()->create([
+            'company_id' => (int) company_id(),
+        ]);
+        $foreignVendor->forceFill(['company_id' => (int) company_id() + 999])->saveQuietly();
+
+        $response = $this->get(route('nfse.adn.review-options'));
+        $response->assertOk();
+        $ids = array_column($response->json('data.vendors'), 'id');
+        self::assertContains((int) $ownVendor->id, $ids);
+        self::assertNotContains((int) $foreignVendor->id, $ids);
+        self::assertIsArray($response->json('data.categories'));
+        self::assertIsArray($response->json('data.items'));
     }
 
     public function testNoPermissionOperatorCannotReadBrowserAdnDocuments(): void
@@ -98,10 +129,9 @@ final class AdnNativeApiTest extends FeatureTestCase
             'roles' => [$role->id],
         ])));
 
-        $this->withExceptionHandling()
-            ->loginAs($operator)
-            ->get(route('nfse.adn.documents.index'))
-            ->assertForbidden();
+        $this->withExceptionHandling()->loginAs($operator);
+        $this->get(route('nfse.adn.documents.index'))->assertForbidden();
+        $this->get(route('nfse.adn.review-options'))->assertForbidden();
     }
 
     public function testJsonImportIsIdempotentAndIgnoredStateCannotOverwriteImportedBill(): void

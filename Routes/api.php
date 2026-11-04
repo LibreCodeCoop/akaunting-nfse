@@ -14,6 +14,9 @@ use Modules\Nfse\Http\Controllers\NationalServicesController;
 // identification middleware. Do not share the browser's session on this route.
 Route::api('nfse', function (): void {
     // ADN shares the native HTTP authentication and active-company context.
+    Route::get('adn/review-options', [AdnController::class, 'reviewOptions'])
+        ->middleware('permission:read-purchases-bills')
+        ->name('adn.review-options');
     Route::get('adn/documents', [AdnController::class, 'documents'])
         ->middleware('permission:read-purchases-bills')
         ->name('adn.documents.index');
