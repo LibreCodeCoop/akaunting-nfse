@@ -210,3 +210,34 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     When I make a native API GET request to "/<other_company_id>/api/nfse/settings/tax-associations" with synthetic "administrator" credentials
     Then the API response status should be 401
     And the API response should be JSON
+
+  Scenario: Native closing report returns structured fiscal and commercial records
+    When I make a native API GET request to "/<company_id>/api/nfse/closing?competence=2026-10" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data.summary | object |
+      | data.rows | array |
+      | data.commercial_review.rows | array |
+      | meta | object |
+
+  Scenario: Native closing rejects unauthenticated access
+    Given the API client is a guest
+    When I make a "GET" JSON request to "/<company_id>/api/nfse/closing?competence=2026-10"
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native closing rejects users without invoice read permission
+    When I make a native API GET request to "/<company_id>/api/nfse/closing?competence=2026-10" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native closing rejects malformed competence
+    When I make a native API GET request to "/<company_id>/api/nfse/closing?competence=2026-13" with synthetic "administrator" credentials
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native closing cannot select another company
+    When I make a native API GET request to "/<other_company_id>/api/nfse/closing?competence=2026-10" with synthetic "administrator" credentials
+    Then the API response status should be 401
+    And the API response should be JSON

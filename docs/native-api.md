@@ -114,3 +114,33 @@ the persisted ID; duplicated revisions or unsupported zero evidence return
 422. Historical records are append-only. The administrative screens load
 their tables and save confirmations over these JSON contracts, without using
 HTML fragments as an integration protocol.
+
+## Competence closing and commercial-fiscal reconciliation (#503)
+
+`GET /{company_id}/{api_prefix}/nfse/closing?competence=YYYY-MM`
+uses Akaunting API credentials and the `read-sales-invoices` permission.
+The administrative page uses the same `ClosingController::data`
+contract through authenticated `GET /{company_id}/nfse/closing/data`,
+never transmitting browser credentials to the external API.
+
+Responses include `data.summary`, `data.reconciliation`,
+`data.rows` (up to 50 entries per page), and
+`data.commercial_review.rows` (up to 30 commercial documents per page),
+with corresponding `meta` pagination. `report_page` selects the
+fiscal report page; `page` selects the commercial review page.
+`competence` uses the exact `YYYY-MM` calendar format. Invalid
+competence or page parameters yield 422. The company identity comes
+from authenticated Akaunting context and is applied by receipt ownership
+and the commercial report; a caller cannot select another company by
+passing an arbitrary ID.
+
+The fiscal summary uses persisted authorized XML snapshots and preserves
+cancelled/substituted states, unreconciled documents and tax provenance.
+Commercial invoice records are **review candidates**, not evidence of a
+taxable event or a statutory deadline. No tax rates are inferred. The
+existing `GET /{company_id}/nfse/closing/export` remains a stable,
+CSRF-safe CSV download based on the same report service; no financial or
+fiscal state is modified by the JSON read.
+
+The native `GET /{company_id}/{api_prefix}/nfse/closing/export?competence=YYYY-MM`
+returns the same CSV stream under API authentication and read permission.
