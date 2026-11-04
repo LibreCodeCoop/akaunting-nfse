@@ -29,7 +29,8 @@ Route::admin('nfse', function () {
     Route::get('dps/lookup', [DpsReadinessController::class, 'lookup'])
         ->middleware('permission:read-nfse-settings')->name('dps.lookup');
 
-    Route::get('/', [InvoiceController::class, 'dashboard'])->name('dashboard.index');
+    Route::get('/', [InvoiceController::class, 'dashboard'])
+        ->middleware('permission:read-sales-invoices')->name('dashboard.index');
 
     // Settings
     Route::group(['prefix' => 'settings', 'as' => 'settings.'], function () {
@@ -158,13 +159,15 @@ Route::admin('nfse', function () {
     Route::post('invoices/{invoice}/substitute', [InvoiceController::class, 'substitute'])
         ->middleware('permission:update-sales-invoices')->name('invoices.substitute');
     Route::get('invoices/{invoice}', [LegacyInvoiceController::class, 'show'])->name('invoices.show');
-    Route::get('invoices/{invoice}/emit-success', [InvoiceController::class, 'showEmitSuccess'])->name('invoices.emit-success');
+    Route::get('invoices/{invoice}/emit-success', [InvoiceController::class, 'showEmitSuccess'])
+        ->middleware('permission:read-sales-invoices')->name('invoices.emit-success');
     Route::get('invoices/{invoice}/post-emission-status', [InvoiceController::class, 'postEmissionStatus'])->middleware('permission:read-sales-invoices')->name('invoices.post-emission-status');
     Route::get('invoices/{invoice}/emission-attempts', [EmissionAttemptController::class, 'index'])
         ->middleware('permission:read-sales-invoices')
         ->name('invoices.emission-attempts');
     Route::get('invoices/{invoice}/adn-events', [AdnController::class, 'events'])->middleware('permission:read-sales-invoices')->name('invoices.adn-events');
-    Route::get('invoices/{invoice}/artifacts/{artifact}', [InvoiceController::class, 'downloadArtifact'])->name('invoices.artifacts.download');
+    Route::get('invoices/{invoice}/artifacts/{artifact}', [InvoiceController::class, 'downloadArtifact'])
+        ->middleware('permission:read-sales-invoices')->name('invoices.artifacts.download');
     Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])
         ->middleware('permission:update-sales-invoices')->name('invoices.cancel');
 

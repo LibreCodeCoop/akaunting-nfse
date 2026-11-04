@@ -315,6 +315,7 @@ class InvoiceController extends Controller
 
     public function showEmitSuccess(Invoice $invoice): \Illuminate\View\View
     {
+        $this->requireReadableInvoice($invoice);
         $this->ensureInvoiceRelationsLoaded($invoice);
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->firstOrFail();
         $receiptStatusLabel = $this->translateReceiptStatus((string) ($receipt->status ?? ''));
@@ -345,6 +346,7 @@ class InvoiceController extends Controller
 
     public function downloadArtifact(Invoice $invoice, string $artifact): Response|RedirectResponse
     {
+        $this->requireReadableInvoice($invoice);
         $this->ensureInvoiceRelationsLoaded($invoice);
         $receipt = NfseReceipt::where('invoice_id', $invoice->id)->latest('id')->firstOrFail();
 
