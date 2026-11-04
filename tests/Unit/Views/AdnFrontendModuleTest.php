@@ -21,6 +21,9 @@ final class AdnFrontendModuleTest extends TestCase
         self::assertStringContainsString('adn-review-browser.js', $view);
         self::assertStringContainsString('data-adn-json-action="import"', $view);
         self::assertStringContainsString('data-adn-json-action="ignore"', $view);
+        self::assertStringContainsString('data-options-url=', $view);
+        self::assertStringContainsString('data-list-url=', $view);
+        self::assertStringNotContainsString('$reviewDocuments', $view);
         self::assertStringContainsString('data-querying-label=', $view);
         self::assertStringContainsString('data-error-label=', $view);
         self::assertStringNotContainsString('new URLSearchParams({', $view);

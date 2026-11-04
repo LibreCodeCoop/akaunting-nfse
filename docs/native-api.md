@@ -87,6 +87,7 @@ HTTP calls.
 | Operation | Native API suffix | Browser-session suffix | Permission |
 | --- | --- | --- | --- |
 | Locally synchronized documents | `GET adn/documents` | `GET adn/documents` | `read-purchases-bills` |
+| Review form selections | `GET adn/review-options` | `GET adn/review-options` | `read-purchases-bills` |
 | Accounting preview | `GET adn/documents/{id}/preview` | `GET adn/documents/{id}/preview` | `read-purchases-bills` |
 | Live contributor distribution | `GET adn/distribution` | `GET adn/distribution` | `read-nfse-settings` |
 | Events for an issued invoice | `GET invoices/{id}/adn-events` | `GET invoices/{id}/adn-events` | `read-sales-invoices` |
@@ -94,13 +95,21 @@ HTTP calls.
 | Import as draft bill | `POST adn/documents/{id}/import` | `POST adn/review/{id}/import` | `create-purchases-bills` |
 
 Prefix native suffixes with `/{company_id}/{api_prefix}/nfse/` and browser
-suffixes with `/{company_id}/nfse/`. The browser imports and ignores by
-submitting the native JSON representation over its session-protected transport.
-The original HTML forms remain functional without JavaScript.
+suffixes with `/{company_id}/nfse/`. The browser loads its pending review
+list and selection choices via JSON, then submits review actions over its
+session-protected transport, including CSRF.
+The Blade view only provides presentation templates and translated labels;
+it no longer embeds company fiscal documents or option lists.
 
 The persisted document list supports `limit=1..100` (default 50),
-`page`, `review_status`, and `fiscal_role`. Results contain `data`
-and `meta` pagination information; raw XML is deliberately absent.
+`page`, `review_status`, `fiscal_role` and `include_preview=1`.
+Results contain `data` and `meta` pagination information; raw XML is
+deliberately absent. Opting into preview parses each bounded received or
+intermediated document and returns `accounting_preview` (or null for an
+invalid XML) without changing persisted state. `adn/review-options`
+returns company-scoped minimal vendor/category/item choices and action
+capabilities; the issuer CNPJ is visible only to a user authorized to
+read NFS-e settings.
 `fiscal_role` distinguishes `emitted`, `received`, `intermediated`,
 `event`, and `unknown`. Only `received` and `intermediated` documents
 can be reviewed/imported as financial bills. Importing never creates a new
