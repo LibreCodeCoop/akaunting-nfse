@@ -5277,7 +5277,8 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         }
 
 
-        public function testReemitBuildsDpsForCancelledReceiptAndRedirectsToShow(): void
+        #[DataProvider('reemitSuccessNumberCases')]
+        public function testReemitBuildsDpsForCancelledReceiptAndRedirectsToShow(string $nfseNumber, string $expectedSuccess): void
         {
             ControllerIsolationState::$settings['nfse.opcao_simples_nacional'] = 3;
             ControllerIsolationState::$settings['nfse.regime_apuracao_simples_nacional'] = '1';
@@ -5296,15 +5297,19 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $existingReceipt = InvoiceControllerIsolationState::makeReceipt(301, 'CHAVE-301', 'cancelled');
 
-            $client = new class () implements NfseClientInterface {
+            $client = new class ($nfseNumber) implements NfseClientInterface {
                 public ?DpsData $capturedDps = null;
+
+                public function __construct(private readonly string $nfseNumber)
+                {
+                }
 
                 public function emit(DpsData $dps): ReceiptData
                 {
                     $this->capturedDps = $dps;
 
                     return new ReceiptData(
-                        nfseNumber: 'NF-RE-301',
+                        nfseNumber: $this->nfseNumber,
                         chaveAcesso: 'CHAVE-RE-301',
                         dataEmissao: '2026-03-21T18:00:00-03:00',
                         codigoVerificacao: 'RE301',
@@ -5393,12 +5398,18 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertCount(2, NfseReceipt::$records);
             $reissued = NfseReceipt::$records[1];
             self::assertSame('emitted', $reissued->status);
-            self::assertSame('NF-RE-301', $reissued->nfse_number);
+            self::assertSame($nfseNumber, $reissued->nfse_number);
             self::assertSame('CHAVE-RE-301', $reissued->chave_acesso);
             self::assertSame('route', $response->target);
             self::assertSame('nfse.invoices.show', $response->route);
             self::assertSame([$invoice], $response->parameters);
-            self::assertSame('NFS-e reemitida NF-RE-301 com sucesso.', $response->flash['success'] ?? null);
+            self::assertSame($expectedSuccess, $response->flash['success'] ?? null);
+        }
+
+        public static function reemitSuccessNumberCases(): iterable
+        {
+            yield 'gateway reports fiscal number' => ['NF-RE-301', 'NFS-e reemitida NF-RE-301 com sucesso.'];
+            yield 'gateway reports access key but no fiscal number' => ['', 'NFS-e reemitida CHAVE-RE-301 com sucesso.'];
         }
 
         public function testReemitDispatchesEmailPayloadWhenEmailRequested(): void
