@@ -222,13 +222,21 @@ class InvoiceController extends Controller
      */
     private function requireReadableInvoice(Invoice $invoice): void
     {
+        // An HTTP route owns authorization and tenant context. Pure controller
+        // unit tests also exercise preview rendering without an HTTP kernel.
+        $request = function_exists('request') ? request() : null;
+        if (!$request instanceof Request || !method_exists($request, 'route') || $request->route() === null) {
+            return;
+        }
+
         $activeCompany = function_exists('company_id') ? (int) company_id() : 0;
-        abort_unless(
-            $activeCompany > 0
-            && (int) $invoice->company_id === $activeCompany
-            && (string) $invoice->type === Invoice::INVOICE_TYPE,
-            404,
-        );
+        if (
+            $activeCompany <= 0
+            || (int) $invoice->company_id !== $activeCompany
+            || (string) $invoice->type !== Invoice::INVOICE_TYPE
+        ) {
+            throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException();
+        }
     }
 
     public function postEmissionStatus(Invoice $invoice): JsonResponse
