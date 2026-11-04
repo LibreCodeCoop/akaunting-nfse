@@ -4,6 +4,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 return [
+    'dps_diagnostic' => [
+        'title' => 'Diagnóstico de numeração DPS',
+        'caution' => 'A consulta não autoriza emissão. O histórico fiscal deve ser atestado independentemente e a ativação exige aprovação operacional explícita.',
+        'mechanically_ready' => 'Os requisitos técnicos de coordenação estão presentes; ainda é necessária evidência fiscal independente.',
+        'blocked' => 'A reserva ou transmissão da DPS está bloqueada',
+        'unavailable' => 'Não foi possível consultar o estado da DPS. Nenhuma operação fiscal foi executada.',
+        'lookup' => 'Consultar DPS :number na SEFIN (sem emitir)',
+        'lookup_unavailable' => 'Nenhuma DPS disponível para consulta oficial',
+        'checking' => 'Consultando a SEFIN somente para leitura...',
+        'found' => 'A SEFIN retornou uma chave para a DPS. Isso não autoriza emissão.',
+        'not_found' => 'A SEFIN não localizou NFS-e gerada para esta DPS. Isso não prova que o número nunca foi usado.',
+        'inconclusive' => 'O resultado oficial é inconclusivo. Não transmita nem repita a operação.',
+    ],
     'name'                  => 'NFS-e',
     'contacts' => [
         'municipal_registration' => 'Inscrição Municipal (NFS-e)',
