@@ -138,7 +138,7 @@ Route::admin('nfse', function () {
     Route::get('invoices/pending', [LegacyInvoiceController::class, 'pending'])->name('invoices.pending');
     Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])
         ->middleware('permission:update-sales-invoices')->name('invoices.emit');
-    Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])->name('invoices.service-preview');
+    Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])->middleware('permission:read-sales-invoices')->name('invoices.service-preview');
     Route::post('invoices/refresh-all', [InvoiceController::class, 'refreshAll'])
         ->middleware('permission:update-sales-invoices')->name('invoices.refresh-all');
     Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])
@@ -149,7 +149,7 @@ Route::admin('nfse', function () {
         ->middleware('permission:update-sales-invoices')->name('invoices.substitute');
     Route::get('invoices/{invoice}', [LegacyInvoiceController::class, 'show'])->name('invoices.show');
     Route::get('invoices/{invoice}/emit-success', [InvoiceController::class, 'showEmitSuccess'])->name('invoices.emit-success');
-    Route::get('invoices/{invoice}/post-emission-status', [InvoiceController::class, 'postEmissionStatus'])->name('invoices.post-emission-status');
+    Route::get('invoices/{invoice}/post-emission-status', [InvoiceController::class, 'postEmissionStatus'])->middleware('permission:read-sales-invoices')->name('invoices.post-emission-status');
     Route::get('invoices/{invoice}/emission-attempts', [EmissionAttemptController::class, 'index'])
         ->middleware('permission:read-sales-invoices')
         ->name('invoices.emission-attempts');

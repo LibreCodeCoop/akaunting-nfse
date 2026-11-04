@@ -318,3 +318,25 @@ are available as `POST /{company_id}/nfse/bulk/dispatch-json` and
 `POST /{company_id}/nfse/bulk/plan`. Browser requests retain CSRF protection;
 no external API password is exposed to JavaScript. The Core's existing native
 bulk selection action continues to submit through the same shared service.
+
+## Invoice issuance preview and post-processing state
+
+The fiscal invoice read resources use the same controller and JSON representation
+for the administrator's session and independently authenticated Akaunting API
+clients, without a separate implementation of readiness or fiscal rules:
+
+- `GET /{company_id}/api/nfse/invoices/{invoice}/service-preview` exposes
+  available fiscal groups, validation, proposed description and the existing
+  non-secret email/taker defaults. The invoice must be a sales invoice owned
+  by the authenticated company; requires `read-sales-invoices`.
+- `GET /{company_id}/api/nfse/invoices/{invoice}/post-emission-status` exposes
+  the latest receipt's post-processing stages (artifacts and email), poll hint
+  and receipt-specific XML/PDF download URLs. Native API clients receive the
+  native receipt artifact links, not session-only browser links.
+
+The corresponding browser routes use the same service representation behind
+Akaunting session/CSRF and the same read permission. A foreign invoice or
+financial bill returns 404; a user lacking invoice access receives 403.
+These GET operations are side-effect-free and do not imply issuance permission.
+Transmission, replacement and cancellation are independent write contracts;
+clients must not infer success from a preview or polling response.

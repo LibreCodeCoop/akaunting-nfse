@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
+use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 use Modules\Nfse\Http\Controllers\TaxAssociationController;
@@ -20,6 +21,13 @@ use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
 use Modules\Nfse\Http\Controllers\BulkEmissionApiController;
 use Modules\Nfse\Http\Controllers\AdnController;
 Route::api('nfse', function (): void {
+    Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('invoices.service-preview');
+    Route::get('invoices/{invoice}/post-emission-status', [InvoiceController::class, 'postEmissionStatus'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('invoices.post-emission-status');
+
     Route::post('bulk/plan', [BulkEmissionApiController::class, 'plan'])
         ->middleware('permission:read-sales-invoices')->name('bulk.plan');
     Route::post('bulk/dispatch', [BulkEmissionApiController::class, 'enqueueJson'])

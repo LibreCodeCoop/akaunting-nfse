@@ -216,8 +216,32 @@ class InvoiceController extends Controller
         return view('nfse::invoices.show', compact('invoice', 'receipt', 'receiptStatusLabel', 'suggestedDiscriminacao', 'emailDefaults', 'artifacts'));
     }
 
+    /**
+     * Browser and native API reads must enforce the same owner and document
+     * type independently of route-model binding and middleware.
+     */
+    private function requireReadableInvoice(Invoice $invoice): void
+    {
+        // An HTTP route owns authorization and tenant context. Pure controller
+        // unit tests also exercise preview rendering without an HTTP kernel.
+        $request = function_exists('request') ? request() : null;
+        if (!$request instanceof Request || !method_exists($request, 'route') || $request->route() === null) {
+            return;
+        }
+
+        $activeCompany = function_exists('company_id') ? (int) company_id() : 0;
+        if (
+            $activeCompany <= 0
+            || (int) $invoice->company_id !== $activeCompany
+            || (string) $invoice->type !== Invoice::INVOICE_TYPE
+        ) {
+            throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException();
+        }
+    }
+
     public function postEmissionStatus(Invoice $invoice): JsonResponse
     {
+        $this->requireReadableInvoice($invoice);
         $receipt = NfseReceipt::query()
             ->where('invoice_id', $invoice->id)
             ->latest('id')
@@ -244,6 +268,18 @@ class InvoiceController extends Controller
         }
 
         $snapshot = (new PostEmissionState())->snapshot($receipt);
+        $nativeClient = request()->routeIs('api.nfse.invoices.post-emission-status');
+        $artifactUrl = static fn (string $artifact): string => $nativeClient
+            ? route('api.nfse.receipts.artifacts.download', [
+                'company_id' => $invoice->company_id,
+                'receipt' => $receipt->id,
+                'artifact' => $artifact,
+            ])
+            : route('nfse.invoices.artifacts.download', [
+                'company_id' => $invoice->company_id,
+                'invoice' => $invoice->id,
+                'artifact' => $artifact,
+            ]);
         $authorizedXml = $this->authorizedXmlForReceipt($receipt);
         $xmlReady = $authorizedXml !== '' || trim((string) ($receipt->xml_webdav_path ?? '')) !== '';
         $danfseReady = $authorizedXml !== '' || trim((string) ($receipt->danfse_webdav_path ?? '')) !== '';
@@ -262,21 +298,13 @@ class InvoiceController extends Controller
                     'xml' => [
                         'ready' => $xmlReady,
                         'download_url' => $xmlReady
-                            ? route('nfse.invoices.artifacts.download', [
-                                'company_id' => $invoice->company_id,
-                                'invoice' => $invoice->id,
-                                'artifact' => 'xml',
-                            ])
+                            ? $artifactUrl('xml')
                             : null,
                     ],
                     'danfse' => [
                         'ready' => $danfseReady,
                         'download_url' => $danfseReady
-                            ? route('nfse.invoices.artifacts.download', [
-                                'company_id' => $invoice->company_id,
-                                'invoice' => $invoice->id,
-                                'artifact' => 'danfse',
-                            ])
+                            ? $artifactUrl('danfse')
                             : null,
                     ],
                 ],
@@ -422,6 +450,7 @@ class InvoiceController extends Controller
 
     public function servicePreview(Invoice $invoice): JsonResponse
     {
+        $this->requireReadableInvoice($invoice);
         $this->ensureInvoiceRelationsLoaded($invoice);
         $itemFiscalProfile = $this->resolveInvoiceFiscalProfileFromItems($invoice);
         $fiscalProfileReadiness = (new FiscalProfileEmissionReadiness())->evaluate($itemFiscalProfile);

@@ -427,3 +427,29 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the JSON response should have these field types:
       | data | array |
       | meta | object |
+
+  Scenario: Native NFS-e issuance preview shares the browser fiscal representation
+    When I make a native API GET request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/service-preview" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | fiscal_groups | array |
+      | fiscal_profile_validation | object |
+      | email_defaults | object |
+
+  Scenario: Native NFS-e receipt processing status is read-only for a pending invoice
+    When I make a native API GET request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/post-emission-status" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON value at "data.status" should be "idle"
+    And the JSON boolean at "data.poll" should be "false"
+
+  Scenario: Native fiscal preview rejects a client without invoice read permission
+    When I make a native API GET request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/service-preview" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native fiscal processing status cannot cross tenant boundaries
+    When I make a native API GET request to "/<other_company_id>/api/nfse/invoices/<pending_invoice_id>/post-emission-status" with synthetic "administrator" credentials
+    Then the API response status should be 401
+    And the API response should be JSON
