@@ -340,3 +340,28 @@ financial bill returns 404; a user lacking invoice access receives 403.
 These GET operations are side-effect-free and do not imply issuance permission.
 Transmission, replacement and cancellation are independent write contracts;
 clients must not infer success from a preview or polling response.
+
+## Native invoice issuance command
+
+`POST /{company_id}/api/nfse/invoices/{invoice}/emit` requires native Akaunting
+API authentication, the active invoice-owning company and
+`update-sales-invoices`. It invokes the **same issuance controller and domain
+services** as the browser's existing `POST /{company_id}/nfse/invoices/{invoice}/emit`.
+This preserves fiscal group selection (`nfse_fiscal_group_key`), the persisted
+DPS reservation and attempt journal, ambiguous-response recovery, email options
+and local fiscal validation. There is no second emitter and no HTTP timeout-based
+retry loop. Clients must use only the existing supported fiscal form fields.
+
+A confirmed operation returns HTTP 200 and JSON `success=true`, `status` and
+`data.invoice_id`, `data.receipt_id`, plus native `links.status` and
+`links.attempts`. For an unconfirmed operation, HTTP 409 returns
+`success=false`, `status=not_confirmed` and the **same inspection links**;
+this is **not** a statement that SEFIN rejected or authorized the DPS. Inspect
+persisted attempts and receipt state before contemplating any retry. The
+traditional browser request/response remains unchanged. Cross-company or
+non-sales documents receive 404, missing authorization 403 and missing
+native API authentication 401.
+
+No new issuance numbering policy is introduced by this HTTP adapter. The
+complete legal preflight and centralized DPS numbering requirements are
+tracked independently, and the API does not make them implicitly complete.
