@@ -218,6 +218,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
             valorServico: '100.00',
             aliquota: '2.00',
             discriminacao: 'Documento contabil completo',
+            dataCompetencia: '2026-09-01',
         );
     }
 
