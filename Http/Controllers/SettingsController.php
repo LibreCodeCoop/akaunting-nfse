@@ -480,33 +480,91 @@ class SettingsController extends Controller
         return $value !== '' ? $value : null;
     }
 
-    public function updateArtifacts(Request $request): RedirectResponse
+    /**
+     * Safe company-scoped WebDAV configuration metadata. Never expose
+     * stored credentials or the full URL (which may contain user information).
+     */
+    public function artifactSettings(): JsonResponse
     {
+        $url = trim((string) setting('nfse.webdav_url', ''));
+        $host = $url !== '' ? parse_url($url, PHP_URL_HOST) : null;
+
+        return response()->json(['data' => [
+            'configured' => $url !== '',
+            'host' => is_string($host) ? $host : null,
+            'username_configured' => trim((string) setting('nfse.webdav_username', '')) !== '',
+            'password_configured' => trim((string) setting('nfse.webdav_password', '')) !== '',
+            'path_template' => (string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'),
+            'filename_template' => (string) setting('nfse.webdav_filename_template', '{chave_acesso}'),
+            'store_xml' => (bool) setting('nfse.webdav_store_xml', true),
+            'store_pdf' => (bool) setting('nfse.webdav_store_pdf', true),
+        ]]);
+    }
+
+    public function updateArtifacts(Request $request): RedirectResponse|JsonResponse
+    {
+        $json = method_exists($request, 'expectsJson') && $request->expectsJson();
         $request->validate([
+            'nfse' => 'sometimes|array',
             'nfse.webdav_url' => 'nullable|url',
             'nfse.webdav_username' => 'nullable|string',
             'nfse.webdav_password' => 'nullable|string',
             'nfse.webdav_path_template' => 'nullable|string|max:255',
             'nfse.webdav_filename_template' => 'nullable|string|max:255',
-            'nfse.webdav_store_xml' => 'nullable',
-            'nfse.webdav_store_pdf' => 'nullable',
+            'nfse.webdav_store_xml' => 'nullable|boolean',
+            'nfse.webdav_store_pdf' => 'nullable|boolean',
         ]);
 
         $rawNfseInput = $request->input('nfse', []);
-        $rawNfseInput = is_array($rawNfseInput) ? $rawNfseInput : [];
+        $input = is_array($rawNfseInput) ? $rawNfseInput : [];
+        $storedUrl = trim((string) setting('nfse.webdav_url', ''));
+        $webDavUrl = array_key_exists('webdav_url', $input)
+            ? trim((string) ($input['webdav_url'] ?? '')) : $storedUrl;
+        $urlChanged = $webDavUrl !== $storedUrl;
+        $storedUsername = (string) setting('nfse.webdav_username', '');
+        $storedPassword = (string) setting('nfse.webdav_password', '');
+        $webDavUsername = trim((string) ($input['webdav_username'] ?? ''));
+        $webDavPassword = trim((string) ($input['webdav_password'] ?? ''));
 
-        $webDavUrl = trim((string) ($rawNfseInput['webdav_url'] ?? ''));
-        $webDavUsername = trim((string) ($rawNfseInput['webdav_username'] ?? ''));
-        $webDavPassword = trim((string) ($rawNfseInput['webdav_password'] ?? ''));
-        $webDavPathTemplate = trim((string) ($rawNfseInput['webdav_path_template'] ?? ''));
-        $webDavFileNameTemplate = trim((string) ($rawNfseInput['webdav_filename_template'] ?? ''));
-        $storeXmlArtifacts = $this->toBooleanInput($rawNfseInput, 'webdav_store_xml', true);
-        $storePdfArtifacts = $this->toBooleanInput($rawNfseInput, 'webdav_store_pdf', true);
+        if ($webDavUrl !== '') {
+            $parsed = parse_url($webDavUrl);
+            // Refuse URL-embedded credentials and accidental transport downgrade.
+            // Credential values are supplied as write-only settings fields.
+            if (!is_array($parsed) || strtolower((string) ($parsed['scheme'] ?? '')) !== 'https'
+                || empty($parsed['host']) || isset($parsed['user'], $parsed['pass'])
+                || isset($parsed['user']) || isset($parsed['query']) || isset($parsed['fragment'])) {
+                if ($json) {
+                    return response()->json(['reason' => 'invalid_webdav_url'], 422);
+                }
+                return redirect()->route('nfse.settings.edit', ['tab' => 'artifacts'])
+                    ->with('error', trans('nfse::general.settings.artifacts.connection_failed', ['message' => '']));
+            }
+        }
+
+        // Omitted/empty credential fields are safe no-ops when the endpoint is
+        // unchanged, but credentials from one host must never be reused at another.
+        if ($webDavUrl === '') {
+            $webDavUsername = '';
+            $webDavPassword = '';
+        } elseif (!$urlChanged) {
+            $webDavUsername = $webDavUsername !== '' ? $webDavUsername : $storedUsername;
+            $webDavPassword = $webDavPassword !== '' ? $webDavPassword : $storedPassword;
+        }
+
+        $webDavPathTemplate = trim((string) ($input['webdav_path_template']
+            ?? setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}')));
+        $webDavFileNameTemplate = trim((string) ($input['webdav_filename_template']
+            ?? setting('nfse.webdav_filename_template', '{chave_acesso}')));
+        $storeXmlArtifacts = array_key_exists('webdav_store_xml', $input)
+            ? $this->toBooleanInput($input, 'webdav_store_xml', true)
+            : (bool) setting('nfse.webdav_store_xml', true);
+        $storePdfArtifacts = array_key_exists('webdav_store_pdf', $input)
+            ? $this->toBooleanInput($input, 'webdav_store_pdf', true)
+            : (bool) setting('nfse.webdav_store_pdf', true);
 
         if ($webDavPathTemplate === '') {
             $webDavPathTemplate = 'nfse/{cnpj}/{year}/{month}/{day}';
         }
-
         if ($webDavFileNameTemplate === '') {
             $webDavFileNameTemplate = '{chave_acesso}';
         }
@@ -514,10 +572,14 @@ class SettingsController extends Controller
         if ($webDavUrl !== '') {
             try {
                 $this->assertWebDavConnection($webDavUrl, $webDavUsername, $webDavPassword);
-            } catch (Throwable $throwable) {
+            } catch (Throwable) {
+                // Never include transport exception messages: upstream clients
+                // can echo URLs, usernames, HTTP authorization or credentials.
+                if ($json) {
+                    return response()->json(['reason' => 'webdav_connection_failed'], 422);
+                }
                 return redirect()->route('nfse.settings.edit', ['tab' => 'artifacts'])
-                    ->withInput()
-                    ->with('error', trans('nfse::general.settings.artifacts.connection_failed', ['message' => $throwable->getMessage()]));
+                    ->with('error', trans('nfse::general.settings.artifacts.connection_failed', ['message' => '']));
             }
         }
 
@@ -528,14 +590,15 @@ class SettingsController extends Controller
         setting(['nfse.webdav_filename_template' => $webDavFileNameTemplate]);
         setting(['nfse.webdav_store_xml' => $storeXmlArtifacts]);
         setting(['nfse.webdav_store_pdf' => $storePdfArtifacts]);
-
         setting()->save();
 
+        if ($json) {
+            return $this->artifactSettings();
+        }
         if ($webDavUrl !== '') {
             return redirect()->route('nfse.settings.edit', ['tab' => 'artifacts'])
                 ->with('success', trans('nfse::general.settings.artifacts.webdav_configured'));
         }
-
         return redirect()->route('nfse.settings.edit', ['tab' => 'artifacts'])
             ->with('info', trans('nfse::general.settings.artifacts.webdav_disabled'));
     }
