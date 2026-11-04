@@ -118,8 +118,8 @@ abstract class AkauntingHttpContext implements Context
     #[When('I make a native API :method JSON request to :path with synthetic :actor credentials and body:')]
     public function nativeApiWriteAs(string $method, string $path, string $actor, DocString $document): void
     {
-        if (!in_array(strtoupper($method), ['POST', 'PATCH'], true)) {
-            throw new RuntimeException('Native API test writes must be POST or PATCH.');
+        if (!in_array(strtoupper($method), ['POST', 'PATCH', 'DELETE'], true)) {
+            throw new RuntimeException('Native API test writes must be POST, PATCH or DELETE.');
         }
         $payload = json_decode($document->getContent(), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($payload) || array_is_list($payload)) {

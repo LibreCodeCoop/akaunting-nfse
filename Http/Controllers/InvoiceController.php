@@ -953,6 +953,18 @@ class InvoiceController extends Controller
 
     public function substitute(Invoice $invoice, Request $request): RedirectResponse|JsonResponse
     {
+        $this->requireReadableInvoice($invoice);
+        if (!$this->nativeFiscalReceiptMatchesCurrent($invoice, $request, 'nfse_substitution_receipt_id', 'emitted')) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.current_receipt_changed')));
+        }
+        if (method_exists($request, 'routeIs') && $request->routeIs('api.nfse.invoices.substitute')) {
+            $request->validate([
+                'nfse_substitution_receipt_id' => ['required', 'integer', 'min:1'],
+                'nfse_substitution_reason' => ['required', 'string'],
+                'nfse_substitution_description' => ['required', 'string', 'min:15', 'max:255'],
+            ]);
+        }
         $receiptId = (int) $request->input('nfse_substitution_receipt_id', 0);
 
         if ($receiptId <= 0) {
@@ -996,6 +1008,11 @@ class InvoiceController extends Controller
     public function cancel(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
         $request = $this->currentRequest($request);
+        $this->requireReadableInvoice($invoice);
+        if (!$this->nativeFiscalReceiptMatchesCurrent($invoice, $request, 'nfse_receipt_id', 'emitted')) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.current_receipt_changed')));
+        }
         $receipt = $this->findReceiptForInvoice($invoice);
 
         if (!$this->submittedReceiptMatchesCurrent($receipt, $request)) {
@@ -1066,6 +1083,11 @@ class InvoiceController extends Controller
                     ->with('error', trans('nfse::general.nfse_cancel_failed'))
                     ->with('nfse_gateway_error_detail', $gatewayDetail),
             );
+        } catch (NetworkException) {
+            // An uncertain gateway response must never be interpreted as a
+            // completed cancellation or trigger another automatic request.
+            return $this->ajaxAwareRedirect($request, $redirect
+                ->with('error', trans('nfse::general.nfse_cancel_failed')));
         } finally {
             $this->cleanupClientTransportArtifacts();
         }
@@ -1184,8 +1206,37 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Protect actions from an outdated invoice tab targeting a newer fiscal
-     * receipt. Legacy forms without a receipt identifier remain compatible.
+     * Native state transitions require the precise current fiscal receipt,
+     * while existing browser forms retain their historical compatibility.
+     * Neither a stale tab nor a foreign financial document may transmit.
+     */
+    private function nativeFiscalReceiptMatchesCurrent(
+        Invoice $invoice,
+        ?Request $request,
+        string $receiptField,
+        string $requiredState,
+    ): bool {
+        if (!$request instanceof Request || !method_exists($request, 'routeIs')
+            || !$request->routeIs('api.nfse.invoices.*')) {
+            return true;
+        }
+        $receiptId = $request->input($receiptField);
+        if ((!is_int($receiptId) && !is_string($receiptId))
+            || !ctype_digit((string) $receiptId) || (int) $receiptId <= 0) {
+            return false;
+        }
+        $current = NfseReceipt::query()
+            ->where('invoice_id', $invoice->id)
+            ->latest('id')
+            ->first();
+        return $current instanceof NfseReceipt
+            && (int) $current->id === (int) $receiptId
+            && (string) $current->status === $requiredState;
+    }
+
+    /**
+     * Protect browser actions from an outdated invoice tab targeting a newer
+     * fiscal receipt. Legacy forms lacking an ID remain compatible.
      */
     protected function submittedReceiptMatchesCurrent(NfseReceipt $receipt, ?Request $request): bool
     {
@@ -1207,20 +1258,36 @@ class InvoiceController extends Controller
             : 'nfse.invoices.show';
     }
 
-    public function refresh(Invoice $invoice, ?Request $request = null): RedirectResponse
+    private function nativeRefreshResponse(?Request $request, RedirectResponse $redirect): RedirectResponse|JsonResponse
+    {
+        if ($request instanceof Request && method_exists($request, 'routeIs')
+            && $request->routeIs('api.nfse.invoices.refresh')) {
+            return $this->ajaxAwareRedirect($request, $redirect);
+        }
+
+        return $redirect;
+    }
+
+    public function refresh(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
         $request = $this->currentRequest($request);
+        $this->requireReadableInvoice($invoice);
+        if (!$this->nativeFiscalReceiptMatchesCurrent($invoice, $request, 'nfse_receipt_id', 'processing')
+            && !$this->nativeFiscalReceiptMatchesCurrent($invoice, $request, 'nfse_receipt_id', 'emitted')) {
+            return $this->nativeRefreshResponse($request, redirect()->route('invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.current_receipt_changed')));
+        }
+
         $receipt = $this->findReceiptForInvoice($invoice);
         $redirectRoute = $this->refreshRedirectTarget($request);
 
         if (!$this->submittedReceiptMatchesCurrent($receipt, $request)) {
-            return redirect()->route('invoices.show', $invoice)
-                ->with('warning', trans('nfse::general.invoices.current_receipt_changed'));
+            return $this->nativeRefreshResponse($request, redirect()->route('invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.current_receipt_changed')));
         }
-
         if (($receipt->status ?? '') === 'cancelled') {
-            return redirect()->route($redirectRoute, $invoice)
-                ->with('warning', trans('nfse::general.invoices.refresh_not_allowed_for_cancelled'));
+            return $this->nativeRefreshResponse($request, redirect()->route($redirectRoute, $invoice)
+                ->with('warning', trans('nfse::general.invoices.refresh_not_allowed_for_cancelled')));
         }
 
         try {
@@ -1238,18 +1305,20 @@ class InvoiceController extends Controller
                 $this->cleanupClientTransportArtifacts();
             }
 
-            return redirect()->route($redirectRoute, $invoice)
-                ->with('success', trans('nfse::general.nfse_refreshed', ['number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $updatedReceipt->chaveAcesso]));
+            return $this->nativeRefreshResponse($request, redirect()->route($redirectRoute, $invoice)
+                ->with('success', trans('nfse::general.nfse_refreshed', [
+                    'number' => $resolvedReceiptNumber !== '' ? $resolvedReceiptNumber : $updatedReceipt->chaveAcesso,
+                ])));
         } catch (SecretStoreException) {
             $this->cleanupClientTransportArtifacts();
 
-            return redirect()->route($redirectRoute, $invoice)
-                ->with('error', trans('nfse::general.nfse_secret_store_failed'));
+            return $this->nativeRefreshResponse($request, redirect()->route($redirectRoute, $invoice)
+                ->with('error', trans('nfse::general.nfse_secret_store_failed')));
         } catch (PfxImportException) {
             $this->cleanupClientTransportArtifacts();
 
-            return redirect()->route($redirectRoute, $invoice)
-                ->with('error', trans('nfse::general.nfse_pfx_import_failed'));
+            return $this->nativeRefreshResponse($request, redirect()->route($redirectRoute, $invoice)
+                ->with('error', trans('nfse::general.nfse_pfx_import_failed')));
         } catch (\Throwable $e) {
             $this->cleanupClientTransportArtifacts();
             $this->safeLogError('NFS-e refresh failed', [
@@ -1258,8 +1327,8 @@ class InvoiceController extends Controller
                 'message' => $e->getMessage(),
             ]);
 
-            return redirect()->route('invoices.show', $invoice)
-                ->with('error', trans('nfse::general.nfse_refresh_failed'));
+            return $this->nativeRefreshResponse($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.nfse_refresh_failed')));
         }
     }
 
@@ -1324,6 +1393,11 @@ class InvoiceController extends Controller
     public function reemit(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
         $request = $this->currentRequest($request);
+        $this->requireReadableInvoice($invoice);
+        if (!$this->nativeFiscalReceiptMatchesCurrent($invoice, $request, 'nfse_receipt_id', 'cancelled')) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('warning', trans('nfse::general.invoices.current_receipt_changed')));
+        }
         $this->ensureInvoiceRelationsLoaded($invoice);
 
         try {

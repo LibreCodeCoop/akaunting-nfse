@@ -493,3 +493,44 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     When I make a native API GET request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/emission-attempts" with synthetic "administrator" credentials
     Then the API response status should be 200
     And the JSON array at "data" should contain exactly 1 item
+
+  Scenario: Native fiscal cancellation is not available to a user without write permission
+    When I make a native API "DELETE" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>" with synthetic "no-permission" credentials and body:
+      """
+      {"nfse_receipt_id":99999999,"cancel_reason":"9","cancel_justification":"Cancelamento sintetico autorizado pelo operador"}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native cancellation refuses a missing or outdated receipt without transmission
+    When I make a native API "DELETE" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>" with synthetic "administrator" credentials and body:
+      """
+      {"nfse_receipt_id":99999999,"cancel_reason":"9","cancel_justification":"Cancelamento sintetico autorizado pelo operador"}
+      """
+    Then the API response status should be 409
+    And the API response should be JSON
+    And the JSON value at "status" should be "not_confirmed"
+
+  Scenario: Native reemission refuses an outdated receipt before any new DPS reservation
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/reemit" with synthetic "administrator" credentials and body:
+      """
+      {"nfse_receipt_id":99999999}
+      """
+    Then the API response status should be 409
+    And the API response should be JSON
+
+  Scenario: Native substitution requires the current authorized fiscal receipt
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/substitute" with synthetic "administrator" credentials and body:
+      """
+      {"nfse_substitution_receipt_id":99999999,"nfse_substitution_reason":"01","nfse_substitution_description":"Substituicao sintetica da nota fiscal emitida"}
+      """
+    Then the API response status should be 409
+    And the API response should be JSON
+
+  Scenario: Native synchronization refuses a non-current fiscal receipt
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/refresh" with synthetic "administrator" credentials and body:
+      """
+      {"nfse_receipt_id":99999999}
+      """
+    Then the API response status should be 409
+    And the API response should be JSON
