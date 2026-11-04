@@ -38,7 +38,7 @@ final class MySqlMigrationTest extends TestCase
         $capsule = new Manager();
         $capsule->addConnection([
             'driver' => 'mysql',
-            'host' => getenv('NFSE_MIGRATION_TEST_HOST') ?: '127.0.0.1',
+            'host' => [getenv('NFSE_MIGRATION_TEST_HOST') ?: '127.0.0.1'],
             'port' => getenv('NFSE_MIGRATION_TEST_PORT') ?: '3306',
             'database' => $database,
             'username' => getenv('NFSE_MIGRATION_TEST_USER') ?: 'root',

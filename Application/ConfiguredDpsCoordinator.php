@@ -35,7 +35,17 @@ final class ConfiguredDpsCoordinator
         }
 
         $database = trim((string) ($config['database'] ?? ''));
-        $host = trim((string) ($config['host'] ?? ''));
+        $configuredHost = $config['host'] ?? '';
+        // Laravel may normalize DB_HOST into a one-element host list.
+        // Multiple hosts are rejected: the authority must never connect
+        // to a different writable primary than the Akaunting connection.
+        if (is_array($configuredHost)) {
+            if (count($configuredHost) !== 1 || !is_string(reset($configuredHost))) {
+                throw new \LogicException('DPS coordination requires one configured MySQL primary.');
+            }
+            $configuredHost = reset($configuredHost);
+        }
+        $host = trim((string) $configuredHost);
         $socket = trim((string) ($config['unix_socket'] ?? ''));
         $port = (string) ($config['port'] ?? '3306');
         $charset = (string) ($config['charset'] ?? 'utf8mb4');
