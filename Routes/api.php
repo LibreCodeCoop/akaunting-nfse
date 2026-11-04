@@ -16,7 +16,16 @@ use Modules\Nfse\Http\Controllers\ClosingController;
 // identification middleware. Do not share the browser's session on this route.
 use Modules\Nfse\Http\Controllers\CompanyProfileController;
 use Modules\Nfse\Http\Controllers\CertificateController;
+use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
 Route::api('nfse', function (): void {
+    Route::get('ledger', [FiscalLedgerApiController::class, 'index'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('ledger.index');
+    Route::get('receipts/{receipt}/artifacts/{artifact}', [FiscalLedgerApiController::class, 'artifact'])
+        ->middleware('permission:read-sales-invoices')
+        ->name('receipts.artifacts.download');
+
+
     Route::get('closing/export', [ClosingController::class, 'export'])
         ->middleware('permission:read-sales-invoices')
         ->name('closing.export');
