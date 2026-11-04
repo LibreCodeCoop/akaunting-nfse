@@ -110,12 +110,16 @@ export function behatArgs(random = false) {
   return [...args, '--format=progress', '--out=std', '--format=junit', '--out=build/behat-junit'];
 }
 
-export async function executeContracts({ start, stop, invoke, env, clock = Date.now, log = console.log }) {
+export async function executeContracts({ start, stop, invoke, resetTransientCache = () => {}, env, clock = Date.now, log = console.log }) {
   await start();
   try {
     const startTime = clock();
     invoke(false, env);
     log('Behat serial wall-clock: ' + Math.round((clock() - startTime) / 1000) + ' seconds');
+    // Both orders must start from a fresh test-owned API rate-limiter cache.
+    // Keep Akaunting's production throttle unchanged; the disposable runner
+    // has already validated the test environment and its storage boundary.
+    await resetTransientCache();
     invoke(true, env);
   } finally {
     await stop();
@@ -185,6 +189,7 @@ export async function run({ core = coreRoot, module = moduleRoot, env = process.
     await executeContracts({
       start: () => startServer(core, { env: runtimeEnv }),
       stop: () => stopServer(core),
+      resetTransientCache: () => command('php', ['artisan', 'cache:clear', '--no-interaction'], core, scoped),
       invoke: random => {
         fs.mkdirSync(path.join(module, 'build/behat-junit'), { recursive: true });
         command(path.join(module, 'vendor-bin/behat/vendor/bin/behat'), behatArgs(random), module, scoped);

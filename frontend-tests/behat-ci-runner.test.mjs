@@ -106,6 +106,28 @@ test('Serial failure prevents random run and always terminates the test server',
   assert.deepEqual(calls, ['start', 'serial', 'random', 'stop']);
 });
 
+test('Disposable Behat clears API throttle state between serial and random passes', async () => {
+  const calls = [];
+  await executeContracts({
+    start: async () => calls.push('start'),
+    stop: async () => calls.push('stop'),
+    invoke: random => calls.push(random ? 'random' : 'serial'),
+    resetTransientCache: async () => calls.push('clear-disposable-cache'),
+    env: environment, log: () => {}, clock: () => 1000,
+  });
+  assert.deepEqual(calls, ['start', 'serial', 'clear-disposable-cache', 'random', 'stop']);
+
+  calls.length = 0;
+  await assert.rejects(executeContracts({
+    start: async () => calls.push('start'),
+    stop: async () => calls.push('stop'),
+    invoke: random => calls.push(random ? 'random' : 'serial'),
+    resetTransientCache: async () => { throw new Error('test cache cannot be reset'); },
+    env: environment, log: () => {}, clock: () => 1000,
+  }), /cache cannot be reset/);
+  assert.deepEqual(calls, ['start', 'serial', 'stop']);
+});
+
 test('Behat preserves strict serial JUnit and independently randomized execution', () => {
   assert.ok(behatArgs(false).includes('--format=junit'));
   assert.ok(behatArgs(true).includes('--order=random'));
