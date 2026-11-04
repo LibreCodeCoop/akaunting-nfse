@@ -304,7 +304,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 'cleanupUrl' => route('nfse.settings.company-profiles.cleanup', ['companyId' => '__COMPANY__']),
                 'diagnosticsUrl' => route('nfse.settings.vault.diagnostics'),
                 'csrfToken' => csrf_token(),
-                'currentCompanyId' => (int) request()->route('company_id'),
+                'currentCompanyId' => (int) company_id(),
                 'canUpdate' => $canUpdateProfiles,
                 'canDelete' => $canDeleteProfiles,
             ];

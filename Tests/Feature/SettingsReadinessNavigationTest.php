@@ -17,6 +17,7 @@ final class SettingsReadinessNavigationTest extends FeatureTestCase
         $this->loginAs()->get(route('nfse.settings.edit'))
             ->assertOk()
             ->assertSee('nfse-companies-title', false)
+            ->assertSee('"currentCompanyId":' . (int) $this->company->id, false)
             ->assertSee('nfse-vault-title', false)
             ->assertSee('vault-diagnostics', false)
             ->assertDontSee('nfse-readiness-summary', false);

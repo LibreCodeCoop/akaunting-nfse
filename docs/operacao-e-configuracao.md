@@ -193,8 +193,8 @@ mesmo durante indisponibilidade temporária do Vault:
   retoma limpeza interrompida; permissão `delete-nfse-settings`.
 
 Além da permissão de rota, toda mutação exige que o usuário esteja
-associado à empresa nativa e que o identificador da empresa selecionada
-na URL seja o mesmo do perfil. Acesso a outra empresa não permite
+associado à empresa nativa e que a empresa ativa resolvida pelo middleware
+IdentifyCompany do Akaunting seja a mesma do perfil. Acesso a outra empresa não permite
 manipulá-la pela URL da empresa atual. Respostas não incluem PFX,
 senha, token ou caminho físico local. `fiscal_parameters` aceita apenas
 as chaves fiscais explicitamente validadas e não armazena credenciais de
