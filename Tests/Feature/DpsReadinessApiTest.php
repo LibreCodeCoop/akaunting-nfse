@@ -49,35 +49,7 @@ final class DpsReadinessApiTest extends FeatureTestCase
 
     public function testOfficialLookupOnlyUsesHeadAndGetAndAlwaysClosesCertificateContext(): void
     {
-        $client = new ReadOnlyDpsProbeDouble();
-        $closed = false;
-        $lookup = new DpsOfficialReadOnlyLookup(
-            static function (int $companyId, bool $sandbox) use ($client, &$closed): FiscalClientContext {
-                self::assertSame(1, $companyId);
-                self::assertTrue($sandbox);
-                return new FiscalClientContext($client, static function () use (&$closed): void {
-                    $closed = true;
-                });
-            },
-        );
-
-        self::assertSame('found', $lookup->check(1, true, 'synthetic-dps-id'));
-        self::assertSame(['head', 'get'], $client->calls);
-        self::assertTrue($closed);
-
-        $client->calls = [];
-        $client->exists = false;
-        self::assertSame('not_found', $lookup->check(1, true, 'synthetic-dps-id'));
-        self::assertSame(['head'], $client->calls);
-
-        $client->failure = true;
-        self::assertSame('inconclusive', $lookup->check(1, true, 'synthetic-dps-id'));
-        self::assertSame(0, $client->posts);
-    }
-}
-
-final class ReadOnlyDpsProbeDouble implements NfseClientInterface
-{
+        $client = new class implements NfseClientInterface {
     public array $calls = [];
     public bool $exists = true;
     public bool $failure = false;
@@ -115,5 +87,30 @@ final class ReadOnlyDpsProbeDouble implements NfseClientInterface
     public function getDanfse(string $chaveAcesso): string
     {
         throw new \LogicException('No binary download expected');
+    }
+        };
+        $closed = false;
+        $lookup = new DpsOfficialReadOnlyLookup(
+            static function (int $companyId, bool $sandbox) use ($client, &$closed): FiscalClientContext {
+                self::assertSame(1, $companyId);
+                self::assertTrue($sandbox);
+                return new FiscalClientContext($client, static function () use (&$closed): void {
+                    $closed = true;
+                });
+            },
+        );
+
+        self::assertSame('found', $lookup->check(1, true, 'synthetic-dps-id'));
+        self::assertSame(['head', 'get'], $client->calls);
+        self::assertTrue($closed);
+
+        $client->calls = [];
+        $client->exists = false;
+        self::assertSame('not_found', $lookup->check(1, true, 'synthetic-dps-id'));
+        self::assertSame(['head'], $client->calls);
+
+        $client->failure = true;
+        self::assertSame('inconclusive', $lookup->check(1, true, 'synthetic-dps-id'));
+        self::assertSame(0, $client->posts);
     }
 }
