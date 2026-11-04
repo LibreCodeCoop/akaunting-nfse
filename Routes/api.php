@@ -26,6 +26,14 @@ Route::api('nfse', function (): void {
     Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])
         ->middleware('permission:update-sales-invoices')
         ->name('invoices.emit');
+    Route::post('invoices/{invoice}/reemit', [InvoiceController::class, 'reemit'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.reemit');
+    Route::post('invoices/{invoice}/substitute', [InvoiceController::class, 'substitute'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.substitute');
+    Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.refresh');
+    Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.cancel');
 
     Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])
         ->middleware('permission:read-sales-invoices')
