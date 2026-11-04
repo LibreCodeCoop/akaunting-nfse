@@ -38,6 +38,12 @@ final class CbsAssistedV2Journal
             throw new \DomainException('Invalid CBS incremental file contract.');
         }
 
+        $provenance = $batch['source_provenance'] ?? 'unverified';
+        if (!is_string($provenance)
+            || preg_match('/^[a-z][a-z0-9_]{0,63}$/D', $provenance) !== 1) {
+            throw new \DomainException('Invalid CBS source provenance label.');
+        }
+
         $unresolved = [];
         $conflicts = [];
         $applied = 0;
@@ -60,10 +66,13 @@ final class CbsAssistedV2Journal
                 throw new \DomainException('CBS update lacks trustworthy identity metadata.');
             }
 
-            $candidate = $event + [
-                'source_sha256' => $batch['source_sha256'],
-                'source_provenance' => $batch['source_provenance'] ?? 'unverified',
-            ];
+            // Check the first observation too: malformed calendar dates must
+            // not enter a journal and break subsequent revision comparisons.
+            $now = $this->timestamp($stamp);
+            $candidate = $event;
+            // An event must never override the enclosing source provenance.
+            $candidate['source_sha256'] = $batch['source_sha256'];
+            $candidate['source_provenance'] = $provenance;
             if (!isset($known[$id])) {
                 $known[$id] = $candidate;
                 ++$applied;
@@ -72,7 +81,6 @@ final class CbsAssistedV2Journal
 
             $previous = $known[$id];
             $before = $this->timestamp($previous['updated_at'] ?? null);
-            $now = $this->timestamp($stamp);
             if ($now < $before) {
                 ++$stale;
                 continue;
@@ -122,7 +130,13 @@ final class CbsAssistedV2Journal
                 || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/D', $value) !== 1) {
                 throw new \DomainException('CBS update timestamp is invalid.');
             }
-            return new \DateTimeImmutable($value);
+            $date = new \DateTimeImmutable($value);
+            $errors = \DateTimeImmutable::getLastErrors();
+            if (is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0)) {
+                throw new \DomainException('CBS update timestamp is invalid.');
+            }
+
+            return $date;
         } catch (\Exception) {
             throw new \DomainException('CBS update timestamp is invalid.');
         }

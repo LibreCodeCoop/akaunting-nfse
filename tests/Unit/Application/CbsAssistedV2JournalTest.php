@@ -60,6 +60,41 @@ final class CbsAssistedV2JournalTest extends TestCase
         self::assertSame(0, $state['applied']);
     }
 
+    public function testBatchProvenanceCannotBeForgedByEventFields(): void
+    {
+        $event = $this->event('10.00', '2026-10-01T08:00:00Z');
+        $event['source_sha256'] = str_repeat('f', 64);
+        $event['source_provenance'] = 'authenticated';
+
+        $state = (new CbsAssistedV2Journal())->materialize([], $this->batch($event));
+        $observation = $state['observations'][str_repeat('a', 64)];
+
+        self::assertSame(str_repeat('b', 64), $observation['source_sha256']);
+        self::assertSame('not_authenticated_by_parser', $observation['source_provenance']);
+    }
+
+    public function testInvalidTimestampIsRejectedBeforeFirstObservation(): void
+    {
+        foreach (['malformed', '2026-02-31T09:00:00Z'] as $stamp) {
+            $event = $this->event('10.00', $stamp);
+            try {
+                (new CbsAssistedV2Journal())->materialize([], $this->batch($event));
+                self::fail('An invalid CBS timestamp cannot become the initial observation.');
+            } catch (\DomainException) {
+                self::assertTrue(true);
+            }
+        }
+    }
+
+    public function testMalformedBatchProvenanceIsRejected(): void
+    {
+        $batch = $this->batch($this->event('10.00', '2026-10-01T08:00:00Z'));
+        $batch['source_provenance'] = ['forged'];
+        $this->expectException(\DomainException::class);
+
+        (new CbsAssistedV2Journal())->materialize([], $batch);
+    }
+
     private function batch(array $event): array
     {
         return [
