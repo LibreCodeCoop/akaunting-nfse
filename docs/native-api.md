@@ -365,3 +365,32 @@ native API authentication 401.
 No new issuance numbering policy is introduced by this HTTP adapter. The
 complete legal preflight and centralized DPS numbering requirements are
 tracked independently, and the API does not make them implicitly complete.
+
+## Native fiscal cancellation, reissuance, substitution and synchronization
+
+The HTTP-native Akaunting API exposes the existing fiscal transition handlers,
+not a parallel implementation:
+
+- `DELETE /{company_id}/api/nfse/invoices/{invoice}` — cancel current
+  **emitted** fiscal receipt. Requires `nfse_receipt_id`, `cancel_reason`
+  (`1`, `2` or `9`) and `cancel_justification` (15–255 characters).
+- `POST /{company_id}/api/nfse/invoices/{invoice}/reemit` — reissue only
+  after the **current** fiscal receipt was cancelled, with
+  `nfse_receipt_id` and the same supported issuance options.
+- `POST /{company_id}/api/nfse/invoices/{invoice}/substitute` — substitute
+  the **current emitted** fiscal receipt; requires
+  `nfse_substitution_receipt_id`, `nfse_substitution_reason` and
+  `nfse_substitution_description`, as defined by the existing fiscal policy.
+- `POST /{company_id}/api/nfse/invoices/{invoice}/refresh` — reconcile the
+  persisted **current emitted/processing** receipt by `nfse_receipt_id`.
+  No new DPS is submitted by the refresh operation.
+
+All require native authentication, `update-sales-invoices` and exact tenant
+ownership. Native clients must submit the current fiscal receipt ID; an
+outdated ID, missing ID or incompatible state results in HTTP 409
+`status=not_confirmed` without a new cancellation, substitution or emission.
+The response includes links to independently authenticated fiscal status and
+attempts; do not assume a transport failure proves SEFIN rejection.
+Browser form routes preserve backward compatibility and invoke the same
+application methods; the native transport never receives a browser redirect
+or cookies. No existing authorized XML or receipt history is deleted.
