@@ -39,6 +39,7 @@ final class EmissionAttemptJournal
         private readonly OfficialIssuanceRejection $rejections = new OfficialIssuanceRejection(),
         private readonly MunicipalEmissionPreflight $municipalPreflight = new MunicipalEmissionPreflight(),
         private readonly ?DpsIssuanceIdentityContract $identity = null,
+        private readonly FinalDpsIbsCbsReadiness $fiscalReadiness = new FinalDpsIbsCbsReadiness(),
     ) {
     }
 
@@ -69,6 +70,20 @@ final class EmissionAttemptJournal
             );
             $dps = $prepared['dps'];
             $reservationId = $prepared['reservation_id'];
+
+            // Validate before opening a journal attempt. A correction to an
+            // unsent DPS must not create an immutable failed fingerprint or
+            // consume the irreversible first-POST claim. Earlier authorized,
+            // rejected, pending or ambiguous DPS keep their original recovery
+            // and replay decisions instead of being rejudged retroactively.
+            $protected = NfseEmissionAttempt::query()
+                ->where('invoice_id', $invoiceId)
+                ->where('dps_identifier', $this->recovery->dpsIdentifier($dps))
+                ->whereIn('status', [self::AUTHORIZED, self::REJECTED, self::PENDING, self::AMBIGUOUS])
+                ->exists();
+            if (!$protected) {
+                $this->assertFinalFiscalReady($dps);
+            }
         }
         $registration = $this->begin($invoiceId, $dps, $origin, $groupKey, $approximateTaxEvidence, $reservationId);
         $attempt = $registration['attempt'];
@@ -114,6 +129,12 @@ final class EmissionAttemptJournal
                 if (!$assessment['can_attempt']) {
                     throw new MunicipalIssuanceBlocked('Municipal issuance preflight blocked: ' . $assessment['reason']);
                 }
+
+                // The same immutable DPS is checked at the last first-POST
+                // boundary for every caller, including queued jobs and APIs.
+                // Do not confuse a gateway's relaxed rejection rules with
+                // legal IBS/CBS obligation or the timestamp of the fiscal fact.
+                $this->assertFinalFiscalReady($dps);
 
                 // Durable local journal is already committed. A first-POST
                 // claim is irreversible in the shared MySQL authority. Any
@@ -202,6 +223,21 @@ final class EmissionAttemptJournal
             $this->transition($attempt, self::AMBIGUOUS, ['failure_class' => 'persistence']);
 
             throw $exception;
+        }
+    }
+
+    /**
+     * Pure check of the immutable outgoing payload, reused both before the
+     * journal and immediately before the first irreversible transmission.
+     */
+    private function assertFinalFiscalReady(DpsData $dps): void
+    {
+        $fiscal = $this->fiscalReadiness->evaluate($dps);
+        if (!$fiscal['isReady']) {
+            throw new FiscalIssuanceBlocked(
+                'Fiscal IBS/CBS preflight blocked: ' . $fiscal['reason']
+                . ' (' . implode(', ', $fiscal['missing']) . ')',
+            );
         }
     }
 

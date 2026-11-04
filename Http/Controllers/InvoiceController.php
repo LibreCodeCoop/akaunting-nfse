@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\EmissionAttemptJournal;
+use Modules\Nfse\Application\FiscalIssuanceBlocked;
 use Modules\Nfse\Application\FederalTaxReadiness;
 use Modules\Nfse\Application\FiscalDescriptionComposer;
 use Modules\Nfse\Application\FiscalGroupReceiptState;
@@ -781,7 +782,7 @@ class InvoiceController extends Controller
                     $request,
                     redirect()->route('invoices.show', $invoice)->with('success', $message),
                 );
-            } catch (MunicipalIssuanceBlocked $e) {
+            } catch (MunicipalIssuanceBlocked|FiscalIssuanceBlocked $e) {
                 return $this->ajaxAwareRedirect(
                     $request,
                     redirect()->route('invoices.show', $invoice)
@@ -874,7 +875,7 @@ class InvoiceController extends Controller
                     : (new IssueInvoiceNfse())->issue($client, $reserved),
             );
             $persistedReceipt = $issuance['receipt'];
-        } catch (MunicipalIssuanceBlocked $e) {
+        } catch (MunicipalIssuanceBlocked|FiscalIssuanceBlocked $e) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'))
                 ->with('nfse_gateway_error_detail', $e->getMessage()));
@@ -1643,7 +1644,7 @@ class InvoiceController extends Controller
                 transmit: fn (DpsData $reserved): ReceiptData => (new IssueInvoiceNfse())->issue($client, $reserved),
             );
             $persistedReceipt = $issuance['receipt'];
-        } catch (MunicipalIssuanceBlocked $e) {
+        } catch (MunicipalIssuanceBlocked|FiscalIssuanceBlocked $e) {
             return $this->ajaxAwareRedirect($request, redirect()->route('nfse.invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'))
                 ->with('nfse_gateway_error_detail', $e->getMessage()));

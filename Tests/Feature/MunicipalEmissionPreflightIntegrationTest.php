@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Models\Common\Item;
 use App\Models\Document\Document;
 use Modules\Nfse\Application\EmissionAttemptJournal;
+use Modules\Nfse\Application\FiscalIssuanceBlocked;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\MunicipalEmissionPreflight;
 use Modules\Nfse\Application\MunicipalIssuanceBlocked;
@@ -67,6 +68,53 @@ final class MunicipalEmissionPreflightIntegrationTest extends FeatureTestCase
             );
             self::assertSame(0, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
         }
+    }
+
+    public function testRequiredIbsCbsMissingFromFinalDpsBlocksTheFirstPost(): void
+    {
+        $invoice = $this->invoiceWithProfiles(['123']);
+        $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
+        $client = $this->fakeSefin();
+        $dps = $this->dps($invoice, '010701', '123', '2026-11-01');
+
+        try {
+            $this->issueFromJournal($invoice, $client, $dps, (string) $group['key']);
+            self::fail('The final fiscal payload must be checked before the first SEFIN POST.');
+        } catch (FiscalIssuanceBlocked $error) {
+            self::assertStringContainsString('ibs_cbs_enabled', $error->getMessage());
+        }
+
+        self::assertSame(0, $client->emits);
+        self::assertSame(0, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
+        // No POST was claimed and no immutable journal fingerprint was pinned.
+        // A later correction can reuse the reserved number safely.
+        self::assertSame(0, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
+    }
+
+    public function testCompleteIbsCbsOnFinalDpsAllowsOnePost(): void
+    {
+        $invoice = $this->invoiceWithProfiles(['123']);
+        $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
+        $payload = get_object_vars($this->dps($invoice, '010701', '123', '2026-11-01'));
+        $payload['codigoNbs'] = '115011000';
+        $payload['ibsCbsFinalidade'] = 0;
+        $payload['ibsCbsIndFinal'] = 1;
+        $payload['ibsCbsCodigoIndicadorOperacao'] = '100001';
+        $payload['ibsCbsIndDest'] = 0;
+        $payload['ibsCbsCst'] = '000';
+        $payload['ibsCbsClassificacaoTributaria'] = '000001';
+        $client = $this->fakeSefin();
+
+        $result = $this->issueFromJournal(
+            $invoice, $client, new DpsData(...$payload), (string) $group['key'],
+        );
+
+        self::assertSame(1, $client->emits);
+        self::assertSame('emitted', $result['receipt']->status);
+        self::assertSame(
+            EmissionAttemptJournal::AUTHORIZED,
+            NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->sole()->status,
+        );
     }
 
     public function testUnavailableMunicipalEvidenceWarnsButPermitsOnePost(): void

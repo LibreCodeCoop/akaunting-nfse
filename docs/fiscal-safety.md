@@ -51,6 +51,28 @@ oficial vigente para o ambiente da operação.
 Para a origem e a distinção entre tributos efetivos e informativos, consulte
 [fontes versionadas de tributos aproximados](approximate-tax-sources.md).
 
+## Pré-validação tributária da DPS
+
+Antes do primeiro POST à SEFIN, o módulo reavalia a **DPS final**, inclusive
+o destaque IBS/CBS, a competência declarada, o enquadramento observado do
+Simples Nacional e o código NBS oficial quando aplicável. O mesmo limite
+é usado por emissão manual, grupos, lote, fila, reemissão e substituição.
+Informação objetivamente obrigatória e ausente impede a transmissão;
+mensagens de bloqueio identificam os campos que devem ser corrigidos.
+
+A competência declarada na DPS **não comprova sozinha a data do fato
+gerador**. Uma operação sem contexto verificável não recebe declaração
+automática de conformidade legal. Os resultados municipais consultivos
+continuam distintos da avaliação tributária. A não rejeição técnica pela
+SEFIN tampouco comprova a regularidade do destaque IBS/CBS.
+
+Na recuperação de uma transmissão de resultado ambíguo, o sistema consulta
+a mesma identidade fiscal e não repete o POST apenas para revalidar dados.
+As condições de conformidade fiscal mais amplas dependem da proveniência
+do evento e das regras legais aplicáveis à operação.
+
+Referência: [orientação CGNFS-e sobre destaque IBS/CBS em 2026](https://www.gov.br/nfse/pt-br/noticias/cgnfs-e-orienta-sobre-os-prazos-para%20destaque-de-ibs-cbs-nas-notas-fiscais-de-servico).
+
 ## Emissão, histórico e recuperação
 
 - Cada DPS tem identidade fiscal determinística. O histórico de tentativas
