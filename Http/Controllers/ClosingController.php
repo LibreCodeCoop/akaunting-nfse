@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\Nfse\Application\CommercialFiscalReviewReport;
 use Modules\Nfse\Application\CompetenceClosingReport;
+use Modules\Nfse\Application\IbsCbsEvidenceReport;
 use Modules\Nfse\Models\NfseReceipt;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -36,7 +37,9 @@ final class ClosingController extends Controller
             return response()->json(['message' => 'Invalid report page.'], 422);
         }
 
-        $closing = $report->build($this->receipts($competence));
+        $receipts = $this->receipts($competence);
+        $closing = $report->build($receipts);
+        $evidence = (new IbsCbsEvidenceReport())->build($receipts);
         $commercialReview = (new CommercialFiscalReviewReport())->forInvoiceMonth((int) company_id(), $competence);
         $total = count($closing['rows']);
         $perPage = 50;
@@ -46,6 +49,7 @@ final class ClosingController extends Controller
             'data' => [
                 'competence' => $competence,
                 'summary' => $closing['summary'],
+                'ibs_cbs_evidence' => ['summary' => $evidence['summary']],
                 'reconciliation' => $closing['reconciliation'],
                 'rows' => array_slice($closing['rows'], ($pageNumber - 1) * $perPage, $perPage),
                 'commercial_review' => [
@@ -71,9 +75,46 @@ final class ClosingController extends Controller
     {
         $competence = $this->competence($request);
         $closing = $report->build($this->receipts($competence));
-        $columns = $this->csvColumns();
+        return $this->downloadCsv(
+            $closing['rows'],
+            $this->csvColumns(),
+            'nfse-closing-' . $competence . '.csv',
+        );
+    }
 
-        return response()->streamDownload(function () use ($closing, $columns): void {
+    /**
+     * Documentary amounts from authorized XML are not established tax debts,
+     * credits, paid balances or an electronically filed tax return.
+     */
+    public function exportIbsCbs(Request $request, IbsCbsEvidenceReport $report): StreamedResponse
+    {
+        $competence = $this->competence($request);
+        $evidence = $report->build($this->receipts($competence));
+
+        return $this->downloadCsv(
+            $evidence['rows'],
+            [
+                'receipt_id' => 'receipt_id',
+                'invoice_id' => 'invoice_id',
+                'competence' => 'competence',
+                'receipt_status' => 'receipt_status',
+                'ibs_amount' => 'ibs_amount',
+                'ibs_status' => 'ibs_status',
+                'cbs_amount' => 'cbs_amount',
+                'cbs_status' => 'cbs_status',
+                'source_sha256' => 'source_sha256',
+            ],
+            'nfse-ibs-cbs-evidence-' . $competence . '.csv',
+        );
+    }
+
+    /**
+     * @param list<array<string,mixed>> $rows
+     * @param array<string,string> $columns
+     */
+    private function downloadCsv(array $rows, array $columns, string $filename): StreamedResponse
+    {
+        return response()->streamDownload(static function () use ($rows, $columns): void {
             $stream = fopen('php://output', 'wb');
 
             if ($stream === false) {
@@ -82,7 +123,7 @@ final class ClosingController extends Controller
 
             fputcsv($stream, array_keys($columns));
 
-            foreach ($closing['rows'] as $row) {
+            foreach ($rows as $row) {
                 fputcsv($stream, array_map(
                     static fn (string $key): string => (string) ($row[$key] ?? ''),
                     array_values($columns),
@@ -90,7 +131,7 @@ final class ClosingController extends Controller
             }
 
             fclose($stream);
-        }, 'nfse-closing-' . $competence . '.csv', [
+        }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }

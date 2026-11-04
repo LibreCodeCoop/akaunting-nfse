@@ -18,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\AdnAccountingPreview;
+use Modules\Nfse\Application\IbsCbsReceivedEvidence;
 use Modules\Nfse\Models\AdnReviewEvent;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\NfseReceipt;
@@ -123,9 +124,10 @@ class AdnController extends Controller
 
         $page = $query->paginate((int) $limit);
         $previewer = $includePreview === '1' ? new AdnAccountingPreview() : null;
+        $ibsCbsReader = $previewer !== null ? new IbsCbsReceivedEvidence() : null;
 
         return $this->jsonResponse([
-            'data' => collect($page->items())->map(static function (AdnSyncDocument $item) use ($previewer): array {
+            'data' => collect($page->items())->map(static function (AdnSyncDocument $item) use ($previewer, $ibsCbsReader): array {
                 $row = [
                     'id' => $item->id,
                     'document_key' => $item->document_key,
@@ -142,10 +144,19 @@ class AdnController extends Controller
                 ];
 
                 if ($previewer !== null && in_array($item->fiscal_role, ['received', 'intermediated'], true)) {
+                    $row['ibs_cbs_credit_candidate'] = null;
                     try {
-                        $row['accounting_preview'] = $previewer->fromAuthorizedXml((string) $item->xml);
+                        $xml = (string) $item->xml;
+                        // Only the proven received role can be a credit review candidate.
+                        // No credit amount is booked or eligibility asserted here.
+                        if ($item->fiscal_role === 'received' && $item->review_status !== 'ignored') {
+                            $row['ibs_cbs_credit_candidate'] = $ibsCbsReader->fromAuthorizedXml($xml)
+                                + ['environment' => (string) $item->environment];
+                        }
+                        $row['accounting_preview'] = $previewer->fromAuthorizedXml($xml);
                     } catch (\InvalidArgumentException) {
                         $row['accounting_preview'] = null;
+                        $row['ibs_cbs_credit_candidate'] = null;
                     }
                 }
 
@@ -207,7 +218,12 @@ class AdnController extends Controller
             ->firstOrFail();
 
         try {
-            $preview = (new AdnAccountingPreview())->fromAuthorizedXml((string) $row->xml);
+            $xml = (string) $row->xml;
+            $creditCandidate = $row->fiscal_role === 'received' && $row->review_status !== 'ignored'
+                ? (new IbsCbsReceivedEvidence())->fromAuthorizedXml($xml)
+                    + ['environment' => (string) $row->environment]
+                : null;
+            $preview = (new AdnAccountingPreview())->fromAuthorizedXml($xml);
         } catch (\InvalidArgumentException) {
             return $this->jsonResponse(['message' => trans('nfse::general.adn.review_invalid_xml')], 422);
         }
@@ -218,6 +234,7 @@ class AdnController extends Controller
                 'fiscal_role' => $row->fiscal_role,
                 'review_status' => $row->review_status,
                 'accounting_preview' => $preview,
+                'ibs_cbs_credit_candidate' => $creditCandidate,
             ],
         ]);
     }

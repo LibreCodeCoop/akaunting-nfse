@@ -131,6 +131,63 @@ final class CompetenceClosingReportTest extends FeatureTestCase
         self::assertStringNotContainsString($foreignReceipt->chave_acesso, $csv);
     }
 
+    public function testIbsCbsJsonAndCsvPreserveReportedZeroAndMissingFields(): void
+    {
+        $invoice = $this->invoiceWithAmount('100.00');
+        $receipt = $this->receipt($invoice, 'emitted', '100.00', '1', '1', '2026-10-10');
+        $snapshot = $receipt->authorized_fiscal_snapshot;
+        self::assertIsArray($snapshot);
+        $snapshot['ibs_cbs']['ibs_total'] = '0.00';
+        $snapshot['ibs_cbs']['cbs_total'] = null;
+        $receipt->forceFill(['authorized_fiscal_snapshot' => $snapshot])->saveQuietly();
+
+        $this->loginAs()->get(route('nfse.closing.index', ['competence' => '2026-10']))
+            ->assertOk()->assertSee('Exportar evidências IBS/CBS (CSV)');
+
+        $this->get(route('nfse.closing.data', ['competence' => '2026-10']))
+            ->assertOk()
+            ->assertJsonPath('data.ibs_cbs_evidence.summary.ibs.reported_count', 1)
+            ->assertJsonPath('data.ibs_cbs_evidence.summary.cbs.not_reported_count', 1)
+            ->assertJsonPath('data.ibs_cbs_evidence.summary.ibs.reported_total', '0.00');
+
+        $csv = $this->get(route('nfse.closing.ibs-cbs-evidence', ['competence' => '2026-10']))
+            ->assertOk()->streamedContent();
+        $records = array_map('str_getcsv', array_filter(explode("\n", trim($csv))));
+        self::assertSame([
+            'receipt_id', 'invoice_id', 'competence', 'receipt_status',
+            'ibs_amount', 'ibs_status', 'cbs_amount', 'cbs_status', 'source_sha256',
+        ], $records[0]);
+        self::assertSame('0.00', $records[1][4]);
+        self::assertSame('reported_zero', $records[1][5]);
+        self::assertSame('', $records[1][6]);
+        self::assertSame('not_reported', $records[1][7]);
+        self::assertSame($snapshot['source_sha256'], $records[1][8]);
+    }
+
+    public function testIbsCbsCsvExcludesForeignCompanyEvidence(): void
+    {
+        $this->loginAs();
+        $owner = (int) company_id();
+        $ownInvoice = $this->invoiceWithAmount('100.00');
+        $otherInvoice = $this->invoiceWithAmount('900.00');
+        $otherInvoice->forceFill(['company_id' => $owner + 1000])->saveQuietly();
+
+        $own = $this->receipt($ownInvoice, 'emitted', '100.00', '1', '1', '2026-10-10');
+        $foreign = $this->receipt($otherInvoice, 'emitted', '900.00', '1', '1', '2026-10-10');
+
+        $ownSnapshot = $own->authorized_fiscal_snapshot;
+        $foreignSnapshot = $foreign->authorized_fiscal_snapshot;
+        self::assertIsArray($ownSnapshot);
+        self::assertIsArray($foreignSnapshot);
+
+        $this->get(route('nfse.closing.data', ['competence' => '2026-10']))
+            ->assertOk()->assertJsonPath('data.ibs_cbs_evidence.summary.active_documents', 1);
+        $csv = $this->get(route('nfse.closing.ibs-cbs-evidence', ['competence' => '2026-10']))
+            ->assertOk()->streamedContent();
+        self::assertStringContainsString($ownSnapshot['source_sha256'], $csv);
+        self::assertStringNotContainsString($foreignSnapshot['source_sha256'], $csv);
+    }
+
     public function testClosingFailsWithoutAnActiveCompany(): void
     {
         $this->loginAs();

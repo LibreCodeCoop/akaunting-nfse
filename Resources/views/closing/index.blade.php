@@ -17,10 +17,16 @@
                         {{ trans('nfse::general.closing.apply') }}
                     </button>
                 </form>
-                <a href="{{ route('nfse.closing.export', ['competence' => $competence]) }}"
-                   class="rounded border px-4 py-2 font-medium">
-                    {{ trans('nfse::general.closing.export_csv') }}
-                </a>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('nfse.closing.export', ['competence' => $competence]) }}"
+                       class="rounded border px-4 py-2 font-medium">
+                        {{ trans('nfse::general.closing.export_csv') }}
+                    </a>
+                    <a href="{{ route('nfse.closing.ibs-cbs-evidence', ['competence' => $competence]) }}"
+                       class="rounded border px-4 py-2 font-medium">
+                        Exportar evidências IBS/CBS (CSV)
+                    </a>
+                </div>
             </div>
 
             <p id="nfse-closing-status" role="status" aria-live="polite" class="text-sm text-gray-600">
@@ -44,6 +50,18 @@
                     <div id="closing-mismatches" class="text-xl font-semibold">—</div>
                 </div>
             </div>
+
+            <section class="rounded border p-4 space-y-2" aria-labelledby="nfse-ibs-cbs-title">
+                <h2 id="nfse-ibs-cbs-title" class="font-semibold">Evidências documentais IBS/CBS</h2>
+                <p class="text-sm text-gray-600">
+                    Valores de XML autorizado não equivalem à apuração, ao recolhimento,
+                    aos créditos ou à apresentação de declaração. Ausência de campo não
+                    significa alíquota zero nem dispensa.
+                </p>
+                <p class="text-sm" id="closing-ibs-cbs-summary" aria-live="polite">
+                    Consultando evidências IBS/CBS...
+                </p>
+            </section>
 
             <section id="nfse-closing-mismatch" class="rounded border border-yellow-300 bg-yellow-50 p-4" hidden
                 aria-labelledby="nfse-closing-mismatch-title">

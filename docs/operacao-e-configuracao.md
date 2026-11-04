@@ -395,6 +395,26 @@ estivessem comprovados. A DPS nacional segue o prazo de conversão previsto
 na legislação municipal aplicável, que não pode ser presumido com base em
 regras antigas de RPS ou nas datas documentais da reforma IBS/CBS.
 
+A exportação **Evidências IBS/CBS (CSV)** apresenta, por recibo, valores
+constantes do snapshot de XML autorizado com seu SHA-256 registrado e estados
+independentes para IBS e CBS: informado, zero explícito, campo ausente, valor
+inválido, snapshot indisponível ou documento não ativo. Documentos cancelados
+e substituídos não compõem totais. Ausência não equivale a zero nem a dispensa.
+
+A seção IBS/CBS do fechamento é alimentada pelo mesmo recurso JSON que a
+interface já utiliza, e a exportação também está disponível pela API nativa.
+Os totais são SOMENTE valores documentais observados, não débitos apurados,
+créditos utilizáveis, saldo a recolher ou declaração apresentada.
+São necessárias evidências de entradas, créditos, ajustes e de cumprimento das
+obrigações específicas para uma apuração fiscal. O registro não envia notas,
+altera históricos nem substitui a plataforma oficial de apuração.
+
+No ADN, documentos classificados como recebidos podem exibir evidências
+documentais IBS/CBS no preview de revisão, com elegibilidade de crédito
+**não verificável** até existir fundamento e comprovação. Documentos apenas
+intermediados não geram candidatos a crédito. Nenhum valor é lançado
+automaticamente como crédito fiscal, e nenhum pagamento é considerado quitado.
+
 Acesso ao fechamento/CSV requer empresa ativa e a permissão
 `read-sales-invoices`.
 

@@ -45,6 +45,7 @@ final class AdminRouteRegistrationTest extends FeatureTestCase
             'invoice cancel' => ['nfse.invoices.cancel', 'DELETE'],
             'closing index' => ['nfse.closing.index', 'GET'],
             'closing export' => ['nfse.closing.export', 'GET'],
+            'IBS/CBS evidence export' => ['nfse.closing.ibs-cbs-evidence', 'GET'],
         ];
     }
 
@@ -69,6 +70,7 @@ final class AdminRouteRegistrationTest extends FeatureTestCase
             'nfse.invoices.reemit' => 'permission:update-sales-invoices',
             'nfse.invoices.substitute' => 'permission:update-sales-invoices',
             'nfse.invoices.cancel' => 'permission:update-sales-invoices',
+            'nfse.closing.ibs-cbs-evidence' => 'permission:read-sales-invoices',
         ];
 
         foreach ($permissions as $name => $permission) {

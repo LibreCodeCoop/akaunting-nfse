@@ -22,6 +22,12 @@ final class FiscalClosingApiTest extends FeatureTestCase
             ->assertJsonStructure([
                 'data' => [
                     'summary', 'reconciliation', 'rows',
+                    'ibs_cbs_evidence' => ['summary' => [
+                        'active_documents', 'excluded_documents', 'missing_snapshots',
+                        'duplicate_documents',
+                        'ibs' => ['reported_total', 'reported_count', 'not_reported_count', 'invalid_count'],
+                        'cbs' => ['reported_total', 'reported_count', 'not_reported_count', 'invalid_count'],
+                    ]],
                     'commercial_review' => ['rows', 'meta' => [
                         'current_page', 'last_page', 'per_page', 'total',
                     ]],
@@ -44,7 +50,8 @@ final class FiscalClosingApiTest extends FeatureTestCase
 
     public function testNativeClosingRouteRequiresSalesInvoiceReadPermission(): void
     {
-        foreach (['api.nfse.closing.index', 'api.nfse.closing.export'] as $name) {
+        foreach (['api.nfse.closing.index', 'api.nfse.closing.export',
+            'api.nfse.closing.ibs-cbs-evidence'] as $name) {
             $route = Route::getRoutes()->getByName($name);
             self::assertNotNull($route);
             self::assertContains('permission:read-sales-invoices', $route->gatherMiddleware());

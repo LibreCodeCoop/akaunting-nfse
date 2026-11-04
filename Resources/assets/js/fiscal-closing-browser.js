@@ -95,6 +95,15 @@
         setText(doc, 'closing-iss', summary.iss?.value);
         setText(doc, 'closing-emitted', summary.documents?.emitted);
         setText(doc, 'closing-mismatches', summary.reconciliation_mismatches);
+        const evidence = data.ibs_cbs_evidence?.summary;
+        setText(doc, 'closing-ibs-cbs-summary', evidence
+            ? 'IBS informado em ' + evidence.ibs.reported_count
+                + ' documento(s), ausente em ' + evidence.ibs.not_reported_count
+                + '; CBS informada em ' + evidence.cbs.reported_count
+                + ' documento(s), ausente em ' + evidence.cbs.not_reported_count
+                + '. XML sem evidência: ' + evidence.missing_snapshots
+                + '; fontes duplicadas: ' + evidence.duplicate_documents + '.'
+            : 'Evidência IBS/CBS indisponível.');
 
         const warnings = doc.getElementById('closing-reconciliation');
         warnings.replaceChildren();
@@ -156,6 +165,7 @@
                 for (const id of ['closing-gross', 'closing-iss', 'closing-emitted', 'closing-mismatches']) {
                     setText(doc, id, '—');
                 }
+                setText(doc, 'closing-ibs-cbs-summary', 'Evidência IBS/CBS indisponível.');
                 doc.getElementById('closing-commercial-body').replaceChildren();
                 doc.getElementById('closing-fiscal-body').replaceChildren();
                 doc.getElementById('nfse-closing-mismatch').hidden = true;

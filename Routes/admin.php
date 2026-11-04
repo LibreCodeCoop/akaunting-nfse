@@ -122,6 +122,8 @@ Route::admin('nfse', function () {
         ->middleware('permission:read-sales-invoices')->name('closing.index');
     Route::get('closing/export', [ClosingController::class, 'export'])
         ->middleware('permission:read-sales-invoices')->name('closing.export');
+    Route::get('closing/ibs-cbs-evidence', [ClosingController::class, 'exportIbsCbs'])
+        ->middleware('permission:read-sales-invoices')->name('closing.ibs-cbs-evidence');
 
     // Receipt-oriented fiscal ledger; accounting invoices remain native to Akaunting.
     Route::get('ledger/data', [FiscalLedgerApiController::class, 'index'])
