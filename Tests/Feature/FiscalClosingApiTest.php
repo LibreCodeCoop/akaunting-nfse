@@ -7,11 +7,15 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Jobs\Auth\CreateUser;
+use App\Traits\Permissions;
 use Illuminate\Support\Facades\Route;
 use Tests\Feature\FeatureTestCase;
 
 final class FiscalClosingApiTest extends FeatureTestCase
 {
+    use Permissions;
+
     public function testClosingJsonHasStableFiscalAndCommercialPaginationContract(): void
     {
         $this->loginAs();
@@ -46,6 +50,24 @@ final class FiscalClosingApiTest extends FeatureTestCase
         $this->get(route('nfse.closing.data', [
             'competence' => '2026-10', 'report_page' => '100001',
         ]))->assertUnprocessable();
+    }
+
+    public function testClosingEvidenceRequiresSalesReadPermissionInBrowserSession(): void
+    {
+        $this->loginAs();
+        $role = $this->createRole('nfse-ibs-cbs-read-denied');
+        $this->attachPermission($role, 'read-admin-panel');
+
+        $operator = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
+            'enabled' => 1,
+            'companies' => [$this->company->id],
+            'roles' => [$role->id],
+        ])));
+
+        $this->withExceptionHandling()->loginAs($operator);
+        foreach (['nfse.closing.data', 'nfse.closing.ibs-cbs-evidence'] as $name) {
+            $this->get(route($name, ['competence' => '2026-10']))->assertForbidden();
+        }
     }
 
     public function testNativeClosingRouteRequiresSalesInvoiceReadPermission(): void
