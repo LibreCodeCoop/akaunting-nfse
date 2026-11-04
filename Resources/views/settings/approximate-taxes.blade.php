@@ -5,7 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <x-layouts.admin>
     <x-slot name="title">{{ trans('nfse::general.settings.federal.approximate_title') }}</x-slot>
     <x-slot name="content">
-        <section class="max-w-4xl space-y-5">
+        <section id="nfse-approximate-taxes" class="max-w-4xl space-y-5"
+            data-list-url="{{ route('nfse.settings.approximate-taxes.resources') }}"
+            data-store-url="{{ route('nfse.settings.approximate-taxes.store') }}">
             <a class="underline" href="{{ route('nfse.settings.edit', ['tab' => 'federal']) }}">&larr; {{ trans('nfse::general.go_to_settings') }}</a>
             <h1 class="font-semibold text-xl">{{ trans('nfse::general.settings.federal.approximate_title') }}</h1>
             <p class="text-sm">{{ trans('nfse::general.settings.federal.approximate_notice') }}</p>
@@ -19,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     @endforeach
                 </ul>
             @endif
-            <form action="{{ route('nfse.settings.approximate-taxes.store') }}" method="POST" class="rounded border p-5 space-y-3">
+            <form id="approximate-taxes-form" action="{{ route('nfse.settings.approximate-taxes.store') }}" method="POST" class="rounded border p-5 space-y-3">
                 @csrf
                 <p class="font-semibold">Nova revisão de fonte (não altera revisões anteriores)</p>
                 <label class="block">Código tributário nacional do serviço (cTribNac, 6 dígitos)
@@ -61,27 +63,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </div>
                 <p class="text-xs">Informe zero somente quando sustentado pela fonte identificada. O cadastro não comprova que a fonte é juridicamente válida, nem dispensa informação ao consumidor por outro meio quando exigida. As versões são preservadas e a nota autorizada mantém seu XML original.</p>
                 <button type="submit" class="rounded bg-green-700 px-4 py-2 text-white">Registrar revisão</button>
+                <p id="approximate-taxes-feedback" role="status" aria-live="polite" class="text-sm" hidden></p>
             </form>
             <h2 class="font-semibold">Revisões registradas nesta empresa</h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead><tr><th>Serviço / regime</th><th>Vigência</th><th>Fonte / versão</th><th>Federal / estadual / municipal</th></tr></thead>
-                    <tbody>
-                        @forelse($sources as $source)
-                            <tr class="border-t">
-                                <td>{{ $source->national_service_code }} / {{ $source->simples_option }}</td>
-                                <td>{{ $source->competence_from }} — {{ $source->competence_until ?: '...' }}</td>
-                                <td>{{ $source->source_name }} / {{ $source->source_version }}
-                                    <span class="block text-xs">{{ $source->source_reference }}</span>
-                                </td>
-                                <td>{{ $source->federal_percent }}% / {{ $source->state_percent }}% / {{ $source->municipal_percent }}%</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="4">Nenhuma fonte cadastrada. A ausência será informada como desconhecida, nunca como 0%.</td></tr>
-                        @endforelse
+                    <tbody id="approximate-taxes-body">
+                        <tr><td colspan="4">Carregando revisões da API...</td></tr>
                     </tbody>
                 </table>
             </div>
+            <nav aria-label="Páginas das revisões de tributos aproximados" class="flex items-center gap-3">
+                <button id="approximate-prev" type="button" class="rounded border px-3 py-2" disabled>Anterior</button>
+                <span id="approximate-page" class="text-sm" aria-live="polite"></span>
+                <button id="approximate-next" type="button" class="rounded border px-3 py-2" disabled>Próxima</button>
+            </nav>
         </section>
+        <script src="{{ asset('modules/Nfse/Resources/assets/js/fiscal-tax-admin.js?v=' . module_version('nfse')) }}" data-nfse-fiscal-tax-admin="true"></script>
     </x-slot>
 </x-layouts.admin>
