@@ -366,6 +366,38 @@ No new issuance numbering policy is introduced by this HTTP adapter. The
 complete legal preflight and centralized DPS numbering requirements are
 tracked independently, and the API does not make them implicitly complete.
 
+## WebDAV artifact storage settings (#501)
+
+The active company's optional authorized-XML and DANFSe storage configuration
+uses the same controller through Akaunting session/CSRF and native API
+transports:
+
+- `GET /{company_id}/api/nfse/settings/artifacts` requires
+  `read-nfse-settings`. Returns `data.configured`, the server hostname,
+  `username_configured`, `password_configured`, path and filename templates,
+  and the XML/PDF storage flags. The server never returns the full WebDAV
+  URL, username, password, or upstream transport error messages.
+- `PATCH /{company_id}/api/nfse/settings/artifacts` requires
+  `update-nfse-settings`. Provide a JSON `nfse` object with optional
+  `webdav_url`, `webdav_username`, `webdav_password`, `webdav_path_template`,
+  `webdav_filename_template`, `webdav_store_xml`, and `webdav_store_pdf`.
+  The response is the same safe GET representation, not the submitted secret.
+- The browser uses the corresponding session routes
+  `GET /{company_id}/nfse/settings/artifacts` and
+  `PATCH /{company_id}/nfse/settings/artifacts`, preserving CSRF.
+
+The WebDAV endpoint must be HTTPS without embedded URL credentials. Omitting
+or leaving username/password fields blank retains the stored values **only
+when the endpoint stays unchanged**; changing the endpoint does not reuse
+credentials from the previous host. Supply new credentials when required.
+An explicitly empty `webdav_url` disables storage and clears the credentials.
+Connection checks occur before persisting, and failure produces HTTP 422
+`reason=webdav_connection_failed`, without leaking upstream messages or
+writing a partially validated configuration. No past XML, PDFs or fiscal
+receipts are removed by this configuration change. The legacy fiscal settings
+and certificate routes intentionally disabled with HTTP 410 remain disabled.
+
+
 ## Native fiscal cancellation, reissuance, substitution and synchronization
 
 The HTTP-native Akaunting API exposes the existing fiscal transition handlers,

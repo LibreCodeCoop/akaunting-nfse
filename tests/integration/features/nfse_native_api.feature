@@ -534,3 +534,33 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
       """
     Then the API response status should be 409
     And the API response should be JSON
+
+  Scenario: Native WebDAV artifact configuration exposes only safe metadata
+    When I make a native API GET request to "/<company_id>/api/nfse/settings/artifacts" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | object |
+      | data.configured | boolean |
+      | data.username_configured | boolean |
+      | data.password_configured | boolean |
+      | data.store_xml | boolean |
+      | data.store_pdf | boolean |
+
+  Scenario: Native WebDAV artifact configuration denies read without permission
+    When I make a native API GET request to "/<company_id>/api/nfse/settings/artifacts" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native WebDAV artifact configuration denies writes without permission
+    When I make a native API "PATCH" JSON request to "/<company_id>/api/nfse/settings/artifacts" with synthetic "no-permission" credentials and body:
+      """
+      {"nfse":{"webdav_store_xml":false}}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native WebDAV artifact configuration cannot read another company
+    When I make a native API GET request to "/<other_company_id>/api/nfse/settings/artifacts" with synthetic "administrator" credentials
+    Then the API response status should be 401
+    And the API response should be JSON
