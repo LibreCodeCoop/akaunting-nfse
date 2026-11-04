@@ -466,7 +466,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
   Scenario: Native API fiscal issuance requires sales-invoice write permission
     When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/emit" with synthetic "no-permission" credentials and body:
       """
-      {}
+      {"nfse_force_ajax":true}
       """
     Then the API response status should be 403
     And the API response should be JSON
@@ -474,7 +474,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
   Scenario: Native API uses the same idempotent SEFIN-fake invoice issuance operation as the Web UI
     When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/emit" with synthetic "administrator" credentials and body:
       """
-      {}
+      {"nfse_force_ajax":true}
       """
     Then the API response status should be 200
     And the API response should be JSON
@@ -486,7 +486,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
       | links.attempts | string |
     When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/emit" with synthetic "administrator" credentials and body:
       """
-      {}
+      {"nfse_force_ajax":true}
       """
     Then the API response status should be 200
     And the JSON boolean at "success" should be "true"
