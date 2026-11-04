@@ -285,3 +285,36 @@ documents or advance synchronization state. Automatic sync still uses
 `AdnSynchronizationService` via the existing jobs/commands. The existing
 company-specific reconciliation is preserved; no alternate sync or
 financial document writer is introduced.
+
+## Controlled bulk emission and progress (#507)
+
+The same `BulkEmissionOperations` service handles the administrative native
+bulk action and externally authenticated clients; it reuses fiscal preflight,
+`BulkEmissionPlanner`, `BulkEmissionRunRecorder`, and `BulkEmissionDispatcher`.
+No fiscal transmission runs in the HTTP request. Queue workers own individual
+issuance, journal updates and reconciliation.
+
+- `POST /{company_id}/{api_prefix}/nfse/bulk/plan` requires
+  `read-sales-invoices`; body `{"invoice_ids":[1,2]}` and maximum 100 distinct
+  positive IDs. Returns `data.queued`, `data.blocked`,
+  `data.already_issued`, and `data.not_found_or_forbidden` without
+  side effects. An invoice from a foreign company is never inspected.
+- `POST /{company_id}/{api_prefix}/nfse/bulk/dispatch` requires
+  `update-sales-invoices`. On a newly queued run, HTTP 202 returns
+  `data.run_id`, `dispatched`, `queued`, `blocked`,
+  `already_issued`, and `reused=false`. Repeating an identical active
+  run returns HTTP 200 with `reused=true`, without redispatch. When nothing
+  is eligible, `run_id` is null and no job is created. A completed run
+  is not automatically retried as an active run.
+- `GET /{company_id}/{api_prefix}/nfse/bulk/runs` and
+  `GET /{company_id}/{api_prefix}/nfse/bulk/runs/{run}` require
+  `read-sales-invoices`. They return company-bound run/unit status, receipt
+  reference, and a bounded 25-run page. Foreign run IDs return 404.
+
+The session-authenticated administrative UI uses `GET
+/{company_id}/nfse/bulk/runs` for progress, with the same JSON representation;
+its shell does not embed fiscal data. Session JSON dispatch and plan endpoints
+are available as `POST /{company_id}/nfse/bulk/dispatch-json` and
+`POST /{company_id}/nfse/bulk/plan`. Browser requests retain CSRF protection;
+no external API password is exposed to JavaScript. The Core's existing native
+bulk selection action continues to submit through the same shared service.

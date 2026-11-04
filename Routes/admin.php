@@ -8,6 +8,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\AdnController;
 use Modules\Nfse\Http\Controllers\BulkEmissionController;
+use Modules\Nfse\Http\Controllers\BulkEmissionApiController;
 use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\CompanyProfileController;
 use Modules\Nfse\Http\Controllers\DeprecatedFiscalConfigurationController;
@@ -100,9 +101,19 @@ Route::admin('nfse', function () {
     Route::post('adn/review/{document}/ignore', [AdnController::class, 'ignore'])->middleware('permission:update-purchases-bills')->name('adn.review.ignore');
     Route::post('adn/review/{document}/import', [AdnController::class, 'importDraft'])->middleware('permission:create-purchases-bills')->name('adn.review.import');
 
-    // Controlled bulk emission
-    Route::get('bulk', [BulkEmissionController::class, 'index'])->name('bulk.index');
-    Route::post('bulk/dispatch', [BulkEmissionController::class, 'enqueue'])->name('bulk.dispatch');
+    // Controlled bulk emission; browser and external API share the same service.
+    Route::get('bulk', [BulkEmissionController::class, 'index'])
+        ->middleware('permission:read-sales-invoices')->name('bulk.index');
+    Route::post('bulk/dispatch', [BulkEmissionController::class, 'enqueue'])
+        ->middleware('permission:update-sales-invoices')->name('bulk.dispatch');
+    Route::post('bulk/plan', [BulkEmissionApiController::class, 'plan'])
+        ->middleware('permission:read-sales-invoices')->name('bulk.plan');
+    Route::get('bulk/runs', [BulkEmissionApiController::class, 'runs'])
+        ->middleware('permission:read-sales-invoices')->name('bulk.runs');
+    Route::get('bulk/runs/{run}', [BulkEmissionApiController::class, 'show'])
+        ->middleware('permission:read-sales-invoices')->name('bulk.runs.show');
+    Route::post('bulk/dispatch-json', [BulkEmissionApiController::class, 'enqueueJson'])
+        ->middleware('permission:update-sales-invoices')->name('bulk.dispatch-json');
 
     // Competence closing and reconciliation
     Route::get('closing/data', [ClosingController::class, 'data'])
