@@ -83,6 +83,25 @@
         }
     }
 
+    function evidenceSummaryText(root, evidence) {
+        const template = root?.dataset?.evidenceSummaryTemplate
+            || 'IBS/CBS documentary evidence: IBS reported :ibs_reported, missing :ibs_missing; '
+                + 'CBS reported :cbs_reported, missing :cbs_missing; '
+                + 'missing XML snapshots :snapshots_missing; duplicate sources :duplicates.';
+        const counts = {
+            ':ibs_reported': evidence.ibs?.reported_count,
+            ':ibs_missing': evidence.ibs?.not_reported_count,
+            ':cbs_reported': evidence.cbs?.reported_count,
+            ':cbs_missing': evidence.cbs?.not_reported_count,
+            ':snapshots_missing': evidence.missing_snapshots,
+            ':duplicates': evidence.duplicate_documents,
+        };
+        return template.replace(
+            /:(?:ibs_reported|ibs_missing|cbs_reported|cbs_missing|snapshots_missing|duplicates)\b/g,
+            (key) => Number.isSafeInteger(counts[key]) && counts[key] >= 0 ? String(counts[key]) : '—',
+        );
+    }
+
     function renderClosing(doc, root, payload) {
         const data = payload.data;
         if (!data.summary || !Array.isArray(data.reconciliation)
@@ -97,13 +116,8 @@
         setText(doc, 'closing-mismatches', summary.reconciliation_mismatches);
         const evidence = data.ibs_cbs_evidence?.summary;
         setText(doc, 'closing-ibs-cbs-summary', evidence
-            ? 'IBS informado em ' + evidence.ibs.reported_count
-                + ' documento(s), ausente em ' + evidence.ibs.not_reported_count
-                + '; CBS informada em ' + evidence.cbs.reported_count
-                + ' documento(s), ausente em ' + evidence.cbs.not_reported_count
-                + '. XML sem evidência: ' + evidence.missing_snapshots
-                + '; fontes duplicadas: ' + evidence.duplicate_documents + '.'
-            : 'Evidência IBS/CBS indisponível.');
+            ? evidenceSummaryText(root, evidence)
+            : (root?.dataset?.evidenceUnavailable || 'IBS/CBS evidence unavailable.'));
 
         const warnings = doc.getElementById('closing-reconciliation');
         warnings.replaceChildren();
@@ -165,7 +179,7 @@
                 for (const id of ['closing-gross', 'closing-iss', 'closing-emitted', 'closing-mismatches']) {
                     setText(doc, id, '—');
                 }
-                setText(doc, 'closing-ibs-cbs-summary', 'Evidência IBS/CBS indisponível.');
+                setText(doc, 'closing-ibs-cbs-summary', root?.dataset?.evidenceUnavailable || 'IBS/CBS evidence unavailable.');
                 doc.getElementById('closing-commercial-body').replaceChildren();
                 doc.getElementById('closing-fiscal-body').replaceChildren();
                 doc.getElementById('nfse-closing-mismatch').hidden = true;

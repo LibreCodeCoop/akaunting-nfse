@@ -142,7 +142,7 @@ final class CompetenceClosingReportTest extends FeatureTestCase
         $receipt->forceFill(['authorized_fiscal_snapshot' => $snapshot])->saveQuietly();
 
         $this->loginAs()->get(route('nfse.closing.index', ['competence' => '2026-10']))
-            ->assertOk()->assertSee('Exportar evidências IBS/CBS (CSV)');
+            ->assertOk()->assertSee(trans('nfse::general.closing.ibs_cbs_export_csv'));
 
         $this->get(route('nfse.closing.data', ['competence' => '2026-10']))
             ->assertOk()

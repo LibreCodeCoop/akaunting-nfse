@@ -5,7 +5,9 @@
     <x-slot name="content">
         <section id="nfse-closing" class="space-y-6"
             data-list-url="{{ route('nfse.closing.data') }}"
-            data-invoice-url="{{ route('invoices.show', '__INVOICE_ID__') }}">
+            data-invoice-url="{{ route('invoices.show', '__INVOICE_ID__') }}"
+            data-evidence-summary-template="{{ trans('nfse::general.closing.ibs_cbs_summary') }}"
+            data-evidence-unavailable="{{ trans('nfse::general.closing.ibs_cbs_unavailable') }}">
             <div class="flex flex-wrap items-end justify-between gap-4">
                 <form method="GET" action="{{ route('nfse.closing.index') }}" class="flex items-end gap-3">
                     <label for="nfse-closing-competence" class="block text-sm font-medium">
@@ -24,7 +26,7 @@
                     </a>
                     <a href="{{ route('nfse.closing.ibs-cbs-evidence', ['competence' => $competence]) }}"
                        class="rounded border px-4 py-2 font-medium">
-                        Exportar evidências IBS/CBS (CSV)
+                        {{ trans('nfse::general.closing.ibs_cbs_export_csv') }}
                     </a>
                 </div>
             </div>
@@ -52,14 +54,12 @@
             </div>
 
             <section class="rounded border p-4 space-y-2" aria-labelledby="nfse-ibs-cbs-title">
-                <h2 id="nfse-ibs-cbs-title" class="font-semibold">Evidências documentais IBS/CBS</h2>
+                <h2 id="nfse-ibs-cbs-title" class="font-semibold">{{ trans('nfse::general.closing.ibs_cbs_title') }}</h2>
                 <p class="text-sm text-gray-600">
-                    Valores de XML autorizado não equivalem à apuração, ao recolhimento,
-                    aos créditos ou à apresentação de declaração. Ausência de campo não
-                    significa alíquota zero nem dispensa.
+                    {{ trans('nfse::general.closing.ibs_cbs_disclaimer') }}
                 </p>
                 <p class="text-sm" id="closing-ibs-cbs-summary" aria-live="polite">
-                    Consultando evidências IBS/CBS...
+                    {{ trans('nfse::general.closing.ibs_cbs_loading') }}
                 </p>
             </section>
 

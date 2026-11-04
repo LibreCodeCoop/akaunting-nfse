@@ -56,7 +56,13 @@ test('closing browser renders documentary IBS/CBS statuses without implying tax 
         },
         createElement() { return node(); },
     };
-    const root = { dataset: { invoiceUrl: '/1/sales/invoices/__INVOICE_ID__' } };
+    const root = { dataset: {
+        invoiceUrl: '/1/sales/invoices/__INVOICE_ID__',
+        evidenceSummaryTemplate: 'IBS informado em :ibs_reported documento(s), ausente em :ibs_missing; '
+            + 'CBS informada em :cbs_reported documento(s), ausente em :cbs_missing. '
+            + 'XML sem evidência: :snapshots_missing; fontes duplicadas: :duplicates.',
+        evidenceUnavailable: 'Evidência IBS/CBS indisponível.',
+    } };
     const payload = {
         data: {
             summary: {
@@ -89,6 +95,15 @@ test('closing browser renders documentary IBS/CBS statuses without implying tax 
         /IBS informado em 1 documento\(s\), ausente em 1/);
     assert.match(doc.getElementById('closing-ibs-cbs-summary').textContent,
         /fontes duplicadas: 0/);
+    // A second locale must render counts without Portuguese hard-coding.
+    const englishRoot = { dataset: {
+        ...root.dataset,
+        evidenceSummaryTemplate: 'IBS reported :ibs_reported, missing :ibs_missing; '
+            + 'CBS reported :cbs_reported; duplicate sources: :duplicates.',
+    } };
+    closing.renderClosing(doc, englishRoot, payload);
+    assert.match(doc.getElementById('closing-ibs-cbs-summary').textContent,
+        /IBS reported 1, missing 1; CBS reported 0; duplicate sources: 0/);
     assert.equal(doc.getElementById('closing-gross').textContent, '100.00');
     assert.equal(doc.getElementById('nfse-closing-mismatch').hidden, true);
 });
