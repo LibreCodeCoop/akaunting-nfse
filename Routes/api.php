@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
+use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
 use Modules\Nfse\Http\Controllers\SettingsController;
@@ -21,6 +22,13 @@ use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
 use Modules\Nfse\Http\Controllers\BulkEmissionApiController;
 use Modules\Nfse\Http\Controllers\AdnController;
 Route::api('nfse', function (): void {
+    // Status-only fiscal sequence diagnostics and official read-only DPS lookup.
+    // These operations do not provision, reserve, transmit or activate.
+    Route::get('dps/readiness', [DpsReadinessController::class, 'index'])
+        ->middleware('permission:read-nfse-settings')->name('dps.readiness');
+    Route::get('dps/lookup', [DpsReadinessController::class, 'lookup'])
+        ->middleware('permission:read-nfse-settings')->name('dps.lookup');
+
     // Native API issuance reuses the exact manual issuance handler, DPS
     // journal and recovery services; no second fiscal pipeline is introduced.
     Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])

@@ -15,6 +15,7 @@ use Modules\Nfse\Http\Controllers\DeprecatedFiscalConfigurationController;
 use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
+use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\LegacyInvoiceController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
@@ -23,6 +24,11 @@ use Modules\Nfse\Http\Controllers\TaxAssociationController;
 use Modules\Nfse\Http\Controllers\Modals\InvoiceEmails;
 
 Route::admin('nfse', function () {
+    Route::get('dps/readiness', [DpsReadinessController::class, 'index'])
+        ->middleware('permission:read-nfse-settings')->name('dps.readiness');
+    Route::get('dps/lookup', [DpsReadinessController::class, 'lookup'])
+        ->middleware('permission:read-nfse-settings')->name('dps.lookup');
+
     Route::get('/', [InvoiceController::class, 'dashboard'])->name('dashboard.index');
 
     // Settings

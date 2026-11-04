@@ -441,3 +441,37 @@ may include an NFS-e access key before the official NFS-e number becomes
 available; in that case, the Web confirmation displays the **persisted access
 key**, and API clients must use the status/receipt resources instead of
 inferring a missing authorization from the absent number.
+
+## Read-only DPS coordination and official status
+
+The Akaunting browser and native JSON API share these authenticated resources:
+
+| Operation | Native API | Browser-session JSON | Permission |
+| --- | --- | --- | --- |
+| Inspect the current company's configured DPS authority | \`GET /{company_id}/api/nfse/dps/readiness\` | \`GET /{company_id}/nfse/dps/readiness\` | \`read-nfse-settings\` |
+| Consult the official state of one bounded DPS number | \`GET /{company_id}/api/nfse/dps/lookup?number=...\` | \`GET /{company_id}/nfse/dps/lookup?number=...\` | \`read-nfse-settings\` |
+
+The company is always resolved from native Akaunting authentication, membership
+and active-company context; a query parameter cannot select a different issuer.
+The server derives the municipality, CNPJ, environment and series from the
+company's active fiscal profile. Lookup numbers are restricted to the
+persisted high-water number and its immediate successor. Other fiscal
+operations are read through their own authorized invoice and attempt history.
+
+\`readiness.data.mechanically_ready\` is an internal database/configuration
+check, **not** official SEFIN attestation or permission to issue. The endpoint
+does not return installation UUIDs, coordination references, evidence digests,
+certificate paths or credentials. It never activates a series.
+
+\`lookup.data.official_state\` is \`found\`, \`not_found\` or \`inconclusive\`.
+\`not_found\` means no generated NFS-e was located by this lookup; it does
+**not** establish that the number was never sent, rejected or otherwise
+consumed. Both \`safe_to_emit\` and \`exclusive_series_attested\` are always
+\`false\`. No new DPS is allocated, claimed or transmitted. Only HEAD/GET
+against SEFIN are permitted. An unavailable certificate or official service
+returns \`inconclusive\`, never a permission to retry POST.
+
+The settings page consumes these JSON resources and requires a deliberate
+button click for the external lookup; page load alone does not contact SEFIN.
+Production-restricted issuance, external attestation, generation activation
+and recovery after MySQL restore remain separate authorized operational steps.
