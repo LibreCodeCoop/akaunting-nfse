@@ -3,7 +3,9 @@
 <x-layouts.admin>
     <x-slot name="title">Associações fiscais de impostos</x-slot>
     <x-slot name="content">
-        <div class="max-w-5xl space-y-5">
+        <div id="nfse-tax-associations" class="max-w-5xl space-y-5"
+            data-list-url="{{ route('nfse.settings.tax-associations.resources') }}"
+            data-store-url="{{ route('nfse.settings.tax-associations.store') }}">
             <a href="{{ route('nfse.settings.edit') }}" class="text-sm underline">&larr; Voltar às configurações NFS-e</a>
             <header>
                 <h1 class="text-xl font-semibold">Associações fiscais dos impostos existentes</h1>
@@ -37,36 +39,8 @@
                                 <th class="text-left px-3 py-2">Revisões fiscais confirmadas</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @forelse($taxes as $tax)
-                                <tr class="border-t">
-                                    <td class="px-3 py-2">{{ $tax->name }} (#{{ $tax->id }})</td>
-                                    <td class="px-3 py-2">{{ $tax->type }} / {{ $tax->rate }}%</td>
-                                    <td class="px-3 py-2">
-                                        @if(!isset($associationsByTax[$tax->id]) || $associationsByTax[$tax->id]->isEmpty())
-                                            <span class="text-amber-800">Sem associação confirmada — identidade desconhecida</span>
-                                        @else
-                                            <ul class="space-y-2">
-                                                @foreach($associationsByTax[$tax->id] as $association)
-                                                    <li>
-                                                        <strong>{{ $association->fiscal_identity }} / {{ $association->fiscal_role }}</strong>
-                                                        · {{ $association->effective_from }} a {{ $association->effective_until ?: 'sem término' }}
-                                                        <span class="block text-xs text-gray-600">
-                                                            Fonte: {{ $association->source_reference }} · Confirmado por #{{ $association->confirmed_by }}
-                                                            @if($association->confirmed_at) em {{ $association->confirmed_at->format('Y-m-d') }} @endif
-                                                        </span>
-                                                        @if(($tax->type === 'withholding') !== ($association->fiscal_role === 'withheld_by_payer'))
-                                                            <span class="block text-xs text-amber-800">Revisar compatibilidade entre tipo contábil e papel fiscal.</span>
-                                                        @endif
-                                                    </li>
-                                                @endforeach
-                                            </ul>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="3" class="px-3 py-4 text-gray-600">Nenhum imposto cadastrado nesta empresa. Não será criado imposto automaticamente.</td></tr>
-                            @endforelse
+                        <tbody id="tax-associations-body">
+                            <tr><td colspan="3" class="px-3 py-4 text-gray-600">Carregando impostos da API...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -79,34 +53,22 @@
                         de enquadramento de um período já confirmado exigem revisão administrativa separada; não substitua
                         silenciosamente associações históricas.
                     </p>
-                    @if($taxes->isNotEmpty())
-                        <form method="POST" action="{{ route('nfse.settings.tax-associations.store') }}" class="space-y-4">
+                        <form id="tax-association-form" method="POST" action="{{ route('nfse.settings.tax-associations.store') }}" class="space-y-4">
                             @csrf
                             <label class="block text-sm">Imposto existente
                                 <select name="tax_id" required class="mt-1 block w-full rounded border p-2">
                                     <option value="">Selecione um imposto desta empresa</option>
-                                    @foreach($taxes as $tax)
-                                        <option value="{{ $tax->id }}" @selected((string) old('tax_id') === (string) $tax->id)>
-                                            {{ $tax->name }} (#{{ $tax->id }}) — {{ $tax->type }} / {{ $tax->rate }}%
-                                        </option>
-                                    @endforeach
                                 </select>
                             </label>
                             <div class="grid gap-3 md:grid-cols-2">
                                 <label class="block text-sm">Identidade fiscal (revisada pelo responsável tributário)
                                     <select name="fiscal_identity" required class="mt-1 block w-full rounded border p-2">
                                         <option value="">Selecione</option>
-                                        @foreach($identities as $identity)
-                                            <option value="{{ $identity->value }}" @selected(old('fiscal_identity') === $identity->value)>{{ strtoupper($identity->value) }}</option>
-                                        @endforeach
                                     </select>
                                 </label>
                                 <label class="block text-sm">Papel fiscal
                                     <select name="fiscal_role" required class="mt-1 block w-full rounded border p-2">
                                         <option value="">Selecione</option>
-                                        @foreach($roles as $role)
-                                            <option value="{{ $role->value }}" @selected(old('fiscal_role') === $role->value)>{{ $role->value }}</option>
-                                        @endforeach
                                     </select>
                                 </label>
                             </div>
@@ -128,10 +90,11 @@
                                 <span>Confirmo que revisei a identidade, papel, vigência e fonte; esta ação não cria tributos, altera valores nem substitui análise jurídico-contábil.</span>
                             </label>
                             <button type="submit" class="rounded bg-green-700 px-4 py-2 text-white">Registrar confirmação</button>
+                            <p id="tax-association-feedback" role="status" aria-live="polite" class="text-sm" hidden></p>
                         </form>
-                    @endif
                 </section>
             @endcan
         </div>
+        <script src="{{ asset('modules/Nfse/Resources/assets/js/fiscal-tax-admin.js?v=' . module_version('nfse')) }}" data-nfse-fiscal-tax-admin="true"></script>
     </x-slot>
 </x-layouts.admin>

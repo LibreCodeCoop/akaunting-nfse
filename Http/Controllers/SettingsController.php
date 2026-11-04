@@ -274,20 +274,50 @@ class SettingsController extends Controller
     public function approximateTaxes(): \Illuminate\View\View
     {
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
-        if ($companyId <= 0) {
-            throw new \Illuminate\Auth\Access\AuthorizationException('Company context required.');
+        abort_if($companyId <= 0, 403, 'An active company is required for approximate tax sources.');
+
+        return view('nfse::settings.approximate-taxes');
+    }
+
+    /** Paginated append-only provenance, never inferred zero tax rates. */
+    public function approximateTaxSources(Request $request): JsonResponse
+    {
+        $companyId = function_exists('company_id') ? (int) company_id() : 0;
+        abort_if($companyId <= 0, 403, 'An active company is required for approximate tax sources.');
+        $limit = $request->query('limit', 50);
+        if (!is_scalar($limit) || preg_match('/^[1-9]\d*$/', (string) $limit) !== 1 || (int) $limit > 100) {
+            return response()->json(['message' => 'Invalid limit.'], 422);
         }
 
-        return view('nfse::settings.approximate-taxes', [
-            'sources' => ApproximateTaxSource::query()
-                ->where('company_id', $companyId)
-                ->orderByDesc('id')
-                ->limit(50)
-                ->get(),
+        $page = ApproximateTaxSource::query()
+            ->where('company_id', $companyId)
+            ->orderByDesc('id')->paginate((int) $limit);
+
+        return response()->json([
+            'data' => collect($page->items())->map(static fn (ApproximateTaxSource $row): array => [
+                'id' => (int) $row->id,
+                'national_service_code' => $row->national_service_code,
+                'simples_option' => $row->simples_option,
+                'competence_from' => $row->competence_from,
+                'competence_until' => $row->competence_until,
+                'source_kind' => $row->source_kind,
+                'source_name' => $row->source_name,
+                'source_version' => $row->source_version,
+                'source_reference' => $row->source_reference,
+                'federal_percent' => $row->federal_percent,
+                'state_percent' => $row->state_percent,
+                'municipal_percent' => $row->municipal_percent,
+            ])->all(),
+            'meta' => [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+            ],
         ]);
     }
 
-    public function storeApproximateTaxes(Request $request): RedirectResponse
+    public function storeApproximateTaxes(Request $request): RedirectResponse|JsonResponse
     {
         $companyId = function_exists('company_id') ? (int) company_id() : 0;
         if ($companyId <= 0) {
@@ -339,10 +369,17 @@ class SettingsController extends Controller
             ]);
         }
 
-        ApproximateTaxSource::query()->create([
+        $created = ApproximateTaxSource::query()->create([
             ...$validated,
             'company_id' => $companyId,
         ]);
+
+        if ($request->expectsJson()) {
+            return response()->json(['data' => [
+                'id' => (int) $created->id,
+                'source_version' => $created->source_version,
+            ]], 201);
+        }
 
         return redirect()->route('nfse.settings.approximate-taxes')
             ->with('success', trans('nfse::general.saved'));
