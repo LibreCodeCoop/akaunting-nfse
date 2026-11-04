@@ -3,218 +3,155 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# Coordinating DPS numbers across independent Akaunting installations
+# DPS numbering in one multi-company Akaunting installation
 
-Status: **central reservation and first-POST claim integrated through #515/#516;
-operational series activation and real fiscal issuance remain blocked until
-exclusive ownership, historical reconciliation and restricted validation**.
-Scope: #423, integrated with the #421 company context and #429 municipal
-preflight. The existing journal remains the sole emission attempt ledger.
+## Supported topology
 
-## Decision and guarantees
+**One Akaunting installation, one MySQL 8+ database, multiple native companies.**
+Each company keeps its own fiscal profile, certificate, invoices and receipts.
+The sequence is keyed by the **national fiscal issuer** (issuing municipality,
+federal registration type and registration), environment and five-digit DPS
+series, *not* by the Akaunting company ID. Two company records representing the
+same taxpayer cannot obtain the same fiscal number. Distinct taxpayers may use
+the same series and decimal number without conflict.
 
-Choose **A — one transactionally shared MySQL 8+ primary**, without a
-microservice. All installations authorized to allocate a specific immutable
-fiscal series must transact against the same durable InnoDB authority. Their
-Akaunting databases remain independent.
+There is **no second Akaunting installation, database, dedicated MySQL server
+or numbering microservice**. The legacy design for independent installations
+sharing a fiscal series is not part of this deployment contract.
 
-The global series key is **(target environment, issuing municipality,
-registration type, normalized federal registration, five-digit series)**.
-Neither `company_id`, invoice IDs, browser sessions nor certificate paths
-belong to this key. Production (1) and restricted (2) are independent. A
-globally unique, stable installation UUID (stored OUTSIDE the local database)
-plus the existing 64-character `DpsOperationKey` binds each logical request
-to one immutable number. Two Akaunting companies for the same issuer use
-the same series counter, but are still independently authorized locally.
+The existing `nfse_dps_series` and `nfse_dps_reservations` tables retain the
+invoice-side view of fiscal allocations. The same Akaunting database also
+holds three authority tables:
 
-`SharedMysqlDpsSeriesCoordinator::allocate()` locks the global series and
-installation membership, verifies the exact coordination reference, active
-status, immutable identity and fencing generation, then increments the global
-counter and inserts the operation's allocation **in the same transaction**.
-InnoDB unique indexes independently reject duplicate national DPS numbers,
-and prevent one installation operation from being rebound. `fresh=false`
-signals a global allocation that survived while the local record is absent;
-the caller **must not** re-create local state or send a new first POST.
-`assertExisting()` is read-only, verifies the central mapping and refuses
-fenced members. This does not require SEFIN transport.
+- `nfse_dps_coordination_series`: fiscal scope, independently attested
+  starting number, status and monotonic high-water.
+- `nfse_dps_coordination_members`: approved application-instance ID and
+  positive fencing generation.
+- `nfse_dps_coordination_allocations`: immutable operation-to-number binding
+  and irreversible first-transmission claim with payload fingerprint.
 
-## Irreversible first-POST claim in the central authority
+The normal, versioned Laravel migration creates these tables **inactive**
+within the Akaunting schema. The SQL files in `docs/sql` are reference/legacy
+material, not an instruction to create an external database.
 
-`claimFirstTransmission()` acquires the exact central fiscal-series and
-installation-membership locks, checks the immutable operation/number mapping,
-then records `first_post_claimed_at`, the fencing generation and the payload
-SHA-256 in the existing allocation row. A second claim fails permanently.
-The claim commits **before** any fiscal HTTP POST. A timeout or lost commit
-acknowledgment must be treated as potentially claimed; never retry the claim
-with the expectation of obtaining another POST permission. Reconcile the same
-DPS read-only instead. No expiring lease or second retry journal is introduced.
+## Why two database connections are still necessary
 
-For a fresh shared database, use the updated
-[`dps-coordination-schema.sql`](sql/dps-coordination-schema.sql). For an
-existing coordinator, run the one-time
-[`dps-first-post-upgrade.sql`](sql/dps-first-post-upgrade.sql) only after a
-backup. **Before enabling emission**, identify and reconcile all previously
-transmitted allocations: the upgrade cannot reconstruct earlier first-POST
-claims. An allocation whose historical transmission state is unknown must
-remain blocked; do not interpret a new nullable claim field as permission.
+`ConfiguredDpsCoordinator` reads the native Akaunting MySQL connection
+configuration. It opens a **second PDO connection to that exact same schema**;
+there is no arbitrary external DSN. This is intentional, not another database.
 
-The coordinator blocks revoked generations at claim time. It cannot recall a
-POST already initiated before revocation, so workers must be drained and
-in-flight results reconciled. A central MySQL split-brain or rollback of the
-allocation ledger invalidates the guarantee and requires suspension.
+The first transaction locks and commits the authority's number/operation
+allocation. The invoice-side transaction then records its reservation. If
+the second transaction rolls back, the authority allocation remains consumed:
+a later attempt must reconcile it read-only, not recreate a first POST.
+`EmissionAttemptJournal` commits `pending` before issuing an irreversible
+claim in the authority transaction. After that claim commits, only the
+original DPS may be queried for recovery. No second POST is authorized after
+timeout, crash, 5xx, uncertain persistence or an already claimed operation.
+Rejected/abandoned numbers are never recycled automatically.
 
-The local Laravel reservation transaction uses **one attempt**, not a
-blind deadlock retry: the central transaction can commit before the local
-transaction fails. Any retry of the same operation then finds an existing
-central allocation and deliberately requires read-only recovery; it must
-not reconstruct the local reservation or initiate a fresh fiscal POST.
+The authority checks the current installation membership and generation
+inside the same transaction as its allocation/claim. Series and membership
+status changes are administrative operations, never implied by ordinary
+application startup or the presence of matching text references.
 
-The separate local `nfse_dps_series.last_number` is now only an observed
-high-water mark. It may jump due to allocations by peer installations.
-The local `nfse_dps_reservations` ledger and `EmissionAttemptJournal`
-remain the sources for local operation history and emission recovery. Global
-allocation history is append-only: even rejected, abandoned or ambiguous
-numbers are not automatically recycled.
+## Provisioning and activation
 
-**No shared MySQL authority is provisioned automatically.**
-`Providers/Main.php` binds `DpsIssuanceIdentityContract` to the
-production issuance adapter, but without configured central MySQL connection,
-installation membership and approved fiscal series it fails closed. A
-matching text reference or local SQL lock cannot enable issuance.
+1. Back up and verify the actual Akaunting MySQL database, application key and
+   certificate/OpenBao configuration. Drain emission workers before changing
+   an active series or migration. Apply the module's normal Laravel
+   migrations; confirm all three authority tables exist in the **same**
+   schema. Database migrations do **not** create or activate fiscal series.
+2. Establish exclusive series ownership for each taxpayer and environment.
+   The National Web Portal uses a different channel series from an API
+   emitter. Existing issued NFS-e records, XML and DANFSe must never be
+   renumbered. Historic restricted-environment transmissions also count,
+   including rejected and ambiguous attempts.
+3. Reconcile the **maximum ever consumed** DPS number per fiscal scope using
+   existing attempts, saved official responses and **read-only** SEFIN DPS
+   queries. Record independent evidence and its SHA-256 digest. A successful
+   query of one DPS is not evidence that all higher numbers are unused.
+   Do not assume a fresh series starts at zero without supporting evidence.
+4. Provision the matching authority series with a cryptographically random
+   64-character hexadecimal reference, the attested floor and SHA-256
+   evidence, high-water equal to or above the floor, and status `inactive`.
+   Provision one installation UUID and generation with status `inactive`.
+   Configure a matching `nfse_dps_series` row with
+   `coordination_mode=shared_database` (retained as a stable internal
+   identifier), reference and high-water, also `inactive`. The mode name
+   refers to the shared logical authority, **not** an external DB.
+5. Store the stable installation UUID and positive generation in deployment
+   configuration outside DB backups:
+   `NFSE_DPS_INSTALLATION_ID` and
+   `NFSE_DPS_INSTALLATION_GENERATION`. The normal application MySQL
+   `host`/`port`/`database`/`username`/`password` are reused; the
+   obsolete `NFSE_DPS_COORDINATOR_DSN` is **not used**. Optional
+   `NFSE_DPS_COORDINATOR_USER` and
+   `NFSE_DPS_COORDINATOR_PASSWORD` may specify *both* credentials for a
+   restricted user of the **same schema**. Do not point them at another DB.
+6. Restrict the coordinator user to SELECT and column-level
+   UPDATE(`last_number`) on the authority series; SELECT on members;
+   SELECT/INSERT and column-level UPDATE of first-POST claim fields on
+   allocations. No DDL/DELETE/series activation/membership mutation for
+   application workers. Provisioning credentials must remain administrative.
+7. With all checks satisfied, enable exactly the intended restricted series
+   and member, then the matching local series in a controlled transaction.
+   Confirm the runtime uses MySQL, the approved installation generation,
+   matching series/reference and the intended environment. Validate with
+   synthetic tests first, then an explicitly authorized restricted-environment
+   issuance, followed by read-only official recovery and persisted receipt
+   checks. Keep production issuance disabled until independently authorized.
 
-## Provisioning and operating boundary
+A missing configuration, inactive series, revoked generation, mismatched
+reference, unknown historical starting number or unavailable MySQL connection
+must prevent **new** transmissions. Merely creating a profile is not issuance
+authorization.
 
-1. Operate a *single-writer, transactionally durable* MySQL primary shared by
-   all participating installations; do not point participants at writable
-   replicas, independent schemas with identical names or asynchronously
-   promoted primaries. Its durable allocation ledger must **not** be restored
-   to an earlier committed state. Use PITR/replication with a verified
-   non-rollback high-water/operation history; suspend all allocations during
-   disaster recovery or leader migration until the ledger is reconciled.
-2. Apply [the explicit SQL schema](sql/dps-coordination-schema.sql) to the
-   central store only. It performs no inserts or activation. No deployment
-   migration adds it to Akaunting or silently provisions a series.
-3. With verified fiscal authorization, decide the intended series and collect
-   independent evidence that no other service, manual emitter or installation
-   can use that **same** series. A coordinator only controls *participants*;
-   SEFIN does not delegate universal series ownership to this SQL database.
-   Assign a nonoverlapping series or prohibit every uncoordinated issuer;
-   record the operational commitment and revocation process.
-4. Reconcile all earlier used/reserved/transmitted DPS numbers for that issuer,
-   environment and series, including gaps, pending results, other emitters
-   and homologation. Record the evidence's SHA-256 and **attested_floor** as
-   the maximum ever consumed. Set `last_number` to that floor, not to zero
-   unless independently established. Neither an evidence hash nor a local
-   counter alone proves the factual correctness of that floor.
-5. In a separately authorized transaction, provision the exact global
-   `nfse_dps_coordination_series` row with a random 64-hex reference, the
-   floor/evidence digest and status `active` only after checks. Provision
-   `nfse_dps_coordination_members` for each approved installation UUID with
-   its current positive `generation` and active status. Duplicate fiscal
-   series identities are rejected by SQL. Keep the evidence and provisioning
-   approvals outside the fiscal logs; never store PFX, tokens or XML here.
-6. Give each installation a durable UUID and fencing generation **outside
-   restored Akaunting database backups**. Configure the same MySQL primary via
-   `NFSE_DPS_COORDINATOR_DSN`, `NFSE_DPS_COORDINATOR_USER`,
-   `NFSE_DPS_COORDINATOR_PASSWORD`, `NFSE_DPS_INSTALLATION_ID`
-   and `NFSE_DPS_INSTALLATION_GENERATION`. The existing
-   `ConfiguredDpsCoordinator` creates its PDO connection and has no local
-   fallback. The local active `nfse_dps_series` row must match the global
-   identity, `coordination_mode=shared_database` and reference; it
-   **does not itself constitute proof**. The adapter and claim are integrated,
-   but activating a fiscal series still needs independent evidence.
-7. Use least-privilege MySQL credentials: allocation workers need SELECT and column-level `UPDATE(last_number)` on central
-   series; SELECT only on members; SELECT/INSERT and column-scoped UPDATE
-   (`first_post_claimed_at`, `claimed_generation`, `first_post_fingerprint`)
-   on allocations. Shared locking reads on member/allocation rows avoid broad
-   UPDATE privileges.
-   No DELETE, DROP, member UPDATE, series status/evidence UPDATE or DDL.
-   Validate these grants using the least-privilege MySQL integration test. Separate administrative credentials for
-   provisioning, revocation and exceptional reconstruction. Restrict
-   network access and encrypt transport. Monitor ledger consistency and
-   lost connectivity without logging credentials or taxpayer PII.
+## Backups and full-database restores
 
-A member is revoked by an authorized administrator updating its generation
-and/or status **in the same global primary**. The row lock makes new
-allocations using the stale generation fail after revocation commits.
-Installation takeovers need a newly distributed generation and old process
-credentials must be revoked separately. Do not reuse UUID+generation for an
-untrusted cloned installation.
+With one database, both the invoice journal and authoritative ledger can be
+restored to an older point in time **together**. A database alone cannot
+reliably detect that its own more recent records have been erased. Unlike the
+former separate-database proposal, this design does **not** provide an
+independent automatic rollback-proof high-water store.
 
-## Failure/attack matrix (no SEFIN transmission)
+The operational recovery rule is mandatory:
 
-| Scenario | Result / safe recovery |
-| --- | --- |
-| Two local databases, same issuer and series | Different global allocations, serialized by central InnoDB row lock; central unique index |
-| Two Akaunting companies representing same issuer | Distinct operation keys and numbers; tenant permission still enforced locally |
-| Different issuer or target environment | Independent globally unique fiscal scope; same decimal number is allowed |
-| Repeat one operation | Same central allocation; locally persisted replay must match read-only; no new number |
-| Crash after global commit, before local commit | Globally allocated number remains consumed; absent local history causes **block**, operator read-only reconciliation |
-| Restored stale local DB | Central high-water cannot roll back; missing local record with known operation is blocked, never silently resent. Local high-water may safely jump forward to the authoritative number |
-| Revoked/stale process | Generation/status checked inside transaction; new allocation blocked |
-| Network outage, lock timeout or split primary | Failed coordination means no new allocation. Split-brain CENTRAL primary invalidates safety assumptions and requires operational intervention |
-| Rejection or ambiguous response | Keep allocated number, no automatic recycle or second POST; reconcile immutable DPS via existing journal |
-| Read-only recovery | No allocation or new POST. Requires separate authorized journal/reconciliation flow |
-| Authority table/floor missing or reference mismatch | Fail closed without touching local or global counter |
+1. **Stop/disable all first-POST paths and drain workers before restoring.**
+2. Preserve off-database evidence of the previous highest allocation,
+   first-POST claims, authorized/rejected/ambiguous DPS and last known
+   installation generation (for example, durable backup logs and SEFIN
+   consultations). Back up the fiscal authority in a way that supports
+   point-in-time recovery; do not silently restore an old snapshot.
+3. After restore, invalidate the old installation generation and keep
+   local and authority series **inactive** until the SEFIN history and
+   off-database evidence have been reconciled. Never infer permission from
+   missing journal rows, a matching application UUID or a 404 to a single
+   DPS query.
+4. If any transmitted allocation is absent from the restored database,
+   reconstruct evidence under an audited exceptional process or advance to
+   a verified noncolliding series after independent fiscal review. Never
+   silently reuse the previous number or recreate a first POST.
+5. Only a separately authorized operator may activate a new generation,
+   reconciling the authority floor, local high-water and status first.
 
-**Hard boundary:** this coordinator cannot prevent a nonparticipating
-external issuer from using the same series, nor prove that a manually
-attested historical maximum is true. #515/#516 added an irreversible
-first-transmission claim in the shared MySQL ledger. A claim already committed
-before installation revocation cannot recall an in-flight fiscal POST. Keep
-**real first POSTs and series activation disabled** until verified exclusive
-series ownership, official sequencing policy review, existing-ledger
-reconciliation and restricted-environment verification are complete.
-
-## Direct fiscal transport boundary (mandatory rollout gate)
-
-The supported manual, automatic, grouped, batch, reissue and substitution
-callers now pass through `EmissionAttemptJournal::issue()`, which binds the
-local immutable reservation, runs municipal preflight and commits the global
-first-POST claim before invoking transport. `IssueInvoiceNfse::issue()`
-remains a low-level transport helper that can call `emit()` directly; it is
-not an authorized public issuance entrypoint. New callers must never invoke
-that helper outside the journal. Tests must cover these actual call paths.
-
-Neither the PHP code nor the shared ledger attests exclusive ownership of a
-series against outside emitters. The safe default is to reject issuance when
-the coordinator or authorized profile is unavailable. Do not activate the
-first real fiscal POST merely because #515/#516 merged.
-
-The SEFIN API does not validate a local fencing token. Revocation can
-prevent *new allocations and claims* but cannot reliably recall an already
-authorized in-flight HTTP request. Operators must drain/terminate old
-workers during revocation and treat any in-flight result as ambiguous until
-read-only reconciliation. Do not claim hard real-time transmission revocation.
-
-## Integrated contract with #421 / #429
-
-`DpsIssuanceIdentity` resolves the persisted invoice owner and approved
-fiscal profile, validates the immutable issuer/environment/series, derives
-`DpsOperationKey` and reserves an authoritative number. The existing
-`EmissionAttemptJournal` persists the local reservation and rechecks
-municipal preflight before the **irreversible** central first-POST claim.
-The claim checks current authority and fencing; it is neither a new
-reservation nor an expiring retry lease. The provider binds the adapter,
-but real issuance fails closed without a configured coordinator and
-independently verified series activation.
-
-`nfse-php` remains responsible for official XML and identifier formation;
-the pinned module revision is
-`2b52325f253db74a0da2ee18a3e1b27a7bfbe31f`. Existing
-`DpsFiscalIssuer` retains the municipality/CPF-or-CNPJ representation.
-Verify current official XSDs per environment before enabling alphanumeric
-registration or selecting a default series. The official DPS description
-requires increasing sequence; current portal's production/restricted XSD
-bundles differ, and no reviewed official annex in this work authorizes
-automatic reuse of a rejected DPS.
+A restore performed without this process can defeat monotonicity and is
+unsupported. Database/application backups must preserve the APP_KEY and
+certificate references; do not put certificates, passwords or issued XML in
+the DPS allocation tables.
 
 ## Verification
 
-Run the existing feature suite (synthetic coordinator only) and the
-`MySQL Migrations` suite against a dedicated `*_migration_tests` MySQL
-database. The latter creates and cleans test-only peer/central databases,
-uses distinct PDO connections and never calls the SEFIN. Verify negative
-tests for missing/fenced authority, network failure, stale local backup,
-central/local partial commit, idempotency, environment/issuer separation,
-number ceiling and nonrecycling. CI success is not deployment evidence.
+- MySQL migration suite: duplicate national identifiers, DB-level unique
+  keys, foreign keys, rollback protection and schema idempotency.
+- Real MySQL coordinator suite: competing PDO transactions, issuer isolation,
+  same-CNPJ multi-company operation keys, replay after a partial commit,
+  generation revocation, least-privilege grants and claim-at-most-once.
+- Feature suite with fake fiscal transport: HTTP, manual, automatic, groups,
+  batches, substitutions and recovery through one `EmissionAttemptJournal`.
+- Restricted SEFIN testing is a separate operation: it must never use
+  fabricated client credentials or production customer documents.
+
+The coordinator cannot control an external issuer using the same DPS series
+and does not replace official specification checks, taxpayer authorization
+or operational series exclusivity.

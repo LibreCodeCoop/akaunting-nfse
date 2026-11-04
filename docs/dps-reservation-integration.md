@@ -117,7 +117,7 @@ an unguarded POST, and create the journal record only afterward.
 The current unique indexes and `SELECT ... FOR UPDATE` protect only
 connections sharing the **same** MySQL data store. Two independent database
 installations may each allocate the same fiscal identity even if both write
-identical `coordination_reference` strings. Coordination requires the independently provisioned shared MySQL primary, and cannot prove ownership against nonparticipating external issuers.
+identical `coordination_reference` strings. Coordination uses an independently committed PDO transaction in the same Akaunting MySQL schema; it cannot prove ownership against nonparticipating external issuers. Full-database restores require a separate operational reconciliation before reactivation.
 
 As of the shared-MySQL coordinator implementation, an eligible deployment
 must explicitly inject a **real atomic** `DpsSeriesCoordinator`; the default is

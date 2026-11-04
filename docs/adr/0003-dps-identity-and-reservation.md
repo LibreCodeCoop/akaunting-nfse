@@ -39,6 +39,31 @@ These projects do not substitute for the production/restricted XSD, official Ann
 
 An initial, independent Draft code PR (#451) now includes a **disabled-by-default, non-wired** local counter and reservation ledger with transaction/uniqueness tests. It does not alter live DPS construction or authorize use of a disputed series. The service currently assumes its invoking application has already checked the tenant and that all issuers declaring `shared_database` genuinely share one database. Neither an administrator-entered text reference nor a local row proves coordination with external software or another database. CODEOWNER approval, authoritative rules, explicit company resolution (#421), profile administration (#417), last-boundary preflight (#429), final CI and fake-SEFIN integration tests are still required.
 
+## Implemented deployment decision (2026-11-04)
+
+**One Akaunting installation, one MySQL database, multiple companies.** Each
+company owns its certificate and invoice operations; the fiscal series key is
+(issuer municipality, registration type and number, target environment, series).
+The versioned Akaunting migration now provisions the DPS authority tables in
+the **same database**. `ConfiguredDpsCoordinator` obtains that application's
+MySQL host and database configuration and opens an independent PDO transaction
+for the irreversible allocation/first-POST claim. This is a second
+**connection**, not a second database, MySQL server or Akaunting instance.
+
+The previously considered architecture with two independent Akaunting
+installations emitting for one CNPJ is excluded from the supported deployment
+policy. The authoritative ledger still guards concurrency between HTTP/queue
+processes and across different companies with a matching fiscal identity.
+No migration creates an active fiscal series or transmits an NFS-e. Restoring
+the whole database rolls back **both** the commercial and authority ledger;
+therefore suspend emission and independently reconcile the SEFIN historical
+high-water before reactivating the series after restoration. The single
+database cannot automatically detect an undisciplined full backup rollback.
+
+[Operating procedure](../dps-distributed-coordination.md) is authoritative
+for the current one-database deployment. Historical notes below document
+earlier hypotheses and are not current deployment instructions.
+
 ## Decision proposed
 
 Separate immutable identities for (a) Akaunting commercial document, (b) reserved DPS, and (c) SEFIN-assigned NFS-e receipt/access key. Never rewrite authorized NFS-e numbers, XML, events or replacement links.

@@ -8,11 +8,11 @@ declare(strict_types=1);
 namespace Modules\Nfse\Application;
 
 /**
- * Atomically allocates an immutable DPS number in a durable store shared by
- * every participating installation. A read-only verifier is NOT sufficient.
+ * Atomically allocates an immutable DPS number in the one authoritative
+ * database of the Akaunting installation. A read-only verifier is NOT sufficient.
  *
- * The implementation must fence revoked installation generations inside the
- * same transaction that advances the authoritative fiscal series.
+ * The implementation must fence revoked worker generations inside the same
+ * transaction that advances the authoritative fiscal series.
  */
 interface DpsSeriesCoordinator
 {

@@ -11,12 +11,11 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Opt-in local transactional DPS allocator. Not integrated into issuance.
- *
- * An explicit company/issuer authorizer is mandatory (#417/#421).
- * A local database only coordinates installations using THIS same database.
- * Series administration/activation must prove ownership before it may create
- * an active series (#417); this service never activates one automatically.
+ * Transactional DPS allocator for the multi-company Akaunting installation.
+ * An explicit company/issuer authorizer is mandatory. The application and
+ * the coordinator use separate transactions in the SAME MySQL database.
+ * A local status alone cannot activate a fiscal series; ownership and
+ * historic numbering must be attested before an administrator enables it.
  */
 final class DpsReservationService
 {
@@ -63,7 +62,13 @@ final class DpsReservationService
         }
 
         return DB::transaction(function () use (
-            $companyId, $invoiceId, $issuer, $environment, $series, $operationKey, $origin,
+            $companyId,
+            $invoiceId,
+            $issuer,
+            $environment,
+            $series,
+            $operationKey,
+            $origin,
         ): array {
             // The commercial invoice establishes tenant ownership, not the
             // nationally recognized issuer key. Do not use the HTTP session.
@@ -115,12 +120,15 @@ final class DpsReservationService
                 }
 
                 // Even read-only allocator replay requires proof that the immutable
-                // national DPS was allocated by the shared authority.
+                // national DPS was allocated by the authoritative ledger.
                 // Journal-based recovery remains a separately authorized path.
                 $this->coordinatorFor($originalSeries)->assertExisting(
-                    $issuer, $environment, $series,
+                    $issuer,
+                    $environment,
+                    $series,
                     trim((string) $originalSeries->coordination_reference),
-                    $operationKey, (int) $existing->number,
+                    $operationKey,
+                    (int) $existing->number,
                 );
 
                 return $this->result($existing, $companyId, $invoiceId, $series);
@@ -138,19 +146,21 @@ final class DpsReservationService
                 throw new \OverflowException('Fiscal DPS series has exhausted its fifteen-digit sequence.');
             }
 
-            // The remote authority commits a unique number BEFORE local state
-            // changes. Its durable (installation, operation) mapping survives
-            // a local crash, rollback and restore. Never infer exclusivity from
-            // the local counter or from a check-only verifier.
+            // A second PDO transaction commits the allocation before the
+            // invoice-side state changes. It survives a transaction rollback,
+            // but NOT restoration of the entire Akaunting database.
             $allocation = $coordinator->allocate(
-                $issuer, $environment, $series,
-                trim((string) $counter->coordination_reference), $operationKey,
+                $issuer,
+                $environment,
+                $series,
+                trim((string) $counter->coordination_reference),
+                $operationKey,
             );
             $next = $allocation['number'];
 
             if (!$allocation['fresh']) {
-                // A central reservation with no local record can mean a crash
-                // after the central commit OR a stale restored local database.
+                // An authority allocation with no local record can mean a crash
+                // after its independent commit or a partial restored backup.
                 // Automatically recreating it could authorize a second POST.
                 throw new \LogicException(
                     'Authoritative DPS allocation has no local reservation; recover read-only before any emission.',
@@ -182,9 +192,9 @@ final class DpsReservationService
                 'series' => $series,
                 'number' => (string) $next,
             ];
-        // Never retry this local transaction automatically: the central
-        // allocation can already be committed when a local deadlock occurs.
-        // Recovery must inspect the immutable central operation read-only.
+            // Never retry this invoice-side transaction automatically: the
+            // authority may have committed on its separate PDO connection.
+            // Recovery must inspect the immutable operation read-only.
         }, 1);
     }
 
