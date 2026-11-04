@@ -32,24 +32,15 @@ final class NfseCompanyProfileCatalog
     }
 
     /**
-     * Never enumerate companies not assigned to the authenticated user.
+     * The admin route selects one native company. Do not enumerate others
+     * merely because an operator can switch to them in the Akaunting shell.
      *
      * @return array{profiles:list<array<string,mixed>>,eligible_companies:list<array{company_id:int,name:string}>}
      */
-    public function forUser(User $user): array
+    public function forCompany(User $user, int $companyId): array
     {
-        $ids = DB::table('user_companies')
-            ->join('companies', 'companies.id', '=', 'user_companies.company_id')
-            ->where('user_companies.user_id', (int) $user->id)
-            ->where('companies.enabled', 1)
-            ->whereNull('companies.deleted_at')
-            ->pluck('companies.id')
-            ->map(static fn ($id): int => (int) $id)
-            ->all();
-
-        if ($ids === []) {
-            return ['profiles' => [], 'eligible_companies' => []];
-        }
+        $this->assertAccessible($user, $companyId);
+        $ids = [$companyId];
 
         $profiles = NfseCompanyProfile::query()->whereIn('company_id', $ids)->get();
         $linked = $profiles->pluck('company_id')->map(static fn ($id): int => (int) $id)->all();

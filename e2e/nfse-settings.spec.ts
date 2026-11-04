@@ -59,12 +59,12 @@ async function mockApi(page: Page, profiles: any[], eligible: any[], vaultState 
 
 test('eligibility, fiscal pendencies, Vault outage and native administration', async ({ page }, info) => {
   await loginToAkaunting(page, info);
-  await mockApi(page, [profile(1)], [company(2)], 'failed');
+  await mockApi(page, [profile(1)], [], 'failed');
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#profiles-body tr')).toHaveCount(1);
   await expect(page.locator('#profiles-body')).toContainText('Empresa sintética 1');
   await expect(page.locator('#profiles-body')).toContainText('Enquadramento do Simples Nacional');
-  await expect(page.locator('#profile-add')).toBeDisabled();
+  await expect(page.locator('#profile-add')).toBeHidden();
   await expect(page.locator('#vault-status')).toContainText('Falha');
   await expect(page.locator('#vault-diagnostics')).not.toHaveAttribute('open');
   await page.locator('#vault-diagnostics summary').click();
@@ -72,29 +72,29 @@ test('eligibility, fiscal pendencies, Vault outage and native administration', a
   await expect(page.locator('#profiles-body')).toContainText('Editar');
 });
 
-test('only available native company appears, and successful deletion makes it eligible', async ({ page }, info) => {
+test('current company only: deleting a profile restores its setup action', async ({ page }, info) => {
   await loginToAkaunting(page, info);
-  await mockApi(page, [profile(1)], [company(2)]);
+  await mockApi(page, [profile(1)], []);
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#profile-add')).toBeEnabled();
-  await page.locator('#profile-add').click();
-  await expect(page.locator('#profile-company option')).toHaveCount(1);
-  await expect(page.locator('#profile-company')).toHaveValue('2');
-  await page.locator('#profile-cancel').click();
-  page.on('dialog', (dialog) => dialog.accept());
+  await expect(page.locator('#profile-add')).toBeHidden();
+  page.on('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: /Excluir configuração NFS-e de Empresa sintética 1/ }).click();
   await expect(page.locator('#profiles-body tr')).toHaveCount(0);
   await expect(page.locator('#profile-add')).toBeEnabled();
+  await expect(page.locator('#profile-add')).toHaveText('Configurar NFS-e');
   await page.locator('#profile-add').click();
-  await expect(page.locator('#profile-company option')).toHaveCount(2);
+  await expect(page.locator('#profile-company')).toHaveAttribute('type', 'hidden');
+  await expect(page.locator('#profile-company')).toHaveValue('1');
+  await expect(page.locator('#profile-company-name')).toHaveText('Empresa sintética 1');
+  await expect(page.locator('#profile-form select[name="company_id"]')).toHaveCount(0);
 });
 
-test('no eligible company hides Add and guides native Akaunting company creation', async ({ page }, info) => {
+test('no eligible company hides setup and explains selected-company access', async ({ page }, info) => {
   await loginToAkaunting(page, info);
   await mockApi(page, [], []);
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#profile-add')).toBeHidden();
-  await expect(page.locator('#profiles-empty')).toContainText('Cadastre uma empresa no Akaunting');
+  await expect(page.locator('#profiles-empty')).toContainText('Empresa indisponível para configuração NFS-e');
 });
 
 test('edit remains available without Vault and never transfers company identity', async ({ page }, info) => {
@@ -102,16 +102,16 @@ test('edit remains available without Vault and never transfers company identity'
   await mockApi(page, [profile(1)], [], 'failed');
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
   await page.locator('#profiles-body').getByRole('button', { name: 'Editar' }).click();
-  await expect(page.locator('#profile-company')).toBeDisabled();
+  await expect(page.locator('#profile-company')).toHaveAttribute('type', 'hidden');
   await expect(page.locator('#profile-company')).toHaveValue('1');
   await expect(page.locator('#profile-pfx')).not.toHaveAttribute('required');
 });
 
 test('administrative UI synthetic screenshot', async ({ page }, info) => {
   await loginToAkaunting(page, info);
-  await mockApi(page, [profile(1)], [company(2)]);
+  await mockApi(page, [profile(1)], []);
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#profile-add')).toBeEnabled();
+  await expect(page.locator('#profiles-body tr')).toHaveCount(1);
   await info.attach('nfse-company-admin-synthetic.png', {
     body: await page.locator('#nfse-company-admin').screenshot({ animations: 'disabled' }),
     contentType: 'image/png',
@@ -136,7 +136,7 @@ test('fiscal tax associations are reviewed through native settings, without auto
 
 test('profile list failure hides tenant data and creation controls', async ({ page }, info) => {
   await loginToAkaunting(page, info);
-  await mockApi(page, [profile(1)], [company(2)]);
+  await mockApi(page, [profile(1)], []);
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#profiles-body tr')).toHaveCount(1);
   await page.route('**/nfse/settings/company-profiles', route => route.fulfill({
@@ -153,15 +153,14 @@ test('profile list failure hides tenant data and creation controls', async ({ pa
 
 test('profile editor restores focus on cancel and displays sanitized validation errors', async ({ page }, info) => {
   await loginToAkaunting(page, info);
-  await mockApi(page, [profile(1)], [company(2)]);
+  await mockApi(page, [profile(1)], []);
   await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
-  const add = page.locator('#profile-add');
-  await add.focus();
+  const edit = page.getByRole('button', { name: /Editar configuração NFS-e de Empresa sintética 1/ });
+  await edit.focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#profile-editor-title')).toBeFocused();
   await page.locator('#profile-cancel-bottom').click();
-  await expect(add).toBeFocused();
-  const edit = page.getByRole('button', { name: /Editar configuração NFS-e de Empresa sintética 1/ });
+  await expect(edit).toBeFocused();
   await edit.click();
   await expect(page.locator('#profile-editor-title')).toBeFocused();
   await page.route('**/nfse/settings/company-profiles/1', route => route.fulfill({
@@ -173,4 +172,40 @@ test('profile editor restores focus on cancel and displays sanitized validation 
   await expect(page.locator('#profile-form-error')).toBeFocused();
   await expect(page.locator('#profile-save')).toBeEnabled();
   await page.locator('#profile-cancel').click();
+});
+
+test('Vault failure opens corrective infrastructure settings instead of inert setup', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [], [company(1)], 'failed');
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  const setup = page.locator('#profile-add');
+  await expect(setup).toBeEnabled();
+  await expect(setup).toHaveText('Configurar infraestrutura primeiro');
+  await expect(page.locator('#profile-add-hint')).toContainText('Vault não está operacional');
+  await setup.click();
+  await expect(page.locator('#vault-editor')).toBeVisible();
+  await expect(page.locator('#bao_addr')).toBeFocused();
+  await expect(page.locator('#profile-editor')).toBeHidden();
+});
+
+test('a response containing another company cannot pollute the selected settings page', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [profile(2)], [company(2)]);
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#profiles-body tr')).toHaveCount(0);
+  await expect(page.locator('#profile-add')).toBeHidden();
+  await expect(page.locator('#profiles-empty')).toContainText('Empresa indisponível');
+  await expect(page.locator('#nfse-company-admin')).not.toContainText('Empresa sintética 2');
+});
+
+test('the selected Akaunting company is bound automatically, with no duplicate selector', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [], [company(1)]);
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  await page.locator('#profile-add').click();
+  await expect(page.locator('#profile-editor')).toBeVisible();
+  await expect(page.locator('#profile-company')).toHaveAttribute('type', 'hidden');
+  await expect(page.locator('#profile-company')).toHaveValue('1');
+  await expect(page.locator('#profile-company-name')).toHaveText('Empresa sintética 1');
+  await expect(page.locator('select[name="company_id"]')).toHaveCount(0);
 });

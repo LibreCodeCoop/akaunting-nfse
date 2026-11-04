@@ -64,6 +64,14 @@
         return Array.isArray(snapshot?.eligible_companies) ? snapshot.eligible_companies : [];
     }
 
+    function selectedCompanySnapshot(data, companyId) {
+        const match = (item) => Number.isSafeInteger(companyId) && Number(item?.company_id) === companyId;
+        return {
+            profiles: Array.isArray(data?.profiles) ? data.profiles.filter(match) : [],
+            eligible_companies: visibleEligible(data).filter(match),
+        };
+    }
+
     function showAdd(snapshot, canUpdate) {
         return Boolean(canUpdate) && visibleEligible(snapshot).length > 0;
     }
@@ -94,7 +102,8 @@
 
         const el = (id) => documentRef.getElementById(id);
         const form = el('profile-form');
-        const companySelect = el('profile-company');
+        const companyInput = el('profile-company');
+        const currentCompanyId = Number(config.currentCompanyId);
         const addButton = el('profile-add');
         const editor = el('profile-editor');
         let snapshot = { profiles: [], eligible_companies: [] };
@@ -172,18 +181,11 @@
             message(el('profile-form-error'), '');
             form.reset();
             editingId = profile ? Number(profile.company_id) : null;
-            companySelect.replaceChildren();
-            const entries = profile
-                ? [{ company_id: profile.company_id, name: profile.name }]
-                : visibleEligible(snapshot);
-            for (const company of entries) {
-                const option = documentRef.createElement('option');
-                option.value = String(company.company_id);
-                option.textContent = company.name;
-                companySelect.appendChild(option);
-            }
-            companySelect.disabled = Boolean(profile);
-            el('profile-editor-title').textContent = profile ? 'Editar configuração NFS-e' : 'Adicionar configuração NFS-e';
+            const selected = profile || visibleEligible(snapshot)[0];
+            if (!selected || Number(selected.company_id) !== currentCompanyId) return;
+            companyInput.value = String(currentCompanyId);
+            el('profile-company-name').textContent = selected.name;
+            el('profile-editor-title').textContent = profile ? 'Editar configuração NFS-e' : 'Configurar NFS-e';
             el('profile-rotation-hint').hidden = !profile;
             el('profile-pfx').required = !profile;
             el('profile-pfx-password').required = !profile;
@@ -237,8 +239,8 @@
 
             if (profiles.length === 0) {
                 message(el('profiles-empty'), eligible.length
-                    ? 'Nenhuma empresa possui configuração NFS-e. Selecione Adicionar para começar.'
-                    : 'Nenhuma empresa disponível. Cadastre uma empresa no Akaunting ou solicite acesso às empresas existentes.');
+                    ? 'Esta empresa ainda não possui configuração NFS-e.'
+                    : 'Empresa indisponível para configuração NFS-e. Verifique o cadastro e o acesso no Akaunting.');
             }
             for (const profile of profiles) {
                 const row = documentRef.createElement('tr');
@@ -274,12 +276,16 @@
 
             if (addButton) {
                 addButton.hidden = !showAdd(snapshot, config.canUpdate);
-                addButton.disabled = mutating || saving || !canCreate(snapshot, vaultState, config.canUpdate);
+                // An infrastructure prerequisite must be actionable, not an inert button.
+                addButton.disabled = mutating || saving;
+                addButton.textContent = vaultState === 'operational' ? 'Configurar NFS-e' : 'Configurar infraestrutura primeiro';
                 addButton.setAttribute('aria-describedby', 'profile-add-hint');
             }
             let hint = '';
             if (eligible.length && config.canUpdate && vaultState !== 'operational') {
-                hint = 'Configure ou corrija a infraestrutura e conclua a verificação do Vault antes de adicionar uma empresa. Perfis existentes continuam disponíveis.';
+                hint = vaultState === 'unverified'
+                    ? 'Verificando a infraestrutura antes de cadastrar o perfil fiscal.'
+                    : 'O Vault não está operacional. Configure ou corrija a infraestrutura antes de cadastrar o perfil fiscal desta empresa.';
             }
             message(el('profile-add-hint'), hint);
         }
@@ -287,10 +293,7 @@
         async function refreshProfiles() {
             try {
                 const data = await requestJson(config.listUrl);
-                snapshot = {
-                    profiles: Array.isArray(data.profiles) ? data.profiles : [],
-                    eligible_companies: visibleEligible(data),
-                };
+                snapshot = selectedCompanySnapshot(data, currentCompanyId);
                 loaded = true;
                 message(el('profiles-error'), '');
                 renderProfiles();
@@ -428,7 +431,15 @@
         }
 
         el('profile-add')?.addEventListener('click', () => {
-            if (canCreate(snapshot, vaultState, config.canUpdate)) openEditor(null, addButton);
+            if (canCreate(snapshot, vaultState, config.canUpdate)) {
+                openEditor(null, addButton);
+                return;
+            }
+            // Fail closed for certificate operations, but open a recovery path.
+            if (showAdd(snapshot, config.canUpdate)) {
+                setVaultEditorVisibility(true);
+                el('bao_addr')?.focus();
+            }
         });
         el('profile-cancel')?.addEventListener('click', () => closeEditor());
         el('profile-cancel-bottom')?.addEventListener('click', () => closeEditor());
@@ -461,7 +472,7 @@
         }
     }
 
-    return { visibleEligible, showAdd, canCreate, pendingLabels, errorMessage, specialRegimeUiState, init, boot };
+    return { visibleEligible, selectedCompanySnapshot, showAdd, canCreate, pendingLabels, errorMessage, specialRegimeUiState, init, boot };
 });
 
 if (typeof document !== 'undefined' && typeof fetch !== 'undefined' && globalThis.NfseCompanyAdmin) {

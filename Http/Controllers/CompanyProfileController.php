@@ -20,9 +20,9 @@ use Modules\Nfse\Support\NfseCompanyProfileManager;
  */
 final class CompanyProfileController extends Controller
 {
-    public function index(NfseCompanyProfileCatalog $catalog): JsonResponse
+    public function index(Request $request, NfseCompanyProfileCatalog $catalog): JsonResponse
     {
-        return response()->json($catalog->forUser($this->operator()));
+        return response()->json($catalog->forCompany($this->operator(), $this->selectedCompanyId($request)));
     }
 
     public function store(
@@ -32,6 +32,7 @@ final class CompanyProfileController extends Controller
     ): JsonResponse {
         $data = $request->validate($this->rules($request, true));
         $companyId = (int) $data['company_id'];
+        $this->assertSelectedCompany($request, $companyId);
         $catalog->assertAccessible($this->operator(), $companyId);
 
         try {
@@ -54,6 +55,7 @@ final class CompanyProfileController extends Controller
         NfseCompanyProfileCatalog $catalog,
         NfseCompanyProfileManager $manager,
     ): JsonResponse {
+        $this->assertSelectedCompany($request, $companyId);
         $catalog->assertAccessible($this->operator(), $companyId);
         $data = $request->validate($this->rules($request, false));
         $file = $request->file('pfx_file');
@@ -80,7 +82,9 @@ final class CompanyProfileController extends Controller
         int $companyId,
         NfseCompanyProfileCatalog $catalog,
         NfseCompanyProfileManager $manager,
+        Request $request,
     ): JsonResponse {
+        $this->assertSelectedCompany($request, $companyId);
         $catalog->assertAccessible($this->operator(), $companyId);
 
         try {
@@ -96,7 +100,9 @@ final class CompanyProfileController extends Controller
         int $companyId,
         NfseCompanyProfileCatalog $catalog,
         NfseCompanyProfileManager $manager,
+        Request $request,
     ): JsonResponse {
+        $this->assertSelectedCompany($request, $companyId);
         $catalog->assertAccessible($this->operator(), $companyId);
 
         try {
@@ -106,6 +112,25 @@ final class CompanyProfileController extends Controller
         }
 
         return response()->json(['state' => 'cleanup_completed']);
+    }
+
+    /** Read the native Akaunting URL context, never a user-submitted company. */
+    private function selectedCompanyId(Request $request): int
+    {
+        $value = $request->route('company_id');
+        $companyId = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($companyId === false) {
+            abort(404);
+        }
+
+        return $companyId;
+    }
+
+    private function assertSelectedCompany(Request $request, int $companyId): void
+    {
+        if ($companyId !== $this->selectedCompanyId($request)) {
+            abort(404);
+        }
     }
 
     private function operator(): User
