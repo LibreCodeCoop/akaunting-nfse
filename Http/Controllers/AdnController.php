@@ -18,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\AdnAccountingPreview;
+use Modules\Nfse\Models\AdnReviewEvent;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientFactory;
@@ -159,6 +160,42 @@ class AdnController extends Controller
         ]);
     }
 
+    /** Immutable decision trail, scoped exactly like the ADN record itself. */
+    public function reviewHistory(int $document, Request $request): JsonResponse
+    {
+        $companyId = $this->requireCompanyId();
+        AdnSyncDocument::query()->whereKey($document)
+            ->where('company_id', $companyId)->firstOrFail();
+
+        $limit = $request->query('limit', 50);
+        if (!is_scalar($limit) || preg_match('/^[1-9]\d*$/', (string) $limit) !== 1 || (int) $limit > 100) {
+            return $this->jsonResponse(['message' => 'Invalid limit.'], 422);
+        }
+
+        $page = AdnReviewEvent::query()
+            ->where('company_id', $companyId)
+            ->where('adn_document_id', $document)
+            ->orderByDesc('id')
+            ->paginate((int) $limit);
+
+        return $this->jsonResponse([
+            'data' => collect($page->items())->map(static fn (AdnReviewEvent $event): array => [
+                'id' => (int) $event->id,
+                'action' => (string) $event->action,
+                'reason' => $event->reason,
+                'bill_id' => $event->bill_id,
+                'operator_id' => $event->operator_id,
+                'created_at' => $event->created_at?->toIso8601String(),
+            ])->all(),
+            'meta' => [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+            ],
+        ]);
+    }
+
     /** Preview is deliberately a pure read; never creates a vendor or bill. */
     public function preview(int $document): JsonResponse
     {
@@ -199,6 +236,8 @@ class AdnController extends Controller
                 ->firstOrFail();
 
             if ((int) $reviewDocument->imported_document_id > 0) {
+                $this->appendReviewEvent($companyId, $document, 'conflict', 'already_imported');
+
                 return 'conflict';
             }
 
@@ -207,12 +246,15 @@ class AdnController extends Controller
             }
 
             if ($reviewDocument->review_status !== 'pending') {
+                $this->appendReviewEvent($companyId, $document, 'conflict', 'not_pending');
+
                 return 'conflict';
             }
 
             $reviewDocument->review_status = 'ignored';
             $reviewDocument->ignored_at = now();
             $reviewDocument->save();
+            $this->appendReviewEvent($companyId, $document, 'ignored');
 
             return 'ignored';
         });
@@ -261,6 +303,8 @@ class AdnController extends Controller
         }
 
         if ((string) $reviewDocument->review_status !== 'pending') {
+            $this->appendReviewEvent($companyId, $document, 'rejected', 'not_pending');
+
             return $request->expectsJson()
                 ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_not_pending')], 409)
                 : redirect()->route('nfse.adn.index')
@@ -270,6 +314,8 @@ class AdnController extends Controller
         try {
             $preview = (new AdnAccountingPreview())->fromAuthorizedXml((string) $reviewDocument->xml);
         } catch (\InvalidArgumentException) {
+            $this->appendReviewEvent($companyId, $document, 'rejected', 'invalid_xml');
+
             return $request->expectsJson()
                 ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_invalid_xml')], 422)
                 : redirect()->route('nfse.adn.index')
@@ -289,6 +335,7 @@ class AdnController extends Controller
             ->first();
 
         if (!$category instanceof Category || !$item instanceof Item) {
+            $this->appendReviewEvent($companyId, $document, 'rejected', 'invalid_mapping');
             return $request->expectsJson()
                 ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_mapping_required')], 422)
                 : redirect()->route('nfse.adn.index')
@@ -302,6 +349,7 @@ class AdnController extends Controller
             preg_match('/^\d{4}-\d{2}-\d{2}$/', $issuedAt) !== 1
             || preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueAt) !== 1
         ) {
+            $this->appendReviewEvent($companyId, $document, 'rejected', 'invalid_dates');
             return $request->expectsJson()
                 ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_dates_required')], 422)
                 : redirect()->route('nfse.adn.index')
@@ -311,6 +359,7 @@ class AdnController extends Controller
         $grossValue = trim((string) ($preview['gross_value'] ?? ''));
 
         if ($grossValue === '' || !is_numeric($grossValue) || (float) $grossValue <= 0) {
+            $this->appendReviewEvent($companyId, $document, 'rejected', 'invalid_amount');
             return $request->expectsJson()
                 ? $this->jsonResponse(['message' => trans('nfse::general.adn.review_invalid_amount')], 422)
                 : redirect()->route('nfse.adn.index')
@@ -389,6 +438,7 @@ class AdnController extends Controller
                 $locked->review_status = 'imported';
                 $locked->imported_document_id = $created->id;
                 $locked->save();
+                $this->appendReviewEvent($companyId, $document, 'imported', null, (int) $created->id);
 
                 return $created;
             });
@@ -398,6 +448,8 @@ class AdnController extends Controller
             }
 
             $reason = $error->getMessage();
+            $this->appendReviewEvent($companyId, $document, 'rejected', $reason);
+
             return $request->expectsJson()
                 ? $this->jsonResponse(['message' => trans('nfse::general.adn.' . $reason)], $reason === 'review_not_pending' ? 409 : 422)
                 : redirect()->route('nfse.adn.index')->with('error', trans('nfse::general.adn.' . $reason));
@@ -413,6 +465,25 @@ class AdnController extends Controller
             ]], $alreadyImported ? 200 : 201)
             : redirect()->route('bills.show', $bill->id)
                 ->with('success', trans('nfse::general.adn.review_imported'));
+    }
+
+    /** Append only, with no fiscal XML or external credentials. */
+    private function appendReviewEvent(
+        int $companyId,
+        int $documentId,
+        string $action,
+        ?string $reason = null,
+        ?int $billId = null,
+    ): void {
+        $operatorId = auth()->id();
+        AdnReviewEvent::query()->create([
+            'company_id' => $companyId,
+            'adn_document_id' => $documentId,
+            'operator_id' => $operatorId === null ? null : (int) $operatorId,
+            'action' => $action,
+            'reason' => $reason,
+            'bill_id' => $billId,
+        ]);
     }
 
     /**

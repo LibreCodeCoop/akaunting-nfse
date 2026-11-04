@@ -20,6 +20,9 @@ Route::api('nfse', function (): void {
     Route::get('adn/documents', [AdnController::class, 'documents'])
         ->middleware('permission:read-purchases-bills')
         ->name('adn.documents.index');
+    Route::get('adn/documents/{document}/review-history', [AdnController::class, 'reviewHistory'])
+        ->middleware('permission:read-purchases-bills')
+        ->name('adn.documents.review-history');
     Route::get('adn/documents/{document}/preview', [AdnController::class, 'preview'])
         ->middleware('permission:read-purchases-bills')
         ->name('adn.documents.preview');

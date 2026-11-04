@@ -89,6 +89,7 @@ HTTP calls.
 | Locally synchronized documents | `GET adn/documents` | `GET adn/documents` | `read-purchases-bills` |
 | Review form selections | `GET adn/review-options` | `GET adn/review-options` | `read-purchases-bills` |
 | Accounting preview | `GET adn/documents/{id}/preview` | `GET adn/documents/{id}/preview` | `read-purchases-bills` |
+| ADN review decision history | `GET adn/documents/{id}/review-history` | `GET adn/documents/{id}/review-history` | `read-purchases-bills` |
 | Live contributor distribution | `GET adn/distribution` | `GET adn/distribution` | `read-nfse-settings` |
 | Events for an issued invoice | `GET invoices/{id}/adn-events` | `GET invoices/{id}/adn-events` | `read-sales-invoices` |
 | Ignore received document | `POST adn/documents/{id}/ignore` | `POST adn/review/{id}/ignore` | `update-purchases-bills` |
@@ -129,7 +130,13 @@ inside a database transaction. Ignoring an already ignored document is
 idempotent (200); ignoring an imported or otherwise non-pending document
 returns 409. Invalid review mappings return 422. The import retains its
 reference to the source ADN document, and the authorized fiscal XML is never
-modified by a review action.
+modified by a review action. Each accepted ignore/import decision and each
+rejected/conflicting review decision is appended to the company-scoped
+`nfse_adn_review_events` journal, without storing XML or secrets. Repeated
+idempotent requests do not duplicate successful decision entries. The
+`review-history` API returns newest-first audit entries with `data` and
+`meta` pagination, `limit=1..100` (default 50), and the operator ID
+and linked bill ID where applicable. Foreign-company document IDs return 404.
 
 The live distribution query `GET adn/distribution?nsu=0&lote=1` calls the
 existing company-certificate-backed ADN client. It does not persist

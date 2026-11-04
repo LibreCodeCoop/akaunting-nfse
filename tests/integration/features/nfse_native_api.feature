@@ -235,3 +235,15 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the JSON response should have these field types:
       | data | array |
       | meta | object |
+
+
+  Scenario: Native ADN review history requires external authentication
+    Given the API client is a guest
+    When I make a "GET" JSON request to "/<company_id>/api/nfse/adn/documents/99999999/review-history"
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native ADN review history rejects users without bill permission
+    When I make a native API GET request to "/<company_id>/api/nfse/adn/documents/99999999/review-history" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON

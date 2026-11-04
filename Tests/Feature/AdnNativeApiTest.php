@@ -26,6 +26,7 @@ final class AdnNativeApiTest extends FeatureTestCase
             'api.nfse.adn.review-options' => 'permission:read-purchases-bills',
             'api.nfse.adn.documents.index' => 'permission:read-purchases-bills',
             'api.nfse.adn.documents.preview' => 'permission:read-purchases-bills',
+            'api.nfse.adn.documents.review-history' => 'permission:read-purchases-bills',
             'api.nfse.adn.distribution' => 'permission:read-nfse-settings',
             'api.nfse.adn.documents.ignore' => 'permission:update-purchases-bills',
             'api.nfse.adn.documents.import' => 'permission:create-purchases-bills',
@@ -42,6 +43,7 @@ final class AdnNativeApiTest extends FeatureTestCase
             'nfse.adn.review-options' => 'permission:read-purchases-bills',
             'nfse.adn.documents.index' => 'permission:read-purchases-bills',
             'nfse.adn.documents.preview' => 'permission:read-purchases-bills',
+            'nfse.adn.documents.review-history' => 'permission:read-purchases-bills',
             'nfse.adn.distribution' => 'permission:read-nfse-settings',
             'nfse.adn.review.ignore' => 'permission:update-purchases-bills',
             'nfse.adn.review.import' => 'permission:create-purchases-bills',
@@ -83,6 +85,9 @@ final class AdnNativeApiTest extends FeatureTestCase
 
         $this->withExceptionHandling()
             ->get(route('nfse.adn.documents.preview', $foreign->id))
+            ->assertNotFound();
+
+        $this->withExceptionHandling()->get(route('nfse.adn.documents.review-history', $foreign->id))
             ->assertNotFound();
 
         self::assertSame('pending', $own->fresh()->review_status);
@@ -156,6 +161,12 @@ final class AdnNativeApiTest extends FeatureTestCase
 
         $billId = (int) $document->fresh()->imported_document_id;
         self::assertGreaterThan(0, $billId);
+        $this->assertDatabaseHas('nfse_adn_review_events', [
+            'company_id' => (int) company_id(),
+            'adn_document_id' => (int) $document->id,
+            'action' => 'imported',
+            'bill_id' => $billId,
+        ]);
 
         $this->postJson(route('nfse.adn.review.import', $document->id), $payload)
             ->assertOk()
@@ -165,6 +176,12 @@ final class AdnNativeApiTest extends FeatureTestCase
         $this->postJson(route('nfse.adn.review.ignore', $document->id))
             ->assertStatus(409);
         self::assertSame('imported', $document->fresh()->review_status);
+        $this->get(route('nfse.adn.documents.review-history', $document->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.action', 'conflict')
+            ->assertJsonPath('data.0.reason', 'already_imported')
+            ->assertJsonPath('data.1.action', 'imported')
+            ->assertJsonPath('meta.total', 2);
         self::assertSame(1, Document::query()->whereKey($billId)->where('type', Document::BILL_TYPE)->count());
     }
 
@@ -184,8 +201,32 @@ final class AdnNativeApiTest extends FeatureTestCase
             ->assertJsonPath('data.review_status', 'ignored');
 
         self::assertSame($ignoredAt->toISOString(), $document->fresh()->ignored_at->toISOString());
+        $this->get(route('nfse.adn.documents.review-history', $document->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.action', 'ignored')
+            ->assertJsonPath('meta.total', 1);
         $this->postJson(route('nfse.adn.review.import', $document->id))
             ->assertStatus(409);
+        $this->get(route('nfse.adn.documents.review-history', $document->id))
+            ->assertJsonPath('data.0.reason', 'not_pending')
+            ->assertJsonPath('meta.total', 2);
+    }
+
+    public function testInvalidAccountingXmlIsRejectedAndAuditedWithoutFinancialMutation(): void
+    {
+        $this->loginAs();
+        $document = $this->document('nfse:invalid-xml', (int) company_id());
+        $document->xml = '<not-xml';
+        $document->save();
+
+        $this->get(route('nfse.adn.documents.preview', $document->id))->assertStatus(422);
+        $this->postJson(route('nfse.adn.review.import', $document->id))->assertStatus(422);
+        $this->get(route('nfse.adn.documents.review-history', $document->id))
+            ->assertJsonPath('data.0.action', 'rejected')
+            ->assertJsonPath('data.0.reason', 'invalid_xml')
+            ->assertJsonPath('meta.total', 1);
+        self::assertNull($document->fresh()->imported_document_id);
+        self::assertSame('pending', $document->fresh()->review_status);
     }
 
     public function testBillCreatePermissionCannotImplicitlyCreateVendor(): void
