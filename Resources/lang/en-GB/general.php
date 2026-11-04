@@ -4,6 +4,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 return [
+    'dps_diagnostic' => [
+        'title' => 'DPS sequence diagnostic',
+        'caution' => 'A status check does not authorize issuance. Only independently attested fiscal history and an explicit operational activation can do that.',
+        'mechanically_ready' => 'The local coordination prerequisites are present; independent fiscal evidence is still required.',
+        'blocked' => 'DPS allocation or transmission is blocked',
+        'unavailable' => 'DPS status could not be checked. No fiscal action was performed.',
+        'lookup' => 'Read official DPS status for :number (no issuance)',
+        'lookup_unavailable' => 'No DPS available for an official status read',
+        'checking' => 'Consulting SEFIN read-only...',
+        'found' => 'The official service returned a key for the DPS. This is not an issuance authorization.',
+        'not_found' => 'SEFIN did not find a generated NFS-e for this DPS. This is not proof that the number is unused.',
+        'inconclusive' => 'The official result is inconclusive. Do not transmit or retry.',
+    ],
     'name'                  => 'NFS-e',
     'contacts' => [
         'municipal_registration' => 'Municipal registration (NFS-e)',

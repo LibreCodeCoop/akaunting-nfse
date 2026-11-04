@@ -23,6 +23,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 @endcan
             </div>
 
+            @include('nfse::settings.partials.dps-readiness')
+
             @if(session('success'))
                 <p class="rounded border border-green-300 bg-green-50 px-4 py-3 text-sm" role="status">{{ session('success') }}</p>
             @endif
