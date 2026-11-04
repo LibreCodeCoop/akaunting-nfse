@@ -124,6 +124,71 @@
             return payload;
         }
 
+        function renderVaultStatus(data) {
+            if (!data || typeof data.addr !== 'string' || typeof data.mount !== 'string') {
+                throw new Error('Resposta inválida da infraestrutura.');
+            }
+            let host = 'Não configurado';
+            if (data.addr) {
+                try { host = new URL(data.addr).hostname; } catch { host = 'URL inválida'; }
+            }
+            const authMode = data.auth_mode === 'approle' ? 'approle'
+                : data.auth_mode === 'token' ? 'token' : 'incomplete';
+            const authLabel = authMode === 'approle' ? 'AppRole'
+                : authMode === 'token' ? 'Token' : 'Autenticação incompleta';
+            el('vault-summary').textContent = host + ' · mount ' + (data.mount || '—') + ' · ' + authLabel;
+            el('vault-configuration-unreadable').hidden = data.configuration_error !== true;
+            el('bao_addr').value = data.addr;
+            el('bao_mount').value = data.mount || '/nfse';
+            el('auth-mode-approle').checked = authMode === 'approle';
+            el('auth-mode-token').checked = authMode !== 'approle';
+            syncAuthMode();
+        }
+
+        async function loadVaultStatus() {
+            try {
+                const payload = await requestJson(config.vaultStatusUrl);
+                renderVaultStatus(payload?.data);
+                return true;
+            } catch (error) {
+                // Do not display metadata from a previous successful request.
+                el('vault-summary').textContent = 'Infraestrutura indisponível para consulta.';
+                el('vault-configuration-unreadable').hidden = true;
+                el('bao_addr').value = '';
+                el('bao_mount').value = '';
+                return false;
+            }
+        }
+
+        async function submitVault(event) {
+            event.preventDefault();
+            const vaultForm = el('vault-form');
+            if (!vaultForm) return;
+            const submit = vaultForm.querySelector('[type="submit"]');
+            const feedback = el('vault-form-feedback');
+            submit.disabled = true;
+            message(feedback, 'Salvando infraestrutura...');
+            try {
+                // Multipart method override is parsed by PHP; PATCH JSON uses
+                // the identical server operation for external API clients.
+                const data = new FormData(vaultForm);
+                data.set('_method', 'PATCH');
+                await requestJson(config.vaultUpdateUrl, 'POST', data);
+                for (const name of ['bao_token', 'bao_role_id', 'bao_secret_id']) {
+                    if (el(name)) el(name).value = '';
+                }
+                message(feedback, 'Infraestrutura salva. Verifique novamente a disponibilidade.');
+                await loadVaultStatus();
+                await checkVault();
+                setVaultEditorVisibility(false);
+            } catch (error) {
+                message(feedback, error.message || 'Não foi possível salvar a infraestrutura.');
+                feedback.focus?.();
+            } finally {
+                submit.disabled = false;
+            }
+        }
+
         function setVaultEditorVisibility(open) {
             if (!el('vault-editor')) return;
             el('vault-editor').hidden = !open;
@@ -438,10 +503,12 @@
         }
         el('vault-edit')?.addEventListener('click', () => setVaultEditorVisibility(el('vault-editor').hidden));
         el('vault-check').addEventListener('click', checkVault);
+        el('vault-form')?.addEventListener('submit', submitVault);
         documentRef.querySelectorAll('input[name="auth_mode_ui"]').forEach((input) => input.addEventListener('change', syncAuthMode));
         if (el('auth-mode-token')) syncAuthMode();
         // Profile listing never waits for the Vault health check.
         void refreshProfiles();
+        void loadVaultStatus();
         void checkVault();
     }
 

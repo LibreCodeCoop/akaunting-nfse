@@ -231,9 +231,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 <header class="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
                     <div>
                         <h2 id="nfse-vault-title" class="font-semibold">Infraestrutura · OpenBao/Vault</h2>
-                        <p class="mt-1 text-xs text-gray-600">
-                            {{ $vaultHost }} · mount {{ $settings['bao_mount'] ?? '—' }} · {{ $vaultAuthMode === 'approle' ? 'AppRole' : ($vaultAuthMode === 'token' ? 'Token' : 'Autenticação incompleta') }}
-                        </p>
+                        <p id="vault-summary" class="mt-1 text-xs text-gray-600">Carregando infraestrutura...</p>
                         <p class="mt-2 text-sm"><strong id="vault-status" aria-live="polite">{{ $vaultConfigured ? 'Aguardando verificação' : 'Não configurado' }}</strong>
                             <span id="vault-last-checked" class="ml-2 text-xs text-gray-500">Ainda não verificado nesta página</span>
                         </p>
@@ -242,11 +240,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <button type="button" id="vault-edit" aria-controls="vault-editor" aria-expanded="{{ $showVaultEditor ? 'true' : 'false' }}" class="rounded border px-3 py-2 text-sm">{{ $vaultConfigured ? 'Editar' : 'Configurar' }}</button>
                     @endif
                 </header>
-                @if($vaultUiState['configuration_error'] ?? false)
-                    <p id="vault-configuration-unreadable" class="mx-4 mb-3 rounded border border-red-300 p-3 text-sm text-red-700" role="alert">
+                    <p id="vault-configuration-unreadable" hidden class="mx-4 mb-3 rounded border border-red-300 p-3 text-sm text-red-700" role="alert">
                         Não foi possível ler a configuração criptografada da infraestrutura. Informe novamente as credenciais; perfis fiscais existentes não serão apagados.
                     </p>
-                @endif
                 <details id="vault-diagnostics" class="border-t px-4 py-3 text-sm">
                     <summary class="cursor-pointer font-medium">Diagnóstico</summary>
                     <div class="mt-3 space-y-3">
@@ -257,7 +253,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 </details>
                 @if($canUpdateProfiles)
                     <div id="vault-editor" class="border-t bg-gray-50 p-4" @unless($showVaultEditor) hidden @endunless>
-                        <form method="POST" action="{{ route('nfse.settings.vault') }}" class="space-y-3">
+                        <form id="vault-form" method="POST" action="{{ route('nfse.settings.vault') }}" class="space-y-3">
                             @csrf
                             @method('PATCH')
                             <p class="text-xs text-gray-600">As credenciais não são exibidas. Valores vazios preservam segredos apenas se o endereço não mudar.</p>
@@ -289,6 +285,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     <label class="mt-2 block"><input name="nfse[clear_bao_secret_id]" type="checkbox" value="1"> Limpar Secret ID salvo</label>
                                 </div>
                             </fieldset>
+                            <p id="vault-form-feedback" class="text-sm" role="status" aria-live="polite" hidden></p>
                             <button class="rounded bg-green-700 px-4 py-2 text-sm text-white" type="submit">Salvar infraestrutura</button>
                         </form>
                     </div>
@@ -304,6 +301,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 'deleteUrl' => route('nfse.settings.company-profiles.destroy', ['companyId' => '__COMPANY__']),
                 'cleanupUrl' => route('nfse.settings.company-profiles.cleanup', ['companyId' => '__COMPANY__']),
                 'diagnosticsUrl' => route('nfse.settings.vault.diagnostics'),
+                'vaultStatusUrl' => route('nfse.settings.vault.status'),
+                'vaultUpdateUrl' => route('nfse.settings.vault'),
                 'csrfToken' => csrf_token(),
                 'canUpdate' => $canUpdateProfiles,
                 'canDelete' => $canDeleteProfiles,
