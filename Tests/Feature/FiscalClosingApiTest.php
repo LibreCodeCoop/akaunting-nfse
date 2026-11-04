@@ -29,6 +29,9 @@ final class FiscalClosingApiTest extends FeatureTestCase
                 'meta' => ['current_page', 'last_page', 'per_page', 'total'],
             ]);
 
+        // FeatureTestCase disables exception handling by default. Negative
+        // HTTP contract checks must assert the actual 422 transport response.
+        $this->withExceptionHandling();
         $this->get(route('nfse.closing.data', ['competence' => '2026-13']))
             ->assertStatus(422);
         $this->get(route('nfse.closing.data', [
