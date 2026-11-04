@@ -114,3 +114,47 @@ the persisted ID; duplicated revisions or unsupported zero evidence return
 422. Historical records are append-only. The administrative screens load
 their tables and save confirmations over these JSON contracts, without using
 HTML fragments as an integration protocol.
+
+## Fiscal company profiles, certificates and shared infrastructure (#501)
+
+All operations retain the Akaunting Core API authentication and user/tenant
+authorization, with authenticated browser-session equivalents under
+`/{company_id}/nfse/`. The browser must not send Basic or OAuth credentials
+to a session route. The active company is resolved by the Core middleware;
+profile operations additionally verify that the authenticated operator can
+manage the explicitly selected Akaunting company, rather than assuming that
+the `companyId` route parameter grants access.
+
+| Native API suffix | Method | Permission | Behavior |
+| --- | --- | --- | --- |
+| `settings/company-profiles` | GET | `read-nfse-settings` | Eligible companies and safe profile metadata |
+| `settings/company-profiles` | POST | `update-nfse-settings` | Create a profile with a PFX/P12 upload and validated fiscal parameters |
+| `settings/company-profiles/{companyId}` | PATCH | `update-nfse-settings` | Partial settings update or guarded certificate rotation |
+| `settings/company-profiles/{companyId}` | DELETE | `delete-nfse-settings` | Delete when safe; preserve historical fiscal documents |
+| `settings/company-profiles/{companyId}/cleanup` | POST | `delete-nfse-settings` | Retry incomplete certificate cleanup |
+| `certificates/inspect` | POST | `update-nfse-settings` | Inspect an uploaded PFX without persisting it |
+| `settings/vault` | GET | `read-nfse-settings` | Safe global infrastructure status |
+| `settings/vault` | PATCH | `update-nfse-settings` | Set infrastructure credentials and configuration |
+| `settings/vault/diagnostics` | POST | `read-nfse-settings` | Operational readiness without returning secrets |
+
+Prefix each native API suffix with
+`/{company_id}/{api_prefix}/nfse/`, with the API prefix configured by Core.
+The backend `CompanyProfileController` serves both HTTP transports; it never
+returns PFX contents, private keys, Vault tokens, role IDs or secret IDs. A
+malformed upload is rejected without persisting certificate material.
+A profile's certificate can only be removed through the guarded profile
+delete/cleanup flow. Legacy certificate routes remain intentionally disabled.
+
+`GET settings/vault` returns `data.addr`, `data.mount`,
+`data.auth_mode`, `data.ready` and `data.configuration_error`. It never
+returns credential values, even when configuration is unreadable. Credential
+values omitted or left empty in `PATCH settings/vault` retain the existing
+semantics of `GlobalVaultSettings`; explicit clear flags are required to
+remove a stored secret. A successful JSON update returns the safe status
+representation. The browser settings screen loads this metadata from JSON
+rather than embedding infrastructure configuration in HTML, and submits
+the Vault form with a session-CSRF-protected JSON-accepting request.
+
+Jobs and automatic fiscal flows resolve these same profiles and infrastructure
+stores directly; no internal HTTP calls or alternative secrets store are
+introduced.

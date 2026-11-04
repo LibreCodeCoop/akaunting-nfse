@@ -29,6 +29,8 @@ Route::admin('nfse', function () {
             ->middleware('permission:read-nfse-settings')->name('edit');
         Route::patch('/', DeprecatedFiscalConfigurationController::class)
             ->middleware('permission:update-nfse-settings')->name('update');
+        Route::get('/vault', [SettingsController::class, 'vaultStatus'])
+            ->middleware('permission:read-nfse-settings')->name('vault.status');
         Route::patch('/vault', [SettingsController::class, 'updateVault'])
             ->middleware('permission:update-nfse-settings')->name('vault');
         Route::post('/vault/diagnostics', [SettingsController::class, 'diagnoseVault'])
