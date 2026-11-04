@@ -36,6 +36,9 @@ final class FiscalLedgerApiTest extends FeatureTestCase
             ->assertJsonStructure(['data', 'meta' => [
                 'current_page', 'last_page', 'per_page', 'total',
             ]]);
+        // FeatureTestCase disables exception handling by default. Assert the
+        // actual HTTP contract for invalid filters rather than an exception.
+        $this->withExceptionHandling();
         foreach ([
             ['status' => 'invalid'], ['limit' => 101], ['from' => '2026-99-01'],
             ['from' => ['2026-01-01']], ['page' => 0],
