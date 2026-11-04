@@ -41,6 +41,42 @@ final class NativeInvoiceFiscalActionsAccessTest extends FeatureTestCase
         $this->get(route('nfse.settings.edit'))->assertForbidden();
     }
 
+    public function testSettingsOnlyOperatorCannotReadFiscalDashboardOrInvoiceArtifacts(): void
+    {
+        $this->loginAs();
+        $invoice = Document::factory()->invoice()->create();
+        $this->receipt($invoice, '930', 'emitted');
+
+        $role = $this->createRole('nfse-settings-without-sales-read');
+        $this->attachPermission($role, 'read-admin-panel');
+        $this->attachPermission($role, 'read-nfse-settings');
+        $operator = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
+            'enabled' => 1,
+            'companies' => [$this->company->id],
+            'roles' => [$role->id],
+        ])));
+
+        $this->withExceptionHandling()->loginAs($operator);
+        $this->get(route('nfse.dashboard.index'))->assertForbidden();
+        $this->get(route('nfse.invoices.emit-success', $invoice->id))->assertForbidden();
+        $this->get(route('nfse.invoices.artifacts.download', [
+            'invoice' => $invoice->id,
+            'artifact' => 'xml',
+        ]))->assertForbidden();
+    }
+
+    public function testLegacyFiscalReadRoutesRejectNonSalesDocuments(): void
+    {
+        $this->withExceptionHandling()->loginAs();
+        $bill = Document::factory()->bill()->create(['company_id' => (int) company_id()]);
+
+        $this->get(route('nfse.invoices.emit-success', $bill->id))->assertNotFound();
+        $this->get(route('nfse.invoices.artifacts.download', [
+            'invoice' => $bill->id,
+            'artifact' => 'xml',
+        ]))->assertNotFound();
+    }
+
     public function testFiscalOperatorSeesReceiptActionsButNotProtectedSettings(): void
     {
         $this->loginAs();
