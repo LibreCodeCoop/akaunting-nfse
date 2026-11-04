@@ -41,15 +41,26 @@ final class SettingsReadinessNavigationTest extends FeatureTestCase
 
         Http::fake();
 
+        // The Blade shell must not embed global or legacy credentials or even
+        // infrastructure metadata. The JSON transport is now authoritative.
         $this->get(route('nfse.settings.edit'))
             ->assertOk()
             ->assertViewHas('settings', static fn (array $settings): bool => $settings === [
-                'bao_addr' => 'https://global-vault.example.test',
-                'bao_mount' => '/nfse',
+                'bao_addr' => '',
+                'bao_mount' => '',
             ])
-            ->assertViewHas('vaultUiState', static fn (array $state): bool => ($state['auth_mode'] ?? null) === 'token'
-                && ($state['ready'] ?? false) === true
-                && !array_key_exists('certificate_secret_available', $state))
+            ->assertDontSee('synthetic-global-vault-token')
+            ->assertDontSee('synthetic-legacy-company-token')
+            ->assertDontSee('https://legacy-company.example.test')
+            ->assertDontSee('https://global-vault.example.test');
+
+        $this->get(route('nfse.settings.vault.status'))
+            ->assertOk()
+            ->assertJsonPath('data.addr', 'https://global-vault.example.test')
+            ->assertJsonPath('data.mount', '/nfse')
+            ->assertJsonPath('data.auth_mode', 'token')
+            ->assertJsonPath('data.ready', true)
+            ->assertDontSee('synthetic-global-vault-token')
             ->assertDontSee('synthetic-legacy-company-token')
             ->assertDontSee('https://legacy-company.example.test');
 

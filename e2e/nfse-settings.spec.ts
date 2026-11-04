@@ -16,6 +16,13 @@ const profile = (id: number) => ({
 async function mockApi(page: Page, profiles: any[], eligible: any[], vaultState = 'operational') {
   let currentProfiles = profiles;
   let currentEligible = eligible;
+  await page.route('**/nfse/settings/vault', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ data: {
+      addr: 'https://vault.example.test', mount: '/nfse', auth_mode: 'token',
+      ready: true, configuration_error: false,
+    } }),
+  }));
   await page.route('**/nfse/settings/vault/diagnostics', (route) => route.fulfill({
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ state: vaultState, reason: vaultState === 'operational' ? 'verified' : 'network_failure',
@@ -173,4 +180,36 @@ test('profile editor restores focus on cancel and displays sanitized validation 
   await expect(page.locator('#profile-form-error')).toBeFocused();
   await expect(page.locator('#profile-save')).toBeEnabled();
   await page.locator('#profile-cancel').click();
+});
+
+test('Vault infrastructure reads and saves through the same JSON contract as native API clients', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await mockApi(page, [profile(1)], []);
+  let submitted = false;
+  await page.route('**/nfse/settings/vault', async route => {
+    const req = route.request();
+    if (req.method() === 'POST') {
+      submitted = true;
+      expect(req.headers().accept).toContain('application/json');
+      expect(req.postData()).toContain('name="_method"');
+      expect(req.postData()).toContain('PATCH');
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ data: {
+        addr: 'https://vault.example.test', mount: '/nfse',
+        auth_mode: 'token', ready: true, configuration_error: false,
+      } }),
+    });
+  });
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#vault-summary')).toContainText('vault.example.test');
+  await expect(page.locator('#bao_addr')).toHaveValue('https://vault.example.test');
+  await expect(page.locator('#vault-summary')).not.toContainText('never-expose');
+  await page.locator('#vault-edit').click();
+  await page.locator('#bao_token').fill('synthetic-never-expose');
+  await page.locator('#vault-form button[type="submit"]').click();
+  await expect(page.locator('#vault-form-feedback')).toContainText('Infraestrutura salva');
+  expect(submitted).toBe(true);
+  await expect(page.locator('#bao_token')).toHaveValue('');
+  await expect(page.locator('#nfse-company-admin')).not.toContainText('synthetic-never-expose');
 });
