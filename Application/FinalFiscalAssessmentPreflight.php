@@ -108,8 +108,11 @@ final class FinalFiscalAssessmentPreflight
         $blocked = $this->composer->blockingDecisions($assessment);
         if ($blocked !== []) {
             $first = $blocked[0];
-            $message = 'Fiscal assessment blocked: ' . $first->ruleId
-                . ' (' . ($first->correctionCode ?? $first->fieldPath ?? 'review_required') . ')';
+            $reason = $first->correctionCode ?? $first->fieldPath ?? 'review_required';
+            if ($first->correctionCode !== null && $first->fieldPath !== null && $first->fieldPath !== '') {
+                $reason .= '; fields: ' . $first->fieldPath;
+            }
+            $message = 'Fiscal assessment blocked: ' . $first->ruleId . ' (' . $reason . ')';
 
             if ($first->ruleId === 'NFSE-MUNICIPAL-PREFLIGHT-BLOCKED') {
                 throw new MunicipalIssuanceBlocked($message);

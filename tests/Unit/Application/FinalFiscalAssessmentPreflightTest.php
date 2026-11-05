@@ -64,6 +64,24 @@ final class FinalFiscalAssessmentPreflightTest extends TestCase
         );
     }
 
+    public function testIbsCbsDiagnosticPreservesStableReasonAndListsMissingFields(): void
+    {
+        $assessment = self::preflight('2026-10-02')->assess(
+            self::invoice(),
+            self::dps(),
+            'group-a',
+            self::municipal(),
+        );
+
+        $matches = array_values(array_filter(
+            $assessment->decisions,
+            static fn ($decision): bool => $decision->ruleId === 'NFSE-IBS-CBS-FINAL-DPS-BLOCKED',
+        ));
+        self::assertCount(1, $matches);
+        self::assertSame('general_lc116_service', $matches[0]->correctionCode);
+        self::assertStringContainsString('ibs_cbs_enabled', (string) $matches[0]->fieldPath);
+    }
+
     public function testUnknownEventNeverBecomesAConclusiveCalendarDecision(): void
     {
         $assessment = self::preflight(null)->assess(

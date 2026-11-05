@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Models\Common\Item;
 use App\Models\Document\Document;
 use Modules\Nfse\Application\EmissionAttemptJournal;
+use Modules\Nfse\Application\FiscalIssuanceBlocked;
 use Modules\Nfse\Application\MunicipalIssuanceBlocked;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
@@ -18,18 +19,18 @@ use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 use Modules\Nfse\Tests\Support\FakeHttpTransport;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\CertConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\EnvironmentConfig;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\XmlSignerInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseTemplate;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\XmlToArray;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\XmlSignerInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\HttpResponseData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\IssuanceException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\NoOpSecretStore;
-use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 /**
@@ -53,16 +54,14 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
         try {
             $this->issue($invoice, $key, $client, $this->dps($invoice, '999999'));
             self::fail('Invalid national code reached the fiscal transport.');
-        } catch (MunicipalIssuanceBlocked $error) {
-            self::assertStringContainsString('invalid_national_fiscal_profile', $error->getMessage());
+        } catch (FiscalIssuanceBlocked $error) {
+            self::assertStringContainsString('NFSE-FISCAL-GROUP-CHANGED', $error->getMessage());
         }
 
         self::assertCount(0, $transport->requests);
         self::assertSame(0, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
-        self::assertSame(
-            EmissionAttemptJournal::TECHNICAL_FAILURE,
-            NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->sole()->status,
-        );
+        // A changed DPS must fail before opening an immutable emission attempt.
+        self::assertSame(0, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
     }
 
     public function testValidDpsCreatesOneCompressedXmlPostAndNeverResendsAuthorizedInvoice(): void
