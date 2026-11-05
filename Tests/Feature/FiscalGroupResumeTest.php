@@ -7,15 +7,18 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Models\Common\Item;
 use App\Models\Document\Document;
 use Illuminate\Auth\Access\AuthorizationException;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
-use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseEmissionAttempt;
+use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\InvoiceFiscalContextResolver;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
-use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 final class FiscalGroupResumeTest extends FeatureTestCase
@@ -78,8 +81,8 @@ final class FiscalGroupResumeTest extends FeatureTestCase
 
     public function testNewGroupUsesStableIdentityAndPersistsOneReceipt(): void
     {
-        $invoice = Document::factory()->invoice()->create();
-        $groupKey = 'service:0101|tax:010101|rate:3.00';
+        [$invoice, $group] = $this->invoiceWithFiscalGroup();
+        $groupKey = (string) $group['key'];
 
         $client = new class () implements NfseClientInterface {
             public int $emits = 0;
@@ -117,7 +120,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
             $client,
             (int) $invoice->id,
             $this->baseDps(),
-            $this->group($groupKey, '60.00'),
+            $group,
             additionalDescription: 'Observação geral de faturamento',
         );
 
@@ -147,7 +150,7 @@ final class FiscalGroupResumeTest extends FeatureTestCase
             $client,
             (int) $invoice->id,
             $this->baseDps(),
-            $this->group($groupKey, '60.00'),
+            $group,
         );
 
         self::assertTrue($retry['reused']);
@@ -207,6 +210,40 @@ final class FiscalGroupResumeTest extends FeatureTestCase
             $this->baseDps(),
             $this->group($key, '50.00'),
         );
+    }
+
+    /** @return array{Document,array<string,mixed>} */
+    private function invoiceWithFiscalGroup(): array
+    {
+        $this->loginAs();
+        $invoice = Document::factory()->invoice()->create(['company_id' => (int) company_id()]);
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
+
+        $item = Item::factory()->create(['company_id' => (int) $invoice->company_id]);
+        $invoice->items()->create([
+            'company_id' => (int) $invoice->company_id,
+            'type' => 'item',
+            'item_id' => $item->id,
+            'name' => 'Servico fiscal do grupo',
+            'description' => 'Descrição do item de teste',
+            'quantity' => 1,
+            'price' => '60.00',
+            'total' => '60.00',
+        ]);
+        ItemFiscalProfile::query()->create([
+            'company_id' => (int) $invoice->company_id,
+            'item_id' => $item->id,
+            'item_lista_servico' => '0101',
+            'codigo_tributacao_nacional' => '010101',
+            'codigo_tributacao_municipal' => '075',
+        ]);
+        $invoice->load('items');
+        $groups = (new InvoiceFiscalContextResolver())->groups($invoice);
+        self::assertCount(1, $groups);
+        self::assertSame('60.00', $groups[0]['amount']);
+
+        return [$invoice, $groups[0]];
     }
 
     private function baseDps(): DpsData
