@@ -102,6 +102,64 @@
         </div>
     </div>
 
+    @if(!empty($fiscalEventGroups))
+        <section class="mt-4 rounded-md border border-gray-200 bg-gray-50 p-3" data-nfse-fiscal-event-evidence="true">
+            <h4 class="text-sm font-semibold text-gray-800">{{ trans('nfse::general.fiscal_event.title') }}</h4>
+            <p class="mt-1 text-xs text-gray-600">{{ trans('nfse::general.fiscal_event.help') }}</p>
+
+            <ul class="mt-2 space-y-1 text-xs text-gray-700">
+                @foreach($fiscalEventGroups as $group)
+                    <li data-nfse-fiscal-event-group="{{ $group['group_key'] }}">
+                        {{ $group['service_code'] }} —
+                        @if(!empty($group['taxable_event_date']))
+                            <span class="font-medium">{{ $group['taxable_event_date'] }}</span>
+                            ({{ trans('nfse::general.fiscal_event.attested') }})
+                        @else
+                            <span class="font-medium text-amber-700">{{ trans('nfse::general.fiscal_event.unverified') }}</span>
+                        @endif
+                        <span class="text-gray-500">
+                            {{ trans('nfse::general.fiscal_event.calendar') }}:
+                            {{ trans('nfse::general.fiscal_event.status_' . ($group['diagnostics'][0]['status'] ?? 'unverifiable')) }}
+                        </span>
+                    </li>
+                @endforeach
+            </ul>
+
+            @can('update-sales-invoices')
+                <details class="mt-3">
+                    <summary class="cursor-pointer text-sm font-medium text-indigo-700">{{ trans('nfse::general.fiscal_event.record') }}</summary>
+                    <form method="POST" action="{{ route('nfse.invoices.fiscal-event-evidence.store', $invoice->id) }}" class="mt-3 grid gap-3 sm:grid-cols-2" data-nfse-fiscal-event-form="true">
+                        @csrf
+                        <div class="sm:col-span-2">
+                            <label for="nfse-event-group-{{ $invoice->id }}" class="block text-xs font-medium">{{ trans('nfse::general.fiscal_event.group') }}</label>
+                            <select id="nfse-event-group-{{ $invoice->id }}" name="fiscal_group_key" class="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-2 text-sm" required>
+                                <option value="">{{ trans('nfse::general.fiscal_event.select_group') }}</option>
+                                @foreach($fiscalEventGroups as $group)
+                                    <option value="{{ $group['group_key'] }}">{{ $group['service_code'] }} — {{ $group['amount'] }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="nfse-event-date-{{ $invoice->id }}" class="block text-xs font-medium">{{ trans('nfse::general.fiscal_event.date') }}</label>
+                            <input id="nfse-event-date-{{ $invoice->id }}" type="date" name="taxable_event_date" class="mt-1 w-full rounded border border-gray-300 px-2 py-2 text-sm" required>
+                        </div>
+                        <div>
+                            <label for="nfse-event-reference-{{ $invoice->id }}" class="block text-xs font-medium">{{ trans('nfse::general.fiscal_event.reference') }}</label>
+                            <input id="nfse-event-reference-{{ $invoice->id }}" type="text" name="source_reference" minlength="5" maxlength="255" class="mt-1 w-full rounded border border-gray-300 px-2 py-2 text-sm" required>
+                        </div>
+                        <label class="flex items-start gap-2 text-xs text-gray-700 sm:col-span-2">
+                            <input type="checkbox" name="acknowledge" value="1" class="mt-0.5" required>
+                            {{ trans('nfse::general.fiscal_event.acknowledge') }}
+                        </label>
+                        <div class="sm:col-span-2">
+                            <button type="submit" class="rounded bg-indigo-700 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-800">{{ trans('nfse::general.fiscal_event.save') }}</button>
+                        </div>
+                    </form>
+                </details>
+            @endcan
+        </section>
+    @endif
+
     @if($hasReceipt)
         <div
             class="mt-4 flex flex-wrap items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm {{ $postEmissionOverall === 'idle' ? 'hidden' : '' }}"
