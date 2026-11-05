@@ -31,6 +31,7 @@ export default defineConfig({
         'nfse-certificate.spec.ts',
         'nfse-emission.spec.ts',
         'nfse-fiscal-assessment.spec.ts',
+        'nfse-fiscal-tax-api.spec.ts',
         'nfse-grouped-invoice.spec.ts',
         'nfse-invoice-show-emit-modal.spec.ts',
         'nfse-item-validation.spec.ts',
@@ -45,7 +46,6 @@ export default defineConfig({
       testMatch: [
         'live-fiscal.spec.ts',
         'nfse-emission.spec.ts',
-        'nfse-fiscal-assessment.spec.ts',
         'nfse-reemit-status.spec.ts',
       ],
       grep: /\[live-fiscal\]/,
