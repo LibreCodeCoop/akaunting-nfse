@@ -41,10 +41,35 @@
                 </p>
             @endif
 
+            @if(isset($fiscalValidation['national_status']))
+                <p class="mt-2 text-xs font-medium" data-nfse-national-validation="{{ $fiscalValidation['national_status'] }}">
+                    {{ trans('nfse::general.items.validation.national_status_' . $fiscalValidation['national_status']) }}
+                </p>
+            @endif
             @if(isset($fiscalValidation['municipal_status']))
                 <p class="mt-2 text-xs font-medium" data-nfse-municipal-validation="{{ $fiscalValidation['municipal_status'] }}">
                     {{ trans('nfse::general.items.validation.municipal_status_' . $fiscalValidation['municipal_status']) }}
                 </p>
+                <p class="mt-1 text-xs" data-nfse-municipal-advisory>
+                    {{ trans('nfse::general.items.validation.municipal_advisory') }}
+                </p>
+                @if(($fiscalValidation['municipal_source']['queried_municipality'] ?? '') !== '')
+                    <details class="mt-2 text-xs" data-nfse-municipal-source-details>
+                        <summary class="cursor-pointer font-medium">
+                            {{ trans('nfse::general.items.validation.municipal_details') }}
+                        </summary>
+                        <dl class="mt-2 grid gap-2 sm:grid-cols-2">
+                            <div><dt class="font-medium">{{ trans('nfse::general.items.validation.municipal_municipality') }}</dt>
+                                <dd>{{ $fiscalValidation['municipal_source']['queried_municipality'] }}</dd></div>
+                            <div><dt class="font-medium">{{ trans('nfse::general.items.validation.municipal_competence') }}</dt>
+                                <dd>{{ $fiscalValidation['municipal_source']['competence'] ?? '' }}</dd></div>
+                            <div><dt class="font-medium">{{ trans('nfse::general.items.validation.municipal_environment') }}</dt>
+                                <dd>{{ $fiscalValidation['municipal_source']['environment'] ?? '' }}</dd></div>
+                            <div><dt class="font-medium">{{ trans('nfse::general.items.validation.municipal_service') }}</dt>
+                                <dd>{{ $fiscalValidation['municipal_source']['service_code'] ?? '' }}</dd></div>
+                        </dl>
+                    </details>
+                @endif
                 @if(($fiscalValidation['municipal_issues'] ?? []) !== [])
                     <ul class="mt-1 list-disc pl-5 text-xs">
                         @foreach($fiscalValidation['municipal_issues'] as $issue)

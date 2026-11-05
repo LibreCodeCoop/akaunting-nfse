@@ -83,3 +83,22 @@ test('fiscal code assistant consults the authenticated JSON catalog without Basi
   const body = await response?.json();
   expect(Array.isArray(body?.data)).toBe(true);
 });
+
+test('item fiscal validation separates national status from advisory municipal evidence', async ({ page }, testInfo) => {
+  const itemId = process.env.NFSE_E2E_ITEM_VALIDATION_ID;
+  expect(itemId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await page.goto('/1/common/items/' + itemId + '/edit', { waitUntil: 'domcontentloaded' });
+
+  const profile = page.locator('[data-nfse-fiscal-profile-status]');
+  await expect(profile.locator('[data-nfse-national-validation]')).toBeVisible();
+  await expect(profile.locator('[data-nfse-municipal-validation]')).toBeVisible();
+  await expect(profile.locator('[data-nfse-municipal-advisory]')).toBeVisible();
+
+  const details = profile.locator('[data-nfse-municipal-source-details]');
+  if (await details.count()) {
+    await details.locator('summary').click();
+    await expect(details).toHaveAttribute('open', '');
+  }
+});
