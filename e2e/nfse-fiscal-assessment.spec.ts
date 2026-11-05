@@ -24,7 +24,8 @@ test('invoice shows evidence by fiscal group without inventing a taxable event d
   await expect(form.locator('input[name="taxable_event_date"]')).toHaveValue('');
   await expect(form.locator('input[name="source_reference"]')).toHaveValue('');
   await expect(form.locator('input[name="acknowledge"]')).not.toBeChecked();
-  await expect(form.locator('select[name="fiscal_group_key"]')).toHaveAttribute('required', '');
+  // HTML boolean attributes may serialize as required="" or required="required".
+  await expect(form.locator('select[name="fiscal_group_key"]')).toHaveJSProperty('required', true);
 
   // The preview is GET-only, scoped to the same invoice, and never a fiscal POST.
   const response = await page.request.get(`/1/nfse/invoices/${invoiceId}/fiscal-assessment`, {
