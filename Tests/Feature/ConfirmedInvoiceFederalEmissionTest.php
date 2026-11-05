@@ -10,6 +10,7 @@ namespace Modules\Nfse\Tests\Feature;
 use App\Models\Common\Item;
 use App\Models\Document\Document;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Application\FederalTaxPayloadFacts;
 use Modules\Nfse\Contracts\FiscalTaxIdentity;
 use Modules\Nfse\Contracts\FiscalTaxRole;
 use Modules\Nfse\Models\ItemFiscalProfile;
@@ -17,6 +18,7 @@ use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
 use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
+use Modules\Nfse\Support\InvoiceTaxFactsResolver;
 use Modules\Nfse\Support\TaxFiscalAssociationStore;
 use Tests\Feature\FeatureTestCase;
 
@@ -101,6 +103,50 @@ final class ConfirmedInvoiceFederalEmissionTest extends FeatureTestCase
         self::assertSame('', $payload['federalPiscofinsValorCofins']);
         self::assertSame('', $payload['federalPiscofinsBaseCalculo']);
         self::assertSame('unverifiable', $payload['federalTaxEvidence']['legal_incidence']);
+        self::assertSame(0, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
+    }
+
+    public function testHomonymousDueAndWithheldTaxesPreserveSeparateFactsAndInvoiceAmounts(): void
+    {
+        [$invoice, $itemId] = $this->invoice();
+        $company = (int) $invoice->company_id;
+        $before = DB::table('documents')->where('id', $invoice->id)->first();
+        self::assertNotNull($before);
+
+        // Identical accounting names, rates and amounts are distinct tax rows.
+        $dueTax = $this->tax($invoice, $itemId, 'Synthetic same-name tax', 'normal', '3.00', '0.65');
+        $withheldTax = $this->tax($invoice, $itemId, 'Synthetic same-name tax', 'withholding', '3.00', '0.65');
+        $store = new TaxFiscalAssociationStore();
+        $store->confirm(
+            $company, $dueTax, FiscalTaxIdentity::PIS, FiscalTaxRole::PROVIDER_DUE,
+            '2026-01-01', null, 'synthetic-own-PIS-evidence', 1,
+        );
+        $store->confirm(
+            $company, $withheldTax, FiscalTaxIdentity::COFINS, FiscalTaxRole::WITHHELD_BY_PAYER,
+            '2026-01-01', null, 'synthetic-retained-COFINS-evidence', 1,
+        );
+
+        $resolver = new InvoiceTaxFactsResolver();
+        $facts = $resolver->resolve($company, (int) $invoice->id, '2026-09-30');
+        self::assertCount(2, $facts);
+        self::assertSame([$dueTax, $withheldTax], array_map(static fn ($fact): ?int => $fact->taxId, $facts));
+        self::assertNotSame($facts[0]->documentItemTaxRowId, $facts[1]->documentItemTaxRowId);
+        self::assertSame(['pis', 'cofins'], array_map(static fn ($fact): ?string => $fact->fiscalTaxCode, $facts));
+        self::assertSame([300, 300], array_map(static fn ($fact): ?int => $fact->amountCents, $facts));
+        self::assertSame(
+            [FiscalTaxRole::PROVIDER_DUE, FiscalTaxRole::WITHHELD_BY_PAYER],
+            array_map(static fn ($fact): ?FiscalTaxRole => $fact->fiscalRole, $facts),
+        );
+
+        $observed = (new FederalTaxPayloadFacts())->summarize($facts, '6');
+        self::assertSame('3.00', $observed['pis_value']);
+        self::assertSame('', $observed['cofins_value']);
+        self::assertSame('3.00', $observed['social_total']);
+        self::assertSame('', $observed['base_value']);
+        self::assertSame(2, $observed['row_count']);
+
+        self::assertEquals($before, DB::table('documents')->where('id', $invoice->id)->first());
+        self::assertSame([], $resolver->resolve($company + 1, (int) $invoice->id, '2026-09-30'));
         self::assertSame(0, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
     }
 
