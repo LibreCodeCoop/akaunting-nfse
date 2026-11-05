@@ -45,6 +45,7 @@ final class DpsReadinessApiTest extends FeatureTestCase
     public function testSessionAdjustmentRequiresValidationAndDoesNotProvisionAnAuthority(): void
     {
         $this->loginAs();
+        $this->withExceptionHandling();
         $this->postJson(route('nfse.dps.advance'), [
             'expected_next_number' => '1',
             'next_number' => '1',
