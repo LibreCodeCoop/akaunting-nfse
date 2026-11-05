@@ -62,7 +62,7 @@ test('tax association UI reads native JSON and confirms without changing account
 test('tax association revision reports validation, overlap and access errors without losing input', async ({ page }, info) => {
     await loginToAkaunting(page, info);
     let attempts = 0;
-    const revisions = [{
+    const revisions: any[] = [{
         id: 11, fiscal_identity: 'pis', fiscal_role: 'provider_due',
         effective_from: '2026-01-01', effective_until: null,
         source_reference: 'synthetic-original-evidence',
@@ -150,6 +150,11 @@ test('tax association revision reports validation, overlap and access errors wit
     await expect(page.locator('#tax-associations-body')).toContainText('2026-11-30');
     await expect(form.locator('[name="tax_id"]')).toBeEnabled();
     await expect(page.locator('#tax-association-cancel')).toBeHidden();
+    expect(attempts).toBe(4);
+
+    await page.getByRole('button', { name: 'Retificar', exact: true }).first().click();
+    await page.locator('#tax-association-cancel').click();
+    await expect(form.locator('[name="tax_id"]')).toBeEnabled();
     expect(attempts).toBe(4);
 
     await info.attach('nfse-tax-association-revision-synthetic.png', {

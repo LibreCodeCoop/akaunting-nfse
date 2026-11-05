@@ -168,6 +168,14 @@ jobs:
         run: |
           npx playwright test --project=full-ui --retries=0
 
+      - name: Upload synthetic fiscal association screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nfse-tax-associations-synthetic
+          if-no-files-found: ignore
+          path: akaunting/modules/Nfse/test-results/**/nfse-tax-association*.png
+
       - name: Stop Akaunting
         if: ${{ always() && (steps.start_server.outcome == 'success' || steps.start_server.outcome == 'failure') }}
         working-directory: akaunting/modules/Nfse

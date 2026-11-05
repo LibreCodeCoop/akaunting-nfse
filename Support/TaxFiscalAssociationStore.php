@@ -13,8 +13,8 @@ use Modules\Nfse\Contracts\FiscalTaxRole;
 use Modules\Nfse\Models\TaxFiscalAssociation;
 
 /**
- * Internal confirmation service; the caller must authorize its company.
- * No public write endpoint is exposed here (operator UI belongs to #431).
+ * Company-scoped confirmation and explicit effective-date cutovers.
+ * HTTP callers must enforce authorization for the active company.
  */
 final class TaxFiscalAssociationStore
 {
