@@ -118,6 +118,13 @@ final class ItemFiscalProfileListValidationTest extends FeatureTestCase
             false,
         );
         $response->assertSee('data-nfse-municipal-fetched-at=', false);
+        $response->assertSee('data-nfse-national-validation="valid"', false);
+        $response->assertSee('data-nfse-municipal-advisory', false);
+        $response->assertSee(trans('nfse::general.items.validation.municipal_advisory'), false);
+        $response->assertSee('data-nfse-municipal-source-details', false);
+        $response->assertSee(trans('nfse::general.items.validation.municipal_details'), false);
+        $response->assertSee('010701000', false);
+        $response->assertSee('3303302', false);
     }
 
     public function testItemEditDoesNotTreatLegacySixDigitSnapshotAsCurrentMunicipalData(): void
@@ -144,7 +151,8 @@ final class ItemFiscalProfileListValidationTest extends FeatureTestCase
         ]);
 
         $this->loginAs()->get(route('items.edit', $item))->assertOk()
-            ->assertSee('data-nfse-municipal-validation="unverifiable"', false);
+            ->assertSee('data-nfse-municipal-validation="unverifiable"', false)
+            ->assertDontSee('data-nfse-municipal-source-details', false);
     }
 
     public function testItemEditResolvesNineDigitMunicipalSuffixForCurrentCompetence(): void

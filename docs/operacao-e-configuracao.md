@@ -425,3 +425,33 @@ Para desenvolver e verificar funcionalidades, utilize as suites e workflows
 registrados no `composer.json`, `package.json` e
 [documentação de testes](testing-ci-budget.md). Dados de teste precisam ser
 sintéticos; nenhuma suíte comum deve transmitir notas fiscais reais.
+
+## Validação nacional e consulta municipal de itens
+
+Ao editar um item, o Akaunting apresenta a validação nacional do perfil e,
+se houver contexto fiscal da empresa, a consulta municipal separadamente.
+O código LC 116 identifica o subitem de serviço, o `cTribNac` tem seis
+dígitos, o complemento municipal tem três, e a combinação do código nacional
+com o complemento forma o código de serviço de nove dígitos. A NBS é uma
+classificação distinta, não deduzida automaticamente da LC 116.
+
+A seção **Detalhes da consulta municipal** mostra o município IBGE, a
+competência, o ambiente e o serviço usados na busca. Quando há registro,
+a data de coleta aparece junto à mensagem da fonte. Um registro consultado
+em data anterior pode precisar de nova conferência, mas sua idade, sozinha,
+não prova que o município rejeitou a classificação.
+
+A consulta de parâmetros e o catálogo nacional são orientativos. Não
+comprovam autorização da NFS-e, dispensa fiscal ou rejeição da SEFIN.
+Uma consulta indisponível ou inconclusiva não deve ser convertida em
+rejeição oficial. Se a SEFIN rejeitar uma emissão (por exemplo, E0312),
+examine o código nacional, o complemento municipal, o município de
+incidência e a competência no **painel da NFS-e da fatura**. A mensagem
+oficial pertence à tentativa de emissão, não à validação do cadastro do item.
+Se o resultado do POST for incerto, use a recuperação de DPS existente;
+não faça outra transmissão para testar.
+
+O preflight no backend continua sendo a fronteira de decisão sobre
+tentar emitir; esta tela não adiciona bloqueio fiscal ao cadastro do
+item ou ao ciclo financeiro. Consulte também
+[ADR de evidências fiscais](adr/0002-fiscal-assessment-contract.md).
