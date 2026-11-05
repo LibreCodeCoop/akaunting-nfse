@@ -135,6 +135,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         $ids = [100, 200];
         $seen = [];
         $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => $default,
             taxFactsResolver: static function (int $company, int $document, string $date, ?array $items) use (&$seen): array {
                 $seen = [$company, $document, $date, $items];
 
@@ -217,6 +218,9 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
     private static function invoice(): Document
     {
         $invoice = new Document();
+        // A pure unit test has no Eloquent connection resolver; avoid
+        // resolving a database-specific date format while setting a fixture.
+        $invoice->setDateFormat('Y-m-d H:i:s');
         $invoice->id = 42;
         $invoice->company_id = 5;
         $invoice->issued_at = '2026-10-12 12:00:00';
