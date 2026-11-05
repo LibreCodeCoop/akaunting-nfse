@@ -18,6 +18,37 @@ test('DPS query permits only a canonical positive national number', () => {
     }
 });
 
+test('DPS adjustments only accept strictly higher canonical numbers with a reason and confirmation', () => {
+    assert.deepEqual(dps.advancePayload('67', '90', 'Verified external sequence evidence', true), {
+        expected_next_number: '67',
+        next_number: '90',
+        reason: 'Verified external sequence evidence',
+        confirmed: true,
+    });
+    for (const unsafe of ['67', '66', '0', '00067', '1&x=2', '1'.repeat(16)]) {
+        assert.throws(() => dps.advancePayload('67', unsafe, 'Valid reason for the adjustment', true));
+    }
+    assert.throws(() => dps.advancePayload('67', '90', 'too short', true));
+    assert.throws(() => dps.advancePayload('67', '90', 'Valid reason for the adjustment', false));
+});
+
+test('DPS advance uses authenticated POST with CSRF and never automatically retries', async () => {
+    const calls = [];
+    const payload = dps.advancePayload('7', '11', 'Synthetic evidence recorded elsewhere', true);
+    const result = await dps.postAdvance(async (url, options) => {
+        calls.push({ url, options });
+        return { ok: true, json: async () => ({ data: { next_number: '11' } }) };
+    }, '/1/nfse/dps/advance', 'synthetic-csrf', payload);
+    assert.equal(result.next_number, '11');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.method, 'POST');
+    assert.equal(calls[0].options.credentials, 'same-origin');
+    assert.equal(calls[0].options.headers['X-CSRF-TOKEN'], 'synthetic-csrf');
+    assert.deepEqual(JSON.parse(calls[0].options.body), payload);
+    await assert.rejects(() => dps.postAdvance(async () => ({ ok: false }),
+        '/1/nfse/dps/advance', 'synthetic-csrf', payload));
+});
+
 test('Readiness data never declares external fiscal attestation', () => {
     const result = dps.summarize({
         mechanically_ready: true, candidate_number: '900000000000008', reasons: [],

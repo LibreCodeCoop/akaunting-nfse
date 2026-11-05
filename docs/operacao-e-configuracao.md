@@ -81,6 +81,24 @@ ambiente de destino. Cadastre a série local
 `coordination_mode=shared_database` e correspondência da referência
 criptograficamente aleatória com o coordenador central.
 
+O painel de diagnóstico NFS-e apresenta a série, o último número reservado
+e o próximo número DPS para o perfil fiscal da empresa selecionada. Com
+permissão `update-nfse-settings`, é possível **avançar excepcionalmente**
+o próximo número, após verificar o histórico e informar justificativa. O campo
+representa o **próximo** número: para que a próxima reserva seja `51`, o
+contador persistido será `50`. O sistema nunca permite diminuir ou repetir
+o próximo número. Os dois contadores do mesmo MySQL são atualizados na
+mesma transação e o ajuste registra empresa, operador, valores anterior/novo
+e justificativa. Essa operação não reserva, transmite, autoriza ou reenvia DPS.
+
+Para série inédita e comprovadamente exclusiva, o próximo número padrão
+é `1`, sem necessidade de ajuste. Série ainda não provisionada ou sem
+evidência de histórico aparece como indisponível; o ajuste não substitui
+provisionamento ou autorização de emissão. Em caso de dúvida sobre uma
+lacuna, restauração de backup ou uso anterior da mesma série, suspenda
+emissões e reconcilie evidências antes de avançar. Um número ignorado
+não é recuperado automaticamente.
+
 O coordenador utiliza **o mesmo banco MySQL do Akaunting**, com as tabelas
 de autoridade DPS criadas pela migração padrão do módulo. Não existe segundo
 banco, segundo Akaunting nem microsserviço. Uma conexão PDO independente
