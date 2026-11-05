@@ -107,6 +107,25 @@ reference, unknown historical starting number or unavailable MySQL connection
 must prevent **new** transmissions. Merely creating a profile is not issuance
 authorization.
 
+## Administrative monotonic number adjustment
+
+The settings diagnostic exposes the authoritative last number and next DPS
+number without permitting ordinary users to change fiscal identity. An operator
+with `update-nfse-settings` may exceptionally advance the **next** number,
+using the selected company's active fiscal profile, a stale-value check, an
+explicit confirmation and a mandatory reason. The endpoint runs one MySQL
+transaction locking the local series then the authority; it commits both
+high-water marks and an immutable audit record together. No DPS allocation,
+first-POST claim, fiscal POST, automatic retry or activation is performed.
+
+This tool does **not** choose an initial unverified series or prove unused
+numbers. It is unavailable until the authority and local series are provisioned,
+with matching status, identifier, attested historic floor and reference.
+Adjustments go only upward; the original allocations remain immutable. Do not
+skip numbers merely for convenience or treat an official lookup returning
+"not found" as sufficient history evidence. Backups and restoration still
+require independent reconciliation before reactivation.
+
 ## Backups and full-database restores
 
 With one database, both the invoice journal and authoritative ledger can be

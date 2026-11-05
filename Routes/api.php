@@ -28,6 +28,8 @@ Route::api('nfse', function (): void {
         ->middleware('permission:read-nfse-settings')->name('dps.readiness');
     Route::get('dps/lookup', [DpsReadinessController::class, 'lookup'])
         ->middleware('permission:read-nfse-settings')->name('dps.lookup');
+    Route::post('dps/advance', [DpsReadinessController::class, 'advance'])
+        ->middleware('permission:update-nfse-settings')->name('dps.advance');
 
     // Native API issuance reuses the exact manual issuance handler, DPS
     // journal and recovery services; no second fiscal pipeline is introduced.
