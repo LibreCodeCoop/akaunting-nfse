@@ -11,6 +11,7 @@ use Modules\Nfse\Application\AuthorizedFiscalSnapshotExtractor;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseGenerator;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseTemplate;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\XmlToArray;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -68,6 +69,40 @@ final class ScopedFiscalDocumentConsistencyTest extends TestCase
         self::assertSame('R$ 1.300,00', $rendered['totais']['valor_liquido']);
         self::assertSame('R$ 1.500,00', $rendered['totais']['valor_servico']);
         self::assertSame('-', $rendered['tributacao_municipal']['issqn_apurado']);
+    }
+
+    /**
+     * The module must use the pinned SDK renderer without interpreting a
+     * cooperative provider as automatically having a municipal special regime.
+     * All XML examples are synthetic and no fiscal request is transmitted.
+     */
+    #[DataProvider('specialRegimeCases')]
+    public function testPinnedDanfseKeepsSpecialRegimeZeroNineAndAbsenceDistinct(
+        ?string $code,
+        string $expectedLabel,
+        bool $showRow,
+    ): void {
+        $xml = str_replace(
+            '<regEspTrib>6</regEspTrib>',
+            $code === null ? '' : '<regEspTrib>' . $code . '</regEspTrib>',
+            self::authorizedXml(),
+        );
+        $data = (new DanfseTemplate())->buildData((new XmlToArray())->convert($xml));
+        $html = (new DanfseGenerator())->generateHtml($xml);
+
+        self::assertSame($expectedLabel, $data['tributacao_municipal']['regime_especial']);
+        self::assertSame($showRow, $data['tributacao_municipal']['mostrar_linha_regime']);
+        self::assertSame($showRow, str_contains($html, 'municipal-conditional-regime'));
+    }
+
+    /** @return array<string,array{?string,string,bool}> */
+    public static function specialRegimeCases(): array
+    {
+        return [
+            'explicit none is not missing' => ['0', 'Nenhum', true],
+            'explicit other is recognized' => ['9', 'Outros', true],
+            'absent tag suppresses an otherwise empty row' => [null, '-', false],
+        ];
     }
 
     private static function authorizedXml(): string
