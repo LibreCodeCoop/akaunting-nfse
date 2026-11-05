@@ -11,6 +11,7 @@ use App\Http\Requests\Common\Contact as CoreContactRequest;
 use App\Http\Requests\Common\Item as CoreItemRequest;
 use App\Models\Common\Contact;
 use App\Models\Common\Item;
+use App\Models\Document\Document as Invoice;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\DpsIssuanceIdentity;
@@ -260,7 +261,7 @@ class Main extends Provider
         $this->app->make('view')->composer('sales.invoices.show', function ($view): void {
             $invoice = $view->getData()['invoice'] ?? null;
 
-            if (!is_object($invoice) || ($invoice->type ?? '') !== 'invoice') {
+            if (!$invoice instanceof Invoice || ($invoice->type ?? '') !== 'invoice') {
                 return;
             }
 
