@@ -105,6 +105,45 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     And the JSON response should have these field types:
       | data | array |
 
+  Scenario: Native fiscal assessment preview is explicitly read-only
+    When I make a native API GET request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/fiscal-assessment" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | array |
+
+  Scenario: Native fiscal assessment preview rejects anonymous access
+    Given the API client is a guest
+    When I make a "GET" JSON request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/fiscal-assessment"
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native fiscal assessment preview rejects users without invoice permissions
+    When I make a native API GET request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/fiscal-assessment" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native fiscal assessment preview cannot be queried across companies
+    When I make a native API GET request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/fiscal-assessment" with synthetic "other-company-administrator" credentials
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native fiscal event evidence rejects incomplete attestation without mutation
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/fiscal-event-evidence" with synthetic "administrator" credentials and body:
+      """
+      {"fiscal_group_key":"synthetic","taxable_event_date":"2026-10-01","source_reference":"Synthetic evidence"}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native fiscal event evidence cannot be written without invoice permission
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/fiscal-event-evidence" with synthetic "no-permission" credentials and body:
+      """
+      {"fiscal_group_key":"synthetic","taxable_event_date":"2026-10-01","source_reference":"Synthetic evidence","acknowledge":true}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
   Scenario: Native API client reads bounded fiscal emission attempt history
     When I make a native API GET request to "/<company_id>/api/nfse/invoices/<pending_invoice_id>/emission-attempts" with synthetic "administrator" credentials
     Then the API response status should be 200

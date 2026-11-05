@@ -11,6 +11,13 @@ authentication (Basic or OAuth Bearer when enabled), rate limiting, `read-api`
 permission and active-company identification. Module routes additionally require
 `read-nfse-settings`.
 
+## Evidência do fato gerador e prévia fiscal
+
+A API de NFS-e expõe a prévia RTC por grupo e a declaração auditável da
+data do fato gerador. Consulte [avaliação fiscal antes da emissão](fiscal-assessment-preflight.md)
+para os endpoints, campos, permissões e limites. A prévia não substitui a
+avaliação da DPS final, não executa POST fiscal e não comprova conformidade.
+
 ## Read-only national service catalog
 
 - External client: `GET /{company_id}/{api_prefix}/nfse/national-services`
