@@ -21,6 +21,8 @@ final class NfseEmissionAttempt extends Model
     protected $fillable = [
         'company_id', 'invoice_id', 'dps_reservation_id', 'emission_group_key', 'dps_identifier',
         'environment', 'attempt_number', 'payload_fingerprint', 'approximate_tax_evidence',
+        'fiscal_event_evidence_id',
+        'fiscal_assessment_summary',
         'municipio_ibge', 'codigo_tributacao_nacional',
         'codigo_tributacao_municipal', 'codigo_servico', 'competence_date',
         'origin', 'status', 'official_code', 'official_message',
@@ -35,6 +37,8 @@ final class NfseEmissionAttempt extends Model
         'environment' => 'integer',
         'attempt_number' => 'integer',
         'receipt_id' => 'integer',
+        'fiscal_event_evidence_id' => 'integer',
+        'fiscal_assessment_summary' => 'array',
         'http_status' => 'integer',
         'competence_date' => 'date',
         'approximate_tax_evidence' => 'array',

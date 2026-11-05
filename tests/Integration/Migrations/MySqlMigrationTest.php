@@ -604,6 +604,49 @@ final class MySqlMigrationTest extends TestCase
         });
     }
 
+    public function testFiscalEventEvidenceIsAppendOnlyCompanyScopedAndDoesNotRewriteReceipts(): void
+    {
+        $this->migration('2026_10_08_000002_create_nfse_emission_attempts')->up();
+        $migration = $this->migration('2026_11_04_000002_create_nfse_fiscal_event_evidence');
+        $migration->up();
+
+        self::assertTrue(Schema::hasColumn('nfse_emission_attempts', 'fiscal_event_evidence_id'));
+        self::assertTrue(Schema::hasColumn('nfse_emission_attempts', 'fiscal_assessment_summary'));
+        self::assertTrue(Schema::hasIndex('nfse_fiscal_event_evidence', 'nfse_fiscal_event_evidence_lookup'));
+
+        $first = [
+            'company_id' => 1,
+            'invoice_id' => 1,
+            'fiscal_group_key' => 'synthetic-group',
+            'taxable_event_date' => '2026-09-30',
+            'evidence_kind' => 'operator_attestation',
+            'source_reference' => 'Synthetic service order SO-1',
+            'attested_by' => 9,
+            'attested_at' => '2026-11-01 10:00:00',
+        ];
+        DB::table('nfse_fiscal_event_evidence')->insert($first);
+        DB::table('nfse_fiscal_event_evidence')->insert(array_replace($first, [
+            'taxable_event_date' => '2026-10-02',
+            'source_reference' => 'Synthetic correction SO-2',
+            'attested_at' => '2026-11-02 10:00:00',
+        ]));
+
+        require_once __DIR__ . '/../../../Support/InvoiceFiscalEventEvidence.php';
+        $store = new \Modules\Nfse\Support\InvoiceFiscalEventEvidence();
+
+        self::assertSame('2026-10-02', $store->latest(1, 1, 'synthetic-group')['date']);
+        self::assertSame('Synthetic correction SO-2', $store->latest(1, 1, 'synthetic-group')['reference']);
+        self::assertSame(2, DB::table('nfse_fiscal_event_evidence')->count());
+        self::assertNull($store->latest(2, 1, 'synthetic-group'));
+        self::assertNull($store->latest(1, 1, 'other-group'));
+
+        $migration->down();
+        self::assertFalse(Schema::hasTable('nfse_fiscal_event_evidence'));
+        self::assertFalse(Schema::hasColumn('nfse_emission_attempts', 'fiscal_event_evidence_id'));
+        self::assertFalse(Schema::hasColumn('nfse_emission_attempts', 'fiscal_assessment_summary'));
+        self::assertSame('emitted', DB::table('nfse_receipts')->where('id', 1)->value('status'));
+    }
+
     private function migration(string $name): Migration
     {
         return require __DIR__ . '/../../../Database/Migrations/' . $name . '.php';
@@ -612,7 +655,7 @@ final class MySqlMigrationTest extends TestCase
     private function dropFixtures(): void
     {
         foreach (['nfse_dps_coordination_allocations', 'nfse_dps_coordination_members',
-            'nfse_dps_coordination_series', 'nfse_emission_attempts', 'nfse_dps_reservations', 'nfse_dps_series', 'nfse_bulk_emission_units', 'nfse_bulk_emission_runs', 'nfse_receipts', 'documents'] as $table) {
+            'nfse_dps_coordination_series', 'nfse_fiscal_event_evidence', 'nfse_emission_attempts', 'nfse_dps_reservations', 'nfse_dps_series', 'nfse_bulk_emission_units', 'nfse_bulk_emission_runs', 'nfse_receipts', 'documents'] as $table) {
             Schema::dropIfExists($table);
         }
     }

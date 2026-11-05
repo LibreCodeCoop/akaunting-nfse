@@ -56,9 +56,22 @@ final readonly class FiscalContext
         public ?CooperativeIbsCbsFacts $cooperativeIbsCbsFacts = null,
         /** Verified counterparty type for member-to-cooperative supplies. */
         public ?bool $takerIsCooperative = null,
+        /** Commercial document date is never a taxable-event assertion. */
+        public ?\DateTimeImmutable $commercialDate = null,
+        public ?string $commercialDateSource = null,
+        /** Declared DPS competence source, not evidence of the fiscal event. */
+        public ?string $competenceSource = null,
+        /** Null when no event evidence has been attested. */
+        public ?string $taxableEventSource = null,
+        /** Immutable attestation row selected for this first-POST assessment. */
+        public ?int $taxableEventEvidenceId = null,
     ) {
         if ($this->companyId <= 0 || trim($this->fiscalGroupKey) === '') {
             throw new \InvalidArgumentException('Company and fiscal-group identity are required.');
+        }
+
+        if ($this->taxableEventEvidenceId !== null && $this->taxableEventEvidenceId <= 0) {
+            throw new \InvalidArgumentException('Fiscal event evidence ID must be positive.');
         }
 
         if ($this->grossServiceCents !== null && $this->grossServiceCents < 0) {
