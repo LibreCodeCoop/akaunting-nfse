@@ -112,8 +112,8 @@ final class InvoiceTaxFactsResolver
                 'dit.tax_id',
                 // SQLite may hydrate decimal columns as floats. Preserve the
                 // persisted decimal representation before exact parsing.
-                DB::raw('CAST(dit.amount AS CHAR) AS amount'),
-                DB::raw('CAST(dit.rate AS CHAR) AS rate'),
+                DB::raw('CAST(' . DB::connection()->getQueryGrammar()->wrap('dit.amount') . ' AS CHAR) AS amount'),
+                DB::raw('CAST(' . DB::connection()->getQueryGrammar()->wrap('dit.rate') . ' AS CHAR) AS rate'),
                 't.type as accounting_type',
             ]);
     }
