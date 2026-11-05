@@ -46,6 +46,10 @@ final class EmissionAttemptController extends Controller
                 'failure_class' => $attempt->failure_class,
                 'receipt_id' => $attempt->receipt_id,
                 'approximate_tax' => self::approximateTaxEvidence($attempt),
+                'fiscal_event_attested' => $attempt->fiscal_event_evidence_id !== null,
+                'fiscal_assessment' => is_array($attempt->fiscal_assessment_summary)
+                    ? $attempt->fiscal_assessment_summary
+                    : ['scope' => 'unrecorded'],
                 'started_at' => $attempt->started_at?->toIso8601String(),
                 'resolved_at' => $attempt->resolved_at?->toIso8601String(),
                 'reconciled_at' => $attempt->reconciled_at?->toIso8601String(),

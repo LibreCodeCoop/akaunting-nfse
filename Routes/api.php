@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
+use Modules\Nfse\Http\Controllers\FiscalEventEvidenceController;
 use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
@@ -28,6 +29,12 @@ Route::api('nfse', function (): void {
         ->middleware('permission:read-nfse-settings')->name('dps.readiness');
     Route::get('dps/lookup', [DpsReadinessController::class, 'lookup'])
         ->middleware('permission:read-nfse-settings')->name('dps.lookup');
+
+    // Company-scoped fiscal event evidence, never an emission POST.
+    Route::get('invoices/{invoice}/fiscal-assessment', [FiscalEventEvidenceController::class, 'index'])
+        ->middleware('permission:read-sales-invoices')->name('invoices.fiscal-assessment');
+    Route::post('invoices/{invoice}/fiscal-event-evidence', [FiscalEventEvidenceController::class, 'store'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.fiscal-event-evidence.store');
 
     // Native API issuance reuses the exact manual issuance handler, DPS
     // journal and recovery services; no second fiscal pipeline is introduced.
