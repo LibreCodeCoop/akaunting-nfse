@@ -37,6 +37,7 @@ export default defineConfig({
         'nfse-settings.spec.ts',
         'nfse-substitution.spec.ts',
         'nfse-visual-regression.spec.ts',
+        'nfse-fiscal-assessment.spec.ts',
       ],
       grepInvert: /\[live-fiscal\]/,
     },

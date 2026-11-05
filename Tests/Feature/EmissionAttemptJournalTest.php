@@ -7,14 +7,18 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Models\Common\Item;
 use App\Models\Document\Document;
 use Illuminate\Auth\Access\AuthorizationException;
 use Modules\Nfse\Application\EmissionAttemptJournal;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
+use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Models\NfseReceiptPayload;
+use Modules\Nfse\Support\InvoiceFiscalContextResolver;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -22,7 +26,6 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\IssuanceException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
-use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 final class EmissionAttemptJournalTest extends FeatureTestCase
@@ -339,6 +342,7 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
         $client = $this->client();
         $journal = new EmissionAttemptJournal();
         $dps = $this->dps();
+        $groupKey = $this->groupKey($invoice);
 
         try {
             $journal->issue(
@@ -346,9 +350,9 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
                 dps: $dps,
                 invoiceId: (int) $invoice->id,
                 origin: 'automatic',
-                groupKey: 'group-a',
-                persist: function (ReceiptData $remote) use ($invoice): NfseReceipt {
-                    (new ReceiptPersistence())->createGrouped((int) $invoice->id, $remote, $remote->nfseNumber, 'group-a');
+                groupKey: $groupKey,
+                persist: function (ReceiptData $remote) use ($invoice, $groupKey): NfseReceipt {
+                    (new ReceiptPersistence())->createGrouped((int) $invoice->id, $remote, $remote->nfseNumber, $groupKey);
                     throw new \RuntimeException('Simulated database failure after receipt insert.');
                 },
             );
@@ -379,7 +383,7 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
         $client = $this->client();
 
         try {
-            $this->issue($other, $client);
+            $this->issue($other, $client, $this->groupKey($invoice));
             self::fail('Cross-company issuance must be denied.');
         } catch (AuthorizationException) {
         }
@@ -396,23 +400,57 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
     {
         $this->loginAs();
 
-        return Document::factory()->invoice()->create(['company_id' => (int) company_id()]);
+        $invoice = Document::factory()->invoice()->create(['company_id' => (int) company_id()]);
+        $invoice->items()->delete();
+        $invoice->unsetRelation('items');
+
+        $item = Item::factory()->create(['company_id' => (int) $invoice->company_id]);
+        $invoice->items()->create([
+            'company_id' => (int) $invoice->company_id,
+            'type' => 'item',
+            'item_id' => $item->id,
+            'name' => 'Synthetic journal service',
+            'quantity' => 1,
+            'price' => '100.00',
+            'total' => '100.00',
+        ]);
+        ItemFiscalProfile::query()->create([
+            'company_id' => (int) $invoice->company_id,
+            'item_id' => $item->id,
+            'item_lista_servico' => '0107',
+            'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => '123',
+        ]);
+        $invoice->load('items');
+
+        return $invoice;
+    }
+
+    private function groupKey(Document $invoice): string
+    {
+        $groups = (new InvoiceFiscalContextResolver())->groups($invoice);
+        self::assertCount(1, $groups);
+        self::assertSame('100.00', $groups[0]['amount']);
+
+        return (string) $groups[0]['key'];
     }
 
     /** @return array{receipt:NfseReceipt,remote_receipt:?ReceiptData,reused:bool} */
-    private function issue(Document $invoice, NfseClientInterface $client): array
+    private function issue(Document $invoice, NfseClientInterface $client, ?string $groupKey = null): array
     {
+        $groupKey ??= $this->groupKey($invoice);
+
         return (new EmissionAttemptJournal())->issue(
             client: $client,
             dps: $this->dps(),
             invoiceId: (int) $invoice->id,
             origin: 'automatic',
-            groupKey: 'group-a',
+            groupKey: $groupKey,
             persist: static fn (ReceiptData $remote): NfseReceipt => (new ReceiptPersistence())->createGrouped(
                 invoiceId: (int) $invoice->id,
                 receipt: $remote,
                 resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
-                groupKey: 'group-a',
+                groupKey: $groupKey,
             ),
         );
     }

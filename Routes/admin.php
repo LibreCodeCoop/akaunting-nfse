@@ -15,6 +15,7 @@ use Modules\Nfse\Http\Controllers\DeprecatedFiscalConfigurationController;
 use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
 use Modules\Nfse\Http\Controllers\EmissionAttemptController;
+use Modules\Nfse\Http\Controllers\FiscalEventEvidenceController;
 use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\LegacyInvoiceController;
@@ -148,6 +149,12 @@ Route::admin('nfse', function () {
     Route::get('ledger/{receipt}/artifacts/{artifact}', [InvoiceController::class, 'downloadLedgerArtifact'])
         ->middleware('permission:read-sales-invoices')
         ->name('ledger.artifacts.download');
+
+    // Company-scoped fiscal event evidence, never an emission POST.
+    Route::get('invoices/{invoice}/fiscal-assessment', [FiscalEventEvidenceController::class, 'index'])
+        ->middleware('permission:read-sales-invoices')->name('invoices.fiscal-assessment');
+    Route::post('invoices/{invoice}/fiscal-event-evidence', [FiscalEventEvidenceController::class, 'store'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.fiscal-event-evidence.store');
 
     // NFS-e issuance
     Route::get('invoices', [LegacyInvoiceController::class, 'index'])->name('invoices.index');

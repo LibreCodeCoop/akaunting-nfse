@@ -22,12 +22,12 @@ use Modules\Nfse\Models\MunicipalParameterSnapshot;
 use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
+use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\IssuanceException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NfseErrorCode;
-use Modules\Nfse\Tests\Support\SyntheticDpsIssuanceIdentity;
 use Tests\Feature\FeatureTestCase;
 
 /**
@@ -54,18 +54,21 @@ final class MunicipalEmissionPreflightIntegrationTest extends FeatureTestCase
             $dps = $this->dps($invoice, $case['national'], $case['suffix']);
             $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
 
+            // Preserve the specific municipal diagnostic even though the
+            // final boundary also rejects a DPS that changed its persisted group.
+            $municipal = (new MunicipalEmissionPreflight())->evaluate($invoice, $dps, (string) $group['key']);
+            self::assertFalse($municipal['can_attempt']);
+            self::assertSame($case['reason'], $municipal['reason']);
+
             try {
                 $this->issueFromJournal($invoice, $client, $dps, (string) $group['key']);
                 self::fail('Invalid fiscal data must not reach SEFIN.');
-            } catch (MunicipalIssuanceBlocked $error) {
-                self::assertStringContainsString($case['reason'], $error->getMessage());
+            } catch (FiscalIssuanceBlocked $error) {
+                self::assertStringContainsString('NFSE-FISCAL-GROUP-CHANGED', $error->getMessage());
             }
 
             self::assertSame(0, $client->emits);
-            self::assertSame(
-                EmissionAttemptJournal::TECHNICAL_FAILURE,
-                NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->sole()->status,
-            );
+            self::assertSame(0, NfseEmissionAttempt::query()->where('invoice_id', $invoice->id)->count());
             self::assertSame(0, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
         }
     }
@@ -81,6 +84,7 @@ final class MunicipalEmissionPreflightIntegrationTest extends FeatureTestCase
             $this->issueFromJournal($invoice, $client, $dps, (string) $group['key']);
             self::fail('The final fiscal payload must be checked before the first SEFIN POST.');
         } catch (FiscalIssuanceBlocked $error) {
+            self::assertStringContainsString('NFSE-IBS-CBS-FINAL-DPS-BLOCKED', $error->getMessage());
             self::assertStringContainsString('ibs_cbs_enabled', $error->getMessage());
         }
 
@@ -106,7 +110,10 @@ final class MunicipalEmissionPreflightIntegrationTest extends FeatureTestCase
         $client = $this->fakeSefin();
 
         $result = $this->issueFromJournal(
-            $invoice, $client, new DpsData(...$payload), (string) $group['key'],
+            $invoice,
+            $client,
+            new DpsData(...$payload),
+            (string) $group['key'],
         );
 
         self::assertSame(1, $client->emits);

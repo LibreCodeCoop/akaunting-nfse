@@ -9,6 +9,7 @@ namespace Modules\Nfse\Application;
 
 use App\Models\Document\Document as Invoice;
 use Illuminate\Support\Facades\DB;
+use Modules\Nfse\Contracts\FiscalAssessment;
 use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
@@ -39,7 +40,7 @@ final class EmissionAttemptJournal
         private readonly OfficialIssuanceRejection $rejections = new OfficialIssuanceRejection(),
         private readonly MunicipalEmissionPreflight $municipalPreflight = new MunicipalEmissionPreflight(),
         private readonly ?DpsIssuanceIdentityContract $identity = null,
-        private readonly FinalDpsIbsCbsReadiness $fiscalReadiness = new FinalDpsIbsCbsReadiness(),
+        private readonly FinalFiscalAssessmentPreflight $fiscalPreflight = new FinalFiscalAssessmentPreflight(),
     ) {
     }
 
@@ -64,9 +65,15 @@ final class EmissionAttemptJournal
         // read/reconciled, never granted an uncoordinated first POST.
         $legacy = $this->historicalAttemptExists($invoiceId, $dps);
         $reservationId = null;
+        $initialAssessment = null;
         if (!$legacy) {
             $prepared = $this->identity()->prepare(
-                $invoiceId, $dps, $origin, $groupKey, $cancelledReceiptId, $substitutedReceiptId,
+                $invoiceId,
+                $dps,
+                $origin,
+                $groupKey,
+                $cancelledReceiptId,
+                $substitutedReceiptId,
             );
             $dps = $prepared['dps'];
             $reservationId = $prepared['reservation_id'];
@@ -82,10 +89,18 @@ final class EmissionAttemptJournal
                 ->whereIn('status', [self::AUTHORIZED, self::REJECTED, self::PENDING, self::AMBIGUOUS])
                 ->exists();
             if (!$protected) {
-                $this->assertFinalFiscalReady($dps);
+                $initialAssessment = $this->assertFirstPostFiscalReady($invoiceId, $dps, $groupKey);
             }
         }
-        $registration = $this->begin($invoiceId, $dps, $origin, $groupKey, $approximateTaxEvidence, $reservationId);
+        $registration = $this->begin(
+            $invoiceId,
+            $dps,
+            $origin,
+            $groupKey,
+            $approximateTaxEvidence,
+            $reservationId,
+            $initialAssessment?->context->taxableEventEvidenceId,
+        );
         $attempt = $registration['attempt'];
 
         if ((string) $attempt->status === self::AUTHORIZED) {
@@ -121,28 +136,37 @@ final class EmissionAttemptJournal
                 // All mutable callers converge here (manual, grouped, send,
                 // queue/batch, reissue and substitution). Recovery and already
                 // authorized DPS intentionally bypass this first-POST preflight.
-                $invoice = Invoice::query()->whereKey($invoiceId)->where('type', 'invoice')->first();
-                if (!$invoice instanceof Invoice) {
-                    throw new \InvalidArgumentException('Invoice not found for municipal preflight.');
-                }
-                $assessment = $this->municipalPreflight->evaluate($invoice, $dps, $groupKey);
-                if (!$assessment['can_attempt']) {
-                    throw new MunicipalIssuanceBlocked('Municipal issuance preflight blocked: ' . $assessment['reason']);
+                // Re-read persisted facts immediately before claiming the
+                // irreversible first POST. A queued DPS cannot rely on an
+                // earlier controller or worker preflight.
+                $currentAssessment = $this->assertFirstPostFiscalReady($invoiceId, $dps, $groupKey);
+                if ($currentAssessment->context->taxableEventEvidenceId
+                    !== $attempt->fiscal_event_evidence_id) {
+                    throw new FiscalIssuanceBlocked(
+                        'NFSE-EVENT-EVIDENCE-CHANGED: fiscal event evidence changed before first POST.',
+                    );
                 }
 
-                // The same immutable DPS is checked at the last first-POST
-                // boundary for every caller, including queued jobs and APIs.
-                // Do not confuse a gateway's relaxed rejection rules with
-                // legal IBS/CBS obligation or the timestamp of the fiscal fact.
-                $this->assertFinalFiscalReady($dps);
+                // Pin final diagnostics before the irreversible claim.
+                // A storage failure must not become an ambiguous remote POST.
+                try {
+                    $attempt->update([
+                        'fiscal_assessment_summary' => $this->fiscalPreflight->summary($currentAssessment),
+                    ]);
+                } catch (\Throwable $error) {
+                    throw new FiscalIssuanceBlocked('NFSE-ASSESSMENT-SNAPSHOT-FAILED', previous: $error);
+                }
 
                 // Durable local journal is already committed. A first-POST
                 // claim is irreversible in the shared MySQL authority. Any
                 // timeout here is ambiguous, not permission to try again.
                 $claimStarted = true;
                 $this->identity()->claimFirstPost(
-                    (int) $attempt->company_id, $invoiceId, (int) $reservationId,
-                    $dps, (string) $attempt->payload_fingerprint,
+                    (int) $attempt->company_id,
+                    $invoiceId,
+                    (int) $reservationId,
+                    $dps,
+                    (string) $attempt->payload_fingerprint,
                 );
                 $remote = $transmit !== null
                     ? $transmit($dps)
@@ -227,18 +251,18 @@ final class EmissionAttemptJournal
     }
 
     /**
-     * Pure check of the immutable outgoing payload, reused both before the
-     * journal and immediately before the first irreversible transmission.
+     * The single pre-POST fiscal assessment for manual, API, grouped, queue,
+     * reissue and substitution flows. Recovery-only attempts never call it.
      */
-    private function assertFinalFiscalReady(DpsData $dps): void
+    private function assertFirstPostFiscalReady(int $invoiceId, DpsData $dps, ?string $groupKey): FiscalAssessment
     {
-        $fiscal = $this->fiscalReadiness->evaluate($dps);
-        if (!$fiscal['isReady']) {
-            throw new FiscalIssuanceBlocked(
-                'Fiscal IBS/CBS preflight blocked: ' . $fiscal['reason']
-                . ' (' . implode(', ', $fiscal['missing']) . ')',
-            );
+        $invoice = Invoice::query()->whereKey($invoiceId)->where('type', 'invoice')->first();
+        if (!$invoice instanceof Invoice) {
+            throw new \InvalidArgumentException('Invoice not found for fiscal preflight.');
         }
+
+        $municipal = $this->municipalPreflight->evaluate($invoice, $dps, $groupKey);
+        return $this->fiscalPreflight->assertReady($invoice, $dps, $groupKey, $municipal);
     }
 
     /**
@@ -251,6 +275,7 @@ final class EmissionAttemptJournal
         ?string $groupKey,
         ?array $approximateTaxEvidence,
         ?int $reservationId,
+        ?int $eventEvidenceId,
     ): array {
         if ($invoiceId <= 0 || preg_match('/^[a-z][a-z0-9_]{0,31}$/D', $origin) !== 1) {
             throw new \InvalidArgumentException('Valid invoice and emission origin are required.');
@@ -262,8 +287,16 @@ final class EmissionAttemptJournal
         $environment = (int) $dps->tipoAmbiente;
 
         return DB::transaction(function () use (
-            $invoiceId, $dps, $origin, $groupKey, $identifier, $fingerprint, $environment,
-            $approximateTaxEvidence, $reservationId,
+            $invoiceId,
+            $dps,
+            $origin,
+            $groupKey,
+            $identifier,
+            $fingerprint,
+            $environment,
+            $approximateTaxEvidence,
+            $reservationId,
+            $eventEvidenceId,
         ): array {
             $invoice = DB::table('documents')
                 ->where('id', $invoiceId)
@@ -358,6 +391,7 @@ final class EmissionAttemptJournal
                 'attempt_number' => ((int) ($previous?->attempt_number ?? 0)) + 1,
                 'payload_fingerprint' => $fingerprint,
                 'approximate_tax_evidence' => $approximateTaxEvidence,
+                'fiscal_event_evidence_id' => $eventEvidenceId,
                 'municipio_ibge' => (string) $dps->municipioIbge,
                 'codigo_tributacao_nacional' => $national,
                 'codigo_tributacao_municipal' => $municipal,

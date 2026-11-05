@@ -11,6 +11,7 @@ use App\Http\Requests\Common\Contact as CoreContactRequest;
 use App\Http\Requests\Common\Item as CoreItemRequest;
 use App\Models\Common\Contact;
 use App\Models\Common\Item;
+use App\Models\Document\Document as Invoice;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\DpsIssuanceIdentity;
@@ -34,6 +35,7 @@ use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
 use Modules\Nfse\Support\ContactFiscalProfileStore;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\InvoiceFiscalEventOverview;
 use Modules\Nfse\Support\ItemMunicipalCompanyContext;
 use Modules\Nfse\Support\ItemMunicipalValidationResolver;
 use Modules\Nfse\Support\Lc116Catalog;
@@ -259,7 +261,7 @@ class Main extends Provider
         $this->app->make('view')->composer('sales.invoices.show', function ($view): void {
             $invoice = $view->getData()['invoice'] ?? null;
 
-            if (!is_object($invoice) || ($invoice->type ?? '') !== 'invoice') {
+            if (!$invoice instanceof Invoice || ($invoice->type ?? '') !== 'invoice') {
                 return;
             }
 
@@ -306,12 +308,21 @@ class Main extends Provider
                 }
             }
 
+            // Advisory calendar preview only. The actual outgoing DPS is
+            // reassessed by EmissionAttemptJournal before its first POST.
+            try {
+                $fiscalEventGroups = (new InvoiceFiscalEventOverview())->forInvoice($invoice);
+            } catch (\Throwable) {
+                $fiscalEventGroups = [];
+            }
+
             $content = view('nfse::invoices.partials.native-fiscal-panel', [
                 'invoice' => $invoice,
                 'receipt' => $receipt,
                 'receipts' => $receipts,
                 'postEmissionStatus' => $postEmissionStatus,
                 'authorizedXmlAvailable' => $authorizedXmlAvailable,
+                'fiscalEventGroups' => $fiscalEventGroups,
             ])->render();
 
             $modalTrigger = view('nfse::invoices.partials.native-fiscal-modal-trigger', [

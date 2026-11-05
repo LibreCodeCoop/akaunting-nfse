@@ -11,6 +11,7 @@ use App\Models\Document\Document as Invoice;
 use Modules\Nfse\Support\InvoiceAutomaticTakerEligibility;
 use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
+use Modules\Nfse\Support\InvoiceFiscalEventEvidence;
 use Modules\Nfse\Support\NfseCompanyFiscalSettings;
 
 /**
@@ -103,6 +104,10 @@ final class AutomaticInvoiceEmissionPreflight
             itemListaServico: (string) ($group['item_lista_servico'] ?? ''),
             settings: $settings,
             rtcSupplyCategory: $category,
+            taxableEventDate: (new InvoiceFiscalEventEvidence())->dateForGroup(
+                $invoice,
+                (string) ($group['key'] ?? ''),
+            ),
         );
 
         if ($category !== '' && $category !== 'ordinary_lc116') {

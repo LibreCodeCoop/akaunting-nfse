@@ -99,7 +99,7 @@ The existing application continues to reject recognized unsupported
 non-LC116 modalities before LC116 grouped issuance. The common,
 last-mutable-boundary enforcement, evidence aggregation across *all*
 manual, automatic, batch, substitution, re-emission and recovery paths
-remains owned by **#429**. Until that integration exists, a clean result
+is implemented by **#561**. The preview is not final validation; a clean result
 from an older `IbsCbsEmissionReadiness` invocation is not proof that
 the typed legal assessment ran, nor that a gateway which accepted XML
 without IBS/CBS proved legal conformity.
