@@ -87,11 +87,12 @@ calculate fiscal incidence, alter financial items or overwrite authorized XML.
 | --- | --- | --- | --- |
 | List tax identities, roles, and historical confirmations | `GET settings/tax-associations` | `GET settings/tax-associations/resources` | `read-nfse-settings` |
 | Confirm a fiscal identity/role for a native tax | `POST settings/tax-associations` | `POST settings/tax-associations` | `update-nfse-settings` |
+| Explicitly revise a current/future fiscal association window | `PATCH settings/tax-associations/{associationId}` | `PATCH settings/tax-associations/{associationId}` | `update-nfse-settings` |
 | Paginate estimated-tax source revisions | `GET settings/approximate-taxes` | `GET settings/approximate-taxes/resources` | `read-nfse-settings` |
 | Append an estimated-tax evidence revision | `POST settings/approximate-taxes` | `POST settings/approximate-taxes` | `update-nfse-settings` |
 
 Prefix native suffixes with `/{company_id}/{api_prefix}/nfse/` and browser
-suffixes with `/{company_id}/nfse/`. Browser JSON POSTs require CSRF; native
+suffixes with `/{company_id}/nfse/`. Browser JSON writes require CSRF; native
 API calls use Akaunting authentication and permission middleware.
 
 The tax association listing returns `data.taxes`, `data.identities` and

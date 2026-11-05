@@ -8,6 +8,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     function errorMessage(responseStatus, payload) {
         if (responseStatus === 401 || responseStatus === 403) return 'Acesso não autorizado à configuração fiscal.';
+        if (responseStatus >= 500) return 'Serviço fiscal temporariamente indisponível.';
         const details = payload && typeof payload.errors === 'object'
             ? Object.values(payload.errors).flat().filter((x) => typeof x === 'string') : [];
         return details[0] || (typeof payload?.message === 'string' && payload.message)
@@ -23,12 +24,12 @@
         return payload;
     }
 
-    async function postForm(fetchImpl, url, form) {
+    async function submitForm(fetchImpl, url, form, method = 'POST') {
         const fields = new FormData(form);
         const payload = Object.fromEntries(fields.entries());
         delete payload._token;
         const response = await fetchImpl(url, {
-            method: 'POST', credentials: 'same-origin',
+            method, credentials: 'same-origin',
             headers: {
                 Accept: 'application/json',
                 'Content-Type': 'application/json',
@@ -62,7 +63,7 @@
         if (previous) select.value = previous;
     }
 
-    function renderAssociations(documentRef, list, form, data) {
+    function renderAssociations(documentRef, list, form, data, onRevise) {
         if (!Array.isArray(data?.taxes) || !Array.isArray(data?.identities) || !Array.isArray(data?.roles)) {
             throw new Error('Formato inesperado do catálogo fiscal.');
         }
@@ -119,6 +120,13 @@
                             'Revisar compatibilidade entre tipo contábil e papel fiscal.',
                             'block text-xs text-amber-800'));
                     }
+                    if (form && onRevise) {
+                        const button = textElement(documentRef, 'button', 'Retificar',
+                            'block text-sm underline');
+                        button.type = 'button';
+                        button.addEventListener('click', () => onRevise(tax, rev));
+                        li.appendChild(button);
+                    }
                     ul.appendChild(li);
                 }
                 historyCell.appendChild(ul);
@@ -174,13 +182,46 @@
             feedback.textContent = message;
             feedback.hidden = !message;
         };
+        let selectedRevisionId = null;
+        const cancelRevision = documentRef.getElementById('tax-association-cancel');
+        const resetTaxMode = () => {
+            if (!taxRoot || !form) return;
+            selectedRevisionId = null;
+            form.reset();
+            form.querySelector('[name="tax_id"]').disabled = false;
+            form.querySelector('[type="submit"]').textContent = 'Registrar confirmação';
+            documentRef.getElementById('confirm-tax-title').textContent = 'Confirmar uma associação fiscal';
+            if (cancelRevision) cancelRevision.hidden = true;
+        };
+        const selectRevision = (tax, revision) => {
+            if (!taxRoot || !form) return;
+            resetTaxMode();
+            selectedRevisionId = revision.id;
+            const taxSelect = form.querySelector('[name="tax_id"]');
+            taxSelect.value = String(tax.id);
+            taxSelect.disabled = true;
+            form.querySelector('[name="fiscal_identity"]').value = revision.fiscal_identity;
+            form.querySelector('[name="fiscal_role"]').value = revision.fiscal_role;
+            form.querySelector('[name="effective_from"]').value = '';
+            form.querySelector('[name="effective_until"]').value = revision.effective_until || '';
+            form.querySelector('[name="source_reference"]').value = '';
+            form.querySelector('[type="submit"]').textContent = 'Registrar retificação';
+            documentRef.getElementById('confirm-tax-title').textContent = 'Retificar a partir de nova vigência';
+            if (cancelRevision) cancelRevision.hidden = false;
+            notify('Escolha uma data de início atual ou futura, posterior à revisão original. '
+                + 'Informe nova fonte e confirme; o período anterior será preservado.');
+        };
+        cancelRevision?.addEventListener('click', () => {
+            resetTaxMode();
+            notify('');
+        });
         const refresh = async () => {
             try {
                 const url = new URL(root.dataset.listUrl, documentRef.baseURI);
                 if (approximateRoot) url.searchParams.set('page', String(page));
                 const payload = await getJson(fetchImpl, url.toString());
                 if (taxRoot) {
-                    renderAssociations(documentRef, list, form, payload.data);
+                    renderAssociations(documentRef, list, form, payload.data, selectRevision);
                 } else {
                     renderApproximate(documentRef, list, payload.data);
                     const meta = payload.meta || {};
@@ -206,11 +247,19 @@
             button.disabled = true;
             notify('');
             try {
-                const response = await postForm(fetchImpl, root.dataset.storeUrl, form);
-                notify(taxRoot
-                    ? response.data?.already_confirmed ? 'Associação já confirmada.' : 'Associação fiscal confirmada.'
-                    : 'Revisão de fonte fiscal registrada.');
-                form.reset();
+                const isRevision = Boolean(taxRoot && selectedRevisionId !== null);
+                const url = isRevision
+                    ? root.dataset.reviseUrl.replace('__ID__', String(selectedRevisionId))
+                    : root.dataset.storeUrl;
+                const response = await submitForm(fetchImpl, url, form, isRevision ? 'PATCH' : 'POST');
+                const message = isRevision
+                    ? response.data?.already_confirmed ? 'Retificação já confirmada.' : 'Associação fiscal retificada.'
+                    : taxRoot
+                        ? response.data?.already_confirmed ? 'Associação já confirmada.' : 'Associação fiscal confirmada.'
+                        : 'Revisão de fonte fiscal registrada.';
+                if (taxRoot) resetTaxMode();
+                else form.reset();
+                notify(message);
                 page = 1;
                 await refresh();
             } catch (error) {
