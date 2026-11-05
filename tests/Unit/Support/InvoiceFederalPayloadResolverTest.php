@@ -135,6 +135,7 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
         $ids = [100, 200];
         $seen = [];
         $resolver = new InvoiceFederalPayloadResolver(
+            settingResolver: static fn (string $key, mixed $default): mixed => $default,
             taxFactsResolver: static function (int $company, int $document, string $date, ?array $items) use (&$seen): array {
                 $seen = [$company, $document, $date, $items];
 
@@ -217,9 +218,10 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
     private static function invoice(): Document
     {
         $invoice = new Document();
+        // Date objects work with the isolated stub and with Eloquent.
         $invoice->id = 42;
         $invoice->company_id = 5;
-        $invoice->issued_at = '2026-10-12 12:00:00';
+        $invoice->issued_at = new \DateTimeImmutable('2026-10-12 12:00:00');
         $invoice->amount = 100.00;
         $invoice->items = new class () {
             /** @return list<array<string,mixed>> */

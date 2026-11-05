@@ -55,6 +55,8 @@ Aprovação técnica de política e aceite profissional são registros distintos
 | ISS-E0178 | Anexo I oficial por ambiente e competência | Vincular contribuinte, serviço e competência; autorização municipal pode restringir ou não códigos de tributação | Anexos I confrontados; `SpecialTaxRegimePolicyTest` | Pendente: autorização individual e código |
 | REG-SN | Anexo I E0160/E0162/E0166 e E0172/E0174/E0175 na versão aplicável | `opSimpNac`, `regApTribSN` e `regEspTrib` são fatos distintos; código ISS não comprova opção IBS/CBS | `FiscalContext`; `SpecialTaxRegimePolicyTest` | Pendente: cadastro e regime por competência |
 | FED-RET | Lei 10.833/2003, arts. 30–32, e normas do pagador; considerar evento de pagamento quando exigido | PIS, COFINS e CSLL retidos somente sob hipóteses verificadas; valor próprio não é valor efetivamente retido nem autorização de `vRetCSLL` | `IndependentFinancialOracleTest`; `FederalSocialRetentionCalculatorTest` | Pendente: serviço, pagador e dispensa concretos |
+| FED-COOP-RET | Lei 10.833/2003, art. 32, I, e art. 31, § 2º; NT007/2026, p. 6 | Pagamento a cooperativa: **não reter CSLL** sob o art. 30. Se PIS e COFINS forem efetivamente retidos, `tpRetPisCofins=4` identifica CSLL não retida e `vRetCSLL` recebe **somente a soma efetiva de PIS+COFINS**, apesar do nome da tag; nunca inserir CSLL fictícia nem omitir o total real | `IndependentFinancialOracleTest` (RET-02); `FederalSocialRetentionCalculatorTest`; `FederalTaxReadinessTest`; `InvoiceFederalPayloadResolverTest` | Confirmar o tipo do pagador e os valores efetivamente retidos, sem inferir pela taxa cadastrada |
+| FED-COOP-OWN | Lei 10.865/2004, art. 39; Lei 5.764/1971, art. 79 | Isenção de CSLL sobre resultados de **atos cooperativos** não equivale a isenção irrestrita de todos os resultados da pessoa jurídica; apuração própria não se confunde com retenção na NFS-e | Contrato de classificação de atos cooperativos; não há cálculo de CSLL próprio no emissor | Verificar classificação dos atos e resultados na escrituração, fora do escopo de emissão |
 | FED-OWN | Leis 10.637/2002 e 10.833/2003, regime e período | Apuração própria PIS/COFINS separada da retenção e da configuração contábil; sem alíquota genérica | `FederalTaxSnapshotBuilderTest`; `IndependentFinancialOracleTest` | Pendente: regime, base e exceções |
 | FED-IRRF | Lei 9.430/1996 e demais atos aplicáveis ao tipo de pagador/serviço | Não inferir IRRF de CPF/CNPJ, nome ou esfera pública genérica; verificar pagamento e retenção real | `IndependentFinancialOracleTest`; `InvoiceTaxFactsResolverTest` | Pendente: identificação do pagador e ato aplicável |
 | TRANS-CONS | Lei 12.741/2012 e Decreto 8.264/2014; venda a consumidor final | Estimativa de transparência é distinta de tributo próprio e retenção; desconhecido não é zero | `ApproximateTaxSourceResolverTest`; `ApproximateTaxSourceFeatureTest` | Pendente: operação e dispensa aplicável |
@@ -69,7 +71,9 @@ para revisão. A hipótese cooperativa controvertida não está juridicamente
 homologada. A ausência de resposta ou de prova municipal não autoriza
 classificar a emissão como legalmente correta nem inventar bloqueio SEFIN.
 Uma aprovação independente deve identificar revisor, data, hipótese, fontes,
-conclusão, ressalvas, contraprovas e assinatura; até lá, não fechar #427.
+conclusão, ressalvas, contraprovas e assinatura. A #427 foi encerrada como
+pesquisa normativa, sem homologação fiscal; o aceite jurídico-operacional
+permanece como requisito do épico #426 e dos consumidores das regras.
 
 ## Evidência primária
 
@@ -77,6 +81,12 @@ conclusão, ressalvas, contraprovas e assinatura; até lá, não fechar #427.
   https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual
 - NT007/NT008/NT009 e anexos VI/VII:
   https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/rtc
+- Lei 10.833/2003, arts. 30–32 (retenções de contribuições sociais):
+  https://www2.camara.leg.br/legin/fed/lei/2003/lei-10833-29-dezembro-2003-497045-normaatualizada-pl.html
+- Lei 10.865/2004, art. 39 (CSLL e atos cooperativos):
+  https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/l10.865compilado.htm
+- NT007/2026, campo `vRetCSLL` e tipos de retenção:
+  https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/rtc/nt-007-se-cgnfse-v1-0.pdf
 - LC 116/2003:
   https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp116.htm
 - LC 123/2006:

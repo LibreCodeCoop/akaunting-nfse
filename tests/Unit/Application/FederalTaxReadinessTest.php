@@ -33,6 +33,7 @@ final class FederalTaxReadinessTest extends TestCase
             'disabled string' => ['off', '1', '3', []],
             'no configured federal taxes' => [true, '', '', []],
             'pis cofins only' => [true, '1', '0', ['pis', 'cofins']],
+            'cooperative provider type four has no CSLL withholding' => [true, '1', '4', ['pis', 'cofins']],
             'csll retention only' => [true, '0', '3', ['csll']],
             'pis cofins and csll' => [true, '1', '7', ['pis', 'cofins', 'csll']],
         ];
