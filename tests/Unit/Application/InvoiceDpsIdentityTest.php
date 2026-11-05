@@ -29,8 +29,7 @@ final class InvoiceDpsIdentityTest extends TestCase
         $identity = new InvoiceDpsIdentity();
 
         $dated = new Document();
-        $dated->setDateFormat('Y-m-d H:i:s');
-        $dated->issued_at = '2026-10-05 10:30:00';
+        $dated->issued_at = new \DateTimeImmutable('2026-10-05 10:30:00');
         self::assertSame('2026-10-05', $identity->competenceDate($dated));
 
         $undated = new Document();

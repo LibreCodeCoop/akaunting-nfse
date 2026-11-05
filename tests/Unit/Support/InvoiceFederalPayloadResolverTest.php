@@ -218,12 +218,10 @@ final class InvoiceFederalPayloadResolverTest extends TestCase
     private static function invoice(): Document
     {
         $invoice = new Document();
-        // A pure unit test has no Eloquent connection resolver; avoid
-        // resolving a database-specific date format while setting a fixture.
-        $invoice->setDateFormat('Y-m-d H:i:s');
+        // Date objects work with the isolated stub and with Eloquent.
         $invoice->id = 42;
         $invoice->company_id = 5;
-        $invoice->issued_at = '2026-10-12 12:00:00';
+        $invoice->issued_at = new \DateTimeImmutable('2026-10-12 12:00:00');
         $invoice->amount = 100.00;
         $invoice->items = new class () {
             /** @return list<array<string,mixed>> */
