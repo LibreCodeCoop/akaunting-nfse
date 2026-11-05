@@ -51,6 +51,7 @@ use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
+use Modules\Nfse\Support\InvoiceFiscalEventEvidence;
 use Modules\Nfse\Support\InvoiceTakerResolver;
 use Modules\Nfse\Support\Lc116Code;
 use Modules\Nfse\Support\NfseCompanyFiscalReadiness;
@@ -591,6 +592,10 @@ class InvoiceController extends Controller
             itemListaServico: $ibsCbsServiceCode,
             settings: $issuerFiscal,
             rtcSupplyCategory: $rtcCategory,
+            taxableEventDate: (new InvoiceFiscalEventEvidence())->dateForGroup(
+                $invoice,
+                is_array($selectedFiscalGroup) ? (string) ($selectedFiscalGroup['key'] ?? '') : null,
+            ),
         );
 
         if (($ibsCbsReadiness['isReady'] ?? false) !== true) {
@@ -1521,6 +1526,7 @@ class InvoiceController extends Controller
             opcaoSimplesNacional: $opcaoSimplesNacional,
             itemListaServico: (string) ($itemFiscalProfile['item_lista_servico'] ?? ''),
             settings: $nfseSettings,
+            taxableEventDate: (new InvoiceFiscalEventEvidence())->dateForGroup($invoice, null),
         );
 
         if (($ibsCbsReadiness['isReady'] ?? false) !== true) {

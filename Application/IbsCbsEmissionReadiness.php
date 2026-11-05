@@ -30,12 +30,17 @@ final class IbsCbsEmissionReadiness
         string $itemListaServico,
         array $settings,
         string $rtcSupplyCategory = '',
+        ?string $taxableEventDate = null,
     ): array {
         $category = trim($rtcSupplyCategory);
         $ordinary = $category === '' || $category === 'ordinary_lc116';
+        // Use an attested event date for the event-based RTC calendar.
+        // When absent, retain the legacy competence-based conservative
+        // transport check, without claiming the fiscal event was proven.
+        $obligationDate = $taxableEventDate ?? $competenceDate;
         $obligation = $ordinary
-            ? $this->policy->evaluate($competenceDate, $opcaoSimplesNacional, $itemListaServico)
-            : (new RtcSupplyCategoryPolicy())->evaluate($category, $competenceDate, $opcaoSimplesNacional);
+            ? $this->policy->evaluate($obligationDate, $opcaoSimplesNacional, $itemListaServico)
+            : (new RtcSupplyCategoryPolicy())->evaluate($category, $obligationDate, $opcaoSimplesNacional);
 
         if (($obligation['reason'] ?? '') === 'unverifiable') {
             return [

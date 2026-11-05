@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Application;
 
+use Modules\Nfse\Contracts\FiscalContext;
 use Modules\Nfse\Support\NbsEmissionReadiness;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 
@@ -28,7 +29,7 @@ final class FinalDpsIbsCbsReadiness
     /**
      * @return array{isReady:bool,required:bool,effective_date:?string,reason:string,missing:list<string>}
      */
-    public function evaluate(DpsData $dps): array
+    public function evaluate(DpsData $dps, ?FiscalContext $context = null): array
     {
         $enabled = $dps->ibsCbsFinalidade !== null;
         $otherFieldsPresent = $dps->ibsCbsIndFinal !== null
@@ -39,6 +40,7 @@ final class FinalDpsIbsCbsReadiness
 
         $assessment = $this->readiness->evaluate(
             competenceDate: trim((string) ($dps->dataCompetencia ?? '')),
+            taxableEventDate: $context?->taxableEventDate?->format('Y-m-d'),
             opcaoSimplesNacional: $dps->opcaoSimplesNacional,
             itemListaServico: $dps->itemListaServico,
             settings: [
@@ -49,6 +51,7 @@ final class FinalDpsIbsCbsReadiness
                 'ibs_cbs_cst' => $dps->ibsCbsCst,
                 'ibs_cbs_c_class_trib' => $dps->ibsCbsClassificacaoTributaria,
             ],
+            rtcSupplyCategory: $context?->operationCategory ?? '',
         );
 
         if (!$enabled && $otherFieldsPresent) {
