@@ -26,6 +26,9 @@ evidência**. Selecione o grupo fiscal, informe a data, a referência do
 documento ou ordem de serviço e confirme a declaração. A referência não é
 enviada à SEFIN. As declarações são acrescentadas ao histórico, sem
 reescrever as anteriores. Não copie `issued_at` automaticamente.
+A referência é uma **declaração auditável do operador**, não uma verificação
+independente do documento. A decisão RTC depende da veracidade dessa
+declaração e deve ser revisada quando houver dúvida sobre a operação.
 
 A alteração é impedida enquanto houver tentativa de emissão pendente ou
 ambígua que precise de recuperação. Uma NFS-e autorizada e seus XML/PDF
