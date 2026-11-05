@@ -13,8 +13,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
-use Modules\Nfse\Application\DpsNumberAdvance;
 use Modules\Nfse\Application\DpsFiscalIssuer;
+use Modules\Nfse\Application\DpsNumberAdvance;
 use Modules\Nfse\Application\SharedMysqlDpsSeriesCoordinator;
 use PDO;
 use PHPUnit\Framework\TestCase;
@@ -209,11 +209,16 @@ final class DpsNumberAdvanceTest extends TestCase
             'status' => 'active',
         ]);
         $coordinator = new SharedMysqlDpsSeriesCoordinator(
-            $this->anotherConnection(), self::INSTALLATION, 1,
+            $this->anotherConnection(),
+            self::INSTALLATION,
+            1,
         );
         $allocated = $coordinator->allocate(
             new DpsFiscalIssuer('3303302', 2, '11222333000181'),
-            2, '00001', self::REFERENCE, hash('sha256', 'synthetic-next-operation'),
+            2,
+            '00001',
+            self::REFERENCE,
+            hash('sha256', 'synthetic-next-operation'),
         );
         self::assertSame(51, $allocated['number']);
         self::assertTrue($allocated['fresh']);
@@ -223,7 +228,11 @@ final class DpsNumberAdvanceTest extends TestCase
     private function advance(string $expected, string $requested): array
     {
         return (new DpsNumberAdvance())->advance(
-            1, 7, $expected, $requested, 'Synthetic old emitter numbered through 50',
+            1,
+            7,
+            $expected,
+            $requested,
+            'Synthetic old emitter numbered through 50',
         );
     }
 
