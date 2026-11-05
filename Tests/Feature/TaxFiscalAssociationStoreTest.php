@@ -121,6 +121,110 @@ final class TaxFiscalAssociationStoreTest extends FeatureTestCase
         ];
     }
 
+    public function testExplicitCutoverPreservesEarlierFiscalEvidenceAndIsIdempotent(): void
+    {
+        [$company, $tax] = $this->companyTax();
+        $store = new TaxFiscalAssociationStore();
+        $original = $store->confirm(
+            $company, $tax, FiscalTaxIdentity::PIS, FiscalTaxRole::PROVIDER_DUE,
+            '2026-01-01', null, 'synthetic-original-evidence', 1,
+        );
+        $cutover = now()->addDays(3)->toDateString();
+        $previousDay = now()->addDays(2)->toDateString();
+        $taxBefore = DB::table('taxes')->where('id', $tax)->first();
+
+        $replacement = $store->revise(
+            $company, (int) $original->id, FiscalTaxIdentity::COFINS, FiscalTaxRole::PROVIDER_DUE,
+            $cutover, null, 'synthetic-corrected-evidence', 2,
+        );
+        $retry = $store->revise(
+            $company, (int) $original->id, FiscalTaxIdentity::COFINS, FiscalTaxRole::PROVIDER_DUE,
+            $cutover, null, 'synthetic-corrected-evidence', 2,
+        );
+
+        self::assertTrue($replacement->wasRecentlyCreated);
+        self::assertFalse($retry->wasRecentlyCreated);
+        self::assertSame((int) $replacement->id, (int) $retry->id);
+        self::assertSame(2, TaxFiscalAssociation::query()->where('tax_id', $tax)->count());
+        self::assertSame($previousDay, $original->fresh()->effective_until);
+        self::assertSame('pis', $original->fresh()->fiscal_identity);
+        self::assertSame('synthetic-original-evidence', $original->fresh()->source_reference);
+        self::assertSame(1, (int) $original->fresh()->confirmed_by);
+        self::assertSame('cofins', $replacement->fiscal_identity);
+        self::assertSame('synthetic-corrected-evidence', $replacement->source_reference);
+        self::assertSame(2, (int) $replacement->confirmed_by);
+        self::assertEquals($taxBefore, DB::table('taxes')->where('id', $tax)->first());
+    }
+
+    public function testOverlappingCutoverRollsBackTheOriginalWindow(): void
+    {
+        [$company, $tax] = $this->companyTax();
+        $store = new TaxFiscalAssociationStore();
+        $end = now()->addDays(30)->toDateString();
+        $original = $store->confirm(
+            $company, $tax, FiscalTaxIdentity::PIS, FiscalTaxRole::PROVIDER_DUE,
+            '2026-01-01', $end, 'synthetic-original-evidence', 1,
+        );
+        $store->confirm(
+            $company, $tax, FiscalTaxIdentity::PIS, FiscalTaxRole::PROVIDER_DUE,
+            now()->addDays(31)->toDateString(), null, 'synthetic-following-evidence', 1,
+        );
+
+        try {
+            $store->revise(
+                $company, (int) $original->id, FiscalTaxIdentity::COFINS, FiscalTaxRole::PROVIDER_DUE,
+                now()->addDays(10)->toDateString(), null, 'synthetic-overlap-attempt', 2,
+            );
+            self::fail('A cutover may not overlap a later confirmed revision.');
+        } catch (\DomainException $exception) {
+            self::assertStringContainsString('Overlapping', $exception->getMessage());
+        }
+
+        self::assertSame($end, $original->fresh()->effective_until);
+        self::assertSame(2, TaxFiscalAssociation::query()->where('tax_id', $tax)->count());
+    }
+
+    public function testCutoverCannotChangePastOrForeignCompanyTax(): void
+    {
+        [$company, $tax] = $this->companyTax();
+        $store = new TaxFiscalAssociationStore();
+        $original = $store->confirm(
+            $company, $tax, FiscalTaxIdentity::PIS, FiscalTaxRole::PROVIDER_DUE,
+            '2026-01-01', null, 'synthetic-original-evidence', 1,
+        );
+
+        foreach ([
+            'foreign company' => [$company + 1000, now()->addDays(2)->toDateString()],
+            'past period' => [$company, now()->subDay()->toDateString()],
+            'same start' => [$company, '2026-01-01'],
+        ] as $case => [$targetCompany, $cutover]) {
+            try {
+                $store->revise(
+                    $targetCompany, (int) $original->id,
+                    FiscalTaxIdentity::COFINS, FiscalTaxRole::PROVIDER_DUE,
+                    $cutover, null, 'synthetic-unauthorized-correction', 2,
+                );
+                self::fail($case . ' must not change the fiscal history.');
+            } catch (\DomainException $exception) {
+                self::assertNotSame('', $exception->getMessage());
+            }
+        }
+
+        DB::table('taxes')->where('id', $tax)->update(['company_id' => $company + 1000]);
+        try {
+            $store->revise(
+                $company, (int) $original->id, FiscalTaxIdentity::COFINS, FiscalTaxRole::PROVIDER_DUE,
+                now()->addDays(2)->toDateString(), null, 'synthetic-tax-reassigned', 2,
+            );
+            self::fail('A reassigned accounting tax cannot be revised by its previous company.');
+        } catch (\DomainException $exception) {
+            self::assertStringContainsString('does not belong', $exception->getMessage());
+        }
+
+        self::assertNull($original->fresh()->effective_until);
+        self::assertSame(1, TaxFiscalAssociation::query()->where('tax_id', $tax)->count());
+    }
+
     /** @return array{0:int,1:int} */
     private function companyTax(): array
     {

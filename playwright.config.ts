@@ -30,6 +30,7 @@ export default defineConfig({
         'nfse-bulk-emission.spec.ts',
         'nfse-certificate.spec.ts',
         'nfse-emission.spec.ts',
+        'nfse-fiscal-tax-api.spec.ts',
         'nfse-grouped-invoice.spec.ts',
         'nfse-invoice-show-emit-modal.spec.ts',
         'nfse-item-validation.spec.ts',

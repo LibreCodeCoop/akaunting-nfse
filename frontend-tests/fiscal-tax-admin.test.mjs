@@ -13,6 +13,10 @@ test('tax API errors keep sensitive server responses out of unauthorized feedbac
         'Acesso não autorizado à configuração fiscal.');
     assert.equal(api.errorMessage(422, { errors: { source_version: ['Version already registered'] } }),
         'Version already registered');
+    assert.equal(api.errorMessage(409, { message: 'Retificação fiscal rejeitada.' }),
+        'Retificação fiscal rejeitada.');
+    assert.equal(api.errorMessage(500, { message: 'internal stack trace should never appear' }),
+        'Serviço fiscal temporariamente indisponível.');
 });
 
 test('tax browser requests use JSON with same-origin session', async () => {

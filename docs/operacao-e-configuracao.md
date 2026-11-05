@@ -249,10 +249,17 @@ documental. A ação exige permissão `update-nfse-settings`; leitura requer
 
 Associações são revisões datadas: não podem sobrepor o período de outra
 classificação para o mesmo `tax_id`; repetir a mesma confirmação por seu
-autor é idempotente. Se uma vigência já confirmada precisar ser revista,
-a alteração deve seguir revisão administrativa explícita: esta interface
-não sobrescreve registros históricos. Escolha períodos finitos quando
-mudanças futuras forem esperadas.
+autor é idempotente. Para alterar uma classificação vigente, selecione
+**Retificar** na revisão correspondente, informe uma nova vigência inicial
+(hoje ou futura, posterior ao início da revisão original), a identidade,
+o papel e uma nova referência documental, e confirme. O sistema encerra
+a vigência anterior no dia imediatamente anterior à nova e registra outra
+revisão com seu próprio autor e fonte. A operação é atômica e idempotente;
+um conflito com outra revisão não altera o histórico.
+
+Não é possível retificar retroativamente um período já transcorrido. A
+identidade, a fonte e o autor da confirmação anterior permanecem preservados.
+Faturas, valores contábeis e XML/PDF autorizados não são alterados.
 
 Uma associação comprova somente que um operador atribuiu identidade e papel
 ao imposto existente. Não comprova incidência, alíquota, base, retenção ou

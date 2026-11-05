@@ -129,6 +129,54 @@ final class TaxAssociationController extends Controller
             ->with('success', 'Associação fiscal confirmada. Nenhum imposto ou documento financeiro foi alterado.');
     }
 
+    public function revise(
+        Request $request,
+        TaxFiscalAssociationStore $store,
+        int $associationId,
+    ): RedirectResponse|JsonResponse {
+        $companyId = $this->companyId();
+        $actorId = (int) auth()->id();
+        abort_if($actorId <= 0, 403, 'An authenticated confirming operator is required.');
+
+        $values = $request->validate([
+            'fiscal_identity' => ['required', Rule::in(array_column(FiscalTaxIdentity::cases(), 'value'))],
+            'fiscal_role' => ['required', Rule::in(array_column(FiscalTaxRole::cases(), 'value'))],
+            'effective_from' => ['required', 'date_format:Y-m-d'],
+            'effective_until' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:effective_from'],
+            'source_reference' => ['required', 'string', 'min:5', 'max:255'],
+            'acknowledge' => ['required', 'accepted'],
+        ]);
+
+        try {
+            $revision = $store->revise(
+                $companyId,
+                $associationId,
+                FiscalTaxIdentity::from($values['fiscal_identity']),
+                FiscalTaxRole::from($values['fiscal_role']),
+                $values['effective_from'],
+                $values['effective_until'] ?? null,
+                $values['source_reference'],
+                $actorId,
+            );
+        } catch (\DomainException|\InvalidArgumentException) {
+            $message = 'Retificação fiscal rejeitada. Confira a empresa, a vigência e eventuais conflitos.';
+            return $request->expectsJson()
+                ? response()->json(['reason' => 'tax_association_conflict', 'message' => $message], 409)
+                : redirect()->back()->withInput()->withErrors(['effective_from' => $message]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['data' => [
+                'id' => (int) $revision->id,
+                'status' => 'confirmed',
+                'already_confirmed' => !$revision->wasRecentlyCreated,
+            ]], $revision->wasRecentlyCreated ? 201 : 200);
+        }
+
+        return redirect()->route('nfse.settings.tax-associations.index')
+            ->with('success', 'Associação fiscal retificada. O histórico e os documentos foram preservados.');
+    }
+
     /**
      * An exact retry is idempotent. Different revisions, sources or actors must
      * go through the store's inclusive-window overlap validation.

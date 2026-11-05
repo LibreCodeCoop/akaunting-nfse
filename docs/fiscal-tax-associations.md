@@ -15,9 +15,11 @@ the legal identity or fiscal role. A confirmed association in
 `nfse_tax_fiscal_associations` records `fiscal_identity`,
 `fiscal_role`, an effective date interval, operator confirmation and
 a source reference. A new, disjoint interval is required to change the
-classification. The append-only confirmation service locks the actual
-company-owned native tax and rejects overlap; the reader independently
-rejects concurrent valid revisions. There are no automatic legacy mappings
+classification. The confirmation service locks the actual company-owned
+native tax and rejects overlap. Explicit reclassification closes only the
+remaining effective window (from today onward) and appends a newly confirmed
+revision; original identity, provenance and past effective dates remain intact.
+The reader independently rejects concurrent valid revisions. There are no automatic legacy mappings
 or silent name-based fallbacks.
 
 The `InvoiceTaxFactsResolver` reads the persisted
@@ -94,7 +96,8 @@ neutral federal payload; verified tax arithmetic and rejection use focused
 unit tests and actual Akaunting Feature tests. A fake SEFIN that accepts
 XML is not legal approval.
 
-Association writes require the caller to authenticate and authorize an
-operator for the specified company. Creating the operator-facing UI and
-permission boundary is reserved for #431. No direct public write route
-is provided by this groundwork.
+Association writes require an authenticated operator authorized for the
+active company. The #431 operator screen and native API use distinct read
+and update permissions. Explicit PATCH cutovers retain the original
+confirmation evidence and reject past dates, overlaps and cross-company IDs.
+No unauthenticated write route is provided.

@@ -5,7 +5,8 @@
     <x-slot name="content">
         <div id="nfse-tax-associations" class="max-w-5xl space-y-5"
             data-list-url="{{ route('nfse.settings.tax-associations.resources') }}"
-            data-store-url="{{ route('nfse.settings.tax-associations.store') }}">
+            data-store-url="{{ route('nfse.settings.tax-associations.store') }}"
+            data-revise-url="{{ route('nfse.settings.tax-associations.revise', ['associationId' => '__ID__']) }}">
             <a href="{{ route('nfse.settings.edit') }}" class="text-sm underline">&larr; Voltar às configurações NFS-e</a>
             <header>
                 <h1 class="text-xl font-semibold">Associações fiscais dos impostos existentes</h1>
@@ -49,9 +50,9 @@
                 <section class="rounded border bg-white p-4 space-y-3" aria-labelledby="confirm-tax-title">
                     <h2 id="confirm-tax-title" class="font-semibold">Confirmar uma associação fiscal</h2>
                     <p class="text-sm text-gray-600">
-                        A revisão será adicionada sem modificar períodos existentes. Vigências sobrepostas ou mudanças
-                        de enquadramento de um período já confirmado exigem revisão administrativa separada; não substitua
-                        silenciosamente associações históricas.
+                        Para alterar uma classificação vigente, escolha Retificar no histórico do imposto. A retificação
+                        encerra somente o período ainda não transcorrido e registra uma nova confirmação com sua fonte e autor.
+                        Não é possível modificar períodos anteriores à data atual nem sobrepor outras revisões.
                     </p>
                         <form id="tax-association-form" method="POST" action="{{ route('nfse.settings.tax-associations.store') }}" class="space-y-4">
                             @csrf
@@ -90,6 +91,7 @@
                                 <span>Confirmo que revisei a identidade, papel, vigência e fonte; esta ação não cria tributos, altera valores nem substitui análise jurídico-contábil.</span>
                             </label>
                             <button type="submit" class="rounded bg-green-700 px-4 py-2 text-white">Registrar confirmação</button>
+                            <button id="tax-association-cancel" type="button" class="text-sm underline" hidden>Cancelar retificação</button>
                             <p id="tax-association-feedback" role="status" aria-live="polite" class="text-sm" hidden></p>
                         </form>
                 </section>
