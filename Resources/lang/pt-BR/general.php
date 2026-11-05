@@ -4,6 +4,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 return [
+    'fiscal_event' => [
+        'status_unverifiable' => 'não verificável',
+        'status_not_applicable' => 'não aplicável',
+        'status_unsupported' => 'modalidade não suportada',
+        'status_pass' => 'verificado',
+        'status_fail' => 'reprovado',
+        'title' => 'Data do fato gerador',
+        'help' => 'A data da fatura e a competência não comprovam o fato gerador. A avaliação abaixo é uma prévia do calendário RTC; a DPS final será reavaliada antes da transmissão.',
+        'attested' => 'atestado pelo operador',
+        'unverified' => 'data não comprovada',
+        'calendar' => 'Calendário RTC',
+        'record' => 'Registrar ou corrigir evidência',
+        'group' => 'Grupo fiscal',
+        'select_group' => 'Selecione o grupo fiscal',
+        'date' => 'Data comprovada do fato gerador',
+        'reference' => 'Referência da evidência (contrato, ordem de serviço etc.)',
+        'acknowledge' => 'Confirmo que esta data decorre de evidência da operação, não de uma cópia automática da data da fatura.',
+        'save' => 'Registrar evidência',
+        'saved' => 'Data do fato gerador registrada. A DPS será reavaliada antes da emissão.',
+    ],
     'dps_diagnostic' => [
         'title' => 'Diagnóstico de numeração DPS',
         'caution' => 'A consulta não autoriza emissão. O histórico fiscal deve ser atestado independentemente e a ativação exige aprovação operacional explícita.',

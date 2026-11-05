@@ -4,6 +4,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 return [
+    'fiscal_event' => [
+        'status_unverifiable' => 'unverifiable',
+        'status_not_applicable' => 'not applicable',
+        'status_unsupported' => 'unsupported modality',
+        'status_pass' => 'verified',
+        'status_fail' => 'failed',
+        'title' => 'Taxable event date',
+        'help' => 'The invoice issue date and DPS competence do not prove the taxable event. This is an RTC calendar preview; the final DPS is reassessed before transmission.',
+        'attested' => 'operator-attested',
+        'unverified' => 'date not evidenced',
+        'calendar' => 'RTC calendar',
+        'record' => 'Record or correct evidence',
+        'group' => 'Fiscal group',
+        'select_group' => 'Select fiscal group',
+        'date' => 'Evidenced taxable event date',
+        'reference' => 'Evidence reference (contract, service order etc.)',
+        'acknowledge' => 'I confirm that this date comes from evidence of the operation, not an automatic copy of the invoice issue date.',
+        'save' => 'Record evidence',
+        'saved' => 'Taxable event date recorded. The DPS will be reassessed before issuance.',
+    ],
     'dps_diagnostic' => [
         'title' => 'DPS sequence diagnostic',
         'caution' => 'A status check does not authorize issuance. Only independently attested fiscal history and an explicit operational activation can do that.',
