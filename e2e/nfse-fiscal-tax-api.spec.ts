@@ -53,9 +53,10 @@ test('tax association UI reads native JSON and confirms without changing account
     await expect(page.locator('#tax-association-feedback')).toContainText('confirmada');
     await expect(page.locator('#tax-associations-body')).toContainText('synthetic-review-evidence');
     expect(posts).toBe(1);
+    const screenshot = info.outputPath('nfse-tax-associations-synthetic.png');
+    await page.locator('#nfse-tax-associations').screenshot({ path: screenshot, animations: 'disabled' });
     await info.attach('nfse-tax-associations-synthetic.png', {
-        body: await page.locator('#nfse-tax-associations').screenshot({ animations: 'disabled' }),
-        contentType: 'image/png',
+        path: screenshot, contentType: 'image/png',
     });
 });
 
@@ -157,9 +158,10 @@ test('tax association revision reports validation, overlap and access errors wit
     await expect(form.locator('[name="tax_id"]')).toBeEnabled();
     expect(attempts).toBe(4);
 
+    const screenshot = info.outputPath('nfse-tax-association-revision-synthetic.png');
+    await page.locator('#nfse-tax-associations').screenshot({ path: screenshot, animations: 'disabled' });
     await info.attach('nfse-tax-association-revision-synthetic.png', {
-        body: await page.locator('#nfse-tax-associations').screenshot({ animations: 'disabled' }),
-        contentType: 'image/png',
+        path: screenshot, contentType: 'image/png',
     });
 });
 
