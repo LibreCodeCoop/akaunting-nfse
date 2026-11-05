@@ -98,7 +98,8 @@ final class DpsOperationalReadiness
         $result['attested_floor'] = (string) $authority->attested_floor;
         $result['last_number'] = (string) $authority->last_number;
         $result['evidence_recorded'] =
-            preg_match('/^[a-f0-9]{64}$/D', (string) $authority->evidence_sha256) === 1;
+            preg_match('/^[a-f0-9]{64}$/D', (string) $authority->evidence_sha256) === 1
+            && (string) $authority->evidence_sha256 !== str_repeat('0', 64);
         if ((int) $authority->last_number < 999999999999999) {
             $result['candidate_number'] = (string) ((int) $authority->last_number + 1);
         }

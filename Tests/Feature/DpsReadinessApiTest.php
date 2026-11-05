@@ -31,6 +31,35 @@ final class DpsReadinessApiTest extends FeatureTestCase
         }
     }
 
+    public function testAdministrativeAdjustmentRoutesAreWriteOnlyAndRequireUpdatePermission(): void
+    {
+        foreach (['nfse.dps.advance', 'api.nfse.dps.advance'] as $name) {
+            $route = Route::getRoutes()->getByName($name);
+            self::assertNotNull($route);
+            self::assertContains('POST', $route->methods());
+            self::assertNotContains('GET', $route->methods());
+            self::assertContains('permission:update-nfse-settings', $route->gatherMiddleware());
+        }
+    }
+
+    public function testSessionAdjustmentRequiresValidationAndDoesNotProvisionAnAuthority(): void
+    {
+        $this->loginAs();
+        $this->postJson(route('nfse.dps.advance'), [
+            'expected_next_number' => '1',
+            'next_number' => '1',
+            'reason' => 'short',
+            'confirmed' => false,
+        ])->assertUnprocessable()->assertJsonValidationErrors(['reason', 'confirmed']);
+
+        $this->postJson(route('nfse.dps.advance'), [
+            'expected_next_number' => '1',
+            'next_number' => '2',
+            'reason' => 'Synthetic initial sequence verification',
+            'confirmed' => true,
+        ])->assertStatus(409)->assertJsonPath('error', 'dps_adjustment_blocked');
+    }
+
     public function testReadinessAndLookupFailClosedWithoutConfiguredAuthority(): void
     {
         $this->loginAs();

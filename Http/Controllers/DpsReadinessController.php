@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Nfse\Application\DpsFiscalIssuer;
 use Modules\Nfse\Application\DpsOfficialReadOnlyLookup;
+use Modules\Nfse\Application\DpsNumberAdvance;
 use Modules\Nfse\Application\DpsOperationalReadiness;
 use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Support\NfseCompanyProfileCatalog;
@@ -78,6 +79,34 @@ final class DpsReadinessController extends Controller
             'exclusive_series_attested' => false,
             'evidence_limit' => 'Lookup is not proof of unused numbers or exclusive series ownership.',
         ]]);
+    }
+
+    public function advance(Request $request, DpsNumberAdvance $advancer): JsonResponse
+    {
+        $companyId = $this->selectedCompany();
+        $data = $request->validate([
+            'expected_next_number' => ['required', 'string', 'regex:/^[1-9][0-9]{0,14}$/'],
+            'next_number' => ['required', 'string', 'regex:/^[1-9][0-9]{0,14}$/'],
+            'reason' => ['required', 'string', 'min:12', 'max:500'],
+            'confirmed' => ['required', 'accepted'],
+        ]);
+
+        try {
+            $updated = $advancer->advance(
+                $companyId,
+                (int) auth()->id(),
+                $data['expected_next_number'],
+                $data['next_number'],
+                $data['reason'],
+            );
+        } catch (\LogicException|\InvalidArgumentException $exception) {
+            return response()->json([
+                'error' => 'dps_adjustment_blocked',
+                'message' => $exception->getMessage(),
+            ], 409);
+        }
+
+        return response()->json(['data' => $updated]);
     }
 
     private function selectedCompany(): int
