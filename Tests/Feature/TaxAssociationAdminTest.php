@@ -7,13 +7,16 @@ declare(strict_types=1);
 
 namespace Modules\Nfse\Tests\Feature;
 
+use App\Jobs\Auth\CreateUser;
 use App\Models\Common\Company;
+use App\Traits\Permissions;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\TaxFiscalAssociation;
 use Tests\Feature\FeatureTestCase;
 
 final class TaxAssociationAdminTest extends FeatureTestCase
 {
+    use Permissions;
     public function testOperatorReviewsAndIdempotentlyConfirmsExistingTaxWithoutChangingAccounting(): void
     {
         $this->loginAs();
@@ -142,6 +145,108 @@ final class TaxAssociationAdminTest extends FeatureTestCase
             ->assertJsonPath('data.taxes.0.revisions.0.confirmed_by', (int) auth()->id())
             ->assertDontSee('Synthetic foreign API tax');
         self::assertSame(0, TaxFiscalAssociation::query()->where('tax_id', $foreign)->count());
+    }
+
+    public function testOperatorExplicitlyRevisesAnAssociationWithoutMutatingAccounting(): void
+    {
+        $this->withExceptionHandling()->loginAs();
+        $tax = $this->tax((int) company_id(), 'Synthetic revision tax');
+        $taxBefore = DB::table('taxes')->where('id', $tax)->first();
+        $this->postJson(route('nfse.settings.tax-associations.store'), $this->confirmation($tax))
+            ->assertCreated();
+        $original = TaxFiscalAssociation::query()->where('tax_id', $tax)->firstOrFail();
+        $cutover = now()->addDays(2)->toDateString();
+        $payload = $this->confirmation($tax);
+        $payload['fiscal_identity'] = 'cofins';
+        $payload['effective_from'] = $cutover;
+        $payload['source_reference'] = 'synthetic-revision-evidence';
+        unset($payload['tax_id']);
+        $url = route('nfse.settings.tax-associations.revise', ['associationId' => $original->id]);
+
+        $this->patchJson($url, $payload)->assertCreated()
+            ->assertJsonPath('data.already_confirmed', false);
+        $this->patchJson($url, $payload)->assertOk()
+            ->assertJsonPath('data.already_confirmed', true);
+        $this->get(route('nfse.settings.tax-associations.resources'))
+            ->assertOk()
+            ->assertJsonCount(2, 'data.taxes.0.revisions')
+            ->assertJsonPath('data.taxes.0.revisions.0.fiscal_identity', 'pis')
+            ->assertJsonPath('data.taxes.0.revisions.1.fiscal_identity', 'cofins')
+            ->assertJsonPath('data.taxes.0.revisions.1.source_reference', 'synthetic-revision-evidence');
+        self::assertSame(now()->addDay()->toDateString(), $original->fresh()->effective_until);
+        self::assertEquals($taxBefore, DB::table('taxes')->where('id', $tax)->first());
+        self::assertSame(2, TaxFiscalAssociation::query()->where('tax_id', $tax)->count());
+    }
+
+    public function testRevisionEndpointRejectsForeignTaxAndInvalidOrPastChanges(): void
+    {
+        $this->withExceptionHandling()->loginAs();
+        $company = (int) company_id();
+        $tax = $this->tax($company, 'Synthetic protected tax');
+        $this->postJson(route('nfse.settings.tax-associations.store'), $this->confirmation($tax))
+            ->assertCreated();
+        $original = TaxFiscalAssociation::query()->where('tax_id', $tax)->firstOrFail();
+        $payload = $this->confirmation($tax);
+        $payload['fiscal_identity'] = 'cofins';
+        $payload['effective_from'] = now()->addDays(2)->toDateString();
+        $url = route('nfse.settings.tax-associations.revise', ['associationId' => $original->id]);
+
+        $unacknowledged = $payload;
+        unset($unacknowledged['acknowledge']);
+        $this->patchJson($url, $unacknowledged)->assertUnprocessable()
+            ->assertJsonValidationErrors('acknowledge');
+
+        $past = $payload;
+        $past['effective_from'] = now()->subDay()->toDateString();
+        $this->patchJson($url, $past)->assertStatus(409)
+            ->assertJsonPath('reason', 'tax_association_conflict');
+
+        $foreignTax = $this->tax($company + 1000, 'Synthetic foreign revision tax');
+        $foreign = (new \Modules\Nfse\Support\TaxFiscalAssociationStore())->confirm(
+            $company + 1000, $foreignTax,
+            \Modules\Nfse\Contracts\FiscalTaxIdentity::PIS,
+            \Modules\Nfse\Contracts\FiscalTaxRole::PROVIDER_DUE,
+            '2026-01-01', null, 'synthetic-foreign-evidence', 1,
+        );
+        $this->patchJson(
+            route('nfse.settings.tax-associations.revise', ['associationId' => $foreign->id]),
+            $payload,
+        )->assertStatus(409)->assertDontSee('Synthetic foreign revision tax');
+
+        self::assertNull($original->fresh()->effective_until);
+        self::assertNull($foreign->fresh()->effective_until);
+        self::assertSame(1, TaxFiscalAssociation::query()->where('tax_id', $tax)->count());
+    }
+
+    public function testReadOnlyOperatorCanInspectButCannotReviseFiscalAssociations(): void
+    {
+        $this->withExceptionHandling()->loginAs();
+        $company = (int) company_id();
+        $tax = $this->tax($company, 'Synthetic readonly tax');
+        $this->postJson(route('nfse.settings.tax-associations.store'), $this->confirmation($tax))
+            ->assertCreated();
+        $original = TaxFiscalAssociation::query()->where('tax_id', $tax)->firstOrFail();
+
+        $role = $this->createRole('nfse-tax-association-readonly');
+        $this->attachPermission($role, 'read-admin-panel');
+        $this->attachPermission($role, 'read-nfse-settings');
+        $reader = $this->dispatch(new CreateUser(array_merge(user_model_class()::factory()->raw(), [
+            'enabled' => 1,
+            'companies' => [$company],
+            'roles' => [$role->id],
+        ])));
+        $this->loginAs($reader);
+
+        $this->getJson(route('nfse.settings.tax-associations.resources'))->assertOk();
+        $payload = $this->confirmation($tax);
+        $payload['effective_from'] = now()->addDays(2)->toDateString();
+        $this->patchJson(
+            route('nfse.settings.tax-associations.revise', ['associationId' => $original->id]),
+            $payload,
+        )->assertForbidden();
+
+        self::assertNull($original->fresh()->effective_until);
+        self::assertSame(1, TaxFiscalAssociation::query()->where('tax_id', $tax)->count());
     }
 
     private function tax(int $companyId, string $name): int

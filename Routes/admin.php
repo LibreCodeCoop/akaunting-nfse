@@ -60,6 +60,9 @@ Route::admin('nfse', function () {
             ->middleware('permission:read-nfse-settings')->name('tax-associations.index');
         Route::post('/tax-associations', [TaxAssociationController::class, 'store'])
             ->middleware('permission:update-nfse-settings')->name('tax-associations.store');
+        Route::patch('/tax-associations/{associationId}', [TaxAssociationController::class, 'revise'])
+            ->whereNumber('associationId')
+            ->middleware('permission:update-nfse-settings')->name('tax-associations.revise');
         Route::get('/artifacts', [SettingsController::class, 'artifactSettings'])
             ->middleware('permission:read-nfse-settings')->name('artifacts.show');
         Route::patch('/artifacts', [SettingsController::class, 'updateArtifacts'])
