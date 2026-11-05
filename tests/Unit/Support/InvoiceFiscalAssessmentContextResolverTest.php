@@ -137,10 +137,13 @@ final class InvoiceFiscalAssessmentContextResolverTest extends TestCase
 
     private static function invoice(): Invoice
     {
-        $invoice = new Invoice();
+        // The isolated Akaunting test double does not declare a type field.
+        // Avoid PHP 8.2+ dynamic-property deprecations in this fixture.
+        $invoice = new class extends Invoice {
+            public string $type = 'invoice';
+        };
         $invoice->id = 51;
         $invoice->company_id = 31;
-        $invoice->type = 'invoice';
         $invoice->issued_at = new DateTimeImmutable('2026-11-01');
 
         return $invoice;
