@@ -128,7 +128,7 @@ final class FinalFiscalAssessmentPreflightTest extends TestCase
     {
         // The isolated Akaunting test double does not declare a type field.
         // Avoid PHP 8.2+ dynamic-property deprecations in this fixture.
-        $invoice = new class extends Invoice {
+        $invoice = new class () extends Invoice {
             public string $type = 'invoice';
         };
         $invoice->id = 51;

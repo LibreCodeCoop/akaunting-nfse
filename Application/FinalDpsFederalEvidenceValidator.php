@@ -62,7 +62,7 @@ final class FinalDpsFederalEvidenceValidator
             // Percentages are observed rates, not amounts. Compare them
             // separately so no float or rounded-money conversion is used.
             foreach (['federalPiscofinsAliquotaPis' => 'pis_rate', 'federalPiscofinsAliquotaCofins' => 'cofins_rate'] as $field => $key) {
-                if (trim((string) $dps->$field) !== $observed[$key]) {
+                if (!$this->rateMatches($observed[$key], trim((string) $dps->$field))) {
                     return [$this->blocked('NFSE-TAX-RATE-OBSERVATION-MISMATCH', $field)];
                 }
             }
@@ -89,6 +89,28 @@ final class FinalDpsFederalEvidenceValidator
         }
 
         return $decisions;
+    }
+
+    private function rateMatches(string $expected, string $actual): bool
+    {
+        if ($expected === '' || $actual === '') {
+            return $expected === $actual;
+        }
+
+        try {
+            $normalize = static function (string $value): string {
+                $rate = ExactTaxDecimal::rate($value);
+                [$whole, $fraction] = array_pad(explode('.', (string) $rate, 2), 2, '');
+                $whole = ltrim($whole, '0') ?: '0';
+                $fraction = rtrim($fraction, '0');
+
+                return $fraction === '' ? $whole : $whole . '.' . $fraction;
+            };
+
+            return $normalize($expected) === $normalize($actual);
+        } catch (\DomainException|\OverflowException) {
+            return false;
+        }
     }
 
     private function moneyMatches(string $expected, string $actual): bool

@@ -164,9 +164,13 @@ final class InvoiceFiscalAssessmentContextResolver
             }
         }
 
-        $expectedAmount = ExactTaxDecimal::cents($group['amount'] ?? null);
-        $actualAmount = ExactTaxDecimal::cents($dps->valorServico);
-        if ($expectedAmount !== null && $expectedAmount !== $actualAmount) {
+        try {
+            $expectedAmount = ExactTaxDecimal::cents($group['amount'] ?? null);
+            $actualAmount = ExactTaxDecimal::cents($dps->valorServico);
+        } catch (\DomainException|\OverflowException $error) {
+            throw new \DomainException('NFSE-FISCAL-AMOUNT-UNVERIFIABLE: invalid fiscal group amount.', previous: $error);
+        }
+        if ($expectedAmount === null || $actualAmount === null || $expectedAmount !== $actualAmount) {
             throw new \DomainException('NFSE-FISCAL-GROUP-CHANGED: outgoing DPS amount differs from persisted group.');
         }
     }

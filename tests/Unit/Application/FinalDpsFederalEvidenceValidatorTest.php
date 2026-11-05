@@ -81,6 +81,32 @@ final class FinalDpsFederalEvidenceValidatorTest extends TestCase
         self::assertSame('block', $decisions[0]->severity);
     }
 
+    public function testEquivalentExactDecimalRateFormatsDoNotProduceFalseMismatch(): void
+    {
+        $facts = [new FiscalTaxFact(
+            91,
+            12,
+            301,
+            'normal',
+            6500,
+            'pis',
+            FiscalTaxRole::PROVIDER_DUE,
+            'akaunting.document_item_taxes',
+            1000000,
+            '0.65',
+        )];
+        $decisions = (new FinalDpsFederalEvidenceValidator())->inspect(
+            self::context($facts),
+            self::dps([
+                'federalPiscofinsValorPis' => '65.00',
+                'federalPiscofinsBaseCalculo' => '10000.00',
+                'federalPiscofinsAliquotaPis' => '0.6500',
+            ]),
+        );
+
+        self::assertSame([], $decisions);
+    }
+
     public function testOwnPisWithoutProvenBaseCannotPassFinalBoundary(): void
     {
         $facts = [new FiscalTaxFact(91, 12, 301, 'normal', 2000, 'pis', FiscalTaxRole::PROVIDER_DUE, 'akaunting.document_item_taxes', null, '2.00')];

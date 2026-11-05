@@ -50,6 +50,13 @@ final class InvoiceFiscalAssessmentContextResolverTest extends TestCase
         self::resolver(null)->resolve(self::invoice(), self::dps(['valorServico' => '101.00']), 'group-a');
     }
 
+    public function testInvalidFinalServiceAmountCannotBeTreatedAsConfirmed(): void
+    {
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('NFSE-FISCAL-AMOUNT-UNVERIFIABLE');
+        self::resolver(null)->resolve(self::invoice(), self::dps(['valorServico' => 'not-a-money-value']), 'group-a');
+    }
+
     public function testUnknownGroupCannotBeSubstitutedWithAnotherGroup(): void
     {
         $this->expectException(\DomainException::class);
@@ -139,7 +146,7 @@ final class InvoiceFiscalAssessmentContextResolverTest extends TestCase
     {
         // The isolated Akaunting test double does not declare a type field.
         // Avoid PHP 8.2+ dynamic-property deprecations in this fixture.
-        $invoice = new class extends Invoice {
+        $invoice = new class () extends Invoice {
             public string $type = 'invoice';
         };
         $invoice->id = 51;
