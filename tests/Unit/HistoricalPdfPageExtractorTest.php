@@ -21,16 +21,16 @@ final class HistoricalPdfPageExtractorTest extends TestCase
         }
 
         $postscript = <<<'PS'
-%!PS-Adobe-3.0
-%%Pages: 2
-/Courier findfont 18 scalefont setfont
-72 720 moveto (FIRST_CUSTOMER_CONFIDENTIAL) show
-showpage
-/Courier findfont 18 scalefont setfont
-72 720 moveto (SECOND_CUSTOMER_SELECTED) show
-showpage
-%%EOF
-PS;
+            %!PS-Adobe-3.0
+            %%Pages: 2
+            /Courier findfont 18 scalefont setfont
+            72 720 moveto (FIRST_CUSTOMER_CONFIDENTIAL) show
+            showpage
+            /Courier findfont 18 scalefont setfont
+            72 720 moveto (SECOND_CUSTOMER_SELECTED) show
+            showpage
+            %%EOF
+            PS;
         $generator = new Process([
             '/usr/bin/gs', '-q', '-dSAFER', '-dNOPAUSE', '-dBATCH',
             '-sDEVICE=pdfwrite', '-sOutputFile=-', '-',
