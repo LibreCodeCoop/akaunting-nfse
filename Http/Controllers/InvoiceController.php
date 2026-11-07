@@ -49,6 +49,7 @@ use Modules\Nfse\Application\SubstitutionDpsBuilder;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\FiscalClientContext;
+use Modules\Nfse\Support\HistoricalPdfPageExtractor;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
 use Modules\Nfse\Support\InvoiceFiscalEventEvidence;
@@ -387,10 +388,20 @@ class InvoiceController extends Controller
             abort_unless(str_starts_with($pdf, '%PDF-')
                 && hash_equals($sha256, hash('sha256', $pdf)), 404);
 
-            return response($pdf, 200, [
+            try {
+                $singlePage = (new HistoricalPdfPageExtractor())->extract(
+                    $pdf,
+                    (int) $fiscalReceipt->archive_page_number,
+                );
+            } catch (\Throwable) {
+                abort(404);
+            }
+
+            return response($singlePage, 200, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="nfse-historica-' . (int) $fiscalReceipt->id . '.pdf"',
                 'X-Content-Type-Options' => 'nosniff',
+                'Cache-Control' => 'private, no-store',
             ]);
         }
 
