@@ -33,7 +33,8 @@
         if (!Number.isSafeInteger(page) || page < 1 || page > 10000) {
             throw new Error('Invalid archival PDF page.');
         }
-        return url + '#page=' + page;
+        // The server extracts only this fiscal page, so the delivered PDF starts at page one.
+        return url;
     }
 
     async function getJson(fetchImpl, url) {
