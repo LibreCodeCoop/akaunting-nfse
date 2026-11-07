@@ -20,6 +20,7 @@ use Modules\Nfse\Application\ItemFiscalProfileValidator;
 use Modules\Nfse\Application\ItemFiscalValidationSummary;
 use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Console\Commands\DiagnoseMunicipalParameters;
+use Modules\Nfse\Console\Commands\ImportHistoricalReceipts;
 use Modules\Nfse\Console\Commands\ProvisionTestHarness;
 use Modules\Nfse\Console\Commands\ProvisionTestUser;
 use Modules\Nfse\Console\Commands\SyncAdn;
@@ -105,6 +106,7 @@ class Main extends Provider
                 ProvisionTestUser::class,
                 SyncAdn::class,
                 DiagnoseMunicipalParameters::class,
+                ImportHistoricalReceipts::class,
             ]);
         }
     }

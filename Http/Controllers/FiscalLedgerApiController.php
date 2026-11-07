@@ -25,14 +25,28 @@ final class FiscalLedgerApiController extends Controller
         return response()->json([
             'data' => collect($page->items())->map(static fn (NfseReceipt $row): array => [
                 'id' => (int) $row->id,
-                'invoice_id' => (int) $row->invoice_id,
+                'invoice_id' => $row->invoice_id === null ? null : (int) $row->invoice_id,
                 'invoice_number' => $row->invoice?->document_number,
                 'nfse_number' => $row->nfse_number,
-                'customer' => $row->invoice?->contact?->name,
+                'customer' => $row->invoice?->contact?->name
+                    ?? (((int) $row->recipientContact?->company_id === $companyId
+                        && $row->recipientContact?->type === 'customer'
+                        && $row->recipientContact?->deleted_at === null)
+                        ? $row->recipientContact->name : null)
+                    ?? ($row->archive_evidence['recipient_name'] ?? null)
+                    ?? ($row->archive_evidence['recipient_tax'] ?? null),
                 'issue_date' => $row->data_emissao?->format('Y-m-d'),
                 'status' => $row->status,
                 'replaces_receipt_id' => $row->replaces_receipt_id,
+                'historical_unlinked' => $row->invoice_id === null,
+                'archive_page_number' => $row->archive_page_number,
                 'can_download' => $row->status === 'emitted',
+                'can_download_xml' => $row->invoice_id !== null && $row->status === 'emitted',
+                'can_download_danfse' => $row->invoice_id === null
+                    ? (trim((string) $row->danfse_webdav_path) !== ''
+                        && (int) $row->archive_page_number > 0
+                        && preg_match('/^[a-f0-9]{64}$/D', (string) $row->archive_pdf_sha256) === 1)
+                    : (trim((string) $row->danfse_webdav_path) !== '' || $row->status === 'emitted'),
             ])->values()->all(),
             'meta' => [
                 'current_page' => $page->currentPage(),

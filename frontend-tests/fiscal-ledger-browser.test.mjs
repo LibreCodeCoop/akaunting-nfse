@@ -33,3 +33,11 @@ test('ledger browser reads API over the logged-in session', async () => {
         /não autorizada/,
     );
 });
+
+
+test('historical NFS-e opens the original consolidated PDF at its exact page', () => {
+    const template = '/1/nfse/ledger/__RECEIPT_ID__/__ARTIFACT__';
+    assert.equal(ledger.archivedPdfRoute(template, 375, 5), '/1/nfse/ledger/375/danfse#page=5');
+    assert.throws(() => ledger.archivedPdfRoute(template, 375, 0), /Invalid archival PDF page/);
+    assert.throws(() => ledger.archivedPdfRoute(template, 375, '../x'), /Invalid archival PDF page/);
+});

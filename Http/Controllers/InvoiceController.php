@@ -358,10 +358,42 @@ class InvoiceController extends Controller
     public function downloadLedgerArtifact(int $receipt, string $artifact): Response|RedirectResponse
     {
         $fiscalReceipt = NfseReceipt::query()->where('id', $receipt)
-            ->whereHas('invoice', static fn ($query) => $query
-                ->where('company_id', (int) company_id())
-                ->where('type', Invoice::INVOICE_TYPE))
+            ->where(static function ($query): void {
+                $query->whereHas('invoice', static fn ($invoice) => $invoice
+                    ->where('company_id', (int) company_id())
+                    ->where('type', Invoice::INVOICE_TYPE))
+                    ->orWhere(static fn ($historical) => $historical
+                        ->whereNull('invoice_id')
+                        ->where('company_id', (int) company_id()));
+            })
             ->firstOrFail();
+
+        if ($fiscalReceipt->invoice_id === null) {
+            abort_unless($artifact === 'danfse', 404);
+            $path = trim((string) $fiscalReceipt->danfse_webdav_path);
+            $sha256 = trim((string) $fiscalReceipt->archive_pdf_sha256);
+            abort_unless(str_starts_with($path, 'LibreCode/')
+                && str_ends_with(strtolower($path), '.pdf')
+                && !preg_match('~(?:^|/)\.\.(?:/|$)|[?#\\\\\x00-\x1F]~', $path)
+                && (int) $fiscalReceipt->archive_page_number > 0
+                && preg_match('/^[a-f0-9]{64}$/D', $sha256), 404);
+
+            try {
+                $pdf = $this->makeWebDavClientFromSettings()->get($path);
+            } catch (\Throwable) {
+                abort(404);
+            }
+
+            abort_unless(str_starts_with($pdf, '%PDF-')
+                && hash_equals($sha256, hash('sha256', $pdf)), 404);
+
+            return response($pdf, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="nfse-historica-' . (int) $fiscalReceipt->id . '.pdf"',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }
+
         $invoice = Invoice::findOrFail($fiscalReceipt->invoice_id);
         $this->ensureInvoiceRelationsLoaded($invoice);
 

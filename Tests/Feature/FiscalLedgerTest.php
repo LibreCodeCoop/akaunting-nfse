@@ -265,6 +265,154 @@ final class FiscalLedgerTest extends FeatureTestCase
             ->assertForbidden();
     }
 
+    public function testLedgerListsUnlinkedHistoricalReceiptsFromCurrentCompanyOnly(): void
+    {
+        $this->loginAs();
+
+        $companyId = (int) company_id();
+        $historical = NfseReceipt::query()->create([
+            'invoice_id' => null,
+            'company_id' => $companyId,
+            'nfse_number' => '7',
+            'data_emissao' => '2018-05-18 14:21:52',
+            'status' => 'emitted',
+            'archive_page_number' => 1,
+            'archive_pdf_sha256' => str_repeat('a', 64),
+            'archive_evidence' => ['recipient_tax' => '00000000000272'],
+            'danfse_webdav_path' => 'LibreCode/Financeiro/2018/NFS_EMITIDAS_2018.04.pdf',
+        ]);
+        $foreign = NfseReceipt::query()->create([
+            'invoice_id' => null,
+            'company_id' => $companyId + 1000,
+            'nfse_number' => '8',
+            'status' => 'emitted',
+            'archive_page_number' => 2,
+        ]);
+
+        $response = $this->get(route('nfse.ledger.data', ['from' => '2018-01-01', 'to' => '2018-12-31']));
+
+        $response->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $historical->id)
+            ->assertJsonPath('data.0.invoice_id', null)
+            ->assertJsonPath('data.0.historical_unlinked', true)
+            ->assertJsonPath('data.0.archive_page_number', 1)
+            ->assertJsonPath('data.0.can_download_xml', false)
+            ->assertJsonPath('data.0.can_download_danfse', true)
+            ->assertJsonPath('data.0.customer', '00000000000272');
+        self::assertNotContains($foreign->id, array_column($response->json('data'), 'id'));
+    }
+
+    public function testHistoricalReceiptCannotExposeAnotherCompanyArtifact(): void
+    {
+        $this->loginAs();
+
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => null,
+            'company_id' => (int) company_id() + 1000,
+            'nfse_number' => '134',
+            'status' => 'emitted',
+            'danfse_webdav_path' => 'LibreCode/Financeiro/2020/NFS_EMITIDAS_2020.12.pdf',
+        ]);
+
+        $this->withExceptionHandling()->get(route('nfse.ledger.artifacts.download', [
+            'receipt' => $receipt->id,
+            'artifact' => 'danfse',
+        ]))->assertNotFound();
+    }
+
+    public function testHistoricalReceiptsNeverOfferAnInventedXml(): void
+    {
+        $this->loginAs();
+
+        $receipt = NfseReceipt::query()->create([
+            'invoice_id' => null,
+            'company_id' => (int) company_id(),
+            'nfse_number' => '33',
+            'status' => 'emitted',
+            'archive_page_number' => 1,
+            'danfse_webdav_path' => 'LibreCode/Financeiro/2019/NFS_EMITIDAS_2019.02.pdf',
+        ]);
+
+        $this->withExceptionHandling()->get(route('nfse.ledger.artifacts.download', [
+            'receipt' => $receipt->id,
+            'artifact' => 'xml',
+        ]))->assertNotFound();
+    }
+
+    public function testHistoricalReceiptUsesVerifiedCustomerWithoutCrossCompanyDisclosure(): void
+    {
+        $this->loginAs();
+
+        $companyId = (int) company_id();
+        $customer = \App\Models\Common\Contact::factory()->customer()->create([
+            'company_id' => $companyId,
+            'name' => 'Fictitious Acme Archive Customer',
+        ]);
+        $otherCustomer = \App\Models\Common\Contact::factory()->customer()->create([
+            'company_id' => $companyId + 1000,
+            'name' => 'Foreign Customer Not Accessible',
+        ]);
+
+        $visible = NfseReceipt::query()->create([
+            'invoice_id' => null,
+            'company_id' => $companyId,
+            'recipient_contact_id' => $customer->id,
+            'nfse_number' => '20181',
+            'data_emissao' => '2018-06-15 12:00:00',
+            'status' => 'emitted',
+            'archive_page_number' => 1,
+            'archive_pdf_sha256' => str_repeat('b', 64),
+            'danfse_webdav_path' => 'LibreCode/Archive/example.pdf',
+            'archive_evidence' => ['recipient_name' => 'Fictitious Verified Recipient'],
+        ]);
+        NfseReceipt::query()->create([
+            'invoice_id' => null,
+            'company_id' => $companyId,
+            'recipient_contact_id' => $otherCustomer->id,
+            'nfse_number' => '20182',
+            'data_emissao' => '2018-06-15 12:00:00',
+            'status' => 'emitted',
+            'archive_page_number' => 1,
+            'archive_pdf_sha256' => str_repeat('c', 64),
+            'danfse_webdav_path' => 'LibreCode/Archive/example.pdf',
+            'archive_evidence' => ['recipient_name' => 'Undetermined Historical Client'],
+        ]);
+
+        $this->get(route('nfse.ledger.data', ['search' => 'Fictitious Acme Archive']))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $visible->id)
+            ->assertJsonPath('data.0.customer', 'Fictitious Acme Archive Customer');
+
+        $this->get(route('nfse.ledger.data', ['search' => 'Foreign Customer Not Accessible']))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        $this->get(route('nfse.ledger.data', ['search' => '20182']))
+            ->assertOk()
+            ->assertJsonPath('data.0.customer', 'Undetermined Historical Client');
+    }
+
+    public function testIncompleteHistoricalArchiveDoesNotAdvertiseDownload(): void
+    {
+        $this->loginAs();
+
+        NfseReceipt::query()->create([
+            'invoice_id' => null,
+            'company_id' => (int) company_id(),
+            'nfse_number' => '20183',
+            'status' => 'cancelled',
+            'archive_page_number' => 1,
+            'danfse_webdav_path' => 'LibreCode/Archive/example.pdf',
+            'archive_evidence' => ['recipient_name' => 'Fictitious Customer'],
+        ]);
+
+        $this->get(route('nfse.ledger.data', ['search' => '20183']))
+            ->assertOk()
+            ->assertJsonPath('data.0.can_download_danfse', false);
+    }
+
     private function receipt(Document $invoice, string $number, string $status): NfseReceipt
     {
         return NfseReceipt::query()->create([
