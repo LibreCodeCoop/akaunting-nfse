@@ -508,12 +508,16 @@ class Main extends Provider
             try {
                 $companyId = function_exists('company_id') ? (int) company_id() : 0;
                 if ($companyId > 0) {
-                    $authorizedIds = DB::table('documents')->where('documents.company_id', $companyId)
-                        ->whereIn('documents.id', $invoiceIds)
-                        ->whereRaw($categoryPolicyService->authorizedInvoiceSql())
-                        ->pluck('documents.id')->all();
-                    foreach ($authorizedIds as $id) {
-                        $authorized[(int) $id] = true;
+                    $placeholders = implode(',', array_fill(0, count($invoiceIds), '?'));
+                    $bindings = array_merge([$companyId], $invoiceIds);
+                    $authorizedRows = DB::select(
+                        'SELECT documents.id FROM documents'
+                        . ' WHERE documents.company_id = ? AND documents.id IN (' . $placeholders . ')'
+                        . ' AND ' . $categoryPolicyService->authorizedInvoiceSql(),
+                        $bindings,
+                    );
+                    foreach ($authorizedRows as $row) {
+                        $authorized[(int) $row->id] = true;
                     }
                 }
             } catch (\Exception $exception) {

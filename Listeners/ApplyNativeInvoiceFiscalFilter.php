@@ -123,7 +123,7 @@ final class ApplyNativeInvoiceFiscalFilter
                 // a receipt row. Unregistered/non-service categories are not.
                 $clauses[] = '(' . $latest . ' = ? OR ('
                     . $latest . ' IS NULL AND ' . $authorized
-                    . ' AND ' . $effective . ' IS NULL))';
+                    . ' AND COALESCE(' . $effective . ", 'issue') = 'issue'))";
                 $bindings[] = 'pending';
             } elseif ($status === 'unknown') {
                 $clauses[] = '(' . $latest . ' IS NOT NULL AND ' . $latest . ' NOT IN (?, ?, ?, ?, ?))';
