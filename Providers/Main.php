@@ -448,11 +448,15 @@ class Main extends Provider
                 $companyId = function_exists('company_id') ? (int) company_id() : 0;
                 if ($companyId > 0) {
                     $placeholders = implode(',', array_fill(0, count($invoiceIds), '?'));
+                    $bindings = [$companyId];
+                    foreach ((array) $invoiceIds as $id) {
+                        $bindings[] = (int) $id;
+                    }
                     $decisionRows = DB::select(
                         'SELECT invoice_id, decision FROM nfse_invoice_decisions'
                         . ' WHERE company_id = ? AND invoice_id IN (' . $placeholders . ')'
                         . ' ORDER BY id DESC',
-                        [$companyId, ...$invoiceIds],
+                        $bindings,
                     );
                     foreach ($decisionRows as $row) {
                         $id = (int) $row->invoice_id;
