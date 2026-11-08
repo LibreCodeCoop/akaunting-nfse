@@ -12,7 +12,14 @@ test('invoice shows a reversible fiscal decision form without issuing anything',
 
   await loginToAkaunting(page, testInfo);
   await page.goto('/1/sales/invoices/' + invoiceId, { waitUntil: 'domcontentloaded' });
+  const issue = page.locator('[data-nfse-choice="issue"]');
+  const doNotIssue = page.locator('[data-nfse-choice="do_not_issue"]');
+  await expect(issue).toHaveAttribute('open', '');
   const form = page.locator('[data-nfse-decision-form="true"]');
+  await expect(form).toBeHidden();
+  await doNotIssue.locator('summary').click();
+  await expect(doNotIssue).toHaveAttribute('open', '');
+  await expect(issue).not.toHaveAttribute('open', '');
   await expect(form).toBeVisible();
   await expect(form.locator('select[name="decision"] option[value="do_not_issue"]')).toHaveCount(1);
   await expect(form.locator('select[name="decision"] option[value="not_applicable"]')).toHaveCount(1);
