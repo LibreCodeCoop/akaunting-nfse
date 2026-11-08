@@ -85,7 +85,9 @@
             <span class="inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-medium {{ $statusClasses }}">
                 {{ $hasReceipt
                     ? trans('nfse::general.native_invoice.status_' . ($receiptStatus !== '' ? $receiptStatus : 'unknown'))
-                    : trans('nfse::general.native_invoice.status_pending') }}
+                    : ($hasActiveFiscalDecision
+                        ? trans('nfse::general.invoice_decision.' . $fiscalDecision['decision'])
+                        : trans('nfse::general.native_invoice.status_pending')) }}
             </span>
             @can('read-nfse-settings')
                 <a
@@ -121,9 +123,6 @@
                     <select name="decision" required class="mt-1 w-full rounded border px-2 py-2 text-sm">
                         <option value="do_not_issue">{{ trans('nfse::general.invoice_decision.do_not_issue') }}</option>
                         <option value="not_applicable">{{ trans('nfse::general.invoice_decision.not_applicable') }}</option>
-                        @if(!empty($fiscalDecision) && $fiscalDecision['decision'] !== 'reversed')
-                            <option value="reversed">{{ trans('nfse::general.invoice_decision.reversed') }}</option>
-                        @endif
                     </select>
                 </label>
                 <label class="text-xs font-medium">{{ trans('nfse::general.invoice_decision.reason') }}
@@ -144,6 +143,21 @@
                     {{ trans('nfse::general.invoice_decision.save') }}
                 </button>
             </form>
+            @if($hasActiveFiscalDecision)
+                <form method="POST" action="{{ route('nfse.invoices.fiscal-decision.store', $invoice->id) }}"
+                    class="mt-3 space-y-2" data-nfse-decision-reversal-form="true">
+                    @csrf
+                    <input type="hidden" name="decision" value="reversed">
+                    <input type="hidden" name="reason" value="reconsidered">
+                    <label class="block text-xs font-medium">{{ trans('nfse::general.invoice_decision.justification') }}
+                        <textarea name="justification" required minlength="12" maxlength="4000" rows="2"
+                            class="mt-1 w-full rounded border px-2 py-2 text-sm"></textarea>
+                    </label>
+                    <button type="submit" class="rounded border px-3 py-2 text-sm">
+                        {{ trans('nfse::general.invoice_decision.reversed') }}
+                    </button>
+                </form>
+            @endif
             @if($errors->has('decision'))
                 <p role="alert" class="text-sm text-red-700">{{ $errors->first('decision') }}</p>
             @endif
