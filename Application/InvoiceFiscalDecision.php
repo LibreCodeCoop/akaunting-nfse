@@ -88,11 +88,11 @@ final class InvoiceFiscalDecision
 
             // A locally authorized receipt must be reconciled explicitly before
             // any exemption or operational suppression can be recorded.
-            if ($decision !== 'reversed' && DB::table('nfse_receipts')
-                ->where('invoice_id', $invoice->id)
-                ->where('status', 'emitted')->exists()) {
+            $receiptStatuses = DB::table('nfse_receipts')
+                ->where('invoice_id', $invoice->id)->pluck('status')->all();
+            if (!(new InvoiceFiscalDecisionPolicy())->mayClassify($decision, $receiptStatuses)) {
                 throw ValidationException::withMessages([
-                    'decision' => 'An authorized NFS-e is linked. Review fiscal evidence and reconcile the receipt before classifying this invoice.',
+                    'decision' => 'An authorized or unresolved NFS-e is linked. Reconcile its fiscal state before classifying this invoice.',
                 ]);
             }
 
