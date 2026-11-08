@@ -13,6 +13,27 @@ use Tests\Feature\FeatureTestCase;
 
 final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
 {
+    public function testOperationalDecisionFiltersWithoutConfusingReceiptStatus(): void
+    {
+        $this->loginAs();
+        $deferred = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $reversed = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $authorized = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $decision = new \Modules\Nfse\Application\InvoiceFiscalDecision();
+        foreach ([$deferred, $reversed] as $invoice) {
+            $decision->record($invoice, (int) company_id(), (int) auth()->id(),
+                'do_not_issue', 'operational_review', 'Synthetic operational review pending.', null);
+        }
+        $decision->record($reversed, (int) company_id(), (int) auth()->id(),
+            'reversed', 'reconsidered', 'Synthetic operator reversed this decision.', null);
+        $this->receipt($authorized, 'emitted');
+
+        $ids = $this->invoiceIdsAcrossPages('do_not_issue');
+        self::assertContains($deferred->id, $ids);
+        self::assertNotContains($reversed->id, $ids);
+        self::assertNotContains($authorized->id, $ids);
+    }
+
     public function testFiscalOnlyFilterDoesNotInheritDefaultUnpaidTab(): void
     {
         $this->loginAs();

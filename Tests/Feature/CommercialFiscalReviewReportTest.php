@@ -41,6 +41,24 @@ final class CommercialFiscalReviewReportTest extends FeatureTestCase
             ->assertJsonPath('data.commercial_review.rows.0.status', 'not_linked');
     }
 
+    public function testCommercialReportShowsDecisionWithoutAddingAuthorizedFiscalTotals(): void
+    {
+        $this->loginAs();
+        $invoice = $this->invoice('2026-10-11');
+        (new \Modules\Nfse\Application\InvoiceFiscalDecision())->record(
+            $invoice, (int) company_id(), (int) auth()->id(),
+            'not_applicable', 'tax_recovery', 'Synthetic tax recovery unrelated to service.',
+            'TEST-TAX-RECOVERY-2026',
+        );
+
+        $row = collect((new CommercialFiscalReviewReport())->forInvoiceMonth(
+            (int) company_id(), '2026-10',
+        )['rows'])->firstWhere('invoice_id', $invoice->id);
+        self::assertSame('not_applicable', $row['status']);
+        self::assertSame('not_applicable', $row['fiscal_decision']);
+        self::assertSame(0, NfseReceipt::query()->count());
+    }
+
     public function testPendingAndCancelledReceiptRemainUnresolvedRatherThanAuthorized(): void
     {
         $this->loginAs();
