@@ -27,27 +27,22 @@ test('native fiscal status facet distinguishes absent receipts from unknown stat
   await loginToAkaunting(page, testInfo);
 
   await page.goto('/1/sales/invoices?list_records=all', { waitUntil: 'domcontentloaded' });
-  const form = page.locator('#nfse-fiscal-status-filter');
-  const select = form.locator('#nfse-status-option');
-  const submit = form.locator('button[type="submit"]');
+  const nativeSearch = page.locator('akaunting-search');
+  await expect(nativeSearch).toBeVisible();
+  await expect(nativeSearch).toHaveAttribute('filters', /nfse_status/);
+  await expect(page.locator('#nfse-fiscal-status-filter')).toHaveCount(0);
 
-  await expect(form).toBeVisible();
-
-  await select.selectOption('absent');
-  await Promise.all([
-    page.waitForURL(url => url.searchParams.get('nfse_status') === 'absent', { waitUntil: 'domcontentloaded' }),
-    submit.click(),
-  ]);
-
+  await page.goto('/1/sales/invoices?list_records=all&search=nfse_status%3Aabsent', {
+    waitUntil: 'domcontentloaded',
+  });
+  await expect(page).toHaveURL(/search=nfse_status%3Aabsent/);
   await expect(page.getByText('NFSE-E2E-PENDING', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('NFSE-E2E-FISCAL-UNKNOWN', { exact: true })).toHaveCount(0);
 
-  await select.selectOption('unknown');
-  await Promise.all([
-    page.waitForURL(url => url.searchParams.get('nfse_status') === 'unknown', { waitUntil: 'domcontentloaded' }),
-    submit.click(),
-  ]);
-
+  await page.goto('/1/sales/invoices?list_records=all&search=nfse_status%3Aunknown', {
+    waitUntil: 'domcontentloaded',
+  });
+  await expect(page).toHaveURL(/search=nfse_status%3Aunknown/);
   await expect(page.getByText('NFSE-E2E-FISCAL-UNKNOWN', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('NFSE-E2E-PENDING', { exact: true })).toHaveCount(0);
 });
