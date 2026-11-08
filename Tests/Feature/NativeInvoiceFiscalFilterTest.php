@@ -8,6 +8,8 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
+use App\Models\Setting\Category;
+use Modules\Nfse\Application\CategoryIssuancePolicy;
 use Modules\Nfse\Models\NfseReceipt;
 use Tests\Feature\FeatureTestCase;
 
@@ -75,8 +77,13 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
     {
         $this->loginAs();
 
-        $withoutReceipt = Document::factory()->invoice()->create(['company_id' => company_id()]);
-        $withReceipt = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $category = $this->authorizeSyntheticCategory();
+        $withoutReceipt = Document::factory()->invoice()->create([
+            'company_id' => company_id(), 'category_id' => $category->id,
+        ]);
+        $withReceipt = Document::factory()->invoice()->create([
+            'company_id' => company_id(), 'category_id' => $category->id,
+        ]);
         $this->receipt($withReceipt, 'emitted');
 
         $ids = $this->invoiceIdsAcrossPages('absent');
@@ -238,7 +245,10 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
 
         $emitted = Document::factory()->invoice()->create(['company_id' => company_id()]);
         $cancelled = Document::factory()->invoice()->create(['company_id' => company_id()]);
-        $absent = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $category = $this->authorizeSyntheticCategory();
+        $absent = Document::factory()->invoice()->create([
+            'company_id' => company_id(), 'category_id' => $category->id,
+        ]);
         $this->receipt($emitted, 'emitted');
         $this->receipt($cancelled, 'cancelled');
 
@@ -257,18 +267,34 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         self::assertContains($absent->id, $negatedIds);
     }
 
-    public function testPendingMeansExistingPendingReceiptAndAbsentMeansNoReceipt(): void
+    public function testPendingIncludesAuthorizedInvoicesWithoutReceiptButNotUnconfiguredOnes(): void
     {
         $this->loginAs();
         $pending = Document::factory()->invoice()->create(['company_id' => company_id()]);
-        $absent = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $category = $this->authorizeSyntheticCategory();
+        $absent = Document::factory()->invoice()->create([
+            'company_id' => company_id(), 'category_id' => $category->id,
+        ]);
+        $excluded = Document::factory()->invoice()->create(['company_id' => company_id()]);
         $this->receipt($pending, 'pending');
 
         $response = $this->get(route('invoices.index', ['search' => 'nfse_status:pending']));
         $response->assertOk();
         $ids = $response->viewData('invoices')->getCollection()->pluck('id')->all();
         self::assertContains($pending->id, $ids);
-        self::assertNotContains($absent->id, $ids);
+        self::assertContains($absent->id, $ids);
+        self::assertNotContains($excluded->id, $ids);
+    }
+
+    private function authorizeSyntheticCategory(): Category
+    {
+        $category = Category::factory()->create([
+            'company_id' => company_id(), 'type' => 'income', 'enabled' => true,
+        ]);
+        (new CategoryIssuancePolicy())->record((int) company_id(), (int) $category->id,
+            (int) auth()->id(), 'issue', 'Synthetic eligible category for filter testing.');
+
+        return $category;
     }
 
     /**

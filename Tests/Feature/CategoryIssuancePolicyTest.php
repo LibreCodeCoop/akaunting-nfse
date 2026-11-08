@@ -57,14 +57,16 @@ final class CategoryIssuancePolicyTest extends FeatureTestCase
         $this->getJson(route('nfse.settings.category-issuance.index'))
             ->assertOk()->assertSee($category->name);
         self::assertSame('blocked', (new AutomaticInvoiceEmissionPreflight())->evaluate($after)['status']);
-        self::assertSame('invoice_fiscal_decision',
+        self::assertSame('category_not_authorized',
             (new AutomaticInvoiceEmissionPreflight())->evaluate($after)['reason']);
 
         $response = $this->get(route('invoices.index', ['nfse_status' => 'do_not_issue']));
         $response->assertOk();
         $ids = $response->viewData('invoices')->getCollection()->pluck('id')->all();
-        self::assertContains($after->id, $ids);
+        self::assertNotContains($after->id, $ids);
         self::assertNotContains($before->id, $ids);
+        self::assertFalse($policies->canIssue($before));
+        self::assertFalse($policies->canIssue($after));
     }
 
     public function testAManualIssuanceExceptionOverridesCategoryWithoutChangingFinanceOrPolicy(): void
@@ -88,12 +90,28 @@ final class CategoryIssuancePolicyTest extends FeatureTestCase
         $original = $invoice->fresh();
         self::assertSame('do_not_issue', (new InvoiceFiscalDecision())->effective($invoice)['decision']);
 
-        $this->postJson(route('nfse.invoices.fiscal-decision.store', $invoice->id), [
+        $this->withExceptionHandling()->postJson(route('nfse.invoices.fiscal-decision.store', $invoice->id), [
             'decision' => 'issue',
             'reason' => 'operational_review',
             'justification' => 'Synthetic invoice is an exception to the category default.',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['decision']);
+
+        self::assertFalse((new CategoryIssuancePolicy())->canIssue($invoice));
+        try {
+            Carbon::setTestNow('2026-11-11 08:00:00');
+            (new CategoryIssuancePolicy())->record($companyId, (int) $category->id,
+                (int) auth()->id(), 'issue', 'Synthetic category explicitly authorized after review.');
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $this->postJson(route('nfse.invoices.fiscal-decision.store', $invoice->id), [
+            'decision' => 'issue',
+            'reason' => 'operational_review',
+            'justification' => 'Synthetic invoice is now within the category allowlist.',
         ])->assertCreated()->assertJsonPath('data.decision', 'issue');
 
+        self::assertTrue((new CategoryIssuancePolicy())->canIssue($invoice));
         self::assertSame('issue', (new InvoiceFiscalDecision())->effective($invoice)['decision']);
         $this->postJson(route('nfse.invoices.fiscal-decision.store', $invoice->id), [
             'decision' => 'reversed',
@@ -178,6 +196,8 @@ final class CategoryIssuancePolicyTest extends FeatureTestCase
     {
         $this->loginAs();
         $category = Category::factory()->create(['company_id' => company_id(), 'type' => 'income']);
+        (new CategoryIssuancePolicy())->record((int) company_id(), (int) $category->id,
+            (int) auth()->id(), 'issue', 'Synthetic category authorized for the invoice workflow.');
         $invoice = Document::factory()->invoice()->create([
             'company_id' => company_id(), 'category_id' => $category->id,
         ]);

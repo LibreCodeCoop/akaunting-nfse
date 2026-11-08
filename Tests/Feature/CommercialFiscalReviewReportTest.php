@@ -30,7 +30,7 @@ final class CommercialFiscalReviewReportTest extends FeatureTestCase
         self::assertContains($own->id, $ids);
         self::assertNotContains($foreign->id, $ids);
         self::assertNotContains($outside->id, $ids);
-        self::assertSame('not_linked', collect($rows)->firstWhere('invoice_id', $own->id)['status']);
+        self::assertSame('outside_issuance_scope', collect($rows)->firstWhere('invoice_id', $own->id)['status']);
         self::assertSame(0, NfseReceipt::query()->count());
 
         $this->get(route('nfse.closing.index', ['competence' => '2026-10']))
@@ -38,7 +38,7 @@ final class CommercialFiscalReviewReportTest extends FeatureTestCase
         $this->get(route('nfse.closing.data', ['competence' => '2026-10']))
             ->assertOk()
             ->assertJsonPath('data.summary.documents.emitted', 0)
-            ->assertJsonPath('data.commercial_review.rows.0.status', 'not_linked');
+            ->assertJsonPath('data.commercial_review.rows.0.status', 'outside_issuance_scope');
     }
 
     public function testCommercialReportShowsDecisionWithoutAddingAuthorizedFiscalTotals(): void
