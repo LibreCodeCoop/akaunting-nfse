@@ -4,6 +4,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 return [
+    'invoice_decision' => [
+        'title' => 'Invoice fiscal decision',
+        'help' => 'Do not issue is an operational choice, not legal tax exemption. Not applicable requires evidence. Receipts and financial state remain unchanged.',
+        'action' => 'Decision', 'reason' => 'Reason', 'justification' => 'Justification (12 characters minimum)',
+        'evidence' => 'Documentary reference (required for not applicable)',
+        'save' => 'Record decision', 'saved' => 'Fiscal decision recorded without changing the financial invoice.',
+        'issuance_blocked' => 'Reverse the fiscal decision before issuing an NFS-e.',
+        'history' => 'Decision history', 'do_not_issue' => 'Do not issue NFS-e',
+        'not_applicable' => 'Not applicable (documented)', 'reversed' => 'Reverse decision',
+        'reason_operational_review' => 'Operational decision', 'reason_external_issuance' => 'External issuance to reconcile',
+        'reason_non_service_revenue' => 'Non-service revenue',
+        'reason_tax_recovery' => 'Tax recovery', 'reason_financial_adjustment' => 'Financial adjustment',
+        'reason_other' => 'Other', 'reason_reconsidered' => 'Reconsider previous decision',
+    ],
     'fiscal_event' => [
         'status_unverifiable' => 'unverifiable',
         'status_not_applicable' => 'not applicable',

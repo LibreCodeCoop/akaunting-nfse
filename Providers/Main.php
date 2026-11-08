@@ -17,6 +17,7 @@ use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\DpsIssuanceIdentity;
 use Modules\Nfse\Application\DpsIssuanceIdentityContract;
 use Modules\Nfse\Application\ItemFiscalProfileValidator;
+use Modules\Nfse\Application\InvoiceFiscalDecision;
 use Modules\Nfse\Application\ItemFiscalValidationSummary;
 use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Console\Commands\DiagnoseMunicipalParameters;
@@ -317,6 +318,19 @@ class Main extends Provider
                 $fiscalEventGroups = [];
             }
 
+            $decision = null;
+            $decisionHistory = [];
+            try {
+                $companyId = function_exists('company_id') ? (int) company_id() : 0;
+                if ($companyId > 0 && (int) $invoice->company_id === $companyId) {
+                    $decisions = new InvoiceFiscalDecision();
+                    $decision = $decisions->current($companyId, $invoiceId);
+                    $decisionHistory = $decisions->history($companyId, $invoiceId);
+                }
+            } catch (\Illuminate\Database\QueryException) {
+                // Unmigrated deployments should not break the financial invoice.
+            }
+
             $content = view('nfse::invoices.partials.native-fiscal-panel', [
                 'invoice' => $invoice,
                 'receipt' => $receipt,
@@ -324,6 +338,8 @@ class Main extends Provider
                 'postEmissionStatus' => $postEmissionStatus,
                 'authorizedXmlAvailable' => $authorizedXmlAvailable,
                 'fiscalEventGroups' => $fiscalEventGroups,
+                'fiscalDecision' => $decision,
+                'fiscalDecisionHistory' => $decisionHistory,
             ])->render();
 
             $modalTrigger = view('nfse::invoices.partials.native-fiscal-modal-trigger', [
@@ -373,6 +389,8 @@ class Main extends Provider
                     'pending' => 'nfse::general.native_invoice.status_pending',
                     'absent' => 'nfse::general.ledger.status_absent',
                     'unknown' => 'nfse::general.ledger.status_unknown',
+                    'do_not_issue' => 'nfse::general.invoice_decision.do_not_issue',
+                    'not_applicable' => 'nfse::general.invoice_decision.not_applicable',
                 ],
             ];
             config()->set('search-string.' . Invoice::class . '.columns.nfse_status', $filter);
@@ -425,10 +443,34 @@ class Main extends Provider
                 error_log('NFS-e fiscal status lookup failed: ' . $exception->getMessage());
             }
 
+            $decisionsByInvoice = [];
+            try {
+                $companyId = function_exists('company_id') ? (int) company_id() : 0;
+                if ($companyId > 0) {
+                    $decisionRows = DB::table('nfse_invoice_decisions')
+                        ->where('company_id', $companyId)
+                        ->whereIn('invoice_id', $invoiceIds)
+                        ->orderByDesc('id')->get();
+                    foreach ($decisionRows as $row) {
+                        $id = (int) $row->invoice_id;
+                        if (!isset($decisionsByInvoice[$id])) {
+                            $decisionsByInvoice[$id] = (string) $row->decision;
+                        }
+                    }
+                }
+            } catch (\Illuminate\Database\QueryException) {
+                // A missing migration must not corrupt the invoice list.
+            }
+
             $statuses = [];
 
             foreach ($invoiceIds as $invoiceId) {
                 $status = $receiptStatuses[$invoiceId] ?? 'pending';
+
+                if (!isset($receiptStatuses[$invoiceId])
+                    && in_array($decisionsByInvoice[$invoiceId] ?? '', ['do_not_issue', 'not_applicable'], true)) {
+                    $status = $decisionsByInvoice[$invoiceId];
+                }
 
                 if ($status === '') {
                     $status = 'pending';
@@ -436,13 +478,15 @@ class Main extends Provider
 
                 $knownStatus = in_array(
                     $status,
-                    ['pending', 'processing', 'emitted', 'cancelled', 'substituted'],
+                    ['pending', 'processing', 'emitted', 'cancelled', 'substituted', 'do_not_issue', 'not_applicable'],
                     true,
                 ) ? $status : 'unknown';
 
                 $statuses[$invoiceId] = [
                     'status' => $knownStatus,
-                    'label' => trans('nfse::general.native_invoice.status_' . $knownStatus),
+                    'label' => in_array($knownStatus, ['do_not_issue', 'not_applicable'], true)
+                        ? trans('nfse::general.invoice_decision.' . $knownStatus)
+                        : trans('nfse::general.native_invoice.status_' . $knownStatus),
                     'url' => route('invoices.show', $invoiceId),
                 ];
             }

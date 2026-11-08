@@ -20,7 +20,7 @@ final class ApplyNativeInvoiceFiscalFilter
 {
     public const ORIGINAL_SEARCH = 'nfse.invoice_search.original';
 
-    private const STATUSES = ['pending', 'processing', 'emitted', 'cancelled', 'substituted', 'absent', 'unknown'];
+    private const STATUSES = ['pending', 'processing', 'emitted', 'cancelled', 'substituted', 'absent', 'unknown', 'do_not_issue', 'not_applicable'];
 
     public function handle(SearchStringApplying $event): void
     {
@@ -93,11 +93,18 @@ final class ApplyNativeInvoiceFiscalFilter
         $table = $query->getModel()->getTable();
         $latest = '(SELECT r.status FROM nfse_receipts r WHERE r.invoice_id = ' . $table
             . '.id ORDER BY r.id DESC LIMIT 1)';
+        $decision = '(SELECT d.decision FROM nfse_invoice_decisions d WHERE d.invoice_id = '
+            . $table . '.id AND d.company_id = ' . $table
+            . '.company_id ORDER BY d.id DESC LIMIT 1)';
+
         $clauses = [];
         $bindings = [];
 
         foreach ($values as $status) {
-            if ($status === 'absent') {
+            if (in_array($status, ['do_not_issue', 'not_applicable'], true)) {
+                $clauses[] = '(' . $latest . ' IS NULL AND ' . $decision . ' = ?)';
+                $bindings[] = $status;
+            } elseif ($status === 'absent') {
                 $clauses[] = $latest . ' IS NULL';
             } elseif ($status === 'unknown') {
                 $clauses[] = '(' . $latest . ' IS NOT NULL AND ' . $latest . ' NOT IN (?, ?, ?, ?, ?))';
