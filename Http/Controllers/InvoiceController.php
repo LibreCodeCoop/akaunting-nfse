@@ -18,6 +18,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
+use Modules\Nfse\Application\CategoryIssuancePolicy;
 use Modules\Nfse\Application\EmissionAttemptJournal;
 use Modules\Nfse\Application\FederalTaxReadiness;
 use Modules\Nfse\Application\FiscalDescriptionComposer;
@@ -29,7 +30,6 @@ use Modules\Nfse\Application\IbsCbsPayloadResolver;
 use Modules\Nfse\Application\InvoiceDpsBuilder;
 use Modules\Nfse\Application\InvoiceDpsIdentity;
 use Modules\Nfse\Application\InvoiceFiscalDecision;
-use Modules\Nfse\Application\CategoryIssuancePolicy;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\IssqnPayloadResolver;
@@ -497,7 +497,9 @@ class InvoiceController extends Controller
     {
         $request = $this->currentRequest($request);
         $this->requireReadableInvoice($invoice);
-        if ($request instanceof Request && $request->route() !== null
+        $httpRequest = function_exists('request') ? request() : null;
+        if ($httpRequest instanceof Request && method_exists($httpRequest, 'route')
+            && $httpRequest->route() !== null
             && !(new CategoryIssuancePolicy())->canIssue($invoice)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.category_issuance.issuance_not_authorized')));

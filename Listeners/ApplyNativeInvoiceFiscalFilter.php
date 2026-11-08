@@ -138,7 +138,8 @@ final class ApplyNativeInvoiceFiscalFilter
         if ($negated) {
             // Restrict the fiscal facet to authorized categories or existing
             // receipt evidence, even for the negation of an issued status.
-            $sql = '((' . $authorized . ' OR ' . $latest . ' IS NOT NULL) AND NOT ' . $sql . ')';
+            $sql = '((' . $authorized . ' OR ' . $latest
+                . ' IS NOT NULL) AND NOT COALESCE(' . $sql . ', 0))';
         }
 
         $query->whereRaw($sql, $bindings);

@@ -64,15 +64,14 @@ final class CategoryIssuancePolicy
             return false;
         }
 
-        $eligibleCategory = DB::table('categories')
-            ->where('company_id', $companyId)
-            ->where('id', $categoryId)
-            ->where('type', 'income')
-            ->where('enabled', 1)
+        // Recheck the persisted invoice/category relationship, not only the
+        // model's in-memory attributes. This is also a single SQL lookup.
+        return DB::table('documents')
+            ->where('documents.id', (int) $invoice->id)
+            ->where('documents.company_id', $companyId)
+            ->where('documents.type', 'invoice')
+            ->whereRaw($this->authorizedInvoiceSql())
             ->exists();
-
-        return $eligibleCategory
-            && ($this->latest($companyId, $categoryId)['mode'] ?? null) === 'issue';
     }
 
     /**

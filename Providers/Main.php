@@ -481,7 +481,7 @@ class Main extends Provider
                 if ($companyId > 0) {
                     $placeholders = implode(',', array_fill(0, count($invoiceIds), '?'));
                     $bindings = [$companyId];
-                    foreach ((array) $invoiceIds as $id) {
+                    foreach ($invoiceIds as $id) {
                         $bindings[] = (int) $id;
                     }
                     $decisionRows = DB::select(
@@ -504,20 +504,29 @@ class Main extends Provider
             $statuses = [];
             $invoicesById = $invoices->getCollection()->keyBy('id');
             $categoryPolicyService = new \Modules\Nfse\Application\CategoryIssuancePolicy();
+            $authorized = [];
+            try {
+                $companyId = function_exists('company_id') ? (int) company_id() : 0;
+                if ($companyId > 0) {
+                    $authorizedIds = DB::table('documents')->where('documents.company_id', $companyId)
+                        ->whereIn('documents.id', $invoiceIds)
+                        ->whereRaw($categoryPolicyService->authorizedInvoiceSql())
+                        ->pluck('documents.id')->all();
+                    foreach ($authorizedIds as $id) {
+                        $authorized[(int) $id] = true;
+                    }
+                }
+            } catch (\Exception $exception) {
+                // Fail closed: an unavailable policy cannot create fictitious
+                // fiscal pending badges in the commercial invoice listing.
+                error_log('NFS-e category authorization lookup failed: ' . $exception->getMessage());
+            }
 
             foreach ($invoiceIds as $invoiceId) {
-                $invoice = $invoicesById->get($invoiceId);
-                if (!isset($receiptStatuses[$invoiceId])) {
-                    try {
-                        if (!$invoice instanceof Invoice || !$categoryPolicyService->canIssue($invoice)) {
-                            // No receipt and no explicit category authorization:
-                            // the commercial status (e.g. paid) stands alone.
-                            continue;
-                        }
-                    } catch (\Exception) {
-                        // Never guess "pending" if fiscal settings are unreadable.
-                        continue;
-                    }
+                if (!isset($receiptStatuses[$invoiceId]) && !isset($authorized[$invoiceId])) {
+                    // A financial invoice outside the configured fiscal scope
+                    // must show only its native financial status (e.g. paid).
+                    continue;
                 }
 
                 $status = $receiptStatuses[$invoiceId] ?? 'pending';
