@@ -293,6 +293,26 @@ class Main extends Provider
             }
 
             $receipt = $receipts->first();
+
+            // An invoice is not automatically an NFS-e candidate merely
+            // because Akaunting classifies it as a financial sale. Keep
+            // previously issued fiscal evidence accessible even if the
+            // category no longer authorizes any NEW issuance.
+            $fiscalIssuanceAllowed = false;
+            try {
+                $activeCompanyId = function_exists('company_id') ? (int) company_id() : 0;
+                $fiscalIssuanceAllowed = $activeCompanyId > 0
+                    && (int) $invoice->company_id === $activeCompanyId
+                    && (new \Modules\Nfse\Application\CategoryIssuancePolicy())->canIssue($invoice);
+            } catch (\Exception) {
+                // Fail closed without turning a normal invoice into a pending
+                // fiscal document when settings cannot be verified.
+            }
+
+            if (!$fiscalIssuanceAllowed && !($receipt instanceof NfseReceipt)) {
+                return;
+            }
+
             $postEmissionStatus = $receipt instanceof NfseReceipt
                 ? (new PostEmissionState())->snapshot($receipt)
                 : null;
@@ -346,6 +366,7 @@ class Main extends Provider
                 'fiscalDecision' => $decision,
                 'effectiveFiscalDecision' => $effectiveDecision,
                 'categoryIssuancePolicy' => $categoryPolicy,
+                'fiscalIssuanceAllowed' => $fiscalIssuanceAllowed,
                 'fiscalDecisionHistory' => $decisionHistory,
             ])->render();
 
@@ -353,7 +374,9 @@ class Main extends Provider
                 'invoice' => $invoice,
             ])->render();
 
-            $viewFactory->startPush('timeline_send_body_button_email_start', $modalTrigger);
+            if ($fiscalIssuanceAllowed) {
+                $viewFactory->startPush('timeline_send_body_button_email_start', $modalTrigger);
+            }
 
             // Akaunting yields status_message_end both from the outer document
             // content view and from the nested status message component. Using
@@ -444,10 +467,12 @@ class Main extends Provider
                     $receiptStatuses[(int) $row->invoice_id] = trim((string) $row->status);
                 }
             } catch (\Throwable $exception) {
-                // A failed fiscal lookup is not equivalent to an unissued NFS-e.
-                // Keep the invoice listing available, but display unknown instead of pending.
-                $receiptStatuses = array_fill_keys($invoiceIds, 'unknown');
+                // Missing receipt state cannot prove that an invoice belongs
+                // to the fiscal workflow. Keep its financial listing intact
+                // without inventing a pending or unknown fiscal badge.
                 error_log('NFS-e fiscal status lookup failed: ' . $exception->getMessage());
+
+                return;
             }
 
             $decisionsByInvoice = [];
@@ -481,6 +506,20 @@ class Main extends Provider
             $categoryPolicyService = new \Modules\Nfse\Application\CategoryIssuancePolicy();
 
             foreach ($invoiceIds as $invoiceId) {
+                $invoice = $invoicesById->get($invoiceId);
+                if (!isset($receiptStatuses[$invoiceId])) {
+                    try {
+                        if (!$invoice instanceof Invoice || !$categoryPolicyService->canIssue($invoice)) {
+                            // No receipt and no explicit category authorization:
+                            // the commercial status (e.g. paid) stands alone.
+                            continue;
+                        }
+                    } catch (\Exception) {
+                        // Never guess "pending" if fiscal settings are unreadable.
+                        continue;
+                    }
+                }
+
                 $status = $receiptStatuses[$invoiceId] ?? 'pending';
 
                 if (!isset($receiptStatuses[$invoiceId])) {

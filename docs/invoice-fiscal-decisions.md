@@ -31,3 +31,41 @@ An explicit invoice decision takes precedence over the category setting: `issue`
 The module exposes company-scoped category configuration through authenticated web and API GET/POST endpoints under `/nfse/settings/category-issuance`. Read requires `read-nfse-settings`; updates require `update-nfse-settings`. Any issuance guard checks the effective decision, including the final pre-transmission DPS check. A category rule cannot delete or hide a valid linked fiscal receipt.
 
 An operator decision is not a fiscal/legal determination, does not establish a tax deadline, and does not authorize external issuance. No historical invoices are automatically recategorized or classified.
+
+
+## Explicit NFS-e issuance scope by category
+
+The NFS-e settings page **Emissão por categoria** is now the fiscal issuance
+**allowlist**. An enabled category of type `income` must have a current
+company-scoped `issue` entry in the append-only category policy history to
+permit any **new** NFS-e issuance. An unconfigured, disabled, expense, transfer,
+or `do_not_issue` category is outside the issuance flow. Parent categories do
+not implicitly authorize descendants. This does not assert tax exemption or
+that a particular commercial operation never requires a tax document.
+
+Eligibility applies to existing and future invoices on **read** and immediately
+before the first irreversible DPS POST (manual, queue, API, grouped and bulk).
+It never changes their Akaunting financial status, payments, receipts, or
+historical recorded decisions. For an invoice outside the allowlist and with
+no fiscal receipt, the invoice shows only the normal commercial interface:
+no fiscal panel, no pending badge, no fiscal emission choice, and no entry in
+NFS-e pending listings/filters. A receipt that already exists remains visible
+for reconciliation, artifact access and cancellation even if the category has
+since been disallowed; a new substitution or reissue still needs a currently
+authorized category. Recovery of an already submitted DPS is not a first POST.
+
+Configure categories per company and record the business rationale and
+authorized operator. The latest category policy determines the current
+eligibility, but historical decisions and the original prospective category
+defaults are retained for audit. An individual `issue` exception does not
+override the category allowlist. To re-enable a category, authorize that
+specific category before requesting issuance. Never infer a legal
+`not_applicable` decision solely from the category name.
+
+Operational classification of legacy invoices should use aggregate evidence:
+verify each excluded category is non-service, inspect existing receipts and
+unresolved transmission attempts, then apply an explicit category policy.
+Do **not** write mass `not_applicable` decisions, delete receipts or transmit
+documents while reconciling historical invoices. The current eligibility can
+be audited through the company-scoped category-policy history and the
+fiscal-review status `outside_issuance_scope`.
