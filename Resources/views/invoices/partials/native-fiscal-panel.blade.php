@@ -227,7 +227,10 @@
                                     <label class="text-xs font-medium">
                                         {{ trans('nfse::general.invoice_decision.reason') }}
                                         <select name="reason" required class="mt-1 w-full rounded border px-2 py-2 text-sm">
-                                            @foreach(ModulesNfseApplicationInvoiceFiscalDecision::REASONS as $reason)
+                                            @php
+                                                $reasonOptions = \Modules\Nfse\Application\InvoiceFiscalDecision::REASONS;
+                                            @endphp
+                                            @foreach($reasonOptions as $reason)
                                                 @if($reason !== 'reconsidered')
                                                     <option value="{{ $reason }}">{{ trans('nfse::general.invoice_decision.reason_' . $reason) }}</option>
                                                 @endif
