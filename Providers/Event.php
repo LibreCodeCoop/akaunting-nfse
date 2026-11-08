@@ -29,6 +29,10 @@ class Event extends Provider
             \Modules\Nfse\Listeners\ApplyNativeInvoiceFiscalFilter::class,
         ],
 
+        'App\\Events\\Common\\SearchStringApplied' => [
+            \Modules\Nfse\Listeners\RestoreNativeInvoiceSearch::class,
+        ],
+
         'App\\Events\\Document\\DocumentSending' => [
             EmitNfseBeforeDocumentSend::class,
         ],

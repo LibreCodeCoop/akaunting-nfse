@@ -136,6 +136,7 @@ return [
         'filter_fiscal_status' => 'NFS-e status',
         'filter' => 'Filter',
         'status_all' => 'All',
+        'status_absent' => 'No NFS-e',
         'status_emitted' => 'Issued',
         'status_processing' => 'Processing',
         'status_cancelled' => 'Cancelled',

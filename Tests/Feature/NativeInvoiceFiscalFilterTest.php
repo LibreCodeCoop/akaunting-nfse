@@ -158,6 +158,98 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         });
     }
 
+    public function testFiscalStatusIsRegisteredAsNativeSearchOption(): void
+    {
+        $this->loginAs();
+        Document::factory()->invoice()->create(['company_id' => company_id()]);
+
+        $response = $this->get(route('invoices.index'));
+
+        $response->assertOk();
+        $config = config('search-string.' . Document::class . '.columns.nfse_status');
+        $response->assertDontSee('id="nfse-fiscal-status-filter"', false);
+        self::assertSame('nfse::general.ledger.filter_fiscal_status', $config['translation'] ?? null);
+        self::assertArrayHasKey('emitted', $config['values'] ?? []);
+        self::assertArrayHasKey('absent', $config['values'] ?? []);
+        $response->assertSee('nfse_status', false);
+    }
+
+    public function testNativeSearchChipFiltersInvoicesAndPreservesVisibleSearch(): void
+    {
+        $this->loginAs();
+
+        $matching = Document::factory()->invoice()->create([
+            'company_id' => company_id(),
+            'status' => 'paid',
+            'document_number' => 'NFSNATIVE-001',
+        ]);
+        $wrongFiscal = Document::factory()->invoice()->create([
+            'company_id' => company_id(),
+            'status' => 'paid',
+            'document_number' => 'NFSNATIVE-002',
+        ]);
+        $wrongCommercial = Document::factory()->invoice()->create([
+            'company_id' => company_id(),
+            'status' => 'draft',
+            'document_number' => 'NFSNATIVE-003',
+        ]);
+        $this->receipt($matching, 'emitted');
+        $this->receipt($wrongFiscal, 'cancelled');
+        $this->receipt($wrongCommercial, 'emitted');
+
+        $search = 'status:paid nfse_status:emitted NFSNATIVE-';
+        $response = $this->get(route('invoices.index', ['search' => $search]));
+
+        $response->assertOk();
+        $response->assertViewHas('invoices', static function ($invoices) use ($matching, $wrongFiscal, $wrongCommercial): bool {
+            $ids = $invoices->getCollection()->pluck('id')->all();
+
+            return in_array($matching->id, $ids, true)
+                && !in_array($wrongFiscal->id, $ids, true)
+                && !in_array($wrongCommercial->id, $ids, true);
+        });
+        self::assertSame($search, request()->input('search'));
+    }
+
+    public function testNativeFiscalSearchSupportsMultipleStatusesAndNegation(): void
+    {
+        $this->loginAs();
+
+        $emitted = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $cancelled = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $absent = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $this->receipt($emitted, 'emitted');
+        $this->receipt($cancelled, 'cancelled');
+
+        $multiple = $this->get(route('invoices.index', ['search' => 'nfse_status:emitted,cancelled']));
+        $multiple->assertOk();
+        $multipleIds = $multiple->viewData('invoices')->getCollection()->pluck('id')->all();
+        self::assertContains($emitted->id, $multipleIds);
+        self::assertContains($cancelled->id, $multipleIds);
+        self::assertNotContains($absent->id, $multipleIds);
+
+        $negated = $this->get(route('invoices.index', ['search' => 'not nfse_status:emitted']));
+        $negated->assertOk();
+        $negatedIds = $negated->viewData('invoices')->getCollection()->pluck('id')->all();
+        self::assertNotContains($emitted->id, $negatedIds);
+        self::assertContains($cancelled->id, $negatedIds);
+        self::assertContains($absent->id, $negatedIds);
+    }
+
+    public function testPendingMeansExistingPendingReceiptAndAbsentMeansNoReceipt(): void
+    {
+        $this->loginAs();
+        $pending = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $absent = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $this->receipt($pending, 'pending');
+
+        $response = $this->get(route('invoices.index', ['search' => 'nfse_status:pending']));
+        $response->assertOk();
+        $ids = $response->viewData('invoices')->getCollection()->pluck('id')->all();
+        self::assertContains($pending->id, $ids);
+        self::assertNotContains($absent->id, $ids);
+    }
+
     /**
      * Collect all native Akaunting pages rather than relying on the first page
      * or assuming the native controller honors a custom limit parameter.

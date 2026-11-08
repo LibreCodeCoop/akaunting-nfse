@@ -63,6 +63,7 @@ class Main extends Provider
         $this->loadMigrations();
         $this->registerNativeInvoiceBulkAction();
         $this->registerNativeInvoiceFiscalPanel();
+        $this->registerNativeInvoiceFiscalSearch();
         $this->registerNativeInvoiceFiscalListStatus();
         $this->registerItemFiscalFieldInjection();
         $this->registerItemFiscalPersistence();
@@ -354,6 +355,31 @@ class Main extends Provider
         });
     }
 
+    protected function registerNativeInvoiceFiscalSearch(): void
+    {
+        // Document is shared with bills: add this virtual option only when
+        // rendering the native commercial invoice page, not across all screens.
+        $this->app->make('view')->composer('sales.invoices.index', static function (): void {
+            // The rendered component uses Akaunting's legacy Sale\\Invoice search key,
+            // while the query is built from the canonical Document model.
+            $filter = [
+                'translation' => 'nfse::general.ledger.filter_fiscal_status',
+                'multiple' => true,
+                'values' => [
+                    'emitted' => 'nfse::general.ledger.status_emitted',
+                    'processing' => 'nfse::general.ledger.status_processing',
+                    'cancelled' => 'nfse::general.ledger.status_cancelled',
+                    'substituted' => 'nfse::general.ledger.status_substituted',
+                    'pending' => 'nfse::general.native_invoice.status_pending',
+                    'absent' => 'nfse::general.ledger.status_absent',
+                    'unknown' => 'nfse::general.ledger.status_unknown',
+                ],
+            ];
+            config()->set('search-string.' . Invoice::class . '.columns.nfse_status', $filter);
+            config()->set('search-string.App\\Models\\Sale\\Invoice.columns.nfse_status', $filter);
+        });
+    }
+
     protected function registerNativeInvoiceFiscalListStatus(): void
     {
         $this->app->make('view')->composer('sales.invoices.index', function ($view): void {
@@ -362,21 +388,6 @@ class Main extends Provider
             if (!is_object($invoices) || !method_exists($invoices, 'getCollection')) {
                 return;
             }
-
-            $fiscalFilter = request()->query('nfse_status');
-            $fiscalStatuses = [
-                '' => trans('nfse::general.ledger.status_all'),
-                'emitted' => trans('nfse::general.ledger.status_emitted'),
-                'processing' => trans('nfse::general.ledger.status_processing'),
-                'cancelled' => trans('nfse::general.ledger.status_cancelled'),
-                'substituted' => trans('nfse::general.ledger.status_substituted'),
-                'absent' => trans('nfse::general.native_invoice.status_pending'),
-                'unknown' => trans('nfse::general.ledger.status_unknown'),
-            ];
-            $this->app->make('view')->startPush('body_end', view('nfse::invoices.partials.native-status-filter', [
-                'fiscalFilter' => $fiscalFilter,
-                'fiscalStatuses' => $fiscalStatuses,
-            ])->render());
 
             $invoiceIds = $invoices->getCollection()
                 ->map(static fn ($invoice): int => is_numeric($invoice->id ?? null) ? (int) $invoice->id : 0)
