@@ -319,12 +319,17 @@ class Main extends Provider
             }
 
             $decision = null;
+            $effectiveDecision = null;
+            $categoryPolicy = null;
             $decisionHistory = [];
             try {
                 $companyId = function_exists('company_id') ? (int) company_id() : 0;
                 if ($companyId > 0 && (int) $invoice->company_id === $companyId) {
                     $decisions = new InvoiceFiscalDecision();
                     $decision = $decisions->current($companyId, $invoiceId);
+                    $effectiveDecision = $decisions->effective($invoice);
+                    $categoryPolicy = (new \Modules\Nfse\Application\CategoryIssuancePolicy())
+                        ->forInvoice($invoice);
                     $decisionHistory = $decisions->history($companyId, $invoiceId);
                 }
             } catch (\Exception) {
@@ -339,6 +344,8 @@ class Main extends Provider
                 'authorizedXmlAvailable' => $authorizedXmlAvailable,
                 'fiscalEventGroups' => $fiscalEventGroups,
                 'fiscalDecision' => $decision,
+                'effectiveFiscalDecision' => $effectiveDecision,
+                'categoryIssuancePolicy' => $categoryPolicy,
                 'fiscalDecisionHistory' => $decisionHistory,
             ])->render();
 
@@ -470,13 +477,28 @@ class Main extends Provider
             }
 
             $statuses = [];
+            $invoicesById = $invoices->getCollection()->keyBy('id');
+            $categoryPolicyService = new \Modules\Nfse\Application\CategoryIssuancePolicy();
 
             foreach ($invoiceIds as $invoiceId) {
                 $status = $receiptStatuses[$invoiceId] ?? 'pending';
 
-                if (!isset($receiptStatuses[$invoiceId])
-                    && in_array($decisionsByInvoice[$invoiceId] ?? '', ['do_not_issue', 'not_applicable'], true)) {
-                    $status = $decisionsByInvoice[$invoiceId];
+                if (!isset($receiptStatuses[$invoiceId])) {
+                    $manual = $decisionsByInvoice[$invoiceId] ?? null;
+                    if (in_array($manual, ['do_not_issue', 'not_applicable'], true)) {
+                        $status = $manual;
+                    } elseif ($manual !== 'issue') {
+                        $invoice = $invoicesById->get($invoiceId);
+                        try {
+                            $categoryPolicy = $invoice instanceof Invoice
+                                ? $categoryPolicyService->forInvoice($invoice) : null;
+                            if (($categoryPolicy['mode'] ?? '') === 'do_not_issue') {
+                                $status = 'do_not_issue';
+                            }
+                        } catch (\Exception) {
+                            $status = 'unknown';
+                        }
+                    }
                 }
 
                 if ($status === '') {
