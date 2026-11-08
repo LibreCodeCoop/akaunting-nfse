@@ -9,6 +9,7 @@ namespace Modules\Nfse\Listeners;
 
 use App\Events\Common\SearchStringApplying;
 use App\Models\Document\Document;
+use Modules\Nfse\Application\CategoryIssuancePolicy;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -91,6 +92,7 @@ final class ApplyNativeInvoiceFiscalFilter
         }
 
         $table = $query->getModel()->getTable();
+        $authorized = (new CategoryIssuancePolicy())->authorizedInvoiceSql();
         $latest = '(SELECT r.status FROM nfse_receipts r WHERE r.invoice_id = ' . $table
             . '.id ORDER BY r.id DESC LIMIT 1)';
         $decision = '(SELECT d.decision FROM nfse_invoice_decisions d WHERE d.invoice_id = '
@@ -112,10 +114,17 @@ final class ApplyNativeInvoiceFiscalFilter
 
         foreach ($values as $status) {
             if (in_array($status, ['do_not_issue', 'not_applicable'], true)) {
-                $clauses[] = '(' . $latest . ' IS NULL AND ' . $effective . ' = ?)';
+                $clauses[] = '(' . $latest . ' IS NULL AND ' . $authorized . ' AND ' . $effective . ' = ?)';
                 $bindings[] = $status;
             } elseif ($status === 'absent') {
-                $clauses[] = $latest . ' IS NULL';
+                $clauses[] = '(' . $latest . ' IS NULL AND ' . $authorized . ')';
+            } elseif ($status === 'pending') {
+                // An authorized, not-yet-issued invoice is pending even without
+                // a receipt row. Unregistered/non-service categories are not.
+                $clauses[] = '(' . $latest . ' = ? OR ('
+                    . $latest . ' IS NULL AND ' . $authorized
+                    . ' AND ' . $effective . ' IS NULL))';
+                $bindings[] = 'pending';
             } elseif ($status === 'unknown') {
                 $clauses[] = '(' . $latest . ' IS NOT NULL AND ' . $latest . ' NOT IN (?, ?, ?, ?, ?))';
                 array_push($bindings, 'pending', 'processing', 'emitted', 'cancelled', 'substituted');
@@ -127,11 +136,9 @@ final class ApplyNativeInvoiceFiscalFilter
 
         $sql = '(' . implode(' OR ', $clauses) . ')';
         if ($negated) {
-            // SQL NOT(NULL) is NULL, not TRUE. Without this explicit branch,
-            // negating an emitted status incorrectly drops invoices with no receipt.
-            $sql = in_array('absent', $values, true)
-                ? 'NOT ' . $sql
-                : '(' . $latest . ' IS NULL OR NOT ' . $sql . ')';
+            // Restrict the fiscal facet to authorized categories or existing
+            // receipt evidence, even for the negation of an issued status.
+            $sql = '((' . $authorized . ' OR ' . $latest . ' IS NOT NULL) AND NOT ' . $sql . ')';
         }
 
         $query->whereRaw($sql, $bindings);

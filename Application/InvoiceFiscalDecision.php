@@ -116,6 +116,14 @@ final class InvoiceFiscalDecision
                 throw new \InvalidArgumentException('Invoice not found in the active company.');
             }
 
+            // An invoice-level "issue" exception may override an older
+            // operational default, never the current category allowlist.
+            if ($decision === 'issue' && !(new CategoryIssuancePolicy())->canIssue($invoice)) {
+                throw ValidationException::withMessages([
+                    'decision' => 'The invoice category is not authorized for NFS-e issuance.',
+                ]);
+            }
+
             $current = $this->current($companyId, (int) $invoice->id);
             if ($decision === 'reversed' && ($current === null || $current['decision'] === 'reversed')) {
                 throw ValidationException::withMessages(['decision' => 'No active fiscal decision to reverse.']);

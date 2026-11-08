@@ -261,6 +261,13 @@ final class EmissionAttemptJournal
             throw new \InvalidArgumentException('Invoice not found for fiscal preflight.');
         }
 
+        // Categories are a fiscal allowlist, not a display preference.
+        // Check against the current database rule just before the irreversible
+        // first POST, including pre-existing invoices and queued attempts.
+        if (!(new CategoryIssuancePolicy())->canIssue($invoice)) {
+            throw new FiscalIssuanceBlocked('NFSE-CATEGORY-NOT-AUTHORIZED: category is not enabled for NFS-e issuance.');
+        }
+
         // Shared final first-POST guard: manual, API, grouped, bulk and worker
         // issuance must honor decisions made after a queue plan was prepared.
         // Recovery-only paths intentionally bypass this check and never resend.

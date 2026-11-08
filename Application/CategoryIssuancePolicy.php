@@ -12,11 +12,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Company-scoped, append-only category defaults for *future* commercial
- * invoices. "Do not issue" is an operational choice, never a declaration that
- * a service is legally exempt. Operator overrides take precedence.
+ * Company-scoped, append-only classification for fiscal issuance eligibility.
+ * Only an enabled income category with an explicit latest "issue" rule can
+ * generate a new NFS-e. This eligibility check covers historical and future
+ * invoices without rewriting their finances, fiscal receipts or decisions.
  *
- * Reading policies never writes a fiscal or financial document.
+ * The older prospective defaults and individual decision history remain intact.
+ * "Not authorized to issue" is not a legal exemption or tax determination.
  */
 final class CategoryIssuancePolicy
 {
@@ -40,9 +42,62 @@ final class CategoryIssuancePolicy
                 'name' => (string) $category->name,
                 'type' => (string) $category->type,
                 'enabled' => (bool) $category->enabled,
+                'can_issue' => (string) $category->type === 'income' && (bool) $category->enabled,
                 'policy' => $this->latest($companyId, (int) $category->id),
             ];
         })->all();
+    }
+
+    /**
+     * Current scope of NFS-e issuance, intentionally independent of invoice
+     * creation date. Existing authorized receipts still remain visible.
+     *
+     * A missing rule, a disabled category, a foreign tenant or an expense/
+     * transfer category means that a NEW fiscal issuance is not permitted.
+     */
+    public function canIssue(Document $invoice): bool
+    {
+        $companyId = (int) ($invoice->company_id ?? 0);
+        $categoryId = (int) ($invoice->category_id ?? 0);
+        if ((string) ($invoice->type ?? '') !== 'invoice'
+            || $companyId <= 0 || $categoryId <= 0) {
+            return false;
+        }
+
+        $eligibleCategory = DB::table('categories')
+            ->where('company_id', $companyId)
+            ->where('id', $categoryId)
+            ->where('type', 'income')
+            ->where('enabled', 1)
+            ->exists();
+
+        return $eligibleCategory
+            && ($this->latest($companyId, $categoryId)['mode'] ?? null) === 'issue';
+    }
+
+    /**
+     * Correlated, tenant-scoped SQL predicate for the common document table.
+     * Used by both the native invoice search and NFS-e's pending listing so
+     * pagination, counts and badges agree on the same authorization contract.
+     */
+    public function authorizedInvoiceSql(string $documentTable = 'documents'): string
+    {
+        if ($documentTable !== 'documents') {
+            throw new \InvalidArgumentException('Only the canonical documents table is supported.');
+        }
+
+        return "EXISTS (SELECT 1 FROM categories nfse_cat"
+            . " JOIN nfse_category_issuance_policies nfse_policy"
+            . " ON nfse_policy.company_id = nfse_cat.company_id"
+            . " AND nfse_policy.category_id = nfse_cat.id"
+            . " AND nfse_policy.id = (SELECT MAX(nfse_policy_latest.id)"
+            . " FROM nfse_category_issuance_policies nfse_policy_latest"
+            . " WHERE nfse_policy_latest.company_id = nfse_cat.company_id"
+            . " AND nfse_policy_latest.category_id = nfse_cat.id)"
+            . " WHERE nfse_cat.id = documents.category_id"
+            . " AND nfse_cat.company_id = documents.company_id"
+            . " AND nfse_cat.type = 'income' AND nfse_cat.enabled = 1"
+            . " AND nfse_policy.mode = 'issue')";
     }
 
     public function latest(int $companyId, int $categoryId): ?array
@@ -83,8 +138,9 @@ final class CategoryIssuancePolicy
             $category = DB::table('categories')->where('company_id', $companyId)
                 ->where('id', $categoryId)->whereIn('type', ['income', 'other'])
                 ->lockForUpdate()->first();
-            if ($category === null) {
-                throw ValidationException::withMessages(['category_id' => 'Category not available for this company.']);
+            if ($category === null
+                || ($mode === 'issue' && ((string) $category->type !== 'income' || !(bool) $category->enabled))) {
+                throw ValidationException::withMessages(['category_id' => 'Category cannot be authorized for NFS-e issuance in this company.']);
             }
 
             $id = DB::table('nfse_category_issuance_policies')->insertGetId([
