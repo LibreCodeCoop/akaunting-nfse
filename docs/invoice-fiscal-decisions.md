@@ -9,6 +9,7 @@ Fiscal decisions are separate from the Akaunting invoice, payments, fiscal recei
 - **Not applicable** (not_applicable) is an operator's documented assessment requiring a justification and evidence reference. Neither invoice category nor absence of local receipt establishes non-applicability.
 - **Reversed** (reversed) restores eligibility for manual/automatic issuance, without deleting the prior decision.
 - Missing local receipts require external reconciliation before concluding that no invoice was issued. Pending or processing operations may require recovery. Cancellation and substitution history remains independent of this classification.
+- Pending or ambiguous durable DPS attempts also block non-issuance until reconciled, even when no fiscal receipt has been imported yet. Unrecognized local receipt states fail closed.
 - An authorized local receipt blocks both non-issuance choices. The operator must explicitly reconcile the valid fiscal document; this module never deletes the receipt or silently overrides it.
 - For multi-group invoices, the existence of any authorized receipt blocks new invoice-wide non-issuance decisions; existing group-level partial/authorized states remain visible. A later authorized receipt takes precedence over an earlier decision in search results.
 - Documents, payments, financial status, authorized XML, DPS identity and fiscal receipts are not modified by decisions.

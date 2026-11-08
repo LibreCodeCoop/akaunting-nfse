@@ -20,9 +20,10 @@ final class InvoiceFiscalDecisionPolicy
         }
 
         foreach ($receiptStatuses as $status) {
-            // Authorized NFS-e and unresolved DPS must be reviewed/recovered,
-            // rather than hidden by a new invoice-level exclusion.
-            if (in_array($status, ['emitted', 'pending', 'processing'], true)) {
+            // Only conclusively cancelled or substituted local receipts can
+            // coexist with a new operator decision. An unknown provider status
+            // might still represent an authorized or unreconciled NFS-e.
+            if (!in_array($status, ['cancelled', 'substituted'], true)) {
                 return false;
             }
         }

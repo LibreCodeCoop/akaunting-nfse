@@ -19,6 +19,7 @@ final class InvoiceFiscalDecisionPolicyTest extends TestCase
         yield 'authorized' => ['not_applicable', ['emitted'], false];
         yield 'pending' => ['not_applicable', ['pending'], false];
         yield 'processing' => ['do_not_issue', ['processing'], false];
+        yield 'unknown provider state' => ['not_applicable', ['unexpected-provider-state'], false];
         yield 'authorized among canceled' => ['do_not_issue', ['cancelled', 'emitted'], false];
         yield 'cancelled only' => ['do_not_issue', ['cancelled'], true];
         yield 'substituted only' => ['not_applicable', ['substituted'], true];

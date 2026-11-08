@@ -9,7 +9,9 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Application\InvoiceFiscalDecision;
+use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Models\NfseReceipt;
 use Tests\Feature\FeatureTestCase;
 
@@ -91,6 +93,51 @@ final class InvoiceFiscalDecisionTest extends FeatureTestCase
             'reason' => 'operational_review',
             'justification' => 'This would cross company boundaries.',
         ])->assertNotFound();
+    }
+
+    public function testNativeApiAndWebExposeTheSameReadWriteAcl(): void
+    {
+        foreach (['show' => 'read-sales-invoices', 'store' => 'update-sales-invoices'] as $action => $permission) {
+            $api = Route::getRoutes()->getByName('api.nfse.invoices.fiscal-decision.' . $action);
+            $web = Route::getRoutes()->getByName('nfse.invoices.fiscal-decision.' . $action);
+            self::assertNotNull($api, $action);
+            self::assertNotNull($web, $action);
+            self::assertContains('api', $api->gatherMiddleware());
+            self::assertContains('permission:' . $permission, $api->gatherMiddleware());
+            self::assertContains('permission:' . $permission, $web->gatherMiddleware());
+            self::assertSame($web->getActionName(), $api->getActionName());
+        }
+    }
+
+    public function testAnUnresolvedDpsAttemptCannotBeHiddenByNonIssuance(): void
+    {
+        $this->withExceptionHandling()->loginAs();
+
+        foreach (['pending', 'ambiguous'] as $state) {
+            $invoice = Document::factory()->invoice()->create(['company_id' => (int) company_id()]);
+            NfseEmissionAttempt::query()->create([
+                'company_id' => (int) company_id(),
+                'invoice_id' => (int) $invoice->id,
+                'dps_identifier' => str_repeat($state === 'pending' ? '1' : '2', 42),
+                'environment' => 2,
+                'attempt_number' => 1,
+                'payload_fingerprint' => hash('sha256', 'synthetic-' . $state),
+                'municipio_ibge' => '3303302',
+                'codigo_tributacao_nacional' => '010701',
+                'origin' => 'manual',
+                'status' => $state,
+                'started_at' => now(),
+            ]);
+
+            $this->postJson(route('nfse.invoices.fiscal-decision.store', $invoice->id), [
+                'decision' => 'do_not_issue',
+                'reason' => 'operational_review',
+                'justification' => 'Synthetic attempt remains unresolved.',
+            ])->assertUnprocessable()->assertJsonValidationErrors(['decision']);
+
+            self::assertSame(0, DB::table('nfse_invoice_decisions')
+                ->where('invoice_id', $invoice->id)->count());
+        }
     }
 
     public function testNativeInvoiceRendersDecisionFormAndReviewSeparately(): void

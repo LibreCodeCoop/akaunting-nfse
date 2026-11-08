@@ -96,6 +96,17 @@ final class InvoiceFiscalDecision
                 ]);
             }
 
+            // Pending or ambiguous DPS attempts may already have been posted
+            // to SEFIN without a local authorized receipt. Reconcile them
+            // before accepting an invoice-wide decision not to issue.
+            if ($decision !== 'reversed' && DB::table('nfse_emission_attempts')
+                ->where('company_id', $companyId)->where('invoice_id', $invoice->id)
+                ->whereIn('status', ['pending', 'ambiguous'])->exists()) {
+                throw ValidationException::withMessages([
+                    'decision' => 'An unresolved DPS attempt is linked. Reconcile the attempt before recording a non-issuance decision.',
+                ]);
+            }
+
             $id = DB::table('nfse_invoice_decisions')->insertGetId([
                 'company_id' => $companyId,
                 'invoice_id' => $invoice->id,
