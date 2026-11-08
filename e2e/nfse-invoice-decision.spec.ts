@@ -16,7 +16,7 @@ test('invoice shows a reversible fiscal decision form without issuing anything',
   await expect(form).toBeVisible();
   await expect(form.locator('select[name="decision"] option[value="do_not_issue"]')).toHaveCount(1);
   await expect(form.locator('select[name="decision"] option[value="not_applicable"]')).toHaveCount(1);
-  await expect(form.locator('textarea[name="justification"]')).toHaveAttribute('required', '');
+  await expect(form.locator('textarea[name="justification"]')).toHaveJSProperty('required', true);
   await expect(form.locator('input[name="evidence_reference"]')).toHaveCount(1);
 
   // GET-only checks; never submit to the real fiscal environment.
