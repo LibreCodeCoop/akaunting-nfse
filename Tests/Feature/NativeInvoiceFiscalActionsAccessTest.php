@@ -15,6 +15,14 @@ use Tests\Feature\FeatureTestCase;
 
 final class NativeInvoiceFiscalActionsAccessTest extends FeatureTestCase
 {
+    use \Modules\Nfse\Tests\Support\AuthorizesSyntheticInvoiceCategories;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->authorizeSyntheticInvoiceCategories();
+    }
+
     use Permissions;
 
     public function testReadOnlySalesUserCannotSeeOrInvokeFiscalMutationsOrSettings(): void

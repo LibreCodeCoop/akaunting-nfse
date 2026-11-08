@@ -13,6 +13,14 @@ use Tests\Feature\FeatureTestCase;
 
 final class BulkEmissionDispatcherTest extends FeatureTestCase
 {
+    use \Modules\Nfse\Tests\Support\AuthorizesSyntheticInvoiceCategories;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->authorizeSyntheticInvoiceCategories();
+    }
+
     public function testDispatchesEachNewPersistedUnitExactlyOnce(): void
     {
         $first = Document::factory()->invoice()->create();

@@ -18,9 +18,16 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
     public function testOperationalDecisionFiltersWithoutConfusingReceiptStatus(): void
     {
         $this->loginAs();
-        $deferred = Document::factory()->invoice()->create(['company_id' => company_id()]);
-        $reversed = Document::factory()->invoice()->create(['company_id' => company_id()]);
-        $authorized = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $category = $this->authorizeSyntheticCategory();
+        $deferred = Document::factory()->invoice()->create([
+            'company_id' => company_id(), 'category_id' => $category->id,
+        ]);
+        $reversed = Document::factory()->invoice()->create([
+            'company_id' => company_id(), 'category_id' => $category->id,
+        ]);
+        $authorized = Document::factory()->invoice()->create([
+            'company_id' => company_id(), 'category_id' => $category->id,
+        ]);
         $decision = new \Modules\Nfse\Application\InvoiceFiscalDecision();
         foreach ([$deferred, $reversed] as $invoice) {
             $decision->record($invoice, (int) company_id(), (int) auth()->id(),
@@ -275,7 +282,12 @@ final class NativeInvoiceFiscalFilterTest extends FeatureTestCase
         $absent = Document::factory()->invoice()->create([
             'company_id' => company_id(), 'category_id' => $category->id,
         ]);
-        $excluded = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $excludedCategory = Category::factory()->create([
+            'company_id' => company_id(), 'type' => 'income', 'enabled' => true,
+        ]);
+        $excluded = Document::factory()->invoice()->create([
+            'company_id' => company_id(), 'category_id' => $excludedCategory->id,
+        ]);
         $this->receipt($pending, 'pending');
 
         $response = $this->get(route('invoices.index', ['search' => 'nfse_status:pending']));

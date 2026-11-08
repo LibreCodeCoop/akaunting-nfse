@@ -23,7 +23,7 @@ final class CategoryIssuancePolicyTest extends FeatureTestCase
     {
         $this->loginAs();
         $companyId = (int) company_id();
-        $category = Category::factory()->create(['company_id' => $companyId, 'type' => 'income']);
+        $category = Category::factory()->create(['company_id' => $companyId, 'type' => 'income', 'enabled' => true]);
         $before = Document::factory()->invoice()->create([
             'company_id' => $companyId, 'category_id' => $category->id,
             'issued_at' => '2026-11-08 09:00:00',
@@ -73,7 +73,7 @@ final class CategoryIssuancePolicyTest extends FeatureTestCase
     {
         $this->loginAs();
         $companyId = (int) company_id();
-        $category = Category::factory()->create(['company_id' => $companyId, 'type' => 'income']);
+        $category = Category::factory()->create(['company_id' => $companyId, 'type' => 'income', 'enabled' => true]);
 
         try {
             Carbon::setTestNow('2026-11-09 08:00:00');
@@ -129,7 +129,7 @@ final class CategoryIssuancePolicyTest extends FeatureTestCase
     {
         $this->loginAs();
         $companyId = (int) company_id();
-        $category = Category::factory()->create(['company_id' => $companyId, 'type' => 'income']);
+        $category = Category::factory()->create(['company_id' => $companyId, 'type' => 'income', 'enabled' => true]);
         $policy = new CategoryIssuancePolicy();
 
         try {
@@ -164,7 +164,7 @@ final class CategoryIssuancePolicyTest extends FeatureTestCase
     {
         $this->withExceptionHandling()->loginAs();
         $companyId = (int) company_id();
-        $foreign = Category::factory()->create(['company_id' => $companyId + 1000, 'type' => 'income']);
+        $foreign = Category::factory()->create(['company_id' => $companyId + 1000, 'type' => 'income', 'enabled' => true]);
         $expense = Category::factory()->create(['company_id' => $companyId, 'type' => 'expense']);
         foreach ([$foreign->id, $expense->id] as $categoryId) {
             $this->postJson(route('nfse.settings.category-issuance.store'), [
@@ -195,7 +195,7 @@ final class CategoryIssuancePolicyTest extends FeatureTestCase
     public function testSettingsScreenAndInvoiceExposeMutuallyExclusiveActions(): void
     {
         $this->loginAs();
-        $category = Category::factory()->create(['company_id' => company_id(), 'type' => 'income']);
+        $category = Category::factory()->create(['company_id' => company_id(), 'type' => 'income', 'enabled' => true]);
         (new CategoryIssuancePolicy())->record((int) company_id(), (int) $category->id,
             (int) auth()->id(), 'issue', 'Synthetic category authorized for the invoice workflow.');
         $invoice = Document::factory()->invoice()->create([

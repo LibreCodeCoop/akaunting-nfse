@@ -13,6 +13,14 @@ use Tests\Feature\FeatureTestCase;
 
 final class InvoiceSubstitutionFlowTest extends FeatureTestCase
 {
+    use \Modules\Nfse\Tests\Support\AuthorizesSyntheticInvoiceCategories;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->authorizeSyntheticInvoiceCategories();
+    }
+
     public function testSubstitutionRouteRejectsReceiptFromAnotherInvoice(): void
     {
         $invoice = Document::factory()->invoice()->create();
