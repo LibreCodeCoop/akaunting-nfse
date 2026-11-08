@@ -44,6 +44,9 @@ final class ApiCapabilityDiscoveryTest extends FeatureTestCase
         self::assertSame(1, $payload['version']);
         self::assertSame($routes, $payload['routes']);
 
+        // The feature harness disables Laravel exception conversion by default.
+        // An unknown invoice must become the native HTTP 404 response.
+        $this->withExceptionHandling();
         $this->getJson(route('nfse.invoices.fiscal-decision.show', 999999))
             ->assertNotFound();
     }
