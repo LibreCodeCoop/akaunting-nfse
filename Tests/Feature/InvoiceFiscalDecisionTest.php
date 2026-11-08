@@ -51,6 +51,8 @@ final class InvoiceFiscalDecisionTest extends FeatureTestCase
     public function testNotApplicableNeedsEvidenceAndValidReceiptCannotBeOverridden(): void
     {
         $this->loginAs();
+        // Akaunting's FeatureTestCase disables exception handling by default.
+        $this->withExceptionHandling();
         $invoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
         $body = [
             'decision' => 'not_applicable', 'reason' => 'non_service_revenue',
@@ -58,7 +60,7 @@ final class InvoiceFiscalDecisionTest extends FeatureTestCase
         ];
 
         $this->postJson(route('nfse.invoices.fiscal-decision.store', $invoice->id), $body)
-            ->assertUnprocessable();
+            ->assertUnprocessable()->assertJsonValidationErrors(['decision']);
 
         NfseReceipt::query()->create([
             'invoice_id' => $invoice->id, 'status' => 'emitted',
@@ -66,7 +68,7 @@ final class InvoiceFiscalDecisionTest extends FeatureTestCase
         ]);
         $body['evidence_reference'] = 'SYNTHETIC-TRANSFER-2026';
         $this->postJson(route('nfse.invoices.fiscal-decision.store', $invoice->id), $body)
-            ->assertUnprocessable();
+            ->assertUnprocessable()->assertJsonValidationErrors(['decision']);
 
         self::assertSame(0, DB::table('nfse_invoice_decisions')
             ->where('invoice_id', $invoice->id)->count());
@@ -76,6 +78,8 @@ final class InvoiceFiscalDecisionTest extends FeatureTestCase
     public function testCrossCompanyInvoiceIsNotAccessible(): void
     {
         $this->loginAs();
+        // Akaunting's FeatureTestCase disables exception handling by default.
+        $this->withExceptionHandling();
         $invoice = Document::factory()->invoice()->create([
             'company_id' => (int) company_id() + 999,
         ]);
