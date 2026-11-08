@@ -190,11 +190,11 @@
                 @endif
                 @can('update-sales-invoices')
                     <div class="space-y-2" data-nfse-exclusive-fiscal-choices="true">
-                        <details name="nfse-operation-{{ $invoice->id }}" class="rounded-lg border border-gray-200 bg-white"
-                            data-nfse-choice="issue" open>
-                            <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold hover:bg-gray-50">
+                        <section class="rounded-lg border border-gray-200 bg-white"
+                            data-nfse-choice="issue">
+                            <h5 class="px-4 py-3 text-sm font-semibold">
                                 {{ trans('nfse::general.invoice_decision.choice_issue') }}
-                            </summary>
+                            </h5>
                             <div class="border-t px-4 py-3">
                                 <p class="mb-3 text-xs text-gray-600">
                                     {{ trans('nfse::general.invoice_decision.choice_issue_help') }}
@@ -204,9 +204,9 @@
                                     {{ trans('nfse::general.native_invoice.emit') }}
                                 </button>
                             </div>
-                        </details>
-                        <details name="nfse-operation-{{ $invoice->id }}" class="rounded-lg border border-gray-200 bg-white"
-                            data-nfse-choice="do_not_issue">
+                        </section>
+                        <details class="rounded-lg border border-gray-200 bg-white"
+                            data-nfse-choice="do_not_issue" @if($errors->has('decision')) open @endif>
                             <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold hover:bg-gray-50">
                                 {{ trans('nfse::general.invoice_decision.choice_not_issue') }}
                             </summary>
