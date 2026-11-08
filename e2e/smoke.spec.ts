@@ -27,9 +27,11 @@ test('native fiscal status facet distinguishes absent receipts from unknown stat
   await loginToAkaunting(page, testInfo);
 
   await page.goto('/1/sales/invoices?list_records=all', { waitUntil: 'domcontentloaded' });
-  const nativeSearch = page.locator('akaunting-search');
+  // Vue replaces the akaunting-search custom element with its rendered root.
+  const nativeSearch = page.locator('.js-search').first();
   await expect(nativeSearch).toBeVisible();
-  await expect(nativeSearch).toHaveAttribute('filters', /nfse_status/);
+  await nativeSearch.locator('input').first().focus();
+  await expect(page.getByRole('button', { name: 'NFS-e status' })).toBeVisible();
   await expect(page.locator('#nfse-fiscal-status-filter')).toHaveCount(0);
 
   await page.goto('/1/sales/invoices?list_records=all&search=nfse_status%3Aabsent', {
