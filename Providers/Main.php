@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
 use Modules\Nfse\Application\DpsIssuanceIdentity;
 use Modules\Nfse\Application\DpsIssuanceIdentityContract;
-use Modules\Nfse\Application\ItemFiscalProfileValidator;
 use Modules\Nfse\Application\InvoiceFiscalDecision;
+use Modules\Nfse\Application\ItemFiscalProfileValidator;
 use Modules\Nfse\Application\ItemFiscalValidationSummary;
 use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Console\Commands\DiagnoseMunicipalParameters;
@@ -327,7 +327,7 @@ class Main extends Provider
                     $decision = $decisions->current($companyId, $invoiceId);
                     $decisionHistory = $decisions->history($companyId, $invoiceId);
                 }
-            } catch (\Illuminate\Database\QueryException) {
+            } catch (\Exception) {
                 // Unmigrated deployments should not break the financial invoice.
             }
 
@@ -447,10 +447,13 @@ class Main extends Provider
             try {
                 $companyId = function_exists('company_id') ? (int) company_id() : 0;
                 if ($companyId > 0) {
-                    $decisionRows = DB::table('nfse_invoice_decisions')
-                        ->where('company_id', $companyId)
-                        ->whereIn('invoice_id', $invoiceIds)
-                        ->orderByDesc('id')->get();
+                    $placeholders = implode(',', array_fill(0, count($invoiceIds), '?'));
+                    $decisionRows = DB::select(
+                        'SELECT invoice_id, decision FROM nfse_invoice_decisions'
+                        . ' WHERE company_id = ? AND invoice_id IN (' . $placeholders . ')'
+                        . ' ORDER BY id DESC',
+                        [$companyId, ...$invoiceIds],
+                    );
                     foreach ($decisionRows as $row) {
                         $id = (int) $row->invoice_id;
                         if (!isset($decisionsByInvoice[$id])) {
@@ -458,7 +461,7 @@ class Main extends Provider
                         }
                     }
                 }
-            } catch (\Illuminate\Database\QueryException) {
+            } catch (\Exception) {
                 // A missing migration must not corrupt the invoice list.
             }
 

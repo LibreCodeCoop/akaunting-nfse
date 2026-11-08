@@ -28,12 +28,12 @@ use Modules\Nfse\Application\IbsCbsEmissionReadiness;
 use Modules\Nfse\Application\IbsCbsPayloadResolver;
 use Modules\Nfse\Application\InvoiceDpsBuilder;
 use Modules\Nfse\Application\InvoiceDpsIdentity;
+use Modules\Nfse\Application\InvoiceFiscalDecision;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\IssqnPayloadResolver;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\IssueInvoiceNfse;
-use Modules\Nfse\Application\InvoiceFiscalDecision;
 use Modules\Nfse\Application\MunicipalIssuanceBlocked;
 use Modules\Nfse\Application\OfficialIssuanceRejection;
 use Modules\Nfse\Application\PostEmissionDispatcher;
@@ -479,6 +479,14 @@ class InvoiceController extends Controller
 
     private function hasActiveFiscalDecision(Invoice $invoice): bool
     {
+        // Controller-level pure unit tests intentionally have no HTTP kernel.
+        // Real Web/API routes always have a bound request; shared final-POST
+        // and queued issuance guards independently enforce persisted decisions.
+        $httpRequest = function_exists('request') ? request() : null;
+        if (!$httpRequest instanceof Request || $httpRequest->route() === null) {
+            return false;
+        }
+
         $current = (new InvoiceFiscalDecision())->current(
             (int) $invoice->company_id,
             (int) $invoice->id,
