@@ -18,6 +18,7 @@ use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\FiscalEventEvidenceController;
 use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
+use Modules\Nfse\Http\Controllers\InvoiceFiscalDecisionController;
 use Modules\Nfse\Http\Controllers\LegacyInvoiceController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
 use Modules\Nfse\Http\Controllers\SettingsController;
@@ -155,6 +156,12 @@ Route::admin('nfse', function () {
         ->middleware('permission:read-sales-invoices')->name('invoices.fiscal-assessment');
     Route::post('invoices/{invoice}/fiscal-event-evidence', [FiscalEventEvidenceController::class, 'store'])
         ->middleware('permission:update-sales-invoices')->name('invoices.fiscal-event-evidence.store');
+
+    // Operator decision, separate from fiscal receipt authorization and financial state.
+    Route::get('invoices/{invoice}/fiscal-decision', [InvoiceFiscalDecisionController::class, 'show'])
+        ->middleware('permission:read-sales-invoices')->name('invoices.fiscal-decision.show');
+    Route::post('invoices/{invoice}/fiscal-decision', [InvoiceFiscalDecisionController::class, 'store'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.fiscal-decision.store');
 
     // NFS-e issuance
     Route::get('invoices', [LegacyInvoiceController::class, 'index'])->name('invoices.index');

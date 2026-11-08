@@ -33,6 +33,7 @@ use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\IssqnPayloadResolver;
 use Modules\Nfse\Application\IssueInvoiceFiscalGroup;
 use Modules\Nfse\Application\IssueInvoiceNfse;
+use Modules\Nfse\Application\InvoiceFiscalDecision;
 use Modules\Nfse\Application\MunicipalIssuanceBlocked;
 use Modules\Nfse\Application\OfficialIssuanceRejection;
 use Modules\Nfse\Application\PostEmissionDispatcher;
@@ -476,10 +477,24 @@ class InvoiceController extends Controller
         ]);
     }
 
+    private function hasActiveFiscalDecision(Invoice $invoice): bool
+    {
+        $current = (new InvoiceFiscalDecision())->current(
+            (int) $invoice->company_id,
+            (int) $invoice->id,
+        );
+
+        return in_array($current['decision'] ?? '', ['do_not_issue', 'not_applicable'], true);
+    }
+
     public function emit(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
         $request = $this->currentRequest($request);
         $this->requireReadableInvoice($invoice);
+        if ($this->hasActiveFiscalDecision($invoice)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoice_decision.issuance_blocked')));
+        }
         $this->ensureInvoiceRelationsLoaded($invoice);
 
         try {
@@ -1402,6 +1417,10 @@ class InvoiceController extends Controller
     {
         $request = $this->currentRequest($request);
         $this->requireReadableInvoice($invoice);
+        if ($this->hasActiveFiscalDecision($invoice)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoice_decision.issuance_blocked')));
+        }
         if (!$this->nativeFiscalReceiptMatchesCurrent($invoice, $request, 'nfse_receipt_id', 'cancelled')) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('warning', trans('nfse::general.invoices.current_receipt_changed')));
