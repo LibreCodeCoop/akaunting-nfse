@@ -264,9 +264,7 @@ final class EmissionAttemptJournal
         // Shared final first-POST guard: manual, API, grouped, bulk and worker
         // issuance must honor decisions made after a queue plan was prepared.
         // Recovery-only paths intentionally bypass this check and never resend.
-        $currentDecision = (new InvoiceFiscalDecision())->current(
-            (int) $invoice->company_id, $invoiceId,
-        );
+        $currentDecision = (new InvoiceFiscalDecision())->effective($invoice);
         if (in_array($currentDecision['decision'] ?? '', ['do_not_issue', 'not_applicable'], true)) {
             throw new FiscalIssuanceBlocked('NFSE-INVOICE-DECISION: reverse the active non-issuance decision before issuing.');
         }

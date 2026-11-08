@@ -487,10 +487,7 @@ class InvoiceController extends Controller
             return false;
         }
 
-        $current = (new InvoiceFiscalDecision())->current(
-            (int) $invoice->company_id,
-            (int) $invoice->id,
-        );
+        $current = (new InvoiceFiscalDecision())->effective($invoice);
 
         return in_array($current['decision'] ?? '', ['do_not_issue', 'not_applicable'], true);
     }
