@@ -74,6 +74,10 @@
                 if (c === 'invoice_number') return r[c] || ('#' + r.invoice_id);
                 if (c === 'status_label') return ({
                     not_linked: 'Sem NFS-e vinculada no módulo',
+                    do_not_issue: 'Não emitir NFS-e (decisão operacional)',
+                    not_applicable: 'Não aplicável (com evidência declarada)',
+                    do_not_issue: 'Não emitir NFS-e (decisão operacional)',
+                    not_applicable: 'Não aplicável (com evidência declarada)',
                     reconciliation_required: 'Recuperação ou conciliação necessária',
                     partially_linked: 'Grupos fiscais parcialmente vinculados',
                     authorized_locally: 'NFS-e autorizada localmente (não comprova conformidade integral)',

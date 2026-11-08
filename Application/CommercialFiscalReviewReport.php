@@ -9,6 +9,7 @@ namespace Modules\Nfse\Application;
 
 use App\Models\Document\Document;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 
@@ -37,6 +38,19 @@ final class CommercialFiscalReviewReport
                 $query->where('company_id', $companyId);
             })->get()->groupBy('invoice_id');
 
+        $decisions = [];
+        if ($ids !== []) {
+            $decisionRows = DB::table('nfse_invoice_decisions')
+                ->where('company_id', $companyId)->whereIn('invoice_id', $ids)
+                ->orderByDesc('id')->get();
+            foreach ($decisionRows as $decisionRow) {
+                $id = (int) $decisionRow->invoice_id;
+                if (!isset($decisions[$id])) {
+                    $decisions[$id] = (array) $decisionRow;
+                }
+            }
+        }
+
         $rows = [];
         foreach ($page->getCollection() as $invoice) {
             $receipts = $receiptsByInvoice->get($invoice->id, collect());
@@ -48,7 +62,8 @@ final class CommercialFiscalReviewReport
                     ? $date->format('Y-m-d') : substr((string) $date, 0, 10),
                 'financial_status' => (string) ($invoice->status ?? ''),
                 'local_receipts' => $receipts->count(),
-                'status' => $this->status($invoice, $receipts),
+                'status' => $this->status($invoice, $receipts, $decisions[(int) $invoice->id] ?? null),
+                'fiscal_decision' => $decisions[(int) $invoice->id]['decision'] ?? null,
             ];
         }
 
@@ -56,10 +71,11 @@ final class CommercialFiscalReviewReport
     }
 
     /** @param Collection<int,NfseReceipt> $receipts */
-    private function status(Document $invoice, Collection $receipts): string
+    private function status(Document $invoice, Collection $receipts, ?array $decision): string
     {
         if ($receipts->isEmpty()) {
-            return 'not_linked';
+            return in_array($decision['decision'] ?? '', ['do_not_issue', 'not_applicable'], true)
+                ? (string) $decision['decision'] : 'not_linked';
         }
         if ($receipts->contains(static fn (NfseReceipt $receipt): bool =>
             in_array($receipt->status, ['pending', 'processing'], true))) {

@@ -33,6 +33,7 @@ export default defineConfig({
         'nfse-fiscal-tax-api.spec.ts',
         'nfse-grouped-invoice.spec.ts',
         'nfse-invoice-show-emit-modal.spec.ts',
+        'nfse-invoice-decision.spec.ts',
         'nfse-item-validation.spec.ts',
         'nfse-settings.spec.ts',
         'nfse-substitution.spec.ts',

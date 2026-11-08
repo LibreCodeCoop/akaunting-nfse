@@ -4,6 +4,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 return [
+    'invoice_decision' => [
+        'title' => 'Classificação operacional da fatura',
+        'help' => 'Não emitir é decisão operacional, não dispensa tributária. Não aplicável exige fundamento verificável. Recibos e ciclo financeiro são preservados.',
+        'action' => 'Decisão', 'reason' => 'Motivo', 'justification' => 'Justificativa (mínimo 12 caracteres)',
+        'evidence' => 'Referência documental (obrigatória para não aplicável)',
+        'save' => 'Registrar decisão', 'saved' => 'Decisão fiscal registrada sem alterar a fatura financeira.',
+        'issuance_blocked' => 'Reverta a classificação fiscal antes de emitir uma NFS-e.',
+        'history' => 'Histórico de decisões', 'do_not_issue' => 'Não emitir NFS-e',
+        'not_applicable' => 'Não aplicável (fundamentado)', 'reversed' => 'Reverter classificação',
+        'reason_operational_review' => 'Decisão operacional', 'reason_external_issuance' => 'Emissão externa a conciliar',
+        'reason_non_service_revenue' => 'Receita não decorrente de serviço',
+        'reason_tax_recovery' => 'Recuperação tributária', 'reason_financial_adjustment' => 'Ajuste financeiro',
+        'reason_other' => 'Outro motivo', 'reason_reconsidered' => 'Revisão da decisão anterior',
+    ],
     'fiscal_event' => [
         'status_unverifiable' => 'não verificável',
         'status_not_applicable' => 'não aplicável',

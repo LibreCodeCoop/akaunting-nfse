@@ -10,6 +10,7 @@ use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\FiscalEventEvidenceController;
 use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
+use Modules\Nfse\Http\Controllers\InvoiceFiscalDecisionController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 use Modules\Nfse\Http\Controllers\TaxAssociationController;
@@ -37,6 +38,11 @@ Route::api('nfse', function (): void {
         ->middleware('permission:read-sales-invoices')->name('invoices.fiscal-assessment');
     Route::post('invoices/{invoice}/fiscal-event-evidence', [FiscalEventEvidenceController::class, 'store'])
         ->middleware('permission:update-sales-invoices')->name('invoices.fiscal-event-evidence.store');
+
+    Route::get('invoices/{invoice}/fiscal-decision', [InvoiceFiscalDecisionController::class, 'show'])
+        ->middleware('permission:read-sales-invoices')->name('invoices.fiscal-decision.show');
+    Route::post('invoices/{invoice}/fiscal-decision', [InvoiceFiscalDecisionController::class, 'store'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.fiscal-decision.store');
 
     // Native API issuance reuses the exact manual issuance handler, DPS
     // journal and recovery services; no second fiscal pipeline is introduced.

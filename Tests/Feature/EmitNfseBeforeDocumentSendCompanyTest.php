@@ -9,6 +9,7 @@ namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
 use Modules\Nfse\Application\AutomaticInvoiceEmissionPreflight;
+use Modules\Nfse\Application\InvoiceFiscalDecision;
 use Modules\Nfse\Contracts\BulkEmissionUnitIssuerInterface;
 use Modules\Nfse\Listeners\EmitNfseBeforeDocumentSend;
 use Modules\Nfse\Models\NfseCompanyProfile;
@@ -45,6 +46,30 @@ final class EmitNfseBeforeDocumentSendCompanyTest extends FeatureTestCase
             ->handle((object) ['document' => $invoice]);
 
         self::assertSame(0, $issuer->calls);
+    }
+
+    public function testExplicitNoIssuanceBypassesFiscalGatewayWithoutBlockingFinancialSend(): void
+    {
+        $this->loginAs();
+        $issuer = $this->issuer();
+        $handler = new EmitNfseBeforeDocumentSend(new AutomaticInvoiceEmissionPreflight(), $issuer);
+        $companyId = (int) company_id();
+        $this->profile($companyId, 'emit_on_send');
+
+        foreach (['do_not_issue', 'not_applicable'] as $decision) {
+            $invoice = Document::factory()->invoice()->create(['company_id' => $companyId]);
+            $financialStatus = (string) $invoice->status;
+            (new InvoiceFiscalDecision())->record(
+                $invoice, $companyId, (int) auth()->id(),
+                $decision, 'operational_review',
+                'Documented synthetic fiscal exclusion decision.',
+                $decision === 'not_applicable' ? 'SYNTHETIC-EXCLUSION-2026' : null,
+            );
+
+            $handler->handle((object) ['document' => $invoice]);
+            self::assertSame(0, $issuer->calls, 'An explicit exclusion must never transmit an NFS-e.');
+            self::assertSame($financialStatus, (string) $invoice->fresh()->status);
+        }
     }
 
     public function testProfileAutomaticPolicyBlocksUnreadyDpsBeforeOpeningClient(): void

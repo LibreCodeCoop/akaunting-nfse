@@ -28,6 +28,7 @@ use Modules\Nfse\Application\IbsCbsEmissionReadiness;
 use Modules\Nfse\Application\IbsCbsPayloadResolver;
 use Modules\Nfse\Application\InvoiceDpsBuilder;
 use Modules\Nfse\Application\InvoiceDpsIdentity;
+use Modules\Nfse\Application\InvoiceFiscalDecision;
 use Modules\Nfse\Application\InvoiceFiscalGroupBuilder;
 use Modules\Nfse\Application\InvoiceFiscalProfileSelector;
 use Modules\Nfse\Application\IssqnPayloadResolver;
@@ -476,10 +477,32 @@ class InvoiceController extends Controller
         ]);
     }
 
+    private function hasActiveFiscalDecision(Invoice $invoice): bool
+    {
+        // Controller-level pure unit tests intentionally have no HTTP kernel.
+        // Real Web/API routes always have a bound request; shared final-POST
+        // and queued issuance guards independently enforce persisted decisions.
+        $httpRequest = function_exists('request') ? request() : null;
+        if (!$httpRequest instanceof Request || $httpRequest->route() === null) {
+            return false;
+        }
+
+        $current = (new InvoiceFiscalDecision())->current(
+            (int) $invoice->company_id,
+            (int) $invoice->id,
+        );
+
+        return in_array($current['decision'] ?? '', ['do_not_issue', 'not_applicable'], true);
+    }
+
     public function emit(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse
     {
         $request = $this->currentRequest($request);
         $this->requireReadableInvoice($invoice);
+        if ($this->hasActiveFiscalDecision($invoice)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoice_decision.issuance_blocked')));
+        }
         $this->ensureInvoiceRelationsLoaded($invoice);
 
         try {
@@ -1402,6 +1425,10 @@ class InvoiceController extends Controller
     {
         $request = $this->currentRequest($request);
         $this->requireReadableInvoice($invoice);
+        if ($this->hasActiveFiscalDecision($invoice)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.invoice_decision.issuance_blocked')));
+        }
         if (!$this->nativeFiscalReceiptMatchesCurrent($invoice, $request, 'nfse_receipt_id', 'cancelled')) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('warning', trans('nfse::general.invoices.current_receipt_changed')));

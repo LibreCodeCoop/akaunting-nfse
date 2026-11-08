@@ -47,6 +47,14 @@ final class AutomaticInvoiceEmissionPreflight
             return $this->blocked('invalid_invoice');
         }
 
+        $currentDecision = (new InvoiceFiscalDecision())->current(
+            (int) $invoice->company_id,
+            $invoiceId,
+        );
+        if (in_array($currentDecision['decision'] ?? '', ['do_not_issue', 'not_applicable'], true)) {
+            return $this->blocked('invoice_fiscal_decision');
+        }
+
         $taker = $this->takerEligibility->evaluate($invoice);
 
         if (($taker['eligible'] ?? false) !== true) {

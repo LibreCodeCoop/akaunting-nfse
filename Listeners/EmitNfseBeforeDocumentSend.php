@@ -135,6 +135,13 @@ final class EmitNfseBeforeDocumentSend
             return;
         }
 
+        // Explicit non-issuance decisions are fiscal instructions, not
+        // financial document holds. Do not issue a DPS; allow the native
+        // Akaunting invoice sending lifecycle to continue.
+        if ($status === 'blocked' && ($result['reason'] ?? null) === 'invoice_fiscal_decision') {
+            return;
+        }
+
         if ($status !== 'ready' || !is_array($result['group'] ?? null)) {
             $reason = trim((string) ($result['reason'] ?? 'preflight_blocked'));
 

@@ -261,6 +261,16 @@ final class EmissionAttemptJournal
             throw new \InvalidArgumentException('Invoice not found for fiscal preflight.');
         }
 
+        // Shared final first-POST guard: manual, API, grouped, bulk and worker
+        // issuance must honor decisions made after a queue plan was prepared.
+        // Recovery-only paths intentionally bypass this check and never resend.
+        $currentDecision = (new InvoiceFiscalDecision())->current(
+            (int) $invoice->company_id, $invoiceId,
+        );
+        if (in_array($currentDecision['decision'] ?? '', ['do_not_issue', 'not_applicable'], true)) {
+            throw new FiscalIssuanceBlocked('NFSE-INVOICE-DECISION: reverse the active non-issuance decision before issuing.');
+        }
+
         $municipal = $this->municipalPreflight->evaluate($invoice, $dps, $groupKey);
         return $this->fiscalPreflight->assertReady($invoice, $dps, $groupKey, $municipal);
     }
