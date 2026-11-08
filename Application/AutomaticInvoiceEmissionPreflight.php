@@ -47,10 +47,7 @@ final class AutomaticInvoiceEmissionPreflight
             return $this->blocked('invalid_invoice');
         }
 
-        $currentDecision = (new InvoiceFiscalDecision())->current(
-            (int) $invoice->company_id,
-            $invoiceId,
-        );
+        $currentDecision = (new InvoiceFiscalDecision())->effective($invoice);
         if (in_array($currentDecision['decision'] ?? '', ['do_not_issue', 'not_applicable'], true)) {
             return $this->blocked('invoice_fiscal_decision');
         }

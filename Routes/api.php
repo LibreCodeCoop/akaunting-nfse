@@ -11,6 +11,8 @@ use Modules\Nfse\Http\Controllers\FiscalEventEvidenceController;
 use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\InvoiceFiscalDecisionController;
+use Modules\Nfse\Http\Controllers\CategoryIssuancePolicyController;
+use Modules\Nfse\Http\Controllers\ApiCapabilityController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
 use Modules\Nfse\Http\Controllers\SettingsController;
 use Modules\Nfse\Http\Controllers\TaxAssociationController;
@@ -24,6 +26,10 @@ use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
 use Modules\Nfse\Http\Controllers\BulkEmissionApiController;
 use Modules\Nfse\Http\Controllers\AdnController;
 Route::api('nfse', function (): void {
+    // Authenticated API capability listing, never an arbitrary route executor.
+    Route::get('discovery', [ApiCapabilityController::class, 'index'])
+        ->name('discovery.index');
+
     // Status-only fiscal sequence diagnostics and official read-only DPS lookup.
     // These operations do not provision, reserve, transmit or activate.
     Route::get('dps/readiness', [DpsReadinessController::class, 'index'])
@@ -40,7 +46,13 @@ Route::api('nfse', function (): void {
         ->middleware('permission:update-sales-invoices')->name('invoices.fiscal-event-evidence.store');
 
     Route::get('invoices/{invoice}/fiscal-decision', [InvoiceFiscalDecisionController::class, 'show'])
-        ->middleware('permission:read-sales-invoices')->name('invoices.fiscal-decision.show');
+        ->middleware('permission:read-sales-invoices')
+        ->defaults('mcp_read_contract', [
+            'version' => 1,
+            'scope' => 'invoice',
+            'response_paths' => ['/data/current', '/data/effective', '/data/history'],
+            'query' => [],
+        ])->name('invoices.fiscal-decision.show');
     Route::post('invoices/{invoice}/fiscal-decision', [InvoiceFiscalDecisionController::class, 'store'])
         ->middleware('permission:update-sales-invoices')->name('invoices.fiscal-decision.store');
 
@@ -137,6 +149,16 @@ Route::api('nfse', function (): void {
     Route::post('settings/company-profiles/{companyId}/cleanup', [CompanyProfileController::class, 'cleanup'])
         ->middleware('permission:delete-nfse-settings')
         ->name('settings.company-profiles.cleanup');
+    Route::get('settings/category-issuance', [CategoryIssuancePolicyController::class, 'show'])
+        ->middleware('permission:read-nfse-settings')
+        ->defaults('mcp_read_contract', [
+            'version' => 1,
+            'scope' => 'company',
+            'response_paths' => ['/data'],
+            'query' => [],
+        ])->name('settings.category-issuance.index');
+    Route::post('settings/category-issuance', [CategoryIssuancePolicyController::class, 'store'])
+        ->middleware('permission:update-nfse-settings')->name('settings.category-issuance.store');
     Route::get('settings/artifacts', [SettingsController::class, 'artifactSettings'])
         ->middleware('permission:read-nfse-settings')->name('settings.artifacts.show');
     Route::patch('settings/artifacts', [SettingsController::class, 'updateArtifacts'])

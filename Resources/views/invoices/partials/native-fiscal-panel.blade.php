@@ -3,7 +3,10 @@
 @php
     $receiptStatus = (string) ($receipt->status ?? '');
     $hasReceipt = $receipt !== null;
-    $hasActiveFiscalDecision = in_array($fiscalDecision['decision'] ?? '', ['do_not_issue', 'not_applicable'], true);
+    $effectiveFiscalDecision = $effectiveFiscalDecision ?? $fiscalDecision ?? null;
+    $hasActiveFiscalDecision = in_array($effectiveFiscalDecision['decision'] ?? '', ['do_not_issue', 'not_applicable'], true);
+    $hasCategoryDefault = ($categoryIssuancePolicy['mode'] ?? '') === 'do_not_issue';
+    $hasOperatorOverride = ($fiscalDecision['decision'] ?? '') === 'issue';
 
     $receipts = $receipts ?? collect($receipt !== null ? [$receipt] : []);
     $statusClasses = match ($receiptStatus) {
@@ -11,6 +14,9 @@
         'cancelled', 'substituted' => 'bg-gray-100 text-gray-700',
         default => 'bg-yellow-100 text-yellow-700',
     };
+    if (!$hasReceipt && $hasActiveFiscalDecision) {
+        $statusClasses = 'bg-gray-100 text-gray-700';
+    }
     $postEmissionStatus = is_array($postEmissionStatus ?? null) ? $postEmissionStatus : [];
     $postEmissionOverall = (string) ($postEmissionStatus['overall_status'] ?? 'idle');
     $postEmissionActive = ($postEmissionStatus['poll'] ?? false) === true;
@@ -77,7 +83,9 @@
             <p class="mt-1 text-sm text-gray-600">
                 {{ $hasReceipt
                     ? trans('nfse::general.native_invoice.fiscal_document_linked')
-                    : trans('nfse::general.native_invoice.fiscal_pending') }}
+                    : ($hasActiveFiscalDecision
+                        ? trans('nfse::general.invoice_decision.active_guidance')
+                        : trans('nfse::general.native_invoice.fiscal_pending')) }}
             </p>
         </div>
 
@@ -86,7 +94,7 @@
                 {{ $hasReceipt
                     ? trans('nfse::general.native_invoice.status_' . ($receiptStatus !== '' ? $receiptStatus : 'unknown'))
                     : ($hasActiveFiscalDecision
-                        ? trans('nfse::general.invoice_decision.' . $fiscalDecision['decision'])
+                        ? trans('nfse::general.invoice_decision.' . $effectiveFiscalDecision['decision'])
                         : trans('nfse::general.native_invoice.status_pending')) }}
             </span>
             @can('read-nfse-settings')
@@ -106,81 +114,179 @@
         </div>
     </div>
 
-    <section class="mt-4 rounded border p-3 space-y-3" data-nfse-invoice-decision="true">
-        <h4 class="text-sm font-semibold">{{ trans('nfse::general.invoice_decision.title') }}</h4>
-        <p class="text-xs text-gray-600">{{ trans('nfse::general.invoice_decision.help') }}</p>
-        @if(!empty($fiscalDecision) && $fiscalDecision['decision'] !== 'reversed')
-            <p class="text-sm font-medium" data-nfse-decision-current="{{ $fiscalDecision['decision'] }}">
-                {{ trans('nfse::general.invoice_decision.' . $fiscalDecision['decision']) }} —
-                {{ $fiscalDecision['justification'] }}
-            </p>
-        @endif
-        @can('update-sales-invoices')
-            <form method="POST" action="{{ route('nfse.invoices.fiscal-decision.store', $invoice->id) }}"
-                  class="grid gap-3 sm:grid-cols-2" data-nfse-decision-form="true">
-                @csrf
-                <label class="text-xs font-medium">{{ trans('nfse::general.invoice_decision.action') }}
-                    <select name="decision" required class="mt-1 w-full rounded border px-2 py-2 text-sm">
-                        <option value="do_not_issue">{{ trans('nfse::general.invoice_decision.do_not_issue') }}</option>
-                        <option value="not_applicable">{{ trans('nfse::general.invoice_decision.not_applicable') }}</option>
-                    </select>
-                </label>
-                <label class="text-xs font-medium">{{ trans('nfse::general.invoice_decision.reason') }}
-                    <select name="reason" required class="mt-1 w-full rounded border px-2 py-2 text-sm">
-                        @foreach(\Modules\Nfse\Application\InvoiceFiscalDecision::REASONS as $reason)
-                            <option value="{{ $reason }}">{{ trans('nfse::general.invoice_decision.reason_' . $reason) }}</option>
-                        @endforeach
-                    </select>
-                </label>
-                <label class="text-xs font-medium sm:col-span-2">{{ trans('nfse::general.invoice_decision.justification') }}
-                    <textarea name="justification" required minlength="12" maxlength="4000" rows="2"
-                        class="mt-1 w-full rounded border px-2 py-2 text-sm"></textarea>
-                </label>
-                <label class="text-xs font-medium sm:col-span-2">{{ trans('nfse::general.invoice_decision.evidence') }}
-                    <input name="evidence_reference" maxlength="255" type="text" class="mt-1 w-full rounded border px-2 py-2 text-sm">
-                </label>
-                <button type="submit" class="rounded bg-indigo-700 px-3 py-2 text-sm text-white">
-                    {{ trans('nfse::general.invoice_decision.save') }}
-                </button>
-            </form>
-            @if($hasActiveFiscalDecision)
-                <form method="POST" action="{{ route('nfse.invoices.fiscal-decision.store', $invoice->id) }}"
-                    class="mt-3 space-y-2" data-nfse-decision-reversal-form="true">
-                    @csrf
-                    <input type="hidden" name="decision" value="reversed">
-                    <input type="hidden" name="reason" value="reconsidered">
-                    <label class="block text-xs font-medium">{{ trans('nfse::general.invoice_decision.justification') }}
-                        <textarea name="justification" required minlength="12" maxlength="4000" rows="2"
-                            class="mt-1 w-full rounded border px-2 py-2 text-sm"></textarea>
-                    </label>
-                    <button type="submit" class="rounded border px-3 py-2 text-sm">
-                        {{ trans('nfse::general.invoice_decision.reversed') }}
-                    </button>
-                </form>
+    @if(!$hasReceipt)
+        <section class="mt-4 space-y-3" data-nfse-invoice-workflow="true"
+            aria-labelledby="nfse-invoice-workflow-title">
+            <h4 id="nfse-invoice-workflow-title" class="text-sm font-semibold text-gray-900">
+                {{ trans('nfse::general.invoice_decision.next_step') }}
+            </h4>
+            @if(!empty($categoryIssuancePolicy))
+                <p class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700"
+                    data-nfse-category-guidance="{{ $categoryIssuancePolicy['mode'] }}">
+                    {{ trans('nfse::general.invoice_decision.category_default') }}:
+                    <strong>{{ trans('nfse::general.category_issuance.' . $categoryIssuancePolicy['mode']) }}</strong>.
+                    {{ trans('nfse::general.invoice_decision.category_not_exemption') }}
+                </p>
             @endif
+
+            @if($hasActiveFiscalDecision)
+                <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3"
+                    data-nfse-decision-current="{{ $effectiveFiscalDecision['decision'] }}"
+                    data-nfse-decision-source="{{ $effectiveFiscalDecision['source'] ?? 'operator' }}">
+                    <h5 class="text-sm font-semibold text-amber-900">
+                        {{ trans('nfse::general.invoice_decision.' . $effectiveFiscalDecision['decision']) }}
+                    </h5>
+                    <p class="text-sm text-amber-900">{{ $effectiveFiscalDecision['justification'] }}</p>
+                    @if(($effectiveFiscalDecision['source'] ?? 'operator') === 'category')
+                        <p class="text-xs text-amber-800">
+                            {{ trans('nfse::general.invoice_decision.category_applied') }}
+                        </p>
+                        @can('update-sales-invoices')
+                            <details class="rounded border border-amber-200 bg-white p-3" data-nfse-category-exception="true">
+                                <summary class="cursor-pointer text-sm font-medium text-indigo-700">
+                                    {{ trans('nfse::general.invoice_decision.issue_override') }}
+                                </summary>
+                                <form method="POST" action="{{ route('nfse.invoices.fiscal-decision.store', $invoice->id) }}"
+                                    class="mt-3 space-y-3">
+                                    @csrf
+                                    <input type="hidden" name="decision" value="issue">
+                                    <input type="hidden" name="reason" value="operational_review">
+                                    <label class="block text-xs font-medium">
+                                        {{ trans('nfse::general.invoice_decision.justification') }}
+                                        <textarea name="justification" required minlength="12" maxlength="4000"
+                                            rows="2" class="mt-1 w-full rounded border px-2 py-2 text-sm"></textarea>
+                                    </label>
+                                    <button type="submit" class="rounded bg-indigo-700 px-3 py-2 text-sm text-white">
+                                        {{ trans('nfse::general.invoice_decision.issue_override_save') }}
+                                    </button>
+                                </form>
+                            </details>
+                        @endcan
+                    @else
+                        @can('update-sales-invoices')
+                            <form method="POST" action="{{ route('nfse.invoices.fiscal-decision.store', $invoice->id) }}"
+                                class="space-y-2" data-nfse-decision-reversal-form="true">
+                                @csrf
+                                <input type="hidden" name="decision" value="reversed">
+                                <input type="hidden" name="reason" value="reconsidered">
+                                <label class="block text-xs font-medium">
+                                    {{ trans('nfse::general.invoice_decision.justification') }}
+                                    <textarea name="justification" required minlength="12" maxlength="4000"
+                                        rows="2" class="mt-1 w-full rounded border px-2 py-2 text-sm"></textarea>
+                                </label>
+                                <button type="submit" class="rounded border border-amber-300 bg-white px-3 py-2 text-sm font-medium">
+                                    {{ trans('nfse::general.invoice_decision.reversed') }}
+                                </button>
+                            </form>
+                        @endcan
+                    @endif
+                </div>
+            @else
+                @if($hasOperatorOverride)
+                    <p class="rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs"
+                        data-nfse-decision-current="issue">
+                        {{ trans('nfse::general.invoice_decision.issue_override_active') }}
+                    </p>
+                @endif
+                @can('update-sales-invoices')
+                    <div class="space-y-2" data-nfse-exclusive-fiscal-choices="true">
+                        <section class="rounded-lg border border-gray-200 bg-white"
+                            data-nfse-choice="issue">
+                            <h5 class="px-4 py-3 text-sm font-semibold">
+                                {{ trans('nfse::general.invoice_decision.choice_issue') }}
+                            </h5>
+                            <div class="border-t px-4 py-3">
+                                <p class="mb-3 text-xs text-gray-600">
+                                    {{ trans('nfse::general.invoice_decision.choice_issue_help') }}
+                                </p>
+                                <button type="button" class="rounded bg-green-700 px-4 py-2 text-sm font-medium text-white"
+                                    data-nfse-native-emit="true">
+                                    {{ trans('nfse::general.native_invoice.emit') }}
+                                </button>
+                            </div>
+                        </section>
+                        <details class="rounded-lg border border-gray-200 bg-white"
+                            data-nfse-choice="do_not_issue" @if($errors->has('decision')) open @endif>
+                            <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold hover:bg-gray-50">
+                                {{ trans('nfse::general.invoice_decision.choice_not_issue') }}
+                            </summary>
+                            <div class="border-t px-4 py-3">
+                                <p class="mb-3 text-xs text-gray-600">
+                                    {{ trans('nfse::general.invoice_decision.help') }}
+                                </p>
+                                <form method="POST" action="{{ route('nfse.invoices.fiscal-decision.store', $invoice->id) }}"
+                                    class="grid gap-3 sm:grid-cols-2" data-nfse-decision-form="true">
+                                    @csrf
+                                    <label class="text-xs font-medium">
+                                        {{ trans('nfse::general.invoice_decision.action') }}
+                                        <select name="decision" required class="mt-1 w-full rounded border px-2 py-2 text-sm">
+                                            <option value="do_not_issue">{{ trans('nfse::general.invoice_decision.do_not_issue') }}</option>
+                                            <option value="not_applicable">{{ trans('nfse::general.invoice_decision.not_applicable') }}</option>
+                                        </select>
+                                    </label>
+                                    <label class="text-xs font-medium">
+                                        {{ trans('nfse::general.invoice_decision.reason') }}
+                                        <select name="reason" required class="mt-1 w-full rounded border px-2 py-2 text-sm">
+                                            @php
+                                                $reasonOptions = \Modules\Nfse\Application\InvoiceFiscalDecision::REASONS;
+                                            @endphp
+                                            @foreach($reasonOptions as $reason)
+                                                @if($reason !== 'reconsidered')
+                                                    <option value="{{ $reason }}">{{ trans('nfse::general.invoice_decision.reason_' . $reason) }}</option>
+                                                @endif
+                                            @endforeach
+                                        </select>
+                                    </label>
+                                    <label class="text-xs font-medium sm:col-span-2">
+                                        {{ trans('nfse::general.invoice_decision.justification') }}
+                                        <textarea name="justification" required minlength="12" maxlength="4000"
+                                            rows="2" class="mt-1 w-full rounded border px-2 py-2 text-sm"></textarea>
+                                    </label>
+                                    <label class="text-xs font-medium sm:col-span-2">
+                                        {{ trans('nfse::general.invoice_decision.evidence') }}
+                                        <input name="evidence_reference" maxlength="255" type="text"
+                                            class="mt-1 w-full rounded border px-2 py-2 text-sm">
+                                    </label>
+                                    <button type="submit" class="rounded bg-indigo-700 px-3 py-2 text-sm text-white">
+                                        {{ trans('nfse::general.invoice_decision.save') }}
+                                    </button>
+                                </form>
+                            </div>
+                        </details>
+                    </div>
+                @endcan
+            @endif
+
             @if($errors->has('decision'))
                 <p role="alert" class="text-sm text-red-700">{{ $errors->first('decision') }}</p>
             @endif
-        @endcan
-        @if(!empty($fiscalDecisionHistory))
-            <details>
-                <summary class="cursor-pointer text-sm">{{ trans('nfse::general.invoice_decision.history') }} ({{ count($fiscalDecisionHistory) }})</summary>
-                <ol class="mt-2 space-y-2 text-xs">
-                    @foreach($fiscalDecisionHistory as $entry)
-                        <li>
-                            {{ $entry['recorded_at'] }} · #{{ $entry['actor_id'] }} ·
-                            {{ trans('nfse::general.invoice_decision.' . $entry['decision']) }} ·
-                            {{ $entry['reason'] }} · {{ $entry['justification'] }}
-                            @if($entry['evidence_reference']) — {{ $entry['evidence_reference'] }} @endif
-                        </li>
-                    @endforeach
-                </ol>
-            </details>
-        @endif
-    </section>
+        </section>
+    @endif
 
-    @if(!empty($fiscalEventGroups))
-        <section class="mt-4 rounded-md border border-gray-200 bg-gray-50 p-3" data-nfse-fiscal-event-evidence="true">
+    @if(!empty($fiscalDecisionHistory))
+        <details class="mt-4 rounded border border-gray-200 p-3" data-nfse-decision-history="true">
+            <summary class="cursor-pointer text-sm font-medium">
+                {{ trans('nfse::general.invoice_decision.history') }} ({{ count($fiscalDecisionHistory) }})
+            </summary>
+            <ol class="mt-2 space-y-2 text-xs">
+                @foreach($fiscalDecisionHistory as $entry)
+                    <li>
+                        {{ $entry['recorded_at'] }} · #{{ $entry['actor_id'] }} ·
+                        {{ trans('nfse::general.invoice_decision.' . $entry['decision']) }} ·
+                        {{ $entry['reason'] }} · {{ $entry['justification'] }}
+                        @if($entry['evidence_reference']) — {{ $entry['evidence_reference'] }} @endif
+                    </li>
+                @endforeach
+            </ol>
+        </details>
+    @endif
+
+    @if(!empty($fiscalEventGroups) && !$hasActiveFiscalDecision)
+        <details class="mt-4 rounded-lg border border-gray-200" data-nfse-technical-issuance="true">
+            <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                {{ trans('nfse::general.invoice_decision.technical_details') }}
+            </summary>
+            <section class="border-t bg-gray-50 p-3" data-nfse-fiscal-event-evidence="true">
             <h4 class="text-sm font-semibold text-gray-800">{{ trans('nfse::general.fiscal_event.title') }}</h4>
             <p class="mt-1 text-xs text-gray-600">{{ trans('nfse::general.fiscal_event.help') }}</p>
 
@@ -234,7 +340,8 @@
                     </form>
                 </details>
             @endcan
-        </section>
+            </section>
+        </details>
     @endif
 
     @if($hasReceipt)
@@ -534,17 +641,4 @@
         </div>
     @endif
 
-    @if(!$hasReceipt && !$hasActiveFiscalDecision)
-        @can('update-sales-invoices')
-            <div class="mt-4 border-t border-gray-100 pt-4" data-nfse-actions="true">
-                <button
-                    type="button"
-                    class="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
-                    data-nfse-native-emit="true"
-                >
-                    {{ trans('nfse::general.native_invoice.emit') }}
-                </button>
-            </div>
-        @endcan
-    @endif
 </div>

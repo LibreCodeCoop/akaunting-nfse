@@ -19,6 +19,7 @@ use Modules\Nfse\Http\Controllers\FiscalEventEvidenceController;
 use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
 use Modules\Nfse\Http\Controllers\InvoiceFiscalDecisionController;
+use Modules\Nfse\Http\Controllers\CategoryIssuancePolicyController;
 use Modules\Nfse\Http\Controllers\LegacyInvoiceController;
 use Modules\Nfse\Http\Controllers\NationalServicesController;
 use Modules\Nfse\Http\Controllers\SettingsController;
@@ -67,6 +68,10 @@ Route::admin('nfse', function () {
         Route::patch('/tax-associations/{associationId}', [TaxAssociationController::class, 'revise'])
             ->whereNumber('associationId')
             ->middleware('permission:update-nfse-settings')->name('tax-associations.revise');
+        Route::get('/category-issuance', [CategoryIssuancePolicyController::class, 'index'])
+            ->middleware('permission:read-nfse-settings')->name('category-issuance.index');
+        Route::post('/category-issuance', [CategoryIssuancePolicyController::class, 'store'])
+            ->middleware('permission:update-nfse-settings')->name('category-issuance.store');
         Route::get('/artifacts', [SettingsController::class, 'artifactSettings'])
             ->middleware('permission:read-nfse-settings')->name('artifacts.show');
         Route::patch('/artifacts', [SettingsController::class, 'updateArtifacts'])

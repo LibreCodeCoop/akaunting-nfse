@@ -21,6 +21,7 @@ final class InvoiceFiscalDecisionController extends Controller
 
         return response()->json(['data' => [
             'current' => $decisions->current($companyId, (int) $invoice->id),
+            'effective' => $decisions->effective($invoice),
             'history' => $decisions->history($companyId, (int) $invoice->id),
         ]]);
     }
@@ -32,7 +33,7 @@ final class InvoiceFiscalDecisionController extends Controller
         abort_if($actorId <= 0, 403, 'An authenticated operator is required.');
 
         $validated = $request->validate([
-            'decision' => 'required|in:do_not_issue,not_applicable,reversed',
+            'decision' => 'required|in:do_not_issue,not_applicable,issue,reversed',
             'reason' => 'required|in:operational_review,external_issuance,non_service_revenue,tax_recovery,financial_adjustment,other,reconsidered',
             'justification' => 'required|string|min:12|max:4000',
             'evidence_reference' => 'nullable|string|max:255',

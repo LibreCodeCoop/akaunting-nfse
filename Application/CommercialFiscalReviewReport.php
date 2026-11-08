@@ -52,8 +52,20 @@ final class CommercialFiscalReviewReport
         }
 
         $rows = [];
+        $categoryPolicies = new CategoryIssuancePolicy();
         foreach ($page->getCollection() as $invoice) {
             $receipts = $receiptsByInvoice->get($invoice->id, collect());
+            $manual = $decisions[(int) $invoice->id] ?? null;
+            $effective = $manual;
+            if ($manual === null || ($manual['decision'] ?? '') === 'reversed') {
+                $category = $categoryPolicies->forInvoice($invoice);
+                $effective = ($category['mode'] ?? null) === 'do_not_issue'
+                    ? ['decision' => 'do_not_issue', 'source' => 'category']
+                    : null;
+            }
+            if (($manual['decision'] ?? '') === 'issue') {
+                $effective = null;
+            }
             $date = $invoice->issued_at;
             $rows[] = [
                 'invoice_id' => (int) $invoice->id,
@@ -62,8 +74,9 @@ final class CommercialFiscalReviewReport
                     ? $date->format('Y-m-d') : substr((string) $date, 0, 10),
                 'financial_status' => (string) ($invoice->status ?? ''),
                 'local_receipts' => $receipts->count(),
-                'status' => $this->status($invoice, $receipts, $decisions[(int) $invoice->id] ?? null),
-                'fiscal_decision' => $decisions[(int) $invoice->id]['decision'] ?? null,
+                'status' => $this->status($invoice, $receipts, $effective),
+                'fiscal_decision' => $effective['decision'] ?? null,
+                'decision_source' => $effective['source'] ?? ($manual === null ? null : 'operator'),
             ];
         }
 

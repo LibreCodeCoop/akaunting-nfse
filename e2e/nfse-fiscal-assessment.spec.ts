@@ -14,6 +14,12 @@ test('invoice shows evidence by fiscal group without inventing a taxable event d
   await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle');
 
+  const advanced = page.locator('#nfse-native-fiscal-panel [data-nfse-technical-issuance="true"]');
+  await expect(advanced).toBeVisible();
+  await expect(advanced).not.toHaveAttribute('open', '');
+  await advanced.locator(':scope > summary').click();
+  await expect(advanced).toHaveAttribute('open', '');
+
   const section = page.locator('#nfse-native-fiscal-panel [data-nfse-fiscal-event-evidence="true"]');
   await expect(section).toBeVisible();
   await expect(section.locator('[data-nfse-fiscal-event-group]').first()).toBeVisible();

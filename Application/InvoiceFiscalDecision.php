@@ -12,12 +12,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Append-only operational decisions. Neither legal non-applicability nor
- * commercial invoice dates are inferred from categories or missing receipts.
+ * Append-only operator decisions. Category settings supply operational
+ * defaults for future invoices, never proof of legal non-applicability.
  */
 final class InvoiceFiscalDecision
 {
-    public const DECISIONS = ['do_not_issue', 'not_applicable', 'reversed'];
+    public const DECISIONS = ['do_not_issue', 'not_applicable', 'issue', 'reversed'];
 
     public const REASONS = [
         'operational_review',
@@ -43,6 +43,41 @@ final class InvoiceFiscalDecision
             ->orderByDesc('id')->first();
 
         return $row === null ? null : (array) $row;
+    }
+
+    /**
+     * Effective operational choice for issuance guards and presentation.
+     * Explicit operator actions override a category default. Reversing an
+     * operator action restores the category default in force when the invoice
+     * was created. Read operations never alter financial/fiscal records.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function effective(Document $invoice): ?array
+    {
+        $explicit = $this->current((int) $invoice->company_id, (int) $invoice->id);
+        if ($explicit !== null && $explicit['decision'] !== 'reversed') {
+            $explicit['source'] = 'operator';
+            return $explicit;
+        }
+
+        $policy = (new CategoryIssuancePolicy())->forInvoice($invoice);
+        if (($policy['mode'] ?? null) === 'do_not_issue') {
+            return [
+                'company_id' => (int) $invoice->company_id,
+                'invoice_id' => (int) $invoice->id,
+                'decision' => 'do_not_issue',
+                'source' => 'category',
+                'category_id' => (int) $policy['category_id'],
+                'category_policy_id' => (int) $policy['id'],
+                'reason' => 'category_policy',
+                'justification' => $policy['justification'],
+                'actor_id' => (int) $policy['actor_id'],
+                'recorded_at' => $policy['recorded_at'],
+            ];
+        }
+
+        return null;
     }
 
     /**

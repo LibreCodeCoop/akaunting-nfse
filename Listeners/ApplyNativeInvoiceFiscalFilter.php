@@ -96,13 +96,23 @@ final class ApplyNativeInvoiceFiscalFilter
         $decision = '(SELECT d.decision FROM nfse_invoice_decisions d WHERE d.invoice_id = '
             . $table . '.id AND d.company_id = ' . $table
             . '.company_id ORDER BY d.id DESC LIMIT 1)';
+        $categoryPolicy = '(SELECT p.mode FROM nfse_category_issuance_policies p'
+            . ' WHERE p.company_id = ' . $table . '.company_id'
+            . ' AND p.category_id = ' . $table . '.category_id'
+            . ' AND p.recorded_at <= ' . $table . '.created_at'
+            . ' AND DATE(p.recorded_at) <= DATE(' . $table . '.issued_at)'
+            . ' ORDER BY p.id DESC LIMIT 1)';
+        $effective = '(CASE WHEN ' . $decision . " IN ('do_not_issue', 'not_applicable')"
+            . ' THEN ' . $decision
+            . " WHEN " . $decision . " = 'issue' THEN NULL"
+            . ' ELSE ' . $categoryPolicy . ' END)';
 
         $clauses = [];
         $bindings = [];
 
         foreach ($values as $status) {
             if (in_array($status, ['do_not_issue', 'not_applicable'], true)) {
-                $clauses[] = '(' . $latest . ' IS NULL AND ' . $decision . ' = ?)';
+                $clauses[] = '(' . $latest . ' IS NULL AND ' . $effective . ' = ?)';
                 $bindings[] = $status;
             } elseif ($status === 'absent') {
                 $clauses[] = $latest . ' IS NULL';

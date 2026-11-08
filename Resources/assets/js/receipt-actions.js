@@ -83,6 +83,15 @@
         }
     }
 
+    function syncFiscalChoices(choices) {
+        const issue = choices?.querySelector?.('[data-nfse-choice="issue"]');
+        const nonIssuance = choices?.querySelector?.('[data-nfse-choice="do_not_issue"]');
+        if (!issue || !nonIssuance) return;
+        // The primary issuance action is always reachable when no alternative
+        // is selected. Expanding non-issuance hides it without issuing anything.
+        issue.hidden = nonIssuance.open === true;
+    }
+
     function boot(documentRef, options = {}) {
         const panel = documentRef?.querySelector?.('[data-nfse-native-panel="true"]');
 
@@ -91,6 +100,12 @@
         }
 
         panel.dataset.nfseReceiptActionsBooted = 'true';
+        const choices = panel.querySelector?.('[data-nfse-exclusive-fiscal-choices="true"]');
+        const nonIssuance = choices?.querySelector?.('[data-nfse-choice="do_not_issue"]');
+        if (choices && nonIssuance) {
+            syncFiscalChoices(choices);
+            nonIssuance.addEventListener('toggle', () => syncFiscalChoices(choices));
+        }
         panel.addEventListener('click', (event) => {
             const button = event.target?.closest?.('[data-nfse-copy-access-key="true"]');
 
@@ -108,7 +123,7 @@
         return true;
     }
 
-    return { accessKeyFor, copyAccessKey, syncDisclosure, boot };
+    return { accessKeyFor, copyAccessKey, syncDisclosure, syncFiscalChoices, boot };
 });
 
 if (typeof document !== 'undefined' && typeof globalThis !== 'undefined' && globalThis.NfseReceiptActions) {

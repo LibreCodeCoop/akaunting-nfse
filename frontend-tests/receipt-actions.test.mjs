@@ -196,3 +196,24 @@ test('boot safely ignores screens outside the native fiscal panel', () => {
     assert.equal(actions.boot(null), false);
     assert.equal(actions.boot({ querySelector: () => null }), false);
 });
+
+
+test('issue action remains visible until operator expands non-issuance', () => {
+    const issue = { hidden: true };
+    const nonIssuance = { open: false };
+    const choices = {
+        querySelector(selector) {
+            if (selector === '[data-nfse-choice="issue"]') return issue;
+            if (selector === '[data-nfse-choice="do_not_issue"]') return nonIssuance;
+            return null;
+        },
+    };
+    actions.syncFiscalChoices(choices);
+    assert.equal(issue.hidden, false, 'Primary issuance must be visible by default');
+    nonIssuance.open = true;
+    actions.syncFiscalChoices(choices);
+    assert.equal(issue.hidden, true, 'Only the selected alternative must be visible');
+    nonIssuance.open = false;
+    actions.syncFiscalChoices(choices);
+    assert.equal(issue.hidden, false);
+});
