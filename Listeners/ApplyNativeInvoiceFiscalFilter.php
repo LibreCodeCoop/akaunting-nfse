@@ -9,59 +9,114 @@ namespace Modules\Nfse\Listeners;
 
 use App\Events\Common\SearchStringApplying;
 use App\Models\Document\Document;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Apply fiscal filtering to the native invoice query before Akaunting paginates.
- * Multiple fiscal receipts are resolved by the most recent persisted receipt.
+ * Apply NFS-e search chips before Akaunting paginates. The virtual search key
+ * must not reach the native SQL search-string visitor, which only understands
+ * physical document columns.
  */
 final class ApplyNativeInvoiceFiscalFilter
 {
+    public const ORIGINAL_SEARCH = 'nfse.invoice_search.original';
+
+    private const STATUSES = ['pending', 'processing', 'emitted', 'cancelled', 'substituted', 'absent', 'unknown'];
+
     public function handle(SearchStringApplying $event): void
     {
         if (!request()->routeIs('invoices.index')) {
             return;
         }
 
-        $status = request()->query('nfse_status');
-        if (!is_string($status) || !in_array($status, ['emitted', 'processing', 'cancelled', 'substituted', 'absent', 'unknown'], true)) {
+        $query = $event->query;
+        if (!$query instanceof Builder || !$query->getModel() instanceof Document) {
             return;
         }
 
-        // Akaunting inserts the default unpaid-tab search before reaching this event.
-        // A fiscal-only filter must span all commercial invoice statuses.
-        // Preserve searches and tabs explicitly chosen by the operator.
-        if (request()->input('programmatic') === '1') {
+        $search = request()->input('search', '');
+        if (!is_string($search)) {
+            return;
+        }
+
+        // Legacy bookmarks keep working, but the selected status now appears
+        // in the same search chips as all native document filters.
+        $legacy = request()->query('nfse_status');
+        if (is_string($legacy) && in_array($legacy, self::STATUSES, true)
+            && !preg_match('/(?:^|\s)(?:not\s+)?nfse_status\s*(?::|=|!=)/', $search)) {
+            $search = trim($search . ' nfse_status:' . $legacy);
+        }
+
+        $values = [];
+        $negated = false;
+        $remaining = preg_replace_callback(
+            '/(?:^|\s)(not\s+)?nfse_status\s*(:|=|!=)\s*([a-z_,\-]+)/i',
+            static function (array $match) use (&$values, &$negated): string {
+                $requested = array_map('strtolower', explode(',', $match[3]));
+                if ($requested === [] || array_diff($requested, self::STATUSES) !== []) {
+                    // Do not let an invalid virtual column reach the SQL parser.
+                    return ' ';
+                }
+
+                // A second fiscal token would be ambiguous; apply the first one.
+                if ($values === []) {
+                    $values = array_values(array_unique($requested));
+                    $negated = !empty($match[1]) || $match[2] === '!=';
+                }
+
+                return ' ';
+            },
+            $search,
+        );
+
+        if ($remaining === null) {
+            return;
+        }
+
+        $remaining = trim(preg_replace('/\s+/', ' ', $remaining) ?? '');
+        if ($values === [] && $remaining === $search) {
+            return;
+        }
+
+        request()->attributes->set(self::ORIGINAL_SEARCH, $search);
+        request()->merge(['search' => $remaining]);
+
+        // The first tab defaults to unpaid when no search is present. Fiscal
+        // filtering without a commercial status must instead span all invoices.
+        if (request()->input('programmatic') === '1' && $values !== []) {
             request()->merge(['search' => '', 'list_records' => 'all']);
         }
 
-        $query = $event->query;
-        if (!$query->getModel() instanceof Document) {
+        if ($values === []) {
             return;
         }
 
         $table = $query->getModel()->getTable();
-        if ($status === 'absent') {
-            $query->whereRaw(
-                'NOT EXISTS (SELECT 1 FROM nfse_receipts r WHERE r.invoice_id = ' . $table . '.id)',
-            );
+        $latest = '(SELECT r.status FROM nfse_receipts r WHERE r.invoice_id = ' . $table
+            . '.id ORDER BY r.id DESC LIMIT 1)';
+        $clauses = [];
+        $bindings = [];
 
-            return;
+        foreach ($values as $status) {
+            if ($status === 'absent') {
+                $clauses[] = $latest . ' IS NULL';
+            } elseif ($status === 'unknown') {
+                $clauses[] = '(' . $latest . ' IS NOT NULL AND ' . $latest . ' NOT IN (?, ?, ?, ?, ?))';
+                array_push($bindings, 'pending', 'processing', 'emitted', 'cancelled', 'substituted');
+            } else {
+                $clauses[] = $latest . ' = ?';
+                $bindings[] = $status;
+            }
         }
 
-        if ($status === 'unknown') {
-            $query->whereRaw(
-                '(SELECT r.status FROM nfse_receipts r WHERE r.invoice_id = ' . $table
-                . '.id ORDER BY r.id DESC LIMIT 1) NOT IN (?, ?, ?, ?, ?)',
-                ['pending', 'processing', 'emitted', 'cancelled', 'substituted'],
-            );
-
-            return;
+        $sql = '(' . implode(' OR ', $clauses) . ')';
+        if ($negated) {
+            // SQL NOT(NULL) is NULL, not TRUE. Without this explicit branch,
+            // negating an emitted status incorrectly drops invoices with no receipt.
+            $sql = in_array('absent', $values, true)
+                ? 'NOT ' . $sql
+                : '(' . $latest . ' IS NULL OR NOT ' . $sql . ')';
         }
 
-        $query->whereRaw(
-            '(SELECT r.status FROM nfse_receipts r WHERE r.invoice_id = ' . $table
-            . '.id ORDER BY r.id DESC LIMIT 1) = ?',
-            [$status],
-        );
+        $query->whereRaw($sql, $bindings);
     }
 }
