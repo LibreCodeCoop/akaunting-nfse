@@ -509,7 +509,10 @@ class Main extends Provider
                 $companyId = function_exists('company_id') ? (int) company_id() : 0;
                 if ($companyId > 0) {
                     $placeholders = implode(',', array_fill(0, count($invoiceIds), '?'));
-                    $bindings = array_merge([$companyId], $invoiceIds);
+                    $bindings = [$companyId];
+                    foreach ($invoiceIds as $id) {
+                        $bindings[] = (int) $id;
+                    }
                     $authorizedRows = DB::select(
                         'SELECT documents.id FROM documents'
                         . ' WHERE documents.company_id = ? AND documents.id IN (' . $placeholders . ')'
