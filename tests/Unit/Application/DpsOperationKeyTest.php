@@ -44,6 +44,32 @@ final class DpsOperationKeyTest extends TestCase
         self::assertSame($restricted, DpsOperationKey::forInvoice(7, 42, 2, 'group-a'));
     }
 
+    public function testRejectedSubstitutionRevisionDoesNotModifyTheExistingOperationKey(): void
+    {
+        $old = DpsOperationKey::forInvoice(7, 42, 2, substitutedReceiptId: 50);
+        $legacyPayload = [
+            'v' => 1,
+            'company' => 7,
+            'invoice' => 42,
+            'environment' => 2,
+            'group' => null,
+            'cancelled_receipt' => null,
+            'substituted_receipt' => 50,
+        ];
+        self::assertSame(hash('sha256', json_encode($legacyPayload, JSON_THROW_ON_ERROR)), $old);
+        self::assertNotSame(
+            $old,
+            DpsOperationKey::forInvoice(7, 42, 2, substitutedReceiptId: 50, rejectedAttemptId: 15),
+        );
+    }
+
+    public function testRejectedAttemptIdWithoutSubstitutionCannotGrantANewOperation(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        DpsOperationKey::forInvoice(7, 42, 2, rejectedAttemptId: 15);
+    }
+
     public function testInvalidEnvironmentCannotCreateAnOperationKey(): void
     {
         $this->expectException(\InvalidArgumentException::class);
