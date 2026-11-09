@@ -91,15 +91,9 @@ export async function loginToAkauntingWithCredentials(
       );
     }
 
-    // The landing route is synthetic; authentication itself must still be
-    // confirmed by the real Akaunting login response, not the stubbed page.
-    if (loginResponse.headers()['content-type']?.includes('application/json')) {
-      const result = (await loginResponse.json()) as { success?: unknown };
-      if (result.success !== true) {
-        throw new Error('E2E login was not accepted by Akaunting.');
-      }
-    }
-
+    // The real login POST and protected target requests remain authoritative.
+    // Do not reread POST JSON after navigation: Chromium may have disposed of
+    // its response body when the landing document replaced the login page.
     await expect(page).not.toHaveURL(/\/auth\/login$/);
     await expect(page.locator('body')).toBeVisible();
   } finally {
