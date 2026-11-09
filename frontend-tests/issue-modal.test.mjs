@@ -281,3 +281,97 @@ test('substitution controller blocks duplicates and ignores unrelated forms', as
     assert.equal(await modal.submitSubstitution(x.event, x.documentRef, dependencies), false);
     assert.equal(requests, 0);
 });
+
+test('customer email tab remains visible after control-key reconciliation even if Vue resets tab classes', () => {
+    const panes = [
+        { id: 'nfse-tab-pane-issuance', style: { display: 'none' }, setAttribute() {} },
+        { id: 'nfse-tab-pane-email', style: { display: '' }, setAttribute() {} },
+    ];
+    const general = { getAttribute: () => 'nfse-tab-pane-issuance' };
+    const container = {
+        dataset: { nfseActivePane: 'nfse-tab-pane-email' },
+        querySelector(selector) {
+            return selector.includes('.active-tabs') ? null : general;
+        },
+        querySelectorAll() { return panes; },
+    };
+
+    modal.syncTabPane(container);
+
+    assert.equal(panes[1].style.display, '');
+    assert.equal(panes[0].style.display, 'none');
+});
+
+test('control key must not select a different NFS-e tab', () => {
+    assert.equal(modal.nextTabIndex(1, 3, 'Control'), 1);
+});
+
+test('save customer email preference uses a separate POST, never fiscal issuance', async () => {
+    const fieldValues = new Map();
+    const status = { textContent: '' };
+    const scope = {
+        querySelector(selector) {
+            if (selector === '[data-nfse-customer-email-save-status]') return status;
+            if (selector === '.ql-editor') return { innerHTML: '<p>Valor {invoice_amount_due}</p>', closest() { return null; } };
+            return null;
+        },
+    };
+    const form = {
+        querySelector(selector) {
+            if (selector === '[name="nfse_email_subject"]') return { value: 'Nfe Nº{nfse_number}' };
+            if (selector === '[name="_token"]') return { value: 'token-test' };
+            return null;
+        },
+    };
+    const button = {
+        disabled: false,
+        closest(selector) { return selector === 'form' ? form : scope; },
+        getAttribute(name) {
+            return name === 'data-nfse-save-customer-email-url'
+                ? '/1/nfse/invoices/42/email-preferences'
+                : '';
+        },
+    };
+    let calls = 0;
+    const result = await modal.saveCustomerEmailPreference(button, {
+        querySelector() { return null; },
+    }, {
+        formDataFactory: () => ({
+            set(key, value) { fieldValues.set(key, value); },
+        }),
+        fetchImpl: async (url, request) => {
+            calls++;
+            assert.equal(url, '/1/nfse/invoices/42/email-preferences');
+            assert.equal(request.method, 'POST');
+            assert.equal(request.credentials, 'same-origin');
+            return { ok: true, json: async () => ({ success: true, scope: 'customer' }) };
+        },
+    });
+
+    assert.equal(result, true);
+    assert.equal(calls, 1);
+    assert.equal(fieldValues.get('_token'), 'token-test');
+    assert.equal(fieldValues.get('subject'), 'Nfe Nº{nfse_number}');
+    assert.equal(fieldValues.get('body'), '<p>Valor {invoice_amount_due}</p>');
+    assert.equal(button.disabled, false);
+});
+
+test('customer email preference rejects empty fields before any HTTP request', async () => {
+    let requests = 0;
+    const scope = {
+        querySelector(selector) {
+            return selector === '[data-nfse-customer-email-save-status]' ? { textContent: '' } : null;
+        },
+    };
+    const form = { querySelector() { return { value: '' }; } };
+    const button = {
+        disabled: false,
+        closest(selector) { return selector === 'form' ? form : scope; },
+        getAttribute() { return '/preferences'; },
+    };
+    const result = await modal.saveCustomerEmailPreference(button, { querySelector() { return null; } }, {
+        fetchImpl: async () => { requests++; },
+    });
+    assert.equal(result, false);
+    assert.equal(requests, 0);
+});

@@ -109,14 +109,19 @@
             return;
         }
 
+        const rememberedPane = container.dataset?.nfseActivePane;
         const activeNav = container.querySelector('[data-nfse-tab-nav].active-tabs')
+            || container.querySelector('[data-nfse-tab-nav][aria-selected="true"]')
             || container.querySelector('[data-nfse-tab-nav]');
+        const activePaneId = rememberedPane
+            && Array.from(container.querySelectorAll('[data-nfse-tab-pane]'))
+                .some((pane) => pane.id === rememberedPane)
+            ? rememberedPane
+            : activeNav?.getAttribute('data-nfse-tab-nav');
 
-        if (!activeNav) {
+        if (!activePaneId) {
             return;
         }
-
-        const activePaneId = activeNav.getAttribute('data-nfse-tab-nav');
 
         container.querySelectorAll('[data-nfse-tab-pane]').forEach((pane) => {
             const active = pane.id === activePaneId;
@@ -133,6 +138,7 @@
         }
 
         const targetPaneId = nav.getAttribute('data-nfse-tab-nav');
+        container.dataset.nfseActivePane = targetPaneId;
 
         container.querySelectorAll('[data-nfse-tab-nav]').forEach((item) => {
             const active = item === nav;
@@ -312,6 +318,61 @@
         }
     }
 
+    async function saveCustomerEmailPreference(button, documentRef, dependencies = {}) {
+        const form = button.closest('form');
+        const scope = button.closest('#nfse-email-fields');
+        const status = scope?.querySelector('[data-nfse-customer-email-save-status]');
+        const endpoint = button.getAttribute('data-nfse-save-customer-email-url');
+        const subject = form?.querySelector('[name="nfse_email_subject"]')?.value ?? '';
+        const bodyState = resolveBodyState(scope);
+        const body = bodyState.editor?.innerHTML
+            ?? form?.querySelector('[name="nfse_email_body"]')?.value
+            ?? '';
+        const formToken = form?.querySelector('[name="_token"]')?.value;
+        const token = formToken
+            || documentRef.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+            || '';
+
+        if (!endpoint || !subject.trim() || !body.trim() || button.disabled) {
+            if (status) {
+                status.textContent = 'Preencha o assunto e o corpo do e-mail antes de salvar.';
+            }
+            return false;
+        }
+
+        const payload = (dependencies.formDataFactory ?? (() => new FormData()))();
+        payload.set('_token', token);
+        payload.set('subject', subject);
+        payload.set('body', body);
+
+        button.disabled = true;
+        try {
+            const response = await (dependencies.fetchImpl ?? globalThis.fetch)(endpoint, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: payload,
+            });
+            const result = await response.json();
+
+            if (!response.ok || result.success !== true || result.scope !== 'customer') {
+                throw new Error('Saving customer email preference was rejected.');
+            }
+
+            if (status) {
+                status.textContent = button.getAttribute('data-nfse-save-success') || 'Modelo salvo para este cliente.';
+            }
+            return true;
+        } catch {
+            if (status) {
+                status.textContent = button.getAttribute('data-nfse-save-error') || 'Não foi possível salvar o modelo.';
+            }
+            return false;
+        } finally {
+            button.disabled = false;
+        }
+    }
+
     function focusErrorSummary(root) {
         if (!root || typeof root.querySelector !== 'function') {
             return false;
@@ -468,6 +529,15 @@
                 return;
             }
 
+            const saveCustomerTemplate = event.target && event.target.closest
+                ? event.target.closest('[data-nfse-save-customer-email]')
+                : null;
+            if (saveCustomerTemplate) {
+                event.preventDefault();
+                void saveCustomerEmailPreference(saveCustomerTemplate, documentRef);
+                return;
+            }
+
             const nav = event.target && event.target.closest
                 ? event.target.closest('[data-nfse-tab-nav]')
                 : null;
@@ -557,13 +627,6 @@
                     syncRestoreButton(scope, documentRef);
                 }
 
-                const tabs = event.target && event.target.closest
-                    ? event.target.closest('[data-nfse-tabs]')
-                    : null;
-
-                if (tabs) {
-                    syncTabPane(tabs);
-                }
             });
         });
 
@@ -595,10 +658,6 @@
                 const relevant = records.some((record) => {
                     const target = record && record.target;
 
-                    if (target && typeof target.closest === 'function' && target.closest('[data-nfse-tabs]')) {
-                        return true;
-                    }
-
                     return Array.from(record && record.addedNodes ? record.addedNodes : []).some((node) => {
                         if (!node || node.nodeType !== 1) {
                             return false;
@@ -606,13 +665,15 @@
 
                         if (typeof node.matches === 'function' && (
                             node.matches('[data-nfse-tabs]')
+                            || node.matches('[data-nfse-tab-nav]')
+                            || node.matches('[data-nfse-tab-pane]')
                             || node.matches('[data-nfse-error-summary="true"]')
                         )) {
                             return true;
                         }
 
                         return typeof node.querySelector === 'function' && Boolean(
-                            node.querySelector('[data-nfse-tabs], [data-nfse-error-summary="true"]'),
+                            node.querySelector('[data-nfse-tabs], [data-nfse-tab-nav], [data-nfse-tab-pane], [data-nfse-error-summary="true"]'),
                         );
                     });
                 });
@@ -652,6 +713,7 @@
         syncRestoreButton,
         syncSwitch,
         syncTabPane,
+        saveCustomerEmailPreference,
     };
 });
 
