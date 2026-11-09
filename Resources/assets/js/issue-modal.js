@@ -125,8 +125,15 @@
 
         container.querySelectorAll('[data-nfse-tab-pane]').forEach((pane) => {
             const active = pane.id === activePaneId;
-            pane.style.display = active ? '' : 'none';
-            pane.setAttribute('aria-hidden', active ? 'false' : 'true');
+            const expectedDisplay = active ? '' : 'none';
+            const expectedAria = active ? 'false' : 'true';
+
+            if (pane.style.display !== expectedDisplay) {
+                pane.style.display = expectedDisplay;
+            }
+            if (pane.getAttribute && pane.getAttribute('aria-hidden') !== expectedAria) {
+                pane.setAttribute('aria-hidden', expectedAria);
+            }
         });
     }
 
@@ -658,6 +665,13 @@
                 const relevant = records.some((record) => {
                     const target = record && record.target;
 
+                    // Akaunting's reactive editor can reset tab-pane inline styles
+                    // after keyboard and input events even when the selected nav stays
+                    // unchanged. Reconcile only tab-pane styles, never editor mutations.
+                    if (record?.type === 'attributes' && record.attributeName === 'style') {
+                        return Boolean(target?.matches?.('[data-nfse-tab-pane]'));
+                    }
+
                     return Array.from(record && record.addedNodes ? record.addedNodes : []).some((node) => {
                         if (!node || node.nodeType !== 1) {
                             return false;
@@ -687,6 +701,8 @@
             if (target) {
                 observer.observe(target, {
                     childList: true,
+                    attributes: true,
+                    attributeFilter: ['style'],
                     subtree: true,
                 });
             }

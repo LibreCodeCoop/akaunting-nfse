@@ -375,3 +375,30 @@ test('customer email preference rejects empty fields before any HTTP request', a
     assert.equal(result, false);
     assert.equal(requests, 0);
 });
+
+test('reconciliation only updates a tab pane when Vue changes its display', () => {
+    const calls = [];
+    let activeAria = 'true';
+    const activePane = {
+        id: 'nfse-tab-pane-email', style: { display: 'none' },
+        getAttribute: () => activeAria,
+        setAttribute: (key, val) => { activeAria = val; calls.push([key, val]); },
+    };
+    const inactivePane = {
+        id: 'nfse-tab-pane-issuance', style: { display: 'none' },
+        getAttribute: () => 'true',
+        setAttribute: (key, val) => calls.push([key, val]),
+    };
+    const container = {
+        dataset: { nfseActivePane: 'nfse-tab-pane-email' },
+        querySelector: () => null,
+        querySelectorAll: () => [activePane, inactivePane],
+    };
+    modal.syncTabPane(container);
+    assert.equal(activePane.style.display, '');
+    assert.deepEqual(calls, [['aria-hidden', 'false']]);
+
+    calls.length = 0;
+    modal.syncTabPane(container);
+    assert.deepEqual(calls, [], 'unchanged pane attributes must not cause observer loops');
+});
