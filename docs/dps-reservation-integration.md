@@ -110,17 +110,24 @@ production authorizer.
 
 ### Replacing a definitively rejected DPS after a schema correction
 
-An official SEFIN **E1235** response with HTTP 400/422 proves only that the
-submitted DPS was rejected for XML schema reasons; it does not release its
-immutable DPS reservation or first-POST claim. After upgrading the installed
-schema-aware nfse-php, a new operator-initiated substitution of the same
+An official SEFIN **E1235** or **E0713** response with HTTP 400/422 proves
+that the submitted DPS was definitively rejected; it does not release its
+immutable DPS reservation or first-POST claim. E1235 is an XML schema rejection;
+E0713 rejects `indTotTrib` / `pTotTribSN` for a non-Simples issuer. After fixing the installed XML schema or supplying documented approximate tax
+totals for the actual company, national service, regime and competence, a new
+operator-initiated substitution of the same
 authorized original NFS-e uses a **new logical operation key**, incorporating
 the prior confirmed rejection's journal ID. This key is allocated through the
 same approved fiscal issuer/series authority and receives a distinct DPS
 number. The old rejection and its central claim stay intact.
 
 Before creating a new reservation, the replacement must retain a valid original
-NFS-e reference and pass the XSD for its actual fiscal environment. Subsequent
+NFS-e reference and pass the XSD for its actual fiscal environment. For E0713,
+`indTotTrib` is not a permitted fallback: the mandatory `totTrib` group must
+use three legitimately sourced `pTotTrib` percentages. If the independent source
+is not registered, block BEFORE the allocator; do not invent `0.00` values or
+reuse the original rejected DPS. The source is stored and audited separately
+from withheld federal taxes and the ISSQN fiscal rate. Subsequent
 calls to the same pending, ambiguous or authorized replacement reuse the
 existing reservation/recovery path, **never** create a fresh POST or recycle
 the earlier DPS number. Other rejection codes, uncertain failures and technical

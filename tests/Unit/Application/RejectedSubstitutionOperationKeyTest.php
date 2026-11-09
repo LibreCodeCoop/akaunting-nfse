@@ -45,6 +45,29 @@ final class RejectedSubstitutionOperationKeyTest extends TestCase
         self::assertSame($this->operationKey(16), $this->resolve($latest));
     }
 
+    public function testE0713AfterE1235GetsOneNewKeyWithoutReusingEitherDps(): void
+    {
+        $base = $this->operationKey();
+        $revisions = [
+            $base => $this->attempt(15, 'rejected', 'E1235', 400),
+            $this->operationKey(15) => $this->attempt(16, 'rejected', 'E0713', 400),
+        ];
+
+        $expected = $this->operationKey(16);
+        self::assertSame($expected, $this->resolve($revisions));
+        self::assertSame($expected, $this->resolve($revisions), 'Retries must reuse one successor key.');
+        self::assertNotSame($this->operationKey(15), $expected);
+    }
+
+    public function testOfficialE0713CanStartASuccessorOnlyWithConfirmedRejection(): void
+    {
+        $base = $this->operationKey();
+        self::assertSame(
+            $this->operationKey(16),
+            $this->resolve([$base => $this->attempt(16, 'rejected', 'E0713', 422)]),
+        );
+    }
+
     #[DataProvider('unsafePreviousOutcomes')]
     public function testNeverStartsAnotherOperationForAnUnconfirmedOrUnreviewedResult(
         string $status,
@@ -67,6 +90,8 @@ final class RejectedSubstitutionOperationKeyTest extends TestCase
             'authorized receipt' => ['authorized', null, null],
             'local technical failure' => ['technical_failure', null, null],
             'unconfirmed rejection' => ['rejected', 'E1235', null],
+            'unconfirmed E0713' => ['rejected', 'E0713', null],
+            'nonofficial E0713' => ['rejected', 'E0713', 500],
             'unreviewed tax failure' => ['rejected', 'E0724', 400],
             'municipal E0312' => ['rejected', 'E0312', 422],
             'nonofficial rejection' => ['rejected', 'E1235', 500],
