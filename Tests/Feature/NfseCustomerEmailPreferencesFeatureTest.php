@@ -66,7 +66,7 @@ final class NfseCustomerEmailPreferencesFeatureTest extends FeatureTestCase
         $this->loginAs();
         $invoice = Invoice::factory()->invoice()->draft()->create(['company_id' => (int) company_id()]);
 
-        $this->postJson(route('nfse.invoices.email-preferences.store', $invoice), [
+        $this->withExceptionHandling()->postJson(route('nfse.invoices.email-preferences.store', $invoice), [
             'subject' => '',
             'body' => '',
         ])->assertUnprocessable();
