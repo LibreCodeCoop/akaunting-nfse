@@ -14,7 +14,7 @@ namespace Modules\Nfse\Application;
 final class FederalTaxReadiness
 {
     /**
-     * @return list<'pis'|'cofins'|'csll'|'social'>
+     * @return list<'pis'|'cofins'|'csll'|'retained_pis'|'retained_cofins'>
      */
     public function requiredBuckets(
         mixed $enforce,
@@ -31,7 +31,8 @@ final class FederalTaxReadiness
         // NT007 reports these in vRetCSLL, not in provider-due vPis/vCofins.
         // Never require mutually exclusive provider-due values here.
         if (in_array($retentionType, ['1', '4'], true)) {
-            $required[] = 'social';
+            $required[] = 'retained_pis';
+            $required[] = 'retained_cofins';
         } elseif ($piscofinsSituation !== '' && $piscofinsSituation !== '0') {
             $required[] = 'pis';
             $required[] = 'cofins';
@@ -56,7 +57,8 @@ final class FederalTaxReadiness
             'cofins' => 'cofins_value',
             'irrf' => 'irrf_value',
             'csll' => 'csll_value',
-            'social' => 'social_total',
+            'retained_pis' => 'retained_pis_value',
+            'retained_cofins' => 'retained_cofins_value',
         ];
         $missing = [];
 

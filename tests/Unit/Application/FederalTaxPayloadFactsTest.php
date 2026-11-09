@@ -77,6 +77,23 @@ final class FederalTaxPayloadFactsTest extends TestCase
         ];
     }
 
+    public function testRetainedPisAndCofinsRemainIndividuallyVerifiable(): void
+    {
+        $facts = [
+            self::fact('pis', FiscalTaxRole::WITHHELD_BY_PAYER, 250, 10, 100),
+            self::fact('cofins', FiscalTaxRole::WITHHELD_BY_PAYER, 900, 11, 101),
+        ];
+        $observed = (new FederalTaxPayloadFacts())->summarize($facts, '4');
+
+        self::assertSame('2.50', $observed['retained_pis_value']);
+        self::assertSame('9.00', $observed['retained_cofins_value']);
+        self::assertSame('11.50', $observed['social_total']);
+
+        $withoutPis = (new FederalTaxPayloadFacts())->summarize([$facts[1]], '4');
+        self::assertSame('', $withoutPis['retained_pis_value']);
+        self::assertSame('9.00', $withoutPis['retained_cofins_value']);
+    }
+
     public function testUnclassifiedObservationDoesNotBecomeAnInferredTax(): void
     {
         $this->expectException(\DomainException::class);
