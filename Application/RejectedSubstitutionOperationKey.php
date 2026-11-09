@@ -58,7 +58,7 @@ final class RejectedSubstitutionOperationKey
         return is_array($attempt)
             && is_numeric($attempt['id'] ?? null)
             && (int) $attempt['id'] > 0
-            && ($attempt['status'] ?? null) === EmissionAttemptJournal::REJECTED
+            && ($attempt['status'] ?? null) === 'rejected'
             && ($attempt['official_code'] ?? null) === 'E1235'
             && in_array((int) ($attempt['http_status'] ?? 0), [400, 422], true);
     }
