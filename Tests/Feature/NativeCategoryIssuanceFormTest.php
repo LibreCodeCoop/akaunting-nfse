@@ -159,6 +159,7 @@ final class NativeCategoryIssuanceFormTest extends FeatureTestCase
         $companyId = (int) company_id();
         $existing = Category::factory()->create([
             'company_id' => $companyId, 'type' => 'income', 'enabled' => true,
+            'code' => 'SYNTH-TEST-CATEGORY-DUP-001',
         ]);
         $this->postJson(route('categories.store'), [
             'company_id' => $companyId,

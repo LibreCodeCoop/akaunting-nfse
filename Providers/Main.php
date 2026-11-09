@@ -711,10 +711,11 @@ class Main extends Provider
             $policy = null;
             $history = [];
 
-            if (is_object($category) && get_class($category) === 'App\\Models\\Setting\\Category'
+            if ($category instanceof \Illuminate\Database\Eloquent\Model
                 && $companyId > 0
                 && (int) $category->company_id === $companyId
-                && auth()->user()?->can('read-nfse-settings')) {
+                && (auth()->user()?->can('read-nfse-settings')
+                    || auth()->user()?->can('update-nfse-settings'))) {
                 $policies = new \Modules\Nfse\Application\CategoryIssuancePolicy();
                 $policy = $policies->latest($companyId, (int) $category->id);
                 $history = $policies->history($companyId, (int) $category->id);

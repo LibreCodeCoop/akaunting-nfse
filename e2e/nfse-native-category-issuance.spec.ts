@@ -15,10 +15,12 @@ test('category issuance configuration lives in the native Akaunting form', async
   await expect(page.locator('form[action*="/nfse/settings/category-issuance"]')).toHaveCount(0);
   await expect(page.locator('form#category')).toHaveCount(1);
 
-  // The native category view contains its NFS-e section, not a second form.
-  // Type-dependent Vue rendering is separately covered by the feature suite.
-  const content = await page.content();
-  expect(content).toContain('category');
+  // Select Income using the native category type selector.
+  await page.locator('#form-select-type .el-input').click();
+  await page.locator('.el-select-dropdown:visible .el-select-dropdown__item')
+    .filter({ hasText: /^(Income|Receita)$/i }).first().click();
+  await expect(page.locator('form#category [data-nfse-native-category-policy="true"]'))
+    .toBeVisible();
   await testInfo.attach('native-category-form.png', {
     body: await page.locator('form#category').screenshot({ animations: 'disabled' }),
     contentType: 'image/png',

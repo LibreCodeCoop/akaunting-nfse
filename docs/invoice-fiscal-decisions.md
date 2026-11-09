@@ -5,10 +5,10 @@
 
 Fiscal decisions are separate from the Akaunting invoice, payments, fiscal receipts and fiscal group states.
 
-- **Do not issue** (do_not_issue) is an operator instruction or a prospective category default, not legal evidence of NFS-e exemption.
+- **Do not issue** (do_not_issue) is an operator instruction or a category authorization policy, not legal evidence of NFS-e exemption.
 - **Not applicable** (not_applicable) is an operator's documented assessment requiring a justification and evidence reference. Neither invoice category nor absence of local receipt establishes non-applicability.
-- **Issue** (issue) is an audited invoice-specific exception allowing issuance when its category normally suppresses emission. It does not transmit a DPS on its own.
-- **Reversed** (reversed) reverses the latest explicit invoice decision and restores the category default in force when the invoice was created; it does not delete previous decisions.
+- **Issue** (issue) on an individual invoice is an audited operational decision; it cannot override the current category allowlist and does not transmit a DPS on its own.
+- **Reversed** (reversed) reverses the latest explicit invoice decision and restores its recorded category snapshot, without bypassing current eligibility or deleting previous decisions.
 - Missing local receipts require external reconciliation before concluding that no invoice was issued. Pending or processing operations may require recovery. Cancellation and substitution history remains independent of this classification.
 - Pending or ambiguous durable DPS attempts also block non-issuance until reconciled, even when no fiscal receipt has been imported yet. Unrecognized local receipt states fail closed.
 - An authorized local receipt blocks both non-issuance choices. The operator must explicitly reconcile the valid fiscal document; this module never deletes the receipt or silently overrides it.
