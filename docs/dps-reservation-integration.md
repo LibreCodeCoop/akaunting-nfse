@@ -108,6 +108,25 @@ production authorizer.
    number: the authoritative rejected-number and sequence-gap rules remain
    an explicit normative gate.
 
+### Replacing a definitively rejected DPS after a schema correction
+
+An official SEFIN **E1235** response with HTTP 400/422 proves only that the
+submitted DPS was rejected for XML schema reasons; it does not release its
+immutable DPS reservation or first-POST claim. After upgrading the installed
+schema-aware nfse-php, a new operator-initiated substitution of the same
+authorized original NFS-e uses a **new logical operation key**, incorporating
+the prior confirmed rejection's journal ID. This key is allocated through the
+same approved fiscal issuer/series authority and receives a distinct DPS
+number. The old rejection and its central claim stay intact.
+
+Before creating a new reservation, the replacement must retain a valid original
+NFS-e reference and pass the XSD for its actual fiscal environment. Subsequent
+calls to the same pending, ambiguous or authorized replacement reuse the
+existing reservation/recovery path, **never** create a fresh POST or recycle
+the earlier DPS number. Other rejection codes, uncertain failures and technical
+failures do not authorize a successor. The correction is not an automatic
+retransmission: a new fiscal POST still requires a separate authorized action.
+
 These steps require a deliberate transaction boundary between durable
 reservation and first-POST claim. It is **unsafe** to reserve a number, perform
 an unguarded POST, and create the journal record only afterward.
