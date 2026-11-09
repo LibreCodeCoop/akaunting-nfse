@@ -1,0 +1,23 @@
+/*
+ * SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+#nfse-email-fields .ql-container,
+#nfse-emit-body-editor .ql-container {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+}
+
+#nfse-email-fields .ql-editor,
+#nfse-emit-body-editor .ql-editor {
+    padding-inline: 0.75rem;
+    text-indent: 0;
+}
+
+#nfse-email-fields .ql-editor > p:not([class*="ql-indent-"]),
+#nfse-emit-body-editor .ql-editor > p:not([class*="ql-indent-"]) {
+    margin-inline-start: 0;
+    text-indent: 0;
+}

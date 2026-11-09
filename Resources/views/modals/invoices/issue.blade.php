@@ -187,10 +187,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
                         </div>
 
-                        <div id="nfse-email-fields"
-                            class="sm:col-span-6 space-y-3 {{ $sendEmailDefault ? '' : 'hidden' }}"
-                        >
-                            <div class="sm:col-span-6" data-nfse-recipient-composer>
+                        <div id="nfse-email-fields" class="sm:col-span-6 flex w-full min-w-0 flex-col gap-4">
+                            <div id="nfse-email-recipient-fields"
+                                class="w-full min-w-0 {{ $sendEmailDefault ? '' : 'hidden' }}"
+                                data-nfse-recipient-composer
+                            >
                                 <label for="nfse_email_to">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
                                 <input id="nfse_email_to" name="nfse_email_to" type="text" v-model="form.nfse_email_to" value="{{ (string) ($emailDefaults['recipient'] ?? '') }}" class="w-full rounded border px-3 py-2" aria-describedby="nfse-email-recipients-hint">
                                 <p id="nfse-email-recipients-hint" class="text-xs">{{ trans('nfse::general.invoices.emit_modal_email_recipients_hint') }}</p>
@@ -206,30 +207,43 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     <label for="nfse_email_bcc">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</label>
                                     <input id="nfse_email_bcc" name="nfse_email_bcc" type="text" v-model="form.nfse_email_bcc" value="" class="w-full rounded border px-3 py-2">
                                 </div>
+                                <div id="nfse-email-copy-to-self" class="mt-3 flex items-center gap-3">
+                                    @include('nfse::modals.invoices.partials.switch', [
+                                        'id' => 'nfse_email_copy_to_self_toggle',
+                                        'name' => 'nfse_email_copy_to_self',
+                                        'label' => trans('general.email_send_me', ['email' => user()->email]),
+                                        'checked' => $copyToSelfDefault,
+                                    ])
+                                    <span class="text-sm font-medium text-gray-700">{{ trans('general.email_send_me', ['email' => user()->email]) }}</span>
+                                </div>
                             </div>
 
                             <x-form.group.text
                                 name="nfse_email_subject"
                                 label="{{ trans('nfse::general.invoices.emit_modal_email_subject') }}"
                                 value="{{ $currentSubject }}"
-                                form-group-class="sm:col-span-6"
+                                not-required
+                                form-group-class="w-full min-w-0"
                             />
 
-                            <x-form.group.editor
-                                name="nfse_email_body"
-                                label="{{ trans('nfse::general.invoices.emit_modal_email_body') }}"
-                                :value="$bodyValue"
-                                rows="3"
-                                data-toggle="quill"
-                                form-group-class="sm:col-span-6 mb-0"
-                            />
+                            <div data-nfse-email-body-group class="w-full min-w-0">
+                                <x-form.group.editor
+                                    name="nfse_email_body"
+                                    label="{{ trans('nfse::general.invoices.emit_modal_email_body') }}"
+                                    :value="$bodyValue"
+                                    rows="3"
+                                    data-toggle="quill"
+                                    not-required
+                                    form-group-class="w-full min-w-0 mb-0"
+                                />
+                            </div>
 
-                            <div class="sm:col-span-6 text-xs text-gray-500">
+                            <div class="w-full text-xs text-gray-500">
                                 {{ trans('nfse::general.invoices.emit_modal_email_body_help') }}
                             </div>
 
                             @if ($defaultSubject !== '' || $defaultBody !== '')
-                                <div class="sm:col-span-6 text-right">
+                                <div class="w-full text-right">
                                     <button type="button"
                                         data-nfse-restore-default="true"
                                         class="text-xs text-purple hover:underline"
@@ -242,11 +256,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </div>
                             @endif
 
-                            <div class="sm:col-span-6 rounded-md bg-gray-100 p-3 text-xs text-gray-600">
+                            <div class="w-full rounded-md bg-gray-100 p-3 text-xs text-gray-600">
                                 {!! trans('settings.email.templates.tags', ['tag_list' => implode(', ', $notification->getTags())]) !!}
                             </div>
 
-                            <div class="sm:col-span-6">
+                            <div data-nfse-email-save-controls class="w-full min-w-0">
                                 <input type="hidden" name="nfse_email_save_default" value="0">
                                 <label for="nfse-email-save-mode" class="block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</label>
                                 <select
@@ -259,28 +273,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     <option value="general">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_general') }}</option>
                                     <option value="customer">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_customer') }}</option>
                                 </select>
-                                <div class="mt-3">
+                                <div class="mt-3 flex w-full flex-col items-start gap-2">
                                     <button type="button"
                                         data-nfse-save-customer-email
                                         data-nfse-save-success="{{ trans('nfse::general.invoices.emit_modal_email_save_customer_success') }}"
                                         data-nfse-save-error="{{ trans('nfse::general.invoices.emit_modal_email_save_customer_error') }}"
                                         data-nfse-save-customer-email-url="{{ route('nfse.invoices.email-preferences.store', $invoice) }}"
-                                        class="rounded border border-purple px-3 py-2 text-sm text-purple hover:bg-purple-50"
+                                        class="inline-flex max-w-full rounded border border-purple px-3 py-2 text-left text-sm text-purple hover:bg-purple-50"
                                     >
                                         {{ trans('nfse::general.invoices.emit_modal_email_save_customer_now') }}
                                     </button>
-                                    <p role="status" data-nfse-customer-email-save-status aria-live="polite" class="mt-2 text-xs"></p>
+                                    <p role="status" data-nfse-customer-email-save-status aria-live="polite" class="text-xs"></p>
                                 </div>
-                            </div>
-
-                            <div class="sm:col-span-6 flex items-center gap-3 -mb-8">
-                                @include('nfse::modals.invoices.partials.switch', [
-                                    'id' => 'nfse_email_copy_to_self_toggle',
-                                    'name' => 'nfse_email_copy_to_self',
-                                    'label' => trans('general.email_send_me', ['email' => user()->email]),
-                                    'checked' => $copyToSelfDefault,
-                                ])
-                                <span class="text-sm font-medium text-gray-700">{{ trans('general.email_send_me', ['email' => user()->email]) }}</span>
                             </div>
                         </div>
                     </x-slot>

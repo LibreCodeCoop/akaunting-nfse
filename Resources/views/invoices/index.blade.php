@@ -27,6 +27,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     </x-slot>
 
     <x-slot name="content">
+        <link rel="stylesheet"
+            href="{{ asset('modules/Nfse/Resources/assets/css/email-composer.css?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/css/email-composer.css'))) }}"
+            data-nfse-email-composer-style="true"
+        >
         @php
             $emitModalEmailTemplate = \App\Models\Setting\EmailTemplate::alias('invoice_nfse_issued_customer')->first();
             $emitModalDefaultEmailSubject = (string) ($emitModalEmailTemplate->subject ?? '');
