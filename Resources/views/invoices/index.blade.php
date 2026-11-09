@@ -240,6 +240,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             class="inline-flex"
                                             data-emit-form="true"
                                             data-preview-url="{{ route('nfse.invoices.service-preview', $invoice) }}"
+                                                data-email-preferences-url="{{ route('nfse.invoices.email-preferences.store', $invoice) }}"
                                             data-emit-confirm-label="{{ trans('nfse::general.invoices.emit_now') }}"
                                             onsubmit="
                                                 if (this.dataset.emitConfirmed === '1') {
@@ -375,6 +376,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <input type="hidden" name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input>
                                             <input type="hidden" name="nfse_email_attach_xml" value="1" data-emit-email-attach-xml-input>
                                             <input type="hidden" name="nfse_email_save_default" value="0" data-emit-email-save-default-input>
+                                            <input type="hidden" name="nfse_email_save_mode" value="none" data-emit-email-save-mode-input>
                                             <button
                                                 type="submit"
                                                 @if(!$isReady) disabled @endif
@@ -494,6 +496,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 class="inline-flex"
                                                 data-emit-form="true"
                                                 data-preview-url="{{ route('nfse.invoices.service-preview', $receipt->invoice_id) }}"
+                                                data-email-preferences-url="{{ route('nfse.invoices.email-preferences.store', $receipt->invoice_id) }}"
                                                 data-emit-confirm-label="{{ trans('nfse::general.invoices.reemit') }}"
                                                 onsubmit="
                                                     if (this.dataset.emitConfirmed === '1') {
@@ -517,7 +520,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                         const emailEditor = document.getElementById('nfse-emit-body-editor')?.firstElementChild;
                                                         const attachDanfseField = document.getElementById('nfse_emit_attach_danfse');
                                                         const attachXmlField = document.getElementById('nfse_emit_attach_xml');
-                                                        const saveDefaultField = document.getElementById('nfse_emit_save_default');
+                                                        const saveDefaultField = document.getElementById('nfse_emit_email_save_mode');
 
                                                         const confirmInput = form.querySelector('[data-emit-confirm-default]');
                                                         const assignmentsInput = form.querySelector('[data-emit-assignments]');
@@ -532,6 +535,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                         const attachDanfseInput = form.querySelector('[data-emit-email-attach-danfse-input]');
                                                         const attachXmlInput = form.querySelector('[data-emit-email-attach-xml-input]');
                                                         const saveDefaultInput = form.querySelector('[data-emit-email-save-default-input]');
+                                                        const saveModeInput = form.querySelector('[data-emit-email-save-mode-input]');
                                                         const previewUrl = form.getAttribute('data-preview-url');
                                                         const confirmLabel = form.getAttribute('data-emit-confirm-label') || '{{ trans('nfse::general.invoices.reemit') }}';
 
@@ -586,7 +590,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                             }
 
                                                             if (saveDefaultField) {
-                                                                saveDefaultField.checked = false;
+                                                                saveDefaultField.value = 'none';
                                                             }
 
                                                             if (sendEmailInput) {
@@ -620,6 +624,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                             if (saveDefaultInput) {
                                                                 saveDefaultInput.value = '0';
                                                             }
+                                                            if (saveModeInput) saveModeInput.value = 'none';
                                                         };
 
                                                         const openModal = (suggestedDescription, missingItems, availableServices, defaultServiceId, emailDefaults) => {
@@ -721,6 +726,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 <input type="hidden" name="nfse_email_attach_danfse" value="1" data-emit-email-attach-danfse-input>
                                                 <input type="hidden" name="nfse_email_attach_xml" value="1" data-emit-email-attach-xml-input>
                                                 <input type="hidden" name="nfse_email_save_default" value="0" data-emit-email-save-default-input>
+                                            <input type="hidden" name="nfse_email_save_mode" value="none" data-emit-email-save-mode-input>
                                                 <button type="submit" title="{{ trans('nfse::general.invoices.reemit') }}" data-emit-trigger="true" class="inline-flex h-8 w-8 items-center justify-center rounded border border-green-200 text-green-700 hover:bg-green-50">
                                                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                         <path d="M10 3a7 7 0 00-6.32 4H1l3 3 3-3H4.85A5 5 0 1110 15a1 1 0 100 2 7 7 0 000-14z" />
@@ -973,6 +979,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                 <div class="rounded-md bg-gray-100 p-3 text-xs text-gray-600">
                                                     {!! trans('settings.email.templates.tags', ['tag_list' => implode(', ', app(\Modules\Nfse\Notifications\NfseIssued::class)->getTags())]) !!}
                                                 </div>
+                                                <div>
+                                                    <button type="button" id="nfse_emit_email_save_customer_now" class="rounded border border-purple px-3 py-2 text-sm text-purple hover:bg-purple-50">{{ trans('nfse::general.invoices.emit_modal_email_save_customer_now') }}</button>
+                                                    <p role="status" id="nfse_emit_email_save_status" aria-live="polite" class="mt-2 text-xs"></p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -998,13 +1008,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_attach_xml') }}</span>
                                         </div>
 
-                                        <div class="flex items-center gap-3">
-                                            <label for="nfse_emit_save_default" class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer items-center">
-                                                <input id="nfse_emit_save_default" type="checkbox" class="sr-only">
-                                                <div data-toggle="track" class="block h-7 w-12 rounded-full transition-colors duration-200 bg-green-200"></div>
-                                                <div data-toggle="thumb" class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"></div>
-                                            </label>
-                                            <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
+                                        <div>
+                                            <label for="nfse_emit_email_save_mode" class="block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</label>
+                                            <select id="nfse_emit_email_save_mode" class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                <option value="none">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_none') }}</option>
+                                                <option value="general">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_general') }}</option>
+                                                <option value="customer">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_customer') }}</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </x-tabs.tab>
@@ -1126,6 +1136,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         quill,
                     };
                 };
+
+                // Quill handles modifier shortcuts itself. Keep standalone Control key
+                // events inside the editor so legacy page-level tab handlers cannot
+                // interpret a held modifier as a request to switch tabs.
+                const editorContainer = document.getElementById('nfse-emit-body-editor');
+                ['keydown', 'keyup'].forEach((eventName) => {
+                    editorContainer?.addEventListener(eventName, (event) => {
+                        if (event.key === 'Control' && event.target.closest?.('.ql-editor')) {
+                            event.stopPropagation();
+                        }
+                    });
+                });
 
                 const markEmitEditorTyping = () => {
                     nfseEmitEditorState.isTyping = true;
@@ -1345,7 +1367,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const emitModalEmailBodyInput = document.getElementById('nfse_emit_email_body');
                 const emitModalAttachDanfseInput = document.getElementById('nfse_emit_attach_danfse');
                 const emitModalAttachXmlInput = document.getElementById('nfse_emit_attach_xml');
-                const emitModalSaveDefaultInput = document.getElementById('nfse_emit_save_default');
+                const emitModalEmailSaveMode = document.getElementById('nfse_emit_email_save_mode');
                 const emitModalSaveDescriptionDefaultInput = document.getElementById('nfse_emit_save_description_default');
                 const emitModalDescriptionScope = document.getElementById('nfse_emit_description_scope');
                 const emitModalForeignEnabledInput = document.getElementById('nfse_emit_foreign_taker');
@@ -1362,6 +1384,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 const emitModalForeignDistrictInput = document.getElementById('nfse_emit_foreign_district');
                 const emitSubmitSpinner = document.getElementById('emit-submit-spinner');
                 const emitSubmitLabel = document.getElementById('emit-submit-label');
+                const emailSaveCustomerButton = document.getElementById('nfse_emit_email_save_customer_now');
+                const emailSaveStatus = document.getElementById('nfse_emit_email_save_status');
                 const emitModalDefaultConfirmLabel = @json((string) trans('nfse::general.invoices.emit_now'));
                 const emitModalLoadingConfirmLabel = @json((string) trans('nfse::general.invoices.emit_modal_submitting'));
                 let currentEmitForm = null;
@@ -1490,9 +1514,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         syncToggle(emitModalAttachXmlInput);
                     }
 
-                    if (emitModalSaveDefaultInput) {
-                        emitModalSaveDefaultInput.checked = false;
-                        syncToggle(emitModalSaveDefaultInput);
+                    if (emitModalEmailSaveMode) {
+                        emitModalEmailSaveMode.value = 'none';
                     }
 
                     if (emitModalSaveDescriptionDefaultInput) {
@@ -1695,6 +1718,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     button.addEventListener('click', closeEmitModal);
                 });
 
+                emailSaveCustomerButton?.addEventListener('click', async () => {
+                    if (!currentEmitForm || emailSaveCustomerButton.disabled) return;
+                    const url = currentEmitForm.getAttribute('data-email-preferences-url');
+                    const subject = emitModalEmailSubjectInput?.value || '';
+                    const body = getEmitEmailEditorContext().editor?.innerHTML || emitModalEmailBodyInput?.value || '';
+                    if (!url || !subject.trim() || !body.trim()) {
+                        if (emailSaveStatus) emailSaveStatus.textContent = 'Preencha o assunto e o corpo do e-mail.';
+                        return;
+                    }
+
+                    const data = new FormData();
+                    data.set('_token', currentEmitForm.querySelector('[name="_token"]')?.value || '');
+                    data.set('subject', subject);
+                    data.set('body', body);
+                    emailSaveCustomerButton.disabled = true;
+                    try {
+                        const response = await fetch(url, {
+                            method: 'POST', credentials: 'same-origin',
+                            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            body: data,
+                        });
+                        const result = await response.json();
+                        if (!response.ok || result.success !== true || result.scope !== 'customer') {
+                            throw new Error('Customer template not saved.');
+                        }
+                        if (emailSaveStatus) emailSaveStatus.textContent = @json(trans('nfse::general.invoices.emit_modal_email_save_customer_success'));
+                    } catch {
+                        if (emailSaveStatus) emailSaveStatus.textContent = @json(trans('nfse::general.invoices.emit_modal_email_save_customer_error'));
+                    } finally {
+                        emailSaveCustomerButton.disabled = false;
+                    }
+                });
+
                 window.nfseConfirmEmit = () => {
                     const form = currentEmitForm
                         ?? (() => {
@@ -1716,7 +1772,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const emailBodyField = emitModalEmailBodyInput;
                     const attachDanfseField = emitModalAttachDanfseInput;
                     const attachXmlField = emitModalAttachXmlInput;
-                    const saveDefaultField = emitModalSaveDefaultInput;
+                    const saveDefaultField = emitModalEmailSaveMode;
                     const itemsContainer = emitModalMissingItems;
                     const confirmInput = form?.querySelector('[data-emit-confirm-default]');
                     const assignmentsInput = form?.querySelector('[data-emit-assignments]');
@@ -1744,6 +1800,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     const attachDanfseInput = form?.querySelector('[data-emit-email-attach-danfse-input]');
                     const attachXmlInput = form?.querySelector('[data-emit-email-attach-xml-input]');
                     const saveDefaultInput = form?.querySelector('[data-emit-email-save-default-input]');
+                    const saveModeInput = form?.querySelector('[data-emit-email-save-mode-input]');
 
                     if (!form || !confirmInput || !assignmentsInput || !descriptionInput || emitSubmitting) {
                         return false;
@@ -1845,7 +1902,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
 
                     if (saveDefaultInput) {
-                        saveDefaultInput.value = saveDefaultField?.checked ? '1' : '0';
+                        saveDefaultInput.value = '0';
+                    }
+                    if (saveModeInput) {
+                        saveModeInput.value = saveDefaultField?.value || 'none';
                     }
 
                     setEmitSubmittingState(true);
@@ -1917,7 +1977,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 emitModalSendEmailInput?.addEventListener('change', refreshEmitEmailSection);
                 emitModalAttachDanfseInput?.addEventListener('change', () => syncToggle(emitModalAttachDanfseInput));
                 emitModalAttachXmlInput?.addEventListener('change', () => syncToggle(emitModalAttachXmlInput));
-                emitModalSaveDefaultInput?.addEventListener('change', () => syncToggle(emitModalSaveDefaultInput));
+
                 emitModalSaveDescriptionDefaultInput?.addEventListener('change', () => syncToggle(emitModalSaveDescriptionDefaultInput));
 
                 const modal = document.getElementById('nfse-cancel-modal');

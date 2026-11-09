@@ -184,7 +184,7 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
     contentType: 'image/png',
   });
 
-  await setVisibleSwitch(page, 'nfse_email_save_default_toggle', true);
+  await dialog.locator('select[name="nfse_email_save_mode"]').selectOption('customer');
   await setVisibleSwitch(page, 'nfse_email_copy_to_self_toggle', true);
 
   await dialog.getByText(/Anexos|Attachments/i).first().click();
@@ -202,7 +202,7 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   await expect(toRecipients).toHaveValue('first@example.test, second@example.test');
   await expect(ccRecipients).toHaveValue('visible@example.test');
   await expect(bccRecipients).toHaveValue('hidden@example.test, private@example.test');
-  await expect(page.locator('#nfse_email_save_default_toggle')).toBeChecked();
+  await expect(dialog.locator('select[name="nfse_email_save_mode"]')).toHaveValue('customer');
   await expect(page.locator('#nfse_email_copy_to_self_toggle')).toBeChecked();
 
   await dialog.getByText(/Anexos|Attachments/i).first().click();
@@ -254,7 +254,7 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   // Boolean fields can be normalized by the generic modal serializer; ensure they are present.
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_send_email')).not.toBeNull();
-  expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_save_default')).not.toBeNull();
+  expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_save_mode')).toBe('customer');
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_copy_to_self')).not.toBeNull();
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_attach_invoice_pdf')).not.toBeNull();
   expect(extractPayloadValue(capturedEmitPayload, 'nfse_email_attach_danfse')).not.toBeNull();
@@ -357,6 +357,22 @@ test('typing in email body keeps email tab content visible in emit modal', async
   await expect.poll(async () => {
     return editor.evaluate((node) => node.contains(document.activeElement));
   }).toBeTruthy();
+
+  // Regression: Ctrl used to collapse the Email tab and, after changing tabs,
+  // could leave the entire pane hidden until the modal was reopened.
+  await page.keyboard.down('Control');
+  await expect(emailPane).toBeVisible();
+  await expect(editor).toBeVisible();
+  await page.keyboard.up('Control');
+  await expect(emailPane).toBeVisible();
+
+  await dialog.getByText(/Geral|General/i).first().click();
+  await dialog.getByText(/E-mail|Email/i).first().click();
+  await editor.focus();
+  await page.keyboard.down('Control');
+  await expect(emailPane).toBeVisible();
+  await page.keyboard.up('Control');
+  await expect(editor).toBeVisible();
 });
 
 test('restore default button reacts to subject and body edits in emit modal', async ({ page }, testInfo) => {

@@ -346,6 +346,16 @@ Os anexos WebDAV enviados por e-mail utilizam apenas caminhos já gravados no
 recibo; não são inferidos de templates legados quando não há registro, evitando
 acesso a arquivos de outra empresa que possua CNPJ coincidente.
 
+O assunto e o corpo podem ser salvos como **padrão geral** ou **somente para o
+cliente**. A preferência do cliente é isolada por empresa e contato, prevalece
+sobre o padrão geral nas próximas faturas daquele contato e aceita as tags
+disponibilizadas no formulário, como {nfse_number}, {invoice_amount_due}
+e {invoice_due_date}. A opção **Salvar modelo para este cliente sem emitir**
+grava exclusivamente a preferência de mensagem: não transmite DPS, envia
+e-mail, altera fatura ou muda o modelo global. Para anexos, a seleção continua
+sendo conferida no envio; o modelo não anexa automaticamente arquivos externos,
+como relatórios de horas, que precisam ser selecionados manualmente.
+
 ## Fluxos e documentos
 
 A NFS-e autorizada e a fatura Akaunting possuem estados distintos.

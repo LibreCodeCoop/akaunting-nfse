@@ -327,6 +327,39 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertSame(['mail'], $channels);
         }
 
+        public function testCustomerDefaultReplacesGlobalNotificationTemplateWithoutChangingCustomOverride(): void
+        {
+            $this->makeTemplate();
+
+            $invoice = $this->makeInvoice('INV-SYNTH', 'Client X');
+            $receipt = $this->makeReceipt('101');
+
+            $notification = new class ($invoice, $receipt) extends NfseIssued {
+                protected function customerEmailTemplate(): ?array
+                {
+                    return [
+                        'subject' => 'Client NFS-e {nfse_number}',
+                        'body' => 'Total {invoice_amount_due}, due {invoice_due_date}',
+                    ];
+                }
+            };
+
+            self::assertSame('Client NFS-e 101', $notification->getSubject());
+            self::assertStringContainsString('Total ', (string) $notification->getBody());
+            self::assertStringNotContainsString('{invoice_due_date}', (string) $notification->getBody());
+
+            $custom = new class ($invoice, $receipt, true, true, [
+                'subject' => 'Custom {nfse_number}', 'body' => 'Override {invoice_number}',
+            ]) extends NfseIssued {
+                protected function customerEmailTemplate(): ?array
+                {
+                    return ['subject' => 'Client default', 'body' => 'Client body'];
+                }
+            };
+            self::assertSame('Custom 101', $custom->getSubject());
+            self::assertStringContainsString('Override INV-SYNTH', (string) $custom->getBody());
+        }
+
         public function testGetSubjectReplacesPlaceholdersWhenCustomSubjectProvided(): void
         {
             $this->makeTemplate();

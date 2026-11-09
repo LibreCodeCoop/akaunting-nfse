@@ -246,13 +246,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 {!! trans('settings.email.templates.tags', ['tag_list' => implode(', ', $notification->getTags())]) !!}
                             </div>
 
-                            <div class="sm:col-span-6 flex items-center gap-3">
-                                @include('nfse::modals.invoices.partials.switch', [
-                                    'id' => 'nfse_email_save_default_toggle',
-                                    'name' => 'nfse_email_save_default',
-                                    'label' => trans('nfse::general.invoices.emit_modal_email_save_default'),
-                                ])
-                                <span class="text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</span>
+                            <div class="sm:col-span-6">
+                                <input type="hidden" name="nfse_email_save_default" value="0">
+                                <label for="nfse-email-save-mode" class="block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_save_default') }}</label>
+                                <select
+                                    id="nfse-email-save-mode"
+                                    name="nfse_email_save_mode"
+                                    v-model="form.nfse_email_save_mode"
+                                    class="mt-1 w-full rounded border border-gray-200 px-3 py-2"
+                                >
+                                    <option value="none">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_none') }}</option>
+                                    <option value="general">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_general') }}</option>
+                                    <option value="customer">{{ trans('nfse::general.invoices.emit_modal_description_save_mode_customer') }}</option>
+                                </select>
+                                <div class="mt-3">
+                                    <button type="button"
+                                        data-nfse-save-customer-email
+                                        data-nfse-save-success="{{ trans('nfse::general.invoices.emit_modal_email_save_customer_success') }}"
+                                        data-nfse-save-error="{{ trans('nfse::general.invoices.emit_modal_email_save_customer_error') }}"
+                                        data-nfse-save-customer-email-url="{{ route('nfse.invoices.email-preferences.store', $invoice) }}"
+                                        class="rounded border border-purple px-3 py-2 text-sm text-purple hover:bg-purple-50"
+                                    >
+                                        {{ trans('nfse::general.invoices.emit_modal_email_save_customer_now') }}
+                                    </button>
+                                    <p role="status" data-nfse-customer-email-save-status aria-live="polite" class="mt-2 text-xs"></p>
+                                </div>
                             </div>
 
                             <div class="sm:col-span-6 flex items-center gap-3 -mb-8">
