@@ -392,10 +392,35 @@ test('typing in email body keeps email tab content visible in emit modal', async
     } | null)?.__quill;
     return quill?.getSelection(true)?.index ?? -1;
   });
+  const caretState = () => editor.evaluate((node) => {
+    const quill = (node.closest('.ql-container') as HTMLElement & {
+      __quill?: { getSelection(focus: boolean): { index: number } | null };
+    } | null)?.__quill;
+    const selection = node.ownerDocument.getSelection();
+    const anchor = selection?.anchorNode;
+    let domIndex: number | null = null;
+    if (anchor && node.contains(anchor)) {
+      const range = node.ownerDocument.createRange();
+      range.selectNodeContents(node);
+      range.setEnd(anchor, selection?.anchorOffset ?? 0);
+      domIndex = range.toString().length;
+    }
+    const active = node.ownerDocument.activeElement;
+    return {
+      quillIndex: quill?.getSelection(false)?.index ?? null,
+      domIndex,
+      editorFocused: active === node,
+      editorContainsFocus: Boolean(active && node.contains(active)),
+      activeTag: active?.tagName || '',
+      activeClass: typeof active?.className === 'string' ? active.className.slice(0, 60) : '',
+    };
+  });
   await setCaret(7);
   await expect.poll(caret).toBe(7);
+  const beforeArrow = await caretState();
   await page.keyboard.press('ArrowLeft');
-  await expect.poll(caret).toBe(6);
+  const afterArrow = await caretState();
+  expect(afterArrow.quillIndex, 'Before/after ArrowLeft: ' + JSON.stringify({ beforeArrow, afterArrow })).toBe(6);
   await page.keyboard.press('ArrowRight');
   await expect.poll(caret).toBe(7);
   await page.keyboard.press('ArrowUp');
