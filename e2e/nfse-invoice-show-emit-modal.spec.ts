@@ -428,8 +428,8 @@ test('email body and customer-save controls have matching alignment without enab
 
   await aligned();
 
-  // Quill's default padding (15px) misaligns the first character with native
-  // fields (12px). Both composer variants must use the same text inset.
+  // Akaunting's app.css gives the editor 9px of inline padding (!important),
+  // while native inputs use 12px. Both composers need the same text inset.
   const editorInset = await editor.evaluate((node) => parseFloat(getComputedStyle(node).paddingInlineStart));
   const nativeInset = await subject.evaluate((node) => parseFloat(getComputedStyle(node).paddingInlineStart));
   expect(Math.abs(editorInset - nativeInset)).toBeLessThanOrEqual(1);

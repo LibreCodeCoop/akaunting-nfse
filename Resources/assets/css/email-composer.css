@@ -12,7 +12,8 @@
 
 #nfse-email-fields .ql-editor,
 #nfse-emit-body-editor .ql-editor {
-    padding-inline: 0.75rem;
+    /* Akaunting's app.css sets 9px inline padding with !important. */
+    padding-inline: 0.75rem !important;
     text-indent: 0;
 }
 
