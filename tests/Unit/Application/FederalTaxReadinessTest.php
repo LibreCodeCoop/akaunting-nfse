@@ -33,7 +33,8 @@ final class FederalTaxReadinessTest extends TestCase
             'disabled string' => ['off', '1', '3', []],
             'no configured federal taxes' => [true, '', '', []],
             'pis cofins only' => [true, '1', '0', ['pis', 'cofins']],
-            'cooperative provider type four has no CSLL withholding' => [true, '1', '4', ['pis', 'cofins']],
+            'payer withholding code four require individual retained tax values' => [true, '1', '4', ['retained_pis', 'retained_cofins']],
+            'payer withholding code one require individual retained tax values' => [true, '1', '1', ['retained_pis', 'retained_cofins']],
             'csll retention only' => [true, '0', '3', ['csll']],
             'pis cofins and csll' => [true, '1', '7', ['pis', 'cofins', 'csll']],
         ];
@@ -49,6 +50,32 @@ final class FederalTaxReadinessTest extends TestCase
 
         self::assertFalse($result['isReady']);
         self::assertSame(['cofins'], $result['missing']);
+    }
+
+    public function testRetainedPisCofinsRequireBothConfirmedAmounts(): void
+    {
+        $policy = new FederalTaxReadiness();
+        $required = $policy->requiredBuckets(true, '1', '4');
+
+        self::assertSame(['retained_pis', 'retained_cofins'], $required);
+        self::assertSame(
+            ['isReady' => true, 'missing' => []],
+            $policy->evaluate([
+                'pis_value' => '',
+                'cofins_value' => '',
+                'retained_pis_value' => '2.50',
+                'retained_cofins_value' => '9.00',
+            ], $required),
+        );
+        self::assertSame(
+            ['isReady' => false, 'missing' => ['retained_pis']],
+            $policy->evaluate([
+                'pis_value' => '',
+                'cofins_value' => '',
+                'retained_pis_value' => '',
+                'retained_cofins_value' => '9.00',
+            ], $required),
+        );
     }
 
     public function testNoRequiredBucketsIsReady(): void

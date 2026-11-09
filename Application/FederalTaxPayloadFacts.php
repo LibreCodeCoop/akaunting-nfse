@@ -27,7 +27,8 @@ final class FederalTaxPayloadFacts
      * @param list<FiscalTaxFact> $facts
      * @return array{
      *     pis_value:string,pis_rate:string,cofins_value:string,cofins_rate:string,
-     *     irrf_value:string,csll_value:string,social_total:string,base_value:string,row_count:int
+     *     irrf_value:string,csll_value:string,social_total:string,
+     *     retained_pis_value:string,retained_cofins_value:string,base_value:string,row_count:int
      * }
      */
     public function summarize(array $facts, string $retentionType): array
@@ -54,6 +55,8 @@ final class FederalTaxPayloadFacts
             'irrf_value' => $this->observedAmount($facts, 'irrf', FiscalTaxRole::WITHHELD_BY_PAYER, $totals['retained']['irrf']),
             'csll_value' => $social['csll'],
             'social_total' => $social['total'],
+            'retained_pis_value' => $social['pis'],
+            'retained_cofins_value' => $social['cofins'],
             'base_value' => $base,
             'row_count' => $totals['row_count'],
         ];
