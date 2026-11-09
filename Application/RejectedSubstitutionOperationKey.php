@@ -8,10 +8,12 @@ declare(strict_types=1);
 namespace Modules\Nfse\Application;
 
 /**
- * Walk only previously confirmed E1235 rejections of the SAME operation.
+ * Walk only official, definitive correctable rejections of the SAME operation.
  *
  * A rejected DPS has consumed its coordinated identity; a new user-initiated
- * substitution may use a fresh authority allocation after schema correction.
+ * substitution may use a fresh authority allocation after correcting the DPS.
+ * E1235 requires the updated official XML schema; E0713 requires a reviewed
+ * approximate-tax source for the actual company, service and competence.
  * Pending/ambiguous/authorized/technical outcomes must retain their original
  * immutable identity for read-only recovery and idempotency.
  */
@@ -38,7 +40,7 @@ final class RejectedSubstitutionOperationKey
             $seen[$current] = true;
 
             $attempt = $lastAttempt($current);
-            if (!$this->isCorrectableSchemaRejection($attempt)) {
+            if (!$this->isCorrectableGatewayRejection($attempt)) {
                 return $current;
             }
 
@@ -53,13 +55,13 @@ final class RejectedSubstitutionOperationKey
     }
 
     /** @param array<string,mixed>|null $attempt */
-    private function isCorrectableSchemaRejection(?array $attempt): bool
+    private function isCorrectableGatewayRejection(?array $attempt): bool
     {
         return is_array($attempt)
             && is_numeric($attempt['id'] ?? null)
             && (int) $attempt['id'] > 0
             && ($attempt['status'] ?? null) === 'rejected'
-            && ($attempt['official_code'] ?? null) === 'E1235'
+            && in_array($attempt['official_code'] ?? null, ['E1235', 'E0713'], true)
             && in_array((int) ($attempt['http_status'] ?? 0), [400, 422], true);
     }
 }

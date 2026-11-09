@@ -201,6 +201,10 @@ final class MunicipalEmissionHttpTransportFeatureTest extends FeatureTestCase
             valorServico: $serviceAmount,
             aliquota: '2.00',
             discriminacao: 'Synthetic fiscal service',
+            // Synthetic percentages are independent of the withholding assertions.
+            totalTributosPercentualFederal: '0.00',
+            totalTributosPercentualEstadual: '0.00',
+            totalTributosPercentualMunicipal: '0.00',
             tipoAmbiente: 2,
             serie: '00001',
             numeroDps: (string) $invoice->id,

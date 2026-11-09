@@ -103,6 +103,9 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
                 'number' => (string) $existing->number,
             ];
         } else {
+            // Keep historical reservations recoverable, but never allocate a
+            // new DPS which the gateway must reject under E0713/E0712.
+            $this->assertTaxTotalsForNewDps($draft);
             $reservation = (new DpsReservationService(
                 $this->authorizer,
                 $this->coordinator ?? $this->configuration->connect(),
@@ -152,7 +155,7 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
         );
 
         if ($origin === 'substitution' && $substitutedReceiptId !== null) {
-            // The first E1235 rejection consumed its central first-POST claim.
+            // A definitive E1235/E0713 rejection consumed its central first-POST claim.
             // Replay with the same immutable reservation is correctly blocked.
             // A deliberate new substitution uses a NEW logical key and a NEW
             // coordinator number, while unconfirmed outcomes remain pinned.
@@ -200,6 +203,7 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
             );
 
             if (!hash_equals($baseOperationKey, $operationKey)) {
+                $this->assertTaxTotalsForNewDps($draft);
                 if ($draft->substituicao === null
                     || preg_match('/^\d{50}$/D', $draft->substituicao->chaveNfseSubstituida) !== 1) {
                     throw new FiscalIssuanceBlocked(
@@ -207,7 +211,7 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
                     );
                 }
 
-                // Schema correction must be locally provable before a fresh
+                // Correction must be locally provable before a fresh
                 // irreversible fiscal allocation or any transport request.
                 $release = $environment === 2
                     ? \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\EnvironmentConfig::SCHEMA_RELEASE_RESTRICTED_20261020
@@ -233,6 +237,19 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
         }
 
         return $operationKey;
+    }
+
+    /**
+     * Require legitimate approximate-tax data before allocating a new DPS.
+     */
+    private function assertTaxTotalsForNewDps(DpsData $draft): void
+    {
+        (new DpsTaxTotalsPreflight())->assertForNewDps(
+            (int) $draft->opcaoSimplesNacional,
+            $draft->totalTributosPercentualFederal,
+            $draft->totalTributosPercentualEstadual,
+            $draft->totalTributosPercentualMunicipal,
+        );
     }
 
     /**
