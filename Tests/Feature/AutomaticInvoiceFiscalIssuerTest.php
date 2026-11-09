@@ -160,6 +160,22 @@ final class AutomaticInvoiceFiscalIssuerTest extends FeatureTestCase
         $invoice = $this->invoiceWithProfile();
         $group = (new InvoiceFiscalContextResolver())->groups($invoice)[0];
 
+        // The real serializer requires a synthetic source for the isolated
+        // ME/EPP XML scenario, not an implicit 0% or the forbidden indicator.
+        ApproximateTaxSource::query()->create([
+            'company_id' => (int) $invoice->company_id,
+            'national_service_code' => '010701',
+            'simples_option' => 3,
+            'competence_from' => '2026-01-01',
+            'source_kind' => 'documented_zero',
+            'source_name' => 'Synthetic ME/EPP XML fixture',
+            'source_version' => 'synthetic-me-epp-2026',
+            'source_reference' => 'test/explicit-me-epp-apuration',
+            'federal_percent' => '0.00',
+            'state_percent' => '0.00',
+            'municipal_percent' => '0.00',
+        ]);
+
         $client = new class () implements NfseClientInterface {
             public int $posts = 0;
             public ?DpsData $submitted = null;
