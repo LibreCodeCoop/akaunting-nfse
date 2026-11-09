@@ -375,6 +375,86 @@ test('typing in email body keeps email tab content visible in emit modal', async
   await expect(editor).toBeVisible();
 });
 
+test('email body and customer-save controls have matching alignment without enabling delivery', async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+  expect(invoiceId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await page.goto('/1/sales/invoices/' + invoiceId, { waitUntil: 'domcontentloaded' });
+  expect(await openEmitActionFromInvoiceShow(page)).toBeTruthy();
+
+  const dialog = page.locator('[role="dialog"]').last();
+  await dialog.getByRole('tab', { name: /E-mail|Email/i }).click();
+  await setVisibleSwitch(page, 'nfse_send_email_toggle', false);
+
+  const emailFields = dialog.locator('#nfse-email-fields');
+  const subject = dialog.locator('input[name="nfse_email_subject"]');
+  const bodyGroup = dialog.locator('[data-nfse-email-body-group]');
+  const editor = dialog.locator('.ql-editor').first();
+  const saveControls = dialog.locator('[data-nfse-email-save-controls]');
+  const saveMode = dialog.locator('select[name="nfse_email_save_mode"]');
+  const saveButton = dialog.locator('[data-nfse-save-customer-email]');
+  const recipients = dialog.locator('#nfse-email-recipient-fields');
+
+  await expect(emailFields).toBeVisible();
+  await expect(subject).toBeVisible();
+  await expect(bodyGroup).toBeVisible();
+  await expect(editor).toBeVisible();
+  await expect(saveMode).toBeVisible();
+  await expect(saveButton).toBeVisible();
+  await expect(recipients).toBeHidden();
+  await expect(dialog.locator('#nfse-tab-nav-attachments')).toBeHidden();
+
+  const aligned = async () => {
+    const [subjectBounds, bodyBounds, saveBounds, selectBounds, buttonBounds] = await Promise.all([
+      subject.boundingBox(), bodyGroup.boundingBox(), saveControls.boundingBox(),
+      saveMode.boundingBox(), saveButton.boundingBox(),
+    ]);
+    expect(subjectBounds).not.toBeNull();
+    expect(bodyBounds).not.toBeNull();
+    expect(saveBounds).not.toBeNull();
+    expect(selectBounds).not.toBeNull();
+    expect(buttonBounds).not.toBeNull();
+    const left = subjectBounds!.x;
+    const right = left + subjectBounds!.width;
+    for (const bounds of [bodyBounds!, saveBounds!, selectBounds!]) {
+      expect(Math.abs(bounds.x - left)).toBeLessThanOrEqual(2);
+      expect(Math.abs(bounds.x + bounds.width - right)).toBeLessThanOrEqual(2);
+    }
+    expect(Math.abs(buttonBounds!.x - left)).toBeLessThanOrEqual(2);
+  };
+
+  await aligned();
+
+  // Quill's default padding (15px) misaligns the first character with native
+  // fields (12px). Both composer variants must use the same text inset.
+  const editorInset = await editor.evaluate((node) => parseFloat(getComputedStyle(node).paddingInlineStart));
+  const nativeInset = await subject.evaluate((node) => parseFloat(getComputedStyle(node).paddingInlineStart));
+  expect(Math.abs(editorInset - nativeInset)).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await aligned();
+  const hasHorizontalOverflow = await emailFields.evaluate((node) => node.scrollWidth > node.clientWidth + 2);
+  expect(hasHorizontalOverflow).toBeFalsy();
+
+  // The model can be saved independently of the fiscal submit operation.
+  let saves = 0;
+  await page.route('**/nfse/invoices/*/email-preferences', async (route) => {
+    if (route.request().method() === 'POST') {
+      saves += 1;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, scope: 'customer' }) });
+      return;
+    }
+    await route.continue();
+  });
+  await saveButton.click();
+  await expect(dialog.locator('[data-nfse-customer-email-save-status]')).toContainText(/saved|salvo/i);
+  expect(saves).toBe(1);
+  await expect(page.locator('#nfse_send_email_toggle')).not.toBeChecked();
+});
+
 test('restore default button reacts to subject and body edits in emit modal', async ({ page }, testInfo) => {
   test.setTimeout(180_000);
 

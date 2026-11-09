@@ -352,7 +352,9 @@ sobre o padrão geral nas próximas faturas daquele contato e aceita as tags
 disponibilizadas no formulário, como {nfse_number}, {invoice_amount_due}
 e {invoice_due_date}. A opção **Salvar modelo para este cliente sem emitir**
 grava exclusivamente a preferência de mensagem: não transmite DPS, envia
-e-mail, altera fatura ou muda o modelo global. Para anexos, a seleção continua
+e-mail, altera fatura ou muda o modelo global. Assunto, corpo e botão de salvar
+permanecem acessíveis mesmo com o envio de e-mail desativado; os destinatários
+só aparecem quando o envio está habilitado. Para anexos, a seleção continua
 sendo conferida no envio; o modelo não anexa automaticamente arquivos externos,
 como relatórios de horas, que precisam ser selecionados manualmente.
 
