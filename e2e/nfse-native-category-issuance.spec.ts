@@ -22,8 +22,10 @@ test('category issuance configuration lives in the native Akaunting form', async
 
   // Select Income using the native category type selector.
   await page.locator('#form-select-type .el-input').click();
-  await page.locator('.el-select-dropdown:visible .el-select-dropdown__item')
-    .filter({ hasText: /^(Income|Receita)$/i }).first().click();
+  const incomeOption = page.locator('li.el-select-dropdown__item')
+    .filter({ hasText: /\b(Income|Receita)\b/i }).last();
+  await expect(incomeOption).toBeVisible();
+  await incomeOption.click();
   await expect(page.locator('form#category [data-nfse-native-category-policy="true"]'))
     .toBeVisible();
   await testInfo.attach('native-category-form.png', {
