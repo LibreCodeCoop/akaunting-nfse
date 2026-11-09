@@ -150,6 +150,31 @@ try {
         'tipo_retencao_iss' => '2',
     ])])->save();
 
+    // The disposable HTTP issuance scenario needs a *synthetic* documented
+    // source for the mandatory non-Simples totTrib branch. Production never
+    // receives this fixture and must not infer percentages or zero values.
+    $fixtureStage = 'provision-synthetic-approximate-tax-disclosure';
+    DB::table('nfse_approximate_tax_sources')->updateOrInsert(
+        [
+            'company_id' => 1,
+            'national_service_code' => (string) ($fiscal['codigo_tributacao_nacional'] ?? '010701'),
+            'simples_option' => 1,
+            'competence_from' => '2026-09-01',
+            'source_version' => 'behat-synthetic-v1',
+        ],
+        [
+            'competence_until' => '2026-09-30',
+            'source_kind' => 'documented_zero',
+            'source_name' => 'Disposable Behat synthetic tax disclosure',
+            'source_reference' => 'NFSE_TEST_HARNESS=1; fictitious values, not fiscal evidence',
+            'federal_percent' => '0.00',
+            'state_percent' => '0.00',
+            'municipal_percent' => '0.00',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+    );
+
     $readiness = (new NfseCompanyFiscalReadiness())->evaluate($profile->fresh()->publicData());
     if (!$readiness['basic_complete']) {
         throw new RuntimeException('Synthetic fiscal profile must be ready before HTTP issuance.');
