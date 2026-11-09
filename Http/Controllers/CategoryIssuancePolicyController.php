@@ -14,14 +14,11 @@ use Modules\Nfse\Application\CategoryIssuancePolicy;
 
 final class CategoryIssuancePolicyController extends Controller
 {
-    public function index(CategoryIssuancePolicy $policies): \Illuminate\View\View
+    public function index(): RedirectResponse
     {
-        $companyId = (int) company_id();
-        abort_unless($companyId > 0, 403);
+        abort_unless((int) company_id() > 0, 403);
 
-        return view('nfse::settings.category-issuance', [
-            'categories' => $policies->categories($companyId),
-        ]);
+        return redirect()->route('categories.index');
     }
 
     public function show(CategoryIssuancePolicy $policies): JsonResponse

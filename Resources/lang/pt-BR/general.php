@@ -5,8 +5,13 @@
 
 return [
     'category_issuance' => [
+        'native_title' => 'Emissão de NFS-e',
+        'native_help' => 'Autorize a emissão para esta categoria de receita. Sem autorização explícita, não haverá pendência de NFS-e. Isso não significa isenção tributária.',
+        'native_justification_hint' => 'Ao alterar a autorização, informe uma justificativa de 12 a 4.000 caracteres. Sem alteração, não é necessário preencher. A configuração é salva junto com a categoria.',
+        'native_history' => 'Histórico de autorizações',
+
         'title' => 'Emissão de NFS-e por categoria',
-         'settings_link' => 'Autorizar categorias para emissão de NFS-e',
+         'settings_link' => 'Configure a emissão de NFS-e em Configurações → Categorias',
         'back' => 'Voltar às configurações fiscais',
          'help' => 'Somente categorias de receita habilitadas explicitamente podem emitir NFS-e. Categorias sem autorização não geram pendência fiscal nem exibem ações de emissão; isso não comprova isenção tributária. Decisões individuais continuam auditáveis.',
          'prospective_only' => 'A autorização é aplicada à categoria de todas as faturas, inclusive antigas, sem alterar pagamentos, notas já emitidas ou decisões históricas.',

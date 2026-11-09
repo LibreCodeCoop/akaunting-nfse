@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 @can('read-nfse-settings')
                     <p class="mt-2 text-sm"><a class="underline" href="{{ route('nfse.settings.tax-associations.index') }}">Revisar associações fiscais dos impostos existentes</a></p>
                     <p class="mt-2 text-sm">
-                        <a class="underline font-medium" href="{{ route('nfse.settings.category-issuance.index') }}">
+                        <a class="underline font-medium" href="{{ route('categories.index') }}">
                             {{ trans('nfse::general.category_issuance.settings_link') }}
                         </a>
                     </p>

@@ -20,28 +20,40 @@ Fiscal decisions are separate from the Akaunting invoice, payments, fiscal recei
 - The same JSON contract is available through authenticated Web and native API: GET/POST nfse/invoices/{invoice}/fiscal-decision. Web forms redirect; JSON clients receive a created event or explicit validation error.
 - Native nfse_status search supports do_not_issue and not_applicable before pagination. The commercial review section reports these decisions independently; authorized fiscal XML totals and the fiscal closing CSV are unchanged.
 
-## Category defaults and individual exceptions
+## Authorize NFS-e on the native category form
 
-The module settings include a dedicated **Issuance by category** screen. An administrator with `update-nfse-settings` can set each company-owned income category to **Issue NFS-e** or **Do not issue automatically**, with a mandatory justification. Category settings are append-only with an actor, timestamp and prior versions. A missing setting preserves the prior issuance workflow. They never imply a legal non-applicability determination.
+Create or edit an income category under **Akaunting > Settings > Categories**.
+Within the same category form, the NFS-e module adds the **NFS-e issuance**
+section. An operator with `update-nfse-settings` may explicitly authorize
+`issue` or prohibit `do_not_issue` for that category and provide a
+justification (12-4000 characters) when changing the authorization. Saving the
+native category form also saves the fiscal policy **within the same database
+transaction**. A failure in the fiscal policy write rolls back the category
+save. If authorization has not changed, no new audit event is written.
 
-A category policy becomes effective **only for commercial invoices created after the policy was saved**, whose issued date is not earlier than the policy date. Existing and historically imported invoices are not retroactively reclassified; manual invoice decisions remain possible. The current invoice category is used for lookup, so changing a category on an existing invoice warrants individual fiscal review.
+An unconfigured category is **not authorized**, and no NFS-e should be inferred
+from its financial records. Existing company-scoped policies and their history
+are preserved. Read-only access displays the current authorization without
+allowing it to be changed. To edit fiscal settings, both the native category
+authorization and `update-nfse-settings` are required; users lacking fiscal
+write permission can still edit unrelated native category fields.
 
-An explicit invoice decision takes precedence over the category setting: `issue` permits an issuance exception, `do_not_issue` suppresses it, `not_applicable` requires documentary evidence, and `reversed` restores the category default. These are separate from authorization, cancellation, substitution and partial issuance states. The UI presents mutually exclusive **Issue NFS-e** and **Record a non-issuance decision** paths, with technical details and history collapsed.
+An enabled income category must have a current company-scoped `issue` rule
+to permit **new** NFS-e issuance. A non-income, disabled, unconfigured or
+`do_not_issue` category stays outside that scope. Parent categories do not
+implicitly authorize children. None of these settings establishes a tax
+exemption. Existing linked NFS-e receipts stay visible and unchanged.
 
-The module exposes company-scoped category configuration through authenticated web and API GET/POST endpoints under `/nfse/settings/category-issuance`. Read requires `read-nfse-settings`; updates require `update-nfse-settings`. Any issuance guard checks the effective decision, including the final pre-transmission DPS check. A category rule cannot delete or hide a valid linked fiscal receipt.
+The NFS-e settings page points to the native category list; the former
+`GET /nfse/settings/category-issuance` redirects there for bookmarks. The
+existing authenticated web POST and versioned API GET/POST policy contracts
+remain available to integration clients. Fiscal reads require
+`read-nfse-settings`; changes require `update-nfse-settings`.
 
-An operator decision is not a fiscal/legal determination, does not establish a tax deadline, and does not authorize external issuance. No historical invoices are automatically recategorized or classified.
-
-
-## Explicit NFS-e issuance scope by category
-
-The NFS-e settings page **Emissão por categoria** is now the fiscal issuance
-**allowlist**. An enabled category of type `income` must have a current
-company-scoped `issue` entry in the append-only category policy history to
-permit any **new** NFS-e issuance. An unconfigured, disabled, expense, transfer,
-or `do_not_issue` category is outside the issuance flow. Parent categories do
-not implicitly authorize descendants. This does not assert tax exemption or
-that a particular commercial operation never requires a tax document.
+An individual invoice decision does not grant a category exemption or bypass
+its issuance allowlist. Reversals, partial issuance, cancellation and
+substitution retain separate audit and recovery rules. No history or financial
+documents are rewritten while changing a category policy.
 
 Eligibility applies to existing and future invoices on **read** and immediately
 before the first irreversible DPS POST (manual, queue, API, grouped and bulk).
@@ -54,13 +66,10 @@ for reconciliation, artifact access and cancellation even if the category has
 since been disallowed; a new substitution or reissue still needs a currently
 authorized category. Recovery of an already submitted DPS is not a first POST.
 
-Configure categories per company and record the business rationale and
-authorized operator. The latest category policy determines the current
-eligibility, but historical decisions and the original prospective category
-defaults are retained for audit. An individual `issue` exception does not
-override the category allowlist. To re-enable a category, authorize that
-specific category before requesting issuance. Never infer a legal
-`not_applicable` decision solely from the category name.
+The latest category policy determines current issuance eligibility; invoice
+decisions preserve their original fiscal snapshots. Re-enabling a category
+requires an explicit authorization. A category name never proves legal
+`not_applicable` status.
 
 Operational classification of legacy invoices should use aggregate evidence:
 verify each excluded category is non-service, inspect existing receipts and
