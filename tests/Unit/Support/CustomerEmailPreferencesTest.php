@@ -17,7 +17,9 @@ final class CustomerEmailPreferencesTest extends TestCase
     {
         $values = [];
         $preferences = new CustomerEmailPreferences(
-            static function (string $key) use (&$values): mixed { return $values[$key] ?? null; },
+            static function (string $key) use (&$values): mixed {
+                return $values[$key] ?? null;
+            },
             static function (array $updated) use (&$values): void {
                 $values = array_replace($values, $updated);
             },
@@ -57,7 +59,8 @@ final class CustomerEmailPreferencesTest extends TestCase
     {
         $preferences = new CustomerEmailPreferences(
             static fn (string $key): mixed => null,
-            static function (array $values): void {},
+            static function (array $values): void {
+            },
         );
 
         $saved = $preferences->save(
@@ -81,7 +84,8 @@ final class CustomerEmailPreferencesTest extends TestCase
     {
         $preferences = new CustomerEmailPreferences(
             static fn (string $key): mixed => null,
-            static function (array $values): void {},
+            static function (array $values): void {
+            },
         );
         $this->expectException(InvalidArgumentException::class);
         $preferences->save(10, 21, 10, 'Subject', '<p><br></p>');
