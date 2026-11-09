@@ -194,6 +194,10 @@ final class IndependentFinancialOracleTest extends TestCase
             federalPiscofinsTipoRetencao: $type,
             federalPiscofinsBaseCalculo: '10000.00',
             federalValorCsll: $result['total'],
+            // Synthetic disclosure values for isolated XML contract tests.
+            totalTributosPercentualFederal: '0.00',
+            totalTributosPercentualEstadual: '0.00',
+            totalTributosPercentualMunicipal: '0.00',
         );
 
         $xml = (new XmlBuilder())->buildDps($dps);

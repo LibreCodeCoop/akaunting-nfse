@@ -120,6 +120,10 @@ final class NfsePhpCurrentIssuanceContractTest extends TestCase
             discriminacao: 'Testes de contrato NFS-e vigente',
             codigoTributacaoNacional: '010701',
             tipoAmbiente: 2,
+            // Synthetic disclosure values for isolated XML contract tests.
+            totalTributosPercentualFederal: '0.00',
+            totalTributosPercentualEstadual: '0.00',
+            totalTributosPercentualMunicipal: '0.00',
         );
     }
 }

@@ -44,6 +44,10 @@ final class ScopedSchemaReleaseTest extends TestCase
             aliquota: '2.00',
             discriminacao: 'Teste sintetico',
             codigoTributacaoMunicipal: '001',
+            // Synthetic disclosure values for isolated XML contract tests.
+            totalTributosPercentualFederal: '0.00',
+            totalTributosPercentualEstadual: '0.00',
+            totalTributosPercentualMunicipal: '0.00',
         );
 
         $restricted = (new XmlBuilder())->buildDps(

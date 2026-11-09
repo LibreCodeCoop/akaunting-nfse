@@ -2024,10 +2024,13 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertStringNotContainsString('<cMun>3303302</cMun>', $normalizedXml);
         }
 
-        public function testRuntimeXmlBuilderKeepsTribFedAndTotTribWhenFederalPayloadIsOtherwiseEmpty(): void
+        public function testRuntimeXmlBuilderRejectsIndTotTribForNonSimplesWithoutEvidence(): void
         {
             $builder = new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder();
-            $xml = $builder->buildDps(new DpsData(
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('E0713');
+
+            $builder->buildDps(new DpsData(
                 cnpjPrestador: '12345678000195',
                 municipioIbge: '3303302',
                 itemListaServico: '007',
@@ -2040,13 +2043,6 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
                 nomeTomador: 'Cliente de Teste',
                 opcaoSimplesNacional: 1,
             ));
-
-            $normalizedXml = str_replace(["\n", '  '], '', $xml);
-
-            self::assertStringContainsString('<tribFed/><totTrib>', $normalizedXml);
-            self::assertStringContainsString('<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><tribFed/><totTrib><indTotTrib>0</indTotTrib></totTrib></trib>', $normalizedXml);
-            self::assertStringNotContainsString('<pTotTribFed>0.00</pTotTribFed>', $normalizedXml);
-            self::assertStringNotContainsString('<pTotTribMun>0.00</pTotTribMun>', $normalizedXml);
         }
 
         public function testControllerUnitFixtureDoesNotInventRetentionType(): void
@@ -5383,8 +5379,16 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(0, $client->capturedDps?->regimeEspecialTributacao);
             self::assertSame(3, $client->capturedDps?->opcaoSimplesNacional);
             self::assertSame(1, $client->capturedDps?->regimeApuracaoSimplesNacional);
-            $serialized = (new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder())->buildDps($client->capturedDps);
-            self::assertStringContainsString('<regApTribSN>1</regApTribSN>', $serialized);
+            // The fake transport deliberately bypasses the real fiscal preflight.
+            // Serializing this unaudited ME/EPP draft must fail E0712 instead
+            // of manufacturing approximate-tax percentages in the test.
+            try {
+                (new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder())
+                    ->buildDps($client->capturedDps);
+                self::fail('ME/EPP without approximate-tax evidence must not serialize.');
+            } catch (\InvalidArgumentException $error) {
+                self::assertStringContainsString('E0712', $error->getMessage());
+            }
             self::assertSame('21987654321', $client->capturedDps?->prestadorTelefone);
             self::assertSame('issuer-reemit@example.invalid', $client->capturedDps?->prestadorEmail);
             self::assertSame('4', $client->capturedDps?->federalPiscofinsTipoRetencao);
