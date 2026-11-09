@@ -11,6 +11,7 @@ use App\Http\Requests\Common\Contact as CoreContactRequest;
 use App\Http\Requests\Common\Item as CoreItemRequest;
 use App\Models\Common\Contact;
 use App\Models\Common\Item;
+use App\Models\Setting\Category;
 use App\Models\Document\Document as Invoice;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
@@ -29,6 +30,7 @@ use Modules\Nfse\Http\Requests\ValidatedFiscalContact;
 use Modules\Nfse\Http\Requests\ValidatedFiscalItem;
 use Modules\Nfse\Listeners\PersistContactFiscalProfile;
 use Modules\Nfse\Listeners\PersistItemFiscalProfile;
+use Modules\Nfse\Listeners\PersistNativeCategoryIssuance;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Models\NfseReceiptPayload;
@@ -69,6 +71,8 @@ class Main extends Provider
         $this->registerItemFiscalFieldInjection();
         $this->registerItemFiscalPersistence();
         $this->registerContactFiscalPersistence();
+        $this->registerNativeCategoryFiscalPersistence();
+        $this->registerNativeCategoryFiscalFieldInjection();
         $this->registerContactFiscalFieldInjection();
         $this->registerItemFiscalListValidation();
         $this->syncEmailTemplates();
@@ -98,6 +102,7 @@ class Main extends Provider
         });
         $this->app->scoped(PersistItemFiscalProfile::class, PersistItemFiscalProfile::class);
         $this->app->scoped(PersistContactFiscalProfile::class, PersistContactFiscalProfile::class);
+        $this->app->scoped(PersistNativeCategoryIssuance::class, PersistNativeCategoryIssuance::class);
         $this->registerFiscalClientComposition();
         $this->loadRoutes();
 
@@ -686,6 +691,34 @@ class Main extends Provider
             /** @var PersistItemFiscalProfile $listener */
             $listener = app(PersistItemFiscalProfile::class);
             $listener->afterSave($item);
+        });
+    }
+
+    protected function registerNativeCategoryFiscalPersistence(): void
+    {
+        Category::saved(static function (Category $category): void {
+            app(PersistNativeCategoryIssuance::class)->saved($category);
+        });
+    }
+
+    protected function registerNativeCategoryFiscalFieldInjection(): void
+    {
+        $this->app->make('view')->composer(['settings.categories.create', 'settings.categories.edit'], static function ($view): void {
+            $category = $view->getData()['category'] ?? null;
+            $companyId = function_exists('company_id') ? (int) company_id() : 0;
+            $policy = null;
+            $history = [];
+
+            if ($category instanceof Category && $companyId > 0
+                && (int) $category->company_id === $companyId
+                && auth()->user()?->can('read-nfse-settings')) {
+                $policies = new \Modules\Nfse\Application\CategoryIssuancePolicy();
+                $policy = $policies->latest($companyId, (int) $category->id);
+                $history = $policies->history($companyId, (int) $category->id);
+            }
+
+            $view->with('nfseCategoryIssuancePolicy', $policy);
+            $view->with('nfseCategoryIssuanceHistory', $history);
         });
     }
 
