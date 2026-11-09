@@ -11,7 +11,6 @@ use App\Http\Requests\Common\Contact as CoreContactRequest;
 use App\Http\Requests\Common\Item as CoreItemRequest;
 use App\Models\Common\Contact;
 use App\Models\Common\Item;
-use App\Models\Setting\Category;
 use App\Models\Document\Document as Invoice;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider as Provider;
@@ -696,9 +695,12 @@ class Main extends Provider
 
     protected function registerNativeCategoryFiscalPersistence(): void
     {
-        Category::saved(static function (Category $category): void {
-            app(PersistNativeCategoryIssuance::class)->saved($category);
-        });
+        $this->app->make('events')->listen(
+            'eloquent.saved: App\\Models\\Setting\\Category',
+            static function (object $category): void {
+                app(PersistNativeCategoryIssuance::class)->saved($category);
+            },
+        );
     }
 
     protected function registerNativeCategoryFiscalFieldInjection(): void
@@ -709,7 +711,8 @@ class Main extends Provider
             $policy = null;
             $history = [];
 
-            if ($category instanceof Category && $companyId > 0
+            if (is_object($category) && get_class($category) === 'App\\Models\\Setting\\Category'
+                && $companyId > 0
                 && (int) $category->company_id === $companyId
                 && auth()->user()?->can('read-nfse-settings')) {
                 $policies = new \Modules\Nfse\Application\CategoryIssuancePolicy();

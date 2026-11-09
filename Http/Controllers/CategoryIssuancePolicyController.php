@@ -14,9 +14,14 @@ use Modules\Nfse\Application\CategoryIssuancePolicy;
 
 final class CategoryIssuancePolicyController extends Controller
 {
-    public function index(): RedirectResponse
+    public function index(Request $request, CategoryIssuancePolicy $policies): JsonResponse|RedirectResponse
     {
-        abort_unless((int) company_id() > 0, 403);
+        $companyId = (int) company_id();
+        abort_unless($companyId > 0, 403);
+
+        if ($request->expectsJson()) {
+            return response()->json(['data' => $policies->categories($companyId)]);
+        }
 
         return redirect()->route('categories.index');
     }

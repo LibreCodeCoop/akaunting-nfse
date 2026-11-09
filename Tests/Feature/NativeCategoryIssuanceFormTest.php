@@ -146,7 +146,7 @@ final class NativeCategoryIssuanceFormTest extends FeatureTestCase
             'code' => $foreign->code, 'color' => $foreign->color,
             'nfse_category_issuance_mode' => 'issue',
             'nfse_category_issuance_justification' => 'Synthetic attempt to change another company category.',
-        ])->assertOk()->assertJsonPath('success', false);
+        ])->assertNotFound();
 
         self::assertSame(0, DB::table('nfse_category_issuance_policies')
             ->where('category_id', $foreign->id)->count());

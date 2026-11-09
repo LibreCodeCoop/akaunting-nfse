@@ -45,9 +45,10 @@ implicitly authorize children. None of these settings establishes a tax
 exemption. Existing linked NFS-e receipts stay visible and unchanged.
 
 The NFS-e settings page points to the native category list; the former
-`GET /nfse/settings/category-issuance` redirects there for bookmarks. The
-existing authenticated web POST and versioned API GET/POST policy contracts
-remain available to integration clients. Fiscal reads require
+`GET /nfse/settings/category-issuance` redirects HTML browsers there for
+bookmarks, while JSON requests retain their previous company-scoped response.
+The authenticated web POST and API GET/POST policy contracts remain available
+to integration clients. Fiscal reads require
 `read-nfse-settings`; changes require `update-nfse-settings`.
 
 An individual invoice decision does not grant a category exemption or bypass

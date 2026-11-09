@@ -10,6 +10,7 @@ namespace Modules\Nfse\Listeners;
 use App\Models\Setting\Category;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Nfse\Application\CategoryIssuancePolicy;
 
@@ -128,6 +129,18 @@ final class PersistNativeCategoryIssuance
             || mb_strlen(trim($justification)) > 4000) {
             throw ValidationException::withMessages([
                 'nfse_category_issuance_justification' => 'A justification of 12 to 4000 characters is required when changing fiscal authorization.',
+            ]);
+        }
+
+        // The native CreateCategory job uses firstOrCreate by company and
+        // code. Do not silently report success for a request that resolves
+        // to an existing category without firing an Eloquent saved event.
+        if ($categoryId === 0 && is_string($input->input('code'))
+            && DB::table('categories')->where('company_id', $companyId)
+                ->where('code', (string) $input->input('code'))
+                ->whereNull('deleted_at')->exists()) {
+            throw ValidationException::withMessages([
+                'nfse_category_issuance_mode' => 'This category code already exists. Open its edit screen to change fiscal authorization.',
             ]);
         }
 
