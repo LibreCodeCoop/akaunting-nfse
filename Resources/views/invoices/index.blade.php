@@ -1204,6 +1204,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         return;
                     }
 
+                    // Navigation never changes the editor's HTML. A pending focus
+                    // restoration must not put the cursor back at its old offset
+                    // after an arrow or Home/End key moved it natively.
+                    const navigationKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
+                    const modifiesText = (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey)
+                        || ['Backspace', 'Delete', 'Enter'].includes(event.key)
+                        || ((event.ctrlKey || event.metaKey) && ['z', 'y', 'v', 'x'].includes(event.key.toLowerCase()));
+
+                    if (navigationKeys.includes(event.key) || !modifiesText) {
+                        nfseEmitEditorState.isTyping = false;
+                        nfseEmitEditorState.selection = null;
+                        if (nfseEmitEditorState.typingTimeoutId) {
+                            window.clearTimeout(nfseEmitEditorState.typingTimeoutId);
+                            nfseEmitEditorState.typingTimeoutId = null;
+                        }
+                        return;
+                    }
+
                     const { quill } = getEmitEmailEditorContext();
 
                     if (quill && typeof quill.getSelection === 'function') {
