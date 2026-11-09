@@ -119,6 +119,7 @@ jobs:
             akaunting/public/js/common/dashboards.min.js
             akaunting/public/js/common/documents.min.js
             akaunting/public/js/common/items.min.js
+            akaunting/public/js/settings/categories.min.js
             akaunting/public/css/app.css
           key: akaunting-browser-assets-${{ runner.os }}-${{ hashFiles('akaunting/package-lock.json', 'akaunting/webpack.mix.js', 'akaunting/resources/assets/**') }}
 

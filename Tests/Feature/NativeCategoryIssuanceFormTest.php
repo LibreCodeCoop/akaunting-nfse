@@ -180,7 +180,7 @@ final class NativeCategoryIssuanceFormTest extends FeatureTestCase
     {
         $this->loginAs();
         $companyId = (int) company_id();
-        Category::factory()->create([
+        $existing = Category::factory()->create([
             'company_id' => $companyId,
             'type' => 'income',
             'enabled' => true,
@@ -204,8 +204,11 @@ final class NativeCategoryIssuanceFormTest extends FeatureTestCase
 
         self::assertSame('issue', (new CategoryIssuancePolicy())
             ->latest($companyId, (int) $category->id)['mode']);
-        self::assertSame(2, Category::query()->where('company_id', $companyId)
-            ->where('code', '')->count());
+        self::assertNotSame((int) $existing->id, (int) $category->id);
+        self::assertTrue(Category::query()->where('company_id', $companyId)
+            ->whereKey($existing->id)->exists());
+        self::assertTrue(Category::query()->where('company_id', $companyId)
+            ->whereKey($category->id)->exists());
     }
 
     public function testNativeCategorySaveWithoutFiscalInputLeavesHistoryUnchanged(): void

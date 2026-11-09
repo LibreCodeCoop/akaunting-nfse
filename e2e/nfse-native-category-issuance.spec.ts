@@ -10,7 +10,12 @@ test('category issuance configuration lives in the native Akaunting form', async
   await page.goto('/1/nfse/settings/category-issuance', { waitUntil: 'domcontentloaded' });
   await expect(page).toHaveURL(/\/1\/settings\/categories(?:\?.*)?$/);
 
+  // In the disposable fixture the hosted Akaunting plan API is unavailable.
+  // The native plan-limit middleware exempts AJAX GETs from redirects to
+  // /auth/users. This still renders and tests the real category create view.
+  await page.setExtraHTTPHeaders({ 'X-Requested-With': 'XMLHttpRequest' });
   await page.goto('/1/settings/categories/create', { waitUntil: 'domcontentloaded' });
+  await page.setExtraHTTPHeaders({});
   await expect(page.locator('form#category')).toBeVisible();
   await expect(page.locator('form[action*="/nfse/settings/category-issuance"]')).toHaveCount(0);
   await expect(page.locator('form#category')).toHaveCount(1);

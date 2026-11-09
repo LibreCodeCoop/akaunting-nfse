@@ -202,6 +202,19 @@ test('bulk UI profile validates only two required synthetic invoice IDs', t => {
   assert.equal(fs.readFileSync(envFile, 'utf8'), '');
 });
 
+test('category editor JavaScript is included in required synthetic browser assets', () => {
+  const categoryAsset = 'public/js/settings/categories.min.js';
+  const core = '/synthetic/akaunting';
+  const available = new Set(requiredAssets.filter(asset => asset !== categoryAsset));
+  assert.ok(requiredAssets.includes(categoryAsset));
+  assert.deepEqual(missingBrowserAssets(core, candidate =>
+    available.has(path.relative(core, candidate))), [categoryAsset]);
+  for (const name of ['playwright-full-ui.yml', 'playwright-smoke.yml', 'playwright-bulk-ui.yml']) {
+    const file = path.resolve(import.meta.dirname, '../.github/workflows', name);
+    assert.match(fs.readFileSync(file, 'utf8'), /akaunting\/public\/js\/settings\/categories\.min\.js/);
+  }
+});
+
 test('assets are built under Node 20 only when needed and always checked afterward', () => {
   const core = '/fake/akaunting';
   const existing = new Set(requiredAssets.map(asset => path.join(core, asset)));
