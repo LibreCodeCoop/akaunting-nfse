@@ -18,6 +18,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
+use Modules\Nfse\Application\CategoryIssuancePolicy;
 use Modules\Nfse\Application\EmissionAttemptJournal;
 use Modules\Nfse\Application\FederalTaxReadiness;
 use Modules\Nfse\Application\FiscalDescriptionComposer;
@@ -496,6 +497,13 @@ class InvoiceController extends Controller
     {
         $request = $this->currentRequest($request);
         $this->requireReadableInvoice($invoice);
+        $httpRequest = function_exists('request') ? request() : null;
+        if ($httpRequest instanceof Request && method_exists($httpRequest, 'route')
+            && $httpRequest->route() !== null
+            && !(new CategoryIssuancePolicy())->canIssue($invoice)) {
+            return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
+                ->with('error', trans('nfse::general.category_issuance.issuance_not_authorized')));
+        }
         if ($this->hasActiveFiscalDecision($invoice)) {
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoice_decision.issuance_blocked')));
@@ -3617,6 +3625,10 @@ class InvoiceController extends Controller
             ->with(['contact'])
             ->whereHas('contact', static fn ($contactQuery) => $contactQuery->where('type', Contact::CUSTOMER_TYPE))
             ->whereHas('items')
+            ->whereRaw((new CategoryIssuancePolicy())->authorizedInvoiceSql())
+            ->whereRaw("COALESCE((SELECT d.decision FROM nfse_invoice_decisions d"
+                . " WHERE d.invoice_id = documents.id AND d.company_id = documents.company_id"
+                . " ORDER BY d.id DESC LIMIT 1), '') NOT IN ('do_not_issue', 'not_applicable')")
             ->whereNotExists(static function ($subQuery) use ($receiptTable): void {
                 $subQuery->selectRaw('1')
                     ->from($receiptTable)

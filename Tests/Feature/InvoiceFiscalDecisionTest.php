@@ -8,6 +8,8 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
+use App\Models\Setting\Category;
+use Modules\Nfse\Application\CategoryIssuancePolicy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Modules\Nfse\Application\InvoiceFiscalDecision;
@@ -143,7 +145,14 @@ final class InvoiceFiscalDecisionTest extends FeatureTestCase
     public function testNativeInvoiceRendersDecisionFormAndReviewSeparately(): void
     {
         $this->loginAs();
-        $invoice = Document::factory()->invoice()->create(['company_id' => company_id()]);
+        $category = Category::factory()->create([
+            'company_id' => company_id(), 'type' => 'income', 'enabled' => true,
+        ]);
+        (new CategoryIssuancePolicy())->record((int) company_id(), (int) $category->id,
+            (int) auth()->id(), 'issue', 'Synthetic approved service income category.');
+        $invoice = Document::factory()->invoice()->create([
+            'company_id' => company_id(), 'category_id' => $category->id,
+        ]);
         $this->get(route('invoices.show', $invoice->id))
             ->assertOk()->assertSee('data-nfse-decision-form="true"', false);
     }

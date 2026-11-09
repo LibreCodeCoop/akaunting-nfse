@@ -19,6 +19,14 @@ use Tests\Feature\FeatureTestCase;
 
 final class EmitNfseBeforeDocumentSendCompanyTest extends FeatureTestCase
 {
+    use \Modules\Nfse\Tests\Support\AuthorizesSyntheticInvoiceCategories;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->authorizeSyntheticInvoiceCategories();
+    }
+
     public function testNoFiscalProfileDoesNotUseLegacyEmitOnSendPolicy(): void
     {
         $this->loginAs();

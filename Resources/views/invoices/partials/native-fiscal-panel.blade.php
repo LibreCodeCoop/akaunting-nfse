@@ -510,6 +510,7 @@
                                     </p>
                                     @if($linkedStatus === 'emitted')
                                         <div class="mt-3 space-y-2">
+                                            @if($fiscalIssuanceAllowed ?? false)
                                             <details class="group w-full overflow-hidden rounded-md border border-gray-200" data-nfse-native-substitute="true">
                                                 <summary class="flex list-none cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
                                                     <span>{{ trans('nfse::general.invoices.substitute_receipt', ['number' => $linkedReceipt->nfse_number ?: '—']) }}</span>
@@ -559,6 +560,7 @@
                                                 </form>
                                             </details>
 
+                                            @endif
                                             <details class="group w-full overflow-hidden rounded-md border border-red-200" data-nfse-native-cancel="true">
                                                 <summary class="flex list-none cursor-pointer items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500">
                                                     <span>{{ trans('nfse::general.invoices.cancel_receipt', ['number' => $linkedReceipt->nfse_number ?: '—']) }}</span>
@@ -623,7 +625,7 @@
                                         </div>
                                     @endif
                                 </section>
-                            @elseif($linkedStatus === 'cancelled' && !$hasActiveFiscalDecision)
+                            @elseif($linkedStatus === 'cancelled' && !$hasActiveFiscalDecision && ($fiscalIssuanceAllowed ?? false))
                                 <div class="mt-3 border-t border-gray-200 pt-3" data-nfse-receipt-actions="{{ $linkedReceipt->id }}">
                                     <button
                                         type="button"

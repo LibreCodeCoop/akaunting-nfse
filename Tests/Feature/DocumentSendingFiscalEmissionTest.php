@@ -22,6 +22,14 @@ use Tests\Feature\FeatureTestCase;
 
 final class DocumentSendingFiscalEmissionTest extends FeatureTestCase
 {
+    use \Modules\Nfse\Tests\Support\AuthorizesSyntheticInvoiceCategories;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->authorizeSyntheticInvoiceCategories();
+    }
+
     public function testManualPolicyLeavesNativeSendLifecycleUntouched(): void
     {
         setting()->set(['nfse.emission_policy' => 'manual']);

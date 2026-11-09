@@ -74,6 +74,7 @@
                 if (c === 'invoice_number') return r[c] || ('#' + r.invoice_id);
                 if (c === 'status_label') return ({
                     not_linked: 'Sem NFS-e vinculada no módulo',
+                    outside_issuance_scope: 'Fora das categorias autorizadas para NFS-e',
                     do_not_issue: 'Não emitir NFS-e (decisão operacional)',
                     not_applicable: 'Não aplicável (com evidência declarada)',
                     do_not_issue: 'Não emitir NFS-e (decisão operacional)',

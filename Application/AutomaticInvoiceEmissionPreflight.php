@@ -47,6 +47,10 @@ final class AutomaticInvoiceEmissionPreflight
             return $this->blocked('invalid_invoice');
         }
 
+        if (!(new CategoryIssuancePolicy())->canIssue($invoice)) {
+            return $this->blocked('category_not_authorized');
+        }
+
         $currentDecision = (new InvoiceFiscalDecision())->effective($invoice);
         if (in_array($currentDecision['decision'] ?? '', ['do_not_issue', 'not_applicable'], true)) {
             return $this->blocked('invoice_fiscal_decision');

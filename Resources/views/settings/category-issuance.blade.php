@@ -51,7 +51,8 @@
                                                 <label class="block text-sm">
                                                     {{ trans('nfse::general.category_issuance.mode') }}
                                                     <select name="mode" class="mt-1 block w-full rounded border bg-white px-2 py-2" required>
-                                                        <option value="issue" @selected(($category['policy']['mode'] ?? 'issue') === 'issue')>
+                                                        <option value="issue" @selected(($category['policy']['mode'] ?? '') === 'issue')
+                                                            @disabled(!$category['can_issue'])>
                                                             {{ trans('nfse::general.category_issuance.issue') }}
                                                         </option>
                                                         <option value="do_not_issue" @selected(($category['policy']['mode'] ?? '') === 'do_not_issue')>

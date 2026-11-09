@@ -146,7 +146,7 @@ test('Tested PHP minors are central, unique, ordered, and allowed by Composer', 
 
 test('Existing fiscal harness can be provisioned without a GitHub environment file', () => {
   const mockedIds = {
-    pending_invoice_id: 1, item_validation_item_id: 2,
+    pending_invoice_id: 1, excluded_invoice_id: 5, item_validation_item_id: 2,
     item_legacy_id: 3, item_failing_id: 4,
   };
   const calls = [];

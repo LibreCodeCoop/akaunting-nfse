@@ -25,6 +25,7 @@ export const requiredAssets = Object.freeze([
 
 export const fixtureFields = Object.freeze({
   pending_invoice_id: 'NFSE_E2E_PENDING_INVOICE_ID',
+  excluded_invoice_id: 'NFSE_E2E_EXCLUDED_INVOICE_ID',
   item_validation_item_id: 'NFSE_E2E_VALID_ITEM_ID',
   item_legacy_id: 'NFSE_E2E_LEGACY_ITEM_ID',
   item_failing_id: 'NFSE_E2E_FAILING_ITEM_ID',
@@ -56,6 +57,7 @@ export const fullUiFixtureFields = Object.freeze({
   item_validation_item_id: 'NFSE_E2E_ITEM_VALIDATION_ID',
   grouped_invoice_id: 'NFSE_E2E_GROUPED_INVOICE_ID',
   pending_invoice_id: 'NFSE_E2E_PENDING_INVOICE_ID',
+  excluded_invoice_id: 'NFSE_E2E_EXCLUDED_INVOICE_ID',
   bulk_ready_invoice_id: 'NFSE_E2E_BULK_READY_INVOICE_ID',
   bulk_blocked_invoice_id: 'NFSE_E2E_BULK_BLOCKED_INVOICE_ID',
 });

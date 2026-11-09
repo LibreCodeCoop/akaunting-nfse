@@ -16,6 +16,14 @@ use Tests\Feature\FeatureTestCase;
 
 final class InvoiceLifecycleCharacterizationTest extends FeatureTestCase
 {
+    use \Modules\Nfse\Tests\Support\AuthorizesSyntheticInvoiceCategories;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->authorizeSyntheticInvoiceCategories();
+    }
+
     public function testNativeInvoiceShowKeepsAkauntingSendRouteUntouched(): void
     {
         $invoice = FiscalScenarioBuilder::invoice(['status' => 'draft']);

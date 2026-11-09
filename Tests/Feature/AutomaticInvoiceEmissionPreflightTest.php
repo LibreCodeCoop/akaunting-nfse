@@ -16,6 +16,14 @@ use Tests\Feature\FeatureTestCase;
 
 final class AutomaticInvoiceEmissionPreflightTest extends FeatureTestCase
 {
+    use \Modules\Nfse\Tests\Support\AuthorizesSyntheticInvoiceCategories;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->authorizeSyntheticInvoiceCategories();
+    }
+
     public function testReturnsOneReadyUnitForUnambiguousPendingInvoice(): void
     {
         $invoice = $this->invoiceWithProfile('0107', '010701', '100');

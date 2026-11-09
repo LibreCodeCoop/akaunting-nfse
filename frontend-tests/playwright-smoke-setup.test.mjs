@@ -17,6 +17,7 @@ import {
 
 const ids = {
   pending_invoice_id: 1,
+  excluded_invoice_id: 5,
   item_validation_item_id: 2,
   item_legacy_id: 3,
   item_failing_id: 4,
@@ -102,7 +103,7 @@ test('environment preparation only changes the disposable Akaunting config', t =
 test('fixture JSON maps only vetted numeric IDs; ignores certificates, paths and secrets', () => {
   const env = parseFixtureVariables(JSON.stringify({ ...ids, pfx_path: '/example/secret.pfx', pfx_password: 'not-for-logs' }));
   assert.deepEqual(env, {
-    NFSE_E2E_PENDING_INVOICE_ID: '1', NFSE_E2E_VALID_ITEM_ID: '2',
+    NFSE_E2E_PENDING_INVOICE_ID: '1', NFSE_E2E_EXCLUDED_INVOICE_ID: '5', NFSE_E2E_VALID_ITEM_ID: '2',
     NFSE_E2E_LEGACY_ITEM_ID: '3', NFSE_E2E_FAILING_ITEM_ID: '4',
   });
   for (const bad of [0, -3, 1.2, '1\nHACKED=value', 'NaN', Number.MAX_SAFE_INTEGER + 1, null]) {
@@ -118,7 +119,7 @@ test('fixture output is appended atomically to GITHUB_ENV and refuses unsafe ass
   const envFile = path.join(directory, 'github-env');
   writeGitHubEnvironment(parseFixtureVariables(JSON.stringify(ids)), envFile);
   const result = fs.readFileSync(envFile, 'utf8');
-  assert.equal(result.split('\n').filter(Boolean).length, 4);
+  assert.equal(result.split('\n').filter(Boolean).length, 5);
   assert.match(result, /NFSE_E2E_FAILING_ITEM_ID=4/);
   assert.doesNotMatch(result, /PFX|password|SECRET/);
   assert.throws(() => writeGitHubEnvironment({ NFSE_E2E_FAILING_ITEM_ID: '4\nHI=bad' }, envFile), /Invalid/);
@@ -150,7 +151,7 @@ test('fixture provisioning invokes Akaunting and propagates errors before export
   assert.equal(fs.readFileSync(envFile, 'utf8'), '');
 });
 
-test('full UI profile exports ten vetted IDs without leaking secrets', t => {
+test('full UI profile exports eleven vetted IDs without leaking secrets', t => {
   const dir = tmpDir(t);
   const envFile = path.join(dir, 'github-env');
   const payload = Object.fromEntries(Object.keys(fullUiFixtureFields).map((key, i) => [key, i + 1]));
@@ -161,7 +162,7 @@ test('full UI profile exports ten vetted IDs without leaking secrets', t => {
     return args.includes('nfse:test-harness:provision') ? JSON.stringify(payload) : '';
   };
   const env = { APP_ENV: 'testing', DB_CONNECTION: 'sqlite', GITHUB_ENV: envFile };
-  assert.equal(Object.keys(provisionFixtures(dir, env, runner, fs, 'full-ui')).length, 10);
+  assert.equal(Object.keys(provisionFixtures(dir, env, runner, fs, 'full-ui')).length, 11);
   assert.deepEqual(calls[1].args, fullUiFixtureArgs);
   assert.doesNotMatch(fs.readFileSync(envFile, 'utf8'), /password|pfx/i);
   fs.writeFileSync(envFile, '');

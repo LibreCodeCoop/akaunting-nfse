@@ -36,9 +36,12 @@ use Tests\Feature\FeatureTestCase;
  */
 final class MunicipalEmissionPreflightIntegrationTest extends FeatureTestCase
 {
+    use \Modules\Nfse\Tests\Support\AuthorizesSyntheticInvoiceCategories;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->authorizeSyntheticInvoiceCategories();
         SyntheticDpsIssuanceIdentity::install();
     }
 

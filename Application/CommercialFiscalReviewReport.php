@@ -66,6 +66,7 @@ final class CommercialFiscalReviewReport
             if (($manual['decision'] ?? '') === 'issue') {
                 $effective = null;
             }
+            $inIssuanceScope = $categoryPolicies->canIssue($invoice);
             $date = $invoice->issued_at;
             $rows[] = [
                 'invoice_id' => (int) $invoice->id,
@@ -74,9 +75,13 @@ final class CommercialFiscalReviewReport
                     ? $date->format('Y-m-d') : substr((string) $date, 0, 10),
                 'financial_status' => (string) ($invoice->status ?? ''),
                 'local_receipts' => $receipts->count(),
-                'status' => $this->status($invoice, $receipts, $effective),
+                'status' => $receipts->isEmpty() && !$inIssuanceScope && $effective === null
+                    ? 'outside_issuance_scope'
+                    : $this->status($invoice, $receipts, $effective),
                 'fiscal_decision' => $effective['decision'] ?? null,
-                'decision_source' => $effective['source'] ?? ($manual === null ? null : 'operator'),
+                'decision_source' => $receipts->isEmpty() && !$inIssuanceScope && $effective === null
+                    ? 'category_authorization'
+                    : ($effective['source'] ?? ($manual === null ? null : 'operator')),
             ];
         }
 

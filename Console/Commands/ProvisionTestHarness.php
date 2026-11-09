@@ -23,6 +23,7 @@ use Modules\Nfse\Models\AdnSyncDocument;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseCompanyProfile;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Application\CategoryIssuancePolicy;
 use Modules\Nfse\Support\GlobalVaultSettings;
 use Modules\Nfse\Support\NfseCompanyCertificatePath;
 use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
@@ -248,6 +249,40 @@ final class ProvisionTestHarness extends Command
                 ->delete();
 
             $payload['pending_invoice_id'] = (int) $invoice->id;
+
+            // Synthetic counterexample: a paid internal financial movement
+            // represented in Akaunting as an invoice, never an NFS-e candidate.
+            $nonFiscalCategory = Category::query()
+                ->where('company_id', $companyId)
+                ->where('name', 'Synthetic internal financial movement')
+                ->first();
+            if (!$nonFiscalCategory instanceof Category) {
+                $nonFiscalCategory = Category::factory()->create([
+                    'company_id' => $companyId, 'type' => 'income', 'enabled' => true,
+                    'name' => 'Synthetic internal financial movement',
+                ]);
+            }
+            $nonFiscal = Document::query()
+                ->where('company_id', $companyId)
+                ->where('type', 'invoice')
+                ->where('document_number', 'NONFISCAL-E2E-ACCOUNT')
+                ->first();
+            if (!$nonFiscal instanceof Document) {
+                $nonFiscal = Document::factory()->invoice()->create([
+                    'company_id' => $companyId, 'category_id' => $nonFiscalCategory->id,
+                    'document_number' => 'NONFISCAL-E2E-ACCOUNT',
+                    'status' => 'paid', 'amount' => 31.00,
+                ]);
+            }
+            $nonFiscal->forceFill([
+                'category_id' => $nonFiscalCategory->id, 'status' => 'paid',
+            ])->saveQuietly();
+            // This fixture must remain outside the 'NFSE-E2E-%' whitelist
+            // seeded below and must never become a real fiscal issue attempt.
+            if ((new CategoryIssuancePolicy())->latest($companyId, (int) $nonFiscalCategory->id) !== null) {
+                return $this->fail('Non-fiscal synthetic category unexpectedly has an issuance rule.');
+            }
+            $payload['excluded_invoice_id'] = (int) $nonFiscal->id;
 
             $unknown = Document::query()
                 ->where('company_id', $companyId)
@@ -507,6 +542,31 @@ final class ProvisionTestHarness extends Command
             $payload['adn_vendor_id'] = (int) $vendor->id;
             $payload['adn_category_id'] = (int) $category->id;
             $payload['adn_item_id'] = (int) $item->id;
+        }
+
+        // Explicitly authorize only the synthetic NFS-e categories used by
+        // the disposable browser fixture. Production setups have no automatic
+        // allowlist and must be configured by an authorized operator.
+        if (app()->environment('testing') && DB::connection()->getDriverName() === 'sqlite') {
+            $policy = new CategoryIssuancePolicy();
+            $actorId = (int) DB::table('users')->orderBy('id')->value('id');
+            if ($actorId <= 0) {
+                return $this->fail('Synthetic fiscal fixture requires an existing test user.');
+            }
+            $fixtureCategories = DB::table('documents')
+                ->where('company_id', $companyId)
+                ->where('type', 'invoice')
+                ->where('document_number', 'like', 'NFSE-E2E-%')
+                ->whereNotNull('category_id')->distinct()->pluck('category_id');
+            foreach ($fixtureCategories as $categoryId) {
+                $category = DB::table('categories')->where('id', (int) $categoryId)
+                    ->where('company_id', $companyId)->where('type', 'income')
+                    ->where('enabled', 1)->first();
+                if ($category !== null && ($policy->latest($companyId, (int) $categoryId)['mode'] ?? null) !== 'issue') {
+                    $policy->record($companyId, (int) $categoryId, $actorId, 'issue',
+                        'Synthetic CI fixture authorization, not a production fiscal choice.');
+                }
+            }
         }
 
         if ($this->option('json')) {

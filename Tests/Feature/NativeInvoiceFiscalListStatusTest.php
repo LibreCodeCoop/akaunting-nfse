@@ -8,6 +8,8 @@ declare(strict_types=1);
 namespace Modules\Nfse\Tests\Feature;
 
 use App\Models\Document\Document;
+use App\Models\Setting\Category;
+use Modules\Nfse\Application\CategoryIssuancePolicy;
 use Modules\Nfse\Models\NfseReceipt;
 use Tests\Feature\FeatureTestCase;
 
@@ -39,9 +41,13 @@ final class NativeInvoiceFiscalListStatusTest extends FeatureTestCase
         );
     }
 
-    public function testNativeInvoiceListUsesPendingFiscalStatusWithoutReceipt(): void
+    public function testNativeInvoiceListUsesPendingFiscalStatusOnlyForAuthorizedCategory(): void
     {
-        $invoice = Document::factory()->invoice()->create();
+        $this->loginAs();
+        $category = Category::factory()->create(['company_id' => company_id(), 'type' => 'income', 'enabled' => true]);
+        (new CategoryIssuancePolicy())->record((int) company_id(), (int) $category->id, (int) auth()->id(),
+            'issue', 'Synthetic invoice category authorized for the fiscal list.');
+        $invoice = Document::factory()->invoice()->create(['company_id' => company_id(), 'category_id' => $category->id]);
 
         $response = $this->loginAs()
             ->get(route('invoices.index', ['list_records' => 'all']))
