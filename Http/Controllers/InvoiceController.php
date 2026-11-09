@@ -50,6 +50,7 @@ use Modules\Nfse\Application\SubstituteInvoiceNfse;
 use Modules\Nfse\Application\SubstitutionDpsBuilder;
 use Modules\Nfse\Models\ItemFiscalProfile;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\CustomerEmailPreferences;
 use Modules\Nfse\Support\FiscalClientContext;
 use Modules\Nfse\Support\FiscalClientFactory;
 use Modules\Nfse\Support\InvoiceFederalPayloadResolver;
@@ -4683,6 +4684,17 @@ class InvoiceController extends Controller
         );
     }
 
+    private function customerEmailPreferences(): CustomerEmailPreferences
+    {
+        return new CustomerEmailPreferences(
+            static fn (string $key): mixed => setting($key, null),
+            static function (array $values): void {
+                setting($values);
+                setting()->save();
+            },
+        );
+    }
+
     protected function servicePreviewEmailDefaults(Invoice $invoice): array
     {
         $sendEmail = (bool) (int) setting('nfse.send_email_on_emit', '0');
@@ -4700,12 +4712,18 @@ class InvoiceController extends Controller
         }
 
         $moduleDefaults = \Modules\Nfse\Listeners\FinishInstallation::defaultEmailTemplateContent();
+        $customerTemplate = $this->customerEmailPreferences()->read(
+            (int) $invoice->company_id,
+            (int) ($invoice->contact_id ?? 0),
+            (int) company_id(),
+        );
 
         return [
+            'template_scope'     => $customerTemplate !== null ? 'customer' : 'general',
             'send_email'         => $sendEmail,
             'recipient'          => $recipient,
-            'subject'            => $template !== null ? (string) ($template->subject ?? '') : '',
-            'body'               => $template !== null ? (string) ($template->body ?? '') : '',
+            'subject'            => $customerTemplate['subject'] ?? ($template !== null ? (string) ($template->subject ?? '') : ''),
+            'body'               => $customerTemplate['body'] ?? ($template !== null ? (string) ($template->body ?? '') : ''),
             'default_subject'    => $moduleDefaults['subject'],
             'default_body'       => $moduleDefaults['body'],
             'copy_to_self'       => $copyToSelf,
@@ -4735,7 +4753,13 @@ class InvoiceController extends Controller
         $attachDanfse = $request->boolean('nfse_email_attach_danfse', true);
         $attachXml = $request->boolean('nfse_email_attach_xml', true);
         $copyToSelf = $request->boolean('nfse_email_copy_to_self', false);
-        $saveDefault = $request->boolean('nfse_email_save_default', false);
+        $saveMode = trim((string) $request->input(
+            'nfse_email_save_mode',
+            $request->boolean('nfse_email_save_default', false) ? 'general' : 'none',
+        ));
+        if (!in_array($saveMode, ['none', 'general', 'customer'], true)) {
+            throw new \InvalidArgumentException('Invalid email template save mode.');
+        }
 
         $recipients = null;
 
@@ -4761,7 +4785,15 @@ class InvoiceController extends Controller
             return null;
         }
 
-        if ($saveDefault) {
+        if ($saveMode === 'customer') {
+            $this->customerEmailPreferences()->save(
+                (int) $invoice->company_id,
+                (int) $invoice->contact_id,
+                (int) company_id(),
+                (string) $request->input('nfse_email_subject', ''),
+                (string) $request->input('nfse_email_body', ''),
+            );
+        } elseif ($saveMode === 'general') {
             $template = \App\Models\Setting\EmailTemplate::alias('invoice_nfse_issued_customer')->first();
 
             if ($template) {

@@ -14,6 +14,7 @@ use App\Traits\Documents;
 use Illuminate\Mail\Attachment;
 use Illuminate\Notifications\Messages\MailMessage;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Support\CustomerEmailPreferences;
 use Modules\Nfse\Support\WebDavClient;
 
 class NfseIssued extends Notification
@@ -56,7 +57,8 @@ class NfseIssued extends Notification
             return $this->replaceNotificationPlaceholders($customSubject);
         }
 
-        $templateSubject = (string) ($this->template?->subject ?? '');
+        $templateSubject = $this->customerEmailTemplate()['subject']
+            ?? (string) ($this->template?->subject ?? '');
 
         return $this->replaceNotificationPlaceholders($templateSubject);
     }
@@ -71,10 +73,25 @@ class NfseIssued extends Notification
             return $this->replaceNotificationPlaceholders($customBody) . $footer;
         }
 
-        $templateBody = (string) ($this->template?->body ?? '');
+        $templateBody = $this->customerEmailTemplate()['body']
+            ?? (string) ($this->template?->body ?? '');
         $footer = method_exists($this, 'getFooter') ? $this->getFooter() : '';
 
         return $this->replaceNotificationPlaceholders($templateBody) . $footer;
+    }
+
+    /** @return array{subject:string,body:string}|null */
+    protected function customerEmailTemplate(): ?array
+    {
+        if (!function_exists('company_id') || !function_exists('setting')) {
+            return null;
+        }
+
+        return (new CustomerEmailPreferences())->read(
+            (int) ($this->invoice->company_id ?? 0),
+            (int) ($this->invoice->contact_id ?? 0),
+            (int) company_id(),
+        );
     }
 
     protected function replaceNotificationPlaceholders(string $content): string
