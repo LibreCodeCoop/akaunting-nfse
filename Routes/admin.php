@@ -11,6 +11,7 @@ use Modules\Nfse\Http\Controllers\BulkEmissionController;
 use Modules\Nfse\Http\Controllers\BulkEmissionApiController;
 use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\CompanyProfileController;
+use Modules\Nfse\Http\Controllers\CustomerEmailPreferencesController;
 use Modules\Nfse\Http\Controllers\DeprecatedFiscalConfigurationController;
 use Modules\Nfse\Http\Controllers\ClosingController;
 use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
@@ -174,6 +175,9 @@ Route::admin('nfse', function () {
     Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])
         ->middleware('permission:update-sales-invoices')->name('invoices.emit');
     Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])->middleware('permission:read-sales-invoices')->name('invoices.service-preview');
+    Route::post('invoices/{invoice}/email-preferences', [CustomerEmailPreferencesController::class, 'store'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.email-preferences.store');
+
     Route::post('invoices/refresh-all', [InvoiceController::class, 'refreshAll'])
         ->middleware('permission:update-sales-invoices')->name('invoices.refresh-all');
     Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])
