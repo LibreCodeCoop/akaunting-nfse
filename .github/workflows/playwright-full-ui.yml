@@ -167,7 +167,9 @@ jobs:
           NFSE_E2E_BULK_READY_INVOICE_ID: ${{ env.NFSE_E2E_BULK_READY_INVOICE_ID }}
           NFSE_E2E_BULK_BLOCKED_INVOICE_ID: ${{ env.NFSE_E2E_BULK_BLOCKED_INVOICE_ID }}
         run: |
-          npx playwright test --project=full-ui --retries=0
+          # Execute the category scenario before the other full UI tests.
+          npx playwright test e2e/nfse-native-category-issuance.spec.ts --project=full-ui --retries=0
+          npx playwright test --project=full-ui --grep-invert 'category issuance configuration lives in the native Akaunting form' --retries=0
 
       - name: Upload synthetic fiscal association screenshots
         if: always()
