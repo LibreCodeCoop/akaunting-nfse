@@ -70,13 +70,15 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
         }
 
         $this->authorizer->assertCanReserve($companyId, $invoiceId, $issuer, $environment, $series);
-        $operationKey = DpsOperationKey::forInvoice(
+        $operationKey = $this->operationKeyFor(
             $companyId,
             $invoiceId,
             $environment,
             $groupKey,
             $cancelledReceiptId,
             $substitutedReceiptId,
+            $origin,
+            $draft,
         );
 
         // Persisted reservations support read-only reconciliation. They never
@@ -124,6 +126,113 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
             'reservation_id' => (int) $reservation['reservation_id'],
             'operation_key' => $operationKey,
         ];
+    }
+
+    /**
+     * Read-only key selection. Must run after the issuer authorizer in prepare().
+     * The caller may inspect it without allocating another fiscal number.
+     */
+    private function operationKeyFor(
+        int $companyId,
+        int $invoiceId,
+        int $environment,
+        ?string $groupKey,
+        ?int $cancelledReceiptId,
+        ?int $substitutedReceiptId,
+        string $origin,
+        DpsData $draft,
+    ): string {
+        $operationKey = DpsOperationKey::forInvoice(
+            $companyId,
+            $invoiceId,
+            $environment,
+            $groupKey,
+            $cancelledReceiptId,
+            $substitutedReceiptId,
+        );
+
+        if ($origin === 'substitution' && $substitutedReceiptId !== null) {
+            // The first E1235 rejection consumed its central first-POST claim.
+            // Replay with the same immutable reservation is correctly blocked.
+            // A deliberate new substitution uses a NEW logical key and a NEW
+            // coordinator number, while unconfirmed outcomes remain pinned.
+            $baseOperationKey = $operationKey;
+            $operationKey = (new RejectedSubstitutionOperationKey())->resolve(
+                $baseOperationKey,
+                function (string $key) use ($companyId, $invoiceId, $environment): ?array {
+                    $reservation = DB::table('nfse_dps_reservations')
+                        ->where('operation_key', $key)
+                        ->first(['id', 'company_id', 'invoice_id', 'origin']);
+                    if (!is_object($reservation)) {
+                        return null;
+                    }
+                    if ((int) $reservation->company_id !== $companyId
+                        || (int) $reservation->invoice_id !== $invoiceId
+                        || (string) $reservation->origin !== 'substitution') {
+                        throw new \LogicException('Fiscal reservation is not the selected substitution operation.');
+                    }
+
+                    $attempt = DB::table('nfse_emission_attempts')
+                        ->where('dps_reservation_id', (int) $reservation->id)
+                        ->where('company_id', $companyId)
+                        ->where('invoice_id', $invoiceId)
+                        ->where('environment', $environment)
+                        ->where('origin', 'substitution')
+                        ->orderByDesc('id')
+                        ->first(['id', 'status', 'official_code', 'http_status']);
+
+                    return is_object($attempt) ? [
+                        'id' => (int) $attempt->id,
+                        'status' => (string) $attempt->status,
+                        'official_code' => $attempt->official_code,
+                        'http_status' => $attempt->http_status,
+                    ] : null;
+                },
+                fn (int $rejectedId): string => DpsOperationKey::forInvoice(
+                    $companyId,
+                    $invoiceId,
+                    $environment,
+                    $groupKey,
+                    $cancelledReceiptId,
+                    $substitutedReceiptId,
+                    $rejectedId,
+                ),
+            );
+
+            if (!hash_equals($baseOperationKey, $operationKey)) {
+                if ($draft->substituicao === null
+                    || preg_match('/^\d{50}$/D', $draft->substituicao->chaveNfseSubstituida) !== 1) {
+                    throw new FiscalIssuanceBlocked(
+                        'NFSE-SUBSTITUTION-EVIDENCE: a correctable rejection requires the original authorized NFS-e reference.',
+                    );
+                }
+
+                // Schema correction must be locally provable before a fresh
+                // irreversible fiscal allocation or any transport request.
+                $release = $environment === 2
+                    ? \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\EnvironmentConfig::SCHEMA_RELEASE_RESTRICTED_20261020
+                    : \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Config\EnvironmentConfig::SCHEMA_RELEASE_PRODUCTION_20260209;
+                try {
+                    $xml = (new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder())
+                        ->buildDps($draft, $release);
+                    $errors = (new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\DpsSchemaValidator(
+                        schemaRelease: $release,
+                    ))->validate($xml);
+                } catch (\InvalidArgumentException $error) {
+                    throw new FiscalIssuanceBlocked(
+                        'NFSE-XML-SCHEMA-PREFLIGHT: the corrected DPS cannot be serialized in the active official schema.',
+                        previous: $error,
+                    );
+                }
+                if ($errors !== []) {
+                    throw new FiscalIssuanceBlocked(
+                        'NFSE-XML-SCHEMA-PREFLIGHT: the corrected DPS does not pass the active official XSD.',
+                    );
+                }
+            }
+        }
+
+        return $operationKey;
     }
 
     /**

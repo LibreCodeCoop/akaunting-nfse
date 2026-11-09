@@ -22,6 +22,7 @@ final class DpsOperationKey
         ?string $groupKey = null,
         ?int $cancelledReceiptId = null,
         ?int $substitutedReceiptId = null,
+        ?int $rejectedAttemptId = null,
     ): string {
         if ($companyId <= 0 || $invoiceId <= 0) {
             throw new \InvalidArgumentException('Company and invoice IDs must be positive.');
@@ -41,13 +42,20 @@ final class DpsOperationKey
             }
         }
 
+        if ($rejectedAttemptId !== null
+            && ($rejectedAttemptId <= 0 || $substitutedReceiptId === null)) {
+            throw new \InvalidArgumentException(
+                'A rejected attempt revision requires an original substituted receipt and a positive attempt id.',
+            );
+        }
+
         $groupKey = $groupKey === null ? null : trim($groupKey);
 
         if ($groupKey === '') {
             throw new \InvalidArgumentException('An explicitly supplied fiscal group must not be empty.');
         }
 
-        return hash('sha256', json_encode([
+        $identity = [
             'v' => 1,
             'company' => $companyId,
             'invoice' => $invoiceId,
@@ -55,6 +63,14 @@ final class DpsOperationKey
             'group' => $groupKey,
             'cancelled_receipt' => $cancelledReceiptId,
             'substituted_receipt' => $substitutedReceiptId,
-        ], JSON_THROW_ON_ERROR));
+        ];
+
+        // Preserve the exact v1 digest of existing reservations. Only a
+        // confirmed rejected submission creates a new logical operation.
+        if ($rejectedAttemptId !== null) {
+            $identity['after_rejected_attempt'] = $rejectedAttemptId;
+        }
+
+        return hash('sha256', json_encode($identity, JSON_THROW_ON_ERROR));
     }
 }
