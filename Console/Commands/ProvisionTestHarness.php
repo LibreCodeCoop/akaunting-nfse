@@ -386,6 +386,29 @@ final class ProvisionTestHarness extends Command
         }
 
         if ((bool) $this->option('bulk-emission-fixture')) {
+            // Only the disposable test harness provides this synthetic source.
+            // Both Playwright and Behat exercise the real guarded allocation
+            // without injecting fake percentages into any production profile.
+            DB::table('nfse_approximate_tax_sources')->updateOrInsert(
+                [
+                    'company_id' => $companyId,
+                    'national_service_code' => $codigoNacional,
+                    'simples_option' => 1,
+                    'competence_from' => '2026-09-01',
+                    'source_version' => 'bulk-test-synthetic-v1',
+                ],
+                [
+                    'competence_until' => '2026-09-30',
+                    'source_kind' => 'documented_zero',
+                    'source_name' => 'Disposable synthetic NFS-e test disclosure',
+                    'source_reference' => 'NFSE_TEST_HARNESS=1; fictitious values, not fiscal evidence',
+                    'federal_percent' => '0.00',
+                    'state_percent' => '0.00',
+                    'municipal_percent' => '0.00',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            );
             $ready = $this->bulkInvoiceFixture(
                 companyId: $companyId,
                 documentNumber: 'NFSE-E2E-BULK-READY',
