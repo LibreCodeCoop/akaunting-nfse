@@ -21,6 +21,7 @@ export const requiredAssets = Object.freeze([
   'public/js/common/dashboards.min.js',
   'public/js/common/documents.min.js',
   'public/js/common/items.min.js',
+  'public/js/settings/categories.min.js',
 ]);
 
 export const fixtureFields = Object.freeze({

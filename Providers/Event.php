@@ -12,10 +12,20 @@ use Modules\Nfse\Listeners\AppendFiscalProfileToApiResource;
 use Modules\Nfse\Listeners\EmitNfseBeforeDocumentSend;
 use Modules\Nfse\Listeners\PersistContactFiscalProfile;
 use Modules\Nfse\Listeners\PersistItemFiscalProfile;
+use Modules\Nfse\Listeners\PersistNativeCategoryIssuance;
 
 class Event extends Provider
 {
     protected $listen = [
+        'App\\Events\\Setting\\CategoryCreating' => [
+            PersistNativeCategoryIssuance::class . '@creating',
+        ],
+        'App\\Events\\Setting\\CategoryUpdating' => [
+            PersistNativeCategoryIssuance::class . '@updating',
+        ],
+        'App\\Events\\Setting\\CategoryCreated' => [
+            PersistNativeCategoryIssuance::class . '@created',
+        ],
         'App\\Events\\Api\\ResourceShowing' => [
             AppendFiscalProfileToApiResource::class . '@showing',
         ],

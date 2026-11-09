@@ -192,7 +192,7 @@ final class CategoryIssuancePolicyTest extends FeatureTestCase
         }
     }
 
-    public function testSettingsScreenAndInvoiceExposeMutuallyExclusiveActions(): void
+    public function testNativeCategoryScreenAndInvoiceExposeFiscalActions(): void
     {
         $this->loginAs();
         $category = Category::factory()->create(['company_id' => company_id(), 'type' => 'income', 'enabled' => true]);
@@ -203,7 +203,9 @@ final class CategoryIssuancePolicyTest extends FeatureTestCase
         ]);
 
         $this->get(route('nfse.settings.category-issuance.index'))
-            ->assertOk()->assertSee('data-nfse-category-issuance-settings="true"', false);
+            ->assertRedirect(route('categories.index'));
+        $this->get(route('categories.edit', $category->id))
+            ->assertOk()->assertSee('data-nfse-native-category-policy="true"', false);
         $this->get(route('invoices.show', $invoice->id))
             ->assertOk()->assertSee('data-nfse-exclusive-fiscal-choices="true"', false)
             ->assertSee('data-nfse-choice="issue"', false)

@@ -5,8 +5,13 @@
 
 return [
     'category_issuance' => [
+        'native_title' => 'NFS-e issuance',
+        'native_help' => 'Authorize NFS-e issuance for this income category. Without explicit authorization there is no NFS-e pending status. This is not a legal tax exemption.',
+        'native_justification_hint' => 'When changing authorization, provide a justification of 12 to 4000 characters. Unchanged settings require no justification. Saved with the category.',
+        'native_history' => 'Authorization history',
+
         'title' => 'NFS-e issuance by category',
-         'settings_link' => 'Authorize categories for NFS-e issuance',
+         'settings_link' => 'Configure NFS-e issuance under Settings → Categories',
         'back' => 'Back to fiscal settings',
          'help' => 'Only explicitly authorized income categories may issue NFS-e. Unauthorized categories have no pending fiscal status or issuance actions; this is not evidence of tax exemption. Invoice decisions remain auditable.',
          'prospective_only' => 'Category authorization applies to historical and new invoices without changing finances, existing fiscal receipts or past invoice decisions.',
