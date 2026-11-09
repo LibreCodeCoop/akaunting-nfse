@@ -176,6 +176,38 @@ final class NativeCategoryIssuanceFormTest extends FeatureTestCase
             ->where('code', $existing->code)->count());
     }
 
+    public function testIncomeCategoriesWithoutCodeRemainCreatableEvenWhenAnotherCodeIsEmpty(): void
+    {
+        $this->loginAs();
+        $companyId = (int) company_id();
+        Category::factory()->create([
+            'company_id' => $companyId,
+            'type' => 'income',
+            'enabled' => true,
+            'code' => '',
+            'name' => 'Synthetic previous income without code',
+        ]);
+
+        $attributes = Category::factory()->enabled()->raw([
+            'company_id' => $companyId,
+            'type' => 'income',
+            'code' => '',
+            'name' => 'Synthetic new income without code',
+        ]);
+        $this->postJson(route('categories.store'), array_merge($attributes, [
+            'nfse_category_issuance_mode' => 'issue',
+            'nfse_category_issuance_justification' => 'Synthetic income without a category code can authorize issuance.',
+        ]))->assertOk()->assertJsonPath('success', true);
+
+        $category = Category::query()->where('company_id', $companyId)
+            ->where('name', 'Synthetic new income without code')->firstOrFail();
+
+        self::assertSame('issue', (new CategoryIssuancePolicy())
+            ->latest($companyId, (int) $category->id)['mode']);
+        self::assertSame(2, Category::query()->where('company_id', $companyId)
+            ->where('code', '')->count());
+    }
+
     public function testNativeCategorySaveWithoutFiscalInputLeavesHistoryUnchanged(): void
     {
         $this->loginAs();

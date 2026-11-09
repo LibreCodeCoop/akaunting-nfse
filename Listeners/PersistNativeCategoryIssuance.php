@@ -135,7 +135,10 @@ final class PersistNativeCategoryIssuance
         // The native CreateCategory job uses firstOrCreate by company and
         // code. Do not silently report success for a request that resolves
         // to an existing category without firing an Eloquent saved event.
-        if ($categoryId === 0 && is_string($input->input('code'))
+        // Match the core CreateCategory job: firstOrCreate is only used
+        // when a nonempty code was supplied. Income category forms normally
+        // hide this field and must remain creatable with no code at all.
+        if ($categoryId === 0 && !empty($input->input('code'))
             && DB::table('categories')->where('company_id', $companyId)
                 ->where('code', (string) $input->input('code'))
                 ->whereNull('deleted_at')->exists()) {
