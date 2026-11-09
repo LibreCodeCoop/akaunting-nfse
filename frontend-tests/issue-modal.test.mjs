@@ -18,12 +18,14 @@ test('keyboard tab navigation wraps and supports home/end', () => {
 test('send-email state controls fields, columns and attachment tab', () => {
     assert.deepEqual(modal.sendEmailUiState(true), {
         fieldsHidden: false,
+        recipientsHidden: false,
         navColumns: 3,
         attachmentsVisible: true,
     });
 
     assert.deepEqual(modal.sendEmailUiState(false), {
-        fieldsHidden: true,
+        fieldsHidden: false,
+        recipientsHidden: true,
         navColumns: 2,
         attachmentsVisible: false,
     });

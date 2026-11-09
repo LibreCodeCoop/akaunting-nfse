@@ -53,7 +53,8 @@
 
     function sendEmailUiState(checked) {
         return {
-            fieldsHidden: !checked,
+            fieldsHidden: false,
+            recipientsHidden: !checked,
             navColumns: checked ? 3 : 2,
             attachmentsVisible: checked,
         };
@@ -204,12 +205,17 @@
     function applySendEmailState(checked, documentRef) {
         const state = sendEmailUiState(checked);
         const fields = documentRef.getElementById('nfse-email-fields');
+        const recipients = documentRef.getElementById('nfse-email-recipient-fields');
         const navList = documentRef.getElementById('nfse-tab-nav-list');
         const attachmentsNav = documentRef.getElementById('nfse-tab-nav-attachments');
         const attachmentsPane = documentRef.getElementById('nfse-tab-pane-attachments');
 
         if (fields) {
             fields.classList.toggle('hidden', state.fieldsHidden);
+        }
+
+        if (recipients) {
+            recipients.classList.toggle('hidden', state.recipientsHidden);
         }
 
         if (navList) {
