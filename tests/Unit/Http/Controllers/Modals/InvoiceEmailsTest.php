@@ -295,8 +295,9 @@ final class InvoiceEmailsTest extends TestCase
 
         self::assertSame(2, substr_count($view, "typeof emailDefaults.cc === 'string'"));
         self::assertStringContainsString("if (emailCcInput) emailCcInput.value = cc;", $view);
-        self::assertStringContainsString("ccPanel?.classList.toggle('hidden', cc === '');", $view);
+        self::assertStringContainsString('window.NfseRecipientChips?.replace(ccField, cc);', $view);
         self::assertStringContainsString("panel?.classList.toggle('hidden', !expanded);", $view);
+        self::assertStringContainsString("button?.classList.toggle('hidden', expanded);", $view);
     }
 
     public function testCancelViewPostsToCancelRouteWithStructuredCancellationFields(): void

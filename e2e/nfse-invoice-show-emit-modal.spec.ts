@@ -163,8 +163,8 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   await page.locator("input[name='nfse_email_subject']").fill(subjectValue);
 
   const toRecipients = dialog.locator('#nfse_email_to-entry');
-  const ccToggle = dialog.getByRole('button', { name: 'Cc', exact: true });
-  const bccToggle = dialog.getByRole('button', { name: /Cco|Bcc/i });
+  const ccToggle = dialog.locator('[data-nfse-show-recipient="cc"]');
+  const bccToggle = dialog.locator('[data-nfse-show-recipient="bcc"]');
   const ccRecipients = dialog.locator('#nfse_email_cc-entry');
   const bccRecipients = dialog.locator('#nfse_email_bcc-entry');
 
@@ -177,11 +177,13 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   await toRecipients.fill('first@example.test, second@example.test');
   await ccToggle.click();
   await expect(ccToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(ccToggle).toBeHidden();
   await expect(ccRecipients).toBeVisible();
   await expect(ccRecipients).toBeFocused();
   await ccRecipients.fill('visible@example.test');
   await bccToggle.click();
   await expect(bccToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(bccToggle).toBeHidden();
   await expect(bccRecipients).toBeVisible();
   await bccRecipients.fill('hidden@example.test, private@example.test');
 
@@ -292,7 +294,7 @@ test('unchanged template-save option keeps one To and three Cc valid on fiscal s
 
   await expect(dialog.locator('select[name="nfse_email_save_mode"]')).toHaveValue('none');
   await expect(dialog.locator('[data-nfse-recipient-chipbox="nfse_email_to"] [data-nfse-recipient-chip]')).toHaveCount(1);
-  await dialog.getByRole('button', { name: 'Cc', exact: true }).click();
+  await dialog.locator('[data-nfse-show-recipient="cc"]').click();
   const cc = dialog.locator('#nfse_email_cc-entry');
   for (const recipient of ['one@example.test', 'two@example.test', 'three@example.test']) {
     await cc.fill(recipient);
@@ -355,15 +357,17 @@ test('legacy NFS-e invoice list opens native invoice composer without a parallel
   await dialog.getByRole('button', { name: 'Remover customer@company.com' }).click();
   await to.fill('primary@example.test, second@example.test');
 
-  const ccToggle = dialog.getByRole('button', { name: 'Cc', exact: true });
+  const ccToggle = dialog.locator('[data-nfse-show-recipient="cc"]');
   await ccToggle.click();
   await expect(ccToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(ccToggle).toBeHidden();
   await expect(cc).toBeVisible();
   await cc.fill('visible@example.test');
 
-  const bccToggle = dialog.getByRole('button', { name: /Cco|Bcc/i });
+  const bccToggle = dialog.locator('[data-nfse-show-recipient="bcc"]');
   await bccToggle.click();
   await expect(bccToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(bccToggle).toBeHidden();
   await expect(bcc).toBeVisible();
   await bcc.fill('hidden@example.test');
 

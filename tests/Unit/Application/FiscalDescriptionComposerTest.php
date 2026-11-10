@@ -147,7 +147,9 @@ final class FiscalDescriptionComposerTest extends TestCase
             ),
         );
         self::assertSame('Texto personalizado', $this->composer->additionalFromEditedDescription(
-            'Texto personalizado', 'Suporte mensal', null,
+            'Texto personalizado',
+            'Suporte mensal',
+            null,
         ));
     }
 
