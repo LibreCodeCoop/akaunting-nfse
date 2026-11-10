@@ -187,8 +187,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             </div>
                         </div>
 
-                        <div id="nfse-email-fields" class="sm:col-span-6 flex w-full min-w-0 flex-col gap-4">
+                        <div id="nfse-email-fields" class="sm:col-span-6 flex w-full min-w-0 flex-col gap-4" @keydown="!$event.target.name && $event.stopPropagation()">
                             <div id="nfse-email-recipient-fields"
+                                v-once
                                 class="w-full min-w-0 {{ $sendEmailDefault ? '' : 'hidden' }}"
                                 data-nfse-recipient-composer
                             >
@@ -196,8 +197,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <input id="nfse_email_to" name="nfse_email_to" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_to') }}" type="text" v-model="form.nfse_email_to" value="{{ (string) ($emailDefaults['recipient'] ?? '') }}" class="w-full rounded border px-3 py-2" aria-describedby="nfse-email-recipients-hint">
                                 <p id="nfse-email-recipients-hint" class="text-xs">{{ trans('nfse::general.invoices.emit_modal_email_recipients_hint') }}</p>
                                 <div class="flex gap-3 mt-2">
-                                    <button type="button" data-nfse-show-recipient="cc" aria-controls="nfse-recipient-cc" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</button>
-                                    <button type="button" data-nfse-show-recipient="bcc" aria-controls="nfse-recipient-bcc" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</button>
+                                    <button type="button" data-nfse-show-recipient="cc" @mousedown.prevent aria-controls="nfse-recipient-cc" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</button>
+                                    <button type="button" data-nfse-show-recipient="bcc" @mousedown.prevent aria-controls="nfse-recipient-bcc" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</button>
                                 </div>
                                 <div id="nfse-recipient-cc" data-nfse-recipient-panel="cc" class="hidden mt-2">
                                     <label for="nfse_email_cc">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</label>
@@ -226,7 +227,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 form-group-class="w-full min-w-0"
                             />
 
-                            <div data-nfse-email-body-group class="w-full min-w-0">
+                            <div data-nfse-email-body-group v-once class="w-full min-w-0">
                                 <label for="nfse_email_body" class="block text-sm font-medium text-gray-700">
                                     {{ trans('nfse::general.invoices.emit_modal_email_body') }}
                                 </label>

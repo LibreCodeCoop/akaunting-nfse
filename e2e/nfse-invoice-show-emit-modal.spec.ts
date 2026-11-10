@@ -168,68 +168,10 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   const bccRecipients = dialog.locator('#nfse_email_bcc-entry');
 
   await expect(toRecipients).toBeVisible();
+  await dialog.getByRole('button', { name: 'Remover customer@company.com' }).click();
   await toRecipients.fill('');
-  await page.evaluate(() => {
-    const log: Array<Record<string, unknown>> = [];
-    (window as any).__nfseKeyLog = log;
-    const nativePreventDefault = Event.prototype.preventDefault;
-    Event.prototype.preventDefault = function (...args) {
-      if (this instanceof KeyboardEvent) {
-        log.push({ key: this.key, phase: 'preventDefault', target: (this.target as Element)?.id,
-          stack: new Error().stack?.slice(0, 1000) });
-      }
-      return nativePreventDefault.apply(this, args);
-    };
-    const source = document.querySelector('#nfse_email_to-entry') as HTMLInputElement;
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!;
-    Object.defineProperty(source, 'value', {
-      configurable: true,
-      get() { return setter.get!.call(this); },
-      set(value) {
-        log.push({ phase: 'value-setter', value, stack: new Error().stack?.slice(0, 900) });
-        setter.set!.call(this, value);
-      },
-    });
-    for (const kind of ['keydown', 'beforeinput', 'input', 'keyup']) {
-      document.addEventListener(kind, (event) => {
-        log.push({ key: (event as KeyboardEvent).key, kind, phase: 'capture',
-          data: (event as InputEvent).data, inputType: (event as InputEvent).inputType,
-          value: source.value, target: (event.target as Element)?.id, prevented: event.defaultPrevented,
-          readOnly: source.readOnly, connected: source.isConnected, trusted: event.isTrusted });
-      }, true);
-    }
-    window.addEventListener('keydown', (event) => {
-      log.push({ key: event.key, phase: 'window-bubble', prevented: event.defaultPrevented,
-        returnValue: event.returnValue, cancelBubble: event.cancelBubble,
-        active: (document.activeElement as Element)?.id });
-    });
-  });
   await toRecipients.pressSequentially('typed@example.test');
-  const typedObserved = await toRecipients.inputValue();
-  console.log('NFSE_KEY_DIAGNOSTICS', JSON.stringify(await page.evaluate(() => ({
-    log: (window as any).__nfseKeyLog.slice(-120), source: (document.querySelector('#nfse_email_to') as HTMLInputElement)?.value,
-    entry: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.value,
-    active: (document.activeElement as Element)?.id,
-    hasFocus: document.hasFocus(), visibility: document.visibilityState,
-    disabled: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.disabled,
-    readOnly: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.readOnly,
-    fieldsetDisabled: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.closest('fieldset')?.disabled,
-  }))));
-  await page.keyboard.insertText('inserted');
-  console.log('NFSE_INSERT_DIAGNOSTICS', JSON.stringify(await page.evaluate(() => ({
-    log: (window as any).__nfseKeyLog.slice(-20), source: (document.querySelector('#nfse_email_to') as HTMLInputElement)?.value,
-    entry: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.value,
-  }))));
-  const nativeSubject = dialog.locator("input[name='nfse_email_subject']");
-  const subjectBeforeKeypress = await nativeSubject.inputValue();
-  await nativeSubject.focus();
-  await page.keyboard.press('End');
-  await nativeSubject.pressSequentially('Z');
-  console.log('NFSE_SUBJECT_KEY_DIAGNOSTICS', JSON.stringify({
-    subjectBeforeKeypress, subjectAfterKeypress: await nativeSubject.inputValue(),
-    events: await page.evaluate(() => (window as any).__nfseKeyLog.slice(-15)),
-  }));
-  expect(typedObserved).toBe('typed@example.test');
+  await expect(toRecipients).toHaveValue('typed@example.test');
   await expect(toRecipients).toBeFocused();
   await toRecipients.fill('first@example.test, second@example.test');
   await ccToggle.click();

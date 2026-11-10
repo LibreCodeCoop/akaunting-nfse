@@ -61,11 +61,13 @@
             message.textContent = invalid ? 'Confira o endereço de e-mail antes de enviar.' : '';
         }
 
-        function sync(validate = false) {
+        function sync(validate = false, notify = true) {
             const addressList = entries.concat(entry.value.trim() ? [entry.value.trim()] : []);
             const serialized = addressList.join(', ');
             if (source.value !== serialized) {
                 source.value = serialized;
+            }
+            if (notify) {
                 source.dispatchEvent(new Event('input', { bubbles: true }));
             }
             showError(validate);
@@ -115,6 +117,7 @@
         function commit() {
             const value = entry.value.trim();
             if (value === '') {
+                sync();
                 return true;
             }
             const parts = splitAddresses(value);
@@ -127,7 +130,7 @@
 
         function extractCompleted() {
             if (!/[,;\n]/.test(entry.value)) {
-                sync();
+                sync(false, false);
                 return;
             }
             const parts = entry.value.split(/[,;\n]/);
@@ -179,8 +182,6 @@
         entry.value = invalid.join(', ');
         controllers.set(source, { entry, commit });
         sync();
-        // Populate Akaunting's Vue Form even when it initially hydrated an empty field.
-        source.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
     function boot(rootNode) {

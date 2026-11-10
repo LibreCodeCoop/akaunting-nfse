@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             form-group-class="sm:col-span-6"
                         />
 
-                        <div class="sm:col-span-6 min-w-0">
+                        <div class="sm:col-span-6 min-w-0" v-once @keydown="!$event.target.name && $event.stopPropagation()">
                             <label for="nfse_email_message_body" class="mb-1 block text-sm font-medium text-gray-700">
                                 {{ trans('settings.email.templates.body') }}
                             </label>
