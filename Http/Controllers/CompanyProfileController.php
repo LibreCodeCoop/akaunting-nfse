@@ -181,7 +181,12 @@ final class CompanyProfileController extends Controller
         ];
 
         $rules = [
-            'company_id' => $creating ? 'required|integer|min:1' : 'prohibited',
+            // Akaunting's native API includes the selected company_id in the
+            // query string. The path and active company were checked above;
+            // accept only the same ID, never a cross-company override.
+            'company_id' => $creating
+                ? 'required|integer|min:1'
+                : 'sometimes|integer|in:' . $this->selectedCompanyId(),
             'pfx_file' => ($creating ? 'required' : 'nullable') . '|file|extensions:pfx,p12|max:1024',
             'pfx_password' => ($request->hasFile('pfx_file') ? 'required' : 'prohibited')
                 . '|string|max:255',
