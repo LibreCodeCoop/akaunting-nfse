@@ -418,6 +418,16 @@ test('typing in email body keeps email tab content visible in emit modal', async
     return editor.evaluate((node) => node.contains(document.activeElement));
   }).toBeTruthy();
 
+  // Pasting into the native subject (not the rich editor) must not collapse the pane.
+  await subject.fill('Antes do Ctrl+V');
+  await subject.focus();
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.evaluate(async () => navigator.clipboard.writeText(' - mensagem colada'));
+  await page.keyboard.press('ControlOrMeta+v');
+  await expect(subject).toHaveValue('Antes do Ctrl+V - mensagem colada');
+  await expect(emailPane).toBeVisible();
+  await expect(dialog.getByRole('tab', { name: /E-mail|Email/i })).toHaveAttribute('aria-selected', 'true');
+
   // Regression: Ctrl used to collapse the Email tab and, after changing tabs,
   // could leave the entire pane hidden until the modal was reopened.
   await page.keyboard.down('Control');
@@ -545,8 +555,14 @@ test('email body and customer-save controls have matching alignment without enab
     }
     await route.continue();
   });
+  await saveMode.selectOption('customer');
+  await expect(dialog.locator('#nfse-tab-pane-email')).toBeVisible();
   await saveButton.click();
   await expect(dialog.locator('[data-nfse-customer-email-save-status]')).toContainText(/saved|salvo/i);
+  await expect(dialog.locator('#nfse-tab-pane-email')).toBeVisible();
+  await expect(dialog.getByRole('tab', { name: /E-mail|Email/i })).toHaveAttribute('aria-selected', 'true');
+  await expect(subject).toBeVisible();
+  await expect(editor).toBeVisible();
   expect(saves).toBe(1);
   await expect(page.locator('#nfse_send_email_toggle')).not.toBeChecked();
 });

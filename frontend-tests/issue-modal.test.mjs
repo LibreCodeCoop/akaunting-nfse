@@ -138,14 +138,15 @@ test('native fiscal action does not fall back to Akaunting customer-email action
 
 test('hydration reconciliation reapplies active tab state', () => {
     let tabSyncs = 0;
-    const activePane = { id: 'nfse-tab-pane-email', style: { display: 'none' }, setAttribute() {} };
-    const inactivePane = { id: 'nfse-tab-pane-issuance', style: { display: '' }, setAttribute() {} };
+    const activePane = { id: 'nfse-tab-pane-email', style: { display: 'none' }, getAttribute: () => 'true', setAttribute() {} };
+    const inactivePane = { id: 'nfse-tab-pane-issuance', style: { display: '' }, getAttribute: () => 'false', setAttribute() {} };
     const activeNav = {
         getAttribute() {
             return 'nfse-tab-pane-email';
         },
     };
     const container = {
+        dataset: {},
         querySelector(selector) {
             return selector.includes('.active-tabs') ? activeNav : null;
         },
@@ -286,8 +287,8 @@ test('substitution controller blocks duplicates and ignores unrelated forms', as
 
 test('customer email tab remains visible after control-key reconciliation even if Vue resets tab classes', () => {
     const panes = [
-        { id: 'nfse-tab-pane-issuance', style: { display: 'none' }, setAttribute() {} },
-        { id: 'nfse-tab-pane-email', style: { display: '' }, setAttribute() {} },
+        { id: 'nfse-tab-pane-issuance', style: { display: 'none' }, getAttribute: () => 'true', setAttribute() {} },
+        { id: 'nfse-tab-pane-email', style: { display: '' }, getAttribute: () => 'false', setAttribute() {} },
     ];
     const general = { getAttribute: () => 'nfse-tab-pane-issuance' };
     const container = {
@@ -295,13 +296,58 @@ test('customer email tab remains visible after control-key reconciliation even i
         querySelector(selector) {
             return selector.includes('.active-tabs') ? null : general;
         },
-        querySelectorAll() { return panes; },
+        querySelectorAll(selector) { return selector === '[data-nfse-tab-pane]' ? panes : []; },
     };
 
     modal.syncTabPane(container);
 
     assert.equal(panes[1].style.display, '');
     assert.equal(panes[0].style.display, 'none');
+});
+
+test('recreated tabs retain the selected email pane and synchronized nav after a Vue render', () => {
+    const form = { dataset: {} };
+    const makeTabs = () => {
+        const panes = ['nfse-tab-pane-issuance', 'nfse-tab-pane-email'].map((id) => {
+            const attrs = new Map([['aria-hidden', id.endsWith('email') ? 'true' : 'false']]);
+            return {
+                id, style: { display: id.endsWith('email') ? 'none' : '' },
+                getAttribute: (key) => attrs.get(key),
+                setAttribute: (key, value) => attrs.set(key, value),
+            };
+        });
+        const navs = panes.map((pane) => {
+            const classes = new Set(pane.id.endsWith('issuance') ? ['active-tabs'] : []);
+            const attrs = new Map([['data-nfse-tab-nav', pane.id], ['aria-selected', pane.id.endsWith('issuance') ? 'true' : 'false']]);
+            return {
+                classList: { toggle: (name, active) => active ? classes.add(name) : classes.delete(name), contains: (name) => classes.has(name) },
+                getAttribute: (key) => attrs.get(key),
+                setAttribute: (key, value) => attrs.set(key, value),
+                closest: () => container,
+            };
+        });
+        const container = {
+            dataset: {},
+            closest: () => form,
+            querySelector: (selector) => selector.includes('.active-tabs') ? navs.find((nav) => nav.classList.contains('active-tabs')) : null,
+            querySelectorAll: (selector) => selector === '[data-nfse-tab-pane]' ? panes : selector === '[data-nfse-tab-nav]' ? navs : [],
+        };
+        return { container, panes, navs };
+    };
+
+    const initial = makeTabs();
+    modal.activateTab(initial.navs[1]);
+    assert.equal(form.dataset.nfseActivePane, 'nfse-tab-pane-email');
+
+    // Re-rendered markup defaults to the general tab, as does the actual Blade view.
+    const renderedAgain = makeTabs();
+    modal.syncTabPane(renderedAgain.container);
+    assert.equal(renderedAgain.panes[1].style.display, '');
+    assert.equal(renderedAgain.panes[0].style.display, 'none');
+    assert.equal(renderedAgain.navs[1].getAttribute('aria-selected'), 'true');
+    assert.equal(renderedAgain.navs[1].getAttribute('tabindex'), '0');
+    assert.equal(renderedAgain.navs[0].getAttribute('aria-selected'), 'false');
+    assert.equal(renderedAgain.navs[1].classList.contains('active-tabs'), true);
 });
 
 test('control key must not select a different NFS-e tab', () => {
@@ -394,7 +440,7 @@ test('reconciliation only updates a tab pane when Vue changes its display', () =
     const container = {
         dataset: { nfseActivePane: 'nfse-tab-pane-email' },
         querySelector: () => null,
-        querySelectorAll: () => [activePane, inactivePane],
+        querySelectorAll: (selector) => selector === '[data-nfse-tab-pane]' ? [activePane, inactivePane] : [],
     };
     modal.syncTabPane(container);
     assert.equal(activePane.style.display, '');
