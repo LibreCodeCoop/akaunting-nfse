@@ -820,6 +820,13 @@ class InvoiceController extends Controller
                     redirect()->route('invoices.show', $invoice)->with('success', $message),
                 );
             } catch (MunicipalIssuanceBlocked|FiscalIssuanceBlocked $e) {
+                if (str_starts_with($e->getMessage(), 'E0015:')) {
+                    return $this->ajaxAwareRedirect(
+                        $request,
+                        redirect()->route('invoices.show', $invoice)->with('error', $e->getMessage()),
+                    );
+                }
+
                 return $this->ajaxAwareRedirect(
                     $request,
                     redirect()->route('invoices.show', $invoice)
@@ -913,6 +920,13 @@ class InvoiceController extends Controller
             );
             $persistedReceipt = $issuance['receipt'];
         } catch (MunicipalIssuanceBlocked|FiscalIssuanceBlocked $e) {
+            if (str_starts_with($e->getMessage(), 'E0015:')) {
+                return $this->ajaxAwareRedirect(
+                    $request,
+                    redirect()->route('invoices.show', $invoice)->with('error', $e->getMessage()),
+                );
+            }
+
             return $this->ajaxAwareRedirect($request, redirect()->route('invoices.show', $invoice)
                 ->with('error', trans('nfse::general.invoices.emit_blocked_not_ready'))
                 ->with('nfse_gateway_error_detail', $e->getMessage()));
@@ -2865,7 +2879,19 @@ class InvoiceController extends Controller
     {
         $official = (new OfficialIssuanceRejection())->fromException($exception);
 
-        return $official !== null ? $official['code'] . ' - ' . $official['message'] : null;
+        if ($official === null) {
+            return null;
+        }
+
+        if ($official['code'] === 'E0015') {
+            return $official['code'] . ' - ' . $official['message']
+                . ' A competência fiscal não pode ser posterior ao dia da emissão da DPS. '
+                . 'Verifique a data de emissão da fatura e a competência dos serviços; '
+                . 'o vencimento não interfere nesta regra. '
+                . 'A identidade da tentativa rejeitada não pode ser reutilizada.';
+        }
+
+        return $official['code'] . ' - ' . $official['message'];
     }
 
     protected function gatewayErrorDetail(GatewayException $exception): ?string
