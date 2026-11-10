@@ -39,21 +39,39 @@ final class DpsCompetencePreflightTest extends TestCase
         ];
     }
 
+    #[DataProvider('defaultedCompetences')]
+    public function testOmittedCompetenceDefaultsToEmissionDate(?string $competence): void
+    {
+        // XmlBuilder emits dCompet = dhEmi's date for these inputs.
+        (new DpsCompetencePreflight())->assertCanAllocate($competence, '2026-11-10');
+        self::assertTrue(true);
+    }
+
+    /** @return array<string,array{?string}> */
+    public static function defaultedCompetences(): array
+    {
+        return ['null' => [null], 'empty string' => ['']];
+    }
+
     #[DataProvider('invalidDates')]
-    public function testMalformedOrAbsentCompetenceNeverGetsAReservation(?string $date): void
+    public function testInvalidExplicitCompetenceNeverGetsAReservation(string $date): void
     {
         $this->expectException(FiscalIssuanceBlocked::class);
         (new DpsCompetencePreflight())->assertCanAllocate($date, '2026-11-10');
     }
 
-    /** @return array<string,array{?string}> */
+    /** @return array<string,array{string}> */
     public static function invalidDates(): array
     {
         return [
-            'missing' => [null],
-            'empty' => [''],
             'invalid calendar' => ['2026-02-30'],
             'invalid format' => ['10/11/2026'],
         ];
+    }
+
+    public function testInvalidIssueDateNeverGetsAReservation(): void
+    {
+        $this->expectException(FiscalIssuanceBlocked::class);
+        (new DpsCompetencePreflight())->assertCanAllocate(null, '2026-02-30');
     }
 }

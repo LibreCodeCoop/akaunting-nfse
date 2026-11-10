@@ -12,15 +12,18 @@ final class DpsCompetencePreflight
 {
     public function assertCanAllocate(?string $competence, string $issueDate): void
     {
-        if (!self::validDate($competence) || !self::validDate($issueDate)) {
+        // nfse-php's XmlBuilder defaults absent competence to dhEmi's date.
+        // Apply the same rule before reserving an immutable fiscal number.
+        $effectiveCompetence = $competence ?: $issueDate;
+        if (!self::validDate($effectiveCompetence) || !self::validDate($issueDate)) {
             throw new FiscalIssuanceBlocked(
-                'E0015: a competência fiscal da DPS ou a data de emissão está ausente ou inválida. '
+                'E0015: a competência fiscal informada ou a data de emissão está inválida. '
                 . 'Confira a data de emissão da fatura antes de emitir.',
             );
         }
 
-        if ($competence > $issueDate) {
-            $formattedCompetence = substr($competence, 8, 2) . '/' . substr($competence, 5, 2) . '/' . substr($competence, 0, 4);
+        if ($effectiveCompetence > $issueDate) {
+            $formattedCompetence = substr($effectiveCompetence, 8, 2) . '/' . substr($effectiveCompetence, 5, 2) . '/' . substr($effectiveCompetence, 0, 4);
             $formattedIssueDate = substr($issueDate, 8, 2) . '/' . substr($issueDate, 5, 2) . '/' . substr($issueDate, 0, 4);
             throw new FiscalIssuanceBlocked(
                 'E0015: a competência informada na DPS (' . $formattedCompetence

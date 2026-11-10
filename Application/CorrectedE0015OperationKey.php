@@ -38,6 +38,8 @@ final class CorrectedE0015OperationKey
                 return $current;
             }
 
+            // The XML builder treats an omitted competence as the issue date.
+            $competence = $competence ?: $issueDate;
             if (!DpsCompetencePreflight::validDate($competence)
                 || !DpsCompetencePreflight::validDate($issueDate)) {
                 throw new FiscalIssuanceBlocked(

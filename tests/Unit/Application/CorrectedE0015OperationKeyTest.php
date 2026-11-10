@@ -41,6 +41,16 @@ final class CorrectedE0015OperationKeyTest extends TestCase
         $this->resolve($attempts, '2026-11-10', '2026-11-10');
     }
 
+    public function testOmittedCompetenceCorrectsRejectedFutureDateUsingIssueDate(): void
+    {
+        $attempts = [self::BASE => self::attempt(21, 'rejected', 'E0015', 400, '2026-11-11')];
+
+        self::assertSame(
+            $this->resolve($attempts, '2026-11-10', '2026-11-10'),
+            $this->resolve($attempts, '', '2026-11-10'),
+        );
+    }
+
     public function testCalendarDayAdvancingCanCorrectPreviouslyFutureCompetence(): void
     {
         $attempts = [self::BASE => self::attempt(21, 'rejected', 'E0015', 400, '2026-11-11')];

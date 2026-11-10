@@ -394,7 +394,9 @@ consulta de registros por nota, utilize as interfaces próprias de NFS-e.
 A competência fiscal da DPS não pode ser posterior à data/hora efetiva da
 DPS (`dhEmi`). Antes de reservar um novo número, a emissão verifica as
 datas usando a mesma referência de relógio utilizada pelo gerador XML.
-A data de vencimento financeiro não interfere nessa validação.
+A data de vencimento financeiro não interfere nessa validação. Quando a
+competência não é informada, o gerador XML usa a data da própria emissão;
+a pré-validação segue essa mesma regra.
 
 Quando a SEFIN confirma uma rejeição **E0015** (HTTP 400 ou 422), a DPS
 rejeitada e sua numeração continuam no histórico: não se apagam nem se
