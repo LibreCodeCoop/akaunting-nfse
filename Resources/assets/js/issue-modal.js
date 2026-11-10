@@ -555,7 +555,12 @@
                 if (panel) {
                     panel.classList.remove('hidden');
                     toggle.setAttribute('aria-expanded', 'true');
-                panel.querySelector('input')?.focus();
+                    const recipient = panel.querySelector('[data-nfse-recipient-input]');
+                    if (recipient && globalThis.NfseRecipientChips) {
+                        globalThis.NfseRecipientChips.focus(recipient);
+                    } else {
+                        panel.querySelector('input:not([hidden])')?.focus();
+                    }
                 }
             }
         });

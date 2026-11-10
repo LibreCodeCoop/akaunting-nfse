@@ -189,6 +189,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                         <div id="nfse-email-fields" class="sm:col-span-6 flex w-full min-w-0 flex-col gap-4">
                             <div id="nfse-email-recipient-fields"
+                                v-once
                                 class="w-full min-w-0 {{ $sendEmailDefault ? '' : 'hidden' }}"
                                 data-nfse-recipient-composer
                             >
@@ -226,7 +227,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 form-group-class="w-full min-w-0"
                             />
 
-                            <div data-nfse-email-body-group class="w-full min-w-0">
+                            <div data-nfse-email-body-group v-once class="w-full min-w-0">
                                 <label for="nfse_email_body" class="block text-sm font-medium text-gray-700">
                                     {{ trans('nfse::general.invoices.emit_modal_email_body') }}
                                 </label>

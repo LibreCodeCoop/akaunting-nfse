@@ -168,10 +168,15 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   const bccRecipients = dialog.locator('#nfse_email_bcc-entry');
 
   await expect(toRecipients).toBeVisible();
+  await toRecipients.fill('');
+  await toRecipients.pressSequentially('typed@example.test');
+  await expect(toRecipients).toHaveValue('typed@example.test');
+  await expect(toRecipients).toBeFocused();
   await toRecipients.fill('first@example.test, second@example.test');
   await ccToggle.click();
   await expect(ccToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(ccRecipients).toBeVisible();
+  await expect(ccRecipients).toBeFocused();
   await ccRecipients.fill('visible@example.test');
   await bccToggle.click();
   await expect(bccToggle).toHaveAttribute('aria-expanded', 'true');
