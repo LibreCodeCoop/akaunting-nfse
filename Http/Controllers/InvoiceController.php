@@ -4849,6 +4849,7 @@ class InvoiceController extends Controller
                 'code' => 'nfse_email_invalid',
                 'field' => $field,
                 'message' => $message,
+                'errors' => [$field => [$message]],
                 'redirect' => false,
                 'data' => null,
             ], 422);

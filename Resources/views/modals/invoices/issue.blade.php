@@ -331,13 +331,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     </div>
 
     <div
-        v-if="form.response && form.response.error"
+        v-if="(form.response && form.response.error) || (form.errors && form.errors.any())"
         class="mx-5 mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         role="alert"
         tabindex="-1"
         data-nfse-error-summary="true"
     >
-        @{{ (form.response && form.response.message) ? form.response.message : @json((string) trans('nfse::general.nfse_emit_failed')) }}
+        <span v-if="form.response && form.response.error">
+            @{{ form.response.message || @json((string) trans('nfse::general.nfse_emit_failed')) }}
+        </span>
+        <span v-else-if="form.errors.has('nfse_email_to')">@{{ form.errors.get('nfse_email_to') }}</span>
+        <span v-else-if="form.errors.has('nfse_email_cc')">@{{ form.errors.get('nfse_email_cc') }}</span>
+        <span v-else-if="form.errors.has('nfse_email_bcc')">@{{ form.errors.get('nfse_email_bcc') }}</span>
+        <span v-else>{{ trans('nfse::general.nfse_emit_failed') }}</span>
     </div>
 
 </x-form>
