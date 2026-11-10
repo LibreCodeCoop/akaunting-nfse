@@ -2889,6 +2889,31 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             );
         }
 
+        public function testSavingFullPreviewPersistsOnlyReusableAdditionalText(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 101,
+                amount: 250.0,
+                items: [['name' => 'Servico de suporte']],
+                description: 'Servico mensal',
+            );
+            $invoice->notes = 'Competencia: novembro';
+            $request = Request::create('/nfse/emit', 'POST', [
+                'nfse_description_save_mode' => 'general',
+                'nfse_discriminacao_custom' => "Servico mensal\n\nCompetencia: novembro\n\nDados bancarios",
+            ]);
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function save(Request $request, Invoice $invoice): void
+                {
+                    $this->persistDefaultDescriptionFromRequest($request, $invoice);
+                }
+            };
+
+            $controller->save($request, $invoice);
+            self::assertSame('Dados bancarios', ControllerIsolationState::$settings['invoice.notes']);
+        }
+
         public function testServicePreviewUsesSavedDefaultDescriptionWhenAvailable(): void
         {
             InvoiceControllerIsolationState::reset();

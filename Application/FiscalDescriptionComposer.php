@@ -79,6 +79,27 @@ final class FiscalDescriptionComposer
             ?: $fallbackLabel;
     }
 
+    /**
+     * A saved default is reusable additional text, not the current invoice's
+     * already generated service and notes. Keep intentionally edited text when
+     * the generated prefix no longer matches.
+     */
+    public function additionalFromEditedDescription(?string $edited, ?string $service, ?string $notes): string
+    {
+        $text = $this->normalize($edited) ?? '';
+        $generated = $this->joinDistinct([$service, $notes]);
+        if ($generated === '') {
+            return $text;
+        }
+
+        if ($text === $generated) {
+            return '';
+        }
+
+        $prefix = $generated . "\n\n";
+        return str_starts_with($text, $prefix) ? substr($text, strlen($prefix)) : $text;
+    }
+
     /** @param list<?string> $parts */
     private function joinDistinct(array $parts): string
     {
@@ -87,8 +108,17 @@ final class FiscalDescriptionComposer
         foreach ($parts as $part) {
             $text = $this->normalize($part);
 
-            if ($text !== null && !in_array($text, $unique, true)) {
-                $unique[] = $text;
+            if ($text === null) {
+                continue;
+            }
+
+            // Defaults saved from the full editor may contain several already
+            // generated paragraphs. Compare each block rather than whole strings.
+            foreach (preg_split('/\n[ \t]*\n+/', $text) ?: [] as $block) {
+                $block = $this->normalize($block);
+                if ($block !== null && !in_array($block, $unique, true)) {
+                    $unique[] = $block;
+                }
             }
         }
 

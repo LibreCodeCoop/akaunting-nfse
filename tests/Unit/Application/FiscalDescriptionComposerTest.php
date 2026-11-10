@@ -120,6 +120,39 @@ final class FiscalDescriptionComposerTest extends TestCase
         );
     }
 
+    public function testInvoiceDeduplicatesParagraphsAlreadyPresentInSavedFullDescription(): void
+    {
+        self::assertSame(
+            "Suporte mensal\n\nReferência: novembro\n\nDados bancários",
+            $this->composer->invoice(
+                'Suporte mensal',
+                [],
+                ['Suporte mensal'],
+                'Referência: novembro',
+                "Suporte mensal\n\nReferência: novembro\n\nDados bancários\n\nDados bancários",
+                null,
+                'Serviço',
+            ),
+        );
+    }
+
+    public function testSavedDefaultOmitsGeneratedInvoiceSpecificPrefix(): void
+    {
+        self::assertSame(
+            'Dados bancários',
+            $this->composer->additionalFromEditedDescription(
+                "Suporte mensal\n\nReferência: novembro\n\nDados bancários",
+                'Suporte mensal',
+                'Referência: novembro',
+            ),
+        );
+        self::assertSame('Texto personalizado', $this->composer->additionalFromEditedDescription(
+            'Texto personalizado',
+            'Suporte mensal',
+            null,
+        ));
+    }
+
     public function testLiteralAndRealLineBreaksAreNormalized(): void
     {
         self::assertSame(

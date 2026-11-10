@@ -1802,7 +1802,17 @@ class InvoiceController extends Controller
             $settingKey = 'nfse.customer_description.' . $companyId . '.' . $contactId;
         }
 
-        setting([$settingKey => $this->normalizeDescriptionText($rawValue) ?? '']);
+        // The editor starts with the invoice service and notes already included.
+        // Saving that entire preview as a general/customer default would append
+        // the same paragraphs again to each subsequent invoice.
+        $service = $this->normalizeDescriptionText((string) ($invoice->description ?? ''));
+        $notes = $this->normalizeDescriptionText((string) ($invoice->notes ?? ''));
+        $value = (new FiscalDescriptionComposer())->additionalFromEditedDescription(
+            $this->normalizeDescriptionText($rawValue),
+            $service,
+            $notes,
+        );
+        setting([$settingKey => $value]);
         $settings = setting();
         if (is_object($settings) && is_callable([$settings, 'save'])) {
             $settings->save();
