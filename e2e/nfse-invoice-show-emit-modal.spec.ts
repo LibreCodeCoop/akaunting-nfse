@@ -169,7 +169,27 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   await expect(toRecipients).toBeVisible();
   await toRecipients.fill('');
+  await page.evaluate(() => {
+    const log: Array<Record<string, unknown>> = [];
+    (window as any).__nfseKeyLog = log;
+    const nativePreventDefault = Event.prototype.preventDefault;
+    Event.prototype.preventDefault = function (...args) {
+      if (this instanceof KeyboardEvent) {
+        log.push({ key: this.key, phase: 'preventDefault', target: (this.target as Element)?.id,
+          stack: new Error().stack?.slice(0, 1000) });
+      }
+      return nativePreventDefault.apply(this, args);
+    };
+    document.addEventListener('keydown', (event) => {
+      log.push({ key: event.key, phase: 'capture', target: (event.target as Element)?.id, active: (document.activeElement as Element)?.id });
+    }, true);
+  });
   await toRecipients.pressSequentially('typed@example.test');
+  console.log('NFSE_KEY_DIAGNOSTICS', JSON.stringify(await page.evaluate(() => ({
+    log: (window as any).__nfseKeyLog, source: (document.querySelector('#nfse_email_to') as HTMLInputElement)?.value,
+    entry: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.value,
+    active: (document.activeElement as Element)?.id,
+  }))));
   await expect(toRecipients).toHaveValue('typed@example.test');
   await expect(toRecipients).toBeFocused();
   await toRecipients.fill('first@example.test, second@example.test');
