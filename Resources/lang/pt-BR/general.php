@@ -462,6 +462,7 @@ return [
         'emit_modal_email_bcc' => 'Cco',
         'emit_modal_email_recipients_hint' => 'Separe os endereços com vírgula ou ponto e vírgula. Destinatários inválidos impedem a emissão.',
         'emit_modal_email_invalid' => 'Verifique os endereços de e-mail em :field antes de emitir a NFS-e.',
+        'emit_modal_email_configuration_invalid' => 'Não foi possível validar as configurações do e-mail. Revise a opção de salvar o modelo e tente novamente.',
         'emit_modal_email_subject' => 'Assunto do e-mail',
         'emit_modal_email_body' => 'Corpo do e-mail',
         'emit_modal_email_body_help' => 'As tags do template serão substituídas no envio.',
@@ -635,6 +636,13 @@ return [
     ],
 
     'settings' => [
+        'email_footer_title' => 'Rodapé dos e-mails de NFS-e',
+        'email_footer_help' => 'Substitui a publicidade do Akaunting apenas nas mensagens de NFS-e. Cada empresa tem seu próprio rodapé.',
+        'email_footer_message' => 'Mensagem publicitária da LibreCode (texto simples)',
+        'email_footer_url' => 'Link para os produtos da LibreCode (HTTPS)',
+        'email_footer_save' => 'Salvar rodapé',
+        'email_footer_saved' => 'Rodapé dos e-mails de NFS-e atualizado.',
+        'email_footer_invalid' => 'Confira a mensagem e informe um link HTTPS válido, sem credenciais.',
         'issuer_company_context' => 'Empresa ativa no Akaunting',
         'issuer_company_context_help' => 'As configurações fiscais pertencem à empresa selecionada. Para configurar outra empresa, alterne a empresa ativa no Akaunting.',
         'issuer_phone' => 'Telefone do prestador (NFS-e)',

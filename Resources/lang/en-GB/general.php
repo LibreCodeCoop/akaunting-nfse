@@ -461,6 +461,7 @@ return [
         'emit_modal_email_bcc' => 'Bcc',
         'emit_modal_email_recipients_hint' => 'Separate addresses by commas or semicolons. Invalid recipients block issuance.',
         'emit_modal_email_invalid' => 'Check email addresses in :field before issuing the NFS-e.',
+        'emit_modal_email_configuration_invalid' => 'Could not validate the email settings. Review the template saving option and try again.',
         'emit_modal_email_subject' => 'Email subject',
         'emit_modal_email_body' => 'Email body',
         'emit_modal_email_body_help' => 'Template tags will be replaced when the message is sent.',
@@ -637,6 +638,13 @@ return [
     ],
 
     'settings' => [
+        'email_footer_title' => 'NFS-e email footer',
+        'email_footer_help' => 'Replaces Akaunting promotional content only in NFS-e emails. Each company has its own footer.',
+        'email_footer_message' => 'LibreCode promotional message (plain text)',
+        'email_footer_url' => 'Link to LibreCode products (HTTPS)',
+        'email_footer_save' => 'Save footer',
+        'email_footer_saved' => 'NFS-e email footer updated.',
+        'email_footer_invalid' => 'Check the message and provide a valid HTTPS link without credentials.',
         'issuer_company_context' => 'Active Akaunting company',
         'issuer_company_context_help' => 'Fiscal settings belong to the currently selected company. Switch companies in Akaunting to configure another entity.',
         'issuer_phone' => 'Provider phone (NFS-e)',

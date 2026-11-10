@@ -73,6 +73,8 @@ Route::admin('nfse', function () {
             ->middleware('permission:read-nfse-settings')->name('category-issuance.index');
         Route::post('/category-issuance', [CategoryIssuancePolicyController::class, 'store'])
             ->middleware('permission:update-nfse-settings')->name('category-issuance.store');
+        Route::patch('/email-footer', [SettingsController::class, 'updateEmailFooter'])
+            ->middleware('permission:update-nfse-settings')->name('email-footer');
         Route::get('/artifacts', [SettingsController::class, 'artifactSettings'])
             ->middleware('permission:read-nfse-settings')->name('artifacts.show');
         Route::patch('/artifacts', [SettingsController::class, 'updateArtifacts'])

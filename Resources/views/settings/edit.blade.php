@@ -341,6 +341,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     @endcan
                 </section>
             @endcan
+            @can('read-nfse-settings')
+                <section id="nfse-email-footer" class="rounded border bg-white" aria-labelledby="nfse-email-footer-title">
+                    <header class="border-b px-4 py-3">
+                        <h2 id="nfse-email-footer-title" class="font-semibold">{{ trans('nfse::general.settings.email_footer_title') }}</h2>
+                        <p class="mt-1 text-sm text-gray-600">{{ trans('nfse::general.settings.email_footer_help') }}</p>
+                    </header>
+                    @can('update-nfse-settings')
+                        <form method="POST" action="{{ route('nfse.settings.email-footer') }}" class="space-y-3 p-4">
+                            @csrf
+                            @method('PATCH')
+                            <label class="block text-sm" for="nfse-email-footer-message">
+                                {{ trans('nfse::general.settings.email_footer_message') }}
+                                <textarea id="nfse-email-footer-message" name="footer_message" rows="3"
+                                    maxlength="400" required class="mt-1 block w-full rounded border p-2">{{ old('footer_message', setting('nfse.email_footer_message', \Modules\Nfse\Application\NfseEmailFooter::DEFAULT_MESSAGE)) }}</textarea>
+                            </label>
+                            <label class="block text-sm" for="nfse-email-footer-url">
+                                {{ trans('nfse::general.settings.email_footer_url') }}
+                                <input id="nfse-email-footer-url" name="footer_url" type="url" maxlength="512" required
+                                    value="{{ old('footer_url', setting('nfse.email_footer_url', \Modules\Nfse\Application\NfseEmailFooter::DEFAULT_URL)) }}"
+                                    class="mt-1 block w-full rounded border p-2">
+                            </label>
+                            <button type="submit" class="rounded bg-green-700 px-4 py-2 text-sm text-white">{{ trans('nfse::general.settings.email_footer_save') }}</button>
+                        </form>
+                    @endcan
+                </section>
+            @endcan
         </div>
 
         @php

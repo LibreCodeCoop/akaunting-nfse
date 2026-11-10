@@ -233,6 +233,39 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $receipt->data_emissao = new \DateTimeImmutable($value);
         }
 
+        public function testNfseEmailFooterReplacesAkauntingAdvertisingWithLibreCode(): void
+        {
+            $this->makeTemplate();
+            $notification = new NfseIssued($this->makeInvoice(), $this->makeReceipt(), false, false, ['body' => 'Mensagem NFSe']);
+            $body = (string) $notification->getBody();
+
+            self::assertStringContainsString('LibreCode', $body);
+            self::assertStringContainsString('https://librecode.coop', $body);
+            self::assertStringNotContainsString('akaunting.com/accounting-software', $body);
+            self::assertStringNotContainsString('localhost', $body);
+        }
+
+        public function testNfseEmailFooterEscapesPlainTextAndRejectsUntrustedLink(): void
+        {
+            $this->makeTemplate();
+            $notification = new class ($this->makeInvoice(), $this->makeReceipt(), false, false, ['body' => 'Mensagem NFSe']) extends NfseIssued {
+                protected function settingString(string $key, string $default = ''): string
+                {
+                    return match ($key) {
+                        'nfse.email_footer_message' => '<script>alert("x")</script>',
+                        'nfse.email_footer_url' => 'javascript:alert(1)',
+                        default => $default,
+                    };
+                }
+            };
+
+            $body = (string) $notification->getBody();
+            self::assertStringContainsString('&lt;script&gt;', $body);
+            self::assertStringNotContainsString('<script>', $body);
+            self::assertStringContainsString('href="https://librecode.coop"', $body);
+            self::assertStringNotContainsString('href="javascript:', $body);
+        }
+
         public function testGetTagsReturnsAllExpectedTags(): void
         {
             $this->makeTemplate();
@@ -290,7 +323,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
         {
             $this->makeTemplate();
 
-            $notification = new class ($this->makeInvoice(), $this->makeReceipt(), true, true, ['to' => 'custom@example.com']) extends NfseIssued {
+            $notification = new class ($this->makeInvoice(), $this->makeReceipt(), false, false, ['to' => 'custom@example.com']) extends NfseIssued {
                 protected function makeWebDavClient(): WebDavClient
                 {
                     return new WebDavClient('http://nowhere', request: static fn (): array => [200, '']);
@@ -441,7 +474,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
         {
             $this->makeTemplate();
 
-            $notification = new class ($this->makeInvoice(), $this->makeReceipt(), true, true, ['to' => [['email' => 'legacy@example.com']]]) extends NfseIssued {
+            $notification = new class ($this->makeInvoice(), $this->makeReceipt(), false, false, ['to' => [['email' => 'legacy@example.com']]]) extends NfseIssued {
                 protected function makeWebDavClient(): WebDavClient
                 {
                     return new WebDavClient('http://nowhere', request: static fn (): array => [200, '']);
@@ -470,7 +503,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $notification = new class ($this->makeInvoice(), $receipt, true, false, []) extends NfseIssued {
                 protected function makeWebDavClient(): WebDavClient
                 {
-                    return new WebDavClient('http://nowhere', request: static fn (): array => [200, 'PDF_DATA']);
+                    return new WebDavClient('http://nowhere', request: static fn (): array => [200, '%PDF-1.7\nPDF_DATA']);
                 }
 
                 public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
@@ -488,6 +521,176 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             self::assertSame('application/pdf', $message->attachments[0]->mime ?? null);
         }
 
+        public function testRequestedDanfseWithoutStoredPathRejectsEmailBeforeDelivery(): void
+        {
+            $this->makeTemplate();
+            $receipt = $this->makeReceipt('67', null, '/archive/67.xml');
+            $notification = new class ($this->makeInvoice(), $receipt, true, true, []) extends NfseIssued {
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $this->expectException(\Modules\Nfse\Exceptions\RequiredEmailAttachmentUnavailable::class);
+            $this->expectExceptionMessage('DANFSE');
+            $notification->toMail(new \stdClass());
+        }
+
+        public function testUnavailableDanfseReadRejectsDeliveryRatherThanSilentlySkipping(): void
+        {
+            $this->makeTemplate();
+            $receipt = $this->makeReceipt('67', '/archive/67.pdf', '/archive/67.xml');
+            $notification = new class ($this->makeInvoice(), $receipt, true, true, []) extends NfseIssued {
+                protected function makeWebDavClient(): WebDavClient
+                {
+                    return new WebDavClient('https://example.test', request: static fn (): array => [503, '']);
+                }
+
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $this->expectException(\Modules\Nfse\Exceptions\RequiredEmailAttachmentUnavailable::class);
+            $this->expectExceptionMessage('DANFSE');
+            $notification->toMail(new \stdClass());
+        }
+
+        public function testInvalidDanfsePdfPayloadRejectsDelivery(): void
+        {
+            $this->makeTemplate();
+            $receipt = $this->makeReceipt('67', '/archive/67.pdf');
+            $notification = new class ($this->makeInvoice(), $receipt, true, false, []) extends NfseIssued {
+                protected function makeWebDavClient(): WebDavClient
+                {
+                    return new WebDavClient('https://example.test', request: static fn (): array => [200, '<html>not a PDF</html>']);
+                }
+
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $this->expectException(\Modules\Nfse\Exceptions\RequiredEmailAttachmentUnavailable::class);
+            $this->expectExceptionMessage('DANFSE');
+            $notification->toMail(new \stdClass());
+        }
+
+        public function testUnavailableXmlReadAlsoRejectsDelivery(): void
+        {
+            $this->makeTemplate();
+            $receipt = $this->makeReceipt('67', '/archive/67.pdf', '/archive/67.xml');
+            $notification = new class ($this->makeInvoice(), $receipt, true, true, []) extends NfseIssued {
+                protected function makeWebDavClient(): WebDavClient
+                {
+                    return new WebDavClient('https://example.test', request: static fn (string $method, string $url): array =>
+                        str_ends_with($url, '.pdf') ? [200, '%PDF-1.7'] : [404, '']);
+                }
+
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $this->expectException(\Modules\Nfse\Exceptions\RequiredEmailAttachmentUnavailable::class);
+            $this->expectExceptionMessage('NFS-e XML');
+            $notification->toMail(new \stdClass());
+        }
+
+        public function testRequestedInvoicePdfWithoutGeneratedPathRejectsDelivery(): void
+        {
+            $this->makeTemplate();
+            $notification = new class ($this->makeInvoice(), $this->makeReceipt(), false, false, ['attach_invoice_pdf' => true]) extends NfseIssued {
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $this->expectException(\Modules\Nfse\Exceptions\RequiredEmailAttachmentUnavailable::class);
+            $this->expectExceptionMessage('invoice PDF');
+            $notification->toMail(new \stdClass());
+        }
+
+        public function testStoredAuthorizedXmlBuildsBothAttachmentsWithoutWebDavNetwork(): void
+        {
+            $this->makeTemplate();
+            $receipt = $this->makeReceipt('67', null, null);
+
+            $notification = new class ($this->makeInvoice(), $receipt, true, true, []) extends NfseIssued {
+                public int $webDavReads = 0;
+
+                protected function authorizedXmlForEmail(): ?string
+                {
+                    return '<?xml version="1.0"?><NFSe>synthetic</NFSe>';
+                }
+
+                protected function generateDanfseFromXml(string $xml): string
+                {
+                    return '%PDF-1.7' . chr(10) . 'Synthetic DANFSE';
+                }
+
+                protected function makeWebDavClient(): WebDavClient
+                {
+                    $this->webDavReads++;
+
+                    throw new \RuntimeException('WebDAV should not be required for stored authorized XML.');
+                }
+
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $message = $notification->toMail(new \stdClass());
+
+            self::assertCount(2, $message->attachments);
+            self::assertSame('nfse-67.pdf', $message->attachments[0]->name);
+            self::assertSame('nfse-67.xml', $message->attachments[1]->name);
+            self::assertSame(0, $notification->webDavReads);
+        }
+
+        public function testDanfseFallsBackToPersistedArchiveIfGenerationFails(): void
+        {
+            $this->makeTemplate();
+            $receipt = $this->makeReceipt('67', '/archive/67.pdf');
+
+            $notification = new class ($this->makeInvoice(), $receipt, true, false, []) extends NfseIssued {
+                protected function authorizedXmlForEmail(): ?string
+                {
+                    return '<?xml version="1.0"?><NFSe>synthetic</NFSe>';
+                }
+
+                protected function generateDanfseFromXml(string $xml): string
+                {
+                    throw new \RuntimeException('Synthetic local-generation failure');
+                }
+
+                protected function makeWebDavClient(): WebDavClient
+                {
+                    return new WebDavClient('https://example.test', request: static fn (): array => [
+                        200,
+                        '%PDF-1.7' . chr(10) . 'Archived DANFSE',
+                    ]);
+                }
+
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $message = $notification->toMail(new \stdClass());
+
+            self::assertCount(1, $message->attachments);
+            self::assertSame('nfse-67.pdf', $message->attachments[0]->name);
+        }
+
         public function testToMailDoesNotAttachWhenAttachDanfseFalse(): void
         {
             $this->makeTemplate();
@@ -496,7 +699,7 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $notification = new class ($this->makeInvoice(), $receipt, false, false, []) extends NfseIssued {
                 protected function makeWebDavClient(): WebDavClient
                 {
-                    return new WebDavClient('http://nowhere', request: static fn (): array => [200, 'PDF_DATA']);
+                    return new WebDavClient('http://nowhere', request: static fn (): array => [200, '%PDF-1.7\nPDF_DATA']);
                 }
 
                 public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
@@ -521,7 +724,10 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $notification = new class ($this->makeInvoice(), $receipt, true, true, []) extends NfseIssued {
                 protected function makeWebDavClient(): WebDavClient
                 {
-                    return new WebDavClient('http://nowhere', request: static fn (): array => [200, 'CONTENT']);
+                    return new WebDavClient('http://nowhere', request: static fn (string $method, string $url): array => [
+                        200,
+                        str_ends_with($url, '.pdf') ? '%PDF-1.7\nPDF_DATA' : '<?xml version="1.0"?><NFSe/>',
+                    ]);
                 }
 
                 public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
@@ -581,10 +787,13 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
                 public string $email = 'a@b.com';
             };
 
-            $message = $notification->toMail($notifiable);
-
-            self::assertCount(0, $message->attachments);
-            self::assertSame([], $notification->requestedPaths, 'Missing persisted paths must not trigger guessed cross-company downloads.');
+            try {
+                $this->expectException(\Modules\Nfse\Exceptions\RequiredEmailAttachmentUnavailable::class);
+                $this->expectExceptionMessage('DANFSE');
+                $notification->toMail($notifiable);
+            } finally {
+                self::assertSame([], $notification->requestedPaths, 'Missing paths must never trigger guessed cross-company downloads.');
+            }
         }
 
         public function testToMailWorksAfterSerializationRoundTrip(): void
@@ -594,8 +803,8 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $notification = new NfseIssued(
                 $this->makeInvoice(),
                 $this->makeReceipt(),
-                true,
-                true,
+                false,
+                false,
                 ['to' => 'custom@example.com'],
             );
 

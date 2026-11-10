@@ -56,7 +56,7 @@ class SettingsController extends Controller
 
         // Preserve tab navigation separately from infrastructure data.
         $rawTab = $request !== null ? $request->query('tab') : null;
-        $activeTab = is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'federal', 'artifacts'], true)
+        $activeTab = is_string($rawTab) && in_array($rawTab, ['vault', 'certificate', 'fiscal', 'federal', 'artifacts', 'email'], true)
             ? $rawTab : 'vault';
 
         // Administrative HTML is presentation only. Safe global Vault metadata
@@ -499,6 +499,31 @@ class SettingsController extends Controller
             'store_xml' => (bool) setting('nfse.webdav_store_xml', true),
             'store_pdf' => (bool) setting('nfse.webdav_store_pdf', true),
         ]]);
+    }
+
+    public function updateEmailFooter(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'footer_message' => 'required|string|max:400',
+            'footer_url' => 'required|url|max:512',
+        ]);
+
+        $message = trim((string) $request->input('footer_message', ''));
+        $url = trim((string) $request->input('footer_url', ''));
+
+        if ($message === '' || !(new \Modules\Nfse\Application\NfseEmailFooter())->isSafeUrl($url)) {
+            return redirect()->route('nfse.settings.edit', ['tab' => 'email'])
+                ->with('error', trans('nfse::general.settings.email_footer_invalid'));
+        }
+
+        setting([
+            'nfse.email_footer_message' => $message,
+            'nfse.email_footer_url' => $url,
+        ]);
+        setting()->save();
+
+        return redirect()->route('nfse.settings.edit', ['tab' => 'email'])
+            ->with('success', trans('nfse::general.settings.email_footer_saved'));
     }
 
     public function updateArtifacts(Request $request): RedirectResponse|JsonResponse

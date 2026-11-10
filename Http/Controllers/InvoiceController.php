@@ -4757,8 +4757,11 @@ class InvoiceController extends Controller
             'nfse_email_save_mode',
             $request->boolean('nfse_email_save_default', false) ? 'general' : 'none',
         ));
+        if ($saveMode === '') {
+            $saveMode = $request->boolean('nfse_email_save_default', false) ? 'general' : 'none';
+        }
         if (!in_array($saveMode, ['none', 'general', 'customer'], true)) {
-            throw new \InvalidArgumentException('Invalid email template save mode.');
+            throw new \InvalidArgumentException('nfse_email_save_mode');
         }
 
         $recipients = null;
@@ -4835,18 +4838,21 @@ class InvoiceController extends Controller
             'nfse_email_cc' => 'emit_modal_email_cc',
             'nfse_email_bcc' => 'emit_modal_email_bcc',
         ];
-        $field = array_key_exists($exception->getMessage(), $labels)
-            ? $exception->getMessage()
-            : 'nfse_email_to';
-        $message = trans('nfse::general.invoices.emit_modal_email_invalid', [
-            'field' => trans('nfse::general.invoices.' . $labels[$field]),
-        ]);
+        $reason = $exception->getMessage();
+        $isRecipientError = array_key_exists($reason, $labels);
+        $field = $isRecipientError ? $reason : ($reason === 'nfse_email_save_mode' ? $reason : 'nfse_email');
+        $code = $isRecipientError ? 'nfse_email_invalid' : 'nfse_email_configuration_invalid';
+        $message = $isRecipientError
+            ? trans('nfse::general.invoices.emit_modal_email_invalid', [
+                'field' => trans('nfse::general.invoices.' . $labels[$field]),
+            ])
+            : trans('nfse::general.invoices.emit_modal_email_configuration_invalid');
 
         if ($request instanceof Request && ($request->isXmlHttpRequest() || $request->boolean('nfse_force_ajax', false))) {
             return new JsonResponse([
                 'success' => false,
                 'error' => true,
-                'code' => 'nfse_email_invalid',
+                'code' => $code,
                 'field' => $field,
                 'message' => $message,
                 'errors' => [$field => [$message]],

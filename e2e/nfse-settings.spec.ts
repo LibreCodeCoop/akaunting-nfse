@@ -64,6 +64,35 @@ async function mockApi(page: Page, profiles: any[], eligible: any[], vaultState 
   });
 }
 
+test('NFS-e footer is editable through authorized company settings without Core customization', async ({ page }, info) => {
+  await loginToAkaunting(page, info);
+  await page.goto('/1/nfse/settings', { waitUntil: 'domcontentloaded' });
+  const form = page.locator('#nfse-email-footer form');
+  await expect(form).toBeVisible();
+  const message = form.locator('textarea[name="footer_message"]');
+  const url = form.locator('input[name="footer_url"]');
+  await expect(message).not.toBeEmpty();
+  await expect(url).toHaveValue('https://librecode.coop');
+
+  await message.fill('LibreSign e outras soluções da LibreCode');
+  await url.fill('https://libresign.coop');
+  let captured = '';
+  await page.route(/\/nfse\/settings\/email-footer$/, async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    captured = route.request().postData() ?? '';
+    await route.fulfill({ status: 200, contentType: 'text/plain', body: 'Submission intercepted by Playwright' });
+  });
+  await form.getByRole('button', { name: /Salvar rodapé|Save footer/i }).click();
+  await expect.poll(() => captured).not.toBe('');
+  const values = new URLSearchParams(captured);
+  expect(values.get('_method')).toBe('PATCH');
+  expect(values.get('footer_message')).toBe('LibreSign e outras soluções da LibreCode');
+  expect(values.get('footer_url')).toBe('https://libresign.coop');
+});
+
 test('eligibility, fiscal pendencies, Vault outage and native administration', async ({ page }, info) => {
   await loginToAkaunting(page, info);
   await mockApi(page, [profile(1)], [], 'failed');

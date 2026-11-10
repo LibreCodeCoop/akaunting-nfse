@@ -41,14 +41,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             form-group-class="sm:col-span-6"
                         />
 
-                        <x-form.group.editor
-                            name="body"
-                            label="{{ trans('settings.email.templates.body') }}"
-                            :value="$notification->getBody()"
-                            rows="3"
-                            data-toggle="quill"
-                            form-group-class="sm:col-span-6 mb-0"
-                        />
+                        <div class="sm:col-span-6 min-w-0" v-once @keydown="!$event.target.name && $event.stopPropagation()">
+                            <label for="nfse_email_message_body" class="mb-1 block text-sm font-medium text-gray-700">
+                                {{ trans('settings.email.templates.body') }}
+                            </label>
+                            <textarea
+                                id="nfse_email_message_body"
+                                name="body"
+                                v-model="form.body"
+                                data-nfse-ckeditor
+                                data-nfse-editor-label="{{ trans('settings.email.templates.body') }}"
+                                rows="4"
+                                class="w-full rounded border border-gray-200 px-3 py-2"
+                            >{{ $notification->getBody() }}</textarea>
+                        </div>
 
                         <x-form.group.checkbox
                             name="user_email"
