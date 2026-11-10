@@ -157,6 +157,7 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   await dialog.getByText(/E-mail|Email/i).first().click();
 
   await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
+  await expect(dialog.locator('select[name="nfse_email_save_mode"]')).toHaveValue('none');
   await expect(page.locator("input[name='nfse_email_subject']")).toBeVisible();
 
   await page.locator("input[name='nfse_email_subject']").fill(subjectValue);
@@ -276,6 +277,51 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   await expect(page).toHaveURL(new RegExp(`/1/sales/invoices/${selectedInvoiceId}$`));
 });
 
+
+test('unchanged template-save option keeps one To and three Cc valid on fiscal submit', async ({ page }, testInfo) => {
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+  expect(invoiceId).toMatch(/^\d+$/);
+  await loginToAkaunting(page, testInfo);
+  await page.goto(`/1/sales/invoices/${invoiceId}`, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('[data-nfse-native-emit="true"]')).toBeVisible();
+  await page.locator('[data-nfse-native-emit="true"]').click();
+  const dialog = page.locator('[role="dialog"]').last();
+  await expect(dialog).toBeVisible();
+  await dialog.getByText(/E-mail|Email/i).first().click();
+  await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
+
+  await expect(dialog.locator('select[name="nfse_email_save_mode"]')).toHaveValue('none');
+  await expect(dialog.locator('[data-nfse-recipient-chipbox="nfse_email_to"] [data-nfse-recipient-chip]')).toHaveCount(1);
+  await dialog.getByRole('button', { name: 'Cc', exact: true }).click();
+  const cc = dialog.locator('#nfse_email_cc-entry');
+  for (const recipient of ['one@example.test', 'two@example.test', 'three@example.test']) {
+    await cc.fill(recipient);
+    if (recipient !== 'three@example.test') {
+      await cc.press('Enter');
+    }
+  }
+  // Clicking Emitir must commit the final address even without Enter.
+  await expect(cc).toHaveValue('three@example.test');
+
+  let payload = '';
+  await page.route(new RegExp(`/[0-9]+/nfse/invoices/${invoiceId}/emit$`), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    payload = route.request().postData() ?? '';
+    // Never transmit a fiscal issuance from a browser regression test.
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      success: true, error: false, redirect: `/1/sales/invoices/${invoiceId}`,
+    }) });
+  });
+
+  await dialog.getByRole('button', { name: /Emitir NFS-e agora|Emit NFS-e now/i }).click();
+  await expect.poll(() => payload).not.toBe('');
+  expect(extractPayloadValue(payload, 'nfse_email_to')).toBe('customer@company.com');
+  expect(extractPayloadValue(payload, 'nfse_email_cc')).toBe('one@example.test, two@example.test, three@example.test');
+  expect(extractPayloadValue(payload, 'nfse_email_save_mode')).toBe('none');
+});
 
 test('legacy NFS-e invoice list opens native invoice composer without a parallel mail form', async ({ page }, testInfo) => {
   const readyId = process.env.NFSE_E2E_BULK_READY_INVOICE_ID ?? '';

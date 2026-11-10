@@ -1401,6 +1401,36 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         }
 
 
+        public function testInvalidEmailSaveModeAjaxResponsePointsToConfigurationNotRecipient(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 5934, amount: 100.0);
+            $request = Request::create('/1/nfse/invoices/5934/emit', 'POST', [
+                'nfse_force_ajax' => '1',
+            ]);
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function validationResponse(Request $request, Invoice $invoice): \Illuminate\Http\JsonResponse
+                {
+                    $response = $this->invalidEmailRedirect(
+                        $request,
+                        $invoice,
+                        new \InvalidArgumentException('nfse_email_save_mode'),
+                    );
+                    if (!$response instanceof \Illuminate\Http\JsonResponse) {
+                        throw new \LogicException('Expected JSON validation response.');
+                    }
+                    return $response;
+                }
+            };
+
+            $response = $controller->validationResponse($request, $invoice);
+            self::assertSame(422, $response->getStatusCode());
+            $body = $response->getData(true);
+            self::assertSame('nfse_email_configuration_invalid', $body['code']);
+            self::assertSame('nfse_email_save_mode', $body['field']);
+            self::assertSame([$body['message']], $body['errors']['nfse_email_save_mode']);
+            self::assertArrayNotHasKey('nfse_email_to', $body['errors']);
+        }
+
         public function testEmitReturnsJsonWithRedirectWhenRequestIsAjax(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
@@ -6506,6 +6536,57 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(['private@example.test'], $email['custom_mail']['bcc'] ?? null);
             self::assertSame('NFS-e emitida', $email['custom_mail']['subject'] ?? null);
             self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
+        }
+
+        public function testEmptyEmailSaveModeAllowsOneRecipientWithThreeCcAddresses(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 5521, amount: 100.0);
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email' => '1',
+                'nfse_email_to' => 'recipient@example.test',
+                'nfse_email_cc' => 'one@example.test, two@example.test, three@example.test',
+                'nfse_email_save_mode' => '',
+            ]);
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function exposePreparePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
+                {
+                    return $this->preparePostEmitEmail($request, $invoice);
+                }
+            };
+
+            $email = $controller->exposePreparePostEmitEmail($request, $invoice);
+            self::assertSame(['recipient@example.test'], $email['custom_mail']['to'] ?? null);
+            self::assertSame(
+                ['one@example.test', 'two@example.test', 'three@example.test'],
+                $email['custom_mail']['cc'] ?? null,
+            );
+            self::assertSame('1', ControllerIsolationState::$settings['nfse.send_email_on_emit'] ?? null);
+        }
+
+        public function testInvalidEmailTemplateSaveModeIsIdentifiedWithoutBlamingTheRecipient(): void
+        {
+            InvoiceControllerIsolationState::reset();
+            $invoice = InvoiceControllerIsolationState::makeInvoice(id: 5523, amount: 100.0);
+            $request = \Illuminate\Http\Request::create('/nfse/emit', 'POST', [
+                'nfse_send_email' => '1',
+                'nfse_email_to' => 'recipient@example.test',
+                'nfse_email_save_mode' => 'unsupported',
+            ]);
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function exposePreparePostEmitEmail(\Illuminate\Http\Request $request, Invoice $invoice): ?array
+                {
+                    return $this->preparePostEmitEmail($request, $invoice);
+                }
+            };
+
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('nfse_email_save_mode');
+            try {
+                $controller->exposePreparePostEmitEmail($request, $invoice);
+            } finally {
+                self::assertArrayNotHasKey('nfse.send_email_on_emit', ControllerIsolationState::$settings);
+            }
         }
 
         public function testClearedPrimaryRecipientsDoNotSilentlyRestoreInvoiceContact(): void

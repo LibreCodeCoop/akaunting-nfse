@@ -270,6 +270,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <select
                                     id="nfse-email-save-mode"
                                     name="nfse_email_save_mode"
+                                    value="none"
                                     v-model="form.nfse_email_save_mode"
                                     class="mt-1 w-full rounded border border-gray-200 px-3 py-2"
                                 >

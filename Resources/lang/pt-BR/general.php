@@ -462,6 +462,7 @@ return [
         'emit_modal_email_bcc' => 'Cco',
         'emit_modal_email_recipients_hint' => 'Separe os endereços com vírgula ou ponto e vírgula. Destinatários inválidos impedem a emissão.',
         'emit_modal_email_invalid' => 'Verifique os endereços de e-mail em :field antes de emitir a NFS-e.',
+        'emit_modal_email_configuration_invalid' => 'Não foi possível validar as configurações do e-mail. Revise a opção de salvar o modelo e tente novamente.',
         'emit_modal_email_subject' => 'Assunto do e-mail',
         'emit_modal_email_body' => 'Corpo do e-mail',
         'emit_modal_email_body_help' => 'As tags do template serão substituídas no envio.',
