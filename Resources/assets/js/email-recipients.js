@@ -55,20 +55,20 @@
         source.setAttribute('tabindex', '-1');
         source.addEventListener('focus', () => entry.focus());
 
-        function showError() {
-            const invalid = entry.value.trim() !== '' && !isEmail(entry.value.trim());
+        function showError(validate) {
+            const invalid = validate && entry.value.trim() !== '' && !isEmail(entry.value.trim());
             entry.setAttribute('aria-invalid', invalid ? 'true' : 'false');
             message.textContent = invalid ? 'Confira o endereço de e-mail antes de enviar.' : '';
         }
 
-        function sync() {
+        function sync(validate = false) {
             const addressList = entries.concat(entry.value.trim() ? [entry.value.trim()] : []);
             const serialized = addressList.join(', ');
             if (source.value !== serialized) {
                 source.value = serialized;
                 source.dispatchEvent(new Event('input', { bubbles: true }));
             }
-            showError();
+            showError(validate);
         }
 
         function remove(address) {
@@ -121,7 +121,7 @@
             const invalid = [];
             parts.forEach((item) => { if (!add(item)) invalid.push(item); });
             entry.value = invalid.join(', ');
-            sync();
+            sync(invalid.length > 0);
             return invalid.length === 0;
         }
 
@@ -137,7 +137,7 @@
                 if (item.trim() && !add(item)) invalid.push(item.trim());
             });
             entry.value = [...invalid, trailing.trim()].filter(Boolean).join(', ');
-            sync();
+            sync(invalid.length > 0);
         }
 
         entry.addEventListener('input', extractCompleted);
@@ -169,7 +169,7 @@
             const invalid = [];
             parts.forEach((item) => { if (!add(item)) invalid.push(item); });
             entry.value = invalid.join(', ');
-            sync();
+            sync(invalid.length > 0);
             entry.focus();
         });
 
