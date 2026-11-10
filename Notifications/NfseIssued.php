@@ -18,6 +18,7 @@ use Modules\Nfse\Exceptions\RequiredEmailAttachmentUnavailable;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\CustomerEmailPreferences;
 use Modules\Nfse\Support\WebDavClient;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseGenerator;
 
 class NfseIssued extends Notification
 {
@@ -445,7 +446,7 @@ class NfseIssued extends Notification
             $message->attach(Attachment::fromPath($path)->withMime('application/pdf'));
         }
 
-        $this->attachWebDavArtifact(
+        $this->attachFiscalArtifact(
             $message,
             $this->attachDanfse,
             $this->receipt->danfse_webdav_path ?? null,
@@ -453,7 +454,7 @@ class NfseIssued extends Notification
             'pdf',
             'application/pdf',
         );
-        $this->attachWebDavArtifact(
+        $this->attachFiscalArtifact(
             $message,
             $this->attachXml,
             $this->receipt->xml_webdav_path ?? null,
@@ -463,7 +464,7 @@ class NfseIssued extends Notification
         );
     }
 
-    private function attachWebDavArtifact(
+    private function attachFiscalArtifact(
         MailMessage $message,
         bool $requested,
         mixed $persistedPath,
@@ -475,16 +476,34 @@ class NfseIssued extends Notification
             return;
         }
 
-        $path = $this->resolveArtifactPath($persistedPath);
+        $content = null;
+        $xml = $this->authorizedXmlForEmail();
 
-        if ($path === null) {
-            throw new RequiredEmailAttachmentUnavailable('Requested ' . $label . ' attachment is not archived.');
+        if ($xml !== null && $extension === 'xml') {
+            $content = $xml;
+        } elseif ($xml !== null && $extension === 'pdf') {
+            try {
+                $generated = $this->generateDanfseFromXml($xml);
+                if (str_starts_with($generated, '%PDF-')) {
+                    $content = $generated;
+                }
+            } catch (\RuntimeException | \InvalidArgumentException) {
+                // Use the archived DANFSE when local generation is unavailable.
+            }
         }
 
-        try {
-            $content = $this->makeWebDavClient()->get($path);
-        } catch (\RuntimeException) {
-            throw new RequiredEmailAttachmentUnavailable('Requested ' . $label . ' attachment could not be retrieved.');
+        if ($content === null) {
+            $path = $this->resolveArtifactPath($persistedPath);
+
+            if ($path === null) {
+                throw new RequiredEmailAttachmentUnavailable('Requested ' . $label . ' attachment is not archived.');
+            }
+
+            try {
+                $content = $this->makeWebDavClient()->get($path);
+            } catch (\RuntimeException) {
+                throw new RequiredEmailAttachmentUnavailable('Requested ' . $label . ' attachment could not be retrieved.');
+            }
         }
 
         if ($content === '' || ($extension === 'pdf' && !str_starts_with($content, '%PDF-'))) {
@@ -497,6 +516,22 @@ class NfseIssued extends Notification
             Attachment::fromData(static fn (): string => $content, $filename)
                 ->withMime($mime),
         );
+    }
+
+    protected function authorizedXmlForEmail(): ?string
+    {
+        if (!method_exists($this->receipt, 'payload')) {
+            return null;
+        }
+
+        $xml = $this->receipt->payload()->value('authorized_xml');
+
+        return is_string($xml) && trim($xml) !== '' ? $xml : null;
+    }
+
+    protected function generateDanfseFromXml(string $xml): string
+    {
+        return (new DanfseGenerator())->generateFromXml($xml);
     }
 
     protected function shouldAttachInvoicePdf(): bool

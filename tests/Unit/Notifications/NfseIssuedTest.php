@@ -616,6 +616,81 @@ namespace Modules\Nfse\Tests\Unit\Notifications {
             $notification->toMail(new \stdClass());
         }
 
+        public function testStoredAuthorizedXmlBuildsBothAttachmentsWithoutWebDavNetwork(): void
+        {
+            $this->makeTemplate();
+            $receipt = $this->makeReceipt('67', null, null);
+
+            $notification = new class ($this->makeInvoice(), $receipt, true, true, []) extends NfseIssued {
+                public int $webDavReads = 0;
+
+                protected function authorizedXmlForEmail(): ?string
+                {
+                    return '<?xml version="1.0"?><NFSe>synthetic</NFSe>';
+                }
+
+                protected function generateDanfseFromXml(string $xml): string
+                {
+                    return '%PDF-1.7' . chr(10) . 'Synthetic DANFSE';
+                }
+
+                protected function makeWebDavClient(): WebDavClient
+                {
+                    $this->webDavReads++;
+
+                    throw new \RuntimeException('WebDAV should not be required for stored authorized XML.');
+                }
+
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $message = $notification->toMail(new \stdClass());
+
+            self::assertCount(2, $message->attachments);
+            self::assertSame('nfse-67.pdf', $message->attachments[0]->name);
+            self::assertSame('nfse-67.xml', $message->attachments[1]->name);
+            self::assertSame(0, $notification->webDavReads);
+        }
+
+        public function testDanfseFallsBackToPersistedArchiveIfGenerationFails(): void
+        {
+            $this->makeTemplate();
+            $receipt = $this->makeReceipt('67', '/archive/67.pdf');
+
+            $notification = new class ($this->makeInvoice(), $receipt, true, false, []) extends NfseIssued {
+                protected function authorizedXmlForEmail(): ?string
+                {
+                    return '<?xml version="1.0"?><NFSe>synthetic</NFSe>';
+                }
+
+                protected function generateDanfseFromXml(string $xml): string
+                {
+                    throw new \RuntimeException('Synthetic local-generation failure');
+                }
+
+                protected function makeWebDavClient(): WebDavClient
+                {
+                    return new WebDavClient('https://example.test', request: static fn (): array => [
+                        200,
+                        '%PDF-1.7' . chr(10) . 'Archived DANFSE',
+                    ]);
+                }
+
+                public function initMailMessage(): \Illuminate\Notifications\Messages\MailMessage
+                {
+                    return new \Illuminate\Notifications\Messages\MailMessage();
+                }
+            };
+
+            $message = $notification->toMail(new \stdClass());
+
+            self::assertCount(1, $message->attachments);
+            self::assertSame('nfse-67.pdf', $message->attachments[0]->name);
+        }
+
         public function testToMailDoesNotAttachWhenAttachDanfseFalse(): void
         {
             $this->makeTemplate();

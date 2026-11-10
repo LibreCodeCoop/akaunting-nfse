@@ -19,6 +19,10 @@ separate customization strategy.
 
 When a sender requests the invoice PDF, DANFSE or authorized XML, the email
 must not be delivered if any requested attachment cannot be prepared.
+For NFS-e, the email first uses the immutable authorized XML saved with that
+receipt. It can render DANFSE locally from the XML, without an external WebDAV
+read or a second fiscal issuance. Historical receipts may still retrieve their
+persisted artifacts from WebDAV, without guessing remote keys.
 The email job records a failed delivery rather than silently marking an
 incomplete message successful. Failed/sent emails must not automatically
 be resent; only the email-delivery operation may be retried after checking
