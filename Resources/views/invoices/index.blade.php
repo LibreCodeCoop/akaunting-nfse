@@ -614,9 +614,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                                 sendEmailInput.value = sendEmail ? '1' : '0';
                                                             }
 
-                                                            if (emailToInput) {
-                                                                emailToInput.value = recipient;
-                                                            }
+                                                            const toField = document.getElementById('nfse_emit_email_to');
+                                                            if (toField) window.NfseRecipientChips?.replace(toField, recipient);
+                                                            if (emailToInput) emailToInput.value = recipient;
 
                                                             const ccField = document.getElementById('nfse_emit_email_cc');
                                                             if (ccField) window.NfseRecipientChips?.replace(ccField, cc);
@@ -1427,7 +1427,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     }
 
                     if (emitModalEmailToInput) {
-                        emitModalEmailToInput.value = typeof emailDefaults.recipient === 'string' ? emailDefaults.recipient : '';
+                        const recipient = typeof emailDefaults.recipient === 'string' ? emailDefaults.recipient : '';
+                        window.NfseRecipientChips?.replace(emitModalEmailToInput, recipient);
                     }
                     const cc = typeof emailDefaults.cc === 'string' ? emailDefaults.cc : '';
                     const ccField = document.getElementById('nfse_emit_email_cc');
