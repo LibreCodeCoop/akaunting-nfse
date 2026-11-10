@@ -432,6 +432,15 @@ test('typing in email body keeps email tab content visible in emit modal', async
   await expect(emailPane).toBeVisible();
   await expect(dialog.getByRole('tab', { name: /E-mail|Email/i })).toHaveAttribute('aria-selected', 'true');
 
+  // Browser-native undo must reverse the paste without losing focus or resetting the tab.
+  // Firefox loses its undo history when Vue patches the subject input after the paste.
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(subject).toHaveValue('Antes do Ctrl+V');
+  await expect(subject).toBeFocused();
+  await expect(emailPane).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+Shift+z');
+  await expect(subject).toHaveValue('Antes do Ctrl+V - mensagem colada');
+
   // Regression: Ctrl used to collapse the Email tab and, after changing tabs,
   // could leave the entire pane hidden until the modal was reopened.
   await page.keyboard.down('Control');
