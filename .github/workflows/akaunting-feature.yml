@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5]
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -115,7 +115,7 @@ jobs:
       - name: Run NFS-e Feature tests (isolated shard ${{ matrix.shard }})
         env:
           NFSE_FEATURE_SHARD_INDEX: ${{ matrix.shard }}
-          NFSE_FEATURE_SHARD_COUNT: 4
+          NFSE_FEATURE_SHARD_COUNT: 6
         working-directory: akaunting
         run: bash modules/Nfse/tools/bin/run-feature-shard.sh
 

@@ -45,10 +45,20 @@ test('Feature shards cover each class once with deterministic independent groups
   const root = path.join(project, 'Tests/Feature');
   const expected = fs.readdirSync(root).filter(name => name.endsWith('Test.php'))
     .map(name => name.slice(0, -4)).sort();
-  const results = Array.from({ length: 4 }, (_, index) => shard(root, index, 4));
-  const selected = results.flatMap(result => result.classes);
-  assert.deepEqual([...selected].sort(), expected);
-  for (let index = 0; index < 4; index++) {
-    assert.deepEqual(shard(root, index, 4), results[index]);
+  for (const count of [4, 6]) {
+    const results = Array.from({ length: count }, (_, index) => shard(root, index, count));
+    const selected = results.flatMap(result => result.classes);
+    assert.deepEqual([...selected].sort(), expected);
+    for (let index = 0; index < count; index++) {
+      assert.deepEqual(shard(root, index, count), results[index]);
+    }
   }
+});
+
+test('CI uses six isolated Feature runners with one fixed-count aggregator', () => {
+  const workflow = fs.readFileSync(path.join(project, '.github/workflows/akaunting-feature.yml'), 'utf8');
+  assert.match(workflow, /shard: \[0, 1, 2, 3, 4, 5\]/);
+  assert.match(workflow, /NFSE_FEATURE_SHARD_COUNT: 6/);
+  assert.match(workflow, /needs: feature_shard/);
+  assert.match(workflow, /SHARD_RESULT: \$\{\{ needs\.feature_shard\.result \}\}/);
 });

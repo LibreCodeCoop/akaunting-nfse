@@ -42,7 +42,7 @@ SQLite, PFX, credentials or mutable test fixtures are cached or shared between
 shards. This tier covers broader
 settings, modal and invoice UI behavior while the fiscal boundary remains fake.
 
-The four isolated Akaunting Feature shards reuse the same immutable scoped
+The six isolated Akaunting Feature shards reuse the same immutable scoped
 PHP runtime cache. They check for the required Poppler executables before
 falling back to installing OS packages, avoiding an unconditional apt index
 update on runners where these utilities are already installed.
@@ -51,6 +51,10 @@ Feature and Playwright CI check out Akaunting and its NFS-e module under the sam
 relative workspace paths, so GitHub Actions treats their scoped-runtime caches
 as compatible (the cache archive version depends on its path as well as its key).
 
+Feature tests use six isolated runners to reduce the longest execution path;
+this trades some extra runner-minutes for lower CI latency. The six-way plan
+was selected by comparing historic per-class timings for 4, 5, 6, 7 and 8
+shards, not by running methods concurrently against a shared database.
 Feature test shards retain whole PHPUnit test classes, including their data
 providers, in one runner each. The shard planner accounts for expanded dataset
 counts of the largest data-provider-heavy classes observed in CI; new classes
