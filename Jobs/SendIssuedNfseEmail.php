@@ -12,6 +12,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Modules\Nfse\Application\IssuedNfseEmailSender;
 use Modules\Nfse\Application\PostEmissionState;
+use Modules\Nfse\Exceptions\RequiredEmailAttachmentUnavailable;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\NfsePostEmissionCompanyContext;
 
@@ -78,7 +79,12 @@ final class SendIssuedNfseEmail implements ShouldQueue
             $state->markEmailCompleted($this->receiptId);
         } catch (\Throwable $throwable) {
             // SMTP exceptions can embed private Bcc recipients and transport credentials.
-            $state->markEmailFailed($this->receiptId, 'Email delivery failed');
+            $state->markEmailFailed(
+                $this->receiptId,
+                $throwable instanceof RequiredEmailAttachmentUnavailable
+                    ? $throwable->getMessage()
+                    : 'Email delivery failed',
+            );
 
             // Queue workers persist exception messages in logs and failed_jobs.
             // Never chain or rethrow SMTP exceptions containing Bcc or credentials.

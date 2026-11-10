@@ -13,6 +13,8 @@ use App\Models\Setting\EmailTemplate;
 use App\Traits\Documents;
 use Illuminate\Mail\Attachment;
 use Illuminate\Notifications\Messages\MailMessage;
+use Modules\Nfse\Application\NfseEmailFooter;
+use Modules\Nfse\Exceptions\RequiredEmailAttachmentUnavailable;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\CustomerEmailPreferences;
 use Modules\Nfse\Support\WebDavClient;
@@ -78,6 +80,16 @@ class NfseIssued extends Notification
         $footer = method_exists($this, 'getFooter') ? $this->getFooter() : '';
 
         return $this->replaceNotificationPlaceholders($templateBody) . $footer;
+    }
+
+    public function getFooter(): string
+    {
+        $footer = new NfseEmailFooter();
+
+        return $footer->render(
+            $this->settingString('nfse.email_footer_message', NfseEmailFooter::DEFAULT_MESSAGE),
+            $this->settingString('nfse.email_footer_url', NfseEmailFooter::DEFAULT_URL),
+        );
     }
 
     /** @return array{subject:string,body:string}|null */
@@ -424,56 +436,67 @@ class NfseIssued extends Notification
     protected function attachArtifacts(MailMessage $message): void
     {
         if ($this->shouldAttachInvoicePdf()) {
-            try {
-                $path = $this->storeDocumentPdfAndGetPath($this->invoice);
+            $path = $this->storeDocumentPdfAndGetPath($this->invoice);
 
-                if ($path !== '') {
-                    $message->attach(
-                        Attachment::fromPath($path)->withMime('application/pdf'),
-                    );
-                }
-            } catch (\Throwable) {
-                // Attachment failure must never block email delivery.
+            if ($path === '') {
+                throw new RequiredEmailAttachmentUnavailable('Requested invoice PDF attachment is unavailable.');
             }
+
+            $message->attach(Attachment::fromPath($path)->withMime('application/pdf'));
         }
 
-        $danfsePath = $this->resolveArtifactPath($this->receipt->danfse_webdav_path ?? null);
+        $this->attachWebDavArtifact(
+            $message,
+            $this->attachDanfse,
+            $this->receipt->danfse_webdav_path ?? null,
+            'DANFSE',
+            'pdf',
+            'application/pdf',
+        );
+        $this->attachWebDavArtifact(
+            $message,
+            $this->attachXml,
+            $this->receipt->xml_webdav_path ?? null,
+            'NFS-e XML',
+            'xml',
+            'application/xml',
+        );
+    }
 
-        if ($this->attachDanfse && $danfsePath !== null) {
-            try {
-                $content = $this->makeWebDavClient()->get($danfsePath);
-
-                if ($content !== '') {
-                    $nfseNumber = (string) ($this->receipt->nfse_number ?? '');
-                    $filename = 'nfse' . ($nfseNumber !== '' ? '-' . $nfseNumber : '') . '.pdf';
-                    $message->attach(
-                        Attachment::fromData(static fn (): string => $content, $filename)
-                            ->withMime('application/pdf'),
-                    );
-                }
-            } catch (\Throwable) {
-                // Attachment failure must never block email delivery.
-            }
+    private function attachWebDavArtifact(
+        MailMessage $message,
+        bool $requested,
+        mixed $persistedPath,
+        string $label,
+        string $extension,
+        string $mime,
+    ): void {
+        if (!$requested) {
+            return;
         }
 
-        $xmlPath = $this->resolveArtifactPath($this->receipt->xml_webdav_path ?? null);
+        $path = $this->resolveArtifactPath($persistedPath);
 
-        if ($this->attachXml && $xmlPath !== null) {
-            try {
-                $content = $this->makeWebDavClient()->get($xmlPath);
-
-                if ($content !== '') {
-                    $nfseNumber = (string) ($this->receipt->nfse_number ?? '');
-                    $filename = 'nfse' . ($nfseNumber !== '' ? '-' . $nfseNumber : '') . '.xml';
-                    $message->attach(
-                        Attachment::fromData(static fn (): string => $content, $filename)
-                            ->withMime('application/xml'),
-                    );
-                }
-            } catch (\Throwable) {
-                // Attachment failure must never block email delivery.
-            }
+        if ($path === null) {
+            throw new RequiredEmailAttachmentUnavailable('Requested ' . $label . ' attachment is not archived.');
         }
+
+        try {
+            $content = $this->makeWebDavClient()->get($path);
+        } catch (\RuntimeException) {
+            throw new RequiredEmailAttachmentUnavailable('Requested ' . $label . ' attachment could not be retrieved.');
+        }
+
+        if ($content === '' || ($extension === 'pdf' && !str_starts_with($content, '%PDF-'))) {
+            throw new RequiredEmailAttachmentUnavailable('Requested ' . $label . ' attachment has invalid content.');
+        }
+
+        $nfseNumber = trim((string) ($this->receipt->nfse_number ?? ''));
+        $filename = 'nfse' . ($nfseNumber !== '' ? '-' . $nfseNumber : '') . '.' . $extension;
+        $message->attach(
+            Attachment::fromData(static fn (): string => $content, $filename)
+                ->withMime($mime),
+        );
     }
 
     protected function shouldAttachInvoicePdf(): bool
