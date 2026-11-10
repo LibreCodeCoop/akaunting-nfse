@@ -15,6 +15,19 @@ test('keyboard tab navigation wraps and supports home/end', () => {
     assert.equal(modal.nextTabIndex(1, 3, 'End'), 2);
 });
 
+test('editor arrows navigate Quill lines without crossing document boundaries', () => {
+    const text = 'abcd\nefgh\nijkl\n';
+    assert.equal(modal.nextEditorArrowIndex(text, 7, 'ArrowLeft'), 6);
+    assert.equal(modal.nextEditorArrowIndex(text, 6, 'ArrowRight'), 7);
+    assert.equal(modal.nextEditorArrowIndex(text, 7, 'ArrowUp'), 2);
+    assert.equal(modal.nextEditorArrowIndex(text, 2, 'ArrowDown'), 7);
+    assert.equal(modal.nextEditorArrowIndex(text, 0, 'ArrowLeft'), 0);
+    assert.equal(modal.nextEditorArrowIndex(text, 4, 'ArrowUp'), 4);
+    assert.equal(modal.nextEditorArrowIndex(text, 14, 'ArrowDown'), 14);
+    assert.equal(modal.nextEditorArrowIndex('abcd\nx\n', 4, 'ArrowDown'), 6);
+    assert.equal(modal.nextEditorArrowIndex(text, 7, 'Escape'), 7);
+});
+
 test('send-email state controls fields, columns and attachment tab', () => {
     assert.deepEqual(modal.sendEmailUiState(true), {
         fieldsHidden: false,
