@@ -232,13 +232,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </div>
                             </div>
 
-                            <x-form.group.text
-                                name="nfse_email_subject"
-                                label="{{ trans('nfse::general.invoices.emit_modal_email_subject') }}"
-                                value="{{ $currentSubject }}"
-                                not-required
-                                form-group-class="w-full min-w-0"
-                            />
+                            {{-- Keep native undo/redo history: Vue's v-model patching can reset it in Firefox. --}}
+                            <div class="relative w-full min-w-0" :class="[{ 'has-error': form.errors.get('nfse_email_subject') }]">
+                                <x-form.label for="nfse_email_subject">{{ trans('nfse::general.invoices.emit_modal_email_subject') }}</x-form.label>
+                                <input
+                                    type="text"
+                                    id="nfse_email_subject"
+                                    name="nfse_email_subject"
+                                    value="{{ $currentSubject }}"
+                                    @input="form.nfse_email_subject = $event.target.value"
+                                    class="w-full text-sm px-3 py-2.5 mt-1 rounded-lg border border-light-gray text-black placeholder-light-gray bg-white focus:outline-none focus:ring-transparent focus:border-purple"
+                                >
+                                <x-form.error name="nfse_email_subject" />
+                            </div>
 
                             <div data-nfse-email-body-group v-once class="w-full min-w-0">
                                 <label for="nfse_email_body" class="block text-sm font-medium text-gray-700">
