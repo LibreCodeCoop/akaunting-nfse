@@ -16,14 +16,50 @@ contacts SEFIN or ADN and uses no fiscal secrets.
 The smoke, full-ui and bulk-ui CI jobs each own an isolated GitHub-hosted runner
 and SQLite file. Keep Playwright at one worker **per database**: sharing SQLite
 and mutable fiscal fixtures across workers is unsafe. Parallelism between
-isolated jobs is safe. Only versioned Chromium binaries are cached; never
-cache the database, PFX files or tenant configuration.
+isolated jobs is safe. No database, PFX files or tenant configuration are cached.
+
+Smoke exercises the GitHub-hosted runner's preinstalled stable Chrome channel;
+it does not download Playwright's Chromium or install system packages. Full UI
+and Bulk UI use cached, version-matched Playwright Chromium binaries and run
+`playwright install chromium` (without an unconditional apt upgrade). If a runner
+image no longer has the required browser libraries, browser execution must fail
+visibly so its dependency requirements can be reviewed instead of silently
+adding lengthy, unpinned system-package installation to every CI run.
 
 ## full-ui
 
 Runs on relevant pull requests, main, nightly and on demand against an
-isolated deterministic local Akaunting environment. It covers broader settings, modal and invoice UI behavior while the
-fiscal boundary remains fake.
+isolated deterministic local Akaunting environment. Two CI shards each provision an
+independent runner, SQLite database, app process and synthetic fiscal fixtures.
+Each shard runs the native category form check first, then runs its Playwright
+partition of the remaining Full UI cases (one worker per shard). The `full_ui`
+aggregator preserves the required check and fails if either shard fails. Artifacts
+have shard-specific names so debugging does not overwrite evidence. Composer download caches and content-addressed scoped-runtime caches avoid
+rebuilding identical PHP dependencies on warm runs. The scoped artifact key
+includes the resolved, generated 3rdparty lockfile (not committed), the
+PHP-Scoper config and tool lockfile; on a miss the runtime is rebuilt. No
+SQLite, PFX, credentials or mutable test fixtures are cached or shared between
+shards. This tier covers broader
+settings, modal and invoice UI behavior while the fiscal boundary remains fake.
+
+The six isolated Akaunting Feature shards reuse the same immutable scoped
+PHP runtime cache. They check for the required Poppler executables before
+falling back to installing OS packages, avoiding an unconditional apt index
+update on runners where these utilities are already installed.
+
+Feature and Playwright CI check out Akaunting and its NFS-e module under the same
+relative workspace paths, so GitHub Actions treats their scoped-runtime caches
+as compatible (the cache archive version depends on its path as well as its key).
+
+Feature tests use six isolated runners to reduce the longest execution path;
+this trades some extra runner-minutes for lower CI latency. The six-way plan
+was selected by comparing historic per-class timings for 4, 5, 6, 7 and 8
+shards, not by running methods concurrently against a shared database.
+Feature test shards retain whole PHPUnit test classes, including their data
+providers, in one runner each. The shard planner accounts for expanded dataset
+counts of the largest data-provider-heavy classes observed in CI; new classes
+fall back to counting their declared test methods. This improves runtime balance
+without sharing mutable fixtures across runners.
 
 ## live-fiscal
 

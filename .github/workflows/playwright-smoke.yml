@@ -20,6 +20,7 @@ env:
   COMPOSER_NO_INTERACTION: 1
   COMPOSER_NO_AUDIT: 1
   COMPOSER_PROCESS_TIMEOUT: 0
+  COMPOSER_CACHE_DIR: ${{ github.workspace }}/.composer-cache
   APP_ENV: testing
   APP_URL: http://127.0.0.1:8082
   DB_CONNECTION: sqlite
@@ -72,17 +73,45 @@ jobs:
         working-directory: akaunting/modules/Nfse
         run: node scripts/ci/playwright-smoke.mjs prepare-env
 
+      - name: Cache Composer downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.COMPOSER_CACHE_DIR }}/files
+          key: nfse-playwright-composer-${{ runner.os }}-${{ hashFiles('akaunting/composer.lock', 'akaunting/modules/Nfse/composer.json', 'akaunting/modules/Nfse/3rdparty/composer.json', 'akaunting/modules/Nfse/vendor-bin/php-scoper/composer.lock') }}
+          restore-keys: |
+            nfse-playwright-composer-${{ runner.os }}-
+
       - name: Install Akaunting dependencies
         working-directory: akaunting
         run: composer test
 
-      - name: Build scoped NFS-e runtime
+      - name: Install NFS-e module and resolve scoped runtime dependencies
         working-directory: akaunting/modules/Nfse
         run: |
           composer install --prefer-dist --no-progress --no-interaction --no-scripts
           composer thirdparty:install
+
+      # The untracked lock is generated above; include it to prevent stale scoped
+      # output when an unlocked transitive dependency changes. No fixtures or secrets.
+      - name: Cache scoped NFS-e runtime
+        id: scoped_runtime
+        uses: actions/cache@v6
+        with:
+          path: akaunting/modules/Nfse/3rdparty/scoped
+          key: nfse-playwright-scoped-${{ runner.os }}-php83-${{ hashFiles('akaunting/modules/Nfse/3rdparty/composer.json', 'akaunting/modules/Nfse/3rdparty/composer.lock', 'akaunting/modules/Nfse/3rdparty/scoper.inc.php', 'akaunting/modules/Nfse/vendor-bin/php-scoper/composer.lock') }}
+
+      - name: Build scoped NFS-e runtime on cache miss
+        if: steps.scoped_runtime.outputs.cache-hit != 'true'
+        working-directory: akaunting/modules/Nfse
+        run: |
           composer runtime-tools:install
           composer thirdparty:scope
+
+      - name: Verify scoped runtime exists
+        working-directory: akaunting/modules/Nfse
+        run: |
+          test -s 3rdparty/scoped/autoload.php
+          php -l 3rdparty/scoped/autoload.php
 
       - name: Prepare persistent Akaunting test database
         working-directory: akaunting
@@ -110,18 +139,14 @@ jobs:
         working-directory: akaunting/modules/Nfse
         run: node scripts/ci/playwright-smoke.mjs assets
 
-      # Cache locked browser binaries, never mutable SQLite/PFX fixtures.
-      - name: Cache Playwright Chromium
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('akaunting/modules/Nfse/package-lock.json') }}
-
-      - name: Install Playwright
+      # The smoke project uses Playwright's Chrome channel. Ubuntu's runner
+      # provides Chrome; installing Chromium and its apt dependencies here
+      # adds latency without exercising a different browser in this tier.
+      - name: Install Playwright test runner and verify Chrome
         working-directory: akaunting/modules/Nfse
         run: |
-          npm ci
-          npx playwright install --with-deps chromium
+          npm ci --include=dev
+          google-chrome --version
 
       - name: Verify persistent smoke database
         working-directory: akaunting/modules/Nfse
