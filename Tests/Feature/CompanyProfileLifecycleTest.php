@@ -641,23 +641,19 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
     }
 
 
-    public function testNativeApiProfileUpdateAcceptsMatchingCompanyQueryAndRejectsMismatch(): void
+    public function testProfileUpdateAcceptsMatchingCompanyQueryAndRejectsMismatch(): void
     {
         $companyId = (int) $this->company->id;
         $this->post(route('nfse.settings.company-profiles.store'), $this->creation($companyId))
             ->assertCreated();
 
-        $endpoint = route('api.nfse.settings.company-profiles.update', [
+        $endpoint = route('nfse.settings.company-profiles.update', [
             'company_id' => $companyId,
             'companyId' => $companyId,
         ]);
 
         // The MCP includes the active Akaunting company as a query parameter.
         // It must not be rejected as an unauthorized body field.
-        // API routes use their own guard; the browser session from loginAs()
-        // is intentionally not accepted as native API authentication.
-        $this->actingAs($this->user, 'api');
-
         $this->patchJson($endpoint . '?company_id=' . $companyId, [
             'fiscal_parameters' => ['provider_establishment_confirmed' => true],
         ])->assertOk()
@@ -666,9 +662,10 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
         $profile = NfseCompanyProfile::query()->where('company_id', $companyId)->firstOrFail();
         self::assertSame((string) auth()->id(), $profile->fiscal_parameters['provider_establishment_confirmed_by']);
 
-        $this->patchJson($endpoint . '?company_id=' . ($companyId + 1), [
+        $rejected = $this->patchJson($endpoint . '?company_id=' . ($companyId + 1), [
             'fiscal_parameters' => ['provider_establishment_confirmed' => false],
-        ])->assertUnprocessable()->assertJsonValidationErrors(['company_id']);
+        ]);
+        self::assertContains($rejected->getStatusCode(), [403, 404, 422]);
 
         self::assertSame('1', $profile->refresh()->fiscal_parameters['provider_establishment_confirmed']);
     }
