@@ -18,7 +18,7 @@
         data-nfse-recipient-module="true"
     ></script>
     <script
-        src="{{ asset('modules/Nfse/Resources/assets/js/issue-modal.js?v=' . module_version('nfse')) }}"
+        src="{{ asset('modules/Nfse/Resources/assets/js/issue-modal.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/issue-modal.js'))) }}"
         data-nfse-issue-modal-module="true"
     ></script>
 @endonce
