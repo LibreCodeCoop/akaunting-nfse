@@ -641,6 +641,35 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
     }
 
 
+    public function testProfileUpdateAcceptsMatchingCompanyQueryAndRejectsMismatch(): void
+    {
+        $companyId = (int) $this->company->id;
+        $this->post(route('nfse.settings.company-profiles.store'), $this->creation($companyId))
+            ->assertCreated();
+
+        $endpoint = route('nfse.settings.company-profiles.update', [
+            'company_id' => $companyId,
+            'companyId' => $companyId,
+        ]);
+
+        // The MCP includes the active Akaunting company as a query parameter.
+        // It must not be rejected as an unauthorized body field.
+        $this->patchJson($endpoint . '?company_id=' . $companyId, [
+            'fiscal_parameters' => ['provider_establishment_confirmed' => true],
+        ])->assertOk()
+            ->assertJsonPath('data.fiscal_parameters.provider_establishment_confirmed', '1');
+
+        $profile = NfseCompanyProfile::query()->where('company_id', $companyId)->firstOrFail();
+        self::assertSame((string) auth()->id(), $profile->fiscal_parameters['provider_establishment_confirmed_by']);
+
+        $rejected = $this->patchJson($endpoint . '?company_id=' . ($companyId + 1), [
+            'fiscal_parameters' => ['provider_establishment_confirmed' => false],
+        ]);
+        self::assertContains($rejected->getStatusCode(), [403, 404, 422]);
+
+        self::assertSame('1', $profile->refresh()->fiscal_parameters['provider_establishment_confirmed']);
+    }
+
     public function testMunicipalDiagnosticsResolveOwningProfileInsteadOfLegacySettings(): void
     {
         $companyId = (int) $this->company->id;
