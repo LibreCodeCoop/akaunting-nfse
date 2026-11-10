@@ -7,8 +7,14 @@ import { loginToAkaunting } from './support/auth';
 test('category issuance configuration lives in the native Akaunting form', async ({ page }, testInfo) => {
   await loginToAkaunting(page, testInfo);
 
-  await page.goto('/1/nfse/settings/category-issuance', { waitUntil: 'domcontentloaded' });
-  await expect(page).toHaveURL(/\/1\/settings\/categories(?:\?.*)?$/);
+  // Validate the redirect contract without rendering the unrelated native
+  // category index, whose hosted plan check may never finish in the fixture.
+  // The native create form is still rendered and exercised below.
+  const redirect = await page.request.get('/1/nfse/settings/category-issuance', {
+    maxRedirects: 0,
+  });
+  expect(redirect.status()).toBe(302);
+  expect(redirect.headers().location ?? '').toMatch(/\/1\/settings\/categories(?:\?.*)?$/);
 
   // In the disposable fixture the hosted Akaunting plan API is unavailable.
   // The native plan-limit middleware exempts AJAX GETs from redirects to
