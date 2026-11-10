@@ -619,10 +619,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                             }
 
                                                             const ccField = document.getElementById('nfse_emit_email_cc');
-                                                            if (ccField) ccField.value = cc;
-                                                            const ccPanel = document.getElementById('nfse_emit_email_cc_panel');
-                                                            ccPanel?.classList.toggle('hidden', cc === '');
-                                                            document.querySelector('[aria-controls="nfse_emit_email_cc_panel"]')?.setAttribute('aria-expanded', cc !== '' ? 'true' : 'false');
+                                                            if (ccField) window.NfseRecipientChips?.replace(ccField, cc);
+                                                            ['cc', 'bcc'].forEach((type) => {
+                                                                const expanded = type === 'cc' && cc !== '';
+                                                                const panel = document.getElementById('nfse_emit_email_' + type + '_panel');
+                                                                panel?.classList.toggle('hidden', !expanded);
+                                                                const button = document.querySelector('[aria-controls="nfse_emit_email_' + type + '_panel"]');
+                                                                button?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                                                                button?.classList.toggle('hidden', expanded);
+                                                            });
+                                                            const bccField = document.getElementById('nfse_emit_email_bcc');
+                                                            if (bccField) window.NfseRecipientChips?.replace(bccField, '');
                                                             if (emailCcInput) emailCcInput.value = cc;
                                                             if (emailBccInput) emailBccInput.value = '';
                                                             if (emailCopyToSelfInput) emailCopyToSelfInput.value = emailDefaults.copy_to_self ? '1' : '0';
@@ -964,20 +971,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                                             <div id="nfse_emit_email_fields" class="hidden space-y-3">
                                                 <div>
-                                                    <label for="nfse_emit_email_to" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
+                                                    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                                                        <label for="nfse_emit_email_to" class="block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
+                                                        <div class="flex gap-3 text-sm">
+                                                            <button type="button" data-nfse-show-recipient="cc" aria-controls="nfse_emit_email_cc_panel" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</button>
+                                                            <button type="button" data-nfse-show-recipient="bcc" aria-controls="nfse_emit_email_bcc_panel" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</button>
+                                                        </div>
+                                                    </div>
                                                     <input id="nfse_emit_email_to" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_to') }}" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="" aria-describedby="nfse_emit_email_hint">
                                                     <p id="nfse_emit_email_hint" class="text-xs">{{ trans('nfse::general.invoices.emit_modal_email_recipients_hint') }}</p>
-                                                    <div class="flex gap-3 mt-2">
-                                                        <button type="button" data-nfse-show-recipient="cc" aria-controls="nfse_emit_email_cc_panel" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</button>
-                                                        <button type="button" data-nfse-show-recipient="bcc" aria-controls="nfse_emit_email_bcc_panel" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</button>
-                                                    </div>
                                                     <div id="nfse_emit_email_cc_panel" data-nfse-recipient-panel="cc" class="hidden mt-2">
-                                                        <label for="nfse_emit_email_cc">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</label>
-                                                        <input id="nfse_emit_email_cc" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_cc') }}" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                        <div class="flex items-center gap-2">
+                                                            <label for="nfse_emit_email_cc" class="w-10 flex-shrink-0">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</label>
+                                                            <div class="flex-1 min-w-0">
+                                                                <input id="nfse_emit_email_cc" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_cc') }}" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                            </div>
+                                                            <button type="button" data-nfse-hide-recipient aria-label="{{ trans('general.close') }}: {{ trans('nfse::general.invoices.emit_modal_email_cc') }}" class="px-2 text-gray-600">×</button>
+                                                        </div>
                                                     </div>
                                                     <div id="nfse_emit_email_bcc_panel" data-nfse-recipient-panel="bcc" class="hidden mt-2">
-                                                        <label for="nfse_emit_email_bcc">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</label>
-                                                        <input id="nfse_emit_email_bcc" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                        <div class="flex items-center gap-2">
+                                                            <label for="nfse_emit_email_bcc" class="w-10 flex-shrink-0">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</label>
+                                                            <div class="flex-1 min-w-0">
+                                                                <input id="nfse_emit_email_bcc" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                            </div>
+                                                            <button type="button" data-nfse-hide-recipient aria-label="{{ trans('general.close') }}: {{ trans('nfse::general.invoices.emit_modal_email_bcc') }}" class="px-2 text-gray-600">×</button>
+                                                        </div>
                                                     </div>
                                                 </div>
 
@@ -1257,13 +1276,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                 };
 
                 document.addEventListener('click', (event) => {
+                    const close = event.target.closest?.('[data-nfse-hide-recipient]');
+                    if (close) {
+                        const panel = close.closest('[data-nfse-recipient-panel]');
+                        const button = panel && document.querySelector('[aria-controls="' + panel.id + '"]');
+                        panel?.classList.add('hidden');
+                        button?.classList.remove('hidden');
+                        button?.setAttribute('aria-expanded', 'false');
+                        button?.focus();
+                        return;
+                    }
+
                     const button = event.target.closest?.('[data-nfse-show-recipient]');
                     if (!button) return;
                     const panel = document.getElementById(button.getAttribute('aria-controls'));
                     if (panel) {
                         panel.classList.remove('hidden');
+                        button.classList.add('hidden');
                         button.setAttribute('aria-expanded', 'true');
-                        panel.querySelector('input')?.focus();
+                        const input = panel.querySelector('[data-nfse-recipient-input]');
+                        if (input && window.NfseRecipientChips) {
+                            window.NfseRecipientChips.focus(input);
+                        } else {
+                            panel.querySelector('input:not([hidden])')?.focus();
+                        }
                     }
                 });
 
@@ -1394,14 +1430,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         emitModalEmailToInput.value = typeof emailDefaults.recipient === 'string' ? emailDefaults.recipient : '';
                     }
                     const cc = typeof emailDefaults.cc === 'string' ? emailDefaults.cc : '';
-                    if (document.getElementById('nfse_emit_email_cc')) document.getElementById('nfse_emit_email_cc').value = cc;
-                    if (document.getElementById('nfse_emit_email_bcc')) document.getElementById('nfse_emit_email_bcc').value = '';
+                    const ccField = document.getElementById('nfse_emit_email_cc');
+                    const bccField = document.getElementById('nfse_emit_email_bcc');
+                    if (ccField) window.NfseRecipientChips?.replace(ccField, cc);
+                    if (bccField) window.NfseRecipientChips?.replace(bccField, '');
                     if (document.getElementById('nfse_emit_copy_to_self')) document.getElementById('nfse_emit_copy_to_self').checked = Boolean(emailDefaults.copy_to_self);
                     ['cc', 'bcc'].forEach((type) => {
                         const panel = document.getElementById('nfse_emit_email_' + type + '_panel');
                         const expanded = type === 'cc' && cc !== '';
                         panel?.classList.toggle('hidden', !expanded);
-                        document.querySelector('[aria-controls="nfse_emit_email_' + type + '_panel"]')?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                        const button = document.querySelector('[aria-controls="nfse_emit_email_' + type + '_panel"]');
+                        button?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                        button?.classList.toggle('hidden', expanded);
                     });
 
                     if (emitModalEmailSubjectInput) {
@@ -1854,7 +1894,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             const panel = input?.closest('[data-nfse-recipient-panel]');
                             panel?.classList.remove('hidden');
                             if (panel) {
-                                document.querySelector('[aria-controls="' + panel.id + '"]')?.setAttribute('aria-expanded', 'true');
+                                const button = document.querySelector('[aria-controls="' + panel.id + '"]');
+                                button?.setAttribute('aria-expanded', 'true');
+                                button?.classList.add('hidden');
                             }
                             input?.focus();
                             return;

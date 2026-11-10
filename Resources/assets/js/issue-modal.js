@@ -51,6 +51,16 @@
         return current;
     }
 
+    function setRecipientPanelState(panel, button, expanded) {
+        if (!panel || !button) {
+            return;
+        }
+
+        panel.classList.toggle('hidden', !expanded);
+        button.classList.toggle('hidden', expanded);
+        button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+
     function sendEmailUiState(checked) {
         return {
             fieldsHidden: false,
@@ -547,14 +557,24 @@
             if (restore) {
                 restoreDefaults(restore, documentRef);
             }
+            const close = event.target && event.target.closest
+                ? event.target.closest('[data-nfse-hide-recipient]')
+                : null;
+            if (close) {
+                const panel = close.closest('[data-nfse-recipient-panel]');
+                const toggle = panel && documentRef.querySelector('[aria-controls="' + panel.id + '"]');
+                setRecipientPanelState(panel, toggle, false);
+                toggle?.focus();
+                return;
+            }
+
             const toggle = event.target && event.target.closest
                 ? event.target.closest('[data-nfse-show-recipient]')
                 : null;
             if (toggle) {
                 const panel = documentRef.getElementById(toggle.getAttribute('aria-controls'));
                 if (panel) {
-                    panel.classList.remove('hidden');
-                    toggle.setAttribute('aria-expanded', 'true');
+                    setRecipientPanelState(panel, toggle, true);
                     const recipient = panel.querySelector('[data-nfse-recipient-input]');
                     if (recipient && globalThis.NfseRecipientChips) {
                         globalThis.NfseRecipientChips.focus(recipient);
@@ -715,6 +735,7 @@
         reconcileHydratedModal,
         restoreDefaults,
         sendEmailUiState,
+        setRecipientPanelState,
         shouldShowRestore,
         switchPresentation,
         syncRestoreButton,

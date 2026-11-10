@@ -176,12 +176,18 @@
             entry.focus();
         });
 
+        function replaceEntries(value) {
+            entries.length = 0;
+            render();
+            const invalid = [];
+            splitAddresses(value).forEach((item) => { if (!add(item)) invalid.push(item); });
+            entry.value = invalid.join(', ');
+            sync(invalid.length > 0);
+        }
+
         const initial = (source.value || source.defaultValue || '').trim();
-        const invalid = [];
-        splitAddresses(initial).forEach((item) => { if (!add(item)) invalid.push(item); });
-        entry.value = invalid.join(', ');
-        controllers.set(source, { entry, commit });
-        sync();
+        controllers.set(source, { entry, commit, replaceEntries });
+        replaceEntries(initial);
     }
 
     function boot(rootNode) {
@@ -193,7 +199,19 @@
         (controller?.entry || source)?.focus();
     }
 
-    root.NfseRecipientChips = { boot, focus, splitAddresses, isEmail };
+    function replace(source, value) {
+        if (!source) {
+            return;
+        }
+        const controller = controllers.get(source);
+        if (controller) {
+            controller.replaceEntries(value);
+        } else {
+            source.value = value;
+        }
+    }
+
+    root.NfseRecipientChips = { boot, focus, replace, splitAddresses, isEmail };
 
     if (typeof document !== 'undefined') {
         if (document.readyState === 'loading') {
@@ -217,6 +235,6 @@
         observer.observe(document.documentElement, { childList: true, subtree: true });
     }
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { splitAddresses, isEmail };
+        module.exports = { splitAddresses, isEmail, replace, boot };
     }
 })(typeof window !== 'undefined' ? window : globalThis);

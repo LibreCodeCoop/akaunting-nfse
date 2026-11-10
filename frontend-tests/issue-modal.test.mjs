@@ -15,6 +15,30 @@ test('keyboard tab navigation wraps and supports home/end', () => {
     assert.equal(modal.nextTabIndex(1, 3, 'End'), 2);
 });
 
+test('recipient panels hide their add control when open and restore it without clearing addresses', () => {
+    const hidden = new Set(['hidden']);
+    const buttonHidden = new Set();
+    let expanded = 'false';
+    const input = { value: 'second@example.test' };
+    const panel = {
+        classList: { toggle(name, state) { state ? hidden.add(name) : hidden.delete(name); } },
+        querySelector() { return input; },
+    };
+    const button = {
+        classList: { toggle(name, state) { state ? buttonHidden.add(name) : buttonHidden.delete(name); } },
+        setAttribute(name, value) { if (name === 'aria-expanded') expanded = value; },
+    };
+    modal.setRecipientPanelState(panel, button, true);
+    assert.equal(expanded, 'true');
+    assert.equal(hidden.has('hidden'), false);
+    assert.equal(buttonHidden.has('hidden'), true);
+    modal.setRecipientPanelState(panel, button, false);
+    assert.equal(expanded, 'false');
+    assert.equal(hidden.has('hidden'), true);
+    assert.equal(buttonHidden.has('hidden'), false);
+    assert.equal(input.value, 'second@example.test');
+});
+
 test('send-email state controls fields, columns and attachment tab', () => {
     assert.deepEqual(modal.sendEmailUiState(true), {
         fieldsHidden: false,
