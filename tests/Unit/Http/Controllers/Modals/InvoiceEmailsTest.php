@@ -279,6 +279,26 @@ final class InvoiceEmailsTest extends TestCase
         self::assertStringContainsString('data-nfse-show-recipient="bcc"', $view);
     }
 
+    public function testIssueModalPrefillsSecondaryContactsAndOpensCcPanel(): void
+    {
+        $view = $this->issueViewContent();
+
+        self::assertStringContainsString("\$ccDefault = (string) (\$emailDefaults['cc'] ?? '');", $view);
+        self::assertStringContainsString('value="{{ $ccDefault }}"', $view);
+        self::assertStringContainsString("aria-expanded=\"{{ \$ccDefault !== '' ? 'true' : 'false' }}\"", $view);
+        self::assertStringContainsString("class=\"{{ \$ccDefault !== '' ? '' : 'hidden ' }}mt-2\"", $view);
+    }
+
+    public function testListingModalAppliesSecondaryCcInBothEmitFlows(): void
+    {
+        $view = (string) file_get_contents(dirname(__DIR__, 5) . '/Resources/views/invoices/index.blade.php');
+
+        self::assertSame(2, substr_count($view, "typeof emailDefaults.cc === 'string'"));
+        self::assertStringContainsString("if (emailCcInput) emailCcInput.value = cc;", $view);
+        self::assertStringContainsString("ccPanel?.classList.toggle('hidden', cc === '');", $view);
+        self::assertStringContainsString("panel?.classList.toggle('hidden', !expanded);", $view);
+    }
+
     public function testCancelViewPostsToCancelRouteWithStructuredCancellationFields(): void
     {
         $view = $this->cancelViewContent();
