@@ -210,6 +210,10 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
     log: (window as any).__nfseKeyLog.slice(-120), source: (document.querySelector('#nfse_email_to') as HTMLInputElement)?.value,
     entry: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.value,
     active: (document.activeElement as Element)?.id,
+    hasFocus: document.hasFocus(), visibility: document.visibilityState,
+    disabled: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.disabled,
+    readOnly: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.readOnly,
+    fieldsetDisabled: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.closest('fieldset')?.disabled,
   }))));
   await page.keyboard.insertText('inserted');
   console.log('NFSE_INSERT_DIAGNOSTICS', JSON.stringify(await page.evaluate(() => ({
@@ -220,7 +224,7 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   const subjectBeforeKeypress = await nativeSubject.inputValue();
   await nativeSubject.focus();
   await page.keyboard.press('End');
-  await page.keyboard.pressSequentially('Z');
+  await nativeSubject.pressSequentially('Z');
   console.log('NFSE_SUBJECT_KEY_DIAGNOSTICS', JSON.stringify({
     subjectBeforeKeypress, subjectAfterKeypress: await nativeSubject.inputValue(),
     events: await page.evaluate(() => (window as any).__nfseKeyLog.slice(-15)),
@@ -360,6 +364,7 @@ test('legacy NFS-e invoice list opens native invoice composer without a parallel
   const bcc = dialog.locator('#nfse_email_bcc-entry');
 
   await expect(to).toBeVisible();
+  await dialog.getByRole('button', { name: 'Remover customer@company.com' }).click();
   await to.fill('primary@example.test, second@example.test');
 
   const ccToggle = dialog.getByRole('button', { name: 'Cc', exact: true });
