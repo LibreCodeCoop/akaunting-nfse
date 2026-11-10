@@ -194,9 +194,15 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
       document.addEventListener(kind, (event) => {
         log.push({ key: (event as KeyboardEvent).key, kind, phase: 'capture',
           data: (event as InputEvent).data, inputType: (event as InputEvent).inputType,
-          value: source.value, target: (event.target as Element)?.id, prevented: event.defaultPrevented });
+          value: source.value, target: (event.target as Element)?.id, prevented: event.defaultPrevented,
+          readOnly: source.readOnly, connected: source.isConnected, trusted: event.isTrusted });
       }, true);
     }
+    window.addEventListener('keydown', (event) => {
+      log.push({ key: event.key, phase: 'window-bubble', prevented: event.defaultPrevented,
+        returnValue: event.returnValue, cancelBubble: event.cancelBubble,
+        active: (document.activeElement as Element)?.id });
+    });
   });
   await toRecipients.pressSequentially('typed@example.test');
   const typedObserved = await toRecipients.inputValue();
@@ -210,6 +216,15 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
     log: (window as any).__nfseKeyLog.slice(-20), source: (document.querySelector('#nfse_email_to') as HTMLInputElement)?.value,
     entry: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.value,
   }))));
+  const nativeSubject = dialog.locator("input[name='nfse_email_subject']");
+  const subjectBeforeKeypress = await nativeSubject.inputValue();
+  await nativeSubject.focus();
+  await page.keyboard.press('End');
+  await page.keyboard.pressSequentially('Z');
+  console.log('NFSE_SUBJECT_KEY_DIAGNOSTICS', JSON.stringify({
+    subjectBeforeKeypress, subjectAfterKeypress: await nativeSubject.inputValue(),
+    events: await page.evaluate(() => (window as any).__nfseKeyLog.slice(-15)),
+  }));
   expect(typedObserved).toBe('typed@example.test');
   await expect(toRecipients).toBeFocused();
   await toRecipients.fill('first@example.test, second@example.test');
