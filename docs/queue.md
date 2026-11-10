@@ -101,6 +101,23 @@ php artisan queue:failed
 
 O monitoramento de logs do worker depende do gerenciador de processos configurado.
 
+## Caminhos de arquivamento WebDAV
+
+As colunas `nfse_receipts.xml_webdav_path` e
+`nfse_receipts.danfse_webdav_path` utilizam `TEXT`, não o limite
+legado de 191 caracteres. Elas armazenam o caminho integral retornado pelo
+construtor de caminhos, inclusive hierarquias de pastas definidas pela empresa;
+a alteração mantém o conteúdo preexistente. A migration de ampliação não apaga
+arquivos, notas ou registros de envio. Um rollback só reduz os campos ao tipo
+anterior quando não há caminhos que seriam truncados.
+
+Se o arquivamento falhar após uma NFS-e autorizada, **não reemita a nota**.
+Confirme o número fiscal, o caminho salvo e o estado de envio. Reprocesse
+apenas o job de arquivamento identificado, uma vez que a cadeia de jobs
+inclui a notificação com os destinatários originais. Antes de repetir uma
+entrega por e-mail, verifique o marcador persistido de envio e o estado
+da fila, para evitar duplicidades.
+
 ## Política de retry
 
 `StoreIssuedNfseArtifacts` é idempotente por caminho persistido e aceita até três tentativas. Cada caminho é salvo no recibo logo depois do upload correspondente, portanto uma nova tentativa não repete um artefato que já foi concluído.
