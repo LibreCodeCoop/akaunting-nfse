@@ -101,7 +101,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ env.COMPOSER_CACHE_DIR }}/files
-          key: nfse-playwright-composer-${{ runner.os }}-${{ hashFiles('akaunting/composer.lock', 'akaunting/modules/Nfse/composer.json', 'akaunting/modules/Nfse/3rdparty/composer.json', 'akaunting/modules/Nfse/vendor-bin/*/composer.lock') }}
+          key: nfse-playwright-composer-${{ runner.os }}-${{ hashFiles('akaunting/composer.lock', 'akaunting/modules/Nfse/composer.json', 'akaunting/modules/Nfse/3rdparty/composer.json', 'akaunting/modules/Nfse/vendor-bin/php-scoper/composer.lock') }}
           restore-keys: |
             nfse-playwright-composer-${{ runner.os }}-
 

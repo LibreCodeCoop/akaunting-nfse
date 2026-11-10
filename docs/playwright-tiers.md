@@ -42,6 +42,11 @@ SQLite, PFX, credentials or mutable test fixtures are cached or shared between
 shards. This tier covers broader
 settings, modal and invoice UI behavior while the fiscal boundary remains fake.
 
+The four isolated Akaunting Feature shards reuse the same immutable scoped
+PHP runtime cache. They check for the required Poppler executables before
+falling back to installing OS packages, avoiding an unconditional apt index
+update on runners where these utilities are already installed.
+
 ## live-fiscal
 
 Runs only manually against a dedicated protected Akaunting environment. The
