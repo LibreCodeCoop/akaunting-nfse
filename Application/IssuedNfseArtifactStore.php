@@ -123,9 +123,11 @@ class IssuedNfseArtifactStore
             receipt: $receipt,
         );
 
-        // The same fiscal CNPJ and access key may exist in independent Akaunting
-        // companies. Never let their archives share a writable WebDAV path.
-        return 'companies/' . (int) $invoice->company_id . '/' . ltrim($base, '/');
+        return (new ArtifactWebDavPathScope())->apply(
+            $base,
+            (int) $invoice->company_id,
+            (string) setting('nfse.webdav_path_scope', ArtifactWebDavPathScope::COMPANY),
+        );
     }
 
     protected function buildFilePath(string $basePath, Invoice $invoice, ReceiptData $receipt, string $extension): string

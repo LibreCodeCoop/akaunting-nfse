@@ -330,6 +330,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                     <input id="nfse-webdav-filename" name="webdav_filename_template" class="mt-1 block w-full rounded border p-2" maxlength="255">
                                 </label>
                             </div>
+                            <label class="block text-sm" for="nfse-webdav-path-scope">
+                                {{ trans('nfse::general.settings.artifacts.webdav_path_scope') }}
+                                <select id="nfse-webdav-path-scope" name="webdav_path_scope" class="mt-1 block w-full rounded border p-2">
+                                    <option value="company">{{ trans('nfse::general.settings.artifacts.webdav_scope_company') }}</option>
+                                    <option value="configured">{{ trans('nfse::general.settings.artifacts.webdav_scope_configured') }}</option>
+                                </select>
+                                <span class="mt-1 block text-xs text-gray-600">{{ trans('nfse::general.settings.artifacts.webdav_scope_warning') }}</span>
+                            </label>
                             <div class="flex flex-wrap gap-4 text-sm">
                                 <label><input id="nfse-webdav-xml" type="checkbox" name="webdav_store_xml"> Arquivar XML autorizado</label>
                                 <label><input id="nfse-webdav-pdf" type="checkbox" name="webdav_store_pdf"> Arquivar DANFSe</label>

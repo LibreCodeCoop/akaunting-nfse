@@ -378,8 +378,12 @@ A emissão usa o XML autorizado como fonte fiscal para DANFSe e reconciliação.
 O processamento pós-emissão pode utilizar a fila do Akaunting, com proteção
 contra duplicação após autorizações ambíguas: [Filas](queue.md).
 Novos caminhos de arquivamento WebDAV são isolados por
-`companies/{company_id}/`, mesmo quando empresas distintas usam o mesmo CNPJ.
-Caminhos históricos já persistidos no recibo permanecem inalterados.
+`companies/{company_id}/` por padrão, mesmo quando empresas distintas
+usam o mesmo CNPJ. Para um destino WebDAV dedicado a uma única empresa,
+o administrador pode selecionar **Respeitar exatamente a pasta configurada**,
+sem prefixo adicional. Em pastas compartilhadas entre empresas, mantenha
+a opção de isolamento para evitar colisões. O arquivamento e a recuperação
+usam a mesma regra. Caminhos históricos não são movidos automaticamente.
 
 Documentos e eventos podem ser consultados pelo ADN conforme as permissões
 da integração. O módulo não aplica automaticamente aos cadastros alterações

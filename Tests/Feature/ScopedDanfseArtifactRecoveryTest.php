@@ -13,11 +13,22 @@ use Modules\Nfse\Application\IssuedNfseArtifactStore;
 use Modules\Nfse\Application\PostEmissionState;
 use Modules\Nfse\Jobs\StoreIssuedNfseArtifacts;
 use Modules\Nfse\Tests\Support\FiscalScenarioBuilder;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\FeatureTestCase;
 
 final class ScopedDanfseArtifactRecoveryTest extends FeatureTestCase
 {
-    public function testStoredScopedPdfCanBeRecoveredByteForByteWhenAuthorizedXmlIsUnavailable(): void
+    /** @return array<string,array{string}> */
+    public static function scopes(): array
+    {
+        return [
+            'isolated by company' => ['company'],
+            'exact configured folder' => ['configured'],
+        ];
+    }
+
+    #[DataProvider('scopes')]
+    public function testStoredScopedPdfCanBeRecoveredByteForByteWhenAuthorizedXmlIsUnavailable(string $scope): void
     {
         $this->loginAs();
         $invoice = FiscalScenarioBuilder::invoice();
@@ -38,6 +49,7 @@ final class ScopedDanfseArtifactRecoveryTest extends FeatureTestCase
 
         setting()->set([
             'nfse.webdav_url' => 'https://dav.example.test/root',
+            'nfse.webdav_path_scope' => $scope,
             'nfse.webdav_store_xml' => true,
             'nfse.webdav_store_pdf' => true,
             'nfse.cnpj_prestador' => '99999999000199',
@@ -79,7 +91,7 @@ final class ScopedDanfseArtifactRecoveryTest extends FeatureTestCase
         self::assertNotEmpty($storedReceipt->xml_webdav_path);
         self::assertNotEmpty($storedReceipt->danfse_webdav_path);
         self::assertStringStartsWith(
-            'companies/' . $invoice->company_id . '/nfse/11222333000181/',
+            ($scope === 'company' ? 'companies/' . $invoice->company_id . '/' : '') . 'nfse/11222333000181/',
             (string) $storedReceipt->xml_webdav_path,
         );
         self::assertStringNotContainsString('99999999000199', (string) $storedReceipt->xml_webdav_path);

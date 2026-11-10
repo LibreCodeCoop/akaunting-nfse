@@ -94,6 +94,26 @@ final class ArtifactSettingsApiTest extends FeatureTestCase
         self::assertSame('synthetic-old-user', setting('nfse.webdav_username'));
     }
 
+    public function testPathScopeCanBeExplicitlyConfiguredAndInvalidScopeIsRejected(): void
+    {
+        $this->withExceptionHandling()->loginAs();
+        $this->patchJson(route('nfse.settings.artifacts'), [
+            'nfse' => [
+                'webdav_path_scope' => 'configured',
+                'webdav_path_template' => '/Dedicated/Finance/{year}/{month}',
+            ],
+        ])->assertOk()
+            ->assertJsonPath('data.path_scope', 'configured');
+        self::assertSame('configured', setting('nfse.webdav_path_scope'));
+        $this->getJson(route('nfse.settings.artifacts.show'))
+            ->assertOk()
+            ->assertJsonPath('data.path_scope', 'configured');
+        $this->patchJson(route('nfse.settings.artifacts'), [
+            'nfse' => ['webdav_path_scope' => 'unexpected'],
+        ])->assertUnprocessable();
+        self::assertSame('configured', setting('nfse.webdav_path_scope'));
+    }
+
     public function testEmbeddedCredentialsAreRejectedBeforeContactOrMutation(): void
     {
         $this->withExceptionHandling()->loginAs();

@@ -495,6 +495,7 @@ class SettingsController extends Controller
             'username_configured' => trim((string) setting('nfse.webdav_username', '')) !== '',
             'password_configured' => trim((string) setting('nfse.webdav_password', '')) !== '',
             'path_template' => (string) setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}'),
+            'path_scope' => (string) setting('nfse.webdav_path_scope', \Modules\Nfse\Application\ArtifactWebDavPathScope::COMPANY),
             'filename_template' => (string) setting('nfse.webdav_filename_template', '{chave_acesso}'),
             'store_xml' => (bool) setting('nfse.webdav_store_xml', true),
             'store_pdf' => (bool) setting('nfse.webdav_store_pdf', true),
@@ -535,6 +536,7 @@ class SettingsController extends Controller
             'nfse.webdav_username' => 'nullable|string',
             'nfse.webdav_password' => 'nullable|string',
             'nfse.webdav_path_template' => 'nullable|string|max:255',
+            'nfse.webdav_path_scope' => 'sometimes|in:company,configured',
             'nfse.webdav_filename_template' => 'nullable|string|max:255',
             'nfse.webdav_store_xml' => 'nullable|boolean',
             'nfse.webdav_store_pdf' => 'nullable|boolean',
@@ -580,6 +582,8 @@ class SettingsController extends Controller
             ?? setting('nfse.webdav_path_template', 'nfse/{cnpj}/{year}/{month}/{day}')));
         $webDavFileNameTemplate = trim((string) ($input['webdav_filename_template']
             ?? setting('nfse.webdav_filename_template', '{chave_acesso}')));
+        $webDavPathScope = trim((string) ($input['webdav_path_scope']
+            ?? setting('nfse.webdav_path_scope', \Modules\Nfse\Application\ArtifactWebDavPathScope::COMPANY)));
         $storeXmlArtifacts = array_key_exists('webdav_store_xml', $input)
             ? $this->toBooleanInput($input, 'webdav_store_xml', true)
             : (bool) setting('nfse.webdav_store_xml', true);
@@ -612,6 +616,7 @@ class SettingsController extends Controller
         setting(['nfse.webdav_username' => $webDavUsername]);
         setting(['nfse.webdav_password' => $webDavPassword]);
         setting(['nfse.webdav_path_template' => $webDavPathTemplate]);
+        setting(['nfse.webdav_path_scope' => $webDavPathScope]);
         setting(['nfse.webdav_filename_template' => $webDavFileNameTemplate]);
         setting(['nfse.webdav_store_xml' => $storeXmlArtifacts]);
         setting(['nfse.webdav_store_pdf' => $storePdfArtifacts]);

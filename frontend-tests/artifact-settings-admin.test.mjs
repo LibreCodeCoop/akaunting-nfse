@@ -18,6 +18,7 @@ test('unchanged endpoint preserves write-only credentials', () => {
         webdav_store_xml: true,
         webdav_store_pdf: false,
         webdav_path_template: 'nfse/{cnpj}',
+        webdav_path_scope: 'company',
         webdav_filename_template: '{chave_acesso}',
     } });
     assert.equal('webdav_password' in patch.nfse, false);
@@ -35,7 +36,7 @@ test('rotating credentials only submits nonempty values', () => {
         storeXml: false, storePdf: true, disable: false,
     }).nfse, {
         webdav_store_xml: false, webdav_store_pdf: true,
-        webdav_path_template: '', webdav_filename_template: '',
+        webdav_path_template: '', webdav_path_scope: 'company', webdav_filename_template: '',
         webdav_url: 'https://dav.example.test/storage',
         webdav_username: 'synthetic-user',
         webdav_password: 'synthetic-secret',
@@ -54,4 +55,16 @@ test('explicit disable does not send stale write-only values', () => {
     assert.equal(patch.webdav_url, '');
     assert.equal(patch.webdav_username, undefined);
     assert.equal(patch.webdav_password, undefined);
+});
+
+
+test('explicit dedicated folder is included in the PATCH payload', () => {
+    const patch = buildPatch({
+        pathScope: 'configured',
+        pathTemplate: '/Dedicated/Finance/2026',
+        filenameTemplate: '{nfse_number}',
+        storeXml: true, storePdf: true,
+    });
+    assert.equal(patch.nfse.webdav_path_scope, 'configured');
+    assert.equal(patch.nfse.webdav_path_template, '/Dedicated/Finance/2026');
 });
