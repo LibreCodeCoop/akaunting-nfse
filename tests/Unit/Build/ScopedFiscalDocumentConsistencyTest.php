@@ -99,7 +99,7 @@ final class ScopedFiscalDocumentConsistencyTest extends TestCase
     public static function specialRegimeCases(): array
     {
         return [
-            'explicit none is not missing' => ['0', 'Nenhum', true],
+            'explicit none omits optional row' => ['0', 'Nenhum', false],
             'explicit other is recognized' => ['9', 'Outros', true],
             'absent tag suppresses an otherwise empty row' => [null, '-', false],
         ];
