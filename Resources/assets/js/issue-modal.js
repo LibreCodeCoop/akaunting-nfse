@@ -51,6 +51,75 @@
         return current;
     }
 
+    function nextEditorArrowIndex(text, index, key) {
+        const value = String(text ?? '');
+        const end = Math.max(0, value.length - 1);
+        const current = Math.max(0, Math.min(index, end));
+
+        if (key === 'ArrowLeft') {
+            return Math.max(0, current - 1);
+        }
+        if (key === 'ArrowRight') {
+            return Math.min(end, current + 1);
+        }
+        if (key !== 'ArrowUp' && key !== 'ArrowDown') {
+            return current;
+        }
+
+        const start = value.lastIndexOf('\n', current - 1) + 1;
+        const lineEnd = value.indexOf('\n', start);
+        const column = current - start;
+
+        if (key === 'ArrowUp') {
+            if (start === 0) {
+                return current;
+            }
+            const previousEnd = start - 1;
+            const previousStart = value.lastIndexOf('\n', previousEnd - 1) + 1;
+            return Math.min(previousStart + column, previousEnd);
+        }
+
+        const followingStart = (lineEnd < 0 ? value.length : lineEnd + 1);
+        if (followingStart >= value.length) {
+            return current;
+        }
+        const followingBreak = value.indexOf('\n', followingStart);
+        const followingEnd = followingBreak < 0 ? end : followingBreak;
+        return Math.min(followingStart + column, followingEnd);
+    }
+
+    function restoreEditorArrowNavigation(event, documentRef) {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)
+            || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.isComposing) {
+            return;
+        }
+
+        const editor = event.target?.closest?.('#nfse-email-fields .ql-editor, #nfse-emit-body-editor .ql-editor');
+        const quill = editor?.closest('.ql-container')?.__quill;
+        if (!quill || typeof quill.getSelection !== 'function'
+            || typeof quill.setSelection !== 'function' || typeof quill.getText !== 'function') {
+            return;
+        }
+
+        const selection = quill.getSelection(false);
+        if (!selection || selection.length !== 0) {
+            return;
+        }
+
+        const desiredIndex = nextEditorArrowIndex(quill.getText(), selection.index, event.key);
+        if (desiredIndex === selection.index) {
+            return;
+        }
+
+        documentRef.defaultView?.requestAnimationFrame(() => {
+            const latest = quill.getSelection(false);
+            if (documentRef.activeElement === editor && latest
+                && latest.index === selection.index && latest.length === 0) {
+                quill.setSelection(desiredIndex, 0, 'user');
+            }
+        });
+    }
+
     function sendEmailUiState(checked) {
         return {
             fieldsHidden: false,
@@ -581,6 +650,8 @@
         });
 
         documentRef.addEventListener('keydown', (event) => {
+            restoreEditorArrowNavigation(event, documentRef);
+
             const nav = event.target && event.target.closest
                 ? event.target.closest('[data-nfse-tab-nav]')
                 : null;
@@ -726,6 +797,7 @@
         focusErrorSummary,
         triggerNativeDocumentModal,
         nextTabIndex,
+        nextEditorArrowIndex,
         normalizeHtml,
         reconcileHydratedModal,
         restoreDefaults,

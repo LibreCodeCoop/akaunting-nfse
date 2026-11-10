@@ -373,6 +373,64 @@ test('typing in email body keeps email tab content visible in emit modal', async
   await expect(emailPane).toBeVisible();
   await page.keyboard.up('Control');
   await expect(editor).toBeVisible();
+
+  // Regression: Arrow keys must move Quill's caret within the current text,
+  // rather than resetting selection or triggering tab navigation.
+  await setEditorTextAsUser(editor, 'abcd\nefgh\nijkl');
+  const setCaret = async (index: number) => {
+    await editor.evaluate((node, position) => {
+      const quill = (node.closest('.ql-container') as HTMLElement & {
+        __quill?: { setSelection(index: number, length: number, source: string): void };
+      } | null)?.__quill;
+      if (!quill) throw new Error('Quill was not initialized');
+      quill.setSelection(position, 0, 'user');
+    }, index);
+  };
+  const caret = () => editor.evaluate((node) => {
+    const quill = (node.closest('.ql-container') as HTMLElement & {
+      __quill?: { getSelection(focus: boolean): { index: number } | null };
+    } | null)?.__quill;
+    return quill?.getSelection(true)?.index ?? -1;
+  });
+  const caretState = () => editor.evaluate((node) => {
+    const quill = (node.closest('.ql-container') as HTMLElement & {
+      __quill?: { getSelection(focus: boolean): { index: number } | null };
+    } | null)?.__quill;
+    const selection = node.ownerDocument.getSelection();
+    const anchor = selection?.anchorNode;
+    let domIndex: number | null = null;
+    if (anchor && node.contains(anchor)) {
+      const range = node.ownerDocument.createRange();
+      range.selectNodeContents(node);
+      range.setEnd(anchor, selection?.anchorOffset ?? 0);
+      domIndex = range.toString().length;
+    }
+    const active = node.ownerDocument.activeElement;
+    return {
+      quillIndex: quill?.getSelection(false)?.index ?? null,
+      domIndex,
+      editorFocused: active === node,
+      editorContainsFocus: Boolean(active && node.contains(active)),
+      activeTag: active?.tagName || '',
+      activeClass: typeof active?.className === 'string' ? active.className.slice(0, 60) : '',
+    };
+  });
+  await setCaret(7);
+  await expect.poll(caret).toBe(7);
+  const beforeArrow = await caretState();
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(caret).toBe(6);
+  const afterArrow = await caretState();
+  expect(afterArrow.quillIndex, 'Before/after ArrowLeft: ' + JSON.stringify({ beforeArrow, afterArrow })).toBe(6);
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(caret).toBe(7);
+  await page.keyboard.press('ArrowUp');
+  await expect.poll(caret).toBeLessThan(5);
+  await page.keyboard.press('ArrowDown');
+  await expect.poll(caret).toBeGreaterThanOrEqual(5);
+  await expect(emailPane).toBeVisible();
+  await expect(editor).toBeFocused();
+  await expect.poll(() => getEditorText(editor)).toContain('ijkl');
 });
 
 test('email body and customer-save controls have matching alignment without enabling delivery', async ({ page }, testInfo) => {
