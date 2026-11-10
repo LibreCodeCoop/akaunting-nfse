@@ -2799,6 +2799,40 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertNotEmpty($payload['email_defaults']['default_body']);
         }
 
+        public function testServicePreviewDefaultsIncludeSecondaryContactInCc(): void
+        {
+            InvoiceControllerIsolationState::reset();
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 5510,
+                amount: 100.0,
+                contactEmail: 'billing@example.test',
+            );
+            $invoice->contact = new class () {
+                public string $email = 'billing@example.test';
+
+                public function withPersons(): array
+                {
+                    return [
+                        $this,
+                        (object) ['email' => 'igor@example.test'],
+                    ];
+                }
+            };
+
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function exposeEmailDefaults(Invoice $invoice): array
+                {
+                    return $this->servicePreviewEmailDefaults($invoice);
+                }
+            };
+
+            $defaults = $controller->exposeEmailDefaults($invoice);
+
+            self::assertSame('billing@example.test', $defaults['recipient']);
+            self::assertSame('igor@example.test', $defaults['cc']);
+        }
+
         public function testServicePreviewUsesSavedAttachmentDefaults(): void
         {
             InvoiceControllerIsolationState::reset();
