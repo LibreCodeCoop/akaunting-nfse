@@ -10,7 +10,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "librecodeoop/nfse-php": "dev-main#f16926ef58cae2c3be2e56ddc881686db397ec50"
+        "librecodeoop/nfse-php": "dev-main#55b2f017fc6058e64f957d0ec7ea21cac4cc9ae9"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
