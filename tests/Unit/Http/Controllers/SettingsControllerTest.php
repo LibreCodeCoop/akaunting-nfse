@@ -1726,6 +1726,47 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('nfse::general.vault_required_before_certificate_and_settings', $response->flash['error'] ?? null);
         }
 
+        public function testUpdateEmailFooterPersistsOnlyCompanyEmailBrandingSettings(): void
+        {
+            ControllerIsolationState::reset();
+
+            $request = new Request(inputs: [
+                'footer_message' => 'Assinaturas digitais e colaboracao em software livre.',
+                'footer_url' => 'https://libresign.coop',
+            ]);
+
+            $response = (new SettingsController())->updateEmailFooter($request);
+
+            self::assertInstanceOf(RedirectResponse::class, $response);
+            self::assertSame('nfse.settings.edit', $response->route);
+            self::assertSame(['tab' => 'email'], $response->parameters[0] ?? null);
+            self::assertSame(
+                'Assinaturas digitais e colaboracao em software livre.',
+                ControllerIsolationState::$settings['nfse.email_footer_message'] ?? null,
+            );
+            self::assertSame('https://libresign.coop', ControllerIsolationState::$settings['nfse.email_footer_url'] ?? null);
+            self::assertCount(2, ControllerIsolationState::$settings);
+        }
+
+        public function testUpdateEmailFooterRejectsInsecureOrCredentialBearingUrl(): void
+        {
+            foreach (['http://librecode.coop', 'https://secret:password@librecode.coop'] as $url) {
+                ControllerIsolationState::reset();
+                $request = new Request(inputs: [
+                    'footer_message' => 'Texto promocional',
+                    'footer_url' => $url,
+                ]);
+
+                $response = (new SettingsController())->updateEmailFooter($request);
+
+                self::assertSame('nfse.settings.edit', $response->route);
+                self::assertSame(['tab' => 'email'], $response->parameters[0] ?? null);
+                self::assertSame('nfse::general.settings.email_footer_invalid', $response->flash['error'] ?? null);
+                self::assertArrayNotHasKey('nfse.email_footer_url', ControllerIsolationState::$settings);
+                self::assertArrayNotHasKey('nfse.email_footer_message', ControllerIsolationState::$settings);
+            }
+        }
+
         public function testUpdateArtifactsSavesWebDavSettingsAndRedirectsToArtifactsTab(): void
         {
             ControllerIsolationState::reset();

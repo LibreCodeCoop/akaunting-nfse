@@ -636,6 +636,13 @@ return [
     ],
 
     'settings' => [
+        'email_footer_title' => 'Rodapé dos e-mails de NFS-e',
+        'email_footer_help' => 'Substitui a publicidade do Akaunting apenas nas mensagens de NFS-e. Cada empresa tem seu próprio rodapé.',
+        'email_footer_message' => 'Mensagem publicitária da LibreCode (texto simples)',
+        'email_footer_url' => 'Link para os produtos da LibreCode (HTTPS)',
+        'email_footer_save' => 'Salvar rodapé',
+        'email_footer_saved' => 'Rodapé dos e-mails de NFS-e atualizado.',
+        'email_footer_invalid' => 'Confira a mensagem e informe um link HTTPS válido, sem credenciais.',
         'issuer_company_context' => 'Empresa ativa no Akaunting',
         'issuer_company_context_help' => 'As configurações fiscais pertencem à empresa selecionada. Para configurar outra empresa, alterne a empresa ativa no Akaunting.',
         'issuer_phone' => 'Telefone do prestador (NFS-e)',

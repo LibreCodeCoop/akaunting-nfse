@@ -638,6 +638,13 @@ return [
     ],
 
     'settings' => [
+        'email_footer_title' => 'NFS-e email footer',
+        'email_footer_help' => 'Replaces Akaunting promotional content only in NFS-e emails. Each company has its own footer.',
+        'email_footer_message' => 'LibreCode promotional message (plain text)',
+        'email_footer_url' => 'Link to LibreCode products (HTTPS)',
+        'email_footer_save' => 'Save footer',
+        'email_footer_saved' => 'NFS-e email footer updated.',
+        'email_footer_invalid' => 'Check the message and provide a valid HTTPS link without credentials.',
         'issuer_company_context' => 'Active Akaunting company',
         'issuer_company_context_help' => 'Fiscal settings belong to the currently selected company. Switch companies in Akaunting to configure another entity.',
         'issuer_phone' => 'Provider phone (NFS-e)',
