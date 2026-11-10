@@ -1363,6 +1363,44 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
         }
 
 
+        public function testInvalidEmailAjaxResponseExposesFieldErrorsToAkauntingForm(): void
+        {
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 5933,
+                amount: 100.0,
+            );
+            $request = Request::create('/1/nfse/invoices/5933/emit', 'POST', [
+                'nfse_force_ajax' => '1',
+            ]);
+
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function validationResponse(Request $request, Invoice $invoice): \Illuminate\Http\JsonResponse
+                {
+                    $response = $this->invalidEmailRedirect(
+                        $request,
+                        $invoice,
+                        new \InvalidArgumentException('nfse_email_to'),
+                    );
+
+                    if (!$response instanceof \Illuminate\Http\JsonResponse) {
+                        throw new \LogicException('Expected JSON validation response.');
+                    }
+
+                    return $response;
+                }
+            };
+
+            $response = $controller->validationResponse($request, $invoice);
+            self::assertSame(422, $response->getStatusCode());
+            $body = $response->getData(true);
+            self::assertSame('nfse_email_invalid', $body['code']);
+            self::assertSame('nfse_email_to', $body['field']);
+            self::assertSame([$body['message']], $body['errors']['nfse_email_to']);
+            self::assertSame(false, $body['success']);
+            self::assertSame(false, $body['redirect']);
+        }
+
+
         public function testEmitReturnsJsonWithRedirectWhenRequestIsAjax(): void
         {
             $invoice = InvoiceControllerIsolationState::makeInvoice(
