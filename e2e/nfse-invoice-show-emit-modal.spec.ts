@@ -180,17 +180,37 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
       }
       return nativePreventDefault.apply(this, args);
     };
-    document.addEventListener('keydown', (event) => {
-      log.push({ key: event.key, phase: 'capture', target: (event.target as Element)?.id, active: (document.activeElement as Element)?.id });
-    }, true);
+    const source = document.querySelector('#nfse_email_to-entry') as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!;
+    Object.defineProperty(source, 'value', {
+      configurable: true,
+      get() { return setter.get!.call(this); },
+      set(value) {
+        log.push({ phase: 'value-setter', value, stack: new Error().stack?.slice(0, 900) });
+        setter.set!.call(this, value);
+      },
+    });
+    for (const kind of ['keydown', 'beforeinput', 'input', 'keyup']) {
+      document.addEventListener(kind, (event) => {
+        log.push({ key: (event as KeyboardEvent).key, kind, phase: 'capture',
+          data: (event as InputEvent).data, inputType: (event as InputEvent).inputType,
+          value: source.value, target: (event.target as Element)?.id, prevented: event.defaultPrevented });
+      }, true);
+    }
   });
   await toRecipients.pressSequentially('typed@example.test');
+  const typedObserved = await toRecipients.inputValue();
   console.log('NFSE_KEY_DIAGNOSTICS', JSON.stringify(await page.evaluate(() => ({
-    log: (window as any).__nfseKeyLog, source: (document.querySelector('#nfse_email_to') as HTMLInputElement)?.value,
+    log: (window as any).__nfseKeyLog.slice(-120), source: (document.querySelector('#nfse_email_to') as HTMLInputElement)?.value,
     entry: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.value,
     active: (document.activeElement as Element)?.id,
   }))));
-  await expect(toRecipients).toHaveValue('typed@example.test');
+  await page.keyboard.insertText('inserted');
+  console.log('NFSE_INSERT_DIAGNOSTICS', JSON.stringify(await page.evaluate(() => ({
+    log: (window as any).__nfseKeyLog.slice(-20), source: (document.querySelector('#nfse_email_to') as HTMLInputElement)?.value,
+    entry: (document.querySelector('#nfse_email_to-entry') as HTMLInputElement)?.value,
+  }))));
+  expect(typedObserved).toBe('typed@example.test');
   await expect(toRecipients).toBeFocused();
   await toRecipients.fill('first@example.test, second@example.test');
   await ccToggle.click();
