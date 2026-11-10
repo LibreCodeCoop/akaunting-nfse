@@ -110,13 +110,17 @@
             return;
         }
 
-        const rememberedPane = container.dataset?.nfseActivePane;
+        // The form survives Vue replacing its tab contents. A remembered value
+        // only on the replaced tab container is lost on the next render.
+        const form = container.closest?.('form');
+        const panes = Array.from(container.querySelectorAll('[data-nfse-tab-pane]'));
+        const navs = Array.from(container.querySelectorAll('[data-nfse-tab-nav]'));
+        const paneExists = (id) => panes.some((pane) => pane.id === id);
+        const rememberedPane = form?.dataset?.nfseActivePane || container.dataset?.nfseActivePane;
         const activeNav = container.querySelector('[data-nfse-tab-nav].active-tabs')
             || container.querySelector('[data-nfse-tab-nav][aria-selected="true"]')
-            || container.querySelector('[data-nfse-tab-nav]');
-        const activePaneId = rememberedPane
-            && Array.from(container.querySelectorAll('[data-nfse-tab-pane]'))
-                .some((pane) => pane.id === rememberedPane)
+            || navs[0];
+        const activePaneId = paneExists(rememberedPane)
             ? rememberedPane
             : activeNav?.getAttribute('data-nfse-tab-nav');
 
@@ -124,7 +128,24 @@
             return;
         }
 
-        container.querySelectorAll('[data-nfse-tab-pane]').forEach((pane) => {
+        container.dataset.nfseActivePane = activePaneId;
+        if (form) {
+            form.dataset.nfseActivePane = activePaneId;
+        }
+
+        navs.forEach((item) => {
+            const active = item.getAttribute('data-nfse-tab-nav') === activePaneId;
+            activeClasses.forEach((className) => item.classList.toggle(className, active));
+            item.classList.toggle('text-black', !active);
+            if (item.getAttribute('aria-selected') !== String(active)) {
+                item.setAttribute('aria-selected', String(active));
+            }
+            if (item.getAttribute('tabindex') !== (active ? '0' : '-1')) {
+                item.setAttribute('tabindex', active ? '0' : '-1');
+            }
+        });
+
+        panes.forEach((pane) => {
             const active = pane.id === activePaneId;
             const expectedDisplay = active ? '' : 'none';
             const expectedAria = active ? 'false' : 'true';
@@ -132,7 +153,7 @@
             if (pane.style.display !== expectedDisplay) {
                 pane.style.display = expectedDisplay;
             }
-            if (pane.getAttribute && pane.getAttribute('aria-hidden') !== expectedAria) {
+            if (pane.getAttribute('aria-hidden') !== expectedAria) {
                 pane.setAttribute('aria-hidden', expectedAria);
             }
         });
@@ -147,21 +168,11 @@
 
         const targetPaneId = nav.getAttribute('data-nfse-tab-nav');
         container.dataset.nfseActivePane = targetPaneId;
-
-        container.querySelectorAll('[data-nfse-tab-nav]').forEach((item) => {
-            const active = item === nav;
-
-            activeClasses.forEach((className) => item.classList.toggle(className, active));
-            item.classList.toggle('text-black', !active);
-            item.setAttribute('aria-selected', active ? 'true' : 'false');
-            item.setAttribute('tabindex', active ? '0' : '-1');
-        });
-
-        container.querySelectorAll('[data-nfse-tab-pane]').forEach((pane) => {
-            const active = pane.id === targetPaneId;
-            pane.style.display = active ? '' : 'none';
-            pane.setAttribute('aria-hidden', active ? 'false' : 'true');
-        });
+        const form = container.closest?.('form');
+        if (form) {
+            form.dataset.nfseActivePane = targetPaneId;
+        }
+        syncTabPane(container);
     }
 
     function syncSwitch(input) {
@@ -615,7 +626,7 @@
 
         });
 
-        ['input', 'keyup', 'focusin'].forEach((eventName) => {
+        ['input', 'keyup', 'focusin', 'change'].forEach((eventName) => {
             documentRef.addEventListener(eventName, (event) => {
                 const scope = event.target && event.target.closest
                     ? event.target.closest('#nfse-email-fields')
@@ -625,6 +636,10 @@
                     syncRestoreButton(scope, documentRef);
                 }
 
+                const tabs = event.target?.closest?.('[data-nfse-tabs]');
+                if (tabs) {
+                    syncTabPane(tabs);
+                }
             });
         });
 
@@ -659,8 +674,8 @@
                     // Akaunting's reactive editor can reset tab-pane inline styles
                     // after keyboard and input events even when the selected nav stays
                     // unchanged. Reconcile only tab-pane styles, never editor mutations.
-                    if (record?.type === 'attributes' && record.attributeName === 'style') {
-                        return Boolean(target?.matches?.('[data-nfse-tab-pane]'));
+                    if (record?.type === 'attributes') {
+                        return Boolean(target?.matches?.('[data-nfse-tab-pane], [data-nfse-tab-nav]'));
                     }
 
                     return Array.from(record && record.addedNodes ? record.addedNodes : []).some((node) => {
@@ -693,7 +708,7 @@
                 observer.observe(target, {
                     childList: true,
                     attributes: true,
-                    attributeFilter: ['style'],
+                    attributeFilter: ['style', 'class', 'aria-selected', 'aria-hidden', 'tabindex'],
                     subtree: true,
                 });
             }
