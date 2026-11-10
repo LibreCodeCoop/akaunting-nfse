@@ -47,6 +47,12 @@ PHP runtime cache. They check for the required Poppler executables before
 falling back to installing OS packages, avoiding an unconditional apt index
 update on runners where these utilities are already installed.
 
+Feature test shards retain whole PHPUnit test classes, including their data
+providers, in one runner each. The shard planner accounts for expanded dataset
+counts of the largest data-provider-heavy classes observed in CI; new classes
+fall back to counting their declared test methods. This improves runtime balance
+without sharing mutable fixtures across runners.
+
 ## live-fiscal
 
 Runs only manually against a dedicated protected Akaunting environment. The

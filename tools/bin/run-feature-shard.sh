@@ -25,8 +25,17 @@ if (( ${#files[@]} < count )); then
     exit 2
 fi
 
-# Largest-class-first assignment balances the number of test methods without
-# sharing SQLite databases or temporary certificate directories among workers.
+# Data providers expand some methods into many cases. The counts below were
+# observed in two passing CI runs; other classes use their declared methods.
+declare -A provider_case_counts=(
+    [AdminRouteRegistrationTest]=29
+    [FiscalNormativeIssuanceGuardTest]=10
+    [InvoiceTaxFactsResolverTest]=22
+    [ManualNormativeIssuanceGuardTest]=16
+    [TaxFiscalAssociationStoreTest]=17
+)
+
+# Assign complete test classes to separate disposable runners.
 declare -A seen_class=()
 records=()
 for file in "${files[@]}"; do
@@ -39,6 +48,9 @@ for file in "${files[@]}"; do
     seen_class["$class"]=1
     tests="$(grep -Ec 'function[[:space:]]+test[A-Za-z0-9_]*[[:space:]]*\(' "$file" || true)"
     if (( tests < 1 )); then tests=1; fi
+    if (( ${provider_case_counts[$class]:-0} > tests )); then
+        tests="${provider_case_counts[$class]}"
+    fi
     if (( tests > 100000 )); then
         echo "Unreasonable NFS-e test weight." >&2
         exit 2
@@ -76,7 +88,7 @@ if (( ${#selected_classes[@]} == 0 )); then
 fi
 
 filter="$(IFS='|'; printf '%s' "${selected_classes[*]}")"
-printf 'NFS-e Feature shard %d/%d: %d files, %d estimated test methods, isolated runner\n' \
+printf 'NFS-e Feature shard %d/%d: %d files, %d estimated test cases, isolated runner\n' \
     "$((index + 1))" "$count" "${counts[index]}" "${weights[index]}"
 
 if [[ "${NFSE_FEATURE_DRY_RUN:-0}" == '1' ]]; then
