@@ -173,8 +173,8 @@ jobs:
       - name: Install Playwright
         working-directory: akaunting/modules/Nfse
         run: |
-          npm ci
-          npx playwright install --with-deps chromium
+          npm ci --include=dev
+          npx playwright install chromium
 
       - name: Verify persistent full UI database
         working-directory: akaunting/modules/Nfse

@@ -16,8 +16,15 @@ contacts SEFIN or ADN and uses no fiscal secrets.
 The smoke, full-ui and bulk-ui CI jobs each own an isolated GitHub-hosted runner
 and SQLite file. Keep Playwright at one worker **per database**: sharing SQLite
 and mutable fiscal fixtures across workers is unsafe. Parallelism between
-isolated jobs is safe. Only versioned Chromium binaries are cached; never
-cache the database, PFX files or tenant configuration.
+isolated jobs is safe. No database, PFX files or tenant configuration are cached.
+
+Smoke exercises the GitHub-hosted runner's preinstalled stable Chrome channel;
+it does not download Playwright's Chromium or install system packages. Full UI
+and Bulk UI use cached, version-matched Playwright Chromium binaries and run
+`playwright install chromium` (without an unconditional apt upgrade). If a runner
+image no longer has the required browser libraries, browser execution must fail
+visibly so its dependency requirements can be reviewed instead of silently
+adding lengthy, unpinned system-package installation to every CI run.
 
 ## full-ui
 

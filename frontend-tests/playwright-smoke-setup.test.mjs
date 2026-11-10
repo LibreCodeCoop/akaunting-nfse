@@ -445,3 +445,21 @@ test('unknown setup subcommands fail closed', async () => {
   await assert.rejects(cli('do-everything', { core: '/unused', module: '/unused', env: {} }), /Unknown smoke setup command/);
   await assert.rejects(cli('expose-assets', { core: '/unused', module: '/unused', env: {} }), /requires APP_ENV=testing/);
 });
+
+// Regression: smoke uses the preinstalled Chrome channel, not Playwright's
+// separately downloaded Chromium and its costly apt dependency bootstrap.
+test('smoke browser setup uses the runner Chrome without installing Chromium dependencies', () => {
+  const root = path.resolve(import.meta.dirname, '..');
+  const config = fs.readFileSync(path.join(root, 'playwright.config.ts'), 'utf8');
+  assert.match(config, /name: 'smoke',[\s\S]*?use: \{ channel: 'chrome' \}/);
+
+  const smoke = fs.readFileSync(path.join(root, '.github/workflows/playwright-smoke.yml'), 'utf8');
+  assert.match(smoke, /google-chrome --version/);
+  assert.doesNotMatch(smoke, /npx playwright install|Cache Playwright Chromium/);
+
+  for (const tier of ['full-ui', 'bulk-ui']) {
+    const workflow = fs.readFileSync(path.join(root, `.github/workflows/playwright-${tier}.yml`), 'utf8');
+    assert.match(workflow, /npx playwright install chromium/);
+    assert.doesNotMatch(workflow, /npx playwright install --with-deps/);
+  }
+});

@@ -139,18 +139,14 @@ jobs:
         working-directory: akaunting/modules/Nfse
         run: node scripts/ci/playwright-smoke.mjs assets
 
-      # Cache locked browser binaries, never mutable SQLite/PFX fixtures.
-      - name: Cache Playwright Chromium
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('akaunting/modules/Nfse/package-lock.json') }}
-
-      - name: Install Playwright
+      # The smoke project uses Playwright's Chrome channel. Ubuntu's runner
+      # provides Chrome; installing Chromium and its apt dependencies here
+      # adds latency without exercising a different browser in this tier.
+      - name: Install Playwright test runner and verify Chrome
         working-directory: akaunting/modules/Nfse
         run: |
-          npm ci
-          npx playwright install --with-deps chromium
+          npm ci --include=dev
+          google-chrome --version
 
       - name: Verify persistent smoke database
         working-directory: akaunting/modules/Nfse
