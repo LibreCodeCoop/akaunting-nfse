@@ -51,75 +51,6 @@
         return current;
     }
 
-    function nextEditorArrowIndex(text, index, key) {
-        const value = String(text ?? '');
-        const end = Math.max(0, value.length - 1);
-        const current = Math.max(0, Math.min(index, end));
-
-        if (key === 'ArrowLeft') {
-            return Math.max(0, current - 1);
-        }
-        if (key === 'ArrowRight') {
-            return Math.min(end, current + 1);
-        }
-        if (key !== 'ArrowUp' && key !== 'ArrowDown') {
-            return current;
-        }
-
-        const start = value.lastIndexOf('\n', current - 1) + 1;
-        const lineEnd = value.indexOf('\n', start);
-        const column = current - start;
-
-        if (key === 'ArrowUp') {
-            if (start === 0) {
-                return current;
-            }
-            const previousEnd = start - 1;
-            const previousStart = value.lastIndexOf('\n', previousEnd - 1) + 1;
-            return Math.min(previousStart + column, previousEnd);
-        }
-
-        const followingStart = (lineEnd < 0 ? value.length : lineEnd + 1);
-        if (followingStart >= value.length) {
-            return current;
-        }
-        const followingBreak = value.indexOf('\n', followingStart);
-        const followingEnd = followingBreak < 0 ? end : followingBreak;
-        return Math.min(followingStart + column, followingEnd);
-    }
-
-    function restoreEditorArrowNavigation(event, documentRef) {
-        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)
-            || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.isComposing) {
-            return;
-        }
-
-        const editor = event.target?.closest?.('#nfse-email-fields .ql-editor, #nfse-emit-body-editor .ql-editor');
-        const quill = editor?.closest('.ql-container')?.__quill;
-        if (!quill || typeof quill.getSelection !== 'function'
-            || typeof quill.setSelection !== 'function' || typeof quill.getText !== 'function') {
-            return;
-        }
-
-        const selection = quill.getSelection(false);
-        if (!selection || selection.length !== 0) {
-            return;
-        }
-
-        const desiredIndex = nextEditorArrowIndex(quill.getText(), selection.index, event.key);
-        if (desiredIndex === selection.index) {
-            return;
-        }
-
-        documentRef.defaultView?.requestAnimationFrame(() => {
-            const latest = quill.getSelection(false);
-            if (documentRef.activeElement === editor && latest
-                && latest.index === selection.index && latest.length === 0) {
-                quill.setSelection(desiredIndex, 0, 'user');
-            }
-        });
-    }
-
     function sendEmailUiState(checked) {
         return {
             fieldsHidden: false,
@@ -311,22 +242,20 @@
     }
 
     function resolveBodyState(scope) {
-        const editor = scope ? scope.querySelector('.ql-editor') : null;
-        const bodyGroup = editor ? editor.closest('.relative') : null;
-        const bodyGroupVm = bodyGroup && bodyGroup.__vue__ ? bodyGroup.__vue__ : null;
-        const htmlEditor = bodyGroupVm && bodyGroupVm.$children
-            ? bodyGroupVm.$children.find((child) => child.$options && child.$options.name === 'akaunting-html-editor')
-            : null;
-        const vueEditor = htmlEditor && htmlEditor.$children
-            ? htmlEditor.$children.find((child) => child.$options && child.$options.name === 'VueEditor')
-            : null;
-        const quill = vueEditor && vueEditor.quill ? vueEditor.quill : null;
+        const input = scope?.querySelector('[data-nfse-ckeditor]') ?? null;
+        const adapter = globalThis.NfseEmailEditor;
 
         return {
-            htmlEditor,
-            vueEditor,
-            quill,
-            editor: quill && quill.root ? quill.root : editor,
+            input,
+            getData: () => adapter?.getData(input) ?? input?.value ?? '',
+            setData: (html) => {
+                if (adapter?.setData) {
+                    adapter.setData(input, html);
+                } else if (input) {
+                    input.value = html;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            },
         };
     }
 
@@ -350,7 +279,7 @@
         const subjectInput = form.querySelector('[name=nfse_email_subject]');
         const bodyState = resolveBodyState(scope);
         const currentSubject = subjectInput ? subjectInput.value : '';
-        const currentBody = bodyState.editor ? bodyState.editor.innerHTML : '';
+        const currentBody = bodyState.getData();
         const defaultSubject = decodeURIComponent(button.getAttribute('data-nfse-default-subject') || '');
         const defaultBody = decodeURIComponent(button.getAttribute('data-nfse-default-body') || '');
 
@@ -376,23 +305,7 @@
 
         const scope = button.closest('#nfse-email-fields');
         const bodyState = resolveBodyState(scope);
-        const quillContainer = scope ? scope.querySelector('.ql-container') : null;
-        const quill = bodyState.quill || (quillContainer && quillContainer.__quill ? quillContainer.__quill : null);
-
-        if (quill && quill.clipboard && typeof quill.clipboard.dangerouslyPasteHTML === 'function') {
-            if (typeof quill.setContents === 'function' && typeof quill.clipboard.convert === 'function') {
-                quill.setContents(quill.clipboard.convert(body), 'silent');
-            } else {
-                quill.clipboard.dangerouslyPasteHTML(0, body);
-            }
-        } else if (bodyState.editor) {
-            bodyState.editor.innerHTML = body;
-        }
-
-        if (bodyState.htmlEditor) {
-            bodyState.htmlEditor.content = body;
-            bodyState.htmlEditor.$emit('input', body);
-        }
+        bodyState.setData(body);
 
         if (scope) {
             scope.dispatchEvent(new Event('input', { bubbles: true }));
@@ -407,9 +320,7 @@
         const endpoint = button.getAttribute('data-nfse-save-customer-email-url');
         const subject = form?.querySelector('[name="nfse_email_subject"]')?.value ?? '';
         const bodyState = resolveBodyState(scope);
-        const body = bodyState.editor?.innerHTML
-            ?? form?.querySelector('[name="nfse_email_body"]')?.value
-            ?? '';
+        const body = bodyState.getData();
         const formToken = form?.querySelector('[name="_token"]')?.value;
         const token = formToken
             || documentRef.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
@@ -650,8 +561,6 @@
         });
 
         documentRef.addEventListener('keydown', (event) => {
-            restoreEditorArrowNavigation(event, documentRef);
-
             const nav = event.target && event.target.closest
                 ? event.target.closest('[data-nfse-tab-nav]')
                 : null;
@@ -797,7 +706,6 @@
         focusErrorSummary,
         triggerNativeDocumentModal,
         nextTabIndex,
-        nextEditorArrowIndex,
         normalizeHtml,
         reconcileHydratedModal,
         restoreDefaults,

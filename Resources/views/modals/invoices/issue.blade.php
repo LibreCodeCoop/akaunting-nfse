@@ -227,15 +227,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                             />
 
                             <div data-nfse-email-body-group class="w-full min-w-0">
-                                <x-form.group.editor
+                                <label for="nfse_email_body" class="block text-sm font-medium text-gray-700">
+                                    {{ trans('nfse::general.invoices.emit_modal_email_body') }}
+                                </label>
+                                <textarea
+                                    id="nfse_email_body"
                                     name="nfse_email_body"
-                                    label="{{ trans('nfse::general.invoices.emit_modal_email_body') }}"
-                                    :value="$bodyValue"
-                                    rows="3"
-                                    data-toggle="quill"
-                                    not-required
-                                    form-group-class="w-full min-w-0 mb-0"
-                                />
+                                    rows="4"
+                                    v-model="form.nfse_email_body"
+                                    data-nfse-ckeditor
+                                    data-nfse-editor-label="{{ trans('nfse::general.invoices.emit_modal_email_body') }}"
+                                    class="w-full rounded border border-gray-200 px-3 py-2"
+                                >{{ $bodyValue }}</textarea>
                             </div>
 
                             <div class="w-full text-xs text-gray-500">

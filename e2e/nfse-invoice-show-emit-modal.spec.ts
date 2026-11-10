@@ -40,27 +40,30 @@ async function getEditorText(editor: Locator): Promise<string> {
 }
 
 async function setEditorTextAsUser(editor: Locator, text: string): Promise<void> {
-  const updated = await editor.evaluate((node: HTMLElement, value: string) => {
-    const container = node.closest('.ql-container') as (HTMLElement & { __quill?: {
-      setText?: (text: string, source?: string) => void;
-      focus?: () => void;
-    } }) | null;
-    const quill = container?.__quill;
+  await expect(editor).toBeVisible();
+  await editor.fill(text);
+  await expect.poll(() => getEditorText(editor)).toContain(text.trim());
+}
 
-    if (!quill || typeof quill.setText !== 'function') {
-      return false;
+async function editorSelection(editor: Locator): Promise<{ offset: number; selected: string; line: number }> {
+  return editor.evaluate((node: HTMLElement) => {
+    const selection = node.ownerDocument.getSelection();
+    const anchor = selection?.anchorNode;
+    if (!anchor || !node.contains(anchor)) {
+      return { offset: -1, selected: '', line: -1 };
     }
-
-    quill.setText(value, 'user');
-
-    if (typeof quill.focus === 'function') {
-      quill.focus();
+    const paragraph = anchor.parentElement?.closest('p') || node.querySelector('p');
+    const line = paragraph ? Array.from(node.querySelectorAll('p')).indexOf(paragraph) : -1;
+    const range = node.ownerDocument.createRange();
+    if (paragraph) {
+      range.selectNodeContents(paragraph);
+      range.setEnd(anchor, selection?.anchorOffset ?? 0);
+    } else {
+      range.selectNodeContents(node);
+      range.setEnd(anchor, selection?.anchorOffset ?? 0);
     }
-
-    return true;
-  }, text);
-
-  expect(updated).toBeTruthy();
+    return { offset: range.toString().length, selected: selection?.toString() ?? '', line };
+  });
 }
 
 async function clickRestoreButton(button: Locator): Promise<void> {
@@ -338,7 +341,7 @@ test('typing in email body keeps email tab content visible in emit modal', async
   const emailPane = dialog.locator('#nfse-tab-pane-email');
   const emailFields = dialog.locator('#nfse-email-fields');
   const subject = dialog.locator("input[name='nfse_email_subject']");
-  const editor = dialog.locator('.ql-editor').first();
+  const editor = dialog.locator('.ck-editor__editable[contenteditable="true"]').first();
 
   await expect(emailPane).toBeVisible();
   await expect(emailFields).toBeVisible();
@@ -374,63 +377,41 @@ test('typing in email body keeps email tab content visible in emit modal', async
   await page.keyboard.up('Control');
   await expect(editor).toBeVisible();
 
-  // Regression: Arrow keys must move Quill's caret within the current text,
-  // rather than resetting selection or triggering tab navigation.
-  await setEditorTextAsUser(editor, 'abcd\nefgh\nijkl');
-  const setCaret = async (index: number) => {
-    await editor.evaluate((node, position) => {
-      const quill = (node.closest('.ql-container') as HTMLElement & {
-        __quill?: { setSelection(index: number, length: number, source: string): void };
-      } | null)?.__quill;
-      if (!quill) throw new Error('Quill was not initialized');
-      quill.setSelection(position, 0, 'user');
-    }, index);
-  };
-  const caret = () => editor.evaluate((node) => {
-    const quill = (node.closest('.ql-container') as HTMLElement & {
-      __quill?: { getSelection(focus: boolean): { index: number } | null };
-    } | null)?.__quill;
-    return quill?.getSelection(true)?.index ?? -1;
-  });
-  const caretState = () => editor.evaluate((node) => {
-    const quill = (node.closest('.ql-container') as HTMLElement & {
-      __quill?: { getSelection(focus: boolean): { index: number } | null };
-    } | null)?.__quill;
-    const selection = node.ownerDocument.getSelection();
-    const anchor = selection?.anchorNode;
-    let domIndex: number | null = null;
-    if (anchor && node.contains(anchor)) {
-      const range = node.ownerDocument.createRange();
-      range.selectNodeContents(node);
-      range.setEnd(anchor, selection?.anchorOffset ?? 0);
-      domIndex = range.toString().length;
-    }
-    const active = node.ownerDocument.activeElement;
-    return {
-      quillIndex: quill?.getSelection(false)?.index ?? null,
-      domIndex,
-      editorFocused: active === node,
-      editorContainsFocus: Boolean(active && node.contains(active)),
-      activeTag: active?.tagName || '',
-      activeClass: typeof active?.className === 'string' ? active.className.slice(0, 60) : '',
-    };
-  });
-  await setCaret(7);
-  await expect.poll(caret).toBe(7);
-  const beforeArrow = await caretState();
+  // Real CKEditor keyboard behavior: Home/End, arrows, and selected text.
+  await setEditorTextAsUser(editor, 'abcd');
+  await editor.focus();
+  await page.keyboard.press('End');
+  await expect.poll(async () => (await editorSelection(editor)).offset).toBe(4);
+  await page.keyboard.press('Home');
+  await expect.poll(async () => (await editorSelection(editor)).offset).toBe(0);
+  await page.keyboard.press('End');
   await page.keyboard.press('ArrowLeft');
-  await expect.poll(caret).toBe(6);
-  const afterArrow = await caretState();
-  expect(afterArrow.quillIndex, 'Before/after ArrowLeft: ' + JSON.stringify({ beforeArrow, afterArrow })).toBe(6);
+  await expect.poll(async () => (await editorSelection(editor)).offset).toBe(3);
   await page.keyboard.press('ArrowRight');
-  await expect.poll(caret).toBe(7);
+  await expect.poll(async () => (await editorSelection(editor)).offset).toBe(4);
+  await page.keyboard.press('Shift+ArrowLeft');
+  await expect.poll(async () => (await editorSelection(editor)).selected).toBe('d');
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(async () => (await editorSelection(editor)).selected).toBe('');
+  await expect.poll(async () => (await editorSelection(editor)).offset).toBe(3);
+
+  // Pressing Enter creates a second paragraph; vertical navigation remains native.
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.insertText('efgh');
+  await expect.poll(async () => (await editorSelection(editor)).line).toBe(1);
   await page.keyboard.press('ArrowUp');
-  await expect.poll(caret).toBeLessThan(5);
+  await expect.poll(async () => (await editorSelection(editor)).line).toBe(0);
   await page.keyboard.press('ArrowDown');
-  await expect.poll(caret).toBeGreaterThanOrEqual(5);
+  await expect.poll(async () => (await editorSelection(editor)).line).toBe(1);
+  await expect.poll(() => dialog.locator('[name="nfse_email_body"]').inputValue()).toContain('efgh');
+
+  // Undo works in the editor and updates the form payload.
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(() => getEditorText(editor)).not.toContain('efgh');
   await expect(emailPane).toBeVisible();
   await expect(editor).toBeFocused();
-  await expect.poll(() => getEditorText(editor)).toContain('ijkl');
+  await expect.poll(() => getEditorText(editor)).toContain('abcd');
 });
 
 test('email body and customer-save controls have matching alignment without enabling delivery', async ({ page }, testInfo) => {
@@ -450,7 +431,7 @@ test('email body and customer-save controls have matching alignment without enab
   const emailFields = dialog.locator('#nfse-email-fields');
   const subject = dialog.locator('input[name="nfse_email_subject"]');
   const bodyGroup = dialog.locator('[data-nfse-email-body-group]');
-  const editor = dialog.locator('.ql-editor').first();
+  const editor = dialog.locator('.ck-editor__editable[contenteditable="true"]').first();
   const saveControls = dialog.locator('[data-nfse-email-save-controls]');
   const saveMode = dialog.locator('select[name="nfse_email_save_mode"]');
   const saveButton = dialog.locator('[data-nfse-save-customer-email]');
@@ -536,7 +517,7 @@ test('restore default button reacts to subject and body edits in emit modal', as
   await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
 
   const subject = dialog.locator("input[name='nfse_email_subject']");
-  const editor = dialog.locator('.ql-editor').first();
+  const editor = dialog.locator('.ck-editor__editable[contenteditable="true"]').first();
   const restoreButton = dialog.getByRole('button', { name: /Restaurar template padrão|Restore default template/i });
   await expect(subject).toBeVisible();
   await expect(editor).toBeVisible();
@@ -592,7 +573,7 @@ test('restore default flow works on a fixed invoice from show page', async ({ pa
   await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
 
   const subject = dialog.locator("input[name='nfse_email_subject']");
-  const editor = dialog.locator('.ql-editor').first();
+  const editor = dialog.locator('.ck-editor__editable[contenteditable="true"]').first();
   const restoreButton = dialog.getByRole('button', { name: /Restaurar template padrão|Restore default template/i });
 
   await expect(subject).toBeVisible();

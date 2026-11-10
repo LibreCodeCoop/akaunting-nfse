@@ -3,22 +3,32 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-#nfse-email-fields .ql-container,
-#nfse-emit-body-editor .ql-container {
+#nfse-email-fields .ck-editor,
+#nfse-emit-body-editor .ck-editor,
+#form-email .ck-editor {
     box-sizing: border-box;
-    max-width: 100%;
+    width: 100%;
     min-width: 0;
 }
 
-#nfse-email-fields .ql-editor,
-#nfse-emit-body-editor .ql-editor {
-    /* Akaunting's app.css sets 9px inline padding with !important. */
-    padding-inline: 0.75rem !important;
-    text-indent: 0;
+#nfse-email-fields .ck-editor__editable_inline,
+#nfse-emit-body-editor .ck-editor__editable_inline,
+#form-email .ck-editor__editable_inline {
+    box-sizing: border-box;
+    min-height: 140px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-inline: 0.75rem;
 }
 
-#nfse-email-fields .ql-editor > p:not([class*="ql-indent-"]),
-#nfse-emit-body-editor .ql-editor > p:not([class*="ql-indent-"]) {
-    margin-inline-start: 0;
-    text-indent: 0;
+#nfse-email-fields .ck-editor__editable_inline > :first-child,
+#nfse-emit-body-editor .ck-editor__editable_inline > :first-child,
+#form-email .ck-editor__editable_inline > :first-child {
+    margin-top: 0;
+}
+
+#nfse-email-fields .ck-editor__editable_inline > :last-child,
+#nfse-emit-body-editor .ck-editor__editable_inline > :last-child,
+#form-email .ck-editor__editable_inline > :last-child {
+    margin-bottom: 0;
 }

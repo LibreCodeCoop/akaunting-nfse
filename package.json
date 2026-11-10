@@ -11,9 +11,12 @@
     "test:e2e:smoke": "playwright test -c playwright.config.ts --project=smoke",
     "test:e2e:full-ui": "playwright test -c playwright.config.ts --project=full-ui",
     "test:e2e:bulk": "playwright test -c playwright.config.ts --project=full-ui e2e/nfse-bulk-emission.spec.ts --retries=0",
-    "test:e2e:live": "playwright test -c playwright.config.ts --project=live-fiscal"
+    "test:e2e:live": "playwright test -c playwright.config.ts --project=live-fiscal",
+    "build:email-editor": "node scripts/build-email-editor.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.2"
+    "@playwright/test": "^1.54.2",
+    "ckeditor5": "49.1.0",
+    "esbuild": "0.28.2"
   }
 }

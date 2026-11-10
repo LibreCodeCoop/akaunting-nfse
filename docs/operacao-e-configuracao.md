@@ -358,6 +358,19 @@ só aparecem quando o envio está habilitado. Para anexos, a seleção continua
 sendo conferida no envio; o modelo não anexa automaticamente arquivos externos,
 como relatórios de horas, que precisam ser selecionados manualmente.
 
+O corpo dos e-mails da NFS-e utiliza **CKEditor 5** para formatação básica
+(negrito, itálico, sublinhado, listas e links) e edição com teclado e seleção
+nativos. O editor não envia mensagens sozinho. As tags dos modelos existentes
+continuam como texto editável e são resolvidas no envio. A versão GPL é servida
+localmente, sem CDN nem componentes premium; os avisos de direitos autorais
+acompanham os arquivos distribuídos.
+
+Para gerar novamente os arquivos estáticos do editor ao desenvolver o módulo,
+execute `npm ci --include=dev` e `npm run build:email-editor`. Os arquivos
+resultantes em `Resources/assets/vendor/ckeditor5/` fazem parte da versão
+implantada; a instalação de produção não executa npm e não precisa acessar
+terceiros para carregar o editor.
+
 ## Fluxos e documentos
 
 A NFS-e autorizada e a fatura Akaunting possuem estados distintos.

@@ -28,6 +28,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
     <x-slot name="content">
         <link rel="stylesheet"
+            href="{{ asset('modules/Nfse/Resources/assets/vendor/ckeditor5/nfse-email-ckeditor.css?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/vendor/ckeditor5/nfse-email-ckeditor.css'))) }}"
+            data-nfse-ckeditor-styles="true"
+        >
+        <script
+            src="{{ asset('modules/Nfse/Resources/assets/vendor/ckeditor5/nfse-email-ckeditor.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/vendor/ckeditor5/nfse-email-ckeditor.js'))) }}"
+            data-nfse-ckeditor-bundle="true"
+        ></script>
+        <link rel="stylesheet"
             href="{{ asset('modules/Nfse/Resources/assets/css/email-composer.css?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/css/email-composer.css'))) }}"
             data-nfse-email-composer-style="true"
         >
@@ -974,9 +982,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
                                                 <div>
                                                     <label for="nfse_emit_email_body" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_body') }}</label>
-                                                    <textarea id="nfse_emit_email_body" class="sr-only" aria-hidden="true">{{ $emitModalDefaultEmailBody }}</textarea>
                                                     <div id="nfse-emit-body-editor">
-                                                        <akaunting-html-editor :value='@json($emitModalDefaultEmailBody)' @input="$root.$emit('nfse:emit-email-body', $event)"></akaunting-html-editor>
+                                                        <textarea
+                                                            id="nfse_emit_email_body"
+                                                            data-nfse-ckeditor
+                                                            data-nfse-editor-label="{{ trans('nfse::general.invoices.emit_modal_email_body') }}"
+                                                            rows="4"
+                                                            class="w-full rounded border border-gray-300 px-3 py-2"
+                                                        >{{ $emitModalDefaultEmailBody }}</textarea>
                                                     </div>
                                                 </div>
 
@@ -1118,139 +1131,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             (() => {
                 const initNfseInvoicePage = () => {
                 const cookieFilters = @json($searchStringCookieFilters ?? []);
-
-                const nfseEmitEditorState = {
-                    isTyping: false,
-                    typingTimeoutId: null,
-                    selection: null,
-                };
-
-                const getEmitEmailEditorContext = () => {
-                    const editorRoot = document.getElementById('nfse-emit-body-editor');
-                    const quillContainer = editorRoot?.querySelector('.ql-container');
-                    const editor = editorRoot?.querySelector('.ql-editor');
-                    const tooltipInput = editorRoot?.querySelector('.ql-tooltip input');
-                    const quill = quillContainer?.__quill ?? null;
-
-                    return {
-                        editorRoot,
-                        quillContainer,
-                        editor,
-                        tooltipInput,
-                        quill,
-                    };
-                };
-
-                // Quill handles modifier shortcuts itself. Keep standalone Control key
-                // events inside the editor so legacy page-level tab handlers cannot
-                // interpret a held modifier as a request to switch tabs.
-                const editorContainer = document.getElementById('nfse-emit-body-editor');
-                ['keydown', 'keyup'].forEach((eventName) => {
-                    editorContainer?.addEventListener(eventName, (event) => {
-                        if (event.key === 'Control' && event.target.closest?.('.ql-editor')) {
-                            event.stopPropagation();
-                        }
-                    });
-                });
-
-                const markEmitEditorTyping = () => {
-                    nfseEmitEditorState.isTyping = true;
-
-                    if (nfseEmitEditorState.typingTimeoutId) {
-                        window.clearTimeout(nfseEmitEditorState.typingTimeoutId);
-                    }
-
-                    nfseEmitEditorState.typingTimeoutId = window.setTimeout(() => {
-                        nfseEmitEditorState.isTyping = false;
-                        nfseEmitEditorState.selection = null;
-                        nfseEmitEditorState.typingTimeoutId = null;
-                    }, 250);
-                };
-
-                const restoreEmitEditorFocusIfNeeded = () => {
-                    if (!nfseEmitEditorState.isTyping) {
-                        return;
-                    }
-
-                    const { editor, tooltipInput, quill } = getEmitEmailEditorContext();
-                    const activeElement = document.activeElement;
-
-                    if (!editor || !tooltipInput || activeElement !== tooltipInput) {
-                        return;
-                    }
-
-                    if (quill && typeof quill.focus === 'function') {
-                        quill.focus();
-
-                        if (nfseEmitEditorState.selection && typeof quill.setSelection === 'function') {
-                            quill.setSelection(
-                                nfseEmitEditorState.selection.index,
-                                nfseEmitEditorState.selection.length,
-                                'silent'
-                            );
-                        }
-
-                        return;
-                    }
-
-                    editor.focus();
-                };
-
-                document.addEventListener('keydown', (event) => {
-                    const target = event.target instanceof Element ? event.target : null;
-                    const editor = target?.closest('#nfse-emit-body-editor .ql-editor');
-
-                    if (!editor) {
-                        return;
-                    }
-
-                    // Navigation never changes the editor's HTML. A pending focus
-                    // restoration must not put the cursor back at its old offset
-                    // after an arrow or Home/End key moved it natively.
-                    const navigationKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
-                    const modifiesText = (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey)
-                        || ['Backspace', 'Delete', 'Enter'].includes(event.key)
-                        || ((event.ctrlKey || event.metaKey) && ['z', 'y', 'v', 'x'].includes(event.key.toLowerCase()));
-
-                    if (navigationKeys.includes(event.key) || !modifiesText) {
-                        nfseEmitEditorState.isTyping = false;
-                        nfseEmitEditorState.selection = null;
-                        if (nfseEmitEditorState.typingTimeoutId) {
-                            window.clearTimeout(nfseEmitEditorState.typingTimeoutId);
-                            nfseEmitEditorState.typingTimeoutId = null;
-                        }
-                        return;
-                    }
-
-                    const { quill } = getEmitEmailEditorContext();
-
-                    if (quill && typeof quill.getSelection === 'function') {
-                        const selection = quill.getSelection();
-                        nfseEmitEditorState.selection = selection
-                            ? { index: selection.index, length: selection.length }
-                            : null;
-                    }
-
-                    markEmitEditorTyping();
-                }, true);
-
-                    // Wire the akaunting-html-editor $emit event to the hidden textarea so the
-                    // rich-text body value is collected when the emit confirm button is clicked.
-                    document.addEventListener('DOMContentLoaded', () => {
-                        const rootApp = document.getElementById('main-body')?.__vue__;
-                        if (rootApp) {
-                            rootApp.$on('nfse:emit-email-body', (val) => {
-                                const el = document.getElementById('nfse_emit_email_body');
-                                if (el) {
-                                    el.value = typeof val === 'string' ? val : '';
-                                }
-
-                                window.requestAnimationFrame(() => {
-                                    restoreEmitEditorFocusIfNeeded();
-                                });
-                            });
-                        }
-                    }, { once: true });
 
                 // When the AkauntingSearch "×" button is clicked, it normally navigates to the
                 // bare URL (no query params), which would trigger our server-side preference
@@ -1520,11 +1400,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         emitModalEmailBodyInput.value = typeof emailDefaults.body === 'string' ? emailDefaults.body : '';
                     }
 
-                        // Also update the rich text editor Vue component if it's ready.
-                        const nfseEditorEl = document.getElementById('nfse-emit-body-editor')?.firstElementChild;
-                        if (nfseEditorEl?.__vue__) {
-                            nfseEditorEl.__vue__.content = typeof emailDefaults.body === 'string' ? emailDefaults.body : '';
-                        }
+                    window.NfseEmailEditor?.setData(
+                        emitModalEmailBodyInput,
+                        typeof emailDefaults.body === 'string' ? emailDefaults.body : '',
+                    );
 
                     if (emitModalAttachDanfseInput) {
                         emitModalAttachDanfseInput.checked = emailDefaults.attach_danfse !== false;
@@ -1744,7 +1623,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (!currentEmitForm || emailSaveCustomerButton.disabled) return;
                     const url = currentEmitForm.getAttribute('data-email-preferences-url');
                     const subject = emitModalEmailSubjectInput?.value || '';
-                    const body = getEmitEmailEditorContext().editor?.innerHTML || emitModalEmailBodyInput?.value || '';
+                    const body = window.NfseEmailEditor?.getData(emitModalEmailBodyInput)
+                        ?? emitModalEmailBodyInput?.value ?? '';
                     if (!url || !subject.trim() || !body.trim()) {
                         if (emailSaveStatus) emailSaveStatus.textContent = 'Preencha o assunto e o corpo do e-mail.';
                         return;
