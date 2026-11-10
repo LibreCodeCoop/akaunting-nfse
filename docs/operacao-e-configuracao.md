@@ -389,6 +389,23 @@ Para dados fiscais de clientes, veja
 [Perfil fiscal do tomador](contact-fiscal-profile.md); para relatórios e
 consulta de registros por nota, utilize as interfaces próprias de NFS-e.
 
+### Competência futura e reemissão após rejeição E0015
+
+A competência fiscal da DPS não pode ser posterior à data/hora efetiva da
+DPS (`dhEmi`). Antes de reservar um novo número, a emissão verifica as
+datas usando a mesma referência de relógio utilizada pelo gerador XML.
+A data de vencimento financeiro não interfere nessa validação.
+
+Quando a SEFIN confirma uma rejeição **E0015** (HTTP 400 ou 422), a DPS
+rejeitada e sua numeração continuam no histórico: não se apagam nem se
+reutilizam. Na **emissão manual**, uma nova ação da pessoa operadora, após
+corrigir a competência ou transcorrer o dia necessário, pode reservar uma
+nova identidade de DPS de modo determinístico. Resultado pendente,
+ambíguo, autorizado ou outro código de rejeição não autoriza esse fluxo.
+A emissão fiscal continua dependendo do clique explícito da pessoa
+operadora e das demais validações fiscais; atualizar uma fatura não
+envia uma DPS automaticamente.
+
 ## Numeração fiscal da DPS e transição do portal nacional
 
 O sequenciamento está integrado à emissão: novas operações utilizam a reserva

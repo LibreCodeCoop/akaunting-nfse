@@ -103,6 +103,11 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
                 'number' => (string) $existing->number,
             ];
         } else {
+            // Avoid E0015 before consuming a new immutable DPS number.
+            (new DpsCompetencePreflight())->assertCanAllocate(
+                is_string($draft->dataCompetencia) ? $draft->dataCompetencia : null,
+                (new \DateTimeImmutable())->format('Y-m-d'),
+            );
             // Keep historical reservations recoverable, but never allocate a
             // new DPS which the gateway must reject under E0713/E0712.
             $this->assertTaxTotalsForNewDps($draft);
@@ -153,6 +158,48 @@ final class DpsIssuanceIdentity implements DpsIssuanceIdentityContract
             $cancelledReceiptId,
             $substitutedReceiptId,
         );
+
+        if ($origin === 'manual' && $cancelledReceiptId === null && $substitutedReceiptId === null) {
+            // A confirmed E0015 rejection consumes the original number. After
+            // a corrected competence (or a new calendar day), an explicit
+            // operator action gets one deterministic, new fiscal allocation.
+            $operationKey = (new CorrectedE0015OperationKey())->resolve(
+                $operationKey,
+                trim((string) ($draft->dataCompetencia ?? '')),
+                (new \DateTimeImmutable())->format('Y-m-d'),
+                function (string $key) use ($companyId, $invoiceId, $environment): ?array {
+                    $reservation = DB::table('nfse_dps_reservations')
+                        ->where('operation_key', $key)
+                        ->first(['id', 'company_id', 'invoice_id', 'origin']);
+                    if (!is_object($reservation)) {
+                        return null;
+                    }
+                    if ((int) $reservation->company_id !== $companyId
+                        || (int) $reservation->invoice_id !== $invoiceId
+                        || (string) $reservation->origin !== 'manual') {
+                        throw new \LogicException('Fiscal reservation does not belong to this manual invoice.');
+                    }
+
+                    $attempt = DB::table('nfse_emission_attempts')
+                        ->where('dps_reservation_id', (int) $reservation->id)
+                        ->where('company_id', $companyId)
+                        ->where('invoice_id', $invoiceId)
+                        ->where('environment', $environment)
+                        ->where('origin', 'manual')
+                        ->orderByDesc('id')
+                        ->first(['id', 'status', 'official_code', 'http_status', 'competence_date', 'started_at']);
+
+                    return is_object($attempt) ? [
+                        'id' => (int) $attempt->id,
+                        'status' => (string) $attempt->status,
+                        'official_code' => $attempt->official_code,
+                        'http_status' => $attempt->http_status,
+                        'competence_date' => $attempt->competence_date,
+                        'started_at' => $attempt->started_at,
+                    ] : null;
+                },
+            );
+        }
 
         if ($origin === 'substitution' && $substitutedReceiptId !== null) {
             // A definitive E1235/E0713 rejection consumed its central first-POST claim.
