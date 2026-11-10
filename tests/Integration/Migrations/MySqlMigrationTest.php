@@ -666,7 +666,7 @@ final class MySqlMigrationTest extends TestCase
         self::assertSame($originalDanfse, DB::table('nfse_receipts')->where('id', 1)->value('danfse_webdav_path'));
 
         // Use synthetic folders and valid WebDAV-like path segments.
-        $longPath = 'companies/1/' . str_repeat(str_repeat('a', 150) . '/', 25) . 'synthetic.xml';
+        $longPath = 'companies/1/' . str_repeat(str_repeat('a', 150) . '/', 26) . 'synthetic.xml';
         self::assertGreaterThan(3800, strlen($longPath));
 
         DB::table('nfse_receipts')->where('id', 1)->update([
