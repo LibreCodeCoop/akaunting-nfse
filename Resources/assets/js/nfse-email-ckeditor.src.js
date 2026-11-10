@@ -24,7 +24,7 @@ function escapeHtml(value) {
 
 function initialHtml(value) {
     const html = String(value ?? '');
-    if (/<[a-z][\s/>]/i.test(html)) {
+    if (/<[a-z][a-z0-9:-]*[\s/>]/i.test(html)) {
         return html;
     }
     return html.split(/\r?\n/).map(line => '<p>' + (escapeHtml(line) || '&nbsp;') + '</p>').join('');
@@ -75,11 +75,9 @@ function attach(source) {
         }
         editor.model.document.on('change:data', () => notifySource(source, editor.getData()));
 
-        // A preview can update the textarea while the asynchronous editor
-        // is mounting. Only the newest value may become the editable body.
-        // CKEditor reads a textarea as literal text while mounting. Explicitly
-        // parse its HTML, including legacy <br> tags, after initialization.
-        editor.setData(initialHtml(source.value));
+        // ClassicEditor.create(textarea) may already have escaped its contents.
+        // Use the HTML captured before initialization, not that mutated value.
+        editor.setData(expectedAtStart);
         // CKEditor normalizes markup; the Vue Form must use that value on submit.
         source.value = editor.getData();
         source.dispatchEvent(new Event('input', { bubbles: true }));
