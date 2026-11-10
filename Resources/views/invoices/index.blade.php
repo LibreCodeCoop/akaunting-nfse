@@ -569,6 +569,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                             const body = typeof emailDefaults.body === 'string' ? emailDefaults.body : '';
                                                             const subject = typeof emailDefaults.subject === 'string' ? emailDefaults.subject : '';
                                                             const recipient = typeof emailDefaults.recipient === 'string' ? emailDefaults.recipient : '';
+                                                            const cc = typeof emailDefaults.cc === 'string' ? emailDefaults.cc : '';
                                                             const sendEmail = Boolean(emailDefaults.send_email);
                                                             const attachDanfse = emailDefaults.attach_danfse !== false;
                                                             const attachXml = emailDefaults.attach_xml !== false;
@@ -617,7 +618,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                                 emailToInput.value = recipient;
                                                             }
 
-                                                            if (emailCcInput) emailCcInput.value = '';
+                                                            const ccField = document.getElementById('nfse_emit_email_cc');
+                                                            if (ccField) ccField.value = cc;
+                                                            const ccPanel = document.getElementById('nfse_emit_email_cc_panel');
+                                                            ccPanel?.classList.toggle('hidden', cc === '');
+                                                            document.querySelector('[aria-controls="nfse_emit_email_cc_panel"]')?.setAttribute('aria-expanded', cc !== '' ? 'true' : 'false');
+                                                            if (emailCcInput) emailCcInput.value = cc;
                                                             if (emailBccInput) emailBccInput.value = '';
                                                             if (emailCopyToSelfInput) emailCopyToSelfInput.value = emailDefaults.copy_to_self ? '1' : '0';
                                                             if (document.getElementById('nfse_emit_copy_to_self')) document.getElementById('nfse_emit_copy_to_self').checked = Boolean(emailDefaults.copy_to_self);
@@ -1387,13 +1393,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                     if (emitModalEmailToInput) {
                         emitModalEmailToInput.value = typeof emailDefaults.recipient === 'string' ? emailDefaults.recipient : '';
                     }
-                    if (document.getElementById('nfse_emit_email_cc')) document.getElementById('nfse_emit_email_cc').value = '';
+                    const cc = typeof emailDefaults.cc === 'string' ? emailDefaults.cc : '';
+                    if (document.getElementById('nfse_emit_email_cc')) document.getElementById('nfse_emit_email_cc').value = cc;
                     if (document.getElementById('nfse_emit_email_bcc')) document.getElementById('nfse_emit_email_bcc').value = '';
                     if (document.getElementById('nfse_emit_copy_to_self')) document.getElementById('nfse_emit_copy_to_self').checked = Boolean(emailDefaults.copy_to_self);
                     ['cc', 'bcc'].forEach((type) => {
                         const panel = document.getElementById('nfse_emit_email_' + type + '_panel');
-                        panel?.classList.add('hidden');
-                        document.querySelector('[aria-controls="nfse_emit_email_' + type + '_panel"]')?.setAttribute('aria-expanded', 'false');
+                        const expanded = type === 'cc' && cc !== '';
+                        panel?.classList.toggle('hidden', !expanded);
+                        document.querySelector('[aria-controls="nfse_emit_email_' + type + '_panel"]')?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
                     });
 
                     if (emitModalEmailSubjectInput) {

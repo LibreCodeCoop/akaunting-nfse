@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Application\CancelInvoiceNfse;
 use Modules\Nfse\Application\CategoryIssuancePolicy;
+use Modules\Nfse\Application\ContactEmailCcDefaults;
 use Modules\Nfse\Application\EmissionAttemptJournal;
 use Modules\Nfse\Application\FederalTaxReadiness;
 use Modules\Nfse\Application\FiscalDescriptionComposer;
@@ -4699,6 +4700,7 @@ class InvoiceController extends Controller
     {
         $sendEmail = (bool) (int) setting('nfse.send_email_on_emit', '0');
         $recipient = $this->defaultPostEmitRecipient($invoice) ?? '';
+        $cc = (new ContactEmailCcDefaults())->fromContact($invoice->contact, $recipient);
         $template  = null;
         $copyToSelf = (bool) (int) setting('nfse.email_copy_to_self_on_emit', '0');
         $attachInvoicePdf = (bool) (int) setting('nfse.email_attach_invoice_pdf_on_emit', '1');
@@ -4722,6 +4724,7 @@ class InvoiceController extends Controller
             'template_scope'     => $customerTemplate !== null ? 'customer' : 'general',
             'send_email'         => $sendEmail,
             'recipient'          => $recipient,
+            'cc'                 => $cc,
             'subject'            => $customerTemplate['subject'] ?? ($template !== null ? (string) ($template->subject ?? '') : ''),
             'body'               => $customerTemplate['body'] ?? ($template !== null ? (string) ($template->body ?? '') : ''),
             'default_subject'    => $moduleDefaults['subject'],
