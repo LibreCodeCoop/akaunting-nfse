@@ -43,9 +43,11 @@ function attach(source) {
         return;
     }
 
-    const expectedAtStart = initialHtml(source.value);
-    const initialWasPlain = expectedAtStart !== source.value;
+    // Vue may initialize the form field to an empty string after Blade rendered
+    // the default body. Keep that server-rendered value as the editor's seed.
+    const expectedAtStart = initialHtml(source.value || source.defaultValue);
     source.value = expectedAtStart;
+    source.dispatchEvent(new Event('input', { bubbles: true }));
     const promise = ClassicEditor.create(source, {
         licenseKey: 'GPL',
         plugins: [Essentials, Paragraph, Bold, Italic, Underline, List, Link],
@@ -75,12 +77,12 @@ function attach(source) {
 
         // A preview can update the textarea while the asynchronous editor
         // is mounting. Only the newest value may become the editable body.
-        if (source.value !== expectedAtStart) {
-            editor.setData(initialHtml(source.value));
-        }
-        if (initialWasPlain) {
-            source.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        // CKEditor reads a textarea as literal text while mounting. Explicitly
+        // parse its HTML, including legacy <br> tags, after initialization.
+        editor.setData(initialHtml(source.value));
+        // CKEditor normalizes markup; the Vue Form must use that value on submit.
+        source.value = editor.getData();
+        source.dispatchEvent(new Event('input', { bubbles: true }));
     }).catch(() => {
         pending.delete(source);
         source.classList.remove('sr-only');
