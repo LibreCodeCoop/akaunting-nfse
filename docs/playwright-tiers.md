@@ -47,6 +47,10 @@ PHP runtime cache. They check for the required Poppler executables before
 falling back to installing OS packages, avoiding an unconditional apt index
 update on runners where these utilities are already installed.
 
+Feature and Playwright CI check out Akaunting and its NFS-e module under the same
+relative workspace paths, so GitHub Actions treats their scoped-runtime caches
+as compatible (the cache archive version depends on its path as well as its key).
+
 Feature test shards retain whole PHPUnit test classes, including their data
 providers, in one runner each. The shard planner accounts for expanded dataset
 counts of the largest data-provider-heavy classes observed in CI; new classes

@@ -35,11 +35,12 @@ jobs:
         with:
           repository: akaunting/akaunting
           ref: master
+          path: akaunting
 
       - name: Checkout NFS-e module
         uses: actions/checkout@v7
         with:
-          path: modules/Nfse
+          path: akaunting/modules/Nfse
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -53,12 +54,12 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ env.COMPOSER_CACHE_DIR }}/files
-          key: nfse-playwright-composer-${{ runner.os }}-${{ hashFiles('composer.lock', 'modules/Nfse/composer.json', 'modules/Nfse/3rdparty/composer.json', 'modules/Nfse/vendor-bin/php-scoper/composer.lock') }}
+          key: nfse-playwright-composer-${{ runner.os }}-${{ hashFiles('akaunting/composer.lock', 'akaunting/modules/Nfse/composer.json', 'akaunting/modules/Nfse/3rdparty/composer.json', 'akaunting/modules/Nfse/vendor-bin/php-scoper/composer.lock') }}
           restore-keys: |
             nfse-playwright-composer-${{ runner.os }}-
 
       - name: Install module and resolve scoped runtime dependencies
-        working-directory: modules/Nfse
+        working-directory: akaunting/modules/Nfse
         run: |
           composer install --prefer-dist --no-progress --no-interaction --no-scripts
           composer thirdparty:install
@@ -69,24 +70,24 @@ jobs:
         id: scoped_runtime
         uses: actions/cache@v6
         with:
-          path: modules/Nfse/3rdparty/scoped
-          key: nfse-playwright-scoped-${{ runner.os }}-php83-${{ hashFiles('modules/Nfse/3rdparty/composer.json', 'modules/Nfse/3rdparty/composer.lock', 'modules/Nfse/3rdparty/scoper.inc.php', 'modules/Nfse/vendor-bin/php-scoper/composer.lock') }}
+          path: akaunting/modules/Nfse/3rdparty/scoped
+          key: nfse-playwright-scoped-${{ runner.os }}-php83-${{ hashFiles('akaunting/modules/Nfse/3rdparty/composer.json', 'akaunting/modules/Nfse/3rdparty/composer.lock', 'akaunting/modules/Nfse/3rdparty/scoper.inc.php', 'akaunting/modules/Nfse/vendor-bin/php-scoper/composer.lock') }}
 
       - name: Build scoped NFS-e runtime on cache miss
         if: steps.scoped_runtime.outputs.cache-hit != 'true'
-        working-directory: modules/Nfse
+        working-directory: akaunting/modules/Nfse
         run: |
           composer runtime-tools:install
           composer thirdparty:scope
 
       - name: Verify scoped runtime exists
-        working-directory: modules/Nfse
+        working-directory: akaunting/modules/Nfse
         run: |
           test -s 3rdparty/scoped/autoload.php
           php -l 3rdparty/scoped/autoload.php
 
       - name: Verify DANFSe resources in production module archive
-        working-directory: modules/Nfse
+        working-directory: akaunting/modules/Nfse
         run: |
           bash tools/bin/build-module-archive.sh 0.0.0-ci
           php tools/bin/verify-danfse-package.php akaunting-nfse-0.0.0-ci.zip
@@ -101,6 +102,7 @@ jobs:
           fi
 
       - name: Prepare Akaunting test application
+        working-directory: akaunting
         run: |
           cp .env.testing .env
           # Akaunting maps Modules\\ to the whole modules/ tree. Its default
@@ -114,6 +116,7 @@ jobs:
         env:
           NFSE_FEATURE_SHARD_INDEX: ${{ matrix.shard }}
           NFSE_FEATURE_SHARD_COUNT: 4
+        working-directory: akaunting
         run: bash modules/Nfse/tools/bin/run-feature-shard.sh
 
   # Preserve the existing required check without changes to branch rulesets.
