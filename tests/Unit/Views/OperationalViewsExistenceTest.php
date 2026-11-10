@@ -155,10 +155,14 @@ namespace Modules\Nfse\Tests\Unit\Views {
             $content   = (string) file_get_contents($indexPath);
 
             self::assertStringContainsString('id="nfse-emit-body-editor"', $content);
-            self::assertStringContainsString('nfse:emit-email-body', $content);
+            self::assertStringContainsString('id="nfse_emit_email_body"', $content);
+            self::assertStringContainsString('data-nfse-ckeditor', $content);
+            self::assertStringContainsString('window.NfseEmailEditor?.setData(', $content);
+            self::assertStringContainsString('window.NfseEmailEditor?.getData(', $content);
             self::assertStringContainsString("'settings.email.templates.tags'", $content);
             self::assertStringContainsString("NfseIssued::class)->getTags()", $content);
-            self::assertStringContainsString("rootApp.\$on('nfse:emit-email-body'", $content);
+            self::assertStringNotContainsString('akaunting-html-editor', $content);
+            self::assertStringNotContainsString('nfse:emit-email-body', $content);
         }
 
         public function testInvoicesShowViewHasEmailToggleAndConditionalSection(): void
