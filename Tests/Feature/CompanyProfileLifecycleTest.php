@@ -654,6 +654,10 @@ final class CompanyProfileLifecycleTest extends FeatureTestCase
 
         // The MCP includes the active Akaunting company as a query parameter.
         // It must not be rejected as an unauthorized body field.
+        // API routes use their own guard; the browser session from loginAs()
+        // is intentionally not accepted as native API authentication.
+        $this->actingAs($this->user, 'api');
+
         $this->patchJson($endpoint . '?company_id=' . $companyId, [
             'fiscal_parameters' => ['provider_establishment_confirmed' => true],
         ])->assertOk()
