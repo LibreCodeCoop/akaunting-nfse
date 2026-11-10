@@ -107,6 +107,54 @@ test('emission modal tabs are keyboard operable with synchronized ARIA state', a
 });
 
 
+test('HTTP 422 recipient error stays visible and never retries fiscal issuance', async ({ page }, testInfo) => {
+  const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
+  expect(invoiceId).toMatch(/^\d+$/);
+
+  await loginToAkaunting(page, testInfo);
+  await page.goto('/1/sales/invoices/' + invoiceId, { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+  await page.locator('#nfse-native-fiscal-panel [data-nfse-native-emit="true"]').click();
+
+  const dialog = page.locator('[role="dialog"]').last();
+  await expect(dialog).toBeVisible();
+
+  const message = 'Verifique o e-mail do destinatario antes de emitir.';
+  let attempts = 0;
+  await page.route('**/nfse/invoices/*/emit', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    attempts += 1;
+    await route.fulfill({
+      status: 422,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: false,
+        error: true,
+        code: 'nfse_email_invalid',
+        field: 'nfse_email_to',
+        message,
+        errors: { nfse_email_to: [message] },
+        redirect: false,
+        data: null,
+      }),
+    });
+  });
+
+  const submit = dialog.getByRole('button', { name: /Emitir NFS-e agora|Emit NFS-e now/i });
+  await submit.click();
+
+  const summary = dialog.locator('[data-nfse-error-summary="true"]');
+  await expect(summary).toBeVisible();
+  await expect(summary).toContainText(message);
+  await expect(summary).toBeFocused();
+  await expect(dialog).toBeVisible();
+  await expect(submit).toBeEnabled();
+  expect(attempts).toBe(1);
+});
+
 test('emission error summary receives keyboard focus', async ({ page }, testInfo) => {
   const invoiceId = process.env.NFSE_E2E_PENDING_INVOICE_ID ?? '';
 
