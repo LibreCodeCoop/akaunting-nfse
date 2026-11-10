@@ -32,3 +32,24 @@
 #form-email .ck-editor__editable_inline > :last-child {
     margin-bottom: 0;
 }
+
+/* Recipient chips reuse the native text field for Akaunting/Vue serialization. */
+.nfse-recipient-chipbox {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.6rem;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.3rem;
+    background: #fff;
+    width: 100%;
+    min-width: 0;
+}
+.nfse-recipient-chipbox:focus-within { border-color: #805ad5; outline: 2px solid #805ad544; }
+.nfse-recipient-chip { display: inline-flex; max-width: 100%; align-items: center; gap: 0.35rem; padding: 0.2rem 0.4rem; border-radius: 0.35rem; background: #f3e8ff; overflow-wrap: anywhere; }
+.nfse-recipient-chip-remove { border: 0; padding: 0 0.2rem; cursor: pointer; background: none; font-weight: bold; }
+.nfse-recipient-chip-entry { flex: 1 1 9rem; min-width: 7rem; width: auto; border: 0; padding: 0.2rem; outline: 0; background: transparent; }
+.nfse-recipient-chip-entry[aria-invalid="true"] { outline: 1px solid #b91c1c; }
+.nfse-recipient-validation { color: #b91c1c; margin-top: 0.2rem; font-size: 0.75rem; }

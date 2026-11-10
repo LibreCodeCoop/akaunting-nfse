@@ -193,7 +193,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 data-nfse-recipient-composer
                             >
                                 <label for="nfse_email_to">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
-                                <input id="nfse_email_to" name="nfse_email_to" type="text" v-model="form.nfse_email_to" value="{{ (string) ($emailDefaults['recipient'] ?? '') }}" class="w-full rounded border px-3 py-2" aria-describedby="nfse-email-recipients-hint">
+                                <input id="nfse_email_to" name="nfse_email_to" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_to') }}" type="text" v-model="form.nfse_email_to" value="{{ (string) ($emailDefaults['recipient'] ?? '') }}" class="w-full rounded border px-3 py-2" aria-describedby="nfse-email-recipients-hint">
                                 <p id="nfse-email-recipients-hint" class="text-xs">{{ trans('nfse::general.invoices.emit_modal_email_recipients_hint') }}</p>
                                 <div class="flex gap-3 mt-2">
                                     <button type="button" data-nfse-show-recipient="cc" aria-controls="nfse-recipient-cc" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</button>
@@ -201,11 +201,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 </div>
                                 <div id="nfse-recipient-cc" data-nfse-recipient-panel="cc" class="hidden mt-2">
                                     <label for="nfse_email_cc">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</label>
-                                    <input id="nfse_email_cc" name="nfse_email_cc" type="text" v-model="form.nfse_email_cc" value="" class="w-full rounded border px-3 py-2">
+                                    <input id="nfse_email_cc" name="nfse_email_cc" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_cc') }}" type="text" v-model="form.nfse_email_cc" value="" class="w-full rounded border px-3 py-2">
                                 </div>
                                 <div id="nfse-recipient-bcc" data-nfse-recipient-panel="bcc" class="hidden mt-2">
                                     <label for="nfse_email_bcc">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</label>
-                                    <input id="nfse_email_bcc" name="nfse_email_bcc" type="text" v-model="form.nfse_email_bcc" value="" class="w-full rounded border px-3 py-2">
+                                    <input id="nfse_email_bcc" name="nfse_email_bcc" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}" type="text" v-model="form.nfse_email_bcc" value="" class="w-full rounded border px-3 py-2">
                                 </div>
                                 <div id="nfse-email-copy-to-self" class="mt-3 flex items-center gap-3">
                                     @include('nfse::modals.invoices.partials.switch', [

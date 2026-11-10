@@ -161,11 +161,11 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
 
   await page.locator("input[name='nfse_email_subject']").fill(subjectValue);
 
-  const toRecipients = dialog.locator('#nfse_email_to');
+  const toRecipients = dialog.locator('#nfse_email_to-entry');
   const ccToggle = dialog.getByRole('button', { name: 'Cc', exact: true });
   const bccToggle = dialog.getByRole('button', { name: /Cco|Bcc/i });
-  const ccRecipients = dialog.locator('#nfse_email_cc');
-  const bccRecipients = dialog.locator('#nfse_email_bcc');
+  const ccRecipients = dialog.locator('#nfse_email_cc-entry');
+  const bccRecipients = dialog.locator('#nfse_email_bcc-entry');
 
   await expect(toRecipients).toBeVisible();
   await toRecipients.fill('first@example.test, second@example.test');
@@ -178,10 +178,14 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   await expect(bccRecipients).toBeVisible();
   await bccRecipients.fill('hidden@example.test, private@example.test');
 
-  // Removing an individual recipient must not clear the other recipient fields.
-  await toRecipients.fill('first@example.test');
-  await expect(ccRecipients).toHaveValue('visible@example.test');
-  await toRecipients.fill('first@example.test, second@example.test');
+  // Removing a chip keeps unrelated addresses and recipient roles intact.
+  await toRecipients.press('Tab');
+  await expect(dialog.locator('[data-nfse-recipient-chipbox="nfse_email_to"] [data-nfse-recipient-chip]')).toHaveCount(2);
+  await dialog.getByRole('button', { name: 'Remover second@example.test' }).click();
+  await expect(dialog.locator('#nfse_email_to')).toHaveValue('first@example.test');
+  await expect(dialog.locator('#nfse_email_cc')).toHaveValue('visible@example.test');
+  await toRecipients.fill('second@example.test');
+  await toRecipients.press('Enter');
   await testInfo.attach('nfse-email-recipient-fields', {
     body: await dialog.screenshot(),
     contentType: 'image/png',
@@ -202,9 +206,9 @@ test('invoice show emit button opens NFS-e modal and submits final emit payload'
   await dialog.getByText(/E-mail|Email/i).first().click();
   await expect(page.locator('#nfse_send_email_toggle')).toBeChecked();
   await expect(page.locator("input[name='nfse_email_subject']")).toHaveValue(subjectValue);
-  await expect(toRecipients).toHaveValue('first@example.test, second@example.test');
-  await expect(ccRecipients).toHaveValue('visible@example.test');
-  await expect(bccRecipients).toHaveValue('hidden@example.test, private@example.test');
+  await expect(dialog.locator('#nfse_email_to')).toHaveValue('first@example.test, second@example.test');
+  await expect(dialog.locator('#nfse_email_cc')).toHaveValue('visible@example.test');
+  await expect(dialog.locator('#nfse_email_bcc')).toHaveValue('hidden@example.test, private@example.test');
   await expect(dialog.locator('select[name="nfse_email_save_mode"]')).toHaveValue('customer');
   await expect(page.locator('#nfse_email_copy_to_self_toggle')).toBeChecked();
 
@@ -291,9 +295,9 @@ test('legacy NFS-e invoice list opens native invoice composer without a parallel
   await dialog.getByText(/E-mail|Email/i).first().click();
   await setVisibleSwitch(page, 'nfse_send_email_toggle', true);
 
-  const to = dialog.locator('#nfse_email_to');
-  const cc = dialog.locator('#nfse_email_cc');
-  const bcc = dialog.locator('#nfse_email_bcc');
+  const to = dialog.locator('#nfse_email_to-entry');
+  const cc = dialog.locator('#nfse_email_cc-entry');
+  const bcc = dialog.locator('#nfse_email_bcc-entry');
 
   await expect(to).toBeVisible();
   await to.fill('primary@example.test, second@example.test');
@@ -310,9 +314,9 @@ test('legacy NFS-e invoice list opens native invoice composer without a parallel
   await expect(bcc).toBeVisible();
   await bcc.fill('hidden@example.test');
 
-  await expect(to).toHaveValue('primary@example.test, second@example.test');
-  await expect(cc).toHaveValue('visible@example.test');
-  await expect(bcc).toHaveValue('hidden@example.test');
+  await expect(dialog.locator('#nfse_email_to')).toHaveValue('primary@example.test, second@example.test');
+  await expect(dialog.locator('#nfse_email_cc')).toHaveValue('visible@example.test');
+  await expect(dialog.locator('#nfse_email_bcc')).toHaveValue('hidden@example.test');
 });
 
 test('typing in email body keeps email tab content visible in emit modal', async ({ page }, testInfo) => {

@@ -35,6 +35,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             src="{{ asset('modules/Nfse/Resources/assets/vendor/ckeditor5/nfse-email-ckeditor.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/vendor/ckeditor5/nfse-email-ckeditor.js'))) }}"
             data-nfse-ckeditor-bundle="true"
         ></script>
+    <script
+        src="{{ asset('modules/Nfse/Resources/assets/js/email-recipients.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/email-recipients.js'))) }}"
+        data-nfse-recipient-module="true"
+    ></script>
         <link rel="stylesheet"
             href="{{ asset('modules/Nfse/Resources/assets/css/email-composer.css?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/css/email-composer.css'))) }}"
             data-nfse-email-composer-style="true"
@@ -955,7 +959,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                             <div id="nfse_emit_email_fields" class="hidden space-y-3">
                                                 <div>
                                                     <label for="nfse_emit_email_to" class="mb-1 block text-sm font-medium text-gray-700">{{ trans('nfse::general.invoices.emit_modal_email_to') }}</label>
-                                                    <input id="nfse_emit_email_to" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="" aria-describedby="nfse_emit_email_hint">
+                                                    <input id="nfse_emit_email_to" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_to') }}" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm" value="" aria-describedby="nfse_emit_email_hint">
                                                     <p id="nfse_emit_email_hint" class="text-xs">{{ trans('nfse::general.invoices.emit_modal_email_recipients_hint') }}</p>
                                                     <div class="flex gap-3 mt-2">
                                                         <button type="button" data-nfse-show-recipient="cc" aria-controls="nfse_emit_email_cc_panel" aria-expanded="false">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</button>
@@ -963,11 +967,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                                     </div>
                                                     <div id="nfse_emit_email_cc_panel" data-nfse-recipient-panel="cc" class="hidden mt-2">
                                                         <label for="nfse_emit_email_cc">{{ trans('nfse::general.invoices.emit_modal_email_cc') }}</label>
-                                                        <input id="nfse_emit_email_cc" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                        <input id="nfse_emit_email_cc" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_cc') }}" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
                                                     </div>
                                                     <div id="nfse_emit_email_bcc_panel" data-nfse-recipient-panel="bcc" class="hidden mt-2">
                                                         <label for="nfse_emit_email_bcc">{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}</label>
-                                                        <input id="nfse_emit_email_bcc" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                                                        <input id="nfse_emit_email_bcc" data-nfse-recipient-input data-nfse-recipient-label="{{ trans('nfse::general.invoices.emit_modal_email_bcc') }}" type="text" class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
                                                     </div>
                                                 </div>
 
