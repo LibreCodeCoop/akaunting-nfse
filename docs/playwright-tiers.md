@@ -22,8 +22,18 @@ cache the database, PFX files or tenant configuration.
 ## full-ui
 
 Runs on relevant pull requests, main, nightly and on demand against an
-isolated deterministic local Akaunting environment. It covers broader settings, modal and invoice UI behavior while the
-fiscal boundary remains fake.
+isolated deterministic local Akaunting environment. Two CI shards each provision an
+independent runner, SQLite database, app process and synthetic fiscal fixtures.
+Each shard runs the native category form check first, then runs its Playwright
+partition of the remaining Full UI cases (one worker per shard). The `full_ui`
+aggregator preserves the required check and fails if either shard fails. Artifacts
+have shard-specific names so debugging does not overwrite evidence. Composer download caches and content-addressed scoped-runtime caches avoid
+rebuilding identical PHP dependencies on warm runs. The scoped artifact key
+includes the resolved, generated 3rdparty lockfile (not committed), the
+PHP-Scoper config and tool lockfile; on a miss the runtime is rebuilt. No
+SQLite, PFX, credentials or mutable test fixtures are cached or shared between
+shards. This tier covers broader
+settings, modal and invoice UI behavior while the fiscal boundary remains fake.
 
 ## live-fiscal
 

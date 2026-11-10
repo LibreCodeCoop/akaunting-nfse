@@ -38,6 +38,7 @@ env:
   COMPOSER_NO_INTERACTION: 1
   COMPOSER_NO_AUDIT: 1
   COMPOSER_PROCESS_TIMEOUT: 0
+  COMPOSER_CACHE_DIR: ${{ github.workspace }}/.composer-cache
   APP_ENV: testing
   APP_URL: http://127.0.0.1:8082
   DB_CONNECTION: sqlite
@@ -47,7 +48,13 @@ env:
   MAIL_FROM_NAME: NFS-e E2E
 
 jobs:
-  full_ui:
+  full_ui_shard:
+    name: full-ui-shard-${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    # Each shard gets its own SQLite file, app process and synthetic fixtures.
     # Chromium in the locked Playwright version does not support Ubuntu 26.04.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -90,17 +97,45 @@ jobs:
         working-directory: akaunting/modules/Nfse
         run: node scripts/ci/playwright-smoke.mjs prepare-env
 
+      - name: Cache Composer downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.COMPOSER_CACHE_DIR }}/files
+          key: nfse-playwright-composer-${{ runner.os }}-${{ hashFiles('akaunting/composer.lock', 'akaunting/modules/Nfse/composer.json', 'akaunting/modules/Nfse/3rdparty/composer.json', 'akaunting/modules/Nfse/vendor-bin/*/composer.lock') }}
+          restore-keys: |
+            nfse-playwright-composer-${{ runner.os }}-
+
       - name: Install Akaunting dependencies
         working-directory: akaunting
         run: composer test
 
-      - name: Build scoped NFS-e runtime
+      - name: Install NFS-e module and resolve scoped runtime dependencies
         working-directory: akaunting/modules/Nfse
         run: |
           composer install --prefer-dist --no-progress --no-interaction --no-scripts
           composer thirdparty:install
+
+      # The untracked lock is generated above; include it to prevent stale scoped
+      # output when an unlocked transitive dependency changes. No fixtures or secrets.
+      - name: Cache scoped NFS-e runtime
+        id: scoped_runtime
+        uses: actions/cache@v6
+        with:
+          path: akaunting/modules/Nfse/3rdparty/scoped
+          key: nfse-playwright-scoped-${{ runner.os }}-php83-${{ hashFiles('akaunting/modules/Nfse/3rdparty/composer.json', 'akaunting/modules/Nfse/3rdparty/composer.lock', 'akaunting/modules/Nfse/3rdparty/scoper.inc.php', 'akaunting/modules/Nfse/vendor-bin/php-scoper/composer.lock') }}
+
+      - name: Build scoped NFS-e runtime on cache miss
+        if: steps.scoped_runtime.outputs.cache-hit != 'true'
+        working-directory: akaunting/modules/Nfse
+        run: |
           composer runtime-tools:install
           composer thirdparty:scope
+
+      - name: Verify scoped runtime exists
+        working-directory: akaunting/modules/Nfse
+        run: |
+          test -s 3rdparty/scoped/autoload.php
+          php -l 3rdparty/scoped/autoload.php
 
       - name: Prepare persistent Akaunting test database
         working-directory: akaunting
@@ -169,13 +204,13 @@ jobs:
         run: |
           # Execute the category scenario before the other full UI tests.
           npx playwright test e2e/nfse-native-category-issuance.spec.ts --project=full-ui --retries=0
-          npx playwright test --project=full-ui --grep-invert 'category issuance configuration lives in the native Akaunting form' --retries=0
+          npx playwright test --project=full-ui --grep-invert 'category issuance configuration lives in the native Akaunting form' --shard=${{ matrix.shard }}/2 --retries=0
 
       - name: Upload synthetic fiscal association screenshots
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: nfse-tax-associations-synthetic
+          name: nfse-tax-associations-synthetic-${{ matrix.shard }}
           if-no-files-found: ignore
           path: akaunting/modules/Nfse/test-results/**/nfse-tax-association*.png
 
@@ -188,9 +223,25 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-full-ui-artifacts
+          name: playwright-full-ui-artifacts-${{ matrix.shard }}
           if-no-files-found: ignore
           path: |
             akaunting/modules/Nfse/playwright-report
             akaunting/modules/Nfse/test-results
             akaunting/storage/logs/playwright-server.log
+
+  # Retain a single stable required check for branch protection.
+  full_ui:
+    name: full_ui
+    needs: full_ui_shard
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require both isolated browser shards to pass
+        env:
+          SHARD_RESULT: ${{ needs.full_ui_shard.result }}
+        run: |
+          if [ "$SHARD_RESULT" != "success" ]; then
+            echo "At least one isolated full UI shard failed or was cancelled."
+            exit 1
+          fi
