@@ -339,6 +339,28 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame('companies/1/nfse/abril/33/cliente-exemplo-ltda', $resolved);
         }
 
+        public function testWebDavArtifactPathCanRespectExplicitCompanyFolder(): void
+        {
+            ControllerIsolationState::$settings['nfse.webdav_path_template'] = '/Dedicated/Finance/{year}/{month}/NFSe';
+            ControllerIsolationState::$settings['nfse.webdav_path_scope'] = 'configured';
+
+            $invoice = InvoiceControllerIsolationState::makeInvoice(
+                id: 903,
+                amount: 100.0,
+                items: [['name' => 'Servico']],
+                contactName: 'Cliente Exemplo LTDA',
+            );
+            $receipt = new ReceiptData('42', 'CHAVE-903', '2026-11-10T10:00:00-03:00');
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function resolveArtifactPath(Invoice $invoice, ReceiptData $receipt): string
+                {
+                    return $this->buildWebDavArtifactBasePath($invoice, $receipt);
+                }
+            };
+
+            self::assertSame('Dedicated/Finance/2026/11/NFSe', $controller->resolveArtifactPath($invoice, $receipt));
+        }
+
         public function testSandboxModeEnabledFallsBackToDefaultTrueWhenSettingIsEmptyString(): void
         {
             ControllerIsolationState::$settings['nfse.sandbox_mode'] = '';

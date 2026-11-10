@@ -13,6 +13,7 @@
             webdav_store_xml: Boolean(fields.storeXml),
             webdav_store_pdf: Boolean(fields.storePdf),
             webdav_path_template: String(fields.pathTemplate || '').trim(),
+            webdav_path_scope: fields.pathScope === 'configured' ? 'configured' : 'company',
             webdav_filename_template: String(fields.filenameTemplate || '').trim(),
         };
         if (fields.disable) {
@@ -82,6 +83,7 @@
                 : 'WebDAV não configurado';
             if (!form) return;
             el('nfse-webdav-path').value = String(data.path_template || '');
+            el('nfse-webdav-path-scope').value = data.path_scope === 'configured' ? 'configured' : 'company';
             el('nfse-webdav-filename').value = String(data.filename_template || '');
             el('nfse-webdav-xml').checked = data.store_xml === true;
             el('nfse-webdav-pdf').checked = data.store_pdf === true;
@@ -112,6 +114,7 @@
                 username: el('nfse-webdav-user').value,
                 password: el('nfse-webdav-password').value,
                 pathTemplate: el('nfse-webdav-path').value,
+                pathScope: el('nfse-webdav-path-scope').value,
                 filenameTemplate: el('nfse-webdav-filename').value,
                 storeXml: el('nfse-webdav-xml').checked,
                 storePdf: el('nfse-webdav-pdf').checked,

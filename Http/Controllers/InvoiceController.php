@@ -4613,7 +4613,11 @@ class InvoiceController extends Controller
             receipt: $receipt,
         );
 
-        return 'companies/' . (int) $invoice->company_id . '/' . ltrim($base, '/');
+        return (new \Modules\Nfse\Application\ArtifactWebDavPathScope())->apply(
+            $base,
+            (int) $invoice->company_id,
+            (string) setting('nfse.webdav_path_scope', \Modules\Nfse\Application\ArtifactWebDavPathScope::COMPANY),
+        );
     }
 
     protected function fiscalCnpjForInvoice(Invoice $invoice): string
