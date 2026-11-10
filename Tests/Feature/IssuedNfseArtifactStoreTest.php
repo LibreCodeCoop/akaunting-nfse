@@ -56,6 +56,13 @@ final class IssuedNfseArtifactStoreTest extends FeatureTestCase
                 return true;
             }
 
+            protected function buildBasePath(Document $invoice, \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData $receipt): string
+            {
+                // Simulate a user-configured nested Nextcloud archive path.
+                return 'companies/' . (int) $invoice->company_id . '/nfse/'
+                    . str_repeat('synthetic-archive-folder/', 14);
+            }
+
             protected function makeWebDavClient(): WebDavClient
             {
                 return new WebDavClient(
@@ -82,6 +89,8 @@ final class IssuedNfseArtifactStoreTest extends FeatureTestCase
         $fresh = $receipt->fresh();
         self::assertNotEmpty($fresh->xml_webdav_path);
         self::assertNotEmpty($fresh->danfse_webdav_path);
+        self::assertGreaterThan(191, strlen((string) $fresh->xml_webdav_path));
+        self::assertGreaterThan(191, strlen((string) $fresh->danfse_webdav_path));
         self::assertSame("<NFSe>authorized</NFSe>\n", $store->generatedFromXml);
 
         $puts = array_values(array_filter(

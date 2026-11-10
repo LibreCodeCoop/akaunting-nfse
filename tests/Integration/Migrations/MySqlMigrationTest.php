@@ -647,6 +647,91 @@ final class MySqlMigrationTest extends TestCase
         self::assertSame('emitted', DB::table('nfse_receipts')->where('id', 1)->value('status'));
     }
 
+
+    public function testArtifactWebDavPathExpansionPreservesExistingValuesAndStoresFourThousandCharacters(): void
+    {
+        $this->migration('2026_04_13_000001_add_artifact_paths_to_nfse_receipts_table')->up();
+        $originalXml = 'companies/1/nfse/legacy-document.xml';
+        $originalDanfse = 'companies/1/nfse/legacy-document.pdf';
+        DB::table('nfse_receipts')->where('id', 1)->update([
+            'xml_webdav_path' => $originalXml,
+            'danfse_webdav_path' => $originalDanfse,
+        ]);
+
+        $migration = $this->migration('2026_11_10_180001_expand_nfse_artifact_webdav_paths');
+        $migration->up();
+        $migration->up();
+
+        self::assertSame($originalXml, DB::table('nfse_receipts')->where('id', 1)->value('xml_webdav_path'));
+        self::assertSame($originalDanfse, DB::table('nfse_receipts')->where('id', 1)->value('danfse_webdav_path'));
+
+        // Use synthetic folders and valid WebDAV-like path segments.
+        $longPath = 'companies/1/' . str_repeat(str_repeat('a', 150) . '/', 25) . 'synthetic.xml';
+        self::assertGreaterThan(3800, strlen($longPath));
+
+        DB::table('nfse_receipts')->where('id', 1)->update([
+            'xml_webdav_path' => $longPath,
+            'danfse_webdav_path' => $longPath . '.pdf',
+        ]);
+
+        $row = DB::table('nfse_receipts')->where('id', 1)->first(['xml_webdav_path', 'danfse_webdav_path']);
+        self::assertSame($longPath, $row->xml_webdav_path);
+        self::assertSame($longPath . '.pdf', $row->danfse_webdav_path);
+        self::assertSame(1, DB::table('nfse_receipts')->count());
+
+        $types = DB::select("SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'nfse_receipts'
+              AND COLUMN_NAME IN ('xml_webdav_path', 'danfse_webdav_path')");
+        self::assertCount(2, $types);
+        foreach ($types as $type) {
+            self::assertSame('text', $type->DATA_TYPE);
+            self::assertSame('YES', $type->IS_NULLABLE);
+        }
+    }
+
+    public function testArtifactWebDavPathRollbackRefusesTruncationAndRemainsReversibleForShortValues(): void
+    {
+        $this->migration('2026_04_13_000001_add_artifact_paths_to_nfse_receipts_table')->up();
+        $migration = $this->migration('2026_11_10_180001_expand_nfse_artifact_webdav_paths');
+        $migration->up();
+
+        $longPath = 'companies/1/' . str_repeat('long-segment/', 25) . 'synthetic.xml';
+        DB::table('nfse_receipts')->where('id', 1)->update([
+            'xml_webdav_path' => $longPath,
+            'danfse_webdav_path' => null,
+        ]);
+        try {
+            $migration->down();
+            self::fail('Rollback must reject a path that would be truncated.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('Cannot narrow NFS-e WebDAV paths', $exception->getMessage());
+        }
+
+        self::assertSame($longPath, DB::table('nfse_receipts')->where('id', 1)->value('xml_webdav_path'));
+        DB::table('nfse_receipts')->where('id', 1)->update([
+            'xml_webdav_path' => 'companies/1/nfse/short.xml',
+            'danfse_webdav_path' => 'companies/1/nfse/short.pdf',
+        ]);
+
+        $migration->down();
+
+        $columns = DB::select("SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'nfse_receipts'
+              AND COLUMN_NAME IN ('xml_webdav_path', 'danfse_webdav_path')");
+        self::assertCount(2, $columns);
+        foreach ($columns as $column) {
+            self::assertSame('varchar', $column->DATA_TYPE);
+            self::assertSame(191, (int) $column->CHARACTER_MAXIMUM_LENGTH);
+        }
+
+        self::assertSame('companies/1/nfse/short.xml', DB::table('nfse_receipts')->where('id', 1)->value('xml_webdav_path'));
+        self::assertSame('companies/1/nfse/short.pdf', DB::table('nfse_receipts')->where('id', 1)->value('danfse_webdav_path'));
+    }
+
     private function migration(string $name): Migration
     {
         return require __DIR__ . '/../../../Database/Migrations/' . $name . '.php';
