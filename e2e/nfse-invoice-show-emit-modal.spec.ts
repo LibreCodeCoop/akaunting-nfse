@@ -417,33 +417,11 @@ test('typing in email body keeps email tab content visible in emit modal', async
   });
   await setCaret(7);
   await expect.poll(caret).toBe(7);
-  await editor.evaluate((node) => {
-    const win = node.ownerDocument.defaultView as (Window & { __arrowDiag?: unknown[] }) | null;
-    if (!win) return;
-    win.__arrowDiag = [];
-    const log = (phase: string, event: Event) => {
-      const e = event as KeyboardEvent;
-      if (e.key.startsWith('Arrow')) {
-        win.__arrowDiag?.push({ phase, key: e.key, prevented: e.defaultPrevented,
-          target: (e.target as HTMLElement)?.className, cancelable: e.cancelable });
-      }
-    };
-    node.ownerDocument.addEventListener('keydown', (e) => log('document-capture', e), true);
-    node.ownerDocument.addEventListener('keydown', (e) => log('document-bubble', e));
-    const original = win.Event.prototype.preventDefault;
-    win.Event.prototype.preventDefault = function (...args: []) {
-      if (this.type === 'keydown' && (this as KeyboardEvent).key?.startsWith('Arrow')) {
-        win.__arrowDiag?.push({ phase: 'preventDefault', key: (this as KeyboardEvent).key,
-          stack: new Error('Arrow preventDefault').stack?.slice(0, 950) });
-      }
-      return original.apply(this, args);
-    };
-  });
   const beforeArrow = await caretState();
   await page.keyboard.press('ArrowLeft');
+  await expect.poll(caret).toBe(6);
   const afterArrow = await caretState();
-  const diagnostics = await page.evaluate(() => (window as Window & { __arrowDiag?: unknown[] }).__arrowDiag);
-  expect(afterArrow.quillIndex, 'Arrow diagnostics: ' + JSON.stringify({ beforeArrow, afterArrow, diagnostics })).toBe(6);
+  expect(afterArrow.quillIndex, 'Before/after ArrowLeft: ' + JSON.stringify({ beforeArrow, afterArrow })).toBe(6);
   await page.keyboard.press('ArrowRight');
   await expect.poll(caret).toBe(7);
   await page.keyboard.press('ArrowUp');
