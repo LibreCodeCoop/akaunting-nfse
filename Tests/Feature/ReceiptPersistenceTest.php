@@ -29,13 +29,82 @@ final class ReceiptPersistenceTest extends FeatureTestCase
         );
         $second = $persistence->storeCurrent(
             $invoice->id,
-            $this->receipt('2', str_repeat('2', 50)),
-            '2',
+            $this->receipt('1', str_repeat('1', 50)),
+            '1',
         );
 
         self::assertSame($first->id, $second->id);
         self::assertSame(1, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
-        self::assertSame(str_repeat('2', 50), $second->fresh()->chave_acesso);
+        self::assertSame(str_repeat('1', 50), $second->fresh()->chave_acesso);
+    }
+
+    public function testAnotherFiscalIdentityCannotOverwriteAnIssuedInvoice(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $persistence = new ReceiptPersistence();
+        $first = $persistence->storeCurrent(
+            $invoice->id,
+            $this->receipt('901', str_repeat('4', 50)),
+            '901',
+        );
+
+        try {
+            $persistence->storeCurrent(
+                $invoice->id,
+                $this->receipt('902', str_repeat('9', 50)),
+                '902',
+            );
+            self::fail('A different fiscal key must not replace an issued receipt.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('different fiscal receipt', $exception->getMessage());
+        }
+
+        self::assertSame(1, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
+        self::assertSame('901', $first->fresh()->nfse_number);
+        self::assertSame(str_repeat('4', 50), $first->fresh()->chave_acesso);
+    }
+
+    public function testRetryWithSameKeyButDifferentNumberIsRejected(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $persistence = new ReceiptPersistence();
+        $original = $persistence->storeCurrent(
+            $invoice->id,
+            $this->receipt('901', str_repeat('4', 50)),
+            '901',
+        );
+
+        try {
+            $persistence->storeCurrent($invoice->id, $this->receipt('902', str_repeat('4', 50)), '902');
+            self::fail('A different fiscal number must not replace the authorized number.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('different fiscal identity', $exception->getMessage());
+        }
+
+        self::assertSame('901', $original->fresh()->nfse_number);
+        self::assertSame(1, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
+    }
+
+    public function testCancelledReceiptIsPreservedWhenANewDocumentIsIssued(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $cancelled = NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '901',
+            'chave_acesso' => str_repeat('4', 50),
+            'status' => 'cancelled',
+        ]);
+
+        $new = (new ReceiptPersistence())->storeCurrent(
+            $invoice->id,
+            $this->receipt('903', str_repeat('5', 50)),
+            '903',
+        );
+
+        self::assertNotSame($cancelled->id, $new->id);
+        self::assertSame(2, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
+        self::assertSame('cancelled', $cancelled->fresh()->status);
+        self::assertSame(str_repeat('4', 50), $cancelled->fresh()->chave_acesso);
     }
 
     public function testReemissionAfterCancellationKeepsHistoricalReceiptImmutable(): void
@@ -324,7 +393,7 @@ final class ReceiptPersistenceTest extends FeatureTestCase
         self::assertSame(hash('sha256', (string) $fresh->payload()->value('authorized_xml')), $fresh->authorized_fiscal_snapshot['source_sha256'] ?? null);
     }
 
-    public function testChangingFiscalIdentityClearsPersistedArtifactPaths(): void
+    public function testExplicitExistingReceiptRejectsDifferentIdentityAndPreservesArtifacts(): void
     {
         $invoice = Document::factory()->invoice()->create();
         $persistence = new ReceiptPersistence();
@@ -340,22 +409,28 @@ final class ReceiptPersistenceTest extends FeatureTestCase
             'danfse_webdav_path' => 'NFSe_145.pdf',
         ]);
 
-        $updated = $persistence->storeCurrent(
-            $invoice->id,
-            new ReceiptData(
-                nfseNumber: '146',
-                chaveAcesso: str_repeat('5', 50),
-                dataEmissao: '2026-10-07T13:18:22-03:00',
-                codigoVerificacao: 'NEW',
-                rawXml: '<NFSe>146</NFSe>',
-            ),
-            '146',
-            $existing,
-        );
+        try {
+            $persistence->storeCurrent(
+                $invoice->id,
+                new ReceiptData(
+                    nfseNumber: '146',
+                    chaveAcesso: str_repeat('5', 50),
+                    dataEmissao: '2026-10-07T13:18:22-03:00',
+                    codigoVerificacao: 'NEW',
+                    rawXml: '<NFSe>146</NFSe>',
+                ),
+                '146',
+                $existing,
+            );
+            self::fail('Existing fiscal identity must be immutable.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('different fiscal identity', $exception->getMessage());
+        }
 
-        self::assertSame('146', $updated->nfse_number);
-        self::assertNull($updated->xml_webdav_path);
-        self::assertNull($updated->danfse_webdav_path);
+        self::assertSame('145', $existing->fresh()->nfse_number);
+        self::assertSame(str_repeat('4', 50), $existing->fresh()->chave_acesso);
+        self::assertSame('NFSe_145.xml', $existing->fresh()->xml_webdav_path);
+        self::assertSame('NFSe_145.pdf', $existing->fresh()->danfse_webdav_path);
     }
 
     public function testNewAuthorizedXmlResetsPostEmissionEmailMarker(): void
@@ -369,24 +444,24 @@ final class ReceiptPersistenceTest extends FeatureTestCase
                 nfseNumber: '60',
                 chaveAcesso: str_repeat('6', 50),
                 dataEmissao: '2026-10-07T10:00:00-03:00',
-                rawXml: '<NFSe>first</NFSe>',
             ),
             '60',
         );
 
-        $receipt->payload()->update([
+        $receipt->payload()->create([
+            'authorized_xml' => '',
             'post_emission_email_sent_at' => now(),
         ]);
 
         $persistence->storeCurrent(
             $invoice->id,
             new ReceiptData(
-                nfseNumber: '61',
-                chaveAcesso: str_repeat('7', 50),
+                nfseNumber: '60',
+                chaveAcesso: str_repeat('6', 50),
                 dataEmissao: '2026-10-07T11:00:00-03:00',
                 rawXml: '<NFSe>second</NFSe>',
             ),
-            '61',
+            '60',
             $receipt,
         );
 
@@ -394,6 +469,66 @@ final class ReceiptPersistenceTest extends FeatureTestCase
 
         self::assertSame('<NFSe>second</NFSe>', $payload?->authorized_xml);
         self::assertNull($payload?->post_emission_email_sent_at);
+    }
+
+    public function testIdenticalAuthorizedXmlRetryPreservesEmailDeliveryMarker(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $persistence = new ReceiptPersistence();
+        $xml = '<NFSe>synthetic</NFSe>';
+        $remote = new ReceiptData(
+            nfseNumber: '60',
+            chaveAcesso: str_repeat('6', 50),
+            dataEmissao: '2026-10-07T10:00:00-03:00',
+            rawXml: $xml,
+        );
+
+        $receipt = $persistence->storeCurrent($invoice->id, $remote, '60');
+        $sentAt = now()->subMinute();
+        $receipt->payload()->update(['post_emission_email_sent_at' => $sentAt]);
+
+        $again = $persistence->storeCurrent($invoice->id, $remote, '60');
+
+        self::assertSame($receipt->id, $again->id);
+        self::assertSame($xml, $again->payload()->value('authorized_xml'));
+        self::assertNotNull($again->payload()->value('post_emission_email_sent_at'));
+        self::assertSame(1, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
+    }
+
+    public function testDifferentAuthorizedXmlForSameKeyFailsWithoutReplacingArchivedXml(): void
+    {
+        $invoice = Document::factory()->invoice()->create();
+        $persistence = new ReceiptPersistence();
+        $receipt = $persistence->storeCurrent(
+            $invoice->id,
+            new ReceiptData(
+                nfseNumber: '60',
+                chaveAcesso: str_repeat('6', 50),
+                dataEmissao: '2026-10-07T10:00:00-03:00',
+                rawXml: '<NFSe>original</NFSe>',
+            ),
+            '60',
+        );
+        $receipt->payload()->update(['post_emission_email_sent_at' => now()]);
+
+        try {
+            $persistence->storeCurrent(
+                $invoice->id,
+                new ReceiptData(
+                    nfseNumber: '60',
+                    chaveAcesso: str_repeat('6', 50),
+                    dataEmissao: '2026-10-07T10:00:00-03:00',
+                    rawXml: '<NFSe>different</NFSe>',
+                ),
+                '60',
+            );
+            self::fail('Authorized XML cannot be replaced after archiving.');
+        } catch (\LogicException $exception) {
+            self::assertStringContainsString('Authorized XML differs', $exception->getMessage());
+        }
+
+        self::assertSame('<NFSe>original</NFSe>', $receipt->fresh()->payload()->value('authorized_xml'));
+        self::assertNotNull($receipt->fresh()->payload()->value('post_emission_email_sent_at'));
     }
 
     private function receipt(string $number, string $accessKey): ReceiptData

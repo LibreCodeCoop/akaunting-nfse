@@ -22,29 +22,63 @@ final class ReceiptPersistence
         string $resolvedNumber,
         ?NfseReceipt $existingReceipt = null,
     ): NfseReceipt {
-        $values = $this->receiptValues($receipt, $resolvedNumber);
-
-        if ($existingReceipt instanceof NfseReceipt) {
-            $fiscalIdentityChanged = (string) $existingReceipt->chave_acesso !== (string) $receipt->chaveAcesso
-                || (string) $existingReceipt->nfse_number !== $resolvedNumber;
-
-            if ($fiscalIdentityChanged) {
-                $values['xml_webdav_path'] = null;
-                $values['danfse_webdav_path'] = null;
-            }
-
-            $existingReceipt->update($values);
-            $persisted = $existingReceipt->fresh();
-        } else {
-            $persisted = NfseReceipt::updateOrCreate(
-                ['invoice_id' => $invoiceId],
-                $values,
-            );
+        if (trim($receipt->chaveAcesso) === '' || trim($resolvedNumber) === '') {
+            throw new \InvalidArgumentException('An authorized NFS-e requires an access key and number.');
         }
 
-        $this->persistAuthorizedXml($persisted, $receipt);
+        return DB::transaction(function () use ($invoiceId, $receipt, $resolvedNumber, $existingReceipt): NfseReceipt {
+            // Serialize changes even when no matching receipt exists yet.
+            $invoice = DB::table('documents')->where('id', $invoiceId)->lockForUpdate()->first();
+            if ($invoice === null || (string) $invoice->type !== 'invoice') {
+                throw new \LogicException('Fiscal receipt must reference an existing invoice.');
+            }
 
-        return $persisted;
+            $persisted = $existingReceipt instanceof NfseReceipt
+                ? NfseReceipt::query()->whereKey($existingReceipt->id)->lockForUpdate()->firstOrFail()
+                : NfseReceipt::query()
+                    ->where('invoice_id', $invoiceId)
+                    ->where('chave_acesso', $receipt->chaveAcesso)
+                    ->lockForUpdate()
+                    ->first();
+
+            if ($persisted instanceof NfseReceipt) {
+                if ((int) $persisted->invoice_id !== $invoiceId
+                    || (string) $persisted->chave_acesso !== $receipt->chaveAcesso
+                    || (string) $persisted->nfse_number !== $resolvedNumber) {
+                    throw new \LogicException(
+                        'An existing NFS-e has a different fiscal identity; reconcile without overwriting it.',
+                    );
+                }
+
+                if ((string) $persisted->status !== 'emitted') {
+                    throw new \LogicException('Cancelled or substituted NFS-e cannot be reopened by a retry.');
+                }
+
+                $persisted->update($this->receiptValues($receipt, $resolvedNumber));
+            } else {
+                // A new issuance cannot replace a live receipt. Reissuance
+                // after cancellation creates a separate historical row.
+                $conflict = NfseReceipt::query()
+                    ->where('invoice_id', $invoiceId)
+                    ->whereNotIn('status', ['cancelled', 'substituted'])
+                    ->exists();
+
+                if ($conflict) {
+                    throw new \LogicException(
+                        'Invoice already has a different fiscal receipt; reconcile before another issuance.',
+                    );
+                }
+
+                $persisted = NfseReceipt::query()->create([
+                    'invoice_id' => $invoiceId,
+                    ...$this->receiptValues($receipt, $resolvedNumber),
+                ]);
+            }
+
+            $this->persistAuthorizedXml($persisted, $receipt);
+
+            return $persisted->fresh();
+        }, 3);
     }
 
     public function createGrouped(
@@ -252,6 +286,16 @@ final class ReceiptPersistence
         $xml = is_string($remoteReceipt->rawXml) ? $remoteReceipt->rawXml : '';
 
         if (trim($xml) === '') {
+            return;
+        }
+
+        $previous = (string) ($receipt->payload()->value('authorized_xml') ?? '');
+        if ($previous !== '') {
+            if (!hash_equals(hash('sha256', $previous), hash('sha256', $xml))) {
+                throw new \LogicException('Authorized XML differs from the archived NFS-e; reconcile manually.');
+            }
+
+            // Idempotent recovery must not re-enable an email already sent.
             return;
         }
 

@@ -89,7 +89,7 @@ final class EmissionAttemptJournal
                 ->whereIn('status', [self::AUTHORIZED, self::REJECTED, self::PENDING, self::AMBIGUOUS])
                 ->exists();
             if (!$protected) {
-                $initialAssessment = $this->assertFirstPostFiscalReady($invoiceId, $dps, $groupKey);
+                $initialAssessment = $this->assertFirstPostFiscalReady($invoiceId, $dps, $groupKey, $cancelledReceiptId, $substitutedReceiptId);
             }
         }
         $registration = $this->begin(
@@ -139,7 +139,7 @@ final class EmissionAttemptJournal
                 // Re-read persisted facts immediately before claiming the
                 // irreversible first POST. A queued DPS cannot rely on an
                 // earlier controller or worker preflight.
-                $currentAssessment = $this->assertFirstPostFiscalReady($invoiceId, $dps, $groupKey);
+                $currentAssessment = $this->assertFirstPostFiscalReady($invoiceId, $dps, $groupKey, $cancelledReceiptId, $substitutedReceiptId);
                 if ($currentAssessment->context->taxableEventEvidenceId
                     !== $attempt->fiscal_event_evidence_id) {
                     throw new FiscalIssuanceBlocked(
@@ -254,11 +254,24 @@ final class EmissionAttemptJournal
      * The single pre-POST fiscal assessment for manual, API, grouped, queue,
      * reissue and substitution flows. Recovery-only attempts never call it.
      */
-    private function assertFirstPostFiscalReady(int $invoiceId, DpsData $dps, ?string $groupKey): FiscalAssessment
+    private function assertFirstPostFiscalReady(
+        int $invoiceId,
+        DpsData $dps,
+        ?string $groupKey,
+        ?int $cancelledReceiptId,
+        ?int $substitutedReceiptId,
+    ): FiscalAssessment
     {
         $invoice = Invoice::query()->whereKey($invoiceId)->where('type', 'invoice')->first();
         if (!$invoice instanceof Invoice) {
             throw new \InvalidArgumentException('Invoice not found for fiscal preflight.');
+        }
+
+        if ($groupKey === null && $cancelledReceiptId === null && $substitutedReceiptId === null
+            && NfseReceipt::query()->where('invoice_id', $invoiceId)->where('status', 'emitted')->exists()) {
+            throw new FiscalIssuanceBlocked(
+                'NFSE-INVOICE-ALREADY-ISSUED: use an explicit fiscal group or substitution, not another first POST.',
+            );
         }
 
         // Categories are a fiscal allowlist, not a display preference.
