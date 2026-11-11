@@ -303,11 +303,11 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $resolved = $controller->resolveArtifactPath($invoice, $receipt);
 
-            self::assertSame('companies/1/nfse/marco/21/nf-2026-000123/cliente-exemplo-ltda', $resolved);
+            self::assertSame('companies/1/nfse/Março/21/nf-2026-000123/cliente-exemplo-ltda', $resolved);
 
             $invoice->company_id = 2;
             self::assertSame(
-                'companies/2/nfse/marco/21/nf-2026-000123/cliente-exemplo-ltda',
+                'companies/2/nfse/Março/21/nf-2026-000123/cliente-exemplo-ltda',
                 $controller->resolveArtifactPath($invoice, $receipt),
             );
         }
@@ -336,7 +336,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $resolved = $controller->resolveArtifactPath($invoice, $receipt);
 
-            self::assertSame('companies/1/nfse/abril/33/cliente-exemplo-ltda', $resolved);
+            self::assertSame('companies/1/nfse/Abril/33/cliente-exemplo-ltda', $resolved);
         }
 
         public function testWebDavArtifactPathCanRespectExplicitCompanyFolder(): void
