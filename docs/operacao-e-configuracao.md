@@ -385,7 +385,14 @@ sem prefixo adicional. Em pastas compartilhadas entre empresas, mantenha
 a opção de isolamento para evitar colisões. O arquivamento e a recuperação
 usam a mesma regra. Caminhos históricos não são movidos automaticamente.
 
-**Placeholders de nome do mês no WebDAV:** `{month_name}` mantém a grafia minúscula histórica (por exemplo, `novembro`; para março, o formato legado é `marco`). Use `{month_name_ucfirst}` para nomes com inicial maiúscula (`Novembro`, `Março`). O exemplo `{month} - {month_name_ucfirst}` produz `11 - Novembro` e respeita a capitalização de pastas já existentes no Nextcloud. O cliente WebDAV verifica os diretórios e cria somente os ausentes; não procura alternativas com grafias diferentes. O caminho configurado deve corresponder exatamente à estrutura de pastas.
+**Nomes de mês no WebDAV:** `{month_name}` usa exclusivamente o nome em português com inicial maiúscula e
+acentuação correta, como `Março` e `Novembro`. O template
+`{month} - {month_name}` gera `03 - Março` e `11 - Novembro`.
+O cliente WebDAV reutiliza o diretório existente cujo nome corresponda
+exatamente ao template e cria apenas os diretórios ausentes. Os caminhos
+persistidos para documentos já arquivados devem ser atualizados ao
+renomear diretórios no Nextcloud.
+
 
 Documentos e eventos podem ser consultados pelo ADN conforme as permissões
 da integração. O módulo não aplica automaticamente aos cadastros alterações
