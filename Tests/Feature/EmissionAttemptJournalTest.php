@@ -11,6 +11,7 @@ use App\Models\Common\Item;
 use App\Models\Document\Document;
 use Illuminate\Auth\Access\AuthorizationException;
 use Modules\Nfse\Application\EmissionAttemptJournal;
+use Modules\Nfse\Application\FiscalIssuanceBlocked;
 use Modules\Nfse\Application\ReceiptNumberResolver;
 use Modules\Nfse\Application\ReceiptPersistence;
 use Modules\Nfse\Models\ItemFiscalProfile;
@@ -37,6 +38,39 @@ final class EmissionAttemptJournalTest extends FeatureTestCase
         parent::setUp();
         $this->authorizeSyntheticInvoiceCategories();
         SyntheticDpsIssuanceIdentity::install();
+    }
+
+    public function testAlreadyIssuedInvoiceIsBlockedBeforeAnotherDpsPost(): void
+    {
+        $invoice = $this->invoice();
+        NfseReceipt::query()->create([
+            'invoice_id' => $invoice->id,
+            'nfse_number' => '901',
+            'chave_acesso' => str_repeat('4', 50),
+            'status' => 'emitted',
+        ]);
+        $client = $this->client();
+
+        try {
+            (new EmissionAttemptJournal())->issue(
+                client: $client,
+                dps: $this->dps(),
+                invoiceId: (int) $invoice->id,
+                origin: 'manual',
+                persist: static fn (ReceiptData $remote): NfseReceipt => (new ReceiptPersistence())->storeCurrent(
+                    invoiceId: (int) $invoice->id,
+                    receipt: $remote,
+                    resolvedNumber: (new ReceiptNumberResolver())->resolve($remote),
+                ),
+            );
+            self::fail('Second ungrouped invoice emission must be rejected before POST.');
+        } catch (FiscalIssuanceBlocked $exception) {
+            self::assertStringContainsString('NFSE-INVOICE-ALREADY-ISSUED', $exception->getMessage());
+        }
+
+        self::assertSame(0, $client->emits);
+        self::assertSame(0, NfseEmissionAttempt::query()->count());
+        self::assertSame(1, NfseReceipt::query()->where('invoice_id', $invoice->id)->count());
     }
 
     public function testAuthorizedAttemptLinksExistingReceiptAndXmlWithoutDoublePost(): void
