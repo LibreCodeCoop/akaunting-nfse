@@ -46,6 +46,8 @@ jobs:
 
       - name: Install Psalm and runtime dependencies
         working-directory: modules/Nfse
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
         run: |
           composer install --prefer-dist --no-progress --no-scripts
           composer thirdparty:install
