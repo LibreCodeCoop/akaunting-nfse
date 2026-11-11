@@ -307,7 +307,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
 
             $invoice->company_id = 2;
             self::assertSame(
-                'companies/2/nfse/marco/21/nf-2026-000123/cliente-exemplo-ltda',
+                'companies/2/nfse/Março/21/nf-2026-000123/cliente-exemplo-ltda',
                 $controller->resolveArtifactPath($invoice, $receipt),
             );
         }
