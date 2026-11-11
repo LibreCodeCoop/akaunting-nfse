@@ -907,7 +907,7 @@ return [
                 '{year}'          => 'Ano de emissão (ex: 2026)',
                 '{month}'         => 'Número do mês com zero (ex: 03)',
                 '{day}'           => 'Dia do mês com zero (ex: 14)',
-                '{month_name}'    => 'Nome do mês em português (ex: março)',
+                '{month_name}'    => 'Nome oficial do mês em português, com inicial maiúscula (ex: Março)',
                 '{nfse_number}'   => 'Número sequencial da NFS-e',
                 '{chave_acesso}'  => 'Chave de acesso única da NFS-e',
                 '{customer_name}' => 'Nome do cliente (tomador)',
