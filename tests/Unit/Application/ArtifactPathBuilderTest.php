@@ -9,6 +9,7 @@ namespace Modules\Nfse\Tests\Unit\Application;
 
 use Modules\Nfse\Application\ArtifactPathBuilder;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class ArtifactPathBuilderTest extends TestCase
@@ -65,7 +66,7 @@ final class ArtifactPathBuilderTest extends TestCase
         );
     }
 
-    public function testCapitalizedMonthUsesExistingAccountingFolderConventions(): void
+    public function testOfficialMonthUsesExistingAccountingFolderConventions(): void
     {
         $receipt = new ReceiptData(
             nfseNumber: '68',
@@ -76,12 +77,46 @@ final class ArtifactPathBuilderTest extends TestCase
 
         self::assertSame(
             'Finance/2026/11 - Novembro/NFSe',
-            $builder->basePath('Finance/2026/{month} - {month_name_ucfirst}/NFSe', '11222333000181', 'Example', $receipt),
-        );
-        self::assertSame(
-            'Finance/2026/11 - novembro/NFSe',
             $builder->basePath('Finance/2026/{month} - {month_name}/NFSe', '11222333000181', 'Example', $receipt),
         );
+    }
+
+    #[DataProvider('officialMonthNames')]
+    public function testEveryMonthUsesOneOfficialName(int $month, string $expected): void
+    {
+        $receipt = new ReceiptData(
+            nfseNumber: '42',
+            chaveAcesso: 'SYNTHETIC-42',
+            dataEmissao: sprintf('2026-%02d-14T10:30:00-03:00', $month),
+        );
+
+        $path = (new ArtifactPathBuilder())->basePath(
+            'Finance/2026/{month} - {month_name}/NFSe',
+            '11222333000181',
+            'Example',
+            $receipt,
+        );
+
+        self::assertSame(sprintf('Finance/2026/%02d - %s/NFSe', $month, $expected), $path);
+    }
+
+    /** @return array<string, array{int, string}> */
+    public static function officialMonthNames(): array
+    {
+        return [
+            'January' => [1, 'Janeiro'],
+            'February' => [2, 'Fevereiro'],
+            'March' => [3, 'Março'],
+            'April' => [4, 'Abril'],
+            'May' => [5, 'Maio'],
+            'June' => [6, 'Junho'],
+            'July' => [7, 'Julho'],
+            'August' => [8, 'Agosto'],
+            'September' => [9, 'Setembro'],
+            'October' => [10, 'Outubro'],
+            'November' => [11, 'Novembro'],
+            'December' => [12, 'Dezembro'],
+        ];
     }
 
     public function testReceiptNumberFallsBackToAuthorizedXml(): void
@@ -96,7 +131,6 @@ final class ArtifactPathBuilderTest extends TestCase
         $replacements = (new ArtifactPathBuilder())->replacements('123', 'Cliente', $receipt);
 
         self::assertSame('987', $replacements['{nfse_number}']);
-        self::assertSame('marco', $replacements['{month_name}']);
-        self::assertSame('Março', $replacements['{month_name_ucfirst}']);
+        self::assertSame('Março', $replacements['{month_name}']);
     }
 }
