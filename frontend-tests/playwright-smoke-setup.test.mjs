@@ -463,3 +463,23 @@ test('smoke browser setup uses the runner Chrome without installing Chromium dep
     assert.doesNotMatch(workflow, /npx playwright install --with-deps/);
   }
 });
+
+test('Composer runtime installation is authenticated with read-only workflow token', () => {
+  const workflows = [
+    'akaunting-feature.yml', 'lint-php-cs.yml', 'phpunit.yml',
+    'playwright-bulk-ui.yml', 'playwright-full-ui.yml', 'playwright-smoke.yml',
+    'psalm.yml',
+  ];
+  const token = 'COMPOSER_AUTH: \'{"github-oauth":{"github.com":"${{ github.token }}"}}\'';
+  for (const name of workflows) {
+    const file = path.resolve(import.meta.dirname, '../.github/workflows', name);
+    const yaml = fs.readFileSync(file, 'utf8');
+    const step = yaml.split(/\n      - name: /).find(part => part.includes('composer thirdparty:install'));
+    assert.ok(step, `${name}: missing thirdparty install step`);
+    assert.ok(step.includes(token), `${name}: missing scoped Composer authentication`);
+    assert.match(step, /\n        env:\n          COMPOSER_AUTH:/);
+  }
+  const behat = fs.readFileSync(path.resolve(import.meta.dirname, '../.github/workflows/behat.yml'), 'utf8');
+  const prepare = behat.split(/\n      - name: /).find(part => part.includes('behat-ci.mjs prepare'));
+  assert.ok(prepare?.includes(token), 'Behat preparatory install needs scoped Composer authentication');
+});
