@@ -86,6 +86,7 @@ final class ArtifactPathBuilder
             '{month}' => $date->format('m'),
             '{day}' => $date->format('d'),
             '{month_name}' => $this->monthName((int) $date->format('n')),
+            '{month_name_ucfirst}' => $this->monthNameUppercaseFirst((int) $date->format('n')),
             '{nfse_number}' => $this->sanitize($resolvedNumber !== '' ? $resolvedNumber : 'sem-numero'),
             '{chave_acesso}' => $this->sanitize($receipt->chaveAcesso !== '' ? $receipt->chaveAcesso : 'sem-chave-acesso'),
             '{customer_name}' => $this->sanitize($customerName !== '' ? $customerName : 'sem-cliente'),
@@ -109,6 +110,15 @@ final class ArtifactPathBuilder
             12 => 'dezembro',
             default => 'mes-invalido',
         };
+    }
+
+    /**
+     * Capitalized month names use an independent placeholder to preserve
+     * historical lowercase paths (and the legacy ASCII spelling of March).
+     */
+    private function monthNameUppercaseFirst(int $month): string
+    {
+        return $month === 3 ? 'Março' : ucfirst($this->monthName($month));
     }
 
     private function sanitize(string $value): string

@@ -95,6 +95,44 @@ final class WebDavClientTest extends TestCase
         ], $calls);
     }
 
+    public function testExistingCapitalizedMonthIsReusedAndOnlyMissingNfseFolderIsCreated(): void
+    {
+        $calls = [];
+        $putCount = 0;
+        $base = 'https://dav.example.test/files/Finance/2026';
+
+        $client = new WebDavClient(
+            baseUrl: $base,
+            request: static function (string $method, string $url, array $headers, string $body) use (&$calls, &$putCount): array {
+                $calls[] = [$method, $url];
+                if ($method === 'PUT') {
+                    $putCount++;
+
+                    return $putCount === 1 ? [409, 'parent missing'] : [201, ''];
+                }
+                if ($method === 'HEAD') {
+                    return str_ends_with($url, '/11%20-%20Novembro')
+                        ? [200, ''] : [404, ''];
+                }
+                if ($method === 'MKCOL') {
+                    return [201, ''];
+                }
+
+                return [500, 'unsupported'];
+            },
+        );
+
+        $client->put('11 - Novembro/NFSe/synthetic.xml', '<NFSe/>');
+
+        self::assertSame([
+            ['PUT', $base . '/11%20-%20Novembro/NFSe/synthetic.xml'],
+            ['HEAD', $base . '/11%20-%20Novembro/NFSe'],
+            ['HEAD', $base . '/11%20-%20Novembro'],
+            ['MKCOL', $base . '/11%20-%20Novembro/NFSe'],
+            ['PUT', $base . '/11%20-%20Novembro/NFSe/synthetic.xml'],
+        ], $calls, 'Do not create a second month folder or a lowercase variant.');
+    }
+
     public function testPutSkipsDirectoryDiscoveryWhenParentAlreadyExists(): void
     {
         $calls = [];

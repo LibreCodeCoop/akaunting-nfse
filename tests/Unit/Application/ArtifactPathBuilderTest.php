@@ -65,6 +65,25 @@ final class ArtifactPathBuilderTest extends TestCase
         );
     }
 
+    public function testCapitalizedMonthUsesExistingAccountingFolderConventions(): void
+    {
+        $receipt = new ReceiptData(
+            nfseNumber: '68',
+            chaveAcesso: 'TEST-68',
+            dataEmissao: '2026-11-10T15:00:00-03:00',
+        );
+        $builder = new ArtifactPathBuilder();
+
+        self::assertSame(
+            'Finance/2026/11 - Novembro/NFSe',
+            $builder->basePath('Finance/2026/{month} - {month_name_ucfirst}/NFSe', '11222333000181', 'Example', $receipt),
+        );
+        self::assertSame(
+            'Finance/2026/11 - novembro/NFSe',
+            $builder->basePath('Finance/2026/{month} - {month_name}/NFSe', '11222333000181', 'Example', $receipt),
+        );
+    }
+
     public function testReceiptNumberFallsBackToAuthorizedXml(): void
     {
         $receipt = new ReceiptData(
@@ -78,5 +97,6 @@ final class ArtifactPathBuilderTest extends TestCase
 
         self::assertSame('987', $replacements['{nfse_number}']);
         self::assertSame('marco', $replacements['{month_name}']);
+        self::assertSame('Março', $replacements['{month_name_ucfirst}']);
     }
 }
