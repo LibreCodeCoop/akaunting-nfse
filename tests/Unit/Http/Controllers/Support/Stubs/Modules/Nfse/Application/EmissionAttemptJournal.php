@@ -40,6 +40,20 @@ namespace Modules\Nfse\Application {
                     $receipt->codigo_verificacao = $remote->codigoVerificacao;
                     $receipt->status = 'emitted';
                     \Modules\Nfse\Models\NfseReceipt::$records[] = $receipt;
+                } elseif ($origin === 'manual' && $groupKey === null && $substitutedReceiptId === null) {
+                    // The controller unit fixture has no Laravel database.
+                    // Do not invoke the real transactional receipt persistence:
+                    // the database semantics are covered by Feature tests.
+                    $receipt = \Modules\Nfse\Models\NfseReceipt::updateOrCreate(
+                        ['invoice_id' => $invoiceId],
+                        [
+                            'nfse_number' => (new ReceiptNumberResolver())->resolve($remote),
+                            'chave_acesso' => $remote->chaveAcesso,
+                            'data_emissao' => $remote->dataEmissao,
+                            'codigo_verificacao' => $remote->codigoVerificacao,
+                            'status' => 'emitted',
+                        ],
+                    );
                 } else {
                     $receipt = $persist($remote);
                 }
