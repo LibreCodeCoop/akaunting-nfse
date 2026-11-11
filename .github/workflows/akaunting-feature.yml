@@ -60,6 +60,8 @@ jobs:
 
       - name: Install module and resolve scoped runtime dependencies
         working-directory: akaunting/modules/Nfse
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
         run: |
           composer install --prefer-dist --no-progress --no-interaction --no-scripts
           composer thirdparty:install

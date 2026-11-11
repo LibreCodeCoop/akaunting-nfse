@@ -61,6 +61,8 @@ jobs:
 
       - name: Prepare isolated Akaunting and synthetic fixtures
         working-directory: akaunting/modules/Nfse
+        env:
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
         run: node scripts/ci/behat-ci.mjs prepare
 
       - name: Execute serial and randomized HTTP contracts
