@@ -11,6 +11,7 @@ use App\Models\Document\Document;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\NfseReceipt;
+use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 
 /**
@@ -37,6 +38,17 @@ final class CommercialFiscalReviewReport
             ->whereHas('invoice', static function ($query) use ($companyId): void {
                 $query->where('company_id', $companyId);
             })->get()->groupBy('invoice_id');
+
+        // An unresolved first POST is not the same as a missing local receipt.
+        // Its existence requires read-only reconciliation, even if the category
+        // was subsequently disabled or an operator recorded a fiscal decision.
+        $unresolvedAttemptInvoiceIds = $ids === [] ? [] : array_fill_keys(
+            DB::table('nfse_emission_attempts')
+                ->where('company_id', $companyId)->whereIn('invoice_id', $ids)
+                ->whereIn('status', [EmissionAttemptJournal::PENDING, EmissionAttemptJournal::AMBIGUOUS])
+                ->distinct()->pluck('invoice_id')->all(),
+            true,
+        );
 
         $decisions = [];
         if ($ids !== []) {
@@ -67,6 +79,7 @@ final class CommercialFiscalReviewReport
                 $effective = null;
             }
             $inIssuanceScope = $categoryPolicies->canIssue($invoice);
+            $requiresReconciliation = isset($unresolvedAttemptInvoiceIds[(int) $invoice->id]);
             $date = $invoice->issued_at;
             $rows[] = [
                 'invoice_id' => (int) $invoice->id,
@@ -75,9 +88,11 @@ final class CommercialFiscalReviewReport
                     ? $date->format('Y-m-d') : substr((string) $date, 0, 10),
                 'financial_status' => (string) ($invoice->status ?? ''),
                 'local_receipts' => $receipts->count(),
-                'status' => $receipts->isEmpty() && !$inIssuanceScope && $effective === null
-                    ? 'outside_issuance_scope'
-                    : $this->status($invoice, $receipts, $effective),
+                'status' => $requiresReconciliation
+                    ? 'reconciliation_required'
+                    : ($receipts->isEmpty() && !$inIssuanceScope && $effective === null
+                        ? 'outside_issuance_scope'
+                        : $this->status($invoice, $receipts, $effective)),
                 'fiscal_decision' => $effective['decision'] ?? null,
                 'decision_source' => $receipts->isEmpty() && !$inIssuanceScope && $effective === null
                     ? 'category_authorization'
