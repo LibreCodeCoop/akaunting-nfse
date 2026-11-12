@@ -66,7 +66,7 @@ final class DashboardJsonControllerTest extends TestCase
 
             protected function receiptAmountLabel(object $receipt): string
             {
-                self::assertSame(120.5, $receipt->amount);
+                \PHPUnit\Framework\Assert::assertSame(120.5, $receipt->amount);
 
                 return 'R$ 120,50';
             }
