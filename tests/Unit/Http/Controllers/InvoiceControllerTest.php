@@ -4817,6 +4817,50 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame($receipt, $response->data['receipt'] ?? null);
         }
 
+        public function testDashboardFiltersValidateSortingDatesAndStatus(): void
+        {
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function filters(Request $request): array
+                {
+                    return $this->dashboardFilters($request);
+                }
+            };
+
+            $valid = $controller->filters(new Request([
+                'search' => '  Empresa Exemplo  ',
+                'status' => 'emitted',
+                'from' => '2026-01-01',
+                'to' => '2026-11-12',
+                'sort' => 'amount',
+                'direction' => 'asc',
+            ]));
+            self::assertSame([
+                'search' => 'Empresa Exemplo',
+                'status' => 'emitted',
+                'from' => '2026-01-01',
+                'to' => '2026-11-12',
+                'sort' => 'amount',
+                'direction' => 'asc',
+            ], $valid);
+
+            $invalid = $controller->filters(new Request([
+                'search' => ['not a string'],
+                'status' => 'emitted OR 1=1',
+                'from' => '2026-02-30',
+                'to' => '2026-13-01',
+                'sort' => 'receipt.id; DELETE FROM documents',
+                'direction' => 'SIDEWAYS',
+            ]));
+            self::assertSame([
+                'search' => '',
+                'status' => 'all',
+                'from' => '',
+                'to' => '',
+                'sort' => 'data_emissao',
+                'direction' => 'desc',
+            ], $invalid);
+        }
+
         public function testDashboardReturnsViewWithOperationalStats(): void
         {
             $controller = new class () extends UnitFederalControllerFixture {
