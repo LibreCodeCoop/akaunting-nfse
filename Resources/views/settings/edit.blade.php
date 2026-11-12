@@ -356,21 +356,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                         <p class="mt-1 text-sm text-gray-600">{{ trans('nfse::general.settings.email_footer_help') }}</p>
                     </header>
                     @can('update-nfse-settings')
-                        <form method="POST" action="{{ route('nfse.settings.email-footer') }}" class="space-y-3 p-4">
-                            @csrf
-                            @method('PATCH')
+                        <form id="nfse-email-footer-form" method="POST" class="space-y-3 p-4"
+                            data-read-url="{{ route('nfse.settings.email-footer.show') }}"
+                            data-write-url="{{ route('nfse.settings.email-footer') }}"
+                            data-csrf-token="{{ csrf_token() }}"
+                            data-saved-message="{{ trans('nfse::general.settings.email_footer_saved') }}"
+                            data-error-message="{{ trans('nfse::general.settings.email_footer_invalid') }}">
                             <label class="block text-sm" for="nfse-email-footer-message">
                                 {{ trans('nfse::general.settings.email_footer_message') }}
                                 <textarea id="nfse-email-footer-message" name="footer_message" rows="3"
-                                    maxlength="400" required class="mt-1 block w-full rounded border p-2">{{ old('footer_message', setting('nfse.email_footer_message', \Modules\Nfse\Application\NfseEmailFooter::DEFAULT_MESSAGE)) }}</textarea>
+                                    maxlength="400" required class="mt-1 block w-full rounded border p-2"></textarea>
                             </label>
                             <label class="block text-sm" for="nfse-email-footer-url">
                                 {{ trans('nfse::general.settings.email_footer_url') }}
                                 <input id="nfse-email-footer-url" name="footer_url" type="url" maxlength="512" required
-                                    value="{{ old('footer_url', setting('nfse.email_footer_url', \Modules\Nfse\Application\NfseEmailFooter::DEFAULT_URL)) }}"
                                     class="mt-1 block w-full rounded border p-2">
                             </label>
-                            <button type="submit" class="rounded bg-green-700 px-4 py-2 text-sm text-white">{{ trans('nfse::general.settings.email_footer_save') }}</button>
+                            <p id="nfse-email-footer-feedback" role="status" aria-live="polite" tabindex="-1" hidden></p>
+                            <button id="nfse-email-footer-save" type="submit" disabled
+                                class="rounded bg-green-700 px-4 py-2 text-sm text-white">{{ trans('nfse::general.settings.email_footer_save') }}</button>
                         </form>
                     @endcan
                 </section>
@@ -398,5 +402,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         </script>
         <script src="{{ asset('modules/Nfse/Resources/assets/js/company-profile-admin.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/company-profile-admin.js'))) }}" data-nfse-company-admin="true"></script>
         <script src="{{ asset('modules/Nfse/Resources/assets/js/artifact-settings-admin.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/artifact-settings-admin.js'))) }}" data-nfse-artifacts="true"></script>
+        <script src="{{ asset('modules/Nfse/Resources/assets/js/email-footer-admin.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/email-footer-admin.js'))) }}" data-nfse-email-footer="true"></script>
     </x-slot>
 </x-layouts.admin>
