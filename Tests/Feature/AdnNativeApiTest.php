@@ -58,6 +58,13 @@ final class AdnNativeApiTest extends FeatureTestCase
         $get = Request::create('/nfse/adn/distribution', 'GET', ['nsu' => 41,'lote' => true]);
         $browser = $controller->distribution($get)->getData(true);
         self::assertSame('<NFSe>synthetic document</NFSe>', $browser['data']['documents'][0]['xml']);
+
+        $sessionPost = Request::create('/nfse/adn/distribution/consult', 'POST', ['nsu' => 41,'lote' => true]);
+        $sessionPost->setRouteResolver(
+            static fn () => app('router')->getRoutes()->getByName('nfse.adn.distribution.consult'),
+        );
+        $browserPost = $controller->distribution($sessionPost)->getData(true);
+        self::assertSame('<NFSe>synthetic document</NFSe>', $browserPost['data']['documents'][0]['xml']);
     }
 
     public function testAllAdnRoutesRequireCorePermissions(): void
@@ -86,6 +93,7 @@ final class AdnNativeApiTest extends FeatureTestCase
             'nfse.adn.documents.preview' => 'permission:read-purchases-bills',
             'nfse.adn.documents.review-history' => 'permission:read-purchases-bills',
             'nfse.adn.distribution' => 'permission:read-nfse-settings',
+            'nfse.adn.distribution.consult' => 'permission:read-nfse-settings',
             'nfse.adn.review.ignore' => 'permission:update-purchases-bills',
             'nfse.adn.review.import' => 'permission:create-purchases-bills',
             'nfse.invoices.adn-events' => 'permission:read-sales-invoices',

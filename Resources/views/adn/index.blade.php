@@ -120,7 +120,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
             <div
                 id="adn-distribution-browser"
-                data-url="{{ route('nfse.adn.distribution') }}"
+                data-url="{{ route('nfse.adn.distribution.consult') }}"
+                data-csrf-token="{{ csrf_token() }}"
                 data-querying-label="{{ trans('nfse::general.adn.querying') }}"
                 data-error-label="{{ trans('nfse::general.adn.distribution_query_failed') }}"
                 role="region"

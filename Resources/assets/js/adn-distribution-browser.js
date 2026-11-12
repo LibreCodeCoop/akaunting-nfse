@@ -12,12 +12,12 @@
         root.NfseAdnDistributionBrowser = api;
     }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
-    function buildQuery(nsu, cnpj, batch) {
-        return new URLSearchParams({
-            nsu: String(nsu || '').trim() || '0',
-            cnpj: String(cnpj || '').trim(),
+    function buildPayload(nsu, cnpj, batch) {
+        return {
+            nsu: String(nsu ?? '').trim() || '0',
+            cnpj: String(cnpj ?? '').trim(),
             lote: batch ? '1' : '0',
-        }).toString();
+        };
     }
 
     function summarize(data) {
@@ -69,15 +69,16 @@
             summary.classList.add('hidden');
 
             try {
-                const response = await fetchImpl(
-                    url + '?' + buildQuery(nsuInput.value, cnpjInput.value, batchInput.checked),
-                    {
-                        headers: {
-                            Accept: 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
+                const response = await fetchImpl(url, {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': browser.dataset.csrfToken || '',
                     },
-                );
+                    body: JSON.stringify(buildPayload(nsuInput.value, cnpjInput.value, batchInput.checked)),
+                });
                 const payload = await response.json().catch(() => ({}));
 
                 if (!response.ok) {
@@ -125,7 +126,7 @@
     }
 
     return {
-        buildQuery,
+        buildPayload,
         init,
         summarize,
         boot,

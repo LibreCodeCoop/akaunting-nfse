@@ -667,3 +667,69 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     When I make a native API GET request to "/<company_id>/api/nfse/dashboard" with synthetic "no-permission" credentials
     Then the API response status should be 403
     And the API response should be JSON
+
+  Scenario: Native operational ADN consultation rejects an unauthenticated client without contacting ADN
+    Given the API client is a guest
+    When I make a "POST" JSON request to "/<company_id>/api/nfse/adn/distribution/consult" with body:
+      """
+      {"nsu":0,"lote":true}
+      """
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native operational ADN consultation requires fiscal read permission
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/adn/distribution/consult" with synthetic "no-permission" credentials and body:
+      """
+      {"nsu":0,"lote":true}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native operational ADN consultation rejects invalid NSU before remote contact
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/adn/distribution/consult" with synthetic "administrator" credentials and body:
+      """
+      {"nsu":-1,"lote":true}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native ADN consultation refuses selecting a different company
+    When I make a native API "POST" JSON request to "/<other_company_id>/api/nfse/adn/distribution/consult" with synthetic "administrator" credentials and body:
+      """
+      {"nsu":0,"lote":true}
+      """
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native municipal advisory consultation requires fiscal read permission
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/municipal-parameters/consult" with synthetic "no-permission" credentials and body:
+      """
+      {"municipio_ibge":"3303302","service_code":"010701000","competence":"2026-11-12"}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native municipal advisory consultation rejects an invalid competence before querying
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/municipal-parameters/consult" with synthetic "administrator" credentials and body:
+      """
+      {"municipio_ibge":"3303302","service_code":"010701000","competence":"2026-02-30"}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native municipal advisory consultation rejects an invalid service code before querying
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/municipal-parameters/consult" with synthetic "administrator" credentials and body:
+      """
+      {"municipio_ibge":"3303302","service_code":"not-a-service","competence":"2026-11-12"}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Browser operational ADN POST rejects an operator without fiscal permissions
+    Given the "no-permission" synthetic Akaunting user is authenticated
+    When I make a "POST" JSON request to "/<company_id>/nfse/adn/distribution/consult" with body:
+      """
+      {"nsu":0,"lote":true}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON

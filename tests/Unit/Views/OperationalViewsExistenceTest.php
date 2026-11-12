@@ -344,7 +344,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             );
 
             self::assertStringContainsString('id="adn-distribution-browser"', $content);
-            self::assertStringContainsString("route('nfse.adn.distribution')", $content);
+            self::assertStringContainsString("route('nfse.adn.distribution.consult')", $content);
+            self::assertStringContainsString('data-csrf-token="{{ csrf_token() }}"', $content);
             self::assertStringContainsString('id="adn-distribution-query"', $content);
             self::assertStringContainsString('id="adn-summary-matched"', $content);
             self::assertStringContainsString('id="adn-summary-unmatched"', $content);

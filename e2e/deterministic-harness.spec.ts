@@ -15,7 +15,8 @@ test('deterministic ADN browser reaches fiscal transport without real A1 or gove
   await expect(page.locator('#adn-nsu')).toHaveValue('0');
 
   const distributionResponse = page.waitForResponse(
-    (response) => response.url().includes('/nfse/adn/distribution?') && response.request().method() === 'GET',
+    (response) => response.url().endsWith('/nfse/adn/distribution/consult')
+      && response.request().method() === 'POST',
     { timeout: 15_000 },
   );
 
@@ -23,6 +24,10 @@ test('deterministic ADN browser reaches fiscal transport without real A1 or gove
 
   const response = await distributionResponse;
   expect(response.ok()).toBeTruthy();
+  expect(response.request().headers()['x-csrf-token']).toBeTruthy();
+  expect(response.request().postDataJSON()).toMatchObject({
+    nsu: '0', cnpj: '11222333000181', lote: '1',
+  });
   await expect(page.locator('#adn-distribution-status')).not.toContainText(/error|erro/i);
   await expect(page.locator('#adn-distribution-summary')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('#adn-summary-status')).toHaveText('PROCESSADO');

@@ -639,10 +639,11 @@ class AdnController extends Controller
 
         try {
             $result = $this->fetchAdnDistribution((int) $rawNsu, $cnpj !== '' ? $cnpj : null, $lote);
-            if (method_exists($request, 'isMethod') && $request->isMethod('post')) {
-                // The operational API reports the remote cursor and review
-                // metadata, never XML bodies. Authenticated browser GET keeps
-                // the full document detail required by its review UI.
+            if (method_exists($request, 'isMethod') && $request->isMethod('post')
+                && !$request->routeIs('nfse.adn.distribution.consult')) {
+                // The external operational API reports remote cursors and
+                // review metadata, never raw XML. The session-protected
+                // browser POST retains document details for the review UI.
                 $result['documents'] = array_map(static function (mixed $row): array {
                     if (!is_array($row)) {
                         return [];

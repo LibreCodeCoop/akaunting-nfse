@@ -118,6 +118,10 @@ Route::admin('nfse', function () {
     Route::get('adn', [AdnController::class, 'index'])->middleware('permission:read-purchases-bills')->name('adn.index');
     Route::get('adn/distribution', [AdnController::class, 'distribution'])
         ->middleware('permission:read-nfse-settings')->name('adn.distribution');
+    // Explicit remote consultation in the authenticated browser. The old
+    // GET remains solely for compatibility with existing deep links.
+    Route::post('adn/distribution/consult', [AdnController::class, 'distribution'])
+        ->middleware('permission:read-nfse-settings')->name('adn.distribution.consult');
     Route::get('adn/review-options', [AdnController::class, 'reviewOptions'])
         ->middleware('permission:read-purchases-bills')->name('adn.review-options');
     Route::get('adn/documents', [AdnController::class, 'documents'])
