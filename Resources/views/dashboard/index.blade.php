@@ -113,7 +113,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
                                 <td class="px-3 py-3">{{ $receipt->customer_name ?: '—' }}</td>
                                 <td class="px-3 py-3 whitespace-nowrap">
                                     @if ($receipt->data_emissao)
-                                        <x-date :date="$receipt->data_emissao" />
+                                        @php($issuedAt = \App\Utilities\Date::parse($receipt->data_emissao))
+                                        <time datetime="{{ $issuedAt->toIso8601String() }}"
+                                            title="{{ $issuedAt->format('d/m/Y H:i:s') }}">
+                                            <x-date :date="$receipt->data_emissao" />
+                                        </time>
                                     @else
                                         —
                                     @endif
