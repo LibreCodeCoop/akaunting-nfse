@@ -765,11 +765,17 @@ class SettingsController extends Controller
             return $this->jsonResponse(['message' => 'NFS-e company profile is not configured.'], 422);
         }
 
-        // Both the authenticated browser GET and the operational POST use
-        // one validation and snapshot-reconciliation service.
-        $municipio = trim((string) $request->input('municipio_ibge', $fiscal['municipio_ibge'] ?? ''));
-        $serviceCode = preg_replace('/[^0-9]/', '', (string) $request->input('service_code', '')) ?? '';
-        $competence = trim((string) $request->input('competence', date('Y-m-d')));
+        // Preserve the existing GET query contract; the operational POST
+        // supplies the same typed values in its JSON request body.
+        $municipio = trim((string) ($request->isMethod('post')
+            ? $request->input('municipio_ibge', $fiscal['municipio_ibge'] ?? '')
+            : $request->query('municipio_ibge', $fiscal['municipio_ibge'] ?? '')));
+        $serviceCode = preg_replace('/[^0-9]/', '', (string) ($request->isMethod('post')
+            ? $request->input('service_code', '')
+            : $request->query('service_code', ''))) ?? '';
+        $competence = trim((string) ($request->isMethod('post')
+            ? $request->input('competence', date('Y-m-d'))
+            : $request->query('competence', date('Y-m-d'))));
 
         if (preg_match('/^\\d{7}$/', $municipio) !== 1) {
             return $this->jsonResponse([
