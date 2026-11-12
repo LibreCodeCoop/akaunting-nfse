@@ -39,6 +39,20 @@ final class AuxiliaryApiParityTest extends FeatureTestCase
         }
     }
 
+    public function testMunicipalConsultationUsesExplicitPostWithExistingCoreAuthorization(): void
+    {
+        $consult = Route::getRoutes()->getByName('api.nfse.municipal-parameters.consult');
+        $legacy = Route::getRoutes()->getByName('api.nfse.municipal-parameters.index');
+
+        self::assertNotNull($consult);
+        self::assertNotNull($legacy);
+        self::assertContains('POST', $consult->methods());
+        self::assertContains('GET', $legacy->methods());
+        self::assertContains('api', $consult->gatherMiddleware());
+        self::assertContains('permission:read-nfse-settings', $consult->gatherMiddleware());
+        self::assertSame($legacy->getActionName(), $consult->getActionName());
+    }
+
     public function testEmailFooterIsReadAndWrittenThroughJsonWithoutServerRenderedValues(): void
     {
         $this->loginAs();

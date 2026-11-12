@@ -13,12 +13,52 @@ use App\Models\Common\Item;
 use App\Models\Document\Document;
 use App\Models\Setting\Category;
 use App\Traits\Permissions;
+use Illuminate\Http\Request;
+use Modules\Nfse\Http\Controllers\AdnController;
 use Modules\Nfse\Models\AdnSyncDocument;
 use Tests\Feature\FeatureTestCase;
 
 final class AdnNativeApiTest extends FeatureTestCase
 {
     use Permissions;
+
+    public function testOperationalDistributionPostRedactsDocumentXmlWithoutChangingBrowserGet(): void
+    {
+        $controller = new class extends AdnController {
+            protected function companyCnpjForAdn(): string
+            {
+                return '12345678000199';
+            }
+
+            protected function fetchAdnDistribution(int $nsu, ?string $cnpj, bool $lote): array
+            {
+                \PHPUnit\Framework\Assert::assertSame(41, $nsu);
+                \PHPUnit\Framework\Assert::assertSame('12345678000199', $cnpj);
+                \PHPUnit\Framework\Assert::assertTrue($lote);
+
+                return [
+                    'ultimo_nsu' => '42',
+                    'status_processamento' => 'success',
+                    'documents' => [[
+                        'nsu' => '42','chave_acesso' => 'synthetic-key',
+                        'signature_integrity' => 'valid',
+                        'xml' => '<NFSe>synthetic document</NFSe>',
+                    ]],
+                    'reconciliation' => ['matched' => 0,'unmatched' => 1],
+                ];
+            }
+        };
+
+        $post = Request::create('/nfse/adn/distribution/consult', 'POST', ['nsu' => 41, 'lote' => true]);
+        $result = $controller->distribution($post)->getData(true);
+        self::assertSame('42', $result['data']['ultimo_nsu']);
+        self::assertArrayNotHasKey('xml', $result['data']['documents'][0]);
+        self::assertSame('valid', $result['data']['documents'][0]['signature_integrity']);
+
+        $get = Request::create('/nfse/adn/distribution', 'GET', ['nsu' => 41,'lote' => true]);
+        $browser = $controller->distribution($get)->getData(true);
+        self::assertSame('<NFSe>synthetic document</NFSe>', $browser['data']['documents'][0]['xml']);
+    }
 
     public function testAllAdnRoutesRequireCorePermissions(): void
     {
@@ -28,6 +68,7 @@ final class AdnNativeApiTest extends FeatureTestCase
             'api.nfse.adn.documents.preview' => 'permission:read-purchases-bills',
             'api.nfse.adn.documents.review-history' => 'permission:read-purchases-bills',
             'api.nfse.adn.distribution' => 'permission:read-nfse-settings',
+            'api.nfse.adn.distribution.consult' => 'permission:read-nfse-settings',
             'api.nfse.adn.documents.ignore' => 'permission:update-purchases-bills',
             'api.nfse.adn.documents.import' => 'permission:create-purchases-bills',
             'api.nfse.invoices.adn-events' => 'permission:read-sales-invoices',

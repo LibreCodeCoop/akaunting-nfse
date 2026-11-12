@@ -765,9 +765,11 @@ class SettingsController extends Controller
             return $this->jsonResponse(['message' => 'NFS-e company profile is not configured.'], 422);
         }
 
-        $municipio = trim((string) $request->query('municipio_ibge', $fiscal['municipio_ibge'] ?? ''));
-        $serviceCode = preg_replace('/[^0-9]/', '', (string) $request->query('service_code', '')) ?? '';
-        $competence = trim((string) $request->query('competence', date('Y-m-d')));
+        // Both the authenticated browser GET and the operational POST use
+        // one validation and snapshot-reconciliation service.
+        $municipio = trim((string) $request->input('municipio_ibge', $fiscal['municipio_ibge'] ?? ''));
+        $serviceCode = preg_replace('/[^0-9]/', '', (string) $request->input('service_code', '')) ?? '';
+        $competence = trim((string) $request->input('competence', date('Y-m-d')));
 
         if (preg_match('/^\\d{7}$/', $municipio) !== 1) {
             return $this->jsonResponse([

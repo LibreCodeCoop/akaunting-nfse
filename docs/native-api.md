@@ -537,6 +537,19 @@ emission pipeline.
 | List municipalities of a UF | `GET ibge/municipalities/{uf}` | `read-nfse-settings` |
 | Search LC 116 service codes | `GET lc116/services` | `read-nfse-settings` |
 | Consult municipal service parameters | `GET municipal-parameters` | `read-nfse-settings` |
+| Consult and persist municipal advisory evidence (explicit operational call) | `POST municipal-parameters/consult` | `read-nfse-settings` |
+| Consult the national ADN distribution service (explicit operational call) | `POST adn/distribution/consult` | `read-nfse-settings` |
+
+The two additional operational POST resources reuse the existing controllers
+and active-company certificate. They are **not** GET-safe or passive reads:
+ADN calls the national distribution service; municipal-parameters may persist
+an advisory snapshot. Clients must require user approval, validate the active
+company and avoid blind retries on ambiguous results. The ADN operational
+POST returns metadata with `documents[*].xml` excluded; use the separately
+authorized document review route to examine persisted evidence. The legacy
+browser GET paths are retained for compatibility, not discovered as pure MCP
+reads. Both POST endpoints require native API authentication and preserve the
+existing settings-read ACL.
 
 A browser template is allowed to render the controls, but it no longer embeds
 saved email-footer values or submits the footer or bulk-refresh actions as

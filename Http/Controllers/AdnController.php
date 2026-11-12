@@ -605,14 +605,14 @@ class AdnController extends Controller
 
     public function distribution(Request $request): JsonResponse
     {
-        $rawNsu = $request->query('nsu', 0);
+        $rawNsu = $request->input('nsu', 0);
         if (!is_numeric($rawNsu) || (int) $rawNsu < 0) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.adn.invalid_nsu'),
             ], 422);
         }
 
-        $cnpjInput = $request->query('cnpj');
+        $cnpjInput = $request->input('cnpj');
         $cnpj = strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $cnpjInput) ?? '');
 
         if ($cnpj !== '' && preg_match('/^[A-Z0-9]{12}\\d{2}$/', $cnpj) !== 1) {
@@ -634,13 +634,27 @@ class AdnController extends Controller
             $cnpj = $issuerCnpj;
         }
 
-        $loteRaw = strtolower(trim((string) $request->query('lote', '1')));
+        $loteRaw = strtolower(trim((string) $request->input('lote', '1')));
         $lote = in_array($loteRaw, ['1', 'true', 'on', 'yes'], true);
 
         try {
-            return $this->jsonResponse([
-                'data' => $this->fetchAdnDistribution((int) $rawNsu, $cnpj !== '' ? $cnpj : null, $lote),
-            ]);
+            $result = $this->fetchAdnDistribution((int) $rawNsu, $cnpj !== '' ? $cnpj : null, $lote);
+            if ($request->isMethod('post')) {
+                // The operational API reports the remote cursor and review
+                // metadata, never XML bodies. Authenticated browser GET keeps
+                // the full document detail required by its review UI.
+                $result['documents'] = array_map(static function (mixed $row): array {
+                    if (!is_array($row)) {
+                        return [];
+                    }
+
+                    unset($row['xml']);
+
+                    return $row;
+                }, is_array($result['documents'] ?? null) ? $result['documents'] : []);
+            }
+
+            return $this->jsonResponse(['data' => $result]);
         } catch (\Throwable) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.adn.distribution_query_failed'),

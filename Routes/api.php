@@ -125,6 +125,11 @@ Route::api('nfse', function (): void {
     Route::get('adn/distribution', [AdnController::class, 'distribution'])
         ->middleware('permission:read-nfse-settings')
         ->name('adn.distribution');
+    // This consultation reaches the national ADN service; POST makes its
+    // external side effects explicit for clients requiring approval.
+    Route::post('adn/distribution/consult', [AdnController::class, 'distribution'])
+        ->middleware('permission:read-nfse-settings')
+        ->name('adn.distribution.consult');
     Route::get('invoices/{invoice}/adn-events', [AdnController::class, 'events'])
         ->middleware('permission:read-sales-invoices')
         ->name('invoices.adn-events');
@@ -246,6 +251,10 @@ Route::api('nfse', function (): void {
     // Keep the native HTTP resource, but never advertise it as side-effect-free to MCP.
     Route::get('municipal-parameters', [SettingsController::class, 'municipalParameters'])
         ->middleware('permission:read-nfse-settings')->name('municipal-parameters.index');
+    // The snapshot service may persist verified advisory evidence. External
+    // refresh is an operational POST; a cached GET is not assumed pure.
+    Route::post('municipal-parameters/consult', [SettingsController::class, 'municipalParameters'])
+        ->middleware('permission:read-nfse-settings')->name('municipal-parameters.consult');
 
     Route::get('invoices/{invoice}/emission-attempts', [EmissionAttemptController::class, 'index'])
         ->middleware('permission:read-sales-invoices')
