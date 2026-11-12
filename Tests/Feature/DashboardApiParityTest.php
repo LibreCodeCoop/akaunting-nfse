@@ -34,7 +34,7 @@ final class DashboardApiParityTest extends FeatureTestCase
             ->assertOk()
             ->assertJsonStructure(['data' => [
                 'stats' => ['total', 'emitted', 'cancelled', 'sandbox_mode'],
-                'recent_receipts' => [['invoice_id', 'nfse_number', 'status', 'invoice_url']],
+                'recent_receipts' => [['invoice_id', 'nfse_number', 'status', 'amount_label', 'invoice_url']],
             ]])
             ->assertJsonPath('data.recent_receipts.0.nfse_number', 'SYNTHETIC-DASHBOARD-2026');
 

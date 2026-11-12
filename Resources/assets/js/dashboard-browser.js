@@ -45,7 +45,7 @@
             if (data.recent_receipts.length === 0) {
                 const row = documentRef.createElement('tr');
                 const cell = td(row, root.dataset.emptyMessage);
-                cell.colSpan = 5;
+                cell.colSpan = 6;
                 rows.appendChild(row);
                 return;
             }
@@ -53,13 +53,15 @@
             for (const receipt of data.recent_receipts) {
                 if (!receipt || !Number.isSafeInteger(receipt.invoice_id) || receipt.invoice_id <= 0
                     || typeof receipt.invoice_url !== 'string'
-                    || !receipt.invoice_url.startsWith('/')) {
+                    || !receipt.invoice_url.startsWith('/')
+                    || typeof receipt.amount_label !== 'string') {
                     throw new Error('Invalid fiscal dashboard receipt');
                 }
                 const row = documentRef.createElement('tr');
                 td(row, receipt.nfse_number);
                 td(row, receipt.customer_name);
                 td(row, receipt.issue_date);
+                td(row, receipt.amount_label);
                 td(row, receipt.status_label);
                 const actions = td(row, '');
                 actions.className = 'p-3 text-right';

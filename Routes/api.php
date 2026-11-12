@@ -10,6 +10,7 @@ use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\FiscalEventEvidenceController;
 use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
+use Modules\Nfse\Http\Controllers\DashboardJsonController;
 use Modules\Nfse\Http\Controllers\InvoiceFiscalDecisionController;
 use Modules\Nfse\Http\Controllers\CategoryIssuancePolicyController;
 use Modules\Nfse\Http\Controllers\ApiCapabilityController;
@@ -31,7 +32,7 @@ Route::api('nfse', function (): void {
     // Authenticated API capability listing, never an arbitrary route executor.
     Route::get('discovery', [ApiCapabilityController::class, 'index'])
         ->name('discovery.index');
-    Route::get('dashboard', [InvoiceController::class, 'dashboardData'])
+    Route::get('dashboard', [DashboardJsonController::class, 'dashboardData'])
         ->middleware('permission:read-sales-invoices')
         ->defaults('mcp_read_contract', [
             'version' => 1, 'scope' => 'company',

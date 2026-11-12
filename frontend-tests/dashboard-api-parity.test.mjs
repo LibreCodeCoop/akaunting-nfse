@@ -46,7 +46,7 @@ test('dashboard loads JSON without rendering untrusted data as HTML', async () =
             stats: { total: 2, emitted: 1, cancelled: 1, sandbox_mode: false },
             recent_receipts: [{
                 invoice_id: 13, nfse_number: '43', customer_name: '<script>not HTML</script>',
-                issue_date: '2026-11-11', status_label: 'Emitted', invoice_url: '/1/sales/invoices/13',
+                issue_date: '2026-11-11', amount_label: 'R$ 120,00', status_label: 'Emitted', invoice_url: '/1/sales/invoices/13',
             }],
         } }) };
     });
@@ -54,7 +54,8 @@ test('dashboard loads JSON without rendering untrusted data as HTML', async () =
     assert.equal(els['nfse-dashboard-total'].textContent, '2');
     assert.equal(els['nfse-dashboard-environment'].textContent, 'Production');
     assert.equal(rows.children[0].children[1].textContent, '<script>not HTML</script>');
-    assert.equal(rows.children[0].children[4].children[0].href, '/1/sales/invoices/13');
+    assert.equal(rows.children[0].children[3].textContent, 'R$ 120,00');
+    assert.equal(rows.children[0].children[5].children[0].href, '/1/sales/invoices/13');
     assert.equal(calls[0].options.headers.Accept, 'application/json');
     assert.equal(calls[0].options.credentials, 'same-origin');
 });

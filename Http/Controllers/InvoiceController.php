@@ -92,51 +92,82 @@ class InvoiceController extends Controller
 
     protected string $indexSortDirection = 'desc';
 
-    public function dashboard(): \Illuminate\View\View
+    public function dashboard(?Request $request = null): \Illuminate\View\View
     {
-        // Presentation only: protected fiscal data is fetched through the JSON
-        // resource used by native API clients, never embedded in HTML.
-        return view('nfse::dashboard.index');
+        $filters = $this->dashboardFilters($this->currentRequest($request));
+        $stats = $this->dashboardStats();
+        $recentReceipts = $this->dashboardRecentReceipts();
+
+        return view('nfse::dashboard.index', compact('stats', 'recentReceipts', 'filters'));
     }
 
-    public function dashboardData(): JsonResponse
+    /** @return array{search: string, status: string, from: string, to: string, sort: string, direction: string} */
+    protected function dashboardFilters(?Request $request): array
     {
-        $receipts = [];
-        foreach ($this->dashboardRecentReceipts() as $receipt) {
-            $invoiceId = (int) $receipt->invoice_id;
-            $status = (string) ($receipt->status ?: 'unknown');
-            $receipts[] = [
-                'invoice_id' => $invoiceId,
-                'nfse_number' => (string) ($receipt->nfse_number ?: ''),
-                'customer_name' => (string) ($receipt->customer_name ?: ''),
-                'issue_date' => (string) ($receipt->data_emissao ?: ''),
-                'status' => $status,
-                'status_label' => (string) trans('nfse::general.native_invoice.status_' . $status),
-                'invoice_url' => (string) parse_url(route('invoices.show', $invoiceId), PHP_URL_PATH),
-            ];
-        }
+        $query = static function (string $key) use ($request): string {
+            $value = $request?->query($key, '');
 
-        return response()->json(['data' => [
-            'stats' => $this->dashboardStats(),
-            'recent_receipts' => $receipts,
-        ]]);
+            return is_string($value) ? trim($value) : '';
+        };
+        $date = static function (string $value): string {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+                return '';
+            }
+            [$year, $month, $day] = array_map('intval', explode('-', $value));
+
+            return checkdate($month, $day, $year) ? $value : '';
+        };
+
+        return [
+            'search' => mb_substr($query('search'), 0, 100),
+            'status' => in_array($query('status'), ['emitted', 'cancelled', 'processing', 'substituted'], true) ? $query('status') : 'all',
+            'from' => $date($query('from')),
+            'to' => $date($query('to')),
+            'sort' => in_array($query('sort'), ['nfse_number', 'customer', 'data_emissao', 'amount', 'status'], true) ? $query('sort') : 'data_emissao',
+            'direction' => in_array($query('direction'), ['asc', 'desc'], true) ? $query('direction') : 'desc',
+        ];
     }
 
-    /**
-     * @return list<object>
-     */
+    /** @return list<object> */
     protected function dashboardRecentReceipts(): array
     {
-        return DB::select(
-            'SELECT receipt.id, receipt.invoice_id, receipt.nfse_number, receipt.status,'
-            . ' receipt.data_emissao, document.document_number, contact.name AS customer_name'
+        $filters = $this->dashboardFilters($this->currentRequest(null));
+        $sortColumns = [
+            'nfse_number' => 'receipt.nfse_number',
+            'customer' => 'contact.name',
+            'data_emissao' => 'receipt.data_emissao',
+            'amount' => 'document.amount',
+            'status' => 'receipt.status',
+        ];
+        $sql = 'SELECT receipt.id, receipt.invoice_id, receipt.nfse_number, receipt.status,'
+            . ' receipt.data_emissao, document.document_number, document.amount,'
+            . ' document.currency_code, contact.name AS customer_name'
             . ' FROM nfse_receipts AS receipt'
             . ' INNER JOIN documents AS document ON document.id = receipt.invoice_id'
             . ' LEFT JOIN contacts AS contact ON contact.id = document.contact_id'
-            . ' WHERE document.company_id = ? AND document.type = ?'
-            . ' ORDER BY receipt.id DESC LIMIT 10',
-            [(int) company_id(), Invoice::INVOICE_TYPE],
-        );
+            . ' WHERE document.company_id = ? AND document.type = ?';
+        $bindings = [(int) company_id(), Invoice::INVOICE_TYPE];
+        if ($filters['status'] !== 'all') {
+            $sql .= ' AND receipt.status = ?';
+            $bindings[] = $filters['status'];
+        }
+        if ($filters['search'] !== '') {
+            $sql .= ' AND (receipt.nfse_number LIKE ? OR contact.name LIKE ? OR document.document_number LIKE ?)';
+            $term = '%' . addcslashes($filters['search'], '%_\\') . '%';
+            array_push($bindings, $term, $term, $term);
+        }
+        if ($filters['from'] !== '') {
+            $sql .= ' AND receipt.data_emissao >= ?';
+            $bindings[] = $filters['from'];
+        }
+        if ($filters['to'] !== '') {
+            $sql .= ' AND receipt.data_emissao < ?';
+            $bindings[] = (new \DateTimeImmutable($filters['to']))->modify('+1 day')->format('Y-m-d');
+        }
+        $sql .= ' ORDER BY ' . $sortColumns[$filters['sort']] . ' ' . strtoupper($filters['direction'])
+            . ', receipt.id DESC LIMIT 10';
+
+        return DB::select($sql, $bindings);
     }
 
     public function fiscalLedger(?Request $request = null): \Illuminate\View\View
@@ -1406,9 +1437,8 @@ class InvoiceController extends Controller
         }
     }
 
-    public function refreshAll(?Request $request = null): RedirectResponse|JsonResponse
+    public function refreshAll(): RedirectResponse
     {
-        $request = $this->currentRequest($request);
         $updated = 0;
         $failed = 0;
 
@@ -1420,32 +1450,14 @@ class InvoiceController extends Controller
                 $companyId,
             );
         } catch (\DomainException) {
-            return $this->refreshAllResponse(
-                $request,
-                'warning',
-                trans('nfse::general.invoices.emit_blocked_not_ready'),
-                0,
-                0,
-                422
-            );
+            return redirect()->route('nfse.invoices.index')
+                ->with('warning', trans('nfse::general.invoices.emit_blocked_not_ready'));
         } catch (SecretStoreException) {
-            return $this->refreshAllResponse(
-                $request,
-                'warning',
-                trans('nfse::general.nfse_secret_store_failed'),
-                0,
-                0,
-                422
-            );
+            return redirect()->route('nfse.invoices.index')
+                ->with('warning', trans('nfse::general.nfse_secret_store_failed'));
         } catch (PfxImportException) {
-            return $this->refreshAllResponse(
-                $request,
-                'warning',
-                trans('nfse::general.nfse_pfx_import_failed'),
-                0,
-                0,
-                422
-            );
+            return redirect()->route('nfse.invoices.index')
+                ->with('warning', trans('nfse::general.nfse_pfx_import_failed'));
         }
 
         try {
@@ -1472,47 +1484,15 @@ class InvoiceController extends Controller
         }
 
         if ($failed === 0) {
-            return $this->refreshAllResponse(
-                $request,
-                'success',
-                trans('nfse::general.nfse_refresh_all_done', ['count' => $updated]),
-                $updated,
-                0
-            );
+            return redirect()->route('nfse.invoices.index')
+                ->with('success', trans('nfse::general.nfse_refresh_all_done', ['count' => $updated]));
         }
 
-        return $this->refreshAllResponse(
-            $request,
-            'warning',
-            trans('nfse::general.nfse_refresh_all_partial', [
+        return redirect()->route('nfse.invoices.index')
+            ->with('warning', trans('nfse::general.nfse_refresh_all_partial', [
                 'updated' => $updated,
                 'failed' => $failed,
-            ]),
-            $updated,
-            $failed
-        );
-    }
-
-    /** Return structured progress to JSON callers without altering the legacy UI contract. */
-    private function refreshAllResponse(
-        ?Request $request,
-        string $level,
-        string $message,
-        int $updated,
-        int $failed,
-        int $status = 200,
-    ): RedirectResponse|JsonResponse {
-        if ($request?->expectsJson()) {
-            return response()->json([
-                'success' => $level === 'success',
-                'status' => $level,
-                'message' => $message,
-                'updated' => $updated,
-                'failed' => $failed,
-            ], $status);
-        }
-
-        return redirect()->route('nfse.invoices.index')->with($level, $message);
+            ]));
     }
 
     public function reemit(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse

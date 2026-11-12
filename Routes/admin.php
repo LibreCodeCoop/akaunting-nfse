@@ -19,6 +19,7 @@ use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\FiscalEventEvidenceController;
 use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
+use Modules\Nfse\Http\Controllers\DashboardJsonController;
 use Modules\Nfse\Http\Controllers\InvoiceFiscalDecisionController;
 use Modules\Nfse\Http\Controllers\CategoryIssuancePolicyController;
 use Modules\Nfse\Http\Controllers\LegacyInvoiceController;
@@ -35,9 +36,9 @@ Route::admin('nfse', function () {
     Route::post('dps/advance', [DpsReadinessController::class, 'advance'])
         ->middleware('permission:update-nfse-settings')->name('dps.advance');
 
-    Route::get('/', [InvoiceController::class, 'dashboard'])
+    Route::get('/', [DashboardJsonController::class, 'dashboard'])
         ->middleware('permission:read-sales-invoices')->name('dashboard.index');
-    Route::get('dashboard/data', [InvoiceController::class, 'dashboardData'])
+    Route::get('dashboard/data', [DashboardJsonController::class, 'dashboardData'])
         ->middleware('permission:read-sales-invoices')->name('dashboard.data');
 
     // Settings
