@@ -9,6 +9,8 @@ namespace App\Models\Document {
     if (!class_exists(\App\Models\Document\Document::class, false)) {
         class Document
         {
+            public const INVOICE_TYPE = 'invoice';
+
             public int $company_id = 1;
 
             // Attributes supplied by Akaunting's Eloquent models in production.

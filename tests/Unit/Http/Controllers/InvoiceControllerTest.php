@@ -4836,9 +4836,12 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ]));
             self::assertSame([
                 'search' => 'Empresa Exemplo',
+                'term' => 'Empresa Exemplo',
                 'status' => 'emitted',
+                'exclude_status' => false,
                 'from' => '2026-01-01',
                 'to' => '2026-11-12',
+                'date_operator' => 'range',
                 'sort' => 'amount',
                 'direction' => 'asc',
             ], $valid);
@@ -4853,12 +4856,121 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             ]));
             self::assertSame([
                 'search' => '',
+                'term' => '',
                 'status' => 'all',
+                'exclude_status' => false,
                 'from' => '',
                 'to' => '',
+                'date_operator' => 'range',
                 'sort' => 'data_emissao',
                 'direction' => 'desc',
             ], $invalid);
+        }
+
+        public function testDashboardNativeSearchStringCombinesTextMultipleStatusesAndDateRange(): void
+        {
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function filters(Request $request): array
+                {
+                    return $this->dashboardFilters($request);
+                }
+
+                public function sql(Request $request): array
+                {
+                    return $this->dashboardRecentReceiptsSql($this->dashboardFilters($request));
+                }
+            };
+
+            $request = new Request([
+                'search' => '"Empresa Exemplo" status:emitted,cancelled data_emissao>=2026-10-01 data_emissao<=2026-10-31',
+                'sort' => 'amount',
+                'direction' => 'asc',
+            ]);
+
+            $filters = $controller->filters($request);
+            self::assertSame('Empresa Exemplo', $filters['term']);
+            self::assertSame('emitted,cancelled', $filters['status']);
+            self::assertFalse($filters['exclude_status']);
+            self::assertSame('range', $filters['date_operator']);
+            self::assertSame('2026-10-01', $filters['from']);
+            self::assertSame('2026-10-31', $filters['to']);
+
+            [$sql, $bindings] = $controller->sql($request);
+
+            self::assertStringContainsString('document.company_id = ? AND document.type = ?', $sql);
+            self::assertStringContainsString('receipt.status IN (?, ?)', $sql);
+            self::assertStringContainsString('receipt.data_emissao >= ?', $sql);
+            self::assertStringContainsString('receipt.data_emissao < ?', $sql);
+            self::assertStringContainsString('ORDER BY document.amount ASC, receipt.id DESC LIMIT 10', $sql);
+            self::assertSame(Invoice::INVOICE_TYPE, $bindings[1]);
+            self::assertSame([
+                'emitted',
+                'cancelled',
+                '%Empresa Exemplo%',
+                '%Empresa Exemplo%',
+                '%Empresa Exemplo%',
+                '2026-10-01',
+                '2026-11-01',
+            ], array_slice($bindings, 2));
+        }
+
+        public function testDashboardNativeSearchStringNegatesStatusAndFullDate(): void
+        {
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function filters(Request $request): array
+                {
+                    return $this->dashboardFilters($request);
+                }
+
+                public function sql(Request $request): array
+                {
+                    return $this->dashboardRecentReceiptsSql($this->dashboardFilters($request));
+                }
+            };
+
+            $request = new Request(['search' => 'not status:emitted not data_emissao:2026-10-09']);
+            $filters = $controller->filters($request);
+            self::assertTrue($filters['exclude_status']);
+            self::assertSame('emitted', $filters['status']);
+            self::assertSame('!=', $filters['date_operator']);
+            self::assertSame('', $filters['term']);
+
+            [$sql, $bindings] = $controller->sql($request);
+            self::assertStringContainsString('receipt.status NOT IN (?)', $sql);
+            self::assertStringContainsString('receipt.data_emissao IS NULL OR receipt.data_emissao < ? OR receipt.data_emissao >= ?', $sql);
+            self::assertSame(['emitted', '2026-10-09', '2026-10-10'], array_slice($bindings, 2));
+        }
+
+        public function testDashboardNativeSearchRejectsInvalidCalendarDatesAndSortInjection(): void
+        {
+            $controller = new class () extends UnitFederalControllerFixture {
+                public function filters(Request $request): array
+                {
+                    return $this->dashboardFilters($request);
+                }
+
+                public function sql(Request $request): array
+                {
+                    return $this->dashboardRecentReceiptsSql($this->dashboardFilters($request));
+                }
+            };
+
+            $request = new Request([
+                'search' => 'status:unknown data_emissao:2026-02-30',
+                'sort' => 'receipt.id; DROP TABLE documents',
+                'direction' => 'desc;--',
+            ]);
+            $filters = $controller->filters($request);
+            self::assertSame('all', $filters['status']);
+            self::assertSame('', $filters['from']);
+            self::assertSame('', $filters['to']);
+            self::assertSame('', $filters['term']);
+
+            [$sql, $bindings] = $controller->sql($request);
+            self::assertStringNotContainsString('DROP TABLE', $sql);
+            self::assertStringNotContainsString('receipt.data_emissao >= ?', $sql);
+            self::assertStringContainsString('ORDER BY receipt.data_emissao DESC, receipt.id DESC LIMIT 10', $sql);
+            self::assertCount(2, $bindings);
         }
 
         public function testDashboardReturnsViewWithOperationalStats(): void
