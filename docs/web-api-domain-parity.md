@@ -99,3 +99,38 @@ necessário:
 Referências: `Routes/api.php`, `Routes/admin.php`, `docs/native-api.md`,
 `tests/integration/features/nfse_native_api.feature` e
 `e2e/deterministic-harness.spec.ts`.
+
+## Auditoria pós-merge — 12/11/2026 (evidência parcial)
+
+A comparação independente de rotas utilizou o módulo NFS-e em
+`932802e714a259f117872182522af7ba853f7ac1` e o MCP em
+`f7e07b133ea831c99f67095cc88f35bc59f1034c`. O comando executado,
+sem rede nem bancos de dados, foi:
+
+```sh
+php bin/check-api-parity.php \
+  --module-source=/work/nfse/Routes/api.php \
+  --baseline=docs/contracts/pending-api-routes.json
+```
+
+Executado no checkout do MCP, o auditor encontrou **65 rotas NFS-e, 56
+cobertas pelo catálogo/descoberta MCP, nove pendentes, zero divergências de
+método e caminho**. Essa é uma validação estática de contratos de rota,
+**não** a homologação autenticada da API ou a prova de equivalência funcional.
+O workflow MCP ainda estava fixado em `cb221a6`; a correção está proposta em
+`LibreCodeCoop/akaunting-mcp#24` e aguarda revisão independente.
+
+| Fronteira | Evidência confirmada | Estado de aceite |
+| --- | --- | --- |
+| Caminhos e métodos NFS-e/MCP | Auditor independente contra `main`, 65/56/9, sem drift | Inventário confirmado; nove pendências conhecidas |
+| GETs legadas com efeito (`adn/distribution`, `municipal-parameters`) | Existem alternativas POST operacionais | Não classificar GET como leitura segura |
+| PFX, criação de perfil, Vault, CSV, XML/DANFSe e envio fiscal por e-mail | Sete encaminhamentos seguros declarados pelo MCP | Handoff humano não comprova execução direta |
+| Ações Web de fatura | `native-fiscal-panel.blade.php` ainda contém formulários POST/DELETE para decisão, evidência, atualização, substituição e cancelamento | Migração do consumidor Web para JSON pendente; preservar CSRF e confirmação |
+| Autenticação, ACL, isolamento, CSRF, estado inválido, idempotência | Cenários Behat/Playwright identificados na matriz acima | Necessária execução e evidência de resultados na revisão integrada atual |
+| Cliente HTTP independente | Nenhuma execução ponta a ponta foi realizada nesta auditoria | Não homologado |
+| MCP autenticado versus API e UI | Contratos e ferramentas inventariados, sem comparação ponta a ponta de efeitos persistidos | Não homologado |
+
+**Critério para atualizar o estado de qualquer linha:** anexar revisão exata,
+fixture sintética, identidade/permissão, chamada HTTP e resposta observada,
+verificação da persistência e teste negativo associado. A mera presença de
+testes ou rotas não transforma uma capacidade em homologada.
