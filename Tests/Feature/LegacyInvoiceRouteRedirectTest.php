@@ -39,6 +39,9 @@ final class LegacyInvoiceRouteRedirectTest extends FeatureTestCase
     {
         $this->loginAs()
             ->get(route('nfse.dashboard.index'))
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('<akaunting-search', false)
+            ->assertSee('data_emissao', false)
+            ->assertSee('status', false);
     }
 }
