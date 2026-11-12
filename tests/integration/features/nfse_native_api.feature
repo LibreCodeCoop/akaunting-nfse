@@ -645,7 +645,7 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
   Scenario: Native refresh-all denies users without financial write permission
     When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/refresh-all" with synthetic "no-permission" credentials and body:
       """
-      {}
+      {"request":"synthetic"}
       """
     Then the API response status should be 403
     And the API response should be JSON

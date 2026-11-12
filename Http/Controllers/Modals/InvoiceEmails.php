@@ -158,7 +158,7 @@ class InvoiceEmails extends Controller
                 && (int) $documentId === $routeId)), 404);
         $invoice = Invoice::findOrFail($routeId);
         abort_unless((int) $invoice->company_id === (int) company_id()
-            && (string) $invoice->type === Invoice::INVOICE_TYPE, 404);
+            && (string) $invoice->type === 'invoice', 404);
 
         try {
             $recipients = (new PostEmissionEmailRecipients())->normalize(

@@ -1234,7 +1234,7 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame(502, $response->getStatusCode());
             self::assertSame(400, $response->getData(true)['upstream']['http_status'] ?? null);
             self::assertArrayNotHasKey('payload', $response->getData(true)['upstream']);
-            self::assertStringNotContainsString('Código de serviço não administrado.', $response->getContent());
+            self::assertArrayNotHasKey('detail', $response->getData(true));
         }
 
         public function testMunicipalParametersRejectsInvalidInputBeforeOfficialQuery(): void

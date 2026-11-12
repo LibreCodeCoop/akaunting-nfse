@@ -1420,14 +1420,32 @@ class InvoiceController extends Controller
                 $companyId,
             );
         } catch (\DomainException) {
-            return $this->refreshAllResponse($request, 'warning',
-                trans('nfse::general.invoices.emit_blocked_not_ready'), 0, 0, 422);
+            return $this->refreshAllResponse(
+                $request,
+                'warning',
+                trans('nfse::general.invoices.emit_blocked_not_ready'),
+                0,
+                0,
+                422
+            );
         } catch (SecretStoreException) {
-            return $this->refreshAllResponse($request, 'warning',
-                trans('nfse::general.nfse_secret_store_failed'), 0, 0, 422);
+            return $this->refreshAllResponse(
+                $request,
+                'warning',
+                trans('nfse::general.nfse_secret_store_failed'),
+                0,
+                0,
+                422
+            );
         } catch (PfxImportException) {
-            return $this->refreshAllResponse($request, 'warning',
-                trans('nfse::general.nfse_pfx_import_failed'), 0, 0, 422);
+            return $this->refreshAllResponse(
+                $request,
+                'warning',
+                trans('nfse::general.nfse_pfx_import_failed'),
+                0,
+                0,
+                422
+            );
         }
 
         try {
@@ -1454,15 +1472,25 @@ class InvoiceController extends Controller
         }
 
         if ($failed === 0) {
-            return $this->refreshAllResponse($request, 'success',
-                trans('nfse::general.nfse_refresh_all_done', ['count' => $updated]), $updated, 0);
+            return $this->refreshAllResponse(
+                $request,
+                'success',
+                trans('nfse::general.nfse_refresh_all_done', ['count' => $updated]),
+                $updated,
+                0
+            );
         }
 
-        return $this->refreshAllResponse($request, 'warning',
+        return $this->refreshAllResponse(
+            $request,
+            'warning',
             trans('nfse::general.nfse_refresh_all_partial', [
                 'updated' => $updated,
                 'failed' => $failed,
-            ]), $updated, $failed);
+            ]),
+            $updated,
+            $failed
+        );
     }
 
     /** Return structured progress to JSON callers without altering the legacy UI contract. */

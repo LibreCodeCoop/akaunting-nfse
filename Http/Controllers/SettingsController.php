@@ -522,7 +522,7 @@ class SettingsController extends Controller
         $url = trim((string) $request->input('footer_url', ''));
 
         if ($message === '' || !(new \Modules\Nfse\Application\NfseEmailFooter())->isSafeUrl($url)) {
-            if ($request->expectsJson()) {
+            if (method_exists($request, 'expectsJson') && $request->expectsJson()) {
                 return response()->json(['message' => trans('nfse::general.settings.email_footer_invalid')], 422);
             }
 
@@ -536,7 +536,7 @@ class SettingsController extends Controller
         ]);
         setting()->save();
 
-        if ($request->expectsJson()) {
+        if (method_exists($request, 'expectsJson') && $request->expectsJson()) {
             return $this->emailFooter();
         }
 
