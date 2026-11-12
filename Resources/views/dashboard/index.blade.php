@@ -39,32 +39,94 @@ SPDX-License-Identifier: AGPL-3.0-or-later
             </div>
         </div>
 
-        <section class="bg-white border rounded p-4">
-            <h2 class="text-lg font-semibold mb-3">{{ trans('nfse::general.dashboard.recent_receipts') }}</h2>
+        <section class="bg-white border border-gray-200 rounded-lg p-4">
+            <div class="mb-3 flex flex-wrap justify-between items-center gap-2">
+                <h2 class="text-lg font-semibold">{{ trans('nfse::general.dashboard.recent_receipts') }}</h2>
+                <x-link href="{{ route('nfse.invoices.index') }}">{{ trans('nfse::general.dashboard.view_all') }}</x-link>
+            </div>
+            <x-form method="GET" action="{{ route('nfse.dashboard.index') }}">
+                <div class="mb-4 flex flex-wrap items-end gap-2">
+                    <label class="text-sm text-gray-600">
+                        {{ trans('nfse::general.dashboard.search') }}
+                        <input type="search" name="search" maxlength="100" value="{{ $filters['search'] }}"
+                            class="mt-1 block rounded border border-gray-300 px-3 py-2 text-sm" />
+                    </label>
+                    <label class="text-sm text-gray-600">
+                        {{ trans_choice('general.statuses', 1) }}
+                        <select name="status" class="mt-1 block rounded border border-gray-300 px-3 py-2 text-sm">
+                            @foreach (['all', 'emitted', 'processing', 'cancelled', 'substituted'] as $option)
+                                <option value="{{ $option }}" @selected($filters['status'] === $option)>
+                                    {{ trans('nfse::general.ledger.status_' . $option) }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </label>
+                    @foreach (['from', 'to'] as $dateField)
+                        <label class="text-sm text-gray-600">
+                            {{ trans('nfse::general.ledger.' . $dateField) }}
+                            <input type="date" name="{{ $dateField }}" value="{{ $filters[$dateField] }}"
+                                class="mt-1 block rounded border border-gray-300 px-3 py-2 text-sm" />
+                        </label>
+                    @endforeach
+                    <x-button type="submit">{{ trans('nfse::general.ledger.filter') }}</x-button>
+                    <x-link href="{{ route('nfse.dashboard.index') }}">{{ trans('nfse::general.dashboard.clear_filters') }}</x-link>
+                </div>
+            </x-form>
+            @php
+                $sortUrl = static function (string $column) use ($filters): string {
+                    return route('nfse.dashboard.index', array_merge(
+                        array_filter($filters, static fn ($value) => $value !== '' && $value !== 'all'),
+                        [
+                            'sort' => $column,
+                            'direction' => $filters['sort'] === $column && $filters['direction'] === 'asc' ? 'desc' : 'asc',
+                        ]
+                    ));
+                };
+            @endphp
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead>
+                    <thead class="border-b border-gray-200">
                         <tr>
-                            <th class="text-left p-3">{{ trans('nfse::general.invoices.nfse_number') }}</th>
-                            <th class="text-left p-3">{{ trans('nfse::general.invoices.customer') }}</th>
-                            <th class="text-left p-3">{{ trans('nfse::general.invoices.issue_date') }}</th>
-                            <th class="text-left p-3">{{ trans_choice('general.statuses', 1) }}</th>
-                            <th class="text-right p-3">{{ trans('general.actions') }}</th>
+                            @foreach ([
+                                'nfse_number' => trans('nfse::general.dashboard.number'),
+                                'customer' => trans('nfse::general.invoices.customer'),
+                                'data_emissao' => trans('nfse::general.dashboard.date'),
+                                'amount' => trans('general.amount'),
+                                'status' => trans_choice('general.statuses', 1),
+                            ] as $column => $label)
+                                <th scope="col" class="px-3 py-3 whitespace-nowrap {{ $column === 'amount' ? 'text-right' : 'text-left' }}">
+                                    <a href="{{ $sortUrl($column) }}" class="text-gray-600 hover:underline" aria-label="{{ $label }}: {{ trans('nfse::general.dashboard.sort') }}">
+                                        {{ $label }}
+                                        @if ($filters['sort'] === $column)
+                                            <span aria-hidden="true">{{ $filters['direction'] === 'asc' ? '↑' : '↓' }}</span>
+                                        @endif
+                                    </a>
+                                </th>
+                            @endforeach
+                            <th class="px-3 py-3 text-right">{{ trans('general.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($recentReceipts as $receipt)
-                            <tr>
-                                <td class="p-3">{{ $receipt->nfse_number ?: '—' }}</td>
-                                <td class="p-3">{{ $receipt->customer_name ?: '—' }}</td>
-                                <td class="p-3">{{ $receipt->data_emissao ?: '—' }}</td>
-                                <td class="p-3">{{ trans('nfse::general.native_invoice.status_' . ($receipt->status ?: 'unknown')) }}</td>
-                                <td class="p-3 text-right">
-                                    <a class="text-indigo-700 underline" href="{{ route('invoices.show', $receipt->invoice_id) }}">{{ trans('nfse::general.go_to_invoices') }}</a>
+                            <tr class="group hover:bg-gray-50 transition-colors">
+                                <td class="px-3 py-3 font-medium whitespace-nowrap">{{ $receipt->nfse_number ?: '—' }}</td>
+                                <td class="px-3 py-3">{{ $receipt->customer_name ?: '—' }}</td>
+                                <td class="px-3 py-3 whitespace-nowrap">
+                                    @if ($receipt->data_emissao)
+                                        <x-date :date="$receipt->data_emissao" />
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                                <td class="px-3 py-3 text-right whitespace-nowrap">{{ money($receipt->amount, $receipt->currency_code ?: default_currency(), true) }}</td>
+                                <td class="px-3 py-3">{{ trans('nfse::general.native_invoice.status_' . ($receipt->status ?: 'unknown')) }}</td>
+                                <td class="px-3 py-3 text-right whitespace-nowrap">
+                                    <a class="text-indigo-700 hover:underline" href="{{ route('invoices.show', $receipt->invoice_id) }}"
+                                        title="{{ trans('nfse::general.ledger.open_invoice') }}">{{ trans('nfse::general.dashboard.open') }}</a>
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="p-4 text-gray-500">{{ trans('nfse::general.dashboard.no_recent_receipts') }}</td></tr>
+                            <tr><td colspan="6" class="p-4 text-gray-500">{{ trans('nfse::general.dashboard.no_recent_receipts') }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

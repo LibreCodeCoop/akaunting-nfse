@@ -203,6 +203,13 @@ return [
     ],
 
     'dashboard' => [
+        'number' => 'Nº NFS-e',
+        'date' => 'Data',
+        'open' => 'Abrir',
+        'view_all' => 'Ver todas',
+        'search' => 'Buscar nota ou tomador',
+        'sort' => 'ordenar',
+        'clear_filters' => 'Limpar filtros',
         'recent_receipts' => 'Notas fiscais recentes',
         'no_recent_receipts' => 'Nenhuma nota fiscal encontrada',
         'menu_title' => 'NFS-e',

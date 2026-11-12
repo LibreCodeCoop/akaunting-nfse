@@ -203,6 +203,13 @@ return [
     ],
 
     'dashboard' => [
+        'number' => 'NFS-e no.',
+        'date' => 'Date',
+        'open' => 'Open',
+        'view_all' => 'View all',
+        'search' => 'Search receipt or customer',
+        'sort' => 'sort',
+        'clear_filters' => 'Clear filters',
          'recent_receipts' => 'Recent fiscal receipts',
         'no_recent_receipts' => 'No fiscal receipts found',
         'menu_title' => 'NFS-e',
