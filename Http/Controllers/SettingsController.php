@@ -769,13 +769,16 @@ class SettingsController extends Controller
         // values. Explicit query fallbacks preserve the existing unit-stub
         // and legacy browser GET contracts as well.
         $municipio = trim((string) $request->input(
-            'municipio_ibge', $request->query('municipio_ibge', $fiscal['municipio_ibge'] ?? ''),
+            'municipio_ibge',
+            $request->query('municipio_ibge', $fiscal['municipio_ibge'] ?? ''),
         ));
         $serviceCode = preg_replace('/[^0-9]/', '', (string) $request->input(
-            'service_code', $request->query('service_code', ''),
+            'service_code',
+            $request->query('service_code', ''),
         )) ?? '';
         $competence = trim((string) $request->input(
-            'competence', $request->query('competence', date('Y-m-d')),
+            'competence',
+            $request->query('competence', date('Y-m-d')),
         ));
 
         if (preg_match('/^\\d{7}$/', $municipio) !== 1) {

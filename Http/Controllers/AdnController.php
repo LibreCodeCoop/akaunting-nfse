@@ -639,7 +639,7 @@ class AdnController extends Controller
 
         try {
             $result = $this->fetchAdnDistribution((int) $rawNsu, $cnpj !== '' ? $cnpj : null, $lote);
-            if ($request->isMethod('post')) {
+            if (method_exists($request, 'isMethod') && $request->isMethod('post')) {
                 // The operational API reports the remote cursor and review
                 // metadata, never XML bodies. Authenticated browser GET keeps
                 // the full document detail required by its review UI.
