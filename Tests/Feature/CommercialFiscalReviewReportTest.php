@@ -11,6 +11,7 @@ use App\Models\Common\Item;
 use App\Models\Document\Document;
 use Modules\Nfse\Application\CommercialFiscalReviewReport;
 use Modules\Nfse\Models\ItemFiscalProfile;
+use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Models\NfseReceipt;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 use Tests\Feature\FeatureTestCase;
@@ -71,6 +72,34 @@ final class CommercialFiscalReviewReportTest extends FeatureTestCase
         self::assertSame('review_required', $rows->firstWhere('invoice_id', $cancelled->id)['status']);
     }
 
+    public function testUnresolvedDpsAttemptsWithoutReceiptsRequireFiscalReconciliation(): void
+    {
+        $this->loginAs();
+        $ambiguous = $this->invoice('2026-10-08');
+        $pending = $this->invoice('2026-10-09');
+        $resolved = $this->invoice('2026-10-10');
+        $foreign = $this->invoice('2026-10-11');
+        $foreign->forceFill(['company_id' => (int) company_id() + 1000])->saveQuietly();
+
+        $this->attempt($ambiguous, 'ambiguous');
+        $this->attempt($pending, 'pending');
+        $this->attempt($resolved, 'technical_failure');
+        $this->attempt($foreign, 'ambiguous');
+
+        $rows = collect((new CommercialFiscalReviewReport())->forInvoiceMonth((int) company_id(), '2026-10')['rows']);
+        self::assertSame('reconciliation_required', $rows->firstWhere('invoice_id', $ambiguous->id)['status']);
+        self::assertSame('reconciliation_required', $rows->firstWhere('invoice_id', $pending->id)['status']);
+        self::assertSame('outside_issuance_scope', $rows->firstWhere('invoice_id', $resolved->id)['status']);
+        self::assertNull($rows->firstWhere('invoice_id', $foreign->id));
+
+        $response = $this->get(route('nfse.closing.data', ['competence' => '2026-10']))->assertOk();
+        $apiRows = collect($response->json('data.commercial_review.rows'));
+        self::assertSame('reconciliation_required', $apiRows->firstWhere('invoice_id', $ambiguous->id)['status']);
+        self::assertSame('reconciliation_required', $apiRows->firstWhere('invoice_id', $pending->id)['status']);
+        self::assertSame(0, NfseReceipt::query()->count());
+        self::assertSame(4, NfseEmissionAttempt::query()->count());
+    }
+
     public function testOneAuthorizedReceiptCannotCompleteTwoFiscalGroups(): void
     {
         $this->loginAs();
@@ -118,6 +147,26 @@ final class CommercialFiscalReviewReportTest extends FeatureTestCase
             'nfse_number' => 'SYNTH-' . $invoice->id,
             'chave_acesso' => str_repeat('9', 50),
             'competence_date' => '2026-10-07', 'emission_group_key' => $groupKey,
+        ]);
+    }
+
+    private function attempt(Document $invoice, string $status): void
+    {
+        NfseEmissionAttempt::query()->create([
+            'company_id' => (int) $invoice->company_id,
+            'invoice_id' => (int) $invoice->id,
+            'dps_identifier' => 'SYNTH-REVIEW-' . $invoice->id,
+            'environment' => 2,
+            'attempt_number' => 1,
+            'payload_fingerprint' => str_repeat('a', 64),
+            'municipio_ibge' => '3304557',
+            'codigo_tributacao_nacional' => '010701',
+            'codigo_tributacao_municipal' => '000',
+            'codigo_servico' => '010701000',
+            'competence_date' => '2026-10-08',
+            'origin' => 'manual',
+            'status' => $status,
+            'started_at' => now(),
         ]);
     }
 }
