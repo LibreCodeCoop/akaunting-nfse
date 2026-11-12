@@ -545,11 +545,19 @@ and active-company certificate. They are **not** GET-safe or passive reads:
 ADN calls the national distribution service; municipal-parameters may persist
 an advisory snapshot. Clients must require user approval, validate the active
 company and avoid blind retries on ambiguous results. The ADN operational
-POST returns metadata with `documents[*].xml` excluded; use the separately
-authorized document review route to examine persisted evidence. The legacy
-browser GET paths are retained for compatibility, not discovered as pure MCP
-reads. Both POST endpoints require native API authentication and preserve the
-existing settings-read ACL.
+**external API POST** returns metadata with `documents[*].xml` excluded;
+use separately authorized document review routes for persisted evidence.
+
+The ADN browser button uses **`POST /{company_id}/nfse/adn/distribution/consult`**
+with a session CSRF token. This session endpoint calls the same controller
+and preserves the detailed document JSON required by the authenticated
+operator; nothing is consulted merely by opening the page. The previous
+browser GET and native GET remain for existing integrations, but are not
+advertised as pure MCP reads. A new native client must use POST. Both native
+POST endpoints retain Core authentication and the settings-read ACL.
+
+See [the Web/API/domain/test traceability matrix](web-api-domain-parity.md)
+for the complete #497 capability and acceptance inventory.
 
 A browser template is allowed to render the controls, but it no longer embeds
 saved email-footer values or submits the footer or bulk-refresh actions as
