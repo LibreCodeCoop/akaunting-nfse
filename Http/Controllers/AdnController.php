@@ -605,18 +605,14 @@ class AdnController extends Controller
 
     public function distribution(Request $request): JsonResponse
     {
-        $rawNsu = $request->isMethod('post')
-            ? $request->input('nsu', 0)
-            : $request->query('nsu', 0);
+        $rawNsu = $request->input('nsu', $request->query('nsu', 0));
         if (!is_numeric($rawNsu) || (int) $rawNsu < 0) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.adn.invalid_nsu'),
             ], 422);
         }
 
-        $cnpjInput = $request->isMethod('post')
-            ? $request->input('cnpj')
-            : $request->query('cnpj');
+        $cnpjInput = $request->input('cnpj', $request->query('cnpj'));
         $cnpj = strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $cnpjInput) ?? '');
 
         if ($cnpj !== '' && preg_match('/^[A-Z0-9]{12}\\d{2}$/', $cnpj) !== 1) {
@@ -638,9 +634,7 @@ class AdnController extends Controller
             $cnpj = $issuerCnpj;
         }
 
-        $loteRaw = strtolower(trim((string) ($request->isMethod('post')
-            ? $request->input('lote', '1')
-            : $request->query('lote', '1'))));
+        $loteRaw = strtolower(trim((string) $request->input('lote', $request->query('lote', '1'))));
         $lote = in_array($loteRaw, ['1', 'true', 'on', 'yes'], true);
 
         try {
