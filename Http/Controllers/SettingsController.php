@@ -502,7 +502,16 @@ class SettingsController extends Controller
         ]]);
     }
 
-    public function updateEmailFooter(Request $request): RedirectResponse
+    /** Email footer belongs to the company; both browser and API read one JSON contract. */
+    public function emailFooter(): JsonResponse
+    {
+        return response()->json(['data' => [
+            'footer_message' => (string) setting('nfse.email_footer_message', \Modules\Nfse\Application\NfseEmailFooter::DEFAULT_MESSAGE),
+            'footer_url' => (string) setting('nfse.email_footer_url', \Modules\Nfse\Application\NfseEmailFooter::DEFAULT_URL),
+        ]]);
+    }
+
+    public function updateEmailFooter(Request $request): RedirectResponse|JsonResponse
     {
         $request->validate([
             'footer_message' => 'required|string|max:400',
@@ -513,6 +522,10 @@ class SettingsController extends Controller
         $url = trim((string) $request->input('footer_url', ''));
 
         if ($message === '' || !(new \Modules\Nfse\Application\NfseEmailFooter())->isSafeUrl($url)) {
+            if (method_exists($request, 'expectsJson') && $request->expectsJson()) {
+                return response()->json(['message' => trans('nfse::general.settings.email_footer_invalid')], 422);
+            }
+
             return redirect()->route('nfse.settings.edit', ['tab' => 'email'])
                 ->with('error', trans('nfse::general.settings.email_footer_invalid'));
         }
@@ -522,6 +535,10 @@ class SettingsController extends Controller
             'nfse.email_footer_url' => $url,
         ]);
         setting()->save();
+
+        if (method_exists($request, 'expectsJson') && $request->expectsJson()) {
+            return $this->emailFooter();
+        }
 
         return redirect()->route('nfse.settings.edit', ['tab' => 'email'])
             ->with('success', trans('nfse::general.settings.email_footer_saved'));
@@ -748,9 +765,21 @@ class SettingsController extends Controller
             return $this->jsonResponse(['message' => 'NFS-e company profile is not configured.'], 422);
         }
 
-        $municipio = trim((string) $request->query('municipio_ibge', $fiscal['municipio_ibge'] ?? ''));
-        $serviceCode = preg_replace('/[^0-9]/', '', (string) $request->query('service_code', '')) ?? '';
-        $competence = trim((string) $request->query('competence', date('Y-m-d')));
+        // Request::input prioritizes JSON/form body and accepts GET query
+        // values. Explicit query fallbacks preserve the existing unit-stub
+        // and legacy browser GET contracts as well.
+        $municipio = trim((string) $request->input(
+            'municipio_ibge',
+            $request->query('municipio_ibge', $fiscal['municipio_ibge'] ?? ''),
+        ));
+        $serviceCode = preg_replace('/[^0-9]/', '', (string) $request->input(
+            'service_code',
+            $request->query('service_code', ''),
+        )) ?? '';
+        $competence = trim((string) $request->input(
+            'competence',
+            $request->query('competence', date('Y-m-d')),
+        ));
 
         if (preg_match('/^\\d{7}$/', $municipio) !== 1) {
             return $this->jsonResponse([
@@ -785,17 +814,15 @@ class SettingsController extends Controller
 
             return $this->jsonResponse($resolved);
         } catch (QueryException $e) {
+            // The upstream error body can include fiscal or transport details.
+            // Do not forward it to browser/API/MCP clients.
             return $this->jsonResponse([
                 'message' => trans('nfse::general.settings.municipal_parameters.query_failed'),
-                'upstream' => [
-                    'http_status' => $e->httpStatus,
-                    'payload' => $e->upstreamPayload,
-                ],
+                'upstream' => ['http_status' => $e->httpStatus],
             ], 502);
-        } catch (Throwable $e) {
+        } catch (Throwable) {
             return $this->jsonResponse([
                 'message' => trans('nfse::general.settings.municipal_parameters.query_failed'),
-                'detail' => $e->getMessage(),
             ], 502);
         }
     }

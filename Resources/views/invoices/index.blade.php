@@ -7,12 +7,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
     <x-slot name="buttons">
         @can('update-sales-invoices')
-        <form id="refresh-all-form" action="{{ route('nfse.invoices.refresh-all') }}" method="POST" class="inline-block" data-loading-label="{{ trans('nfse::general.invoices.refresh_all_statuses_loading') }}">
-            @csrf
+        <form id="refresh-all-form" method="POST" class="inline-block"
+            data-refresh-url="{{ route('nfse.invoices.refresh-all') }}"
+            data-csrf-token="{{ csrf_token() }}"
+            data-loading-label="{{ trans('nfse::general.invoices.refresh_all_statuses_loading') }}"
+            data-error-message="{{ trans('nfse::general.nfse_refresh_failed') }}">
             <x-button kind="primary" id="index-more-actions-refresh-nfse-invoices" type="submit">
                 {{ trans('nfse::general.invoices.refresh_all_statuses') }}
             </x-button>
         </form>
+        <span id="nfse-refresh-all-feedback" role="status" aria-live="polite" tabindex="-1"></span>
         @endcan
 
         <x-link href="{{ route('nfse.adn.index') }}" id="index-more-actions-open-adn-distribution">
@@ -27,6 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     </x-slot>
 
     <x-slot name="content">
+        <script src="{{ asset('modules/Nfse/Resources/assets/js/refresh-all-browser.js?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/js/refresh-all-browser.js'))) }}" data-nfse-refresh-all="true"></script>
         <link rel="stylesheet"
             href="{{ asset('modules/Nfse/Resources/assets/vendor/ckeditor5/nfse-email-ckeditor.css?v=' . module_version('nfse') . '-' . filemtime(base_path('modules/Nfse/Resources/assets/vendor/ckeditor5/nfse-email-ckeditor.css'))) }}"
             data-nfse-ckeditor-styles="true"
@@ -2059,20 +2064,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
         <script>
             (() => {
                 const initNfseInvoiceActions = () => {
-                const refreshAllForm = document.getElementById('refresh-all-form');
-                const refreshAllButton = document.getElementById('index-more-actions-refresh-nfse-invoices');
-
-                if (refreshAllForm && refreshAllButton) {
-                    const defaultLabel = refreshAllButton.textContent;
-                    const loadingLabel = refreshAllForm.getAttribute('data-loading-label') || defaultLabel;
-
-                    refreshAllForm.addEventListener('submit', () => {
-                        refreshAllButton.setAttribute('disabled', 'disabled');
-                        refreshAllButton.setAttribute('aria-busy', 'true');
-                        refreshAllButton.textContent = loadingLabel;
-                    });
-                }
-
             (() => {
                 const initCancelModal = () => {
                     const modal = document.getElementById('nfse-cancel-modal');

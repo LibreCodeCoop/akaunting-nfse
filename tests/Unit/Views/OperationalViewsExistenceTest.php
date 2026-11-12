@@ -100,8 +100,12 @@ namespace Modules\Nfse\Tests\Unit\Views {
             self::assertStringContainsString('id="refresh-all-form"', $content);
             self::assertStringContainsString('id="index-more-actions-refresh-nfse-invoices" type="submit"', $content);
             self::assertStringContainsString("trans('nfse::general.invoices.refresh_all_statuses_loading')", $content);
-            self::assertStringContainsString("refreshAllForm.addEventListener('submit'", $content);
-            self::assertStringContainsString("refreshAllButton.setAttribute('aria-busy', 'true')", $content);
+            self::assertStringContainsString('data-nfse-refresh-all="true"', $content);
+            $refreshBrowser = (string) file_get_contents(dirname(__DIR__, 3) . '/Resources/assets/js/refresh-all-browser.js');
+            self::assertStringContainsString("form.addEventListener('submit'", $refreshBrowser);
+            self::assertStringContainsString("button.setAttribute('aria-busy', 'true')", $refreshBrowser);
+            self::assertStringContainsString("event.preventDefault()", $refreshBrowser);
+            self::assertStringContainsString("'X-CSRF-TOKEN'", $refreshBrowser);
             self::assertStringContainsString('name="nfse_discriminacao_custom" value="" data-emit-description-input', $content);
             self::assertStringContainsString('name="nfse_save_default_description" value="0" data-emit-description-save-default-input', $content);
             self::assertStringContainsString('name="nfse_send_email" value="0" data-emit-email-send-input', $content);
@@ -340,7 +344,8 @@ namespace Modules\Nfse\Tests\Unit\Views {
             );
 
             self::assertStringContainsString('id="adn-distribution-browser"', $content);
-            self::assertStringContainsString("route('nfse.adn.distribution')", $content);
+            self::assertStringContainsString("route('nfse.adn.distribution.consult')", $content);
+            self::assertStringContainsString('data-csrf-token="{{ csrf_token() }}"', $content);
             self::assertStringContainsString('id="adn-distribution-query"', $content);
             self::assertStringContainsString('id="adn-summary-matched"', $content);
             self::assertStringContainsString('id="adn-summary-unmatched"', $content);

@@ -10,6 +10,7 @@ use Modules\Nfse\Http\Controllers\EmissionAttemptController;
 use Modules\Nfse\Http\Controllers\FiscalEventEvidenceController;
 use Modules\Nfse\Http\Controllers\DpsReadinessController;
 use Modules\Nfse\Http\Controllers\InvoiceController;
+use Modules\Nfse\Http\Controllers\DashboardJsonController;
 use Modules\Nfse\Http\Controllers\InvoiceFiscalDecisionController;
 use Modules\Nfse\Http\Controllers\CategoryIssuancePolicyController;
 use Modules\Nfse\Http\Controllers\ApiCapabilityController;
@@ -21,6 +22,8 @@ use Modules\Nfse\Http\Controllers\ClosingController;
 // The Core applies its configured API authentication, read-api and company
 // identification middleware. Do not share the browser's session on this route.
 use Modules\Nfse\Http\Controllers\CompanyProfileController;
+use Modules\Nfse\Http\Controllers\CustomerEmailPreferencesController;
+use Modules\Nfse\Http\Controllers\Modals\InvoiceEmails;
 use Modules\Nfse\Http\Controllers\CertificateController;
 use Modules\Nfse\Http\Controllers\FiscalLedgerApiController;
 use Modules\Nfse\Http\Controllers\BulkEmissionApiController;
@@ -29,6 +32,13 @@ Route::api('nfse', function (): void {
     // Authenticated API capability listing, never an arbitrary route executor.
     Route::get('discovery', [ApiCapabilityController::class, 'index'])
         ->name('discovery.index');
+    Route::get('dashboard', [DashboardJsonController::class, 'dashboardData'])
+        ->middleware('permission:read-sales-invoices')
+        ->defaults('mcp_read_contract', [
+            'version' => 1, 'scope' => 'company',
+            'response_paths' => ['/data/stats', '/data/recent_receipts'],
+            'query' => [],
+        ])->name('dashboard.index');
 
     // Status-only fiscal sequence diagnostics and official read-only DPS lookup.
     // These operations do not provision, reserve, transmit or activate.
@@ -67,6 +77,20 @@ Route::api('nfse', function (): void {
         ->middleware('permission:update-sales-invoices')->name('invoices.substitute');
     Route::post('invoices/{invoice}/refresh', [InvoiceController::class, 'refresh'])
         ->middleware('permission:update-sales-invoices')->name('invoices.refresh');
+    Route::post('invoices/refresh-all', [InvoiceController::class, 'refreshAll'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.refresh-all');
+    Route::get('invoices/{invoice}/email-preferences', [CustomerEmailPreferencesController::class, 'show'])
+        ->middleware('permission:read-sales-invoices')
+        ->defaults('mcp_read_contract', [
+            'version' => 1, 'scope' => 'invoice',
+            'response_paths' => ['/data/configured', '/data/subject', '/data/body'],
+            'query' => [],
+        ])->name('invoices.email-preferences.show');
+    Route::post('invoices/{invoice}/email-preferences', [CustomerEmailPreferencesController::class, 'store'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.email-preferences.store');
+    // The same send lifecycle as Akaunting's browser modal; never a second fiscal pipeline.
+    Route::post('invoices/{invoice}/emails', [InvoiceEmails::class, 'store'])
+        ->middleware('permission:update-sales-invoices')->name('invoices.emails.store');
     Route::delete('invoices/{invoice}', [InvoiceController::class, 'cancel'])
         ->middleware('permission:update-sales-invoices')->name('invoices.cancel');
 
@@ -102,6 +126,11 @@ Route::api('nfse', function (): void {
     Route::get('adn/distribution', [AdnController::class, 'distribution'])
         ->middleware('permission:read-nfse-settings')
         ->name('adn.distribution');
+    // This consultation reaches the national ADN service; POST makes its
+    // external side effects explicit for clients requiring approval.
+    Route::post('adn/distribution/consult', [AdnController::class, 'distribution'])
+        ->middleware('permission:read-nfse-settings')
+        ->name('adn.distribution.consult');
     Route::get('invoices/{invoice}/adn-events', [AdnController::class, 'events'])
         ->middleware('permission:read-sales-invoices')
         ->name('invoices.adn-events');
@@ -163,6 +192,15 @@ Route::api('nfse', function (): void {
         ->middleware('permission:read-nfse-settings')->name('settings.artifacts.show');
     Route::patch('settings/artifacts', [SettingsController::class, 'updateArtifacts'])
         ->middleware('permission:update-nfse-settings')->name('settings.artifacts.update');
+    Route::get('settings/email-footer', [SettingsController::class, 'emailFooter'])
+        ->middleware('permission:read-nfse-settings')
+        ->defaults('mcp_read_contract', [
+            'version' => 1, 'scope' => 'company',
+            'response_paths' => ['/data/footer_message', '/data/footer_url'],
+            'query' => [],
+        ])->name('settings.email-footer.show');
+    Route::patch('settings/email-footer', [SettingsController::class, 'updateEmailFooter'])
+        ->middleware('permission:update-nfse-settings')->name('settings.email-footer.update');
     Route::get('settings/vault', [SettingsController::class, 'vaultStatus'])
         ->middleware('permission:read-nfse-settings')
         ->name('settings.vault.show');
@@ -191,6 +229,33 @@ Route::api('nfse', function (): void {
     Route::get('national-services', [NationalServicesController::class, 'nationalServices'])
         ->middleware('permission:read-nfse-settings')
         ->name('national-services.index');
+    Route::get('ibge/ufs', [SettingsController::class, 'ufs'])
+        ->middleware('permission:read-nfse-settings')
+        ->defaults('mcp_read_contract', [
+            'version' => 1, 'scope' => 'company',
+            'response_paths' => ['/data'], 'query' => [],
+        ])->name('ibge.ufs');
+    Route::get('ibge/municipalities/{uf}', [SettingsController::class, 'municipalities'])
+        ->middleware('permission:read-nfse-settings')
+        ->defaults('mcp_read_contract', [
+            'version' => 1, 'scope' => 'company',
+            'response_paths' => ['/data'], 'query' => [],
+        ])->name('ibge.municipalities');
+    Route::get('lc116/services', [SettingsController::class, 'lc116Services'])
+        ->middleware('permission:read-nfse-settings')
+        ->defaults('mcp_read_contract', [
+            'version' => 1, 'scope' => 'company',
+            'response_paths' => ['/data'],
+            'query' => ['q' => 'short_text', 'limit' => 'positive_integer'],
+        ])->name('lc116.services');
+    // MunicipalParameterSnapshotStore may update its advisory cache on GET.
+    // Keep the native HTTP resource, but never advertise it as side-effect-free to MCP.
+    Route::get('municipal-parameters', [SettingsController::class, 'municipalParameters'])
+        ->middleware('permission:read-nfse-settings')->name('municipal-parameters.index');
+    // The snapshot service may persist verified advisory evidence. External
+    // refresh is an operational POST; a cached GET is not assumed pure.
+    Route::post('municipal-parameters/consult', [SettingsController::class, 'municipalParameters'])
+        ->middleware('permission:read-nfse-settings')->name('municipal-parameters.consult');
 
     Route::get('invoices/{invoice}/emission-attempts', [EmissionAttemptController::class, 'index'])
         ->middleware('permission:read-sales-invoices')

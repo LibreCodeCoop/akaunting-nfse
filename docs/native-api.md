@@ -515,3 +515,110 @@ The settings page consumes these JSON resources and requires a deliberate
 button click for the external lookup; page load alone does not contact SEFIN.
 Production-restricted issuance, external attestation, generation activation
 and recovery after MySQL restore remain separate authorized operational steps.
+
+## Auxiliary administration and communication resources
+
+The browser UI uses **session-authenticated JSON resources** with a CSRF token.
+External clients use the native Akaunting API (Basic/OAuth, native ACL and selected
+company), **not** the browser session and never a browser-only HTML form. API
+routes share the existing handlers and fiscal lifecycle with their browser
+counterparts; they do not introduce an MCP-specific endpoint or a second
+emission pipeline.
+
+| Operation | Native API suffix (after `nfse/`) | Permission |
+| --- | --- | --- |
+| Read email footer | `GET settings/email-footer` | `read-nfse-settings` |
+| Update email footer | `PATCH settings/email-footer` | `update-nfse-settings` |
+| Read a customer's saved email template through an invoice | `GET invoices/{invoice}/email-preferences` | `read-sales-invoices` |
+| Save a customer's email template | `POST invoices/{invoice}/email-preferences` | `update-sales-invoices` |
+| Send an invoice email using the existing fiscal email composer | `POST invoices/{invoice}/emails` | `update-sales-invoices` |
+| Refresh statuses of up to 30 locally known fiscal receipts | `POST invoices/refresh-all` | `update-sales-invoices` |
+| List Brazilian UFs | `GET ibge/ufs` | `read-nfse-settings` |
+| List municipalities of a UF | `GET ibge/municipalities/{uf}` | `read-nfse-settings` |
+| Search LC 116 service codes | `GET lc116/services` | `read-nfse-settings` |
+| Consult municipal service parameters | `GET municipal-parameters` | `read-nfse-settings` |
+| Consult and persist municipal advisory evidence (explicit operational call) | `POST municipal-parameters/consult` | `read-nfse-settings` |
+| Consult the national ADN distribution service (explicit operational call) | `POST adn/distribution/consult` | `read-nfse-settings` |
+
+The two additional operational POST resources reuse the existing controllers
+and active-company certificate. They are **not** GET-safe or passive reads:
+ADN calls the national distribution service; municipal-parameters may persist
+an advisory snapshot. Clients must require user approval, validate the active
+company and avoid blind retries on ambiguous results. The ADN operational
+**external API POST** returns metadata with `documents[*].xml` excluded;
+use separately authorized document review routes for persisted evidence.
+
+The ADN browser button uses **`POST /{company_id}/nfse/adn/distribution/consult`**
+with a session CSRF token. This session endpoint calls the same controller
+and preserves the detailed document JSON required by the authenticated
+operator; nothing is consulted merely by opening the page. The previous
+browser GET and native GET remain for existing integrations, but are not
+advertised as pure MCP reads. A new native client must use POST. Both native
+POST endpoints retain Core authentication and the settings-read ACL.
+
+See [the Web/API/domain/test traceability matrix](web-api-domain-parity.md)
+for the complete #497 capability and acceptance inventory.
+
+A browser template is allowed to render the controls, but it no longer embeds
+saved email-footer values or submits the footer or bulk-refresh actions as
+HTML form posts. The email footer and bulk refresh use the same JSON methods
+and response representations as native clients.
+
+### Email footer and customer preferences
+
+The email footer resource returns `data.footer_message` and
+`data.footer_url`. Updates require both values, and the URL must be safe
+HTTPS without embedded credentials. Invalid writes return HTTP 422 and do
+not change the saved footer.
+
+Email preferences belong to the invoice's active-company customer. A GET
+returns `data.configured=false` when no template was saved, otherwise
+`data.configured=true` with `subject` and `body`. A POST accepts both
+strings; missing or invalid content returns HTTP 422. A foreign-company
+invoice, a bill, or an invoice whose customer is not owned by the selected
+company returns 404, without disclosing preferences across companies.
+
+Email sending accepts the existing composer payload (recipients, subject,
+body and attachment flags). The URL identifies the invoice: `document_id`
+is optional and, if supplied, **must match the URL**. Invalid recipients
+return HTTP 422 before the send lifecycle. Sending invokes Akaunting's
+`DocumentSending`/`DocumentSent` events, which **may initiate the
+configured fiscal issuance**. It is therefore a write operation with possible
+external effects, not a safe GET or a command to retry blindly.
+
+### Bounded status reconciliation
+
+`POST invoices/refresh-all` queries existing locally recorded receipts from
+the selected company using the existing bounded refresh service. It does not
+transmit a new DPS. JSON clients receive `success`, `status`, `message`,
+`updated`, and `failed`; partial errors are explicitly reported with
+`success=false`. Failure to initialize fiscal credentials returns HTTP 422.
+Browser clients use JSON and reload only after confirmed successful completion.
+
+### Auxiliary catalogs
+
+IBGE localities and municipal parameters can depend on external availability.
+The municipal-parameters GET may update an advisory snapshot in the database:
+it is exposed as a native authorized API endpoint but deliberately **not**
+classified as side-effect-free by MCP read discovery. An unsuccessful preventive
+query is **not** proof of an invalid municipality or a fiscal authorization.
+National service and LC 116 catalogs retain their distinct semantics; these
+lookups do not grant permission to transmit DPS.
+
+Deprecated fiscal configuration/certificate forms intentionally rejected by
+the existing compatibility controller are **not** alternate APIs and must not
+be re-enabled. Use the native company profile, certificate and Vault resources
+documented above.
+
+### Fiscal overview dashboard
+
+The native `GET /{company_id}/api/nfse/dashboard` and browser-session
+`GET /{company_id}/nfse/dashboard/data` share the existing dashboard
+reporting service under `read-sales-invoices`. The HTML dashboard is a
+presentation shell; the browser loads figures and a maximum of ten recent
+fiscal receipts through JSON. The JSON contains `data.stats` with
+`total`, `emitted`, `cancelled` and `sandbox_mode`, plus
+`data.recent_receipts` with fiscal status, date, customer name and
+a same-origin invoice URL. The API does not publish other companies'
+receipts or change fiscal or financial state. It is discoverable as a
+read-only native resource for approved MCP integrations.

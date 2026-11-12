@@ -603,3 +603,133 @@ Feature: Native NFS-e catalog uses Akaunting API authentication and the shared f
     When I make a native API GET request to "/<other_company_id>/api/nfse/settings/artifacts" with synthetic "administrator" credentials
     Then the API response status should be 401
     And the API response should be JSON
+
+  Scenario: Native email footer is a safe JSON resource
+    When I make a native API GET request to "/<company_id>/api/nfse/settings/email-footer" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | object |
+      | data.footer_message | string |
+      | data.footer_url | string |
+
+  Scenario: Native email footer requires fiscal settings permission
+    When I make a native API GET request to "/<company_id>/api/nfse/settings/email-footer" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native email footer rejects insecure URLs before saving
+    When I make a native API "PATCH" JSON request to "/<company_id>/api/nfse/settings/email-footer" with synthetic "administrator" credentials and body:
+      """
+      {"footer_message":"Synthetic footer","footer_url":"http://insecure.example.test/footer"}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native email preferences reject invalid content without fiscal transmission
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/email-preferences" with synthetic "administrator" credentials and body:
+      """
+      {"subject":"","body":""}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native email delivery refuses missing recipients before dispatch
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/<ready_invoice_id>/emails" with synthetic "administrator" credentials and body:
+      """
+      {"subject":"Synthetic","body":"<p>Synthetic test</p>","to":[]}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native refresh-all denies users without financial write permission
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/invoices/refresh-all" with synthetic "no-permission" credentials and body:
+      """
+      {"request":"synthetic"}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native fiscal dashboard exposes only authorized JSON figures
+    When I make a native API GET request to "/<company_id>/api/nfse/dashboard" with synthetic "administrator" credentials
+    Then the API response status should be 200
+    And the API response should be JSON
+    And the JSON response should have these field types:
+      | data | object |
+      | data.stats | object |
+      | data.stats.total | integer |
+      | data.stats.emitted | integer |
+      | data.stats.cancelled | integer |
+      | data.stats.sandbox_mode | boolean |
+      | data.recent_receipts | array |
+
+  Scenario: Native fiscal dashboard refuses users without sales permission
+    When I make a native API GET request to "/<company_id>/api/nfse/dashboard" with synthetic "no-permission" credentials
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native operational ADN consultation rejects an unauthenticated client without contacting ADN
+    Given the API client is a guest
+    When I make a "POST" JSON request to "/<company_id>/api/nfse/adn/distribution/consult" with body:
+      """
+      {"nsu":0,"lote":true}
+      """
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native operational ADN consultation requires fiscal read permission
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/adn/distribution/consult" with synthetic "no-permission" credentials and body:
+      """
+      {"nsu":0,"lote":true}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native operational ADN consultation rejects invalid NSU before remote contact
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/adn/distribution/consult" with synthetic "administrator" credentials and body:
+      """
+      {"nsu":-1,"lote":true}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native ADN consultation refuses selecting a different company
+    When I make a native API "POST" JSON request to "/<other_company_id>/api/nfse/adn/distribution/consult" with synthetic "administrator" credentials and body:
+      """
+      {"nsu":0,"lote":true}
+      """
+    Then the API response status should be 401
+    And the API response should be JSON
+
+  Scenario: Native municipal advisory consultation requires fiscal read permission
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/municipal-parameters/consult" with synthetic "no-permission" credentials and body:
+      """
+      {"municipio_ibge":"3303302","service_code":"010701000","competence":"2026-11-12"}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
+
+  Scenario: Native municipal advisory consultation rejects an invalid competence before querying
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/municipal-parameters/consult" with synthetic "administrator" credentials and body:
+      """
+      {"municipio_ibge":"3303302","service_code":"010701000","competence":"2026-02-30"}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Native municipal advisory consultation rejects an invalid service code before querying
+    When I make a native API "POST" JSON request to "/<company_id>/api/nfse/municipal-parameters/consult" with synthetic "administrator" credentials and body:
+      """
+      {"municipio_ibge":"3303302","service_code":"not-a-service","competence":"2026-11-12"}
+      """
+    Then the API response status should be 422
+    And the API response should be JSON
+
+  Scenario: Browser operational ADN POST rejects an operator without fiscal permissions
+    Given the "no-permission" synthetic Akaunting user is authenticated
+    When I make a "POST" JSON request to "/<company_id>/nfse/adn/distribution/consult" with body:
+      """
+      {"nsu":0,"lote":true}
+      """
+    Then the API response status should be 403
+    And the API response should be JSON
