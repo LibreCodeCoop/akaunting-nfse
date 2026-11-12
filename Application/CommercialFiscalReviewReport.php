@@ -11,7 +11,6 @@ use App\Models\Document\Document;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\Nfse\Models\NfseReceipt;
-use Modules\Nfse\Models\NfseEmissionAttempt;
 use Modules\Nfse\Support\InvoiceFiscalContextResolver;
 
 /**
