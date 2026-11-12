@@ -30,7 +30,8 @@ final class ApiCapabilityDiscoveryTest extends FeatureTestCase
         self::assertContains('api.nfse.ibge.ufs', $names);
         self::assertContains('api.nfse.ibge.municipalities', $names);
         self::assertContains('api.nfse.lc116.services', $names);
-        self::assertContains('api.nfse.municipal-parameters.index', $names);
+        // Municipal parameter GET can persist a snapshot: never mislabel it read-only.
+        self::assertNotContains('api.nfse.municipal-parameters.index', $names);
         self::assertNotContains('api.nfse.invoices.fiscal-decision.store', $names);
         self::assertNotContains('api.nfse.invoices.emails.store', $names);
         self::assertNotContains('api.nfse.invoices.emit', $names);

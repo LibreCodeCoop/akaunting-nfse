@@ -577,9 +577,12 @@ Browser clients use JSON and reload only after confirmed successful completion.
 ### Auxiliary catalogs
 
 IBGE localities and municipal parameters can depend on external availability.
-An unsuccessful preventive query is **not** proof of an invalid municipality
-or a fiscal authorization. National service and LC 116 catalogs retain their
-distinct semantics; these lookups do not grant permission to transmit DPS.
+The municipal-parameters GET may update an advisory snapshot in the database:
+it is exposed as a native authorized API endpoint but deliberately **not**
+classified as side-effect-free by MCP read discovery. An unsuccessful preventive
+query is **not** proof of an invalid municipality or a fiscal authorization.
+National service and LC 116 catalogs retain their distinct semantics; these
+lookups do not grant permission to transmit DPS.
 
 Deprecated fiscal configuration/certificate forms intentionally rejected by
 the existing compatibility controller are **not** alternate APIs and must not

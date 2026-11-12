@@ -242,13 +242,10 @@ Route::api('nfse', function (): void {
             'response_paths' => ['/data'],
             'query' => ['q' => 'short_text', 'limit' => 'positive_integer'],
         ])->name('lc116.services');
+    // MunicipalParameterSnapshotStore may update its advisory cache on GET.
+    // Keep the native HTTP resource, but never advertise it as side-effect-free to MCP.
     Route::get('municipal-parameters', [SettingsController::class, 'municipalParameters'])
-        ->middleware('permission:read-nfse-settings')
-        ->defaults('mcp_read_contract', [
-            'version' => 1, 'scope' => 'company',
-            'response_paths' => ['/data'],
-            'query' => ['municipio_ibge' => 'short_text', 'service_code' => 'short_text', 'competence' => 'short_text'],
-        ])->name('municipal-parameters.index');
+        ->middleware('permission:read-nfse-settings')->name('municipal-parameters.index');
 
     Route::get('invoices/{invoice}/emission-attempts', [EmissionAttemptController::class, 'index'])
         ->middleware('permission:read-sales-invoices')
