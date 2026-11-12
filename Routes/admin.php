@@ -37,6 +37,8 @@ Route::admin('nfse', function () {
 
     Route::get('/', [InvoiceController::class, 'dashboard'])
         ->middleware('permission:read-sales-invoices')->name('dashboard.index');
+    Route::get('dashboard/data', [InvoiceController::class, 'dashboardData'])
+        ->middleware('permission:read-sales-invoices')->name('dashboard.data');
 
     // Settings
     Route::group(['prefix' => 'settings', 'as' => 'settings.'], function () {
@@ -73,6 +75,8 @@ Route::admin('nfse', function () {
             ->middleware('permission:read-nfse-settings')->name('category-issuance.index');
         Route::post('/category-issuance', [CategoryIssuancePolicyController::class, 'store'])
             ->middleware('permission:update-nfse-settings')->name('category-issuance.store');
+        Route::get('/email-footer', [SettingsController::class, 'emailFooter'])
+            ->middleware('permission:read-nfse-settings')->name('email-footer.show');
         Route::patch('/email-footer', [SettingsController::class, 'updateEmailFooter'])
             ->middleware('permission:update-nfse-settings')->name('email-footer');
         Route::get('/artifacts', [SettingsController::class, 'artifactSettings'])
@@ -177,6 +181,8 @@ Route::admin('nfse', function () {
     Route::post('invoices/{invoice}/emit', [InvoiceController::class, 'emit'])
         ->middleware('permission:update-sales-invoices')->name('invoices.emit');
     Route::get('invoices/{invoice}/service-preview', [InvoiceController::class, 'servicePreview'])->middleware('permission:read-sales-invoices')->name('invoices.service-preview');
+    Route::get('invoices/{invoice}/email-preferences', [CustomerEmailPreferencesController::class, 'show'])
+        ->middleware('permission:read-sales-invoices')->name('invoices.email-preferences.show');
     Route::post('invoices/{invoice}/email-preferences', [CustomerEmailPreferencesController::class, 'store'])
         ->middleware('permission:update-sales-invoices')->name('invoices.email-preferences.store');
 

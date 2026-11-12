@@ -25,7 +25,14 @@ final class ApiCapabilityDiscoveryTest extends FeatureTestCase
 
         self::assertContains('api.nfse.invoices.fiscal-decision.show', $names);
         self::assertContains('api.nfse.settings.category-issuance.index', $names);
+        self::assertContains('api.nfse.settings.email-footer.show', $names);
+        self::assertContains('api.nfse.invoices.email-preferences.show', $names);
+        self::assertContains('api.nfse.ibge.ufs', $names);
+        self::assertContains('api.nfse.ibge.municipalities', $names);
+        self::assertContains('api.nfse.lc116.services', $names);
+        self::assertContains('api.nfse.municipal-parameters.index', $names);
         self::assertNotContains('api.nfse.invoices.fiscal-decision.store', $names);
+        self::assertNotContains('api.nfse.invoices.emails.store', $names);
         self::assertNotContains('api.nfse.invoices.emit', $names);
         self::assertNotContains('api.nfse.receipts.artifacts.download', $names);
         self::assertNotContains('api.nfse.adn.distribution', $names);

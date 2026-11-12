@@ -94,10 +94,32 @@ class InvoiceController extends Controller
 
     public function dashboard(): \Illuminate\View\View
     {
-        $stats = $this->dashboardStats();
-        $recentReceipts = $this->dashboardRecentReceipts();
+        // Presentation only: protected fiscal data is fetched through the JSON
+        // resource used by native API clients, never embedded in HTML.
+        return view('nfse::dashboard.index');
+    }
 
-        return view('nfse::dashboard.index', compact('stats', 'recentReceipts'));
+    public function dashboardData(): JsonResponse
+    {
+        $receipts = [];
+        foreach ($this->dashboardRecentReceipts() as $receipt) {
+            $invoiceId = (int) $receipt->invoice_id;
+            $status = (string) ($receipt->status ?: 'unknown');
+            $receipts[] = [
+                'invoice_id' => $invoiceId,
+                'nfse_number' => (string) ($receipt->nfse_number ?: ''),
+                'customer_name' => (string) ($receipt->customer_name ?: ''),
+                'issue_date' => (string) ($receipt->data_emissao ?: ''),
+                'status' => $status,
+                'status_label' => (string) trans('nfse::general.native_invoice.status_' . $status),
+                'invoice_url' => (string) parse_url(route('invoices.show', $invoiceId), PHP_URL_PATH),
+            ];
+        }
+
+        return response()->json(['data' => [
+            'stats' => $this->dashboardStats(),
+            'recent_receipts' => $receipts,
+        ]]);
     }
 
     /**
@@ -1384,8 +1406,9 @@ class InvoiceController extends Controller
         }
     }
 
-    public function refreshAll(): RedirectResponse
+    public function refreshAll(?Request $request = null): RedirectResponse|JsonResponse
     {
+        $request = $this->currentRequest($request);
         $updated = 0;
         $failed = 0;
 
@@ -1397,14 +1420,14 @@ class InvoiceController extends Controller
                 $companyId,
             );
         } catch (\DomainException) {
-            return redirect()->route('nfse.invoices.index')
-                ->with('warning', trans('nfse::general.invoices.emit_blocked_not_ready'));
+            return $this->refreshAllResponse($request, 'warning',
+                trans('nfse::general.invoices.emit_blocked_not_ready'), 0, 0, 422);
         } catch (SecretStoreException) {
-            return redirect()->route('nfse.invoices.index')
-                ->with('warning', trans('nfse::general.nfse_secret_store_failed'));
+            return $this->refreshAllResponse($request, 'warning',
+                trans('nfse::general.nfse_secret_store_failed'), 0, 0, 422);
         } catch (PfxImportException) {
-            return redirect()->route('nfse.invoices.index')
-                ->with('warning', trans('nfse::general.nfse_pfx_import_failed'));
+            return $this->refreshAllResponse($request, 'warning',
+                trans('nfse::general.nfse_pfx_import_failed'), 0, 0, 422);
         }
 
         try {
@@ -1431,15 +1454,37 @@ class InvoiceController extends Controller
         }
 
         if ($failed === 0) {
-            return redirect()->route('nfse.invoices.index')
-                ->with('success', trans('nfse::general.nfse_refresh_all_done', ['count' => $updated]));
+            return $this->refreshAllResponse($request, 'success',
+                trans('nfse::general.nfse_refresh_all_done', ['count' => $updated]), $updated, 0);
         }
 
-        return redirect()->route('nfse.invoices.index')
-            ->with('warning', trans('nfse::general.nfse_refresh_all_partial', [
+        return $this->refreshAllResponse($request, 'warning',
+            trans('nfse::general.nfse_refresh_all_partial', [
                 'updated' => $updated,
                 'failed' => $failed,
-            ]));
+            ]), $updated, $failed);
+    }
+
+    /** Return structured progress to JSON callers without altering the legacy UI contract. */
+    private function refreshAllResponse(
+        ?Request $request,
+        string $level,
+        string $message,
+        int $updated,
+        int $failed,
+        int $status = 200,
+    ): RedirectResponse|JsonResponse {
+        if ($request?->expectsJson()) {
+            return response()->json([
+                'success' => $level === 'success',
+                'status' => $level,
+                'message' => $message,
+                'updated' => $updated,
+                'failed' => $failed,
+            ], $status);
+        }
+
+        return redirect()->route('nfse.invoices.index')->with($level, $message);
     }
 
     public function reemit(Invoice $invoice, ?Request $request = null): RedirectResponse|JsonResponse

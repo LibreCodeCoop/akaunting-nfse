@@ -44,6 +44,28 @@ final class NfseCustomerEmailPreferencesFeatureTest extends FeatureTestCase
         $this->assertDatabaseCount('nfse_emission_attempts', 0);
     }
 
+    public function testBrowserJsonReadSharesTheNativePreferenceResource(): void
+    {
+        $this->loginAs();
+        $invoice = Invoice::factory()->invoice()->draft()->create(['company_id' => (int) company_id()]);
+
+        $this->getJson(route('nfse.invoices.email-preferences.show', $invoice))
+            ->assertOk()
+            ->assertJsonPath('data.configured', false);
+
+        $this->postJson(route('nfse.invoices.email-preferences.store', $invoice), [
+            'subject' => 'Synthetic invoice {nfse_number}',
+            'body' => '<p>Synthetic body</p>',
+        ])->assertOk();
+
+        $this->getJson(route('nfse.invoices.email-preferences.show', $invoice))
+            ->assertOk()
+            ->assertJsonPath('data.configured', true)
+            ->assertJsonPath('data.subject', 'Synthetic invoice {nfse_number}')
+            ->assertJsonPath('data.body', '<p>Synthetic body</p>');
+        $this->assertDatabaseCount('nfse_receipts', 0);
+    }
+
     public function testCrossCompanyOrFinancialBillCannotSaveCustomerPreference(): void
     {
         $this->loginAs();
@@ -58,6 +80,10 @@ final class NfseCustomerEmailPreferencesFeatureTest extends FeatureTestCase
             ->postJson(route('nfse.invoices.email-preferences.store', $invoice), $payload)
             ->assertNotFound();
         $this->postJson(route('nfse.invoices.email-preferences.store', $bill), $payload)
+            ->assertNotFound();
+        $this->getJson(route('nfse.invoices.email-preferences.show', $invoice))
+            ->assertNotFound();
+        $this->getJson(route('nfse.invoices.email-preferences.show', $bill))
             ->assertNotFound();
     }
 

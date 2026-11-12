@@ -149,11 +149,16 @@ class InvoiceEmails extends Controller
     public function store(Request $request): JsonResponse
     {
         $routeId = (int) $request->route('invoice');
-        $documentId = (int) $request->input('document_id');
+        $documentId = $request->input('document_id');
 
-        abort_unless($routeId > 0 && $routeId === $documentId, 404);
+        // Browser clients may include document_id; native API callers identify
+        // the invoice in the URL. A conflicting body ID is never accepted.
+        abort_unless($routeId > 0 && ($documentId === null
+            || ((is_int($documentId) || (is_string($documentId) && ctype_digit($documentId)))
+                && (int) $documentId === $routeId)), 404);
         $invoice = Invoice::findOrFail($routeId);
-        abort_unless((int) $invoice->company_id === (int) company_id(), 404);
+        abort_unless((int) $invoice->company_id === (int) company_id()
+            && (string) $invoice->type === Invoice::INVOICE_TYPE, 404);
 
         try {
             $recipients = (new PostEmissionEmailRecipients())->normalize(

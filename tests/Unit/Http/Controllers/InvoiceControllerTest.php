@@ -4817,35 +4817,25 @@ namespace Modules\Nfse\Tests\Unit\Http\Controllers {
             self::assertSame($receipt, $response->data['receipt'] ?? null);
         }
 
-        public function testDashboardReturnsViewWithOperationalStats(): void
+        public function testDashboardShellDoesNotReadOrEmbedFiscalData(): void
         {
             $controller = new class () extends UnitFederalControllerFixture {
                 protected function dashboardStats(): array
                 {
-                    return [
-                        'total' => 9,
-                        'emitted' => 7,
-                        'cancelled' => 2,
-                        'sandbox_mode' => true,
-                    ];
+                    throw new \LogicException('Dashboard HTML must not query statistics.');
                 }
 
                 protected function dashboardRecentReceipts(): array
                 {
-                    return [];
+                    throw new \LogicException('Dashboard HTML must not query fiscal receipts.');
                 }
             };
 
             $response = $controller->dashboard();
 
-            self::assertSame([], $response->data['recentReceipts'] ?? null);
             self::assertSame('nfse::dashboard.index', $response->name);
-            self::assertSame([
-                'total' => 9,
-                'emitted' => 7,
-                'cancelled' => 2,
-                'sandbox_mode' => true,
-            ], $response->data['stats'] ?? []);
+            self::assertArrayNotHasKey('stats', $response->data);
+            self::assertArrayNotHasKey('recentReceipts', $response->data);
         }
 
         public function testPendingRedirectsToUnifiedListingWithDefaultFilters(): void

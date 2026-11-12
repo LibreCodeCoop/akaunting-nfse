@@ -14,13 +14,21 @@ use Modules\Nfse\Support\CustomerEmailPreferences;
 
 final class CustomerEmailPreferencesController extends Controller
 {
+    public function show(Invoice $invoice): JsonResponse
+    {
+        $companyId = (int) company_id();
+        $contactId = $this->ownedContactId($invoice, $companyId);
+        $saved = (new CustomerEmailPreferences())->read($companyId, $contactId, $companyId);
+
+        return response()->json(['data' => $saved === null
+            ? ['configured' => false, 'subject' => '', 'body' => '']
+            : ['configured' => true, 'subject' => $saved['subject'], 'body' => $saved['body']]]);
+    }
+
     public function store(Invoice $invoice, Request $request): JsonResponse
     {
         $companyId = (int) company_id();
-        abort_unless((int) $invoice->company_id === $companyId
-            && (string) $invoice->type === Invoice::INVOICE_TYPE
-            && (int) $invoice->contact_id > 0
-            && (int) $invoice->contact?->company_id === $companyId, 404);
+        $contactId = $this->ownedContactId($invoice, $companyId);
 
         $values = $request->validate([
             'subject' => 'required|string|max:255',
@@ -29,12 +37,22 @@ final class CustomerEmailPreferencesController extends Controller
 
         $saved = (new CustomerEmailPreferences())->save(
             $companyId,
-            (int) $invoice->contact_id,
+            $contactId,
             $companyId,
             $values['subject'],
             $values['body'],
         );
 
         return response()->json(['success' => true, 'scope' => 'customer', 'subject' => $saved['subject']]);
+    }
+
+    private function ownedContactId(Invoice $invoice, int $companyId): int
+    {
+        abort_unless((int) $invoice->company_id === $companyId
+            && (string) $invoice->type === Invoice::INVOICE_TYPE
+            && (int) $invoice->contact_id > 0
+            && (int) $invoice->contact?->company_id === $companyId, 404);
+
+        return (int) $invoice->contact_id;
     }
 }
