@@ -31,8 +31,10 @@ holds three authority tables:
   and irreversible first-transmission claim with payload fingerprint.
 
 The normal, versioned Laravel migration creates these tables **inactive**
-within the Akaunting schema. The SQL files in `docs/sql` are reference/legacy
-material, not an instruction to create an external database.
+within the Akaunting schema. The remaining
+`docs/sql/dps-coordination-schema.sql` is a schema fixture used by real-MySQL
+integration tests, not a standalone deployment procedure or a substitute
+for the application's versioned migrations.
 
 ## Why two database connections are still necessary
 
