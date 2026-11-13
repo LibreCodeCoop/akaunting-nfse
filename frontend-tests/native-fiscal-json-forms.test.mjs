@@ -163,3 +163,16 @@ test('a 201 with another operation contract is uncertain, not reported as saved'
     assert.equal(result.kind, 'uncertain');
     assert.equal(button.disabled, true);
 });
+test('HTML error responses preserve known HTTP rejection status', async () => {
+    for (const status of [401, 403, 419, 422]) {
+        const { form, button, nodes } = fixture();
+        const result = await fiscal.submit(form, {
+            formDataFactory: () => ({}),
+            fetchImpl: async () => ({ status, async json() { throw new SyntaxError('HTML response'); } }),
+        });
+        assert.deepEqual(result, { kind: 'rejected', status });
+        assert.equal(button.disabled, false);
+        assert.equal(form.dataset.nfseSubmitting, undefined);
+        assert.ok(nodes[0].textContent.length > 5);
+    }
+});

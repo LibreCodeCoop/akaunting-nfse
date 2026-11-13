@@ -59,9 +59,9 @@
         try {
             payload = await response.json();
         } catch {
-            form.dataset.nfseSubmitting = 'uncertain';
-            feedback(form, message(form, 'nfseJsonUncertain'));
-            return { kind: 'uncertain' };
+            // Error responses from proxies/session middleware may be HTML.
+            // Known HTTP rejection codes must still remain actionable.
+            payload = null;
         }
 
         const validDecision = form.dataset.nfseJsonContract === 'decision'
