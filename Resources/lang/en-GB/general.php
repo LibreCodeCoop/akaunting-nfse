@@ -199,6 +199,7 @@ return [
         'from' => 'Issued from',
         'to' => 'Issued to',
         'open_invoice' => 'Open invoice',
+        'historical_no_invoice' => 'No historical invoice',
         'empty' => 'No fiscal receipts found.',
     ],
 
