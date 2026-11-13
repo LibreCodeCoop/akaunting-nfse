@@ -4,3 +4,7 @@
     src="{{ asset('modules/Nfse/Resources/assets/js/receipt-actions.js?v=' . module_version('nfse')) }}"
     data-nfse-receipt-actions-module="true"
 ></script>
+<script
+    src="{{ asset('modules/Nfse/Resources/assets/js/native-fiscal-json-forms.js?v=' . module_version('nfse')) }}"
+    data-nfse-native-fiscal-json-forms-module="true"
+></script>
