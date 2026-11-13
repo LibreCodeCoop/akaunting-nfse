@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # ADR 0002: Immutable fiscal facts and source-backed decisions
 
-Status: Proposed for review
+Status: Accepted — implemented immutable fiscal facts and decision contracts.
 
 ## Boundary
 
