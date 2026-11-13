@@ -5,7 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Akaunting tax identity: accounting observations versus fiscal incidence
 
-Status: confirmed fiscal facts connected to the federal payload; **not legal emission approval**.
+The module records confirmed accounting-tax observations for fiscal payload
+construction; this contract is **not** authorization or a legal assessment
+of a particular issuance.
 
 ## Source of truth and company boundary
 
@@ -48,8 +50,8 @@ uses independent versioned sources, not an Akaunting normal tax. IBS/CBS
 obligations are assessed per operation and temporal law, not by installing
 an ordinary tax row in the invoice. Tax identity alone cannot establish
 legal applicability, tax base, rate, taxable event, rounding, who actually
-paid, or the tax regime. The #427 source-backed matrix and #429 common
-emission preflight govern these decisions separately.
+paid, or the tax regime. Source-backed normative assessment and the common emission preflight govern
+these decisions separately.
 
 ## NT007 evidence and arithmetic
 
@@ -72,7 +74,7 @@ https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/rtc
 Publication does not prove the version active in any specific gateway
 environment or create a generic invoice-line CBS/IBS charge.
 
-## Consumer contract (#429 and #431)
+## Fiscal payload consumer contract
 
 The operational InvoiceFederalPayloadResolver now consumes dated, confirmed
 InvoiceTaxFactsResolver observations, scoped by company, document and selected
@@ -86,8 +88,8 @@ The internal federalTaxEvidence output carries row count, base availability
 and legal_incidence=unverifiable. This is **not** an XML field or proof of
 compliance. The existing document_item_taxes rows have baseCents=null:
 provider-due PIS/COFINS cannot be transmitted without independent lawful
-base evidence. The common legal-operation preflight belongs to #429; operator
-permissions and mapping UI belong to #431. No IBS/CBS tax-row promotion,
+base evidence. The common legal-operation preflight is separate from the fiscal association
+administration UI and permissions. No IBS/CBS tax-row promotion,
 automatic aliases, reissued historical XML or mutation of DPS identities.
 
 The legacy name classifier is not reachable from the production federal
@@ -97,7 +99,7 @@ unit tests and actual Akaunting Feature tests. A fake SEFIN that accepts
 XML is not legal approval.
 
 Association writes require an authenticated operator authorized for the
-active company. The #431 operator screen and native API use distinct read
+active company. The operator screen and native API use distinct read
 and update permissions. Explicit PATCH cutovers retain the original
 confirmation evidence and reject past dates, overlaps and cross-company IDs.
 No unauthenticated write route is provided.

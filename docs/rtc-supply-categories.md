@@ -92,29 +92,24 @@ The profile's observed `opcaoSimplesNacional` may be 1, 2, 3 or
 unknown. No global taxpayer default, company name or sales description
 supplies unknown facts.
 
-## Safe adoption and unresolved boundaries
+## Validation and protocol boundaries
 
 The policy deliberately has no fiscal POST side effects.
 The existing application continues to reject recognized unsupported
-non-LC116 modalities before LC116 grouped issuance. The common,
-last-mutable-boundary enforcement, evidence aggregation across *all*
-manual, automatic, batch, substitution, re-emission and recovery paths
-is implemented by **#561**. The preview is not final validation; a clean result
-from an older `IbsCbsEmissionReadiness` invocation is not proof that
-the typed legal assessment ran, nor that a gateway which accepted XML
-without IBS/CBS proved legal conformity.
+non-LC116 modalities before LC116 grouped issuance. The common last-mutable-boundary preflight evaluates the final DPS for
+manual, automatic, batch, substitution and re-emission pathways.
+A preview is not final validation; a clean result from a separate
+`IbsCbsEmissionReadiness` check does not prove that the typed legal
+assessment ran, nor does gateway acceptance of XML without IBS/CBS
+prove legal conformity. Read-only recovery must not initiate a new
+first-POST path.
 
-Open verification for the final integration:
-
-- authoritative taxable-event date versus fatura `issued_at` / competence;
-- platform scope under LC 214 art. 22 §§ 1 and 12–14;
-- categories e/g exceptions and applicable municipal/ISS jurisdiction;
-- verified Simples and any different IBS/CBS payment election;
-- item/category override for one specific operation with company isolation;
-- independently calculated payable/due/withheld amounts (#428/#432);
-- active XSD + transport capability by environment (`nfse-php` #121);
-- fake SEFIN accepting an incomplete document without hiding legal diagnostics;
-- no mutation of authorized NFS-e, tax history or archived PDF/XML.
+An operation still requires independently sourced evidence of its taxable
+event date, applicable platform and rental exceptions, municipal ISS scope,
+verified Simples/payment regime, operation-specific classification and
+amounts, and the active XSD/transport capability of its environment.
+These are runtime and legal evidence requirements, not permissions inferred
+from successful transport, a missing rejection or an item catalog default.
 
 No real taxpayer records, client certificates, production API requests
 or extra XML emission are used by this domain assessment.

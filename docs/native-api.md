@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# Native NFS-e API: first fiscal catalog
+# Native NFS-e API contracts
 
 The module registers `Route::api('nfse', ...)` through the Akaunting
 module route macro. The installed Core determines API prefix, domain,
@@ -84,7 +84,7 @@ The existing fiscal attempt journal supports both HTTP transports using the same
 The native Core API requires its own authentication and `read-api` along with `read-sales-invoices`. The browser continues to use the admin session. Both responses contain up to 100 newest attempts for an invoice owned by the active company, without raw XML or full transmitted documents. A fiscal attempt is distinct from an issued NFS-e receipt and from the Akaunting commercial invoice.
 
 
-## Fiscal tax associations and approximate-tax provenance (#502)
+## Fiscal tax associations and approximate-tax provenance
 
 These contracts expose only classification of **existing** Akaunting taxes
 and versioned estimated-tax evidence. They do not create accounting taxes,
@@ -123,7 +123,7 @@ the persisted ID; duplicated revisions or unsupported zero evidence return
 their tables and save confirmations over these JSON contracts, without using
 HTML fragments as an integration protocol.
 
-## Fiscal company profiles, certificates and shared infrastructure (#501)
+## Fiscal company profiles, certificates and shared infrastructure
 
 All operations retain the Akaunting Core API authentication and user/tenant
 authorization, with authenticated browser-session equivalents under
@@ -167,7 +167,7 @@ Jobs and automatic fiscal flows resolve these same profiles and infrastructure
 stores directly; no internal HTTP calls or alternative secrets store are
 introduced.
 
-## Competence closing and commercial-fiscal reconciliation (#503)
+## Competence closing and commercial-fiscal reconciliation
 
 `GET /{company_id}/{api_prefix}/nfse/closing?competence=YYYY-MM`
 uses Akaunting API credentials and the `read-sales-invoices` permission.
@@ -216,7 +216,7 @@ Both use the existing `read-sales-invoices` permission. The result never
 includes another company's receipts and cannot trigger tax accounting
 entries or official synchronization.
 
-## Fiscal ledger and receipt-scoped authorized artifacts (#503)
+## Fiscal ledger and receipt-scoped authorized artifacts
 
 `GET /{company_id}/{api_prefix}/nfse/ledger` uses Akaunting's native
 API authentication plus `read-sales-invoices` and returns bounded
@@ -323,7 +323,7 @@ documents or advance synchronization state. Automatic sync still uses
 company-specific reconciliation is preserved; no alternate sync or
 financial document writer is introduced.
 
-## Controlled bulk emission and progress (#507)
+## Controlled bulk emission and progress
 
 The same `BulkEmissionOperations` service handles the administrative native
 bulk action and externally authenticated clients; it reuses fiscal preflight,
@@ -413,7 +413,7 @@ No new issuance numbering policy is introduced by this HTTP adapter. The
 complete legal preflight and centralized DPS numbering requirements are
 tracked independently, and the API does not make them implicitly complete.
 
-## WebDAV artifact storage settings (#501)
+## WebDAV artifact storage settings
 
 The active company's optional authorized-XML and DANFSe storage configuration
 uses the same controller through Akaunting session/CSRF and native API
@@ -557,7 +557,7 @@ advertised as pure MCP reads. A new native client must use POST. Both native
 POST endpoints retain Core authentication and the settings-read ACL.
 
 See [the Web/API/domain/test traceability matrix](web-api-domain-parity.md)
-for the complete #497 capability and acceptance inventory.
+for the current capability and reference-test inventory.
 
 A browser template is allowed to render the controls, but it no longer embeds
 saved email-footer values or submits the footer or bulk-refresh actions as
