@@ -14,7 +14,6 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 use Modules\Nfse\Support\PfxInspector;
 use Modules\Nfse\Support\PfxReader;
-use Modules\Nfse\Support\VaultConfig;
 
 class CertificateController extends Controller
 {

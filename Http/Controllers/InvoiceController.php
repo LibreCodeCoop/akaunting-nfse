@@ -66,6 +66,7 @@ use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\TakerAddressReadiness;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseGenerator;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -73,7 +74,6 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\GatewayException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 
 class InvoiceController extends Controller

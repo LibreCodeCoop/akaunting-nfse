@@ -1,4 +1,5 @@
 <?php
+
 // SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 declare(strict_types=1);
@@ -27,9 +28,17 @@ final class OpenBaoSecretStore implements SecretStoreInterface
         public readonly ?string $token = null,
         public readonly ?string $roleId = null,
         public readonly ?string $secretId = null,
-    ) {}
+    ) {
+    }
 
-    public function get(string $path): array { return []; }
-    public function put(string $path, array $data): void {}
-    public function delete(string $path): void {}
+    public function get(string $path): array
+    {
+        return [];
+    }
+    public function put(string $path, array $data): void
+    {
+    }
+    public function delete(string $path): void
+    {
+    }
 }

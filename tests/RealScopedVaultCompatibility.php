@@ -1,4 +1,5 @@
 <?php
+
 // SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 declare(strict_types=1);
@@ -24,12 +25,21 @@ use Modules\CredentialVault\Contracts\SecretStore;
 use Modules\Nfse\Support\SharedVaultSecretStore;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 
-$fake = new class implements SecretStore {
+$fake = new class () implements SecretStore {
     /** @var array<string,array<string,string>> */
     private array $values = [];
-    public function get(string $path): array { return $this->values[$path] ?? []; }
-    public function put(string $path, array $values): void { $this->values[$path] = $values; }
-    public function delete(string $path): void { unset($this->values[$path]); }
+    public function get(string $path): array
+    {
+        return $this->values[$path] ?? [];
+    }
+    public function put(string $path, array $values): void
+    {
+        $this->values[$path] = $values;
+    }
+    public function delete(string $path): void
+    {
+        unset($this->values[$path]);
+    }
 };
 $bridge = new SharedVaultSecretStore($fake);
 if (!$bridge instanceof SecretStoreInterface) {
