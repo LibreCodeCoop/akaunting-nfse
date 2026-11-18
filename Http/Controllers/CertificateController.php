@@ -192,14 +192,6 @@ class CertificateController extends Controller
 
     protected function makeSecretStore(): \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface
     {
-        $config = VaultConfig::secretStoreConfig();
-
-        return new \Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore(
-            addr: $config['addr'],
-            mount: $config['mount'],
-            token: $config['token'],
-            roleId: $config['roleId'],
-            secretId: $config['secretId'],
-        );
+        return \Modules\Nfse\Support\FiscalSecretStoreFactory::make();
     }
 }

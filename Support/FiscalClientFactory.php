@@ -16,7 +16,6 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\AdnClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\MunicipalParametersClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NfseClient;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 
 /**
  * Every fiscal client requires an explicit native Akaunting owner. In
@@ -43,17 +42,8 @@ final class FiscalClientFactory
         ?\Closure $secretStoreFactory = null,
         ?\Closure $profileResolver = null,
     ) {
-        $this->secretStoreFactory = $secretStoreFactory ?? static function (): SecretStoreInterface {
-            $config = VaultConfig::secretStoreConfig();
-
-            return new OpenBaoSecretStore(
-                addr: $config['addr'],
-                mount: $config['mount'],
-                token: $config['token'],
-                roleId: $config['roleId'],
-                secretId: $config['secretId'],
-            );
-        };
+        $this->secretStoreFactory = $secretStoreFactory
+            ?? static fn (): SecretStoreInterface => FiscalSecretStoreFactory::make();
 
         // The injected resolver is exclusively for isolated tests. In the
         // application, ownership and certificate paths come from #419.

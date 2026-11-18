@@ -37,6 +37,7 @@ use Modules\Nfse\Support\AutomaticInvoiceFiscalIssuer;
 use Modules\Nfse\Support\ContactFiscalProfileStore;
 use Modules\Nfse\Support\EmailTemplateSynchronizer;
 use Modules\Nfse\Support\FiscalClientFactory;
+use Modules\Nfse\Support\FiscalSecretStoreFactory;
 use Modules\Nfse\Support\InvoiceFiscalEventOverview;
 use Modules\Nfse\Support\ItemMunicipalCompanyContext;
 use Modules\Nfse\Support\ItemMunicipalValidationResolver;
@@ -46,11 +47,9 @@ use Modules\Nfse\Support\NfseRuntimeContextFactory;
 use Modules\Nfse\Support\Testing\DeterministicFiscalHttpTransport;
 use Modules\Nfse\Support\Testing\EnvironmentFixtureSecretStore;
 use Modules\Nfse\Support\Testing\FiscalTestHarnessConfig;
-use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\HttpTransportInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Http\NativeStreamTransport;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 
 class Main extends Provider
 {
@@ -140,17 +139,7 @@ class Main extends Provider
 
             $this->app->bind(
                 SecretStoreInterface::class,
-                static function (): SecretStoreInterface {
-                    $config = VaultConfig::secretStoreConfig();
-
-                    return new OpenBaoSecretStore(
-                        addr: $config['addr'],
-                        mount: $config['mount'],
-                        token: $config['token'],
-                        roleId: $config['roleId'],
-                        secretId: $config['secretId'],
-                    );
-                },
+                static fn (): SecretStoreInterface => FiscalSecretStoreFactory::make(),
             );
         }
 
