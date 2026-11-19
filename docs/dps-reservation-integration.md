@@ -3,248 +3,153 @@ SPDX-FileCopyrightText: 2026 LibreCode coop and contributors
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# DPS reservation handoff for the multi-company emission boundary
+# DPS reservation and irreversible first-transmission contract
 
-Status: **the journal, reservation and irreversible first-POST claim are
-integrated; operational series activation and restricted-environment acceptance
-remain pending**. This does not authorize production emission or close #423.
+This page describes the reservation and emission boundary implemented by the
+module. Provisioning an authority, activating a fiscal series and carrying
+out a real fiscal transmission require separate operational authorization.
+See [ADR 0003](adr/0003-dps-identity-and-reservation.md) for the adopted
+architecture.
 
-Scope: #423, fiscal profile ownership in #417, authoritative company context in
-#421 and the last mutable preflight in #429. The existing
-[ADR 0003](adr/0003-dps-identity-and-reservation.md) remains the architectural
-source for unresolved external coordination and rejected-number policy.
+## Sources of truth
 
-## Sources of truth and required inputs
-
-| Input | Authoritative source / validation |
+| Required input | Authority |
 | --- | --- |
-| Fiscal operation owner | Persisted Akaunting `documents.id` + `documents.company_id` with `type = invoice`; never a client-supplied `company_id` alone |
-| Caller | #421's actual authorized HTTP principal or independently authorized CLI/job principal, bound to the persisted owner; no HTTP session inference in workers |
-| Fiscal identity | #417's persisted, authorized fiscal profile for the owner: issuing municipality, registration type and normalized federal registration; resolve with `DpsFiscalIssuer` |
-| Environment and series | Explicitly approved profile/environment/series activation snapshot; never defaults from the invoice ID, origin or an arbitrary API parameter |
-| Fiscal operation | Persisted invoice, existing validated fiscal group key (when applicable), or owned original cancelled/substituted receipt; distinguish each logical operation |
-| Idempotency | `DpsOperationKey::forInvoice(companyId, invoiceId, environment, groupKey, cancelledReceiptId, substitutedReceiptId)` using persisted identifiers, not caller origin |
-| Origin | Auditable label (`manual`, `manual_group`, `automatic`, `reemit`, `substitution`, future scheduler/API); not part of fiscal identity or idempotency |
-| Preflight | #429 pure assessment of the resolved company's immutable fiscal/municipal and invoice context, by actual group, rechecked at the last boundary before any first POST |
+| Invoice owner | Persisted Akaunting `documents.id` and `documents.company_id`, with `type=invoice`; an input `company_id` alone is not authority |
+| Caller | Authorized HTTP actor or independently authorized CLI/queue principal, bound to the persisted invoice; workers do not infer ownership from a web session |
+| Fiscal issuer | Active, company-owned profile with issuing municipality, registration type and normalized federal registration, resolved by `DpsFiscalIssuer` |
+| Environment and series | Deliberately activated environment/series tied to the fiscal profile and authority; neither invoice IDs nor arbitrary client parameters select a default |
+| Logical operation | Invoice, verified fiscal group, reissuance of a cancelled receipt or substitution of an authorized original receipt |
+| Idempotency | `DpsOperationKey::forInvoice(companyId, invoiceId, environment, groupKey, cancelledReceiptId, substitutedReceiptId)`; transport origin is not part of the key |
+| Fiscal validity | Final company-scoped municipal, temporal, invoice and tax preflight for the actual DPS before its first POST |
 
-For each **new** reservation, `DpsIssuanceIdentity` uses the
-`CompanyProfileDpsReservationAuthorizer`, implementing this contract:
+`CompanyProfileDpsReservationAuthorizer::assertCanReserve()` checks the
+authorized company/invoice and exact fiscal profile, environment and
+normalized series. Matching CNPJ or a company selected in another web
+session is insufficient. Repeated use of an existing reservation still
+requires authorization, without disclosing other companies' records.
 
-```php
-public function assertCanReserve(
-    int $companyId,
-    int $invoiceId,
-    DpsFiscalIssuer $issuer,
-    int $environment,
-    string $series,
-): void;
-```
+`DpsReservationService::reserve()` produces immutable
+`reservation_id`, `company_id`, `invoice_id`, `series` and `number`.
+For an existing compatible logical operation it returns the same
+reservation; a conflicting fiscal context is rejected. Newly allocated
+numbers are never silently recycled when preflight later blocks a POST.
+The reservation ledger contains no certificate, private key, secret or
+full fiscal payload.
 
-The authorizer must independently prove that the authenticated/delegated actor
-may operate on that invoice and the corresponding fiscal profile, including
-the **specific target environment and normalized series**. A matching CNPJ,
-a request field, a company selected in an unrelated HTTP session or a row
-labelled `shared_database` is not permission. Denials must occur before
-a new sequence mutation and must not reveal another tenant's reservation.
+## Issuance sequence and recovery
 
-For a **new** fiscal operation, `EmissionAttemptJournal::issue()`
-calls `DpsIssuanceIdentity::prepare()` after verifying fiscal authority.
-The final municipal preflight runs **after reservation** but **before** the
-irreversible claim and HTTP POST. A preflight denial can consume a reservation;
-it is never silently recycled. The allocator contract is:
+1. Resolve the persisted company-owned invoice, fiscal group or original
+   receipt, the active fiscal profile, certificate and explicit target
+   environment. Reject missing, suspended, mismatched and unauthorized
+   inputs without fallback.
+2. Derive the stable operation key and reserve the next number from an
+   independently authorized series. The same compatible operation
+   reuses the reservation. A newly reserved number may be consumed
+   even when the subsequent preflight prevents transmission.
+3. Build the DPS from the **reserved** series/number and the verified
+   fiscal-profile snapshot. `nfse-php` owns schema, signing, fiscal
+   identifier formation and transport; the installed scoped version
+   must match the target environment's supported contract.
+4. Link `nfse_emission_attempts.dps_reservation_id` to the reservation
+   for new operations, without rewriting earlier attempts. The
+   `EmissionAttemptJournal` persists `pending`, checks the final DPS
+   at the last mutable boundary and durably claims its **first** fiscal
+   POST through `DpsIssuanceIdentity::claimFirstPost()`. A blocked
+   preflight performs **zero** fiscal POSTs.
+5. Keep outcomes distinct: `authorized` requires a persisted valid
+   receipt; `rejected` requires a confirmed official rejection;
+   `ambiguous` covers uncertain transport or persistence;
+   `technical_failure` applies to a proven local failure before
+   transmission. Receipt persistence and authorization must not
+   degrade a previously authorized state.
+6. For timeout, crash, 5xx with uncertain outcome, absent access key
+   or partial commit, reconcile the **same DPS** read-only. Neither a
+   new request nor claim lease expiry grants another POST. Recoveries
+   use explicit, company-scoped read permissions.
+7. Cancellation does not renumber an authorized document. Reissuance
+   after cancellation and substitution of an authorized receipt have
+   their own logical keys and distinct reserved DPS numbers. Original
+   receipts, XMLs, events and archived artifacts remain immutable.
 
-```php
-$reserved = $reservations->reserve(
-    $companyId, $invoiceId, $issuer, $environment,
-    $approvedSeries, $persistedOperationKey, $origin,
-);
-// reservation_id, company_id, invoice_id, series, number
-```
+`IssueInvoiceNfse::issue()` is a low-level transport helper, not a
+standalone public issuance entrypoint. Manual, automatic, grouped,
+batch, reissuance and substitution callers use the journal and its
+claim boundary. There is no independent retry journal.
 
-The allocator API is not a certificate or profile resolver. The integrated
-issuance identity resolves the persisted profile and validates the exact
-issuer/environment/series/owner/operation against the local immutable
-`reservation_id` before a central claim. There is no allow-all
-production authorizer.
+### Correcting definitively rejected substitutions
 
-## Integration and irreversible transitions
+A confirmed SEFIN HTTP 400/422 rejection **E1235** (XML schema) or
+**E0713** (incompatible `indTotTrib`/`pTotTribSN` for a non-Simples
+issuer) does **not** release the submitted number or its first-POST
+claim. The module permits an explicit, separately authorized corrected
+successor of the *same valid original authorized NFS-e* using a
+distinct operation key incorporating the confirmed rejection attempt.
+The previous rejection remains immutable.
 
-1. Load the persisted invoice and original receipt/group when relevant.
-   Resolve authorized company/profile/certificate and target environment.
-   Reject absent, suspended, cross-tenant or inconsistent profiles with no
-   fallback. The municipal preflight executes after reservation but before
-   the central claim and any POST.
-2. Derive the stable operation key and obtain the reservation. Repeated
-   compatible calls receive the **same** reservation even after a series is
-   suspended, but must still pass caller authorization; distinct operations
-   must never reuse its number. A changed immutable context conflicts.
-3. Build the DPS using **only** the returned reserved series/number and the
-   verified fiscal-profile snapshot. The canonical `nfse-php` contract owns
-   XML, signing, protocol fields and identifier formation; verify its scoped
-   Composer revision before replacing legacy identifier formation.
-4. Link `nfse_emission_attempts.dps_reservation_id` to the verified reserved
-   DPS for **new** attempts without rewriting historical attempts. Before the
-   initial POST, atomically and durably claim the first transmission in the
-   existing `EmissionAttemptJournal`; do not add a second retry journal.
-   #429 performs its final check of the actual payload at the last mutable
-   boundary. A blocked assessment causes **zero POSTs** and never releases
-   an allocated number for automatic reuse.
-5. Journal states remain distinct: `pending` before first POST,
-   `authorized` only with a persisted valid receipt, `rejected` only
-   after a confirmed official response, `ambiguous` after an uncertain
-   response or persistence failure, and `technical_failure` only where a
-   local pre-POST failure is confirmed. Persist receipt and authorized
-   transition in one transaction. Do not demote an authorized receipt.
-6. On timeout, lost response, crash, 5xx of uncertain provenance, or a
-   missing receipt/access key, **query the same immutable DPS read-only**;
-   do not send another POST. A repeated HTTP/job request first reconciles
-   the journal/reservation rather than treating a new request as a new
-   allocation. Historical access for recovery must use #421's explicit
-   read-only authorization, not a permissive reservation bypass.
-7. An independently initiated reissue after cancellation or replacement of
-   an authorized NFS-e uses a distinct operation key and new reservation;
-   original NFS-e numbers, XML, event links and archived artifacts remain
-   immutable. Do not reinterpret a rejection as permission to recycle a
-   number: the authoritative rejected-number and sequence-gap rules remain
-   an explicit normative gate.
+The corrected payload must pass the actual environment's XSD before a
+new reservation. For E0713 the mandatory `totTrib` information uses
+three legitimately sourced `pTotTrib` percentages; neither invented
+zeros nor `indTotTrib` are acceptable substitutes. Missing independent
+source evidence blocks before allocation. A repeat of the new logical
+operation follows its existing reservation/recovery path. Other
+rejections and ambiguous outcomes do not authorize this successor or
+any automatic retransmission.
 
-### Replacing a definitively rejected DPS after a schema correction
+## MySQL authority and operational limits
 
-An official SEFIN **E1235** or **E0713** response with HTTP 400/422 proves
-that the submitted DPS was definitively rejected; it does not release its
-immutable DPS reservation or first-POST claim. E1235 is an XML schema rejection;
-E0713 rejects `indTotTrib` / `pTotTribSN` for a non-Simples issuer. After fixing the installed XML schema or supplying documented approximate tax
-totals for the actual company, national service, regime and competence, a new
-operator-initiated substitution of the same
-authorized original NFS-e uses a **new logical operation key**, incorporating
-the prior confirmed rejection's journal ID. This key is allocated through the
-same approved fiscal issuer/series authority and receives a distinct DPS
-number. The old rejection and its central claim stay intact.
+The supported topology is **one Akaunting installation with one MySQL
+database and multiple companies**. `ConfiguredDpsCoordinator` opens an
+independent PDO connection to the **same** Akaunting schema. The
+authority transaction allocates and commits the number before the
+invoice-side transaction records the local reservation. The coordinator
+checks the approved issuer/environment/series, installation membership,
+fencing generation, reference and immutable operation key.
 
-Before creating a new reservation, the replacement must retain a valid original
-NFS-e reference and pass the XSD for its actual fiscal environment. For E0713,
-`indTotTrib` is not a permitted fallback: the mandatory `totTrib` group must
-use three legitimately sourced `pTotTrib` percentages. If the independent source
-is not registered, block BEFORE the allocator; do not invent `0.00` values or
-reuse the original rejected DPS. The source is stored and audited separately
-from withheld federal taxes and the ISSQN fiscal rate. Subsequent
-calls to the same pending, ambiguous or authorized replacement reuse the
-existing reservation/recovery path, **never** create a fresh POST or recycle
-the earlier DPS number. Other rejection codes, uncertain failures and technical
-failures do not authorize a successor. The correction is not an automatic
-retransmission: a new fiscal POST still requires a separate authorized action.
+When the authority commits but the local reservation fails, a replay
+must reconcile the central operation **read-only**; it cannot create a
+new local reservation or transmit. Existing reservations require an
+exact read-only `assertExisting()` match. The first-POST claim is
+likewise irreversible once committed, even if the response disappears.
 
-These steps require a deliberate transaction boundary between durable
-reservation and first-POST claim. It is **unsafe** to reserve a number, perform
-an unguarded POST, and create the journal record only afterward.
+The migration creates authority tables with inactive status. An
+active-looking local series or a matching `coordination_reference`
+does not activate the authority. A missing coordinator, unknown
+historical floor, revoked generation or wrong profile fails closed.
+Series numbering is issuer-scoped rather than company-scoped: two
+company records of the same taxpayer share the sequence while retaining
+strict invoice and certificate isolation.
 
-## Deployment and external coordination gate
+This authority cannot prevent a nonparticipating external emitter from
+reusing the same series. A full-database rollback can also erase both
+local and authority records simultaneously. Restore requires emission
+shutdown, independent historical evidence, read-only SEFIN
+reconciliation and deliberate generation/series reactivation. Do not
+seed numbers from invoice IDs, assume one negative official lookup
+proves the complete historical high-water, or use the authority with
+independent Akaunting databases.
 
-The current unique indexes and `SELECT ... FOR UPDATE` protect only
-connections sharing the **same** MySQL data store. Two independent database
-installations may each allocate the same fiscal identity even if both write
-identical `coordination_reference` strings. Coordination uses an independently committed PDO transaction in the same Akaunting MySQL schema; it cannot prove ownership against nonparticipating external issuers. Full-database restores require a separate operational reconciliation before reactivation.
+The national `TSIdDPS` combines municipality, registration type,
+federal registration, series and number; the positive `TSNumDPS`
+has at most 15 decimal digits. Series normalization is an application
+convention rather than an officially prescribed API default.
+Environment-specific XSD publication does not prove activation in a
+SEFIN endpoint. Unresolved official rejection or gap policy is never
+interpreted as permission to recycle a number.
 
-As of the shared-MySQL coordinator implementation, an eligible deployment
-must explicitly inject a **real atomic** `DpsSeriesCoordinator`; the default is
-null and production reservations remain blocked. The old check-only
-`DpsSeriesCoordinationVerifier` has been removed. The coordinator's
-`allocate()` holds the global fiscal-series row and the installation member
-row under one MySQL transaction, allocates the next number and durably records
-the installation-scoped operation before commit. A locally active row or
-`coordination_reference` is never sufficient. No mock, local-only fallback
-or allow-all verifier is installed in the production provider.
+## Verification references
 
-The shared coordinator does **not** make its remote transaction atomic with
-the local Akaunting commit. If it commits but the local insert fails, the
-durable central operation key survives and a retry is deliberately blocked:
-`fresh=false` requires **read-only reconciliation**, not recreating the
-missing local reservation. Existing local reservations require an exact,
-read-only `assertExisting()` match against the central ledger. Local
-`last_number` records only a per-installation observed high-water mark;
-other installations may consume intervening numbers.
+The module includes `DpsReservationServiceTest`,
+`EmissionAttemptJournalTest`, real-MySQL
+`SharedMysqlDpsSeriesCoordinatorTest` and fake-SEFIN feature tests
+for uniqueness, company scope, concurrent allocation, claim-at-most-once,
+partial commits, unsafe replay and rejection handling. These tests
+protect the software contract; they do not certify series ownership,
+regulatory compliance or live SEFIN enablement.
 
-Fencing generations are checked and locked together with each atomic
-allocation. #515/#516 additionally fence the first fiscal POST at the
-central claim boundary, with the immutable reservation and authorized company
-context verified by `EmissionAttemptJournal`. This does not revoke a POST
-already in flight. Do not add another journal.
-
-See [the deployment architecture and failure matrix](dps-distributed-coordination.md)
-and [external SQL schema](sql/dps-coordination-schema.sql). Provisioning,
-authentic series ownership, disjoint external emitters, up-to-date attested
-floor, durable coordinator recovery/failover and the already integrated first-POST gate all
-remain **contractual prerequisites**, not features inferred from central
-table existence. No production series is automatically activated.
-
-The MySQL regression test `testTwoIsolatedMysqlDatabasesCanAllocateIdenticalNationalDpsIdentity`
-reproduces the counterexample: independent schemas with identical
-registration/series/reference both successfully commit local number 1.
-This establishes the need for external coordination; it is not a test of
-coordinator correctness and never calls SEFIN.
-
-**Current transport boundary:** `IssueInvoiceNfse::issue()` remains a
-low-level transport helper, not a public issuance entrypoint. The supported
-manual, automatic, grouped/batch, reissue and substitution callers now pass
-through `EmissionAttemptJournal`, where #515/#516 bind the immutable
-reservation and first-POST claim. The historical deterministic draft numbers
-are replaced before transmission. Keep real emission disabled until
-operational series ownership, historical reconciliation and restricted
-environment validation have been established.
-
-Before enabling a series, #417/#421 must require durable evidence of one of:
-a genuinely shared atomic allocation store used by **all** installations for
-that issuer/environment/series, or externally enforceable exclusive
-non-overlapping series ownership. The evidence must cover an external issuer,
-restore/rollback, a second Akaunting company and stale processes. Without
-this proof, **production series activation and first POST must stay blocked**.
-Do not create a standalone microservice without evidence of necessity.
-
-The XSD snapshot documents 45-character `TSIdDPS` with issuing municipality,
-federal registration type/registration, series and number; it is not scoped
-by Akaunting `company_id`. `TSNumDPS` is positive 1–15 decimal digits.
-The series normalization used by the kernel is a local convention, not
-proof of a nationally recommended default. The current February XSD
-snapshot has a series-pattern inconsistency and an identifier digit pattern
-that must be reconciled with any deployment supporting alphanumeric CNPJ.
-Verify official production/restricted bundles and actual endpoint deployment
-before making these capabilities operational.
-
-## Consumer-driven acceptance tests for #421 and #429
-
-- Same persisted operation requested via manual, send/listener, automatic,
-  grouped/batch and job workers returns one reservation and produces at most
-  one first POST to **synthetic fake SEFIN**, regardless of request order.
-- Distinct fiscal operations allocate distinct numbers on two real MySQL
-  connections. Different fiscal issuers can use the same series/number;
-  separate Akaunting tenants representing the same issuer share the local
-  counter but cannot read/modify one another's records or certificates.
-- A forged tenant, mismatched invoice, wrong profile, unauthorized
-  environment/series, removed profile, unresolved job context, Vault outage
-  and unproven cross-installation coordination fail without any POST or
-  cross-tenant disclosure.
-- A crash before reservation, after reservation commit, during first-POST
-  claim or after remote success before receipt persistence cannot generate
-  a fresh reservation/second POST; only read-only DPS reconciliation is
-  permitted after uncertain transmission.
-- #429 blocks objectively invalid fiscal payloads at the last boundary,
-  including on dequeued jobs; recovery and already authorized operations
-  do not run a new first-POST path. A fake SEFIN accepting malformed tax
-  fields must not override legal preflight.
-- Reissue, cancellation and replacement preserve original authorized
-  receipt/XML, reference the correct original fiscal operation and never
-  recycle a DPS without documented normative permission.
-- Confirm runtime XSD version, limits, counter overflow, idempotency,
-  suspended series, transaction rollback and authorization in PHPUnit,
-  Akaunting Feature, MySQL, relevant Playwright and final-HEAD CI.
-  Operational restricted-environment validation, if authorized, is a
-  separate gate; synthetic tests do not establish it.
-
-## Ownership and remaining decisions
-
-#417 owns the fiscal profile and series-ownership prerequisites.
-#421 provides authoritative company context and origin-specific boundaries;
-#429 owns the final municipal preflight. #423 retains distributed
-coordination, normative reuse/gap policy and operational acceptance.
-`docs/operacao-e-configuracao.md` describes the current setup; its
-presence does not imply that any real series is activated.
+For provisioning, permissions, number adjustment and recovery see
+[DPS coordination operations](dps-distributed-coordination.md).
+For company configuration and issuance controls see
+[configuration and operations](operacao-e-configuracao.md).
+For fiscal eligibility and municipal evidence see
+[fiscal safety](fiscal-safety.md).
