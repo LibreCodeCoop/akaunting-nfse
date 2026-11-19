@@ -64,9 +64,9 @@ use Modules\Nfse\Support\NfseCompanyIssuerPayload;
 use Modules\Nfse\Support\NfseCompanyProfileCatalog;
 use Modules\Nfse\Support\OperationalReadinessResolver;
 use Modules\Nfse\Support\TakerAddressReadiness;
-use Modules\Nfse\Support\VaultConfig;
 use Modules\Nfse\Support\WebDavClient;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\NfseClientInterface;
+use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Contracts\SecretStoreInterface;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Danfse\DanfseGenerator;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\DpsData;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Dto\ReceiptData;
@@ -74,7 +74,6 @@ use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\GatewayException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\NetworkException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\PfxImportException;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Exception\SecretStoreException;
-use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\SecretStore\OpenBaoSecretStore;
 use Modules\Nfse\Vendor\LibreCodeCoop\NfsePHP\Xml\XmlBuilder;
 
 class InvoiceController extends Controller
@@ -4843,17 +4842,9 @@ class InvoiceController extends Controller
             ->get();
     }
 
-    protected function makeSecretStore(): OpenBaoSecretStore
+    protected function makeSecretStore(): SecretStoreInterface
     {
-        $config = VaultConfig::secretStoreConfig();
-
-        return new OpenBaoSecretStore(
-            addr: $config['addr'],
-            mount: $config['mount'],
-            token: $config['token'],
-            roleId: $config['roleId'],
-            secretId: $config['secretId'],
-        );
+        return \Modules\Nfse\Support\FiscalSecretStoreFactory::make();
     }
 
     private function customerEmailPreferences(): CustomerEmailPreferences
