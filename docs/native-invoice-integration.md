@@ -11,7 +11,7 @@ The module injects its fiscal panel through Akaunting's existing
 `status_message_end` Blade stack. It does not replace or copy the core
 `sales.invoices.show` view.
 
-The panel currently exposes:
+The panel exposes:
 
 - pending/issued/cancelled/substituted fiscal state;
 - latest NFS-e number and access key;
@@ -19,6 +19,7 @@ The panel currently exposes:
 - a link to detailed fiscal artifacts/audit information;
 - a link to NFS-e settings.
 
-During migration, `/nfse/invoices/{invoice}` remains the detailed fiscal/audit
-view. Routine fiscal operations should progressively move to the native invoice
-surface before the parallel list/detail is removed or redirected.
+The module also provides the company-scoped `/nfse/invoices/{invoice}`
+view for detailed fiscal documents and audit information. The native
+Akaunting invoice surface and this detail view are complementary;
+visibility and actions remain subject to the invoice and NFS-e permissions.

@@ -303,7 +303,7 @@ não comprova a incidência, o cálculo ou a retenção legal na competência.
 
 Alguns caminhos legados de agregação ainda interpretam nomes textuais
 de impostos; **isso não constitui evidência tributária válida** e está
-sob revisão de #428/#429. Não altere nomes ou alíquotas para forçar
+sujeita à avaliação normativa e à pré-validação fiscal vigente. Não altere nomes ou alíquotas para forçar
 uma classificação silenciosa. Confira o enquadramento com o responsável
 fiscal antes da transmissão.
 
