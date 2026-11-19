@@ -61,6 +61,11 @@
     id="nfse-native-fiscal-panel"
     class="rounded-lg border border-gray-200 bg-white p-4 sm:p-5"
     data-nfse-native-panel="true"
+    data-nfse-json-uncertain="{{ trans('nfse::general.fiscal_json_forms.uncertain') }}"
+    data-nfse-json-unauthenticated="{{ trans('nfse::general.fiscal_json_forms.unauthenticated') }}"
+    data-nfse-json-forbidden="{{ trans('nfse::general.fiscal_json_forms.forbidden') }}"
+    data-nfse-json-expired="{{ trans('nfse::general.fiscal_json_forms.expired') }}"
+    data-nfse-json-invalid="{{ trans('nfse::general.fiscal_json_forms.invalid') }}"
     data-nfse-post-emission-status-url="{{ $hasReceipt ? route('nfse.invoices.post-emission-status', $invoice->id) : '' }}"
     data-nfse-post-emission-state="{{ $postEmissionOverall }}"
     data-message-processing="{{ trans('nfse::general.invoices.post_processing_processing') }}"
@@ -147,7 +152,9 @@
                                     {{ trans('nfse::general.invoice_decision.issue_override') }}
                                 </summary>
                                 <form method="POST" action="{{ route('nfse.invoices.fiscal-decision.store', $invoice->id) }}"
-                                    class="mt-3 space-y-3">
+                                    class="mt-3 space-y-3" data-nfse-fiscal-json-form="true"
+                                    data-nfse-json-contract="decision"
+                                    data-nfse-json-success="{{ trans('nfse::general.invoice_decision.saved') }}">
                                     @csrf
                                     <input type="hidden" name="decision" value="issue">
                                     <input type="hidden" name="reason" value="operational_review">
@@ -165,7 +172,10 @@
                     @else
                         @can('update-sales-invoices')
                             <form method="POST" action="{{ route('nfse.invoices.fiscal-decision.store', $invoice->id) }}"
-                                class="space-y-2" data-nfse-decision-reversal-form="true">
+                                class="space-y-2" data-nfse-decision-reversal-form="true"
+                                data-nfse-fiscal-json-form="true"
+                                data-nfse-json-contract="decision"
+                                data-nfse-json-success="{{ trans('nfse::general.invoice_decision.saved') }}">
                                 @csrf
                                 <input type="hidden" name="decision" value="reversed">
                                 <input type="hidden" name="reason" value="reconsidered">
@@ -215,7 +225,10 @@
                                     {{ trans('nfse::general.invoice_decision.help') }}
                                 </p>
                                 <form method="POST" action="{{ route('nfse.invoices.fiscal-decision.store', $invoice->id) }}"
-                                    class="grid gap-3 sm:grid-cols-2" data-nfse-decision-form="true">
+                                    class="grid gap-3 sm:grid-cols-2" data-nfse-decision-form="true"
+                                    data-nfse-fiscal-json-form="true"
+                                    data-nfse-json-contract="decision"
+                                    data-nfse-json-success="{{ trans('nfse::general.invoice_decision.saved') }}">
                                     @csrf
                                     <label class="text-xs font-medium">
                                         {{ trans('nfse::general.invoice_decision.action') }}
@@ -311,7 +324,10 @@
             @can('update-sales-invoices')
                 <details class="mt-3">
                     <summary class="cursor-pointer text-sm font-medium text-indigo-700">{{ trans('nfse::general.fiscal_event.record') }}</summary>
-                    <form method="POST" action="{{ route('nfse.invoices.fiscal-event-evidence.store', $invoice->id) }}" class="mt-3 grid gap-3 sm:grid-cols-2" data-nfse-fiscal-event-form="true">
+                    <form method="POST" action="{{ route('nfse.invoices.fiscal-event-evidence.store', $invoice->id) }}" class="mt-3 grid gap-3 sm:grid-cols-2" data-nfse-fiscal-event-form="true"
+                        data-nfse-fiscal-json-form="true"
+                        data-nfse-json-contract="evidence"
+                        data-nfse-json-success="{{ trans('nfse::general.fiscal_event.saved') }}">
                         @csrf
                         <div class="sm:col-span-2">
                             <label for="nfse-event-group-{{ $invoice->id }}" class="block text-xs font-medium">{{ trans('nfse::general.fiscal_event.group') }}</label>

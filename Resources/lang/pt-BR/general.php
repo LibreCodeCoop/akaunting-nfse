@@ -76,6 +76,13 @@ return [
         'save' => 'Registrar evidência',
         'saved' => 'Data do fato gerador registrada. A DPS será reavaliada antes da emissão.',
     ],
+    'fiscal_json_forms' => [
+        'uncertain' => 'O resultado não pôde ser confirmado. Atualize a página e consulte o histórico antes de repetir.',
+        'unauthenticated' => 'Autentique-se novamente antes de continuar.',
+        'forbidden' => 'Você não tem permissão para esta operação.',
+        'expired' => 'Sua sessão expirou. Atualize a página antes de continuar.',
+        'invalid' => 'Dados inválidos. Confira os campos antes de enviar novamente.',
+    ],
     'dps_diagnostic' => [
         'title' => 'Diagnóstico de numeração DPS',
         'caution' => 'A consulta não autoriza emissão. O histórico fiscal deve ser atestado independentemente e a ativação exige aprovação operacional explícita.',

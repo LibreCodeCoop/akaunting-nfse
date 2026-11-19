@@ -76,6 +76,13 @@ return [
         'save' => 'Record evidence',
         'saved' => 'Taxable event date recorded. The DPS will be reassessed before issuance.',
     ],
+    'fiscal_json_forms' => [
+        'uncertain' => 'The result is uncertain. Reload the page and check the history before retrying.',
+        'unauthenticated' => 'Sign in again before continuing.',
+        'forbidden' => 'You do not have permission for this operation.',
+        'expired' => 'Your session has expired. Reload before continuing.',
+        'invalid' => 'Invalid values. Review the fields before retrying.',
+    ],
     'dps_diagnostic' => [
         'title' => 'DPS sequence diagnostic',
         'caution' => 'A status check does not authorize issuance. Only independently attested fiscal history and an explicit operational activation can do that.',
