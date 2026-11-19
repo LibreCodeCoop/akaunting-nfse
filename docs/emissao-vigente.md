@@ -9,6 +9,10 @@ Este roteiro descreve a emissão do contrato DPS efetivamente suportado
 pelo módulo. Uma publicação NT009 ou um XML de pré-visualização não
 autoriza trocar o leiaute transmitido em produção.
 
+A configuração tributária de cada empresa deve ser homologada pela respectiva
+contabilidade durante a implantação. Consulte o
+[procedimento de homologação fiscal por empresa](homologacao-fiscal-por-empresa.md).
+
 ## Antes de emitir
 
 1. Em **NFS-e → Configurações**, confirme ambiente, prestador, município

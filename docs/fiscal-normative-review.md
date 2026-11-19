@@ -9,6 +9,12 @@ Este documento define **como verificar** as hipóteses fiscais das operações
 efetivamente suportadas. Não equivale a parecer jurídico, homologação contábil,
 autorização municipal nem confirmação da ativação do esquema XSD.
 
+A matriz acompanha a manutenção das regras gerais do produto; não exige
+homologação antecipada de todas as combinações de empresas e municípios.
+O aceite das operações concretas pertence à implantação de cada empresa,
+conforme o [procedimento de homologação fiscal](homologacao-fiscal-por-empresa.md).
+A ausência desse aceite não torna um defeito técnico conhecido aceitável.
+
 ## Critério por operação
 
 Registrar identificador estável, hipótese, regime, categoria suportada, serviço,
