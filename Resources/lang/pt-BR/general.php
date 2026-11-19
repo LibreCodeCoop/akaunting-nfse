@@ -199,6 +199,7 @@ return [
         'from' => 'Emissão de',
         'to' => 'Emissão até',
         'open_invoice' => 'Abrir fatura',
+        'historical_no_invoice' => 'Sem fatura histórica',
         'empty' => 'Nenhuma NFS-e encontrada.',
     ],
 

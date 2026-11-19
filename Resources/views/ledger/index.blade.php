@@ -7,6 +7,7 @@
             data-list-url="{{ route('nfse.ledger.data') }}"
             data-invoice-url="{{ route('invoices.show', '__INVOICE_ID__') }}"
             data-artifact-url="{{ route('nfse.ledger.artifacts.download', ['receipt' => '__RECEIPT_ID__', 'artifact' => '__ARTIFACT__']) }}"
+            data-historical-no-invoice="{{ trans('nfse::general.ledger.historical_no_invoice') }}"
             data-status-emitted="{{ trans('nfse::general.ledger.status_emitted') }}"
             data-status-processing="{{ trans('nfse::general.ledger.status_processing') }}"
             data-status-cancelled="{{ trans('nfse::general.ledger.status_cancelled') }}"

@@ -27,6 +27,16 @@
         return route(template, { __RECEIPT_ID__: receiptId }).replace('__ARTIFACT__', type);
     }
 
+    function archivedPdfRoute(template, receiptId, pageNumber) {
+        const url = artifactRoute(template, receiptId, 'danfse');
+        const page = Number(pageNumber);
+        if (!Number.isSafeInteger(page) || page < 1 || page > 10000) {
+            throw new Error('Invalid archival PDF page.');
+        }
+        // The server extracts only this fiscal page, so the delivered PDF starts at page one.
+        return url;
+    }
+
     async function getJson(fetchImpl, url) {
         const response = await fetchImpl(url, {
             method: 'GET', credentials: 'same-origin',
@@ -77,16 +87,25 @@
             }
             const actions = doc.createElement('td');
             actions.className = 'p-3 text-right';
-            const invoice = textElement(doc, 'a', 'Abrir fatura', 'text-indigo-700 underline');
-            invoice.href = route(root.dataset.invoiceUrl, { __INVOICE_ID__: receipt.invoice_id });
-            actions.appendChild(invoice);
-            if (receipt.can_download === true) {
-                for (const kind of ['xml', 'danfse']) {
-                    const file = textElement(doc, 'a', kind === 'xml' ? 'XML' : 'DANFSe',
-                        'ml-3 text-indigo-700 underline');
-                    file.href = artifactRoute(root.dataset.artifactUrl, receipt.id, kind);
-                    actions.appendChild(file);
-                }
+            if (receipt.invoice_id != null) {
+                const invoice = textElement(doc, 'a', 'Abrir fatura', 'text-indigo-700 underline');
+                invoice.href = route(root.dataset.invoiceUrl, { __INVOICE_ID__: receipt.invoice_id });
+                actions.appendChild(invoice);
+            } else {
+                actions.appendChild(textElement(doc, 'span',
+                    root.dataset.historicalNoInvoice || 'Sem fatura histórica', 'text-gray-500'));
+            }
+            for (const kind of ['xml', 'danfse']) {
+                const allowed = kind === 'xml' ? receipt.can_download_xml === true
+                    : receipt.can_download_danfse === true;
+                if (!allowed) continue;
+                const file = textElement(doc, 'a', kind === 'xml' ? 'XML' : 'DANFSe',
+                    'ml-3 text-indigo-700 underline');
+                file.href = kind === 'danfse' && receipt.historical_unlinked === true
+                    && receipt.archive_page_number != null
+                    ? archivedPdfRoute(root.dataset.artifactUrl, receipt.id, receipt.archive_page_number)
+                    : artifactRoute(root.dataset.artifactUrl, receipt.id, kind);
+                actions.appendChild(file);
             }
             tr.appendChild(actions);
             body.appendChild(tr);
@@ -143,7 +162,7 @@
         if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', run, { once: true });
         else run();
     }
-    return { init, boot, route, artifactRoute, getJson, render };
+    return { init, boot, route, artifactRoute, archivedPdfRoute, getJson, render };
 });
 
 if (typeof document !== 'undefined' && typeof fetch !== 'undefined'

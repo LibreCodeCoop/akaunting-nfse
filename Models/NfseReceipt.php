@@ -17,6 +17,12 @@ class NfseReceipt extends Model
 
     protected $fillable = [
         'invoice_id',
+        'company_id',
+        'archive_page_number',
+        'archive_pdf_sha256',
+        'archive_evidence',
+        'archive_identity',
+        'recipient_contact_id',
         'nfse_number',
         'chave_acesso',
         'data_emissao',
@@ -31,14 +37,23 @@ class NfseReceipt extends Model
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
+        'recipient_contact_id' => 'integer',
+        'archive_page_number' => 'integer',
         'data_emissao' => 'datetime',
         'competence_date' => 'date',
         'authorized_fiscal_snapshot' => 'array',
+        'archive_evidence' => 'array',
     ];
 
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Document\Document::class);
+    }
+
+    public function recipientContact(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Common\Contact::class, 'recipient_contact_id');
     }
 
     public function replaces(): BelongsTo

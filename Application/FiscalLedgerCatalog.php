@@ -35,10 +35,15 @@ final class FiscalLedgerCatalog
         $status = (string) ($params['status'] ?? 'all');
         $search = trim((string) ($params['search'] ?? ''));
         $query = NfseReceipt::query()
-            ->with('invoice.contact')
-            ->whereHas('invoice', static fn ($query) => $query
-                ->where('company_id', $companyId)
-                ->where('type', Invoice::INVOICE_TYPE));
+            ->with(['invoice.contact', 'recipientContact'])
+            ->where(static function ($query) use ($companyId): void {
+                $query->whereHas('invoice', static fn ($invoice) => $invoice
+                    ->where('company_id', $companyId)
+                    ->where('type', Invoice::INVOICE_TYPE))
+                    ->orWhere(static fn ($historical) => $historical
+                        ->whereNull('invoice_id')
+                        ->where('company_id', $companyId));
+            });
 
         if ($status !== 'all') {
             $query->where('status', $status);
@@ -48,6 +53,11 @@ final class FiscalLedgerCatalog
                 ->where('nfse_number', 'like', '%' . $search . '%')
                 ->orWhere('chave_acesso', 'like', '%' . $search . '%')
                 ->orWhereHas('invoice.contact', static fn ($contact) => $contact
+                    ->where('name', 'like', '%' . $search . '%'))
+                ->orWhereHas('recipientContact', static fn ($contact) => $contact
+                    ->where('company_id', $companyId)
+                    ->where('type', 'customer')
+                    ->whereNull('deleted_at')
                     ->where('name', 'like', '%' . $search . '%')));
         }
         if (!empty($params['from'])) {
