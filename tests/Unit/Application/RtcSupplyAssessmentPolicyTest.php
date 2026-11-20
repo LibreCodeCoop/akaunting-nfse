@@ -17,7 +17,7 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
 {
     /**
      * Expected dates and obligation flags are transcribed independently
-     * from Ato Conjunto RFB/CGIBS 4/2026, art. 1, III and §1.
+     * from Ato Conjunto RFB/CGIBS 7/2026, art. 1, III and §1.
      */
     #[DataProvider('officialCalendarCases')]
     public function testOfficialOperationCalendar(
@@ -43,15 +43,15 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
     {
         return [
             'LC116 common' => ['ordinary_lc116', '0107', '2026-09-30', '2026-10-01', '2026-10-01'],
-            'LC116 1.03' => ['ordinary_lc116', '0103', '2026-11-30', '2026-12-01', '2026-12-01'],
-            'LC116 1.05' => ['ordinary_lc116', '0105', '2026-11-30', '2026-12-01', '2026-12-01'],
-            'LC116 1.09' => ['ordinary_lc116', '0109', '2026-11-30', '2026-12-01', '2026-12-01'],
-            'LC116 16.01' => ['ordinary_lc116', '1601', '2026-11-30', '2026-12-01', '2026-12-01'],
-            'digital platform' => ['digital_platform', '0107', '2026-11-30', '2026-12-01', '2026-12-01'],
-            'non ISS intangible' => ['non_iss_intangible', '', '2026-11-30', '2026-12-01', '2026-12-01'],
-            'condominium revenue' => ['condominium_revenue', '', '2026-11-30', '2026-12-01', '2026-12-01'],
-            'lease' => ['lease', '0107', '2026-11-30', '2026-12-01', '2026-12-01'],
-            'residual services' => ['residual_service', '', '2026-11-30', '2026-12-01', '2026-12-01'],
+            'LC116 1.03' => ['ordinary_lc116', '0103', '2027-02-28', '2027-03-01', '2027-03-01'],
+            'LC116 1.05' => ['ordinary_lc116', '0105', '2027-02-28', '2027-03-01', '2027-03-01'],
+            'LC116 1.09' => ['ordinary_lc116', '0109', '2027-02-28', '2027-03-01', '2027-03-01'],
+            'LC116 16.01' => ['ordinary_lc116', '1601', '2027-02-28', '2027-03-01', '2027-03-01'],
+            'digital platform' => ['digital_platform', '0107', '2027-02-28', '2027-03-01', '2027-03-01'],
+            'non ISS intangible' => ['non_iss_intangible', '', '2026-12-31', '2027-01-01', '2027-01-01'],
+            'condominium revenue' => ['condominium_revenue', '', '2026-12-31', '2027-01-01', '2027-01-01'],
+            'lease' => ['lease', '0107', '2026-12-31', '2027-01-01', '2027-01-01'],
+            'residual services' => ['residual_service', '', '2026-12-31', '2027-01-01', '2027-01-01'],
         ];
     }
 
@@ -74,16 +74,18 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
         ?string $election,
     ): void {
         $policy = new RtcSupplyAssessmentPolicy();
+        $cutover = $category === 'digital_platform' || ($category === 'ordinary_lc116' && $lc116 === '0103')
+            ? '2027-03-01' : '2027-01-01';
         $before = $policy->schedule(self::context(
             category: $category,
-            event: '2026-12-31',
+            event: $cutover === '2027-03-01' ? '2027-02-28' : '2026-12-31',
             lc116: $lc116,
             simples: $option,
             ibsRegime: $election,
         ));
         $after = $policy->schedule(self::context(
             category: $category,
-            event: '2027-01-01',
+            event: $cutover,
             lc116: $lc116,
             simples: $option,
             ibsRegime: $election,
@@ -91,8 +93,8 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
 
         self::assertFalse($before['required']);
         self::assertTrue($after['required']);
-        self::assertSame('2027-01-01', $before['effective_date']);
-        self::assertSame('2027-01-01', $after['effective_date']);
+        self::assertSame($cutover, $before['effective_date']);
+        self::assertSame($cutover, $after['effective_date']);
         self::assertStringContainsString('§1', (string) $after['provision']);
     }
 
@@ -146,7 +148,7 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
             'Simples option unknown' => ['ordinary_lc116', '0107', '2026-10-01', null, 'simples_option_unverifiable', 'opcaoSimplesNacional'],
             'event date unknown' => ['ordinary_lc116', '0107', null, 1, 'taxable_event_date_unverifiable', 'taxableEventDate'],
             'non ISS event unknown' => ['lease', null, null, 1, 'taxable_event_date_unverifiable', 'taxableEventDate'],
-            'non ISS regime unknown' => ['digital_platform', null, '2026-12-01', null, 'simples_option_unverifiable', 'opcaoSimplesNacional'],
+            'non ISS regime unknown' => ['digital_platform', null, '2027-03-01', null, 'simples_option_unverifiable', 'opcaoSimplesNacional'],
         ];
     }
 
@@ -195,7 +197,7 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
     public function testEvidenceAndTechnicalCapabilityAreIndependentOfCalendar(): void
     {
         $policy = new RtcSupplyAssessmentPolicy();
-        $assessment = $policy->assess(self::context(category: 'lease', event: '2026-12-01'));
+        $assessment = $policy->assess(self::context(category: 'lease', event: '2027-01-01'));
         [$norm, $protocol] = $assessment->decisions;
 
         self::assertSame('normative', $norm->category);
@@ -239,7 +241,7 @@ final class RtcSupplyAssessmentPolicyTest extends TestCase
     ): void {
         $policy = new RtcSupplyAssessmentPolicy();
 
-        foreach (['2026-11-30', '2026-12-01'] as $date) {
+        foreach (['2026-11-30', $category === 'digital_platform' ? '2027-03-01' : '2027-01-01'] as $date) {
             $context = self::context(category: $category, lc116: null, event: $date);
             $assessment = $policy->assess($context);
             self::assertCount(2, $assessment->decisions);

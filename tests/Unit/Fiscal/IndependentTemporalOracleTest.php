@@ -12,12 +12,12 @@ use PHPUnit\Framework\TestCase;
 
 final class IndependentTemporalOracleTest extends TestCase
 {
-    public function testTwentyAuditCasesMatchActualReadinessAcrossLegalCutovers(): void
+    public function testThirtyTwoSourceBackedCasesMatchCurrentReadinessAcrossCutovers(): void
     {
-        $path = dirname(__DIR__, 2) . '/fixtures/fiscal-normative/nfse_427_matriz_temporal_sintetica_2026-10-12.json';
+        $path = dirname(__DIR__, 2) . '/fixtures/fiscal-normative/nfse_427_matriz_temporal_sintetica_2026-11-20.json';
         $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-        self::assertCount(20, $data['cases']);
-        self::assertCount(20, array_unique(array_column($data['cases'], 'id')));
+        self::assertCount(32, $data['cases']);
+        self::assertCount(32, array_unique(array_column($data['cases'], 'id')));
 
         $readiness = new IbsCbsEmissionReadiness();
         $mapping = [
@@ -88,7 +88,7 @@ final class IndependentTemporalOracleTest extends TestCase
         // This does not prove that all emission paths call the same readiness.
     }
 
-    public function testPlannedXsdActivationIsNotAConfirmedDeployment(): void
+    public function testArchivedOctoberDeploymentPlansNeverProveCurrentActivation(): void
     {
         $path = dirname(__DIR__, 2) . '/fixtures/fiscal-normative/nfse_427_matriz_temporal_sintetica_2026-10-12.json';
         $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
@@ -130,7 +130,10 @@ final class IndependentTemporalOracleTest extends TestCase
         }
 
         if ($regime === 'simples') {
-            return $date >= new \DateTimeImmutable('2027-01-01');
+            return $date >= new \DateTimeImmutable(
+                in_array($category, ['iss_deferred_subitem', 'digital_platform_supply_subject_to_art22'], true)
+                    ? '2027-03-01' : '2027-01-01',
+            );
         }
 
         if (in_array($category, [
@@ -138,13 +141,15 @@ final class IndependentTemporalOracleTest extends TestCase
             'real_estate_rental',
             'condominium_legal_charges',
         ], true)) {
-            return $date >= new \DateTimeImmutable('2026-12-01');
+            return $date >= new \DateTimeImmutable(
+                $category === 'digital_platform_supply_subject_to_art22' ? '2027-03-01' : '2027-01-01',
+            );
         }
 
         $deferred = ['1.03', '1.05', '1.09', '16.01'];
 
         if ($category === 'iss_deferred_subitem' && in_array($subitem, $deferred, true)) {
-            return $date >= new \DateTimeImmutable('2026-12-01');
+            return $date >= new \DateTimeImmutable('2027-03-01');
         }
 
         if ($category === 'ordinary_iss_service' && !in_array($subitem, $deferred, true)) {

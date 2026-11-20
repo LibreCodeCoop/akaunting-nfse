@@ -23,12 +23,12 @@ final class IbsCbsObligationPolicyTest extends TestCase
     }
 
     #[DataProvider('deferredServices')]
-    public function testDeferredLc116ServicesBecomeRequiredOnDecemberFirst2026(string $service): void
+    public function testDeferredLc116ServicesBecomeRequiredOnMarchFirst2027(string $service): void
     {
         $policy = new IbsCbsObligationPolicy();
 
-        self::assertFalse($policy->evaluate('2026-11-30', 1, $service)['required']);
-        self::assertTrue($policy->evaluate('2026-12-01', 1, $service)['required']);
+        self::assertFalse($policy->evaluate('2027-02-28', 1, $service)['required']);
+        self::assertTrue($policy->evaluate('2027-03-01', 1, $service)['required']);
     }
 
     /**
@@ -62,6 +62,18 @@ final class IbsCbsObligationPolicyTest extends TestCase
             'MEI' => [2],
             'ME/EPP' => [3],
         ];
+    }
+
+    #[DataProvider('deferredServices')]
+    public function testSimplesDeferredLc116StartsInMarch2027(string $service): void
+    {
+        $policy = new IbsCbsObligationPolicy();
+        foreach ([2, 3] as $simplesOption) {
+            self::assertFalse($policy->evaluate('2027-02-28', $simplesOption, $service)['required']);
+            $result = $policy->evaluate('2027-03-01', $simplesOption, $service);
+            self::assertTrue($result['required']);
+            self::assertSame('2027-03-01', $result['effective_date']);
+        }
     }
 
     public function testUnknownSimplesRegimeIsUnverifiable(): void
@@ -139,32 +151,30 @@ final class IbsCbsObligationPolicyTest extends TestCase
     }
 
     #[DataProvider('nonLc116Categories')]
-    public function testNonLc116RtcDateIsKnownButDpsRemainsUnsupported(string $category): void
+    public function testNonLc116RtcDateIsKnownButDpsRemainsUnsupported(string $category, string $cutover): void
     {
         $readiness = new IbsCbsEmissionReadiness();
+        $previous = (new \DateTimeImmutable($cutover))->modify('-1 day')->format('Y-m-d');
 
-        foreach ([
-            '2026-11-30' => false,
-            '2026-12-01' => true,
-        ] as $date => $required) {
+        foreach ([$previous => false, $cutover => true] as $date => $required) {
             $result = $readiness->evaluate($date, 1, '0107', [], $category);
             self::assertFalse($result['isReady']);
             self::assertSame($required, $result['required']);
-            self::assertSame('2026-12-01', $result['effective_date']);
+            self::assertSame($cutover, $result['effective_date']);
             self::assertSame('unsupported_rtc_supply_category', $result['reason']);
             self::assertSame(['rtc_supply_category'], $result['missing']);
         }
     }
 
-    /** @return array<string,array{string}> */
+    /** @return array<string,array{string,string}> */
     public static function nonLc116Categories(): array
     {
         return [
-            'platform' => ['digital_platform'],
-            'intangible' => ['non_iss_intangible'],
-            'condominium' => ['condominium_revenue'],
-            'lease' => ['lease'],
-            'residual' => ['residual_service'],
+            'platform' => ['digital_platform', '2027-03-01'],
+            'intangible' => ['non_iss_intangible', '2027-01-01'],
+            'condominium' => ['condominium_revenue', '2027-01-01'],
+            'lease' => ['lease', '2027-01-01'],
+            'residual' => ['residual_service', '2027-01-01'],
         ];
     }
 

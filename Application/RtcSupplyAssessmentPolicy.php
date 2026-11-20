@@ -21,11 +21,11 @@ use Modules\Nfse\Support\Lc116Code;
  */
 final class RtcSupplyAssessmentPolicy
 {
-    public const SOURCE_URL = 'https://www.cgibs.gov.br/upload/arquivos/202607/31091735-20260730-16h30-ato-conjunto-rfb-cgibs-na-c2-ba-4-260731-090909.pdf';
+    public const SOURCE_URL = 'https://cgibs.gov.br/upload/arquivos/202611/13061456-ato-conjunto-7-rfb-cgibs-alteracao-ato-4.pdf';
 
-    private const SOURCE_VERSION = 'Ato Conjunto RFB/CGIBS 4/2026 (30/07/2026)';
+    private const SOURCE_VERSION = 'Ato Conjunto RFB/CGIBS 4/2026, amended by 7/2026 (11/11/2026)';
 
-    private const DECEMBER_START = '2026-12-01';
+    private const DEFERRED_START = '2027-03-01';
     private const SIMPLES_START = '2027-01-01';
 
     /** @var array<string,string> */
@@ -79,7 +79,7 @@ final class RtcSupplyAssessmentPolicy
         }
 
         if (isset(self::SPECIAL_LC116_PROVISIONS[$service])) {
-            return [self::DECEMBER_START, self::SPECIAL_LC116_PROVISIONS[$service]];
+            return [self::DEFERRED_START, self::SPECIAL_LC116_PROVISIONS[$service]];
         }
 
         return ['2026-10-01', 'art. 1, III, d'];
@@ -97,7 +97,11 @@ final class RtcSupplyAssessmentPolicy
         }
 
         if (in_array($context->opcaoSimplesNacional, [2, 3], true)) {
-            $effective = self::SIMPLES_START;
+            $category = trim((string) $context->operationCategory);
+            $isDeferred = $category === 'digital_platform'
+                || ($category === 'ordinary_lc116'
+                    && isset(self::SPECIAL_LC116_PROVISIONS[Lc116Code::normalize($context->lc116Subitem)]));
+            $effective = $isDeferred ? self::DEFERRED_START : self::SIMPLES_START;
             $provision .= ' and art. 1, §1';
         }
 
@@ -133,7 +137,7 @@ final class RtcSupplyAssessmentPolicy
             sourceUrl: $knownSource ? self::SOURCE_URL : null,
             sourceProvision: $schedule['provision'],
             sourceVersion: $knownSource ? self::SOURCE_VERSION : null,
-            sourcePublishedAt: $knownSource ? new \DateTimeImmutable('2026-07-31') : null,
+            sourcePublishedAt: $knownSource ? new \DateTimeImmutable('2026-11-13') : null,
             effectiveFrom: $schedule['effective_date'] !== null
                 ? new \DateTimeImmutable($schedule['effective_date'])
                 : null,

@@ -13,7 +13,8 @@ been replaced by the existing PHPUnit suite.
 | Corpus | Cases | Purpose |
 | --- | ---: | --- |
 | `nfse_427_oraculos_sinteticos_2026-10-12.json` | 25 | Conditional financial/retention/ISS/disclosure hypotheses; 29 independently calculated BRL amounts; 31 independent field checks including two retention enums |
-| `nfse_427_matriz_temporal_sintetica_2026-10-12.json` | 20 | Taxable-event RTC applicability, separate from operational XSD deployment |
+| `nfse_427_matriz_temporal_sintetica_2026-10-12.json` | 20 | Preserved historical October audit; no longer the current legal calendar |
+| `nfse_427_matriz_temporal_sintetica_2026-11-20.json` | 32 | Updated independent calendar cases under Ato Conjunto 7/2026, including deferred March 2027 boundaries |
 | `nfse_427_cooperativas_casos_a_revisar.json` | 6 | Cooperative counterexamples against the read-only 2027 assessor; **no automatic zero-rate approval** |
 
 A separate set of **21 cooperative scenarios** was mentioned in the #442
@@ -64,6 +65,9 @@ case; do not change an oracle to make CI green.
 * The official CGNFS-e guidance of 2026-08-07 permits **technical
   non-rejection** of omitted IBS/CBS through 2026-12-31; this is not a
   declaration of legal compliance.
+* The 2026-11-13 Ato Conjunto RFB/CGIBS 7/2026 moves selected December
+  2026 deadlines to January or March 2027, including different Simples
+  treatment by supply category. The former 20-case matrix is archival.
 * The official NT009 v1.01 publication of 2026-10-01 and the publication of
   a deployment *plan* do not confirm the active XSD in production or restricted
   production. The corpus must not activate or transmit new XML by itself.
@@ -76,6 +80,7 @@ case; do not change an oracle to make CI green.
 
 ## Sources and provenance
 
+* [Ato Conjunto RFB/CGIBS 7/2026](https://cgibs.gov.br/upload/arquivos/202611/13061456-ato-conjunto-7-rfb-cgibs-alteracao-ato-4.pdf)
 * [Ato Conjunto RFB/CGIBS 4/2026](https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/acoes-e-programas/programas-e-atividades/reforma-tributaria-do-consumo/legislacao/atos-conjuntos/)
 * [CGNFS-e 2026-08-07 interpretation](https://www.gov.br/nfse/pt-br/noticias/cgnfs-e-orienta-sobre-os-prazos-para%20destaque-de-ibs-cbs-nas-notas-fiscais-de-servico)
 * [NT007, NT008, NT009 v1.01](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/rtc)
