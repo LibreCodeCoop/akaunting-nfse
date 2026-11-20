@@ -14,7 +14,8 @@ use Modules\Nfse\Support\Lc116Code;
  *
  * Sources:
  * - Ato Conjunto RFB/CGIBS nº 4/2026, art. 1º, III.
- * - CGNFS-e guidance published on 2026-08-07.
+ * - Ato Conjunto RFB/CGIBS nº 7/2026 (effective 2026-11-13), amending nº 4/2026.
+ * - CGNFS-e guidance published on 2026-11-13.
  * - Resolução CGSN nº 191/2026 for Simples Nacional transition.
  *
  * The module currently emits LC 116 service operations. Categories from the
@@ -26,9 +27,11 @@ final class IbsCbsObligationPolicy
 {
     private const GENERAL_LC116_EFFECTIVE_DATE = '2026-10-01';
 
-    private const DEFERRED_LC116_EFFECTIVE_DATE = '2026-12-01';
+    private const DEFERRED_LC116_EFFECTIVE_DATE = '2027-03-01';
 
     private const SIMPLES_EFFECTIVE_DATE = '2027-01-01';
+
+    private const SIMPLES_DEFERRED_EFFECTIVE_DATE = '2027-03-01';
 
     /** @var list<string> */
     private const DEFERRED_LC116_ITEMS = ['0103', '0105', '0109', '1601'];
@@ -57,7 +60,13 @@ final class IbsCbsObligationPolicy
         }
 
         if (in_array($opcaoSimplesNacional, [2, 3], true)) {
-            return $this->fromEffectiveDate($competence, self::SIMPLES_EFFECTIVE_DATE, 'simples_nacional');
+            return $this->fromEffectiveDate(
+                $competence,
+                in_array($service, self::DEFERRED_LC116_ITEMS, true)
+                    ? self::SIMPLES_DEFERRED_EFFECTIVE_DATE
+                    : self::SIMPLES_EFFECTIVE_DATE,
+                'simples_nacional',
+            );
         }
 
         if (in_array($service, self::DEFERRED_LC116_ITEMS, true)) {

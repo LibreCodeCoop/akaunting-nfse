@@ -1,0 +1,432 @@
+{
+  "scope": "Independent current RTC obligation oracle, based on Ato Conjunto 7/2026 amending 4/2026. Historical 2026-10-12 audit remains preserved separately.",
+  "prepared_on": "2026-11-20",
+  "sources": {
+    "ACT-04": {
+      "authority": "Ato Conjunto RFB/CGIBS 4/2026, art.1 III a-h e §1",
+      "url": "https://hom.cte.fazenda.gov.br/portal/informe.aspx?informe=98",
+      "published": "2026-07-31"
+    },
+    "ORIENTATION": {
+      "authority": "CGNFS-e orientação de 07/08/2026: não rejeição técnica até 31/12/2026",
+      "url": "https://www.gov.br/nfse/pt-br/noticias/cgnfs-e-orienta-sobre-os-prazos-para%20destaque-de-ibs-cbs-nas-notas-fiscais-de-servico",
+      "published": "2026-08-07"
+    },
+    "CGSN191": {
+      "authority": "Resolução CGSN 191/2026: ME/EPP emissão nacional a partir de 01/11/2026",
+      "url": "https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/agosto/simples-nacional-nfs-e-nacional-sera-obrigatoria-para-me-e-epp-a-partir-de-1o-de-novembro-de-2026",
+      "published": "2026-08"
+    },
+    "NT009-PLAN": {
+      "authority": "Notícia de 09/10/2026 com plano de implantação NT009 v1.01, por ambiente",
+      "url": "https://www.gov.br/nfse/pt-br/noticias/publicado-o-ato-tecnico-conjunto-rfb-cgibs-no-7-aprovando-a-versao-1-01-da-nota-tecnica-009-nfs-e-e-a-nota-tecnica-010-da-nfs-e-via",
+      "published": "2026-10-09"
+    },
+    "PROD-XSD": {
+      "authority": "XSD produção anunciado: NFSe-ESQUEMAS_XSD-v1.01-20260209",
+      "url": "https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual",
+      "published": "2026-02-09"
+    },
+    "REST-XSD": {
+      "authority": "XSD produção restrita anunciado: NFSe-ESQUEMAS_XSD-PRODREST-v1.01-20260727",
+      "url": "https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/producao-restrita",
+      "published": "2026-07-27"
+    },
+    "ACT-07": {
+      "authority": "Ato Conjunto RFB/CGIBS 7/2026, art. 1, III a-c,e-h and section 1, amending 4/2026",
+      "url": "https://cgibs.gov.br/upload/arquivos/202611/13061456-ato-conjunto-7-rfb-cgibs-alteracao-ato-4.pdf",
+      "published": "2026-11-13"
+    }
+  },
+  "cases": [
+    {
+      "id": "RTC-ORD-BEFORE",
+      "regime": "non_simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-09-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-ORD-START",
+      "regime": "non_simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-10-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-ORD-NOV",
+      "regime": "non_simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-103-BEFORE",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.03",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-103-START",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.03",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-105-BEFORE",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.05",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-105-START",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.05",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-109-BEFORE",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.09",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-109-START",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.09",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-1601-BEFORE",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "16.01",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-DEFER-1601-START",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "16.01",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-PLATFORM-BEFORE",
+      "regime": "non_simples",
+      "operation": "digital_platform_supply_subject_to_art22",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-11-30",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-PLATFORM-START",
+      "regime": "non_simples",
+      "operation": "digital_platform_supply_subject_to_art22",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-REALTY",
+      "regime": "non_simples",
+      "operation": "real_estate_rental",
+      "lc116_subitem": "not_applicable",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-CONDO",
+      "regime": "non_simples",
+      "operation": "condominium_legal_charges",
+      "lc116_subitem": "not_applicable",
+      "taxable_event_date": "2026-12-01",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-SIMPLE-2026",
+      "regime": "simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-12-31",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-SIMPLE-2027",
+      "regime": "simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2027-01-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-UNKNOWN-CATEGORY",
+      "regime": "non_simples",
+      "operation": "unknown",
+      "lc116_subitem": "unknown",
+      "taxable_event_date": "2026-10-02",
+      "rtc_document_obligation_started": "unverifiable",
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-UNKNOWN-REGIME",
+      "regime": "unknown",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2026-10-02",
+      "rtc_document_obligation_started": "unverifiable",
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "RTC-UNKNOWN-EVENT",
+      "regime": "non_simples",
+      "operation": "ordinary_iss_service",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": null,
+      "rtc_document_obligation_started": "unverifiable",
+      "primary_source": "ACT-07",
+      "reason": "Re-evaluated against amending Ato 7/2026; see source and category effective date",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-iss_deferred_subitem-non_simples-2027-02-28",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.03",
+      "taxable_event_date": "2027-02-28",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-iss_deferred_subitem-non_simples-2027-03-01",
+      "regime": "non_simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "1.03",
+      "taxable_event_date": "2027-03-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-iss_deferred_subitem-simples-2027-02-28",
+      "regime": "simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "16.01",
+      "taxable_event_date": "2027-02-28",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-iss_deferred_subitem-simples-2027-03-01",
+      "regime": "simples",
+      "operation": "iss_deferred_subitem",
+      "lc116_subitem": "16.01",
+      "taxable_event_date": "2027-03-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-digital_platform_supply_subject_to_art22-non_simples-2027-02-28",
+      "regime": "non_simples",
+      "operation": "digital_platform_supply_subject_to_art22",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2027-02-28",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-digital_platform_supply_subject_to_art22-non_simples-2027-03-01",
+      "regime": "non_simples",
+      "operation": "digital_platform_supply_subject_to_art22",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2027-03-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-digital_platform_supply_subject_to_art22-simples-2027-02-28",
+      "regime": "simples",
+      "operation": "digital_platform_supply_subject_to_art22",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2027-02-28",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-digital_platform_supply_subject_to_art22-simples-2027-03-01",
+      "regime": "simples",
+      "operation": "digital_platform_supply_subject_to_art22",
+      "lc116_subitem": "1.01",
+      "taxable_event_date": "2027-03-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-real_estate_rental-non_simples-2026-12-31",
+      "regime": "non_simples",
+      "operation": "real_estate_rental",
+      "lc116_subitem": null,
+      "taxable_event_date": "2026-12-31",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-real_estate_rental-non_simples-2027-01-01",
+      "regime": "non_simples",
+      "operation": "real_estate_rental",
+      "lc116_subitem": null,
+      "taxable_event_date": "2027-01-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-condominium_legal_charges-simples-2026-12-31",
+      "regime": "simples",
+      "operation": "condominium_legal_charges",
+      "lc116_subitem": null,
+      "taxable_event_date": "2026-12-31",
+      "rtc_document_obligation_started": false,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    },
+    {
+      "id": "ACT07-condominium_legal_charges-simples-2027-01-01",
+      "regime": "simples",
+      "operation": "condominium_legal_charges",
+      "lc116_subitem": null,
+      "taxable_event_date": "2027-01-01",
+      "rtc_document_obligation_started": true,
+      "primary_source": "ACT-07",
+      "reason": "Ato 7/2026 independently fixed legal threshold",
+      "tax_calculation": "not_derivable_from_date_alone",
+      "protocol_contract": "independent_environment_specific_verification_required"
+    }
+  ],
+  "notes": [
+    "Date cases encode dates of taxable events, not invoice submission or PDF rendering.",
+    "Conditions omitted from synthetic assumptions render outcome unverifiable; absence of gateway rejection does not prove compliance.",
+    "Existing duty to issue NFS-e for MEI/ME-EPP is distinct from the RTC obligation timeline."
+  ]
+}

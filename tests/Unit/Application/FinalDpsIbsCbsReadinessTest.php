@@ -43,7 +43,7 @@ final class FinalDpsIbsCbsReadinessTest extends TestCase
             'before general effective date' => ['2026-09-30', '0107', 1, true],
             'ordinary service after date' => ['2026-10-01', '0107', 1, false],
             'deferred service before date' => ['2026-11-30', '0103', 1, true],
-            'deferred service after date' => ['2026-12-01', '0103', 1, false],
+            'deferred service after date' => ['2027-03-01', '0103', 1, false],
             'Simples in 2026' => ['2026-12-31', '0107', 3, true],
             'Simples from 2027' => ['2027-01-01', '0107', 3, false],
         ];

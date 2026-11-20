@@ -10,8 +10,7 @@ namespace Modules\Nfse\Application;
 /**
  * RTC effective dates for explicitly classified non-LC116 supply operations.
  *
- * Source: CGNFS-e guidance of 2026-08-07, based on Ato Conjunto
- * RFB/CGIBS 4/2026. This policy does not infer a category from fiscal codes,
+ * Source: Ato Conjunto RFB/CGIBS 7/2026 (2026-11-13), amending 4/2026. This policy does not infer a category from fiscal codes,
  * taxpayer identity, description, or an LC 116 profile.
  */
 final class RtcSupplyCategoryPolicy
@@ -23,18 +22,18 @@ final class RtcSupplyCategoryPolicy
     public const RESIDUAL_SERVICE = 'residual_service';
 
     /**
-     * Canonical December-category table shared by the legacy date adapter
+     * Canonical category table shared by the legacy date adapter
      * and the typed FiscalAssessment consumer. Provisions distinguish the
      * legal basis even when several categories share the same calendar date.
      *
      * @var array<string,array{effective_date:string,provision:string}>
      */
     private const RULES = [
-        self::DIGITAL_PLATFORM => ['effective_date' => '2026-12-01', 'provision' => 'art. 1, III, a'],
-        self::NON_ISS_INTANGIBLE => ['effective_date' => '2026-12-01', 'provision' => 'art. 1, III, e'],
-        self::CONDOMINIUM_REVENUE => ['effective_date' => '2026-12-01', 'provision' => 'art. 1, III, f'],
-        self::LEASE => ['effective_date' => '2026-12-01', 'provision' => 'art. 1, III, g'],
-        self::RESIDUAL_SERVICE => ['effective_date' => '2026-12-01', 'provision' => 'art. 1, III, h'],
+        self::DIGITAL_PLATFORM => ['effective_date' => '2027-03-01', 'provision' => 'art. 1, III, a'],
+        self::NON_ISS_INTANGIBLE => ['effective_date' => '2027-01-01', 'provision' => 'art. 1, III, e'],
+        self::CONDOMINIUM_REVENUE => ['effective_date' => '2027-01-01', 'provision' => 'art. 1, III, f'],
+        self::LEASE => ['effective_date' => '2027-01-01', 'provision' => 'art. 1, III, g'],
+        self::RESIDUAL_SERVICE => ['effective_date' => '2027-01-01', 'provision' => 'art. 1, III, h'],
     ];
 
     /** @return array{effective_date:string,provision:string}|null */
@@ -56,7 +55,9 @@ final class RtcSupplyCategoryPolicy
             return ['required' => false, 'effective_date' => null, 'reason' => 'unverifiable'];
         }
 
-        $effective = in_array($simplesOption, [2, 3], true) ? '2027-01-01' : $rule['effective_date'];
+        $effective = in_array($simplesOption, [2, 3], true)
+            ? ($category === self::DIGITAL_PLATFORM ? '2027-03-01' : '2027-01-01')
+            : $rule['effective_date'];
 
         return [
             'required' => $date >= new \DateTimeImmutable($effective),

@@ -14,29 +14,28 @@ use PHPUnit\Framework\TestCase;
 final class RtcSupplyCategoryPolicyTest extends TestCase
 {
     #[DataProvider('categoryCases')]
-    public function testExplicitNonLc116CategoryBeginsOnDecemberFirst2026(string $category): void
+    public function testExplicitNonLc116CategoryUsesRevised2026Calendar(string $category, string $cutover): void
     {
         $policy = new RtcSupplyCategoryPolicy();
-        $before = $policy->evaluate($category, '2026-11-30', 1);
-        $after = $policy->evaluate($category, '2026-12-01', 1);
+        $previous = (new \DateTimeImmutable($cutover))->modify('-1 day')->format('Y-m-d');
+        $before = $policy->evaluate($category, $previous, 1);
+        $after = $policy->evaluate($category, $cutover, 1);
 
         self::assertFalse($before['required']);
         self::assertTrue($after['required']);
-        self::assertSame('2026-12-01', $after['effective_date']);
+        self::assertSame($cutover, $after['effective_date']);
         self::assertSame($category, $after['reason']);
     }
 
-    /**
-     * @return array<string,array{string}>
-     */
+    /** @return array<string,array{string,string}> */
     public static function categoryCases(): array
     {
         return [
-            'platform' => [RtcSupplyCategoryPolicy::DIGITAL_PLATFORM],
-            'non ISS intangible' => [RtcSupplyCategoryPolicy::NON_ISS_INTANGIBLE],
-            'condominium' => [RtcSupplyCategoryPolicy::CONDOMINIUM_REVENUE],
-            'lease' => [RtcSupplyCategoryPolicy::LEASE],
-            'residual service' => [RtcSupplyCategoryPolicy::RESIDUAL_SERVICE],
+            'platform' => [RtcSupplyCategoryPolicy::DIGITAL_PLATFORM, '2027-03-01'],
+            'non ISS intangible' => [RtcSupplyCategoryPolicy::NON_ISS_INTANGIBLE, '2027-01-01'],
+            'condominium' => [RtcSupplyCategoryPolicy::CONDOMINIUM_REVENUE, '2027-01-01'],
+            'lease' => [RtcSupplyCategoryPolicy::LEASE, '2027-01-01'],
+            'residual service' => [RtcSupplyCategoryPolicy::RESIDUAL_SERVICE, '2027-01-01'],
         ];
     }
 
